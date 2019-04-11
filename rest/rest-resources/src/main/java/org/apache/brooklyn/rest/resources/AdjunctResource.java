@@ -212,7 +212,7 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctId);
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DELETE_ADJUNCT, adjunct)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove adjuncts '%s'",
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to delete adjuncts '%s'",
                     Entitlements.getEntitlementContext().user(), adjunct);
         }
 

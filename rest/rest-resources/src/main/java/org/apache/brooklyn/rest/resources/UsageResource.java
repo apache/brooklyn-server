@@ -87,7 +87,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         log.debug("REST call to get application usage for application {}: dates {} -> {}", new Object[] {application, start, end});
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.USAGE, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         Date startDate = parseDate(start, new Date(0));
         Date endDate = parseDate(end, new Date());
@@ -108,7 +108,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         log.trace("Considering application usage events of {}: {}", usage.getApplicationId(), usage.getEvents());
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.USAGE, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         List<UsageStatistic> result = Lists.newArrayList();
 
@@ -151,7 +151,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         log.debug("REST call to get machine usage for application {}: dates {} -> {}", new Object[] {application, start, end});
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.USAGE, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         final Date startDate = parseDate(start, new Date(0));
         final Date endDate = parseDate(end, new Date());
@@ -197,7 +197,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         log.debug("REST call to get machine usage for machine {}: dates {} -> {}", new Object[] {machine, start, end});
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.USAGE, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         final Date startDate = parseDate(start, new Date(0));
         final Date endDate = parseDate(end, new Date());
@@ -220,7 +220,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         log.trace("Considering machine usage events of {}: {}", usage.getLocationId(), usage.getEvents());
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.USAGE, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         List<UsageStatistic> result = Lists.newArrayList();
 

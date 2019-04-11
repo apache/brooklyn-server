@@ -82,18 +82,18 @@ public class Entitlements {
 
     // Location entitlements
     public static EntitlementClass<StringAndArgument> ADD_LOCATION = new BasicEntitlementClassDefinition<>("location.add", StringAndArgument.class);
-    public static EntitlementClass<StringAndArgument> DELETE_LOCATION = new BasicEntitlementClassDefinition<>("location.remove", StringAndArgument.class);
+    public static EntitlementClass<StringAndArgument> DELETE_LOCATION = new BasicEntitlementClassDefinition<>("location.delete", StringAndArgument.class);
     public static EntitlementClass<StringAndArgument> SEE_LOCATION = new BasicEntitlementClassDefinition<>("location.see", StringAndArgument.class);
 
     // Policy entitlements
     public static EntitlementClass<StringAndArgument> ADD_POLICY = new BasicEntitlementClassDefinition<>("policy.add", StringAndArgument.class);
-    public static EntitlementClass<Policy> DELETE_POLICY = new BasicEntitlementClassDefinition<>("policy.remove", Policy.class);
+    public static EntitlementClass<Policy> DELETE_POLICY = new BasicEntitlementClassDefinition<>("policy.delete", Policy.class);
     public static EntitlementClass<Policy> START_POLICY = new BasicEntitlementClassDefinition<>("policy.start", Policy.class);
     public static EntitlementClass<Policy> STOP_POLICY = new BasicEntitlementClassDefinition<>("policy.stop", Policy.class);
 
     public static EntitlementClass<Void> SYSTEM_ADMIN = new BasicEntitlementClassDefinition<>("system.admin", Void.class);
-    public static EntitlementClass<Void> HA_STATS = new BasicEntitlementClassDefinition<>("system.haStats", Void.class);
-    public static EntitlementClass<Void> HA_ADMIN = new BasicEntitlementClassDefinition<>("system.haSdmin", Void.class);
+    public static EntitlementClass<Void> HA_STATS = new BasicEntitlementClassDefinition<>("system.ha.stats", Void.class);
+    public static EntitlementClass<Void> HA_ADMIN = new BasicEntitlementClassDefinition<>("system.ha.admin", Void.class);
     public static EntitlementClass<Void> SHUTDOWN = new BasicEntitlementClassDefinition<>("system.shutdown", Void.class);
     public static EntitlementClass<Void> USAGE = new BasicEntitlementClassDefinition<>("system.usage", Void.class);
 
