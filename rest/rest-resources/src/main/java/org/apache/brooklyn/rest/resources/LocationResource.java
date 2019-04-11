@@ -33,6 +33,7 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationDefinition;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.LocationApi;
 import org.apache.brooklyn.rest.domain.LocationSpec;
 import org.apache.brooklyn.rest.domain.LocationSummary;
@@ -64,6 +65,11 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
 
     @Override
     public List<LocationSummary> list() {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_LOCATION, Entitlements.StringAndArgument.of("list locations", "see"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see locations",
+                    Entitlements.getEntitlementContext().user());
+        }
+
         Function<LocationDefinition, LocationSummary> transformer = new Function<LocationDefinition, LocationSummary>() {
             @Override
             public LocationSummary apply(LocationDefinition l) {
@@ -107,6 +113,10 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
     // this is here to support the web GUI's circles
     @Override
     public Map<String,Map<String,Object>> getLocatedLocations() {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_LOCATION, Entitlements.StringAndArgument.of("Get Located Locations", "see"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see locations",
+                    Entitlements.getEntitlementContext().user());
+        }
       Map<String,Map<String,Object>> result = new LinkedHashMap<String,Map<String,Object>>();
       Map<Location, Integer> counts = new EntityLocationUtils(mgmt()).countLeafEntitiesByLocatedLocations();
       for (Map.Entry<Location,Integer> count: counts.entrySet()) {
@@ -129,6 +139,11 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
     }
 
     public LocationSummary get(String locationId, boolean fullConfig) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_LOCATION, Entitlements.StringAndArgument.of(locationId+"| fullConfig: "+fullConfig, "see"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to see the location '%s'",
+                    Entitlements.getEntitlementContext().user(), locationId);
+        }
+
         LocationDetailLevel configLevel = fullConfig ? LocationDetailLevel.FULL_EXCLUDING_SECRET : LocationDetailLevel.LOCAL_EXCLUDING_SECRET;
         LocationSummary result = LocationTransformer.newInstance(mgmt(), locationId, configLevel, ui.getBaseUriBuilder());
         if (result!=null) {
@@ -139,8 +154,12 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
 
     @Override
     public Response create(LocationSpec locationSpec) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_LOCATION, Entitlements.StringAndArgument.of(locationSpec.toString(), "create"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to add locations",
+                    Entitlements.getEntitlementContext().user());
+        }
+
         String name = locationSpec.getName();
-        
         ImmutableList.Builder<String> yaml = ImmutableList.<String>builder().add(
                 "brooklyn.catalog:",
                 "  id: " + name,
@@ -166,6 +185,11 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
     @Override
     @Deprecated
     public void delete(String locationId) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DELETE_LOCATION, Entitlements.StringAndArgument.of(locationId, "delete"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to delete locations",
+                    Entitlements.getEntitlementContext().user());
+        }
+
         // TODO make all locations be part of the catalog, then flip the JS GUI to use catalog api
         if (deleteAllVersions(locationId)>0) return;
         throw WebResourceUtils.notFound("No catalog item location matching %s; only catalog item locations can be deleted", locationId);

@@ -47,7 +47,7 @@ public class ScriptResource extends AbstractBrooklynRestResource implements Scri
     @Override
     public ScriptExecutionSummary groovy(HttpServletRequest request, String script) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         }
 
         log.info("Web REST executing user-supplied script");
