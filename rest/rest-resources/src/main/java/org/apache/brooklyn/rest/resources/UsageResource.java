@@ -62,7 +62,7 @@ public class UsageResource extends AbstractBrooklynRestResource implements Usage
         log.debug("REST call to get application usage for all applications: dates {} -> {}", new Object[] {start, end});
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.USAGE, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         List<UsageStatistics> response = Lists.newArrayList();
         

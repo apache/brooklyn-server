@@ -103,7 +103,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
             brooklyn().reloadBrooklynProperties();
         } else {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         }
     }
 
@@ -117,7 +117,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             Long delayMillis) {
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SHUTDOWN, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized for shutdown", Entitlements.getEntitlementContext().user());
 
@@ -323,7 +323,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public VersionSummary getVersion() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         
         // TODO
         // * "build-metadata.properties" is probably the wrong name
@@ -350,7 +350,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public String getPlaneId() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         Maybe<ManagementContext> mm = mgmtMaybe();
         Maybe<String> result = (mm.isPresent()) ? mm.get().getManagementPlaneIdMaybe() : Maybe.absent();
@@ -360,7 +360,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public boolean isUp() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         Maybe<ManagementContext> mm = mgmtMaybe();
         return !mm.isAbsent() && mm.get().isStartupComplete() && mm.get().isRunning();
@@ -369,7 +369,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public boolean isShuttingDown() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         Maybe<ManagementContext> mm = mgmtMaybe();
         return !mm.isAbsent() && mm.get().isStartupComplete() && !mm.get().isRunning();
     }
@@ -394,7 +394,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public String getConfig(String configKey) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         }
         ConfigKey<String> config = ConfigKeys.newStringConfigKey(configKey);
         return (String) WebResourceUtils.getValueForDisplay(mapper(), mgmt().getConfig().getConfig(config), true, true);
@@ -403,7 +403,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public ManagementNodeState getHighAvailabilityNodeState() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         
         Maybe<ManagementContext> mm = mgmtMaybe();
         if (mm.isAbsent()) return ManagementNodeState.INITIALIZING;
@@ -415,7 +415,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (mode==null)
             throw new IllegalStateException("Missing parameter: mode");
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         HighAvailabilityManager haMgr = mgmt().getHighAvailabilityManager();
         ManagementNodeState existingState = haMgr.getNodeState();
@@ -428,7 +428,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_STATS, null))
             return mgmt().getHighAvailabilityManager().getMetrics();
         else
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
     }
     
     @Override
@@ -436,14 +436,14 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_STATS, null)) {
             return mgmt().getHighAvailabilityManager().getPriority();
         } else {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         }
     }
 
     @Override
     public long setHighAvailabilityPriority(long priority) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         }
 
         HighAvailabilityManager haMgr = mgmt().getHighAvailabilityManager();
@@ -455,7 +455,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public HighAvailabilitySummary getHighAvailabilityPlaneStates() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         ManagementPlaneSyncRecord memento = mgmt().getHighAvailabilityManager().getLastManagementPlaneSyncRecord();
         if (memento==null) memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
@@ -471,7 +471,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public Response clearHighAvailabilityPlaneStates() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         mgmt().getHighAvailabilityManager().publishClearNonMaster();
         return Response.ok().build();
     }
@@ -496,7 +496,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     
     protected Response exportPersistenceData(MementoCopyMode preferredOrigin) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized for this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         File dir = null;
         try {
