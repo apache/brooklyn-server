@@ -124,7 +124,7 @@ public class ReachableSocketFinder {
         LOG.debug("Blocking on reachable sockets in {} for {}", sockets, timeout);
         final List<ListenableFuture<Optional<HostAndPort>>> futures = Lists.newArrayList();
         final AtomicReference<Stopwatch> sinceFirstCompleted = new AtomicReference<>();
-        final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool());
+        final ListeningExecutorService executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(10));
 
         for (final HostAndPort socket : sockets) {
             futures.add(executor.submit(new Callable<Optional<HostAndPort>>() {
