@@ -81,13 +81,6 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     public static final Logger log = LoggerFactory.getLogger(AbstractSoftwareProcessSshDriver.class);
     public static final Logger logSsh = LoggerFactory.getLogger(BrooklynLogging.SSH_IO);
 
-    // we cache these for efficiency and in case the entity becomes unmanaged
-    private volatile String installDir;
-    private volatile String runDir;
-    private volatile String expandedInstallDir;
-
-    private final Object installDirSetupMutex = new Object();
-
     protected volatile DownloadResolver resolver;
 
     @Override
@@ -128,99 +121,6 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     @Override
     public SshMachineLocation getLocation() {
         return (SshMachineLocation) super.getLocation();
-    }
-
-    protected void setInstallDir(String installDir) {
-        this.installDir = installDir;
-        entity.sensors().set(SoftwareProcess.INSTALL_DIR, installDir);
-    }
-
-    @Override
-    public String getInstallDir() {
-        if (installDir != null) return installDir;
-
-        String existingVal = getEntity().getAttribute(SoftwareProcess.INSTALL_DIR);
-        if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
-            installDir = existingVal;
-            return installDir;
-        }
-
-        synchronized (installDirSetupMutex) {
-            // previously we looked at sensor value, but we shouldn't as it might have been converted from the config key value
-            // *before* we computed the install label, or that label may have changed since previous install; now force a recompute
-            setInstallLabel();
-
-            // set it null first so that we force a recompute
-            setInstallDir(null);
-            setInstallDir(Os.tidyPath(ConfigToAttributes.apply(getEntity(), SoftwareProcess.INSTALL_DIR)));
-            return installDir;
-        }
-    }
-
-    protected void setInstallLabel() {
-        if (((EntityInternal)getEntity()).config().getLocalRaw(SoftwareProcess.INSTALL_UNIQUE_LABEL).isPresentAndNonNull()) return;
-        getEntity().config().set(SoftwareProcess.INSTALL_UNIQUE_LABEL,
-            getEntity().getEntityType().getSimpleName()+
-            (Strings.isNonBlank(getVersion()) ? "_"+getVersion() : "")+
-            (Strings.isNonBlank(getInstallLabelExtraSalt()) ? "_"+getInstallLabelExtraSalt() : "") );
-    }
-
-    /** allows subclasses to return extra salt (ie unique hash)
-     * for cases where install dirs need to be distinct e.g. based on extra plugins being placed in the install dir;
-     * {@link #setInstallLabel()} uses entity-type simple name and version already
-     * <p>
-     * this salt should not be too long and must not contain invalid path chars.
-     * a hash code of other relevant info is not a bad choice.
-     **/
-    protected String getInstallLabelExtraSalt() {
-        return null;
-    }
-
-    protected void setRunDir(String runDir) {
-        this.runDir = runDir;
-        entity.sensors().set(SoftwareProcess.RUN_DIR, runDir);
-    }
-
-    @Override
-    public String getRunDir() {
-        if (runDir != null) return runDir;
-
-        String existingVal = getEntity().getAttribute(SoftwareProcess.RUN_DIR);
-        if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
-            runDir = existingVal;
-            return runDir;
-        }
-
-        setRunDir(Os.tidyPath(ConfigToAttributes.apply(getEntity(), SoftwareProcess.RUN_DIR)));
-        return runDir;
-    }
-
-    public void setExpandedInstallDir(String val) {
-        String oldVal = getEntity().getAttribute(SoftwareProcess.EXPANDED_INSTALL_DIR);
-        if (Strings.isNonBlank(oldVal) && !oldVal.equals(val)) {
-            log.info("Resetting expandedInstallDir (to "+val+" from "+oldVal+") for "+getEntity());
-        }
-
-        expandedInstallDir = val;
-        getEntity().sensors().set(SoftwareProcess.EXPANDED_INSTALL_DIR, val);
-    }
-
-    public String getExpandedInstallDir() {
-        if (expandedInstallDir != null) return expandedInstallDir;
-
-        String existingVal = getEntity().getAttribute(SoftwareProcess.EXPANDED_INSTALL_DIR);
-        if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
-            expandedInstallDir = existingVal;
-            return expandedInstallDir;
-        }
-
-        String untidiedVal = ConfigToAttributes.apply(getEntity(), SoftwareProcess.EXPANDED_INSTALL_DIR);
-        if (Strings.isNonBlank(untidiedVal)) {
-            setExpandedInstallDir(Os.tidyPath(untidiedVal));
-            return expandedInstallDir;
-        } else {
-            throw new IllegalStateException("expandedInstallDir is null; most likely install was not called for "+getEntity());
-        }
     }
 
     public SshMachineLocation getMachine() { return getLocation(); }

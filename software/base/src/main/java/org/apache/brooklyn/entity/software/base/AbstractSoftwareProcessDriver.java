@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
+import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks.CloseableLatch;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -58,6 +59,7 @@ import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.ReaderInputStream;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,6 +78,13 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     protected final EntityLocal entity;
     protected final ResourceUtils resource;
     protected final Location location;
+
+    // we cache these for efficiency and in case the entity becomes unmanaged
+    private volatile String installDir;
+    private volatile String runDir;
+    private volatile String expandedInstallDir;
+
+    private final Object installDirSetupMutex = new Object();
 
     public AbstractSoftwareProcessDriver(EntityLocal entity, Location location) {
         this.entity = checkNotNull(entity, "entity");
@@ -441,6 +450,10 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         }
     }
 
+    protected String mergePaths(String ...s) {
+        return Os.mergePathsUnix(s);
+    }
+    
     private void applyFnToResourcesAppendToList(
             Map<String, String> resources, final Function<SourceAndDestination, Task<?>> function,
             String destinationParentDir, final List<TaskAdaptable<?>> tasks) {
@@ -448,7 +461,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         for (Map.Entry<String, String> entry : resources.entrySet()) {
             final String source = checkNotNull(entry.getKey(), "Missing source for resource");
             String target = checkNotNull(entry.getValue(), "Missing destination for resource");
-            final String destination = Os.isAbsolutish(target) ? target : Os.mergePathsUnix(destinationParentDir, target);
+            final String destination = Os.isAbsolutish(target) ? target : mergePaths(destinationParentDir, target);
 
             // if source is a directory then copy all files underneath.
             // e.g. /tmp/a/{b,c/d}, source = /tmp/a, destination = dir/a/b and dir/a/c/d.
@@ -463,7 +476,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
                             if (attrs.isRegularFile()) {
                                 Path relativePath = file.subpath(startElements, file.getNameCount());
-                                tasks.add(function.apply(new SourceAndDestination(file.toString(), Os.mergePathsUnix(destination, relativePath.toString()))));
+                                tasks.add(function.apply(new SourceAndDestination(file.toString(), mergePaths(destination, relativePath.toString()))));
                             }
                             return FileVisitResult.CONTINUE;
                         }
@@ -562,18 +575,19 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     }
 
     /**
-     * @param template URI of file to template and copy, e.g. file://.., http://.., classpath://..
+     * @param templateUrl URI of file to template and copy, e.g. file://.., http://.., classpath://..
      * @param target Destination on server.
      * @param extraSubstitutions Extra substitutions for the templater to use, for example
      *               "foo" -> "bar", and in a template ${foo}.
      * @return The exit code of the SSH command run.
      */
-    public int copyTemplate(String template, String target, boolean createParent, Map<String, ?> extraSubstitutions) {
-        String data = processTemplate(template, extraSubstitutions);
+    public int copyTemplate(String templateUrl, String target, boolean createParent, Map<String, ?> extraSubstitutions) {
+        log.debug("Processing template "+templateUrl+" and copying to "+target+" on "+getLocation()+" for "+getEntity());
+        String data = processTemplate(templateUrl, extraSubstitutions);
         return copyResource(MutableMap.<Object,Object>of(), new StringReader(data), target, createParent);
     }
 
-    public abstract int copyResource(Map<Object,Object> sshFlags, String source, String target, boolean createParentDir);
+    public abstract int copyResource(Map<Object,Object> sshFlags, String sourceUrl, String target, boolean createParentDir);
 
     public abstract int copyResource(Map<Object,Object> sshFlags, InputStream source, String target, boolean createParentDir);
 
@@ -595,8 +609,8 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         return copyResource(MutableMap.of(), resource, target);
     }
 
-    public int copyResource(String resource, String target, boolean createParentDir) {
-        return copyResource(MutableMap.of(), resource, target, createParentDir);
+    public int copyResource(String resourceUrl, String target, boolean createParentDir) {
+        return copyResource(MutableMap.of(), resourceUrl, target, createParentDir);
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -677,6 +691,95 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
         return envSerializer.serialize(env);
     }
 
-    public abstract String getRunDir();
-    public abstract String getInstallDir();
+
+    protected void setInstallDir(String installDir) {
+        this.installDir = installDir;
+        entity.sensors().set(SoftwareProcess.INSTALL_DIR, installDir);
+    }
+
+    public String getInstallDir() {
+        if (installDir != null) return installDir;
+
+        String existingVal = getEntity().getAttribute(SoftwareProcess.INSTALL_DIR);
+        if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
+            installDir = existingVal;
+            return installDir;
+        }
+
+        synchronized (installDirSetupMutex) {
+            // previously we looked at sensor value, but we shouldn't as it might have been converted from the config key value
+            // *before* we computed the install label, or that label may have changed since previous install; now force a recompute
+            setInstallLabel();
+
+            // set it null first so that we force a recompute
+            setInstallDir(null);
+            setInstallDir(Os.tidyPath(ConfigToAttributes.apply(getEntity(), SoftwareProcess.INSTALL_DIR)));
+            return installDir;
+        }
+    }
+
+    protected void setInstallLabel() {
+        if (((EntityInternal)getEntity()).config().getLocalRaw(SoftwareProcess.INSTALL_UNIQUE_LABEL).isPresentAndNonNull()) return;
+        getEntity().config().set(SoftwareProcess.INSTALL_UNIQUE_LABEL,
+            getEntity().getEntityType().getSimpleName()+
+            (Strings.isNonBlank(getVersion()) ? "_"+getVersion() : "")+
+            (Strings.isNonBlank(getInstallLabelExtraSalt()) ? "_"+getInstallLabelExtraSalt() : "") );
+    }
+
+    /** allows subclasses to return extra salt (ie unique hash)
+     * for cases where install dirs need to be distinct e.g. based on extra plugins being placed in the install dir;
+     * {@link #setInstallLabel()} uses entity-type simple name and version already
+     * <p>
+     * this salt should not be too long and must not contain invalid path chars.
+     * a hash code of other relevant info is not a bad choice.
+     **/
+    protected String getInstallLabelExtraSalt() {
+        return null;
+    }
+
+    protected void setRunDir(String runDir) {
+        this.runDir = runDir;
+        entity.sensors().set(SoftwareProcess.RUN_DIR, runDir);
+    }
+
+    public String getRunDir() {
+        if (runDir != null) return runDir;
+
+        String existingVal = getEntity().getAttribute(SoftwareProcess.RUN_DIR);
+        if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
+            runDir = existingVal;
+            return runDir;
+        }
+
+        setRunDir(Os.tidyPath(ConfigToAttributes.apply(getEntity(), SoftwareProcess.RUN_DIR)));
+        return runDir;
+    }
+
+    public void setExpandedInstallDir(String val) {
+        String oldVal = getEntity().getAttribute(SoftwareProcess.EXPANDED_INSTALL_DIR);
+        if (Strings.isNonBlank(oldVal) && !oldVal.equals(val)) {
+            log.info("Resetting expandedInstallDir (to "+val+" from "+oldVal+") for "+getEntity());
+        }
+
+        expandedInstallDir = val;
+        getEntity().sensors().set(SoftwareProcess.EXPANDED_INSTALL_DIR, val);
+    }
+
+    public String getExpandedInstallDir() {
+        if (expandedInstallDir != null) return expandedInstallDir;
+
+        String existingVal = getEntity().getAttribute(SoftwareProcess.EXPANDED_INSTALL_DIR);
+        if (Strings.isNonBlank(existingVal)) { // e.g. on rebind
+            expandedInstallDir = existingVal;
+            return expandedInstallDir;
+        }
+
+        String untidiedVal = ConfigToAttributes.apply(getEntity(), SoftwareProcess.EXPANDED_INSTALL_DIR);
+        if (Strings.isNonBlank(untidiedVal)) {
+            setExpandedInstallDir(Os.tidyPath(untidiedVal));
+            return expandedInstallDir;
+        } else {
+            throw new IllegalStateException("expandedInstallDir is null; most likely install was not called for "+getEntity());
+        }
+    }
 }

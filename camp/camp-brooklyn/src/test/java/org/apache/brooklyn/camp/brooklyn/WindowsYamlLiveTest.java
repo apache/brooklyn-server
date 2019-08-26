@@ -38,6 +38,7 @@ import org.apache.brooklyn.entity.software.base.test.location.WindowsTestFixture
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
+import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
@@ -151,13 +152,13 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
     public void testPowershellMinimalist() throws Exception {
         Map<String, String> cmds = ImmutableMap.<String, String>builder()
                 .put("myarg", "myval")
-                .put("launch.powershell.command", "\"& c:\\\\exit0.ps1\"")
-                .put("checkRunning.powershell.command", "\"& c:\\\\exit0.bat\"")
+                .put("launch.powershell.command", JavaStringEscapes.wrapJavaString("& \"$Env:INSTALL_DIR\\exit0.ps1\""))
+                .put("checkRunning.powershell.command", JavaStringEscapes.wrapJavaString("& \"$Env:INSTALL_DIR\\exit0.bat\""))
                 .build();
         
         Map<String, List<String>> stdouts = ImmutableMap.of();
         
-        runWindowsApp(cmds, stdouts, null);
+        runWindowsApp(cmds, stdouts, true, null);
     }
     
     @Test(groups="Live")
@@ -182,7 +183,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("winrm: pre-launch-command.*", ImmutableList.of("myval"))
                 .build();
         
-        runWindowsApp(cmds, stdouts, null);
+        runWindowsApp(cmds, stdouts, false, null);
     }
     
     @Test(groups="Live")
@@ -207,7 +208,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("winrm: pre-launch-command.*", ImmutableList.of("myval"))
                 .build();
         
-        runWindowsApp(cmds, stdouts, null);
+        runWindowsApp(cmds, stdouts, false, null);
     }
     
     @Test(groups="Live")
@@ -227,7 +228,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
         
         Map<String, List<String>> stdouts = ImmutableMap.of();
         
-        runWindowsApp(cmds, stdouts, "winrm: pre-install-command.*");
+        runWindowsApp(cmds, stdouts, false, "winrm: pre-install-command.*");
     }
     
     // FIXME Failing to match the expected exception, but looks fine! Needs more investigation.
@@ -248,7 +249,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
         
         Map<String, List<String>> stdouts = ImmutableMap.of();
         
-        runWindowsApp(cmds, stdouts, "winrm: is-running-command.*");
+        runWindowsApp(cmds, stdouts, false, "winrm: is-running-command.*");
     }
     
     // FIXME Needs more work to get the stop's task that failed, so can assert got the right error message
@@ -269,29 +270,29 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
         
         Map<String, List<String>> stdouts = ImmutableMap.of();
         
-        runWindowsApp(cmds, stdouts, "winrm: stop-command.*");
+        runWindowsApp(cmds, stdouts, false, "winrm: stop-command.*");
     }
     
-    protected void runWindowsApp(Map<String, String> commands, Map<String, List<String>> stdouts, String taskRegexFailed) throws Exception {
+    protected void runWindowsApp(Map<String, String> commands, Map<String, List<String>> stdouts, boolean useInstallDir, String taskRegexFailed) throws Exception {
         String cmdFailed = (taskRegexFailed == null) ? null : TASK_REGEX_TO_COMMAND.get(taskRegexFailed);
         
         List<String> yaml = Lists.newArrayList();
         yaml.addAll(yamlLocation);
+        String prefix = useInstallDir ? "" : "c:\\";
         yaml.addAll(ImmutableList.of(
                 "services:",
                 "- type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess",
                 "  brooklyn.config:",
-                "    onbox.base.dir.skipResolution: true",
                 "    templates.preinstall:",
                 "      classpath://org/apache/brooklyn/camp/brooklyn/echoFreemarkerMyarg.bat: c:\\echoFreemarkerMyarg.bat",
                 "      classpath://org/apache/brooklyn/camp/brooklyn/echoFreemarkerMyarg.ps1: c:\\echoFreemarkerMyarg.ps1",
                 "    files.preinstall:",
-                "      classpath://org/apache/brooklyn/camp/brooklyn/echoArg.bat: c:\\echoArg.bat",
-                "      classpath://org/apache/brooklyn/camp/brooklyn/echoMyArg.ps1: c:\\echoMyArg.ps1",
-                "      classpath://org/apache/brooklyn/camp/brooklyn/exit0.bat: c:\\exit0.bat",
-                "      classpath://org/apache/brooklyn/camp/brooklyn/exit1.bat: c:\\exit1.bat",
-                "      classpath://org/apache/brooklyn/camp/brooklyn/exit0.ps1: c:\\exit0.ps1",
-                "      classpath://org/apache/brooklyn/camp/brooklyn/exit1.ps1: c:\\exit1.ps1",
+                "      classpath://org/apache/brooklyn/camp/brooklyn/echoArg.bat: "+prefix+"echoArg.bat",
+                "      classpath://org/apache/brooklyn/camp/brooklyn/echoMyArg.ps1: "+prefix+"echoMyArg.ps1",
+                "      classpath://org/apache/brooklyn/camp/brooklyn/exit0.bat: "+prefix+"exit0.bat",
+                "      classpath://org/apache/brooklyn/camp/brooklyn/exit1.bat: "+prefix+"exit1.bat",
+                "      classpath://org/apache/brooklyn/camp/brooklyn/exit0.ps1: "+prefix+"exit0.ps1",
+                "      classpath://org/apache/brooklyn/camp/brooklyn/exit1.ps1: "+prefix+"exit1.ps1",
                 ""));
         
         for (Map.Entry<String, String> entry : commands.entrySet()) {
@@ -363,7 +364,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
     
     private void assertPhaseStreamEquals(Entity entity, String phase, String stream, Predicate<String> check) {
         Optional<Task<?>> t = findTaskOrSubTask(entity, TaskPredicates.displayNameSatisfies(StringPredicates.startsWith("winrm: "+phase)));
-        Asserts.assertThat(BrooklynTaskTags.stream(t.get(), stream).getStreamContentsAbbreviated().trim(), check);
+        Asserts.assertThat(BrooklynTaskTags.stream(t.get(), stream).streamContents.get().trim(), check);
     }
 
     @Override

@@ -44,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.PortRange;
@@ -57,6 +58,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.BasicMachineDetails;
@@ -80,8 +82,10 @@ import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.internal.ExecWithLoggingHelpers;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.KeyTransformingLoadingCache.KeyTransformingSameTypeLoadingCache;
@@ -128,7 +132,7 @@ import com.google.common.reflect.TypeToken;
  * Additionally there are routines to copyTo, copyFrom; and installTo (which tries a curl, and falls back to copyTo
  * in event the source is accessible by the caller only).
  */
-public class SshMachineLocation extends AbstractMachineLocation implements MachineLocation, PortSupplier, WithMutexes, Closeable {
+public class SshMachineLocation extends AbstractMachineLocation implements MachineLocation, PortSupplier, WithMutexes, Closeable, CanResolveOnBoxDir {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshMachineLocation.class);
     private static final Logger logSsh = LoggerFactory.getLogger(BrooklynLogging.SSH_IO);
@@ -1038,6 +1042,23 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     @Deprecated
     public boolean hasMutex(String mutexId) {
         return mutexes().hasMutex(mutexId);
+    }
+
+    @Override
+    public String resolveOnBoxDirFor(Entity entity, String unresolvedPath) {
+        ProcessTaskWrapper<Integer> baseTask = SshEffectorTasks.ssh(
+            BashCommands.alternatives("mkdir -p \"${BASE_DIR}\"",
+                BashCommands.chain(
+                    BashCommands.sudo("mkdir -p \"${BASE_DIR}\""),
+                    BashCommands.sudo("chown "+getUser()+" \"${BASE_DIR}\""))),
+            "cd ~",
+            "cd ${BASE_DIR}",
+            "echo BASE_DIR_RESULT':'`pwd`:BASE_DIR_RESULT")
+            .environmentVariable("BASE_DIR", unresolvedPath)
+            .requiringExitCodeZero()
+            .summary("initializing on-box base dir "+unresolvedPath).newTask();
+        DynamicTasks.queueIfPossible(baseTask).orSubmitAsync(entity);
+        return Strings.getFragmentBetween(baseTask.block().getStdout(), "BASE_DIR_RESULT:", ":BASE_DIR_RESULT");
     }
 
 }

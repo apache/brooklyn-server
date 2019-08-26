@@ -58,7 +58,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwareProcessDriver implements NativeWindowsScriptRunner {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractSoftwareProcessWinRmDriver.class);
@@ -72,6 +71,10 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         super(entity, location);
         entity.sensors().set(WINDOWS_USERNAME, location.config().get(WinRmMachineLocation.USER));
         entity.sensors().set(WINDOWS_PASSWORD, location.config().get(WinRmMachineLocation.PASSWORD));
+    }
+
+    protected String mergePaths(String ...s) {
+        return super.mergePaths(s).replaceAll("/", "\\\\");
     }
 
     protected WinRmExecuteHelper newScript(String command, String psCommand, String phase, String taskNamePrefix) {
@@ -284,28 +287,17 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     @Override
-    public String getRunDir() {
-        // TODO: This needs to be tidied, and read from the appropriate flags (if set)
-        return "$HOME\\brooklyn-managed-processes\\apps\\" + entity.getApplicationId() + "\\entities\\" + getEntityVersionLabel()+"_"+entity.getId();
-    }
-
-    @Override
-    public String getInstallDir() {
-        // TODO: This needs to be tidied, and read from the appropriate flags (if set)
-        return "$HOME\\brooklyn-managed-processes\\installs\\" + entity.getApplicationId() + "\\" + getEntityVersionLabel()+"_"+entity.getId();
-    }
-
-    @Override
-    public int copyResource(Map<Object, Object> sshFlags, String source, String target, boolean createParentDir) {
+    public int copyResource(Map<Object, Object> sshFlags, String sourceUrl, String target, boolean createParentDir) {
         if (createParentDir) {
             createDirectory(getDirectory(target), "Creating resource directory");
         }
 
         InputStream stream = null;
         try {
-            Tasks.setBlockingDetails("retrieving resource "+source+" for copying across");
-            stream = resource.getResourceFromUrl(source);
-            Tasks.setBlockingDetails("copying resource "+source+" to server");
+            Tasks.setBlockingDetails("retrieving resource "+sourceUrl+" for copying across");
+            stream = resource.getResourceFromUrl(sourceUrl);
+            Tasks.setBlockingDetails("copying resource "+sourceUrl+" to server");
+            LOG.debug("Copying "+sourceUrl+" to "+target+" on "+getLocation()+" for "+getEntity());
             return copyTo(stream, target);
         } catch (Exception e) {
             throw Exceptions.propagate(e);
