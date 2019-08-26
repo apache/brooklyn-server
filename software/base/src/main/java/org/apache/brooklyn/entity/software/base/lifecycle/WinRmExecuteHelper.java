@@ -196,6 +196,7 @@ public class WinRmExecuteHelper {
                 flags.put("err", stderr);
             }
             flags.put(WinRmTool.COMPUTER_NAME, domain);
+            if (env!=null) flags.put(WinRmTool.ENVIRONMENT, env);
             result = runner.executeNativeOrPsCommand(flags, command, psCommand, summary, false);
             if (!resultCodeCheck.apply(result)) {
                 throw logWithDetailsAndThrow(format("Execution failed, invalid result %s for %s", result, summary), null);

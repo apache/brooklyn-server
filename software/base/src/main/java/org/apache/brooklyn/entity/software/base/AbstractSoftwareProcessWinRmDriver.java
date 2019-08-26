@@ -29,10 +29,8 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
-import com.google.common.base.Function;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -43,6 +41,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.lifecycle.NativeWindowsScriptRunner;
 import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
@@ -75,37 +74,37 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         entity.sensors().set(WINDOWS_PASSWORD, location.config().get(WinRmMachineLocation.PASSWORD));
     }
 
-    /** @see #newScript(Map, String) */
-    protected WinRmExecuteHelper newScript(String phase) {
-        return newScript(Maps.<String, Object>newLinkedHashMap(), phase);
+    protected WinRmExecuteHelper newScript(String command, String psCommand, String phase, String taskNamePrefix) {
+        return newScript(command, psCommand, phase, taskNamePrefix, null);
     }
 
-    protected WinRmExecuteHelper newScript(String command, String psCommand, String phase) {
-        return newScript(command, psCommand, phase, null);
-    }
-
-    protected WinRmExecuteHelper newScript(String command, String psCommand, String phase, String ntDomain) {
-        Map<String, String> environment = (Map)getEntity().getConfig(WinRmTool.SHELL_ENVIRONMENT);
-    
-        if (environment == null) {
-            // Important only to call getShellEnvironment() if env was not supplied; otherwise it
-            // could cause us to resolve config (e.g. block for attributeWhenReady) too early.
-            environment = getShellEnvironment();
-        }
-        return newScript(phase)
-                .setNtDomain(ntDomain)
+    protected WinRmExecuteHelper newScript(String command, String psCommand, String phase, String taskNamePrefix, String ntDomain) {
+        WinRmExecuteHelper result = newEmptyScript(taskNamePrefix);
+        result.setNtDomain(ntDomain)
                 .setCommand(command)
                 .setPsCommand(psCommand)
-                .setEnv(environment)
                 .failOnNonZeroResultCode()
                 .gatherOutput();
+        
+        Map<String, String> env = MutableMap.of();
+        env.put("INSTALL_DIR", getInstallDir());
+        if (AbstractSoftwareProcessSshDriver.INSTALLING.equals(phase)) {
+            // don't set shell env during this phase; otherwise it could cause us 
+            // to resolve config (e.g. block for attributeWhenReady) too early; instead just give install dir
+        } else {
+            env.put("RUN_DIR", getRunDir());
+            env.putAll(getShellEnvironment());
+        }
+        result.setEnv(env);
+        
+        return result;
     }
 
-    protected WinRmExecuteHelper newScript(Map<String, ?> flags, String phase) {
+    protected WinRmExecuteHelper newEmptyScript(String taskNamePrefix) {
         if (!Entities.isManaged(getEntity()))
-            throw new IllegalStateException(getEntity() + " is no longer managed; cannot create script to run here (" + phase + ")");
+            throw new IllegalStateException(getEntity() + " is no longer managed; cannot create script to run here (" + taskNamePrefix + ")");
 
-        WinRmExecuteHelper s = new WinRmExecuteHelper(this, phase + " " + elvis(entity, this));
+        WinRmExecuteHelper s = new WinRmExecuteHelper(this, taskNamePrefix + " " + elvis(entity, this));
         return s;
     }
 
@@ -115,6 +114,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             newScript(
                     getEntity().getConfig(BrooklynConfigKeys.PRE_INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.PRE_INSTALL_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.INSTALLING,
                     "pre-install-command")
                 .useMutex(getLocation().mutexes(), "installation lock at host", "installing "+elvis(entity,this))
                 .execute();
@@ -135,6 +135,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             newScript(
                     getEntity().getConfig(BrooklynConfigKeys.POST_INSTALL_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.POST_INSTALL_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.INSTALLING,
                     "post-install-command")
             .useMutex(getLocation().mutexes(), "installation lock at host", "installing "+elvis(entity,this))
             .execute();
@@ -147,6 +148,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             executeCommandInTask(
                     getEntity().getConfig(BrooklynConfigKeys.PRE_CUSTOMIZE_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.PRE_CUSTOMIZE_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.CUSTOMIZING,
                     "pre-customize-command");
         }
     }
@@ -157,6 +159,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             executeCommandInTask(
                     getEntity().getConfig(BrooklynConfigKeys.POST_CUSTOMIZE_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.POST_CUSTOMIZE_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.CUSTOMIZING,
                     "post-customize-command");
         }
     }
@@ -167,6 +170,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             executeCommandInTask(
                     getEntity().getConfig(BrooklynConfigKeys.PRE_LAUNCH_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.PRE_LAUNCH_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.LAUNCHING,
                     "pre-launch-command");
         }
     }
@@ -177,6 +181,7 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             executeCommandInTask(
                     getEntity().getConfig(BrooklynConfigKeys.POST_LAUNCH_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.POST_LAUNCH_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.LAUNCHING,
                     "post-launch-command");
         }
     }
@@ -235,12 +240,12 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         return getLocation();
     }
 
-    protected int executeCommandInTask(String command, String psCommand, String phase) {
-        return executeCommandInTask(command, psCommand, phase, null);
+    protected int executeCommandInTask(String command, String psCommand, String phase, String taskNamePrefix) {
+        return executeCommandInTask(command, psCommand, phase, taskNamePrefix, null);
     }
 
-    protected int executeCommandInTask(String command, String psCommand, String phase, String ntDomain) {
-        WinRmExecuteHelper helper = newScript(command, psCommand, phase, ntDomain);
+    protected int executeCommandInTask(String command, String psCommand, String phase, String taskNamePrefix, String ntDomain) {
+        WinRmExecuteHelper helper = newScript(command, psCommand, phase, taskNamePrefix, ntDomain);
         return helper.execute();
     }
 
@@ -324,15 +329,15 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     @Override
-    public Integer executeNativeOrPsCommand(Map flags, String regularCommand, String powerShellCommand, String phase, Boolean allowNoOp) {
+    public Integer executeNativeOrPsCommand(Map flags, String regularCommand, String powerShellCommand, String summary, Boolean allowNoOp) {
         if (Strings.isBlank(regularCommand) && Strings.isBlank(powerShellCommand)) {
             if (allowNoOp) {
                 return new WinRmToolResponse("", "", 0).getStatusCode();
             } else {
-                throw new IllegalStateException(String.format("Exactly one of cmd or psCmd must be set for %s of %s", phase, entity));
+                throw new IllegalStateException(String.format("Exactly one of cmd or psCmd must be set for %s of %s", summary, entity));
             }
         } else if (!Strings.isBlank(regularCommand) && !Strings.isBlank(powerShellCommand)) {
-            throw new IllegalStateException(String.format("%s and %s cannot both be set for %s of %s", regularCommand, powerShellCommand, phase, entity));
+            throw new IllegalStateException(String.format("%s and %s cannot both be set for %s of %s", regularCommand, powerShellCommand, summary, entity));
         }
 
         ByteArrayOutputStream stdIn = new ByteArrayOutputStream();
@@ -359,6 +364,9 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         ImmutableMap.Builder winrmProps = ImmutableMap.builder();
         if (flags.get(WinRmTool.COMPUTER_NAME) != null) {
             winrmProps.put(WinRmTool.COMPUTER_NAME, flags.get(WinRmTool.COMPUTER_NAME));
+        }
+        if (flags.get(WinRmTool.ENVIRONMENT)!=null) {
+            winrmProps.put(WinRmTool.ENVIRONMENT, flags.get(WinRmTool.ENVIRONMENT));
         }
 
         if (Strings.isBlank(regularCommand)) {

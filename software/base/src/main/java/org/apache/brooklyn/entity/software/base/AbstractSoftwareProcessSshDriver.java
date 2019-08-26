@@ -493,6 +493,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     public static final String RESTARTING = "restarting";
 
     public static final String PID_FILENAME = "pid.txt";
+    static final String INSTALL_DIR_ENV_VAR = "INSTALL_DIR";
+    static final String RUN_DIR_ENV_VAR = "RUN_DIR";
 
     /* Flags */
 
@@ -578,9 +580,9 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
                 final String mutexId = "installation lock at host";
                 s.useMutex(getLocation().mutexes(), mutexId, "installing "+elvis(entity,this));
                 s.header.append(
-                        "export INSTALL_DIR=\""+getInstallDir()+"\"",
-                        "mkdir -p $INSTALL_DIR",
-                        "cd $INSTALL_DIR",
+                        "export "+INSTALL_DIR_ENV_VAR+"=\""+getInstallDir()+"\"",
+                        "mkdir -p $"+INSTALL_DIR_ENV_VAR,
+                        "cd $"+INSTALL_DIR_ENV_VAR,
                         "test -f BROOKLYN && exit 0"
                         );
 
@@ -592,10 +594,10 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
             }
             if (ImmutableSet.of(CUSTOMIZING, LAUNCHING, CHECK_RUNNING, STOPPING, KILLING, RESTARTING).contains(phase)) {
                 s.header.append(
-                        "export INSTALL_DIR=\""+getInstallDir()+"\"",
-                        "export RUN_DIR=\""+getRunDir()+"\"",
-                        "mkdir -p $RUN_DIR",
-                        "cd $RUN_DIR"
+                        "export "+INSTALL_DIR_ENV_VAR+"=\""+getInstallDir()+"\"",
+                        "export "+RUN_DIR_ENV_VAR+"=\""+getRunDir()+"\"",
+                        "mkdir -p $"+RUN_DIR_ENV_VAR,
+                        "cd $"+RUN_DIR_ENV_VAR
                         );
             }
         }
