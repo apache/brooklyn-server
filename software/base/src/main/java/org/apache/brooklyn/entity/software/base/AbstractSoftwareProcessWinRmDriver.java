@@ -29,8 +29,10 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
+import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
+import com.google.common.base.Function;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -83,10 +85,18 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     protected WinRmExecuteHelper newScript(String command, String psCommand, String phase, String ntDomain) {
+        Map<String, String> environment = (Map)getEntity().getConfig(WinRmTool.SHELL_ENVIRONMENT);
+    
+        if (environment == null) {
+            // Important only to call getShellEnvironment() if env was not supplied; otherwise it
+            // could cause us to resolve config (e.g. block for attributeWhenReady) too early.
+            environment = getShellEnvironment();
+        }
         return newScript(phase)
                 .setNtDomain(ntDomain)
                 .setCommand(command)
                 .setPsCommand(psCommand)
+                .setEnv(environment)
                 .failOnNonZeroResultCode()
                 .gatherOutput();
     }

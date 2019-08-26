@@ -379,16 +379,6 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
     }
 
     /**
-     * The environment variables to be set when executing the commands (for install, run, check running, etc).
-     * @see SoftwareProcess#SHELL_ENVIRONMENT
-     */
-    public Map<String, String> getShellEnvironment() {
-        Map<String, Object> env = entity.getConfig(SoftwareProcess.SHELL_ENVIRONMENT);
-        ShellEnvironmentSerializer envSerializer = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext());
-        return envSerializer.serialize(env);
-    }
-
-    /**
      * @param sshFlags Extra flags to be used when making an SSH connection to the entity's machine.
      *                 If the map contains the key {@link #IGNORE_ENTITY_SSH_FLAGS} then only the
      *                 given flags are used. Otherwise, the given flags are combined with (and take

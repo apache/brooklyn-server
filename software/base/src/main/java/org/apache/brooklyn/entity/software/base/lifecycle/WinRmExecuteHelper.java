@@ -59,6 +59,7 @@ public class WinRmExecuteHelper {
     private String domain;
     private String command;
     private String psCommand;
+    private Map<String, String> env;
 
     @SuppressWarnings("rawtypes")
     protected final Map flags = new LinkedHashMap();
@@ -94,6 +95,11 @@ public class WinRmExecuteHelper {
 
     public WinRmExecuteHelper setPsCommand(String psCommand) {
         this.psCommand = psCommand;
+        return this;
+    }
+
+    public WinRmExecuteHelper setEnv(Map<String, String> env) {
+        this.env = env;
         return this;
     }
 

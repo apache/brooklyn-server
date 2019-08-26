@@ -30,6 +30,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -89,6 +90,9 @@ public interface WinRmTool {
     ConfigKey<String> ADDITIONAL_CONNECTION_METADATA = newStringConfigKey("additional.connection.metadata",
             "Can be used to pass additional custom data to the WinrmTool, which is especially useful " +
                     "if writing a bespoke tool implementation");
+
+    @SetFromFlag("env")
+    MapConfigKey<Object> SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
     /**
      * @deprecated since 0.9.0; use {@link #executeCommand(List)} to avoid ambiguity between native command and power shell.

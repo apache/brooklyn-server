@@ -51,6 +51,7 @@ import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffect
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks.CloseableLatch;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
@@ -664,6 +665,16 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
 
     public String getVersion() {
         return getEntity().config().get(SoftwareProcess.SUGGESTED_VERSION);
+    }
+
+    /**
+     * The environment variables to be set when executing the commands (for install, run, check running, etc).
+     * @see SoftwareProcess#SHELL_ENVIRONMENT
+     */
+    public Map<String, String> getShellEnvironment() {
+        Map<String, Object> env = entity.getConfig(SoftwareProcess.SHELL_ENVIRONMENT);
+        ShellEnvironmentSerializer envSerializer = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext());
+        return envSerializer.serialize(env);
     }
 
     public abstract String getRunDir();
