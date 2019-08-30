@@ -44,7 +44,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
-import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -74,6 +73,7 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwarePara
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.StopSoftwareParameters.StopMode;
 import org.apache.brooklyn.entity.stock.EffectorStartableImpl.StartParameters;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.CanResolveOnBoxDir;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -81,14 +81,11 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolverIterator;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.repeat.Repeater;
-import org.apache.brooklyn.util.ssh.BashCommands;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -561,6 +558,7 @@ public abstract class MachineLifecycleEffectorTasks {
         if (base==null) base = machine.getConfig(BrooklynConfigKeys.BROOKLYN_DATA_DIR);
         if (base==null) base = entity.getManagementContext().getConfig().getConfig(BrooklynConfigKeys.BROOKLYN_DATA_DIR);
         if (base==null) base = "~/brooklyn-managed-processes";
+        
         if (base.equals("~")) base=".";
         if (base.startsWith("~/")) base = "."+base.substring(1);
 
@@ -569,21 +567,8 @@ public abstract class MachineLifecycleEffectorTasks {
             if (log.isDebugEnabled()) log.debug("Skipping on-box base dir resolution for "+entity+" at "+machine);
             if (!Os.isAbsolutish(base)) base = "~/"+base;
             resolvedBase = Os.tidyPath(base);
-        } else if (machine instanceof SshMachineLocation) {
-            SshMachineLocation ms = (SshMachineLocation)machine;
-            ProcessTaskWrapper<Integer> baseTask = SshEffectorTasks.ssh(
-                BashCommands.alternatives("mkdir -p \"${BASE_DIR}\"",
-                    BashCommands.chain(
-                        BashCommands.sudo("mkdir -p \"${BASE_DIR}\""),
-                        BashCommands.sudo("chown "+ms.getUser()+" \"${BASE_DIR}\""))),
-                "cd ~",
-                "cd ${BASE_DIR}",
-                "echo BASE_DIR_RESULT':'`pwd`:BASE_DIR_RESULT")
-                .environmentVariable("BASE_DIR", base)
-                .requiringExitCodeZero()
-                .summary("initializing on-box base dir "+base).newTask();
-            DynamicTasks.queueIfPossible(baseTask).orSubmitAsync(entity);
-            resolvedBase = Strings.getFragmentBetween(baseTask.block().getStdout(), "BASE_DIR_RESULT:", ":BASE_DIR_RESULT");
+        } else if (machine instanceof CanResolveOnBoxDir) {
+            resolvedBase = ((CanResolveOnBoxDir)machine).resolveOnBoxDirFor(entity, base);
         }
         if (resolvedBase==null) {
             if (!Os.isAbsolutish(base)) base = "~/"+base;

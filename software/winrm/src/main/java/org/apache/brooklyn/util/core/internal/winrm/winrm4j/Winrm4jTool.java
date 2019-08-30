@@ -144,7 +144,12 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
             byte[] inputData = new byte[chunkSize];
             int bytesRead;
             int expectedFileSize = 0;
+            int i=0;
             while ((bytesRead = source.read(inputData)) > 0) {
+                i++;
+                
+                LOG.debug("Copying chunk "+i+" to "+destination+" on "+host);
+                
                 byte[] chunk;
                 if (bytesRead == chunkSize) {
                     chunk = inputData;
@@ -156,7 +161,8 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
                         " -value ([System.Convert]::FromBase64String(\"" + new String(Base64.encodeBase64(chunk)) + "\"))}"));
                 expectedFileSize += bytesRead;
             }
-
+            LOG.debug("Finished copying to "+destination+" on "+host);
+            
             return new org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse("", "", 0);
         } catch (java.io.IOException e) {
             throw propagate(e, "Failed copying to server at "+destination);

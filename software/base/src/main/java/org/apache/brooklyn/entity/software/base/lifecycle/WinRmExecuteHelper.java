@@ -59,6 +59,7 @@ public class WinRmExecuteHelper {
     private String domain;
     private String command;
     private String psCommand;
+    private Map<String, String> env;
 
     @SuppressWarnings("rawtypes")
     protected final Map flags = new LinkedHashMap();
@@ -94,6 +95,11 @@ public class WinRmExecuteHelper {
 
     public WinRmExecuteHelper setPsCommand(String psCommand) {
         this.psCommand = psCommand;
+        return this;
+    }
+
+    public WinRmExecuteHelper setEnv(Map<String, String> env) {
+        this.env = env;
         return this;
     }
 
@@ -190,6 +196,7 @@ public class WinRmExecuteHelper {
                 flags.put("err", stderr);
             }
             flags.put(WinRmTool.COMPUTER_NAME, domain);
+            if (env!=null) flags.put(WinRmTool.ENVIRONMENT, env);
             result = runner.executeNativeOrPsCommand(flags, command, psCommand, summary, false);
             if (!resultCodeCheck.apply(result)) {
                 throw logWithDetailsAndThrow(format("Execution failed, invalid result %s for %s", result, summary), null);

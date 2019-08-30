@@ -30,6 +30,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -48,6 +49,8 @@ public interface WinRmTool {
     ConfigKey<Integer> PROP_PORT = ConfigKeys.newIntegerConfigKey("port", "WinRM port to use when connecting to the remote machine");
     ConfigKey<Boolean> USE_HTTPS_WINRM = ConfigKeys.newBooleanConfigKey("winrm.useHttps", "The parameter tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", false);
     ConfigKey<Integer> RETRIES_OF_NETWORK_FAILURES = ConfigKeys.newIntegerConfigKey("retriesOfNetworkFailures", "The parameter sets the number of retries for connection failures. If you use high value, consider taking care for the machine's network.", 4);
+    
+    @SetFromFlag("env")
     ConfigKey<Map<String,String>> ENVIRONMENT = MapConfigKey.builder(new TypeToken<Map<String,String>>() {})
             .name("winrm.environment")
             .description("WinRM Environment variables").build();
