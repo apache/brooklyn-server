@@ -775,7 +775,8 @@
                     <artifactId>buildnumber-maven-plugin</artifactId>
                     <version>1.3</version>
                     <configuration>
-                        <getRevisionOnlyOnce>true</getRevisionOnlyOnce>
+                        <!-- where git submodules are built take the SHA-1 from the submodule as the build number -->
+                        <getRevisionOnlyOnce>false</getRevisionOnlyOnce>
                     </configuration>
                 </plugin>
                 <plugin>
