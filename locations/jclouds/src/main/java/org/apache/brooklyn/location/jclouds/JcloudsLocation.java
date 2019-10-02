@@ -312,12 +312,21 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public String toString() {
-        Object identity = getIdentity();
+        String className = getClass().getSimpleName();
         String configDescription = config().getLocalBag().getDescription();
-        if (configDescription!=null && configDescription.startsWith(getClass().getSimpleName()))
+        String displayName = getDisplayName();
+
+        if (configDescription != null && configDescription.startsWith(className))
             return configDescription;
-        return getClass().getSimpleName()+"["+getDisplayName()+":"+(identity != null ? identity : null)+
-                (configDescription!=null ? "/"+configDescription : "") + "@" + getId() + "]";
+
+        if (displayName != null)
+            return className + "['" + displayName + "']";
+
+        return className + "[" +
+                getIdentity() +
+                (configDescription == null ? "" : "/" + configDescription) +
+                "@" + getId() +
+                "]";
     }
 
     @Override
