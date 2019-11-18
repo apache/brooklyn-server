@@ -105,6 +105,24 @@
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
             <artifactId>jackson-dataformat-xml</artifactId>
+            <exclusions>
+                <exclusion>
+                    <!-- jackson above v 2.10.0 wants 6.0 of woodstox, but cxf used elsewhere is only at 5.x -->
+                    <groupId>com.fasterxml.woodstox</groupId>
+                    <artifactId>woodstox-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <!-- jackson above v 2.10.0 wants 4.2 but woodstox 5 on 3.1.4 -->
+                    <groupId>org.codehaus.woodstox</groupId>
+                    <artifactId>stax2-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <!-- not needed here, but pulls in the right version of woodstox and stax2 for compatibility elsewhere, needed for jackson above -->
+            <groupId>org.apache.cxf</groupId>
+            <artifactId>cxf-core</artifactId>
+            <version>${cxf.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.dataformat</groupId>
