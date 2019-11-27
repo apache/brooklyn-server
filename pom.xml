@@ -168,12 +168,12 @@
         <kubernetes-client.version>1.4.27</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.2.2</karaf.version>
+        <karaf.version>4.2.7</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.14.v20181114</jetty.version>
+        <jetty.version>9.4.20.v20190813</jetty.version>
         <commons-collections.version>3.2.2</commons-collections.version>
-        <pax-web.version>7.2.5</pax-web.version>
-        <jaxb-api.version>2.3.0</jaxb-api.version>
+        <pax-web.version>7.2.11</pax-web.version>
+        <jaxb-api.version>2.3.2</jaxb-api.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <jna.version>4.1.0</jna.version>
