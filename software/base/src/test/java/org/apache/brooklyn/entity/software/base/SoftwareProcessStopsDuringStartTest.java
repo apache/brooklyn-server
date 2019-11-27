@@ -51,6 +51,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.LogWatcher;
 import org.apache.brooklyn.test.LogWatcher.EventPredicates;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -140,7 +141,7 @@ public class SoftwareProcessStopsDuringStartTest extends BrooklynAppUnitTestSupp
         assertEquals(loc.getCalls(), ImmutableList.of("obtain", "release", "obtain", "release"));
     }
 
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testStopDuringProvisionWaitsForCompletion() throws Exception {
         Future<?> startFuture = executor.submit(new Runnable() {
             @Override
