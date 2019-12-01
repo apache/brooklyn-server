@@ -144,14 +144,6 @@
                 <artifactId>org.osgi.compendium</artifactId>
                 <version>${felix-osgi-compendium.version}</version>
             </dependency>
-            <dependency>
-                <!-- karaf/assemblies/features/base includes both 2.3.0 and 2.3.1 jaxb libraries -->
-                <!-- declaring the version here stops maven loading the conflicting versino from glassfish -->
-                <!-- Review if this is needed after karaf-4.2.2 -->
-                <groupId>javax.xml.bind</groupId>
-                <artifactId>jaxb-api</artifactId>
-                <version>${jaxb-api.version}</version>
-            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
