@@ -27,6 +27,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
@@ -53,6 +54,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,7 +75,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     private static final long serialVersionUID = -4728186276307619778L;
 
     private static final Logger log = LoggerFactory.getLogger(BasicSpecParameter.class);
-    
+        
     private final String label;
 
     /** pinning may become a priority or other more expansive indicator */
@@ -197,6 +199,15 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         return type;
     }
 
+    /** Allows extensions to define additional types that are supported for parameters in YAML.
+     * Rules should return a TypeToken if the given name is known, null if not handled, or 
+     * throw if the name is decisively problematic. Handlers will throw if no rules match. 
+     */
+    @Beta
+    public static void addCustomTypeNameInference(String ruleName, BiFunction<String,BrooklynClassLoadingContext,TypeToken<?>> rule) {
+        ParseYamlInputs.customTypeNameInferencing.put(ruleName, rule);
+    }
+    
     private static final class ParseYamlInputs {
         private static final String DEFAULT_TYPE = "string";
         private static final Map<String, Class<?>> BUILT_IN_TYPES = ImmutableMap.<String, Class<?>>builder()
@@ -216,6 +227,19 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 .put("timestamp", Date.class)
                 .put("port", PortRange.class)
                 .build();
+
+        /** Map of rule-name to rule; see {@link BasicSpecParameter#addCustomTypeNameInference(String, BiFunction)} */
+        public static Map<String,BiFunction<String,BrooklynClassLoadingContext,TypeToken<?>>> customTypeNameInferencing = MutableMap.of();
+        static {
+            customTypeNameInferencing.put("simple types ("+Strings.join(BUILT_IN_TYPES.keySet(), ", ")+")", 
+                (name, loaderContext) -> BUILT_IN_TYPES.containsKey(name.toLowerCase()) ? 
+                    TypeToken.of(BUILT_IN_TYPES.get(name.toLowerCase())) : null);
+            customTypeNameInferencing.put("Java types", (name, loaderContext) -> {
+                // Assume it's a Java type
+                Maybe<Class<?>> inputType = loaderContext.tryLoadClass(name);
+                return inputType.isPresent() ? TypeToken.of(inputType.get()) : null;
+            });
+        }
 
         private static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
@@ -319,21 +343,16 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             }
         }
         
-        @SuppressWarnings({ "rawtypes" })
         private static TypeToken inferType(String typeRaw, BrooklynClassLoadingContext loader) {
             if (typeRaw == null) return TypeToken.of(String.class);
             String type = typeRaw.trim();
-            if (BUILT_IN_TYPES.containsKey(type.toLowerCase())) {
-                return TypeToken.of(BUILT_IN_TYPES.get(type.toLowerCase()));
-            } else {
-                // Assume it's a Java type
-                Maybe<Class<?>> inputType = loader.tryLoadClass(type);
-                if (inputType.isPresent()) {
-                    return TypeToken.of(inputType.get());
-                } else {
-                    throw new IllegalArgumentException("The type '" + type + "' for a catalog input not recognised as a built-in (" + BUILT_IN_TYPES.keySet() + ") or a java type");
-                }
+            for (BiFunction<String,BrooklynClassLoadingContext,TypeToken<?>> f: customTypeNameInferencing.values()) {
+                TypeToken<?> result = f.apply(type, loader);
+                if (result!=null) return result;
             }
+            throw new IllegalArgumentException("The type '" + type + "' for a parameter is not recognised; supported items are: "
+                + Strings.join(customTypeNameInferencing.keySet(), ", "));
+
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })

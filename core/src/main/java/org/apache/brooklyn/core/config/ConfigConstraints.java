@@ -156,6 +156,11 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
                 if (!isValueValid(ck, maybeValue.get())) {
                     violating.add(configKey);
                 }
+            } else {
+                // absent means did not resolve in time or not coercible;
+                // code will return `Maybe.of(null)` if it is unset,
+                // and coercion errors are handled when the value is _set_ or _needed_
+                // (this allows us to deal with edge cases where we can't *immediately* coerce)
             }
         }
         return violating;

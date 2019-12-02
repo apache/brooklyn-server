@@ -48,6 +48,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,6 +154,10 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     @Override
     public BundleInstallationRestResult remove(String symbolicName, String version, Boolean force) {
         ManagedBundle b = lookup(symbolicName, version);
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_CATALOG_ITEM,  Entitlements.StringAndArgument.of(symbolicName+(Strings.isBlank(version) ? "" : ":"+version), "delete"))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to remove catalog item '%s:%s'",
+                    Entitlements.getEntitlementContext().user(),symbolicName,version);
+        }
         log.info("REST removing "+symbolicName+":"+version);
         if (force==null) force = false;
         ReferenceWithError<OsgiBundleInstallationResult> r = ((ManagementContextInternal)mgmt()).getOsgiManager().get().uninstallUploadedBundle(b, force);

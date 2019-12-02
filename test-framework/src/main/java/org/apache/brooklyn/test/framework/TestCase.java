@@ -39,6 +39,13 @@ public interface TestCase extends TargetableTestComponent {
             .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
             .build();
 
+    @SuppressWarnings("serial")
+    ConfigKey<EntitySpec<?>> ON_FINALLY_SPEC = ConfigKeys.builder(new TypeToken<EntitySpec<?>>() {})
+            .name("on.finally.spec")
+            .description("Spec of entity to instantiate (and start, if startable) after a test-case either passes or fails")
+            .runtimeInheritance(BasicConfigInheritance.NOT_REINHERITED)
+            .build();
+
     ConfigKey<Boolean> CONTINUE_ON_FAILURE = ConfigKeys.builder(Boolean.class)
             .name("continueOnFailure")
             .description("Whether to continue executing subsequent children if an earlier child fails")

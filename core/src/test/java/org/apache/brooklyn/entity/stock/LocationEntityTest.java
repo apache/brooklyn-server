@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.location.SimulatedLocation;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -116,7 +117,7 @@ public class LocationEntityTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertEntityHealthy(entity);
     }
 
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testLocationEntityConfigurationWithWrongTypeAndNoDefault() throws Exception {
         Map<String, EntitySpec<?>> map = ImmutableMap.<String, EntitySpec<?>>builder()
                         .put("OtherLocation", EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME, "Other"))

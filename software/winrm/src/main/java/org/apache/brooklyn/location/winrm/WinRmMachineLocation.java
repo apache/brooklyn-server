@@ -32,6 +32,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
@@ -40,19 +41,24 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
+import org.apache.brooklyn.location.ssh.CanResolveOnBoxDir;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.Winrm4jTool;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.codec.binary.Base64;
@@ -71,7 +77,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
-public class WinRmMachineLocation extends AbstractMachineLocation implements MachineLocation {
+public class WinRmMachineLocation extends AbstractMachineLocation implements MachineLocation, CanResolveOnBoxDir {
 
     private static final Logger LOG = LoggerFactory.getLogger(WinRmMachineLocation.class);
 
@@ -490,6 +496,15 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
 //                        "HQAaABlAG4AdABpAGMAYQB0AGkAbwBuACAAUABhAGMAawBlAHQAUAByAGkAdgBhAGMAeQANAAoAJABSAGUAcwB1AGwAd" +
 //                        "AAgAD0AIAAkAFIARABQAC4AUwBlAHQAQQBsAGwAbwB3AFQAUwBDAG8AbgBuAGUAYwB0AGkAbwBuAHMAKAAxACwAMQApAA=="
 //        ));
+    }
+
+    @Override
+    public String resolveOnBoxDirFor(Entity entity, String unresolvedPath) {
+        // TODO this is simplistic, writes at c:\ for HOME
+        if (unresolvedPath.startsWith("./") || unresolvedPath.startsWith("~/")) {
+            unresolvedPath = "C:\\"+unresolvedPath.substring(2);
+        }
+        return unresolvedPath.replaceAll("/", "\\");
     }
 
 }

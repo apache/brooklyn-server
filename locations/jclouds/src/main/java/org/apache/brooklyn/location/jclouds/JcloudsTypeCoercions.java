@@ -47,8 +47,8 @@ public class JcloudsTypeCoercions {
     public static void init() {
         synchronized (initialized) {
             if (initialized.compareAndSet(false, true)) {
-                TypeCoercions.registerAdapter(new CoercionFromAutoValueBuilder());
-                TypeCoercions.registerAdapter(new CoercionFromAutoValueCreate());
+                TypeCoercions.registerAdapter("20-jclouds-auto-value-builder", new CoercionFromAutoValueBuilder());
+                TypeCoercions.registerAdapter("20-jclouds-auto-value-creator", new CoercionFromAutoValueCreate());
             }
         }
     }

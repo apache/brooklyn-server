@@ -16,13 +16,12 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.location.jclouds;
+package org.apache.brooklyn.location.ssh;
 
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.api.entity.Entity;
 
-public interface AwsEc2SessionAwareLocationConfig extends JcloudsLocationConfig{
+public interface CanResolveOnBoxDir {
 
-    ConfigKey<String> IAM_ROLE_NAME = ConfigKeys.newStringConfigKey("iamRoleName",
-            "IAM role / profile name to get session credentials when connecting to AWS EC2", "brooklyn");
+    String resolveOnBoxDirFor(Entity entity, String unresolvedPath);
+
 }

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -109,6 +110,10 @@ public abstract class AbstractWindowsYamlTest extends AbstractYamlTest {
         return (stream != null) ? stream.streamContents.get() : null;
     }
 
+    protected Optional<Task<?>> findTaskOrSubTask(Entity entity, Predicate<? super Task<?>> matcher) {
+        return findTaskOrSubTask(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity), matcher);
+    }
+    
     protected Optional<Task<?>> findTaskOrSubTask(Iterable<? extends Task<?>> tasks, Predicate<? super Task<?>> matcher) {
         List<String> taskNames = Lists.newArrayList();
         Optional<Task<?>> result = findTaskOrSubTaskImpl(tasks, matcher, taskNames);

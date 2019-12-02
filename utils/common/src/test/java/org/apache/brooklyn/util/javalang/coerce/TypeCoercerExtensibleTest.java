@@ -23,6 +23,7 @@ import static org.testng.Assert.assertEquals;
 import java.util.Objects;
 
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.Test;
 
 import com.google.common.base.MoreObjects;
@@ -41,7 +42,7 @@ public class TypeCoercerExtensibleTest {
     
     @Test
     public void testRegisterNewGenericCoercer() {
-        coercer.registerAdapter(new TryCoercer() {
+        coercer.registerAdapter("test-"+Strings.makeRandomId(4), new TryCoercer() {
             @Override
             @SuppressWarnings("unchecked")
             public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {

@@ -50,7 +50,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
         // TODO: At some point in the future, this should probably be refactored to get the name of the machine in WinRmMachineLocation and set it as the hostname sensor
         String hostname = null;
         if (entity.getConfig(VanillaWindowsProcess.INSTALL_REBOOT_REQUIRED)) {
-            WinRmExecuteHelper checkHostnameTask = newScript("Checking hostname")
+            WinRmExecuteHelper checkHostnameTask = newEmptyScript("Checking hostname")
                     .setCommand("hostname")
                     .failOnNonZeroResultCode()
                     .gatherOutput();
@@ -62,7 +62,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
         if(Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND)) || Strings.isNonBlank(getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND))) {
             String cmd = getEntity().getConfig(VanillaWindowsProcess.INSTALL_COMMAND);
             String psCmd = getEntity().getConfig(VanillaWindowsProcess.INSTALL_POWERSHELL_COMMAND);
-            newScript(cmd, psCmd, "install-command", hostname)
+            newScript(cmd, psCmd, AbstractSoftwareProcessSshDriver.INSTALLING, "installing-command", hostname)
                     .useMutex(getLocation().mutexes(), "installation lock at host", "installing "+elvis(entity,this))
                     .execute();
         }
@@ -77,6 +77,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
             executeCommandInTask(
                     getEntity().getConfig(VanillaWindowsProcess.CUSTOMIZE_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.CUSTOMIZE_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.CUSTOMIZING,
                     "customize-command");
         }
         if (entity.getConfig(VanillaWindowsProcess.CUSTOMIZE_REBOOT_REQUIRED)) {
@@ -91,6 +92,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
             executeCommandInTask(
                     getEntity().getConfig(VanillaWindowsProcess.LAUNCH_COMMAND),
                     getEntity().getConfig(VanillaWindowsProcess.LAUNCH_POWERSHELL_COMMAND),
+                    AbstractSoftwareProcessSshDriver.LAUNCHING,
                     "launch-command");
         }
     }
@@ -101,7 +103,9 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
         try {
             exitCode = executeCommandInTask(
                     getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_COMMAND),
-                    getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_POWERSHELL_COMMAND), "is-running-command");
+                    getEntity().getConfig(VanillaWindowsProcess.CHECK_RUNNING_POWERSHELL_COMMAND), 
+                    AbstractSoftwareProcessSshDriver.CHECK_RUNNING,
+                    "is-running-command");
         } catch (Exception e) {
             Throwable interestingCause = findExceptionCausedByWindowsRestart(e);
             if (interestingCause != null) {
@@ -122,6 +126,7 @@ public class VanillaWindowsProcessWinRmDriver extends AbstractSoftwareProcessWin
         executeCommandInTask(
                 getEntity().getConfig(VanillaWindowsProcess.STOP_COMMAND),
                 getEntity().getConfig(VanillaWindowsProcess.STOP_POWERSHELL_COMMAND),
+                AbstractSoftwareProcessSshDriver.STOPPING,
                 "stop-command");
     }
 

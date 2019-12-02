@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,7 +57,7 @@ public class LoadBalancingPolicySoakTest extends AbstractLoadBalancingPolicyTest
         runLoadBalancingSoakTest(config);
     }
     
-    @Test
+    @Test(retryAnalyzer = FlakyRetryAnalyser.class)
     public void testLoadBalancingManyItemsQuickTest() {
         RunConfig config = new RunConfig();
         config.numCycles = 1;

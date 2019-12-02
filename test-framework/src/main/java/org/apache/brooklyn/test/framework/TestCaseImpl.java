@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
@@ -77,7 +78,7 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
         } catch (Throwable t) {
             Exceptions.propagateIfInterrupt(t);
             try {
-                execOnErrorSpec();
+                execOnSpec(ON_ERROR_SPEC);
             } catch (Throwable t2) {
                 LOG.error("Problem executing on-error for "+this, t2);
                 Exceptions.propagateIfInterrupt(t2);
@@ -85,6 +86,8 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
             sensors().set(Attributes.SERVICE_UP, false);
             ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(t);
+        } finally {
+            execOnSpec(ON_FINALLY_SPEC);
         }
     }
 
@@ -134,16 +137,16 @@ public class TestCaseImpl extends TargetableTestComponentImpl implements TestCas
         start(locations);
     }
 
-    protected void execOnErrorSpec() {
-        EntitySpec<?> onErrorSpec = config().get(ON_ERROR_SPEC);
-        if (onErrorSpec != null) {
-            LOG.info("Creating and starting on-error child entity {} for {}", onErrorSpec.getType().getSimpleName(), this);
-            Entity onErrorEntity = addChild(onErrorSpec);
-            if (onErrorEntity instanceof Startable){
-                ((Startable) onErrorEntity).start(getLocations());
+    protected void execOnSpec(ConfigKey<EntitySpec<?>> configKey) {
+        EntitySpec<?> spec = config().get(configKey);
+        if (spec != null) {
+            LOG.info("Creating and starting {} child entity {} for {}", configKey.getName(), spec.getType().getSimpleName(), this);
+            Entity onEntity = addChild(spec);
+            if (onEntity instanceof Startable){
+                ((Startable) onEntity).start(getLocations());
             }
         } else {
-            LOG.debug("No on-error spec for {}", this);
+            LOG.debug("No {} for {}", configKey.getName(), this);
         }
     }
 }

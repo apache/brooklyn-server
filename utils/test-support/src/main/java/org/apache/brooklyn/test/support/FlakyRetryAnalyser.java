@@ -16,13 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.location.jclouds;
+package org.apache.brooklyn.test.support;
 
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
+import org.testng.IRetryAnalyzer;
+import org.testng.ITestResult;
 
-public interface AwsEc2SessionAwareLocationConfig extends JcloudsLocationConfig{
+public class FlakyRetryAnalyser implements IRetryAnalyzer {
+    private static final int MAX = 3;
 
-    ConfigKey<String> IAM_ROLE_NAME = ConfigKeys.newStringConfigKey("iamRoleName",
-            "IAM role / profile name to get session credentials when connecting to AWS EC2", "brooklyn");
+    private int count = 0;
+
+    @Override
+    public boolean retry(ITestResult result) {
+        if (count < MAX) {
+            count++;
+            return true;
+        }
+        return false;
+    }
+
 }

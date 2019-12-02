@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.javalang.coerce;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -41,6 +43,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -91,8 +94,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
     /** Store the coercion {@link Function functions} in a {@link Table table}. */
     private final Table<Class<?>, Class<?>, Function<?,?>> registry = HashBasedTable.create();
 
-    /** Store the generic coercers. */
-    private final List<TryCoercer> genericCoercers = Lists.newCopyOnWriteArrayList();
+    /** Store the generic coercers, ordered by the name. */
+    private final Map<String,TryCoercer> genericCoercersByName = Maps.newTreeMap();
+    /** Put the list in a cache, reset each time the map is updated. */
+    private List<TryCoercer> genericCoercers = new ArrayList<>();
 
     @Override
     public <T> T coerce(Object value, Class<T> targetType) {
@@ -320,7 +325,20 @@ public class TypeCoercerExtensible implements TypeCoercer {
     
     /** Registers a generic adapter for use with type coercion. */
     @Beta
-    public synchronized void registerAdapter(TryCoercer fn) {
-        genericCoercers.add(fn);
+    public synchronized void registerAdapter(String nameAndOrder, TryCoercer fn) {
+        synchronized (genericCoercersByName) {
+            genericCoercersByName.put(nameAndOrder, fn);
+            genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
+        }
     }
+    
+    /** @deprecated since introduction, use {@link #registerAdapter(String, TryCoercer)} */
+    @Beta @Deprecated
+    public synchronized void registerAdapter(TryCoercer fn) {
+        synchronized (genericCoercersByName) {
+            genericCoercersByName.put(Time.makeDateStampString()+"-"+Strings.makePaddedString(""+(genericCoercersByName.size()), 3, "0", ""), fn);
+            genericCoercers = ImmutableList.copyOf(genericCoercersByName.values());
+        }
+    }
+
 }

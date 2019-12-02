@@ -30,12 +30,53 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.sensor.TemplatedStringAttributeSensorAndConfigKey;
+import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.time.Duration;
 
 @Catalog(name="Vanilla Windows Process", description="A basic Windows entity configured with scripts, e.g. for launch, check-running and stop")
 @ImplementedBy(VanillaWindowsProcessImpl.class)
 public interface VanillaWindowsProcess extends AbstractVanillaProcess {
+
+    @SetFromFlag("installDir")
+    AttributeSensorAndConfigKey<String,String> INSTALL_DIR = new TemplatedStringAttributeSensorAndConfigKey(
+        "install.dir", 
+        "Directory in which this software will be installed (if downloading/unpacking artifacts explicitly); uses FreeMarker templating format",
+        "${" +
+        "config['"+BrooklynConfigKeys.ONBOX_BASE_DIR.getName()+"']!" +
+        "config['"+BrooklynConfigKeys.BROOKLYN_DATA_DIR.getName()+"']!" +
+        "'ERROR-ONBOX_BASE_DIR-not-set'" +
+        "}" +
+        "\\" +
+        "installs\\" +
+        // the  var??  tests if it exists, passing value to ?string(if_present,if_absent)
+        // the ! provides a default value afterwards, which is never used, but is required for parsing
+        // when the config key is not available;
+        // thus the below prefers the install.unique_label, but falls back to simple name
+        // plus a version identifier *if* the version is explicitly set
+        "${(config['install.unique_label']??)?string(config['install.unique_label']!'X'," +
+        "(entity.entityType.simpleName)+" +
+        "((config['install.version']??)?string('_'+(config['install.version']!'X'),''))" +
+        ")}");
+
+    @SetFromFlag("runDir")
+    AttributeSensorAndConfigKey<String,String> RUN_DIR = new TemplatedStringAttributeSensorAndConfigKey(
+        "run.dir", 
+        "Directory from which this software to be run; uses FreeMarker templating format",
+        "${" +
+        "config['"+BrooklynConfigKeys.ONBOX_BASE_DIR.getName()+"']!" +
+        "config['"+BrooklynConfigKeys.BROOKLYN_DATA_DIR.getName()+"']!" +
+        "'ERROR-ONBOX_BASE_DIR-not-set'" +
+        "}" +
+        "\\" +
+        "apps\\${entity.applicationId}\\" +
+        "entities\\${entity.entityType.simpleName}_" +
+        "${entity.id}");
+
+    
     // 3389 is RDP; 5985 is WinRM (3389 isn't used by Brooklyn, but useful for the end-user subsequently)
     ConfigKey<Collection<Integer>> REQUIRED_OPEN_LOGIN_PORTS = ConfigKeys.newConfigKeyWithDefault(
             SoftwareProcess.REQUIRED_OPEN_LOGIN_PORTS,

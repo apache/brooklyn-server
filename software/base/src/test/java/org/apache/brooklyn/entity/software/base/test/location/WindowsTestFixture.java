@@ -27,12 +27,17 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 public class WindowsTestFixture {
 
+    /** Can be configured as `user:pass@host` to allow use of a pre-existing fixed winrm target;
+     * if not, will provision in AWS */
+    public static final String EXISTING_WINDOWS_TEST_USER_PASS_HOST_ENV_VAR = "EXISTING_WINDOWS_TEST_USER_PASS_HOST_ENV_VAR";
+    
     public static MachineProvisioningLocation<WinRmMachineLocation> setUpWindowsLocation(ManagementContext mgmt) throws Exception {
         return setUpWindowsLocation(mgmt, ImmutableMap.<String, Object>of());
     }
@@ -41,8 +46,17 @@ public class WindowsTestFixture {
     public static MachineProvisioningLocation<WinRmMachineLocation> setUpWindowsLocation(ManagementContext mgmt, Map<String, ?> props) throws Exception {
         // Commented out / unused code included here to make it easy to supply a 
         // pre-existing Windows VM for use in a bunch of different tests.
-//        return (MachineProvisioningLocation<WinRmMachineLocation>) newByonLocation((ManagementContextInternal) mgmt);
-        return (MachineProvisioningLocation<WinRmMachineLocation>) newJcloudsLocation((ManagementContextInternal) mgmt, props);
+        String userPassAtHost = System.getenv(EXISTING_WINDOWS_TEST_USER_PASS_HOST_ENV_VAR);
+        if (Strings.isBlank(userPassAtHost)) {
+            return (MachineProvisioningLocation<WinRmMachineLocation>) newJcloudsLocation((ManagementContextInternal) mgmt, props);
+        } else {
+            return (MachineProvisioningLocation<WinRmMachineLocation>) newByonLocation((ManagementContextInternal) mgmt,
+                MutableMap.of(
+                        "winrm", userPassAtHost.split("@")[1],
+                        "password", userPassAtHost.split(":")[1].split("@")[0],
+                        "user", userPassAtHost.split(":")[0]
+                    ));
+        }
     }
     
     private static MachineProvisioningLocation<?> newJcloudsLocation(ManagementContextInternal mgmt, Map<String, ?> props) {
@@ -62,17 +76,17 @@ public class WindowsTestFixture {
                 .build());
     }
     
-    @SuppressWarnings("unused")
     private static MachineProvisioningLocation<?> newByonLocation(ManagementContextInternal mgmt, Map<String, ?> props) {
         Map<String, Object> config = new LinkedHashMap<>();
-        config.put("hosts", "52.12.211.123:5985");
+        config.put("useJcloudsSshInit", "false");
+        config.put("byonIdentity", "123");
         config.put("osFamily", "windows");
+        // these are overwritten by the map
         config.put("winrm", "52.12.211.123:5985");
         config.put("user", "Administrator");
         config.put("password", "pa55w0rd");
-        config.put("useJcloudsSshInit", "false");
-        config.put("byonIdentity", "123");
         config.putAll(props);
-        return (MachineProvisioningLocation<?>) mgmt.getLocationRegistry().getLocationManaged("byon", config);
+        
+        return (MachineProvisioningLocation<?>) mgmt.getLocationRegistry().getLocationManaged("byon", ImmutableMap.of("hosts", ImmutableList.of(config)));
     }
 }
