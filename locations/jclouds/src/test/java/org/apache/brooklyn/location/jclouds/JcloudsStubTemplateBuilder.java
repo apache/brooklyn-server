@@ -170,8 +170,6 @@ public class JcloudsStubTemplateBuilder {
         case "google-compute-engine" :
             return new GoogleComputeEngineTemplateOptions();
             //return mock(GoogleComputeEngineTemplateOptions.class);
-        case "azurecompute" :
-            return new org.jclouds.azurecompute.compute.options.AzureComputeTemplateOptions();
         case "azurecompute-arm" :
             return new org.jclouds.azurecompute.arm.compute.options.AzureTemplateOptions();
         case "softlayer" :

@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
 import org.jclouds.azurecompute.arm.AzureComputeApi;
+import org.jclouds.azurecompute.arm.domain.AddressSpace;
 import org.jclouds.azurecompute.arm.domain.ResourceGroup;
 import org.jclouds.azurecompute.arm.domain.Subnet;
 import org.jclouds.azurecompute.arm.domain.VirtualNetwork;
@@ -123,7 +124,7 @@ public class DefaultAzureArmNetworkCreator {
             Subnet subnet = Subnet.create(subnetName, null, null, subnetProperties);
 
             VirtualNetwork.VirtualNetworkProperties virtualNetworkProperties = VirtualNetwork.VirtualNetworkProperties
-                    .builder().addressSpace(VirtualNetwork.AddressSpace.create(Arrays.asList(DEFAULT_VNET_ADDRESS_PREFIX)))
+                    .builder().addressSpace(AddressSpace.create(Arrays.asList(DEFAULT_VNET_ADDRESS_PREFIX)))
                     .subnets(Arrays.asList(subnet)).build();
             virtualNetworkApi.createOrUpdate(vnetName, location, Maps.newHashMap(), virtualNetworkProperties);
         } else {
