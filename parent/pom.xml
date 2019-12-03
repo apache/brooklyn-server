@@ -1136,6 +1136,8 @@
                   <exclude>docs/**</exclude>
                   <!-- maven cache -->
                   <exclude>**/.m2/**</exclude>
+                  <!-- brooklyn persisted state, created by tests -->
+                  <exclude>**/.brooklyn/**</exclude>
 
                 </excludes>
               </configuration>
