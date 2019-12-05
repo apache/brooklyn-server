@@ -80,7 +80,7 @@ public class MultiSessionAttributeAdapter {
     private static final String KEY_PREFERRED_SESSION_HANDLER_INSTANCE = "org.apache.brooklyn.server.PreferredSessionHandlerInstance";
     private static final String KEY_IS_PREFERRED = "org.apache.brooklyn.server.IsPreferred";
 
-    private static final int MAX_INACTIVE_INTERVAL = 600;
+    private static final int MAX_INACTIVE_INTERVAL = 3601;
 
     private static final Object PREFERRED_SYMBOLIC_NAME = 
         "org.apache.cxf.cxf-rt-transports-http";
