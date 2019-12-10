@@ -532,7 +532,7 @@ public class BrooklynComponentTemplateResolver {
                         entitySpec = mgmt.getTypeRegistry().createSpecFromPlan(null, yamlPlan, 
                             RegisteredTypeLoadingContexts.alreadyEncountered(encounteredRegisteredTypeIds), EntitySpec.class);
                     } catch (Exception e2) {
-                        String errorMessage = "entitySpec could not parse its plan";
+                        String errorMessage = "entitySpec plan parse error";
                         if (Thread.currentThread().isInterrupted()) {
                             // plans which read/write to a file might not work in interrupted state
                             if (cached!=null) {
@@ -543,9 +543,30 @@ public class BrooklynComponentTemplateResolver {
                             }
                         }
                         Exceptions.propagateIfFatal(e2);
-                        throw Exceptions.create(errorMessage+":\n"+yamlPlan,
-                            // if it has a key 'type' then it is likely a CAMP entity, so prefer e1; else prefer e2
-                            resolvedConfig.containsKey("type") ? Arrays.asList(e1, e2) : Arrays.asList(e2, e1));
+                        
+                        Exception exceptionToInclude;
+                        // heuristic
+                        if (resolvedConfig.containsKey("type")) {
+                            // if it has a key 'type' then it is likely a CAMP entity, abbreviated syntax (giving a type), so just give e1
+                            exceptionToInclude = e1;
+                        } else if (resolvedConfig.containsKey("brooklyn.services")) {
+                            // seems like a CAMP app, just give e2
+                            exceptionToInclude = e2;
+                        } else {
+                            // can't tell if it was short form eg `entitySpec: { type: x, ... }`
+                            // or long form (camp or something else), eg `entitySpec: { brooklyn.services: [ ... ] }`.
+                            // the error from the latter is a bit nicer so return it, but log the former.
+                            errorMessage += "; consult log for more information";
+                            log.debug("Suppressed error in entity spec where unclear whether abbreviated or full syntax, is (from abbreviated form parse, where error parsing full form will be reported subsequently): "+e1);
+                            exceptionToInclude = e2;
+                            // don't use the list as that causes unhelpful "2 errors including"...
+                        }
+                        // first exception might include the plan, so we don't need to here
+                        boolean yamlPlanAlreadyIncluded = exceptionToInclude.toString().contains(yamlPlan);
+                        if (!yamlPlanAlreadyIncluded) {
+                            errorMessage += ":\n"+yamlPlan;
+                        }
+                        throw Exceptions.propagateAnnotated(errorMessage, exceptionToInclude);
                     }
                 }
                 cached = EntityManagementUtils.unwrapEntity(entitySpec);

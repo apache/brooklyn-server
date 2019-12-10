@@ -64,8 +64,11 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * 1 means this is clearly the intended transformer and no others need be tried 
      * (for instance because the format is explicitly specified),
      * and values between 0 and 1 indicate how likely a transformer believes it should be used.
+     * <p>
      * Values greater than 0.5 are generally reserved for the presence of marker tags or files
      * which strongly indicate that the format is compatible.
+     * Such a value should be returned even if the plan is not actually parseable, but if it looks like a user error
+     * which prevents parsing (eg mal-formed YAML) and the transformer could likely be the intended target.
      * <p>
      * */
     double scoreForType(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);

@@ -50,6 +50,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.concurrent.Locks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameStringComparator;
@@ -307,26 +308,28 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 .build();
         }
         try {
-            return (SpecT) BasicBrooklynCatalog.internalCreateSpecLegacy(mgmt, item, constraint.getAlreadyEncounteredTypes(), false);
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
+            SpecT resultLegacy = (SpecT) BasicBrooklynCatalog.internalCreateSpecLegacy(mgmt, item, constraint.getAlreadyEncounteredTypes(), false);
+            log.warn("Item '"+item+"' was only parseable using legacy transformers; may not be supported in future versions: "+resultLegacy);
+            return resultLegacy;
+        } catch (Exception exceptionFromLegacy) {
+            Exceptions.propagateIfFatal(exceptionFromLegacy);
             // for now, combine this failure with the original
             try {
                 result.get();
                 // above will throw -- so won't come here
                 throw new IllegalStateException("should have failed getting type resolution for "+symbolicName);
-            } catch (Exception e0) {
-                Set<Exception> exceptionsInOrder = MutableSet.of();
-                if (e0.toString().indexOf("none of the available transformers")>=0) {
-                    // put the legacy exception first if none of the new transformers support the type
-                    // (until the new transformer is the primary pathway)
-                    exceptionsInOrder.add(e);
-                    exceptionsInOrder.add(e0);
-                } else {
-                    exceptionsInOrder.add(e0);
-                    exceptionsInOrder.add(e);
+            } catch (Exception exceptionFromPrimary) {
+                // ignore the legacy error. means much nicer errors in the happy case.
+                
+                if (log.isTraceEnabled()) {
+                    log.trace("Unable to instantiate "+(symbolicName==null ? "item" : symbolicName)+", primary error", 
+                        exceptionFromPrimary);
+                    log.trace("Unable to instantiate "+(symbolicName==null ? "item" : symbolicName)+", legacy error", 
+                        exceptionFromLegacy);
                 }
-                throw Exceptions.create("Unable to instantiate "+(symbolicName==null ? "item" : symbolicName), exceptionsInOrder); 
+
+                Throwable exception = Exceptions.collapse(exceptionFromPrimary);
+                throw symbolicName==null ? Exceptions.propagate(exception) : Exceptions.propagateAnnotated("Unable to instantiate "+symbolicName, exception);
             }
         }
     }

@@ -125,10 +125,13 @@ public class TypePlanTransformers {
                     (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
             } catch (Throwable e) {
                 Exceptions.propagateIfFatal(e);
-                log.debug("Transformer for "+t.getFormatCode()+" gave an error creating this plan (retrying with others): "+e, e);
+                if (log.isTraceEnabled()) {
+                    log.trace("Transformer for "+t.getFormatCode()+" gave an error creating this plan (may retry): "+e, e);
+                }
                 failuresFromTransformers.add(new PropagatedRuntimeException(
-                    (type.getSymbolicName()!=null ? "Error in definition of "+type.getId() : 
-                        "Transformer for "+t.getFormatCode()+" gave an error creating this plan") + ": "+
+                    (type.getSymbolicName()!=null ? 
+                        t.getFormatCode()+" plan creation error in "+type.getId() :
+                        t.getFormatCode()+" plan creation error") + ": "+
                     Exceptions.collapseText(e), e));
             }
         }
@@ -150,7 +153,8 @@ public class TypePlanTransformers {
                 Exceptions.create("All plan transformers failed", failuresFromTransformers);
         } else {
             if (transformers.isEmpty()) {
-                result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+type);
+                result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+
+                    (type.getId()!=null ? type.getId() : "plan:\n"+type.getPlan().getPlanData()));
             } else {
                 result = new UnsupportedTypePlanException("Invalid plan; potentially applicable transformers "+transformers+" do not support it, and other available transformers "+
 //                    // the removeAll call below won't work until "all" caches it
