@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,6 +61,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -68,11 +70,13 @@ import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils.FlagConfigKeyAndValueRecord;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -505,6 +509,7 @@ public class BrooklynComponentTemplateResolver {
 
         private class EntitySpecSupplier implements DeferredSupplier<EntitySpec<?>> {
             EntitySpecConfiguration flag;
+            transient EntitySpec<?> cached = null;
             public EntitySpecSupplier(EntitySpecConfiguration flag) {
                 this.flag = flag;
             }
@@ -513,9 +518,38 @@ public class BrooklynComponentTemplateResolver {
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
                 @SuppressWarnings("unchecked")
                 Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(flag.getSpecConfiguration());
-                EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
-
-                return EntityManagementUtils.unwrapEntity(entitySpec);
+                EntitySpec<?> entitySpec;
+                try {
+                    // first parse as a CAMP entity
+                    entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
+                } catch (Exception e1) {
+                    Exceptions.propagateIfFatal(e1);
+                    
+                    // if that doesn't work, try full multi-format plan parsing 
+                    String yamlPlan = null;
+                    try {
+                        yamlPlan = new Yaml().dump(resolvedConfig);
+                        entitySpec = mgmt.getTypeRegistry().createSpecFromPlan(null, yamlPlan, 
+                            RegisteredTypeLoadingContexts.alreadyEncountered(encounteredRegisteredTypeIds), EntitySpec.class);
+                    } catch (Exception e2) {
+                        String errorMessage = "entitySpec could not parse its plan";
+                        if (Thread.currentThread().isInterrupted()) {
+                            // plans which read/write to a file might not work in interrupted state
+                            if (cached!=null) {
+                                log.debug("EntitySpecSupplier returning cached spec "+cached+" because being invoked in a context which must return immediately");
+                                return cached;
+                            } else {
+                                errorMessage += " (note, it is being invoked in a context which must return immediately and there is no cache)";
+                            }
+                        }
+                        Exceptions.propagateIfFatal(e2);
+                        throw Exceptions.create(errorMessage+":\n"+yamlPlan,
+                            // if it has a key 'type' then it is likely a CAMP entity, so prefer e1; else prefer e2
+                            resolvedConfig.containsKey("type") ? Arrays.asList(e1, e2) : Arrays.asList(e2, e1));
+                    }
+                }
+                cached = EntityManagementUtils.unwrapEntity(entitySpec);
+                return cached;
             }
         }
         
