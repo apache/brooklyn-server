@@ -51,7 +51,7 @@ public class DashboardAggregator extends AbstractEnricher {
 
     private ScheduledTask task;
 
-    public static BasicAttributeSensorAndConfigKey<Duration> DASHBOARD_COST_PER_MONTH = new BasicAttributeSensorAndConfigKey(Duration.class,
+    public static BasicAttributeSensorAndConfigKey<Duration> DASHBOARD_AGGREGATION_PERIOD = new BasicAttributeSensorAndConfigKey(Duration.class,
             "dashboard.period",
             "The amount of time to wait between aggregation jobs",
             Duration.seconds(1));
@@ -61,7 +61,7 @@ public class DashboardAggregator extends AbstractEnricher {
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
 
-        Duration duration = config().get(DASHBOARD_COST_PER_MONTH);
+        Duration duration = config().get(DASHBOARD_AGGREGATION_PERIOD);
 
         Callable<Task<?>> taskFactory = () -> Tasks.builder()
                 .dynamic(false)
