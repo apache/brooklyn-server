@@ -1232,9 +1232,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             this.idAsSymbolicNameWithoutVersion = idAsSymbolicNameWithoutVersion;
             
             if (itemDefinitionParsedToStringOrMap instanceof String) {
-                // if just a string supplied, wrap as map
-                this.item = MutableMap.of("type", itemDefinitionParsedToStringOrMap);
-                this.itemYaml = "type:\n"+makeAsIndentedObject(itemYaml);                
+                if (((String)itemDefinitionParsedToStringOrMap).trim().indexOf("\n")<0) {
+                    // if just a one-line string supplied, treat at type unless it parses as a map
+                    Object reparsed = null;
+                    try {
+                        reparsed = Iterables.getOnlyElement( Yamls.parseAll( (String) itemDefinitionParsedToStringOrMap ) );
+                    } catch (Exception e) {
+                        // unparseable, leave null to treat as the type
+                    }
+                    if (reparsed instanceof Map) {
+                        this.item = (Map<?,?>) reparsed;
+                        this.itemYaml = (String) itemDefinitionParsedToStringOrMap;
+                    } else {
+                        this.item = MutableMap.of("type", itemDefinitionParsedToStringOrMap);
+                        this.itemYaml = "type: "+itemYaml;
+                    }
+                } else {
+                    // if multi-line, treat as template, not parsed
+                    this.item = MutableMap.of();
+                    this.itemYaml = (String) itemDefinitionParsedToStringOrMap;                
+                }
             } else if (itemDefinitionParsedToStringOrMap instanceof Map) {
                 this.item = (Map<?,?>)itemDefinitionParsedToStringOrMap;
                 this.itemYaml = itemYaml;
@@ -1590,6 +1607,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         collectCatalogItemsFromCatalogBomRoot("caller-supplied YAML", yaml, bundle, result, null, true, ImmutableMap.of(), 0, forceUpdate);
 
         // do this at the end for atomic updates; if there are intra-yaml references, we handle them specially
+        // (but for legacy items we only support them when using `item: { type: co-bundled-type }` syntax,
+        // where the co-bundled type is declared previously; we do NOT support `item: { services: ... }` syntax for co-bundled refs
         for (CatalogItemDtoAbstract<?, ?> item: result) {
             if (bundle!=null && bundle.getVersionedName()!=null) {
                 item.setContainingBundle(bundle.getVersionedName());
