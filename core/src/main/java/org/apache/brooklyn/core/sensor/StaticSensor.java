@@ -70,6 +70,7 @@ public class StaticSensor<T> extends AddSensor<T> {
         class ResolveValue implements Callable<Maybe<T>> {
             @Override
             public Maybe<T> call() throws Exception {
+                // TODO resolve deep?
                 return Tasks.resolving(value).as(sensor.getTypeToken()).timeout(timeout).getMaybe();
             }
         }

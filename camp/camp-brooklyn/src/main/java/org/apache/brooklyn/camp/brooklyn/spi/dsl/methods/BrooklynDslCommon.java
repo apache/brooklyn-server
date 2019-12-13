@@ -287,6 +287,8 @@ public class BrooklynDslCommon {
 
     // Build complex things
 
+    // TODO allow entitySpec to take string, parsed as YAML, and if just a string that's taken as the type
+    
     @DslAccessible
     public static EntitySpecConfiguration entitySpec(Map<String, Object> arguments) {
         return new EntitySpecConfiguration(arguments);

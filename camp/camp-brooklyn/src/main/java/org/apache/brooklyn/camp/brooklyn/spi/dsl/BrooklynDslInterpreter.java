@@ -79,6 +79,8 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
                 node.setNewValue( evaluate(parsedNode, true) );
             }
         } catch (Exception e) {
+            // we could try parsing it as yaml and if it comes back as a map or a list, reapply the interpreter;
+            // useful in some contexts where strings are required by the source (eg CFN, TOSCA)
             log.warn("Error evaluating node (rethrowing) '"+expression+"': "+e);
             Exceptions.propagateIfFatal(e);
             throw new IllegalArgumentException("Error evaluating node '"+expression+"'", e);
