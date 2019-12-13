@@ -99,6 +99,7 @@ public class MultiSessionAttributeAdapter {
     protected MultiSessionAttributeAdapter(HttpSession preferredSession, HttpSession localSession) {
         this.preferredSession = preferredSession;
         this.localSession = localSession;
+        resetExpiration();
     }
     
     public static MultiSessionAttributeAdapter of(HttpServletRequest r) {
@@ -137,7 +138,6 @@ public class MultiSessionAttributeAdapter {
                         (preferredSession!=null ? info(preferredSession) : "none, willl make new session in "+info(preferredHandler)));
                 }
                 if (preferredSession!=null) {
-                    preferredSession.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
                     return preferredSession;
                 }
                 if (preferredHandler!=null) {
@@ -145,7 +145,6 @@ public class MultiSessionAttributeAdapter {
                         HttpSession result = preferredHandler.newHttpSession(optionalRequest);
                         // bigger than HouseKeeper.sessionScavengeInterval: 3600
                         // https://www.eclipse.org/jetty/documentation/9.4.x/session-configuration-housekeeper.html
-                        result.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
                         if (log.isTraceEnabled()) {
                             log.trace("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, localSession));
                         }
@@ -154,7 +153,6 @@ public class MultiSessionAttributeAdapter {
                     // the server has a preferred handler, but no session yet; fall back to marking on the session 
                     log.warn("No request so cannot create preferred session at preferred handler "+info(preferredHandler)+" for "+info(optionalRequest, localSession)+"; will exceptionally mark the calling session as the preferred one");
                     markSessionAsPreferred(localSession, " (request came in for "+info(optionalRequest, localSession)+")");
-                    localSession.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
                     return localSession;
                 } else {
                     // shouldn't come here; at minimum it should have returned the local session's handler
@@ -408,8 +406,8 @@ public class MultiSessionAttributeAdapter {
                     if (ss!=null) {
                         ss.setAttribute(name, value);
                     }
-                    return;
                 }
+                return;
             } else {
                 if (!setLocalValuesAlso) {
                     // can't do all, but at least to local
@@ -432,8 +430,8 @@ public class MultiSessionAttributeAdapter {
                     if (ss!=null) {
                         ss.removeAttribute(name);
                     }
-                    return;
                 }
+                return;
             } else {
                 if (!setLocalValuesAlso) {
                     // can't do all, but at least to local
@@ -481,4 +479,19 @@ public class MultiSessionAttributeAdapter {
         return getPreferredSession().getId();
     }
 
+    public MultiSessionAttributeAdapter resetExpiration() {
+        // force all sessions with this ID to be marked used so they are not expired
+        // (if _any_ session with this ID is expired, then they all are, even if another
+        // with the same ID is in use or has a later expiry)
+        Handler[] hh = getSessionHandlers();
+        if (hh!=null) {
+            for (Handler h: hh) {
+                Session ss = ((SessionHandler)h).getSession(getId());
+                if (ss!=null) {
+                    ss.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
+                }
+            }
+        }
+        return this;
+    }
 }
