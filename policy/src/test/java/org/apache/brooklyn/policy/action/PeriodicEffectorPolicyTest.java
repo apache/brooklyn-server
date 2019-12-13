@@ -19,13 +19,19 @@
 
 package org.apache.brooklyn.policy.action;
 
+import java.util.Arrays;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
@@ -34,6 +40,8 @@ import com.google.common.collect.Iterables;
 
 public class PeriodicEffectorPolicyTest extends AbstractEffectorPolicyTest {
 
+    private static final Logger log = LoggerFactory.getLogger(PeriodicEffectorPolicyTest.class);
+    
     @Test
     public void testPeriodicEffectorFires() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
@@ -52,6 +60,9 @@ public class PeriodicEffectorPolicyTest extends AbstractEffectorPolicyTest {
         entity.sensors().set(START, Boolean.TRUE);
         assertConfigEqualsEventually(policy, PeriodicEffectorPolicy.RUNNING, true);
         assertCallHistoryEventually(entity, "myEffector", 2);
+        
+        app.stop();
+        Asserts.assertTrue( ((PeriodicEffectorPolicy)policy).getExecutor().isShutdown(), "Executor should have been shut down");
     }
 
     // Integration because of long wait

@@ -30,11 +30,12 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
-import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
@@ -44,6 +45,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext.NonDeploymentManagementContextMode;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -304,11 +306,16 @@ public class EntityManagementSupport {
                 nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STOPPING);
             }
         }
-        // TODO custom stopping activities
-        // TODO framework stopping events - no more sensors, executions, etc
-        // (elaborate or remove ^^^ ? -AH, Sept 2014)
         
         if (!isReadOnly() && info.getMode().isDestroying()) {
+            // ensure adjuncts get a destroy callback
+            // note they don't get any alert if the entity is being locally unmanaged to run somewhere else.
+            // framework should introduce a call for that ideally, but in interim if needed they
+            // can listen to the entity becoming locally unmanaged
+            entity.feeds().forEach(this::destroyAdjunct);
+            entity.enrichers().forEach(this::destroyAdjunct);
+            entity.policies().forEach(this::destroyAdjunct);
+                
             // if we support remote parent of local child, the following call will need to be properly remoted
             if (entity.getParent()!=null) entity.getParent().removeChild(entity.getProxyIfAvailable());
         }
@@ -320,6 +327,18 @@ public class EntityManagementSupport {
         if (!isReadOnly()) {
             entity.onManagementNoLongerMaster();
             entity.onManagementStopped();
+        }
+    }
+    
+    protected void destroyAdjunct(EntityAdjunct adjunct) {
+        if (adjunct instanceof AbstractEntityAdjunct) {
+            try {
+                ((AbstractEntityAdjunct)adjunct).destroy();
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                log.error("Error destroying "+adjunct+" (ignoring): "+e);
+                log.trace("Trace for error", e);
+            }
         }
     }
     
