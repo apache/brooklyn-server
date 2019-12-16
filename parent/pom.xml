@@ -204,11 +204,6 @@
                 <version>${ant.version}</version>
             </dependency>
             <dependency>
-                <groupId>net.sourceforge.plantuml</groupId>
-                <artifactId>plantuml</artifactId>
-                <version>${plantuml.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-server</artifactId>
                 <version>${jetty.version}</version>
