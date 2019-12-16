@@ -181,7 +181,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         if (includeTags) {
             result.setExtraField("tags", resolving(MutableList.copyOf(entity.tags().getTags())).preferJson(true).resolve() );
         }
-        
+        result.setExtraField("creationTimeUtc", entity.getCreationTime());
         addSensorsByGlobs(result, entity, extraSensorGlobs);
         addConfigByGlobs(result, entity, extraConfigGlobs);
         
