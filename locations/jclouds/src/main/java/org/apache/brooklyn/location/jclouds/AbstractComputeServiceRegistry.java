@@ -57,7 +57,7 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
     private final Map<Map<?, ?>, ComputeService> cachedComputeServices = new ConcurrentHashMap<>();
 
     @Override
-    public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
+    public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) throws IllegalArgumentException {
         JCloudsPropertiesBuilder propertiesBuilder = new JCloudsPropertiesBuilder(conf)
                 .setCommonJcloudsProperties();
 
@@ -81,6 +81,11 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
                 .addAll(linkingContext(conf));
 
         Iterable<? extends Module> modules = modulesBuilder.build();
+
+        //Check for missing endpoint when provider is azure
+        if (properties.getProperty(Constants.PROPERTY_ENDPOINT) == null && ("azurecompute-arm".equals(provider))) {
+            throw new IllegalArgumentException("Endpoint property cannot be null when provider is azure-arm");
+        }
 
         Supplier<ComputeService> computeServiceSupplier = new ComputeServiceSupplier(conf, modules, properties);
         if (allowReuse) {

@@ -612,6 +612,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         for (int i = 1; i <= attempts; i++) {
             try {
                 return obtainOnce(setup);
+            } catch (IllegalArgumentException e) {
+                LOG.warn("Attempt #{}/{} to obtain machine threw error: {}", new Object[]{i, attempts, e});
+                exceptions.add(e);
             } catch (RuntimeException e) {
                 LOG.warn("Attempt #{}/{} to obtain machine threw error: {}", new Object[]{i, attempts, e});
                 exceptions.add(e);
