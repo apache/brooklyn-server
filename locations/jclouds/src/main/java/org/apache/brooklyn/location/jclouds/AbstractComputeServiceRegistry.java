@@ -57,7 +57,7 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
     private final Map<Map<?, ?>, ComputeService> cachedComputeServices = new ConcurrentHashMap<>();
 
     @Override
-    public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) throws IllegalArgumentException {
+    public ComputeService findComputeService(ConfigBag conf, boolean allowReuse) {
         JCloudsPropertiesBuilder propertiesBuilder = new JCloudsPropertiesBuilder(conf)
                 .setCommonJcloudsProperties();
 
