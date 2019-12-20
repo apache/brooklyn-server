@@ -82,6 +82,11 @@ public abstract class AbstractComputeServiceRegistry implements ComputeServiceRe
 
         Iterable<? extends Module> modules = modulesBuilder.build();
 
+        //Check for missing endpoint when provider is azure
+        if (properties.getProperty(Constants.PROPERTY_ENDPOINT) == null && ("azurecompute-arm".equals(provider))) {
+            throw new IllegalArgumentException("Endpoint property cannot be null when provider is azure-arm");
+        }
+
         Supplier<ComputeService> computeServiceSupplier = new ComputeServiceSupplier(conf, modules, properties);
         if (allowReuse) {
             return cachedComputeServices.computeIfAbsent(makeCacheKey(conf, properties), key -> computeServiceSupplier.get());
