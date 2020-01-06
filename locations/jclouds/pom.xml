@@ -136,16 +136,11 @@
             <version>${jclouds.version}</version>
             <exclusions>
               <exclusion>
-                <!-- pulls in 1.17 where we want 1.21 -->
+                <!-- pulls in 1.17 where we want a newer version -->
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
               </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>${jclouds.groupId}.labs</groupId>
-            <artifactId>azurecompute</artifactId>
-            <version>${jclouds.version}</version>
         </dependency>
 
         <!-- these two seem needed here to prevent Eclipse IDE from getting wrong version of logback-core -->

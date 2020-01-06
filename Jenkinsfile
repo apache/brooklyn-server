@@ -18,11 +18,13 @@
  */
 
 node(label: 'ubuntu') {
-    properties([
-        pipelineTriggers([
-            issueCommentTrigger('.*test this please.*')
+    if (env.CHANGE_ID) {
+        properties([
+            pipelineTriggers([
+                issueCommentTrigger('.*test this please.*')
+            ])
         ])
-    ])
+    }
 
     catchError {
         def environmentDockerImage
@@ -44,15 +46,6 @@ node(label: 'ubuntu') {
             stage('Run tests') {
                 environmentDockerImage.inside('-i --name brooklyn-${DOCKER_TAG} -v ${WORKSPACE}/.m2:/var/maven/.m2 --mount type=bind,source="${HOME}/.m2/settings.xml",target=/var/maven/.m2/settings.xml,readonly -v ${WORKSPACE}:/usr/build -w /usr/build') {
                     sh 'mvn clean install -Duser.home=/var/maven -Duser.name=jenkins'
-                }
-            }
-
-            // Conditional stage to deploy artifacts, when not building a PR
-            if (env.CHANGE_ID == null) {
-                stage('Deploy artifacts') {
-                    environmentDockerImage.inside('-i --name brooklyn-${DOCKER_TAG} -v ${WORKSPACE}/.m2:/var/maven/.m2 --mount type=bind,source="${HOME}/.m2/settings.xml",target=/var/maven/.m2/settings.xml,readonly -v ${WORKSPACE}:/usr/build -w /usr/build') {
-                        sh 'mvn deploy -DskipTests -Duser.home=/var/maven -Duser.name=jenkins'
-                    }
                 }
             }
         }

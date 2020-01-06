@@ -22,8 +22,6 @@ import java.util.Map;
 
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.jclouds.Constants;
-import org.jclouds.azurecompute.arm.compute.options.AzureTemplateOptions;
-import org.jclouds.azurecompute.compute.options.AzureComputeTemplateOptions;
 import org.jclouds.compute.domain.OsFamily;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
