@@ -19,15 +19,11 @@
 
 package org.apache.brooklyn.policy.action;
 
-import java.util.Arrays;
-import java.util.Map;
-
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -40,6 +36,7 @@ import com.google.common.collect.Iterables;
 
 public class PeriodicEffectorPolicyTest extends AbstractEffectorPolicyTest {
 
+    @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(PeriodicEffectorPolicyTest.class);
     
     @Test

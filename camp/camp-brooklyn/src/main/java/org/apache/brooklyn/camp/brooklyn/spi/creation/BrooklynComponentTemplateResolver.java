@@ -21,7 +21,6 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
