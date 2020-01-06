@@ -25,11 +25,13 @@ import static org.testng.Assert.fail;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.objs.HighlightTuple;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.rest.domain.AdjunctDetail;
@@ -43,6 +45,7 @@ import org.apache.brooklyn.rest.testing.mocks.RestMockSimplePolicy;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -82,7 +85,6 @@ public class AdjunctResourceTest extends BrooklynRestResourceTest {
         AdjunctDetail response = pResponse.readEntity(AdjunctDetail.class);
         assertNotNull(response.getId());
         policyId = response.getId();
-
     }
 
     @Test
@@ -90,11 +92,13 @@ public class AdjunctResourceTest extends BrooklynRestResourceTest {
         Set<AdjunctSummary> adjuncts = client().path(ENDPOINT)
                 .get(new GenericType<Set<AdjunctSummary>>() {});
         
-        AdjunctSummary policy = null;
+        AdjunctSummary initialPolicy = null;
         List<AdjunctSummary> others = MutableList.of();
         for (AdjunctSummary adj : adjuncts) {
             if (adj.getId().equals(policyId)) {
-                policy = adj;
+                initialPolicy = adj;
+            } else if (adj.getAdjunctType()==BrooklynObjectType.POLICY){
+                // policy from another test, just skip
             } else {
                 others.add(adj);
             }
@@ -103,7 +107,7 @@ public class AdjunctResourceTest extends BrooklynRestResourceTest {
         log.info("Non-policy adjuncts: "+others);
         Asserts.assertSize(others, 4);
 
-        assertEquals(policy.getName(), RestMockSimplePolicy.class.getName());
+        assertEquals(initialPolicy.getName(), RestMockSimplePolicy.class.getName());
     }
     
 
@@ -198,30 +202,39 @@ public class AdjunctResourceTest extends BrooklynRestResourceTest {
         assertEquals(highlightTupleNoTask.getTime(), 123L);
         assertEquals(highlightTupleNoTask.getTaskId(), null);
     }
-    
-    @Test
-    public void testAddPolicy() throws Exception {
-        // to test in GUI: 
-        // services: [ { type: org.apache.brooklyn.entity.stock.BasicEntity }]
-        AdjunctDetail result = client().path(ENDPOINT)
-            .query("timeout", "10s")
-            .query("type", TestPolicy.class.getName())
-            // TODO encode this correctly as json?
-            // TODO on backend, parse DSL
-            .query("config", MutableMap.of(
-                TestPolicy.CONF_FROM_FUNCTION.getName(), "$brooklyn.literal('x')"))
-            .post(
-                null,
-                // TODO support YAML in the impl
-//                javax.ws.rs.client.Entity.entity(
-//                    "type: "+TestPolicy.class.getName()+"\n"+
-//                    "brooklyn.config:\n"+
-//                    "  "+TestPolicy.CONF_FROM_FUNCTION.getName()+": "+
-//                        "$brooklyn.literal('x')", 
-//                    "application/yaml"),
-                AdjunctDetail.class);
 
+    protected AdjunctDetail doTestAddPolicyExpectX(Function<WebClient,WebClient> mutator, Object postBody) throws Exception {
+        AdjunctDetail result = mutator.apply(
+                client().path(ENDPOINT)
+            ).post(postBody, AdjunctDetail.class);
         Assert.assertEquals(result.getConfig().get(TestPolicy.CONF_FROM_FUNCTION.getName()), "x");
+        return result;
+    }
+        
+    @Test
+    public void testAddPolicyX() throws Exception {
+        doTestAddPolicyExpectX(x -> x.query("type", TestPolicy.class.getName()), 
+            toJsonEntity(MutableMap.of(
+                TestPolicy.CONF_FROM_FUNCTION.getName(), "x")));
     }
     
+    @Test
+    public void testAddPolicyFn() throws Exception {
+        doTestAddPolicyExpectX(x -> x.query("type", TestPolicy.class.getName()), 
+            toJsonEntity(MutableMap.of(
+                TestPolicy.CONF_FROM_FUNCTION.getName(), "$brooklyn:literal(\"x\")")));
+    }
+
+//    // TODO support YAML posts
+//    @Test(groups = "WIP")
+//    public void testAddPolicyYaml() throws Exception {
+//        doTestAddPolicyExpectX(x -> x, 
+//            javax.ws.rs.client.Entity.entity(
+//              "type: "+TestPolicy.class.getName()+"\n"+
+//              "brooklyn.config:\n"+
+//              "  "+TestPolicy.CONF_FROM_FUNCTION.getName()+": "+
+//                  "$brooklyn.literal('x')", 
+//              "application/yaml"));
+//    }
+
 }

@@ -68,6 +68,7 @@ public interface AdjunctApi {
             @QueryParam("adjunctType") final String adjunctType);
 
     // TODO support YAML ?
+    // TODO support timeout
     @POST
     @ApiOperation(value = "Create and add an adjunct (e.g. a policy, enricher, or feed) to this entity", notes = "Returns a summary of the added adjunct")
     @ApiResponses(value = {

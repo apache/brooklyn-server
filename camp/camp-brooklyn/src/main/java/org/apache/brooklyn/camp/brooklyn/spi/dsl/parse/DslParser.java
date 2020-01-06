@@ -85,7 +85,7 @@ public class DslParser {
         } while (true);
         String fn = expression.substring(fnStart, index);
         if (fn.length()==0)
-            throw new IllegalStateException("Expected a function name at position "+start);
+            throw new IllegalStateException("Expected a function name or double-quoted string at position "+start);
         skipWhitespace();
         
         if (index < expression.length() && expression.charAt(index)=='(') {
