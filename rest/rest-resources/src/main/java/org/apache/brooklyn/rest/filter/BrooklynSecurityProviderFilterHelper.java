@@ -22,6 +22,7 @@ import java.util.function.Supplier;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
@@ -89,7 +90,14 @@ public class BrooklynSecurityProviderFilterHelper {
     
     public void run(HttpServletRequest webRequest, ManagementContext mgmt) throws SecurityProviderDeniedAuthentication {
         SecurityProvider provider = getProvider(mgmt);
-        MultiSessionAttributeAdapter preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, false);
+        MultiSessionAttributeAdapter preferredSessionWrapper = null;
+        try{
+            preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, false);
+        }catch (WebApplicationException e){
+            // there is no valid session
+
+            abort(e.getResponse());
+        }
         final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
         
         if (log.isTraceEnabled()) {
@@ -128,6 +136,8 @@ public class BrooklynSecurityProviderFilterHelper {
         
         Supplier<HttpSession> sessionSupplier = () -> preferredSession1!=null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
         if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
+            // get new created session after authentication
+            sessionSupplier = () -> MultiSessionAttributeAdapter.of(webRequest, false).getPreferredSession();
             HttpSession preferredSession2 = sessionSupplier.get();
             log.trace("{} authentication successful - {}", this, preferredSession2);
             preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
@@ -148,6 +158,10 @@ public class BrooklynSecurityProviderFilterHelper {
         response.header(HttpHeader.CONTENT_TYPE.asString(), MediaType.TEXT_PLAIN);
         response.entity(msg);
         throw new SecurityProviderDeniedAuthentication(response.build());
+    }
+
+    void abort(Response response) throws SecurityProviderDeniedAuthentication {
+        throw new SecurityProviderDeniedAuthentication(response);
     }
 
     SecurityProviderDeniedAuthentication redirect(String path, String msg) throws SecurityProviderDeniedAuthentication {
