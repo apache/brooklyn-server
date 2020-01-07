@@ -347,7 +347,15 @@ public class ClassLoaderUtils {
         } else {
             Maybe<T> result = dispatcher.tryLoadFrom(classLoader, name);
             if (result.isAbsent()) {
-                log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                if (name==null || name.startsWith("//") || symbolicName==null || "classpath".equals(symbolicName) || "http".equals(symbolicName) || "https".equals(symbolicName) || "file".equals(symbolicName)) {
+                    // this is called speculatively by BasicBrooklynCatalog.PlanInterpreterGuessingType so can log a lot of warnings where URLs are passed
+                    if (log.isTraceEnabled()) {
+                        log.trace("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                    }
+                } else {
+                    // TODO not sure warning is appropriate, but won't hide that in all cases yet
+                    log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                }
             }
             return result;
         }

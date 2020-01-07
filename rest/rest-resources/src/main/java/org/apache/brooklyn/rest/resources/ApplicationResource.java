@@ -513,7 +513,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             legacyFormatException = e;
-            log.debug("Input is not legacy ApplicationSpec JSON (will try others): "+e, e);
+            log.debug("Input is not legacy ApplicationSpec JSON (will try others)");
         }
 
         //TODO infer encoding from request

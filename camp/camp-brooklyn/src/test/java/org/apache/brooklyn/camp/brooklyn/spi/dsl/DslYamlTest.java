@@ -45,7 +45,6 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
 
@@ -551,7 +550,7 @@ public class DslYamlTest extends AbstractYamlTest {
                     "  brooklyn.config:",
                     "    dest: $brooklyn:self().invalidMethod()");
             Asserts.shouldHaveFailedPreviously("Non-existing non-deferred method should fail deployment");
-        } catch (CompoundRuntimeException e) {
+        } catch (Exception e) {
             Asserts.expectedFailureContains(e, "No such function 'invalidMethod'");
         }
     }

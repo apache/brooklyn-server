@@ -53,6 +53,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -137,6 +138,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         if (executor != null) {
             executor.shutdownNow();
         }
+        // TODO instead of a custom executor it would be nicer to use scheduled tasks
         executor = Executors.newSingleThreadScheduledExecutor();
         running = new AtomicBoolean(false);
     }
@@ -288,5 +290,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
                 start();
             }
         }
+    }
+    
+    @VisibleForTesting
+    public ScheduledExecutorService getExecutor() {
+        return executor;
     }
 }

@@ -20,16 +20,18 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
-import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableList;
@@ -64,13 +66,27 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
         }
         
         Maybe<Map<?,?>> plan = RegisteredTypes.getAsYamlMap(planData);
-        if (plan.isAbsent()) return 0;
-        if (plan.get().containsKey("services")) return weight*0.8;
-        if (plan.get().containsKey("type")) return weight*0.4;
-        // TODO these should become legacy
-        if (plan.get().containsKey("brooklyn.locations")) return weight*0.7;
-        if (plan.get().containsKey("brooklyn.policies")) return weight*0.7;
-        if (plan.get().containsKey("brooklyn.enrichers")) return weight*0.7;
+        if (plan.isPresent()) {
+            return weight * scoreObject(plan.get(), (map,s) -> map.containsKey(s));
+        }
+        if (planData==null) {
+            return 0;
+        }
+        double unparseableScore = scoreObject(planData.toString(), (p,s) -> p.contains(s));
+        if (unparseableScore>0) {
+            return 0.5 + 0.25 * unparseableScore;
+        }
+        return 0;
+    }
+    
+    protected <T> double scoreObject(T plan, BiFunction<T, String, Boolean> contains) {
+        if (contains.apply(plan, "services")) return 0.8;
+        if (contains.apply(plan, "type")) return 0.4;
+        if (contains.apply(plan, "brooklyn.locations")) return 0.7;
+        if (contains.apply(plan, "brooklyn.policies")) return 0.7;
+        if (contains.apply(plan, "brooklyn.enrichers")) return 0.7;
+        // score low so we can say it's the wrong place
+        if (contains.apply(plan, "catalog.bom")) return 0.2;
         return 0;
     }
 
@@ -84,8 +100,31 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        // TODO cache
-        return new CampResolver(mgmt, type, context).createSpec();
+        try {
+            return new CampResolver(mgmt, type, context).createSpec();
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            String message = null;
+            // check a few common errors, annotate if so
+            if (type==null || type.getPlan()==null || type.getPlan().getPlanData()==null) {
+                // shouldn't happen
+                message = "Type/plan/data is null when resolving CAMP blueprint";
+            } else {
+                Object planData = type.getPlan().getPlanData();
+                if (RegisteredTypes.getAsYamlMap(planData).isAbsent()) {
+                    message = "Type or plan is invalid YAML when resolving CAMP blueprint";
+                } else if (planData.toString().contains("brooklyn.catalog")) {
+                    message = "CAMP blueprint for type definition looks like a catalog file";
+                } else {
+                    // leave null, don't annotate
+                }
+            }
+            if (message!=null) {
+                throw Exceptions.propagateAnnotated(message, e);
+            } else {
+                throw e;
+            }
+        }
     }
 
     @Override

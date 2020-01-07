@@ -60,6 +60,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -68,11 +69,13 @@ import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils.FlagConfigKeyAndValueRecord;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
@@ -505,6 +508,7 @@ public class BrooklynComponentTemplateResolver {
 
         private class EntitySpecSupplier implements DeferredSupplier<EntitySpec<?>> {
             EntitySpecConfiguration flag;
+            transient EntitySpec<?> cached = null;
             public EntitySpecSupplier(EntitySpecConfiguration flag) {
                 this.flag = flag;
             }
@@ -513,9 +517,59 @@ public class BrooklynComponentTemplateResolver {
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
                 @SuppressWarnings("unchecked")
                 Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(flag.getSpecConfiguration());
-                EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
-
-                return EntityManagementUtils.unwrapEntity(entitySpec);
+                EntitySpec<?> entitySpec;
+                try {
+                    // first parse as a CAMP entity
+                    entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
+                } catch (Exception e1) {
+                    Exceptions.propagateIfFatal(e1);
+                    
+                    // if that doesn't work, try full multi-format plan parsing 
+                    String yamlPlan = null;
+                    try {
+                        yamlPlan = new Yaml().dump(resolvedConfig);
+                        entitySpec = mgmt.getTypeRegistry().createSpecFromPlan(null, yamlPlan, 
+                            RegisteredTypeLoadingContexts.alreadyEncountered(encounteredRegisteredTypeIds), EntitySpec.class);
+                    } catch (Exception e2) {
+                        String errorMessage = "entitySpec plan parse error";
+                        if (Thread.currentThread().isInterrupted()) {
+                            // plans which read/write to a file might not work in interrupted state
+                            if (cached!=null) {
+                                log.debug("EntitySpecSupplier returning cached spec "+cached+" because being invoked in a context which must return immediately");
+                                return cached;
+                            } else {
+                                errorMessage += " (note, it is being invoked in a context which must return immediately and there is no cache)";
+                            }
+                        }
+                        Exceptions.propagateIfFatal(e2);
+                        
+                        Exception exceptionToInclude;
+                        // heuristic
+                        if (resolvedConfig.containsKey("type")) {
+                            // if it has a key 'type' then it is likely a CAMP entity, abbreviated syntax (giving a type), so just give e1
+                            exceptionToInclude = e1;
+                        } else if (resolvedConfig.containsKey("brooklyn.services")) {
+                            // seems like a CAMP app, just give e2
+                            exceptionToInclude = e2;
+                        } else {
+                            // can't tell if it was short form eg `entitySpec: { type: x, ... }`
+                            // or long form (camp or something else), eg `entitySpec: { brooklyn.services: [ ... ] }`.
+                            // the error from the latter is a bit nicer so return it, but log the former.
+                            errorMessage += "; consult log for more information";
+                            log.debug("Suppressed error in entity spec where unclear whether abbreviated or full syntax, is (from abbreviated form parse, where error parsing full form will be reported subsequently): "+e1);
+                            exceptionToInclude = e2;
+                            // don't use the list as that causes unhelpful "2 errors including"...
+                        }
+                        // first exception might include the plan, so we don't need to here
+                        boolean yamlPlanAlreadyIncluded = exceptionToInclude.toString().contains(yamlPlan);
+                        if (!yamlPlanAlreadyIncluded) {
+                            errorMessage += ":\n"+yamlPlan;
+                        }
+                        throw Exceptions.propagateAnnotated(errorMessage, exceptionToInclude);
+                    }
+                }
+                cached = EntityManagementUtils.unwrapEntity(entitySpec);
+                return cached;
             }
         }
         

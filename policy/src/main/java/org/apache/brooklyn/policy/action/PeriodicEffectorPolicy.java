@@ -58,6 +58,7 @@ import com.google.common.base.Preconditions;
 @Beta
 public class PeriodicEffectorPolicy extends AbstractScheduledEffectorPolicy {
 
+    @SuppressWarnings("unused")
     private static final Logger LOG = LoggerFactory.getLogger(PeriodicEffectorPolicy.class);
 
     public static final ConfigKey<Duration> PERIOD = ConfigKeys.builder(Duration.class)

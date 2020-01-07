@@ -92,7 +92,7 @@ public abstract class BrooklynYamlTypeInstantiator {
 
         @Override
         public Maybe<String> getTypeName() {
-            Maybe<Object> result = data.getStringKeyMaybe(getPreferredKeyName());
+            Maybe<Object> result = data.getStringKeyMaybe(getTypedKeyName());
             if (result.isAbsent() && typeKeyPrefix!=null) {
                 // try alternatives if a prefix was specified
                 result = data.getStringKeyMaybe(typeKeyPrefix+"Type");
@@ -100,15 +100,15 @@ public abstract class BrooklynYamlTypeInstantiator {
             }
             
             if (result.isAbsent() || result.get()==null) 
-                return Maybe.absent("Missing key '"+getPreferredKeyName()+"'");
+                return Maybe.absent("Missing key 'type'"+(typeKeyPrefix!=null ? " (or '"+getTypedKeyName()+"')" : ""));
             
             if (result.get() instanceof String) return Maybe.of((String)result.get());
             
-            throw new IllegalArgumentException("Invalid value "+result.get().getClass()+" for "+getPreferredKeyName()+"; "
+            throw new IllegalArgumentException("Invalid value "+result.get().getClass()+" for "+getTypedKeyName()+"; "
                 + "expected String, got "+result.get());
         }
         
-        protected String getPreferredKeyName() {
+        protected String getTypedKeyName() {
             if (typeKeyPrefix!=null) return typeKeyPrefix+"_type";
             return "type";
         }
