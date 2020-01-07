@@ -370,10 +370,10 @@ public class BrooklynDslCommon {
      * are not yet fully resolved.
      */
     @DslAccessible
-    public static Object formatString(final String pattern, final Object...args) {
-        if (resolved(args)) {
+    public static Object formatString(final Object pattern, final Object...args) {
+        if (resolved(Lists.asList(pattern, args))) {
             // if all args are resolved, apply the format string now
-            return String.format(pattern, args);
+            return String.format(String.valueOf(pattern), args);
         } else {
             return new DslFormatString(pattern, args);
         }
@@ -435,16 +435,16 @@ public class BrooklynDslCommon {
     /**
      * Deferred execution of String formatting.
      *
-     * @see DependentConfiguration#formatString(String, Object...)
+     * @see DependentConfiguration#formatString(Object, Object...)
      */
     protected static class DslFormatString extends BrooklynDslDeferredSupplier<String> {
 
         private static final long serialVersionUID = -4849297712650560863L;
 
-        private final String pattern;
+        private final Object pattern;
         private final Object[] args;
 
-        public DslFormatString(String pattern, Object ...args) {
+        public DslFormatString(Object pattern, Object ...args) {
             this.pattern = pattern;
             this.args = args;
         }
@@ -528,7 +528,7 @@ public class BrooklynDslCommon {
     @SuppressWarnings({ "serial", "unused" })
     @Deprecated
     private static class FormatString extends DslFormatString {
-        public FormatString(String pattern, Object[] args) {
+        public FormatString(Object pattern, Object[] args) {
             super(pattern, args);
         }
     }
