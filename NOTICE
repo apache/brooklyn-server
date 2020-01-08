@@ -69,9 +69,9 @@ Runtime dependencies:
     Developed by: QOS.ch (http://www.qos.ch)
     License name: Eclipse Public License, version 1.0
   
-  com.fasterxml.jackson:2.9.7: 
+  com.fasterxml.jackson:2.9.8: 
     Project:      Jackson FasterXML
-    Version:      2.9.7
+    Version:      2.9.8
     Available at: 
       - http://github.com/FasterXML/jackson
       - https://github.com/FasterXML/jackson-core
@@ -189,11 +189,11 @@ Runtime dependencies:
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Square, Inc.
   
-  com.thoughtworks.xstream:1.4.8: 
+  com.thoughtworks.xstream:1.4.11.1: 
     Project:      XStream Core
-    Version:      1.4.8
+    Version:      1.4.11.1
     Available at: http://x-stream.github.io/
-    Developed by: XStream (http://xstream.codehaus.org)
+    Developed by: XStream (http://x-stream.github.io)
     License name: BSD 3-Clause (New BSD) License
   
   commons-beanutils:1.9.3: 
@@ -231,11 +231,11 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  io.cloudsoft.windows:0.6.1: 
+  io.cloudsoft.windows:0.7.0: 
     Project: 
       - Java WinRM library
       - WinRM Client
-    Version:      0.6.1
+    Version:      0.7.0
     Available at: http://github.com/cloudsoft/winrm4j
     License name: Apache License, version 2.0
   
@@ -292,11 +292,11 @@ Runtime dependencies:
     Developed by: Chemouni Uriel (http://www.minidev.net/)
     License name: Apache License, version 2.0
   
-  org.apache.commons.commons-compress:1.4: 
-    Project:      Commons Compress
-    Version:      1.4
-    Available at: http://commons.apache.org/compress/
-    Developed by: The Apache Software Foundation (http://www.apache.org/)
+  org.apache.commons.commons-compress:1.18: 
+    Project:      Apache Commons Compress
+    Version:      1.18
+    Available at: https://commons.apache.org/proper/commons-compress/
+    Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
   org.apache.commons.commons-lang3:3.3.2: 
@@ -306,16 +306,16 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.cxf:3.2.7: 
+  org.apache.cxf:3.2.8: 
     Project:      Apache CXF
-    Version:      3.2.7
+    Version:      3.2.8
     Available at: http://cxf.apache.org
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.felix.org.apache.felix.framework:5.6.10: 
+  org.apache.felix.org.apache.felix.framework:5.6.12: 
     Project:      Apache Felix Framework
-    Version:      5.6.10
+    Version:      5.6.12
     Available at: http://felix.apache.org/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
@@ -362,16 +362,16 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.karaf.jaas.org.apache.karaf.jaas.boot:4.2.2: 
+  org.apache.karaf.jaas.org.apache.karaf.jaas.boot:4.2.7: 
     Project:      Apache Karaf :: JAAS :: Boot
-    Version:      4.2.2
+    Version:      4.2.7
     Available at: https://www.apache.org/
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.karaf.shell.org.apache.karaf.shell.core:4.2.2: 
+  org.apache.karaf.shell.org.apache.karaf.shell.core:4.2.7: 
     Project:      Apache Karaf :: Shell :: Core
-    Version:      4.2.2
+    Version:      4.2.7
     Available at: https://www.apache.org/
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
@@ -390,9 +390,9 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.ws.xmlschema.xmlschema-core:2.2.3: 
+  org.apache.ws.xmlschema.xmlschema-core:2.2.4: 
     Project:      XmlSchema Core
-    Version:      2.2.3
+    Version:      2.2.4
     Available at: http://ws.apache.org/commons/xmlschema20/
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
@@ -446,9 +446,9 @@ Runtime dependencies:
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Shigeru Chiba
   
-  org.jline:3.9.0: 
+  org.jline:3.12.1: 
     Project:      JLine Bundle
-    Version:      3.9.0
+    Version:      3.12.1
     Available at: http://nexus.sonatype.org/oss-repository-hosting.html
     License name: BSD 3-Clause (New BSD) License
     Notice: 
@@ -482,12 +482,6 @@ Runtime dependencies:
     Available at: http://www.slf4j.org
     Developed by: QOS.ch (http://www.qos.ch)
     License name: MIT License
-  
-  org.tukaani.xz:1.0: 
-    Project:      XZ for Java
-    Version:      1.0
-    Available at: http://tukaani.org/xz/java.html
-    License name: Public Domain
   
   org.xmlunit:2.3.0: 
     Project: 
