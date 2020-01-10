@@ -134,17 +134,24 @@ public class BrooklynSecurityProviderFilterHelper {
             }
         }
         
-        Supplier<HttpSession> sessionSupplier = () -> preferredSession1!=null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
-        if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
-            // get new created session after authentication
-            sessionSupplier = () -> MultiSessionAttributeAdapter.of(webRequest, false).getPreferredSession();
-            HttpSession preferredSession2 = sessionSupplier.get();
-            log.trace("{} authentication successful - {}", this, preferredSession2);
-            preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
-            if (user != null) {
-                preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+        Supplier<HttpSession> sessionSupplier = () -> {
+            return preferredSession1 != null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
+        };
+
+        try{
+            if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
+                // get new created session after authentication
+                Supplier<HttpSession> authenticatedSessionSupplier = () -> MultiSessionAttributeAdapter.of(webRequest, false).getPreferredSession();
+                HttpSession preferredSession2 = authenticatedSessionSupplier.get();
+                log.trace("{} authentication successful - {}", this, preferredSession2);
+                preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
+                if (user != null) {
+                    preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+                }
+                return;
             }
-            return;
+        } catch (WebApplicationException e) {
+            abort(e.getResponse());
         }
     
         throw abort("Authentication failed", provider.requiresUserPass());

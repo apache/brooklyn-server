@@ -18,12 +18,17 @@
  */
 package org.apache.brooklyn.rest.util;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonObject;
+import jdk.nashorn.internal.ir.annotations.Immutable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.EnumerationUtils;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
@@ -38,9 +43,11 @@ import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.lang.reflect.Field;
+import java.util.*;
 
 /**
  * Convenience to assist working with multiple sessions, ensuring requests in different bundles can
@@ -159,7 +166,6 @@ public class MultiSessionAttributeAdapter {
 
             //TODO just check this the first time preferred session is accessed on a given request (when it is looked up)
 
-
             ManagementContext mgmt = null;
             ServletContext servletContext = optionalRequest!=null ? optionalRequest.getServletContext() : localSession!=null ? localSession.getServletContext() : preferredSession!=null ? preferredSession.getServletContext() : null;
             if(servletContext != null){
@@ -168,15 +174,15 @@ public class MultiSessionAttributeAdapter {
 
             boolean isValid = ((Session)preferredSession).isValid();
             if (!isValid) {
-                throw new SessionExpiredException("Session invalidated", SessionErrors.SESSION_INVALIDATED);
+                throw new SessionExpiredException("Session invalidated", SessionErrors.SESSION_INVALIDATED, optionalRequest);
             }
 
             if(mgmt !=null){
                 Long maxSessionAge = mgmt.getConfig().getConfig(MAX_SESSION_AGE);
                 if (maxSessionAge!=null) {
                     if (isAgeExceeded(preferredSession, maxSessionAge)) {
-                        invalidateAllSession(preferredSession);
-                        throw new SessionExpiredException("Max session age exceeded", SessionErrors.SESSION_AGE_EXCEEDED);
+                        invalidateAllSession(preferredSession, localSession);
+                        throw new SessionExpiredException("Max session age exceeded", SessionErrors.SESSION_AGE_EXCEEDED, optionalRequest);
                     }
                 }
             }
@@ -188,16 +194,21 @@ public class MultiSessionAttributeAdapter {
             return preferredSession.getCreationTime() + maxSessionAge*1000 < System.currentTimeMillis();
         }
 
-        private void invalidateAllSession(HttpSession preferredSession) {
+        private void invalidateAllSession(HttpSession preferredSession, HttpSession localSession) {
             Server server = ((Session)preferredSession).getSessionHandler().getServer();
             final Handler[] handlers = server.getChildHandlersByClass(SessionHandler.class);
+            List<String> invalidatedSessions = new ArrayList<>();
             if (handlers!=null) {
                 for (Handler h: handlers) {
                     Session session = ((SessionHandler)h).getSession(preferredSession.getId());
                     if (session!=null) {
+                        invalidatedSessions.add(session.getId());
                         session.invalidate();
                     }
                 }
+            }
+            if(!invalidatedSessions.contains(localSession.getId())){
+                localSession.invalidate();
             }
         }
 
@@ -370,11 +381,50 @@ public class MultiSessionAttributeAdapter {
         }
 
         private class SessionExpiredException extends WebApplicationException {
-            public SessionExpiredException(String message, SessionErrors error_status) {
-                super(message, Response.status(Response.Status.FORBIDDEN)
-                        .header(HttpHeader.CONTENT_TYPE.asString(), MediaType.APPLICATION_JSON)
-                        .entity(ImmutableMap.of(error_status.toString(),"true")).build());
+            public SessionExpiredException(String message, SessionErrors error_status, HttpServletRequest optionalRequest) {
+                super(message, buildExceptionResponse(error_status, optionalRequest, message));
             }
+        }
+
+        private static Response buildExceptionResponse(SessionErrors error_status, HttpServletRequest optionalRequest, String message) {
+            String mediaType;
+            String responseData;
+
+            if(requestIsHtml(optionalRequest)){
+                mediaType = MediaType.TEXT_HTML;
+                StringBuilder sb = new StringBuilder("<p>")
+                        .append(message)
+                        .append("</p>\n")
+                        .append("<p>")
+                        .append("Please go <a href=\"")
+                        .append(optionalRequest.getRequestURL())
+                        .append("\">here</a> to refresh.")
+                        .append("</p>");
+                responseData = sb.toString();
+            }else{
+                mediaType = MediaType.APPLICATION_JSON;
+                JsonObject jsonEntity = new JsonObject();
+                jsonEntity.addProperty(error_status.toString(), true);
+                responseData = jsonEntity.toString();
+            }
+            return Response.status(Response.Status.FORBIDDEN)
+                    .header(HttpHeader.CONTENT_TYPE.asString(), mediaType)
+                    .entity(responseData).build();
+        }
+
+        private static boolean requestIsHtml(HttpServletRequest optionalRequest) {
+            Set headerList = separateOneLineMediaTypes(EnumerationUtils.toList(optionalRequest.getHeaders(HttpHeaders.ACCEPT)));
+            Set defaultMediaTypes = ImmutableSet.of(MediaType.TEXT_HTML, MediaType.APPLICATION_XHTML_XML, MediaType.APPLICATION_XML);
+            if(CollectionUtils.containsAny(headerList,defaultMediaTypes)){
+                return true;
+            }
+            return false;
+        }
+
+        private static Set separateOneLineMediaTypes(List<String> toList) {
+            Set<String> mediatypes = new HashSet<>();
+            toList.stream().forEach(headerLine -> mediatypes.addAll(Arrays.asList(headerLine.split(",|,\\s"))));
+            return mediatypes;
         }
     }
 
