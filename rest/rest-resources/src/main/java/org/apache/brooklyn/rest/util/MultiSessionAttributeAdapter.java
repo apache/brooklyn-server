@@ -18,10 +18,8 @@
  */
 package org.apache.brooklyn.rest.util;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
-import jdk.nashorn.internal.ir.annotations.Immutable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -100,7 +98,7 @@ public class MultiSessionAttributeAdapter {
 
     public final static ConfigKey<Integer> MAX_INACTIVE_INTERVAL = ConfigKeys.newIntegerConfigKey(
             "org.apache.brooklyn.server.maxInactiveInterval", "Max inactive interval in seconds",
-            3601);
+            3600);
 
     private static final Object PREFERRED_SYMBOLIC_NAME =
         "org.apache.cxf.cxf-rt-transports-http";
@@ -120,13 +118,13 @@ public class MultiSessionAttributeAdapter {
     protected MultiSessionAttributeAdapter(HttpSession preferredSession, HttpSession localSession, HttpServletRequest request) {
         this.preferredSession = preferredSession;
         this.localSession = localSession;
-        ServletContext servletContext = request!=null ? request.getServletContext() : localSession!=null ? localSession.getServletContext() : preferredSession!=null ? preferredSession.getServletContext() : null;
-        if(servletContext != null){
-            this.mgmt = new ManagementContextProvider(servletContext).getManagementContext();
-        }
-        else{
-            this.mgmt = null;
-        }
+
+        ServletContext servletContext = request!=null ? request.getServletContext() :
+                localSession!=null ? localSession.getServletContext() :
+                        preferredSession!=null ? preferredSession.getServletContext() :
+                                null;
+
+        this.mgmt = servletContext != null ? new ManagementContextProvider(servletContext).getManagementContext() : null;
         resetExpiration();
     }
 
