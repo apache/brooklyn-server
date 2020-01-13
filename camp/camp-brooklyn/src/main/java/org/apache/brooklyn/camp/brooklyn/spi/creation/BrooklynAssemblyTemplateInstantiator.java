@@ -79,6 +79,8 @@ public class BrooklynAssemblyTemplateInstantiator implements AssemblyTemplateSpe
             CampPlatform platform,
             BrooklynClassLoadingContext loader,
             Set<String> encounteredTypeSymbolicNames) {
+        // during catalog install, the ID is an unhelpful random ID. but logging added there now tells us more.
+        // in most cases the ID is meaningful however, and useful for context for subsequent errors.
         log.debug("CAMP creating application instance for {} ({})", template.getId(), template);
 
         // AssemblyTemplates created via PDP, _specifying_ then entities to put in

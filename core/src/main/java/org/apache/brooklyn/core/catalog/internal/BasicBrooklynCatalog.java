@@ -136,6 +136,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     private static final Logger log = LoggerFactory.getLogger(BasicBrooklynCatalog.class);
 
+    private static boolean ATTEMPT_INSTANTIATION_WITH_TYPE_PLAN_TRANSFORMERS = true;
+    private static boolean ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS = true;
+    
     public static class BrooklynLoaderTracker {
         public static final ThreadLocal<BrooklynClassLoadingContext> loader = new ThreadLocal<BrooklynClassLoadingContext>();
         
@@ -486,6 +489,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 return input.createCatalogSpec(item, encounteredTypes);
             }
         });
+        // if above fails below will throw "java.lang.IllegalStateException: UnsupportedTypePlanException: Invalid plan; format could not be recognized"
         return specMaybe.get();
     }
 
@@ -787,6 +791,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.warn("Name property will be ignored due to the existence of displayName and at least one of id, symbolicName");
         }
 
+        log.debug("Processing "+Arrays.asList(id, symbolicName, displayName, name, "anonymous item").stream().filter(Strings::isNonBlank).findFirst()+" for catalog addition");
         PlanInterpreterGuessingType planInterpreter = new PlanInterpreterGuessingType(null, item, sourceYaml, itemType, libraryBundles, resultLegacyFormat).reconstruct();
         Exception resolutionError = null;
         if (!planInterpreter.isResolved()) {
@@ -993,14 +998,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 sourcePlanYaml = planInterpreter.itemYaml;
             }
             
-            BasicTypeImplementationPlan plan = new BasicTypeImplementationPlan(format, sourcePlanYaml);
-            BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
-                RegisteredTypeKind.UNRESOLVED,
-                symbolicName, version, plan,
-                superTypes, aliases, tags, containingBundle==null ? null : containingBundle.getVersionedName().toString(), 
-                MutableList.<OsgiBundleWithUrl>copyOf(libraryBundles), 
-                displayName, description, catalogIconUrl, catalogDeprecated, catalogDisabled);
-            RegisteredTypes.notePlanEquivalentToThis(type, plan);
+            BasicRegisteredType type = createYetUnsavedRegisteredTypeInstance(RegisteredTypeKind.UNRESOLVED, symbolicName, version, 
+                    containingBundle, libraryBundles, 
+                    displayName, description, catalogIconUrl, catalogDeprecated, sourcePlanYaml, 
+                    tags, aliases, catalogDisabled, superTypes, format);
             // record original source in case it was changed
             RegisteredTypes.notePlanEquivalentToThis(type, new BasicTypeImplementationPlan(format, sourceYaml));
             
@@ -1026,6 +1027,25 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             dto.setManagementContext((ManagementContextInternal) mgmt);
             resultLegacyFormat.add(dto);
         }
+    }
+
+    private BasicRegisteredType createYetUnsavedRegisteredTypeInstance(
+        RegisteredTypeKind kind,
+        String symbolicName, String version,  
+        ManagedBundle containingBundle, Collection<CatalogBundle> libraryBundles, 
+        String displayName, String description,
+        String catalogIconUrl, final Boolean catalogDeprecated, String sourcePlanYaml, Set<Object> tags, List<String> aliases,
+        Boolean catalogDisabled, MutableList<Object> superTypes, String format) 
+    {
+        BasicTypeImplementationPlan plan = new BasicTypeImplementationPlan(format, sourcePlanYaml);
+        BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
+            kind,
+            symbolicName, version, plan,
+            superTypes, aliases, tags, containingBundle==null ? null : containingBundle.getVersionedName().toString(), 
+            MutableList.<OsgiBundleWithUrl>copyOf(libraryBundles), 
+            displayName, description, catalogIconUrl, catalogDeprecated, catalogDisabled);
+        RegisteredTypes.notePlanEquivalentToThis(type, plan);
+        return type;
     }
 
     private void updateResultNewFormat(Map<RegisteredType, RegisteredType> resultNewFormat, RegisteredType replacedInstance,
@@ -1266,23 +1286,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         public PlanInterpreterGuessingType reconstruct() {
             if (catalogItemType==CatalogItemType.TEMPLATE) {
                 // template *must* be explicitly defined, and if so, none of the other calls apply
-                attemptType(null, CatalogItemType.TEMPLATE);
+                attemptType(CatalogItemType.TEMPLATE, null, true);
                 
             } else {
-                attemptType(null, CatalogItemType.ENTITY);
-                
-                List<Exception> oldEntityErrors = MutableList.copyOf(entityErrors);
-                // try with services key
-                attemptType("services", CatalogItemType.ENTITY);
-                entityErrors.removeAll(oldEntityErrors);
-                entityErrors.addAll(oldEntityErrors);
-                // errors when wrapped in services block are better currently
-                // as we parse using CAMP and need that
-                // so prefer those for now (may change with YOML)
-                
-                attemptType(POLICIES_KEY, CatalogItemType.POLICY);
-                attemptType(ENRICHERS_KEY, CatalogItemType.ENRICHER);
-                attemptType(LOCATIONS_KEY, CatalogItemType.LOCATION);
+                // try all types; attemptTpe will ignore non-matches if catalogItemType is already specified
+                attemptType(CatalogItemType.ENTITY, "services", true);
+                attemptType(CatalogItemType.POLICY, POLICIES_KEY, false);
+                attemptType(CatalogItemType.ENRICHER, ENRICHERS_KEY, false);
+                attemptType(CatalogItemType.LOCATION, LOCATIONS_KEY, false);
             }
             
             if (!resolved && catalogItemType==CatalogItemType.TEMPLATE) {
@@ -1311,35 +1322,46 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             return planYaml;
         }
         
-        private boolean attemptType(String key, CatalogItemType candidateCiType) {
-            if (resolved) return false;
-            if (catalogItemType!=null && catalogItemType!=candidateCiType) return false;
-            
-            final String candidateYaml;
-            if (key==null) candidateYaml = itemYaml;
-            else {
-                if (item.containsKey(key))
-                    candidateYaml = itemYaml;
-                else
-                    candidateYaml = key + ":\n" + makeAsIndentedList(itemYaml);
+        private boolean attemptType(CatalogItemType candidateCiType, String optionalKeyForModifyingYaml, boolean tryWithoutOptionalKey) {
+            if (resolved) {
+                return false;
             }
+            if (catalogItemType!=null && catalogItemType!=candidateCiType) {
+                return false;
+            }
+            
+            String candidateYamlWithKeyAdded = null;;
+            if (optionalKeyForModifyingYaml!=null) {
+                /* often when added to a catalog we simply say "type: xxx" for the definition;
+                 * the services: parent key at root (or brooklyn.policies, etc) needed by the camp parser
+                 * are implicit, and added here */
+                if (item.containsKey(optionalKeyForModifyingYaml)) {
+                    optionalKeyForModifyingYaml = null;
+                    tryWithoutOptionalKey = true;
+                } else {
+                    candidateYamlWithKeyAdded = optionalKeyForModifyingYaml + ":\n" + makeAsIndentedList(itemYaml);
+                }
+            }
+            
             String type = (String) item.get("type");
             if (itemsDefinedSoFar!=null) {
                 // first look in collected items, if a key is given
                 
-                if (type!=null && key!=null) {
+                if (type!=null && optionalKeyForModifyingYaml!=null) {
                     for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
                         if (candidateCiType == candidate.getCatalogItemType() &&
                                 (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
                             // matched - exit
                             catalogItemType = candidateCiType;
-                            planYaml = candidateYaml;
+                            planYaml = candidateYamlWithKeyAdded!=null ? candidateYamlWithKeyAdded : itemYaml;
                             resolved = true;
                             return true;
                         }
                     }
                 }
-                {
+                if (ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS) {
+                    // TODO remove, if tests pass without this old block
+                    
                     // legacy routine; should be the same as above code added in 0.12 because:
                     // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match 
                     // if type is symbolic_name:version, the id will match, and the version will also have to match 
@@ -1350,7 +1372,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         version = CatalogUtils.getVersionFromVersionedId(type);
                         type = CatalogUtils.getSymbolicNameFromVersionedId(type);
                     }
-                    if (type!=null && key!=null) {
+                    if (type!=null && optionalKeyForModifyingYaml!=null) {
                         for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
                             if (candidateCiType == candidate.getCatalogItemType() &&
                                     (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
@@ -1358,7 +1380,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                                     log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
                                     // matched - exit
                                     catalogItemType = candidateCiType;
-                                    planYaml = candidateYaml;
+                                    planYaml = candidateYamlWithKeyAdded!=null ? candidateYamlWithKeyAdded : itemYaml;
                                     resolved = true;
                                     return true;
                                 }
@@ -1373,28 +1395,105 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
             }
             
+            if (tryWithoutOptionalKey || candidateYamlWithKeyAdded==null) {
+                if (attemptTypeInstantiation("normal", candidateCiType, itemYaml, false, null, type)) {
+                    return true;
+                }
+                
+                // also try legacy
+                if (attemptTypeInstantiation("legacy", candidateCiType, itemYaml, true, null, type)) {
+                    return true;
+                }
+                
+            }
+            
+            if (candidateYamlWithKeyAdded!=null) {
+                // try with services key (or other key)
+                
+                // this gives better errors, so put these first  
+                // (it is only possible that this block and the above block both run if it is ENTITY type;
+                // so safe to assume entityErrors here)
+                MutableList<Exception> oldEntityErrors = MutableList.copyOf(entityErrors);
+                entityErrors.clear();
+    
+                if (attemptTypeInstantiation("normal with key '"+optionalKeyForModifyingYaml+"'", candidateCiType, candidateYamlWithKeyAdded, false, optionalKeyForModifyingYaml, type)) {
+                    return true;
+                }
+                
+                // try legacy
+                if (attemptTypeInstantiation("legacy with key '"+optionalKeyForModifyingYaml+"'", candidateCiType, candidateYamlWithKeyAdded, true, optionalKeyForModifyingYaml, type)) {
+                    return true;
+                }
+                
+                entityErrors.addAll(oldEntityErrors);
+            }
+            
+            return false;
+        }
+        
+        private boolean attemptTypeInstantiation(String context, CatalogItemType candidateCiType, String candidateYaml, boolean tryAsLegacy, String optionalKeyForModifyingYaml, String typeIfOptionalKeySupplied) {
+            
             // then try parsing plan - this will use loader
+            // first use transformer approach
             try {
-                @SuppressWarnings("rawtypes")
-                CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
-                    .plan(candidateYaml)
-                    .libraries(libraryBundles)
-                    .build();
-                @SuppressWarnings("unchecked")
-                AbstractBrooklynObjectSpec<?, ?> spec = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
-                if (spec!=null) {
+                Object itemToAttemptO = null;
+                Object itemSpecInstantiated = null;
+                
+                if (tryAsLegacy) {
+                    if (ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS) {
+                        // deprecated old style
+                        @SuppressWarnings("rawtypes")
+                        CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
+                            .plan(candidateYaml)
+                            .libraries(libraryBundles)
+                            .build();
+                        itemToAttemptO = itemToAttempt;
+                        
+                        itemSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
+                        
+                        // TODO log warning -- legacy works but modern doesn't!
+                    }
+                    
+                } else {
+                    if (ATTEMPT_INSTANTIATION_WITH_TYPE_PLAN_TRANSFORMERS) {
+                        // preferred, new style
+                        BasicRegisteredType itemToAttempt = createYetUnsavedRegisteredTypeInstance(
+                            // RegisteredTypeKind
+                            RegisteredTypeKind.SPEC, getIdWithRandomDefault(), DEFAULT_VERSION,
+                            /* containing bundle */ null, libraryBundles, 
+                            // displayName, description, catalogIconUrl, deprecated, yaml
+                            null, null, null, false, candidateYaml, 
+                            // tags, aliases, catalogDisabled, superTypes, format 
+                            null, null, false, MutableList.of(BrooklynObjectType.of(candidateCiType).getInterfaceType()), null
+                            );
+                        itemToAttemptO = itemToAttempt;
+                        
+                        itemSpecInstantiated = mgmt.getTypeRegistry().create(itemToAttempt, null, null);
+                    }
+                    
+                }
+                
+                if (itemSpecInstantiated!=null) {
                     catalogItemType = candidateCiType;
                     planYaml = candidateYaml;
                     resolved = true;
+                    
+                    return true;
+                    
+                } else {
+                    // continue to next block (should throw above and catch below, instead of coming here)
                 }
-                return true;
+                
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 // record the error if we have reason to expect this guess to succeed
+                if (log.isTraceEnabled()) { 
+                    log.trace("Guessing type of plan, it looks like it isn't "+candidateCiType+"/"+context+": "+e);
+                }
                 if (item.containsKey("services") && (candidateCiType==CatalogItemType.ENTITY || candidateCiType==CatalogItemType.APPLICATION || candidateCiType==CatalogItemType.TEMPLATE)) {
                     // explicit services supplied, so plan should have been parseable for an entity or a a service
                     errors.add(e);
-                } else if (catalogItemType!=null && key!=null) {
+                } else if (catalogItemType!=null && optionalKeyForModifyingYaml!=null) {
                     // explicit itemType supplied, so plan should be parseable in the cases where we're given a key
                     // (when we're not given a key, the previous block should apply)
                     errors.add(e);
@@ -1404,28 +1503,52 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     if (candidateCiType==CatalogItemType.ENTITY) {
                         entityErrors.add(e);
                     }
-                    if (log.isTraceEnabled()) 
-                        log.trace("Guessing type of plan, it looks like it isn't "+candidateCiType+"/"+key+": "+e);
                 }
             }
             
             // finally try parsing a cut-down plan, in case there is a nested reference to a newly defined catalog item
-            if (type!=null && key!=null) {
+            if (typeIfOptionalKeySupplied!=null && optionalKeyForModifyingYaml!=null) {
                 try {
-                    String cutDownYaml = key + ":\n" + makeAsIndentedList("type: "+type);
-                    @SuppressWarnings("rawtypes")
-                    CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
-                            .plan(cutDownYaml)
-                            .libraries(libraryBundles)
-                            .build();
-                    @SuppressWarnings("unchecked")
-                    AbstractBrooklynObjectSpec<?, ?> cutdownSpec = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
-                    if (cutdownSpec!=null) {
+                    String cutDownYaml = optionalKeyForModifyingYaml + ":\n" + makeAsIndentedList("type: "+typeIfOptionalKeySupplied);
+                    
+                    Object cutdownSpecInstantiated = null;
+                    if (tryAsLegacy) {
+                        if (ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS) {
+                            @SuppressWarnings("rawtypes")
+                            CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
+                                    .plan(cutDownYaml)
+                                    .libraries(libraryBundles)
+                                    .build();
+                            cutdownSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
+                            // TODO warn
+                        }
+
+                    } else {
+                        if (ATTEMPT_INSTANTIATION_WITH_TYPE_PLAN_TRANSFORMERS) {
+                            // preferred, new style
+                            BasicRegisteredType itemToAttempt = createYetUnsavedRegisteredTypeInstance(
+                                RegisteredTypeKind.SPEC, getIdWithRandomDefault(), DEFAULT_VERSION,
+                                /* containing bundle */ null, 
+                                libraryBundles, 
+                                // displayName, description, catalogIconUrl, deprecated, yaml
+                                null, null, null, false, cutDownYaml, 
+                                // tags, aliases, catalogDisabled, superTypes, format 
+                                null, null, false, MutableList.of(BrooklynObjectType.of(candidateCiType).getInterfaceType()), null);
+
+                            cutdownSpecInstantiated = mgmt.getTypeRegistry().create(itemToAttempt, null, null);
+                        }
+                    }
+                    
+                    if (cutdownSpecInstantiated!=null) {
                         catalogItemType = candidateCiType;
                         planYaml = candidateYaml;
                         resolved = true;
+                        
+                        return true;
+                        
+                    } else {
+                        // continue to next block (should throw above and catch below, instead of coming here)
                     }
-                    return true;
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                 }
@@ -1756,6 +1879,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // but do not allow this to run if we are expanding a nested definition as that may fail to find recursive loops
             // (the legacy routines this uses don't support that type of context)
             String yaml = RegisteredTypes.getImplementationDataStringForSpec(typeToValidate);
+            log.trace("Validating {}: \n{}", typeToValidate, yaml);
+            
             PlanInterpreterGuessingType guesser = new PlanInterpreterGuessingType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ), 
                 yaml, null, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
             guesser.reconstruct();
@@ -1765,6 +1890,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // guesser resolved, but we couldn't create; did guesser change something?
                 
                 CatalogItemType ciType = guesser.getCatalogItemType();
+                log.debug("Validated "+typeToValidate+" as "+ciType);
                 // try this even for templates; errors in them will be ignored by validator
                 // but might be interesting to someone calling resolve directly
                 
@@ -1791,6 +1917,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
                 
                 if (changedSomething) {
+                    log.debug("Re-resolving "+resultT+" following detection of change");
                     // try again with new plan or supertype info
                     return resolve(resultT, constraint);
                     
@@ -1804,7 +1931,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     throw new IllegalStateException("Guesser resolved as "+ciType+" but we expected "+boType);
                 }
             } else {
-                throw new IllegalStateException("Guesser could not resolve");
+                throw new IllegalStateException("Guesser could not resolve "+typeToValidate);
             }
             
         } catch (Exception e) {
@@ -1816,6 +1943,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (resultO!=null && resultT!=null) {
             if (resultO instanceof BrooklynObject) {
                 // if it was a bean that points at a BO then switch it to a spec and try to re-validate
+                log.debug("Re-resolving "+resultT+" following detection of bean where spec was expected");
                 return resolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate), constraint);
             }
             Class<?> resultS;
@@ -1834,6 +1962,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             collectSupers(newSupers);
             RegisteredTypes.addSuperTypes(resultT, newSupers);
 
+            log.trace("Resolved {} to java {}", resultT, resultS);
             return ReferenceWithError.newInstanceWithoutError(resultT);
         }
         
@@ -1842,6 +1971,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             .appendAll(guesserErrors)
             .appendIfNotNull(beanError)
             .appendIfNotNull(specError);
+        log.trace("Failure resolving {} (informing caller): {}", resultT, errors);
         return ReferenceWithError.newInstanceThrowingError(null, Exceptions.create("Could not resolve "+typeToValidate, errors));
     }
 
