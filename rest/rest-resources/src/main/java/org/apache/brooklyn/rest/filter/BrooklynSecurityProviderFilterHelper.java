@@ -140,8 +140,8 @@ public class BrooklynSecurityProviderFilterHelper {
 
         try{
             if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
-                // get new created session after authentication
-                HttpSession preferredSession2 = MultiSessionAttributeAdapter.of(webRequest, false).getPreferredSession();
+                // gets new session created after authentication
+                HttpSession preferredSession2 = sessionSupplier.get();
                 log.trace("{} authentication successful - {}", this, preferredSession2);
                 preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
                 if (user != null) {
