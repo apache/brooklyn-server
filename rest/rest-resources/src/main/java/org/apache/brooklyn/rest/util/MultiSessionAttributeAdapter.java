@@ -18,13 +18,16 @@
  */
 package org.apache.brooklyn.rest.util;
 
-import java.lang.reflect.Field;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.gson.JsonObject;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections.EnumerationUtils;
+import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.ContextHandler;
@@ -33,6 +36,20 @@ import org.eclipse.jetty.server.session.SessionHandler;
 import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.servlet.ServletContext;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import javax.ws.rs.WebApplicationException;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Convenience to assist working with multiple sessions, ensuring requests in different bundles can
@@ -80,15 +97,21 @@ public class MultiSessionAttributeAdapter {
     private static final String KEY_PREFERRED_SESSION_HANDLER_INSTANCE = "org.apache.brooklyn.server.PreferredSessionHandlerInstance";
     private static final String KEY_IS_PREFERRED = "org.apache.brooklyn.server.IsPreferred";
 
-    private static final int MAX_INACTIVE_INTERVAL = 3601;
+    public final static ConfigKey<Long> MAX_SESSION_AGE = ConfigKeys.newLongConfigKey(
+            "org.apache.brooklyn.server.maxSessionAge", "Max session age in seconds");
 
-    private static final Object PREFERRED_SYMBOLIC_NAME = 
+    public final static ConfigKey<Integer> MAX_INACTIVE_INTERVAL = ConfigKeys.newIntegerConfigKey(
+            "org.apache.brooklyn.server.maxInactiveInterval", "Max inactive interval in seconds",
+            3600);
+
+    private static final Object PREFERRED_SYMBOLIC_NAME =
         "org.apache.cxf.cxf-rt-transports-http";
         //// our bundle here doesn't have a session handler; sessions to the REST API get the handler from CXF
         //"org.apache.brooklyn.rest.rest-resources";
     
     private final HttpSession preferredSession;
     private final HttpSession localSession;
+    private final ManagementContext mgmt;
 
     private boolean silentlyAcceptLocalOnlyValues = false;
     private boolean setLocalValuesAlso = false;
@@ -96,12 +119,23 @@ public class MultiSessionAttributeAdapter {
     
     private static final Factory FACTORY = new Factory();
 
-    protected MultiSessionAttributeAdapter(HttpSession preferredSession, HttpSession localSession) {
+    protected MultiSessionAttributeAdapter(HttpSession preferredSession, HttpSession localSession, HttpServletRequest request) {
         this.preferredSession = preferredSession;
         this.localSession = localSession;
+
+        ServletContext servletContext = request!=null ? request.getServletContext() :
+                localSession!=null ? localSession.getServletContext() :
+                        preferredSession!=null ? preferredSession.getServletContext() :
+                                null;
+
+        this.mgmt = servletContext != null ? new ManagementContextProvider(servletContext).getManagementContext() : null;
         resetExpiration();
     }
-    
+
+    public MultiSessionAttributeAdapter(HttpSession preferredSession, HttpSession session) {
+        this(preferredSession, session, null);
+    }
+
     public static MultiSessionAttributeAdapter of(HttpServletRequest r) {
         return of(r, true);
     }
@@ -109,7 +143,7 @@ public class MultiSessionAttributeAdapter {
     public static MultiSessionAttributeAdapter of(HttpServletRequest r, boolean create) {
         HttpSession session = r.getSession(create);
         if (session==null) return null;
-        return new MultiSessionAttributeAdapter(FACTORY.findPreferredSession(r), session);
+        return new MultiSessionAttributeAdapter(FACTORY.findPreferredSession(r), session, r);
     }
     
     /** Where the request isn't available, and the preferred session is expected to exist.
@@ -118,9 +152,9 @@ public class MultiSessionAttributeAdapter {
         return new MultiSessionAttributeAdapter(FACTORY.findPreferredSession(session, null), session);
     }
 
-    
+
     protected static class Factory {
-        
+
         private HttpSession findPreferredSession(HttpServletRequest r) {
             if (r.getSession(false)==null) {
                 log.warn("Creating session", new Exception("source of created session"));
@@ -128,8 +162,59 @@ public class MultiSessionAttributeAdapter {
             }
             return findPreferredSession(r.getSession(), r);
         }
-        
+
         private HttpSession findPreferredSession(HttpSession localSession, HttpServletRequest optionalRequest) {
+            HttpSession preferredSession = findValidPreferredSession(localSession, optionalRequest);
+
+            //TODO just check this the first time preferred session is accessed on a given request (when it is looked up)
+
+            ManagementContext mgmt = null;
+            ServletContext servletContext = optionalRequest!=null ? optionalRequest.getServletContext() : localSession!=null ? localSession.getServletContext() : preferredSession!=null ? preferredSession.getServletContext() : null;
+            if(servletContext != null){
+                mgmt = new ManagementContextProvider(servletContext).getManagementContext();
+            }
+
+            boolean isValid = ((Session)preferredSession).isValid();
+            if (!isValid) {
+                throw new SessionExpiredException("Session invalidated", SessionErrors.SESSION_INVALIDATED, optionalRequest);
+            }
+
+            if(mgmt !=null){
+                Long maxSessionAge = mgmt.getConfig().getConfig(MAX_SESSION_AGE);
+                if (maxSessionAge!=null) {
+                    if (isAgeExceeded(preferredSession, maxSessionAge)) {
+                        invalidateAllSession(preferredSession, localSession);
+                        throw new SessionExpiredException("Max session age exceeded", SessionErrors.SESSION_AGE_EXCEEDED, optionalRequest);
+                    }
+                }
+            }
+
+            return preferredSession;
+        }
+
+        private boolean isAgeExceeded(HttpSession preferredSession, Long maxSessionAge) {
+            return preferredSession.getCreationTime() + maxSessionAge*1000 < System.currentTimeMillis();
+        }
+
+        private void invalidateAllSession(HttpSession preferredSession, HttpSession localSession) {
+            Server server = ((Session)preferredSession).getSessionHandler().getServer();
+            final Handler[] handlers = server.getChildHandlersByClass(SessionHandler.class);
+            List<String> invalidatedSessions = new ArrayList<>();
+            if (handlers!=null) {
+                for (Handler h: handlers) {
+                    Session session = ((SessionHandler)h).getSession(preferredSession.getId());
+                    if (session!=null) {
+                        invalidatedSessions.add(session.getId());
+                        session.invalidate();
+                    }
+                }
+            }
+            if(!invalidatedSessions.contains(localSession.getId())){
+                localSession.invalidate();
+            }
+        }
+
+        private HttpSession findValidPreferredSession(HttpSession localSession, HttpServletRequest optionalRequest) {
             if (localSession instanceof Session) {
                 SessionHandler preferredHandler = getPreferredJettyHandler((Session)localSession, true, true);
                 HttpSession preferredSession = preferredHandler==null ? null : preferredHandler.getHttpSession(localSession.getId());
@@ -180,21 +265,21 @@ public class MultiSessionAttributeAdapter {
                         return preferredServerGlobalSessionHandler;
                     }
                 }
-                
+
                 Handler[] handlers = server.getChildHandlersByClass(SessionHandler.class);
-                
+
                 // if there is a session marked, use it, unless the server has a preferred session handler and it has an equivalent session
                 // this way if a session is marked (from use in a context where we don't have a web request) it will be used
                 SessionHandler preferredHandlerForMarkedSession = findPeerSessionMarkedPreferred(localSession.getId(), handlers);
                 if (preferredHandlerForMarkedSession!=null) return preferredHandlerForMarkedSession;
-                
+
                 // nothing marked as preferred; if server global handler has a session, mark it as preferred
                 // this way it will get found quickly on subsequent requests
                 if (sessionAtServerGlobalPreferredHandler!=null) {
                     sessionAtServerGlobalPreferredHandler.setAttribute(KEY_IS_PREFERRED, true);
-                    return preferredServerGlobalSessionHandler; 
+                    return preferredServerGlobalSessionHandler;
                 }
-                
+
                 if (allowHandlerThatDoesntHaveSession && preferredServerGlobalSessionHandler!=null) {
                     return preferredServerGlobalSessionHandler;
                 }
@@ -205,31 +290,31 @@ public class MultiSessionAttributeAdapter {
                         return getPreferredJettyHandler(localSession, allowHandlerThatDoesntHaveSession, markAndReturnThisIfNoneFound);
                     }
                 }
-    
+
                 if (markAndReturnThisIfNoneFound) {
                     // nothing detected as preferred ... let's mark this session as the preferred one
                     markSessionAsPreferred(localSession, " (this is the handler that the request came in on)");
-                    return localHandler;               
+                    return localHandler;
                 }
-                
+
             } else {
                 log.warn("Could not find server for "+info(localSession));
             }
             return null;
         }
-    
+
         protected void markSessionAsPreferred(HttpSession localSession, String msg) {
             if (log.isTraceEnabled()) {
                 log.trace("Recording on "+info(localSession)+" that it is the preferred session"+msg);
             }
             localSession.setAttribute(KEY_IS_PREFERRED, true);
         }
-    
+
         protected SessionHandler findPreferredBundleHandler(Session localSession, Server server, Handler[] handlers) {
             if (PREFERRED_SYMBOLIC_NAME==null) return null;
-            
+
             SessionHandler preferredHandler = null;
-            
+
             if (handlers != null) {
                 for (Handler handler: handlers) {
                     SessionHandler sh = (SessionHandler) handler;
@@ -255,7 +340,7 @@ public class MultiSessionAttributeAdapter {
             }
             return preferredHandler;
         }
-    
+
         protected SessionHandler findPeerSessionMarkedPreferred(String localSessionId, Handler[] handlers) {
             SessionHandler preferredHandler = null;
             // are any sessions themselves marked as primary
@@ -278,7 +363,7 @@ public class MultiSessionAttributeAdapter {
             }
             return preferredHandler;
         }
-    
+
         protected SessionHandler getServerGlobalPreferredHandler(Server server) {
             SessionHandler preferredHandler = (SessionHandler) server.getAttribute(KEY_PREFERRED_SESSION_HANDLER_INSTANCE);
             if (preferredHandler!=null) {
@@ -291,6 +376,57 @@ public class MultiSessionAttributeAdapter {
                 log.warn("Preferred session handler "+info(preferredHandler)+" detected on server is not running; resetting");
             }
             return null;
+        }
+
+        enum SessionErrors {
+            SESSION_INVALIDATED, SESSION_AGE_EXCEEDED
+        }
+
+        private class SessionExpiredException extends WebApplicationException {
+            public SessionExpiredException(String message, SessionErrors error_status, HttpServletRequest optionalRequest) {
+                super(message, buildExceptionResponse(error_status, optionalRequest, message));
+            }
+        }
+
+        private static Response buildExceptionResponse(SessionErrors error_status, HttpServletRequest optionalRequest, String message) {
+            String mediaType;
+            String responseData;
+
+            if(requestIsHtml(optionalRequest)){
+                mediaType = MediaType.TEXT_HTML;
+                StringBuilder sb = new StringBuilder("<p>")
+                        .append(message)
+                        .append("</p>\n")
+                        .append("<p>")
+                        .append("Please go <a href=\"")
+                        .append(optionalRequest.getRequestURL())
+                        .append("\">here</a> to refresh.")
+                        .append("</p>");
+                responseData = sb.toString();
+            }else{
+                mediaType = MediaType.APPLICATION_JSON;
+                JsonObject jsonEntity = new JsonObject();
+                jsonEntity.addProperty(error_status.toString(), true);
+                responseData = jsonEntity.toString();
+            }
+            return Response.status(Response.Status.FORBIDDEN)
+                    .header(HttpHeader.CONTENT_TYPE.asString(), mediaType)
+                    .entity(responseData).build();
+        }
+
+        private static boolean requestIsHtml(HttpServletRequest optionalRequest) {
+            Set headerList = separateOneLineMediaTypes(EnumerationUtils.toList(optionalRequest.getHeaders(HttpHeaders.ACCEPT)));
+            Set defaultMediaTypes = ImmutableSet.of(MediaType.TEXT_HTML, MediaType.APPLICATION_XHTML_XML, MediaType.APPLICATION_XML);
+            if(CollectionUtils.containsAny(headerList,defaultMediaTypes)){
+                return true;
+            }
+            return false;
+        }
+
+        private static Set separateOneLineMediaTypes(List<String> toList) {
+            Set<String> mediatypes = new HashSet<>();
+            toList.stream().forEach(headerLine -> mediatypes.addAll(Arrays.asList(headerLine.split(",|,\\s"))));
+            return mediatypes;
         }
     }
 
@@ -483,12 +619,16 @@ public class MultiSessionAttributeAdapter {
         // force all sessions with this ID to be marked used so they are not expired
         // (if _any_ session with this ID is expired, then they all are, even if another
         // with the same ID is in use or has a later expiry)
+        Integer maxInativeInterval = MAX_INACTIVE_INTERVAL.getDefaultValue();
+        if(this.mgmt != null){
+            maxInativeInterval = mgmt.getConfig().getConfig(MAX_INACTIVE_INTERVAL);
+        }
         Handler[] hh = getSessionHandlers();
         if (hh!=null) {
             for (Handler h: hh) {
                 Session ss = ((SessionHandler)h).getSession(getId());
                 if (ss!=null) {
-                    ss.setMaxInactiveInterval(MAX_INACTIVE_INTERVAL);
+                    ss.setMaxInactiveInterval(maxInativeInterval);
                 }
             }
         }
