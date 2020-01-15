@@ -1359,40 +1359,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         }
                     }
                 }
-                if (ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS) {
-                    // TODO remove, if tests pass without this old block
-                    
-                    // legacy routine; should be the same as above code added in 0.12 because:
-                    // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match 
-                    // if type is symbolic_name:version, the id will match, and the version will also have to match 
-                    // SHOULD NEVER NEED THIS - remove during or after 0.13
-                    String typeWithId = type;
-                    String version = null;
-                    if (CatalogUtils.looksLikeVersionedId(type)) {
-                        version = CatalogUtils.getVersionFromVersionedId(type);
-                        type = CatalogUtils.getSymbolicNameFromVersionedId(type);
-                    }
-                    if (type!=null && optionalKeyForModifyingYaml!=null) {
-                        for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
-                            if (candidateCiType == candidate.getCatalogItemType() &&
-                                    (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
-                                if (version==null || version.equals(candidate.getVersion())) {
-                                    log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
-                                    // matched - exit
-                                    catalogItemType = candidateCiType;
-                                    planYaml = candidateYamlWithKeyAdded!=null ? candidateYamlWithKeyAdded : itemYaml;
-                                    resolved = true;
-                                    return true;
-                                }
-                            }
-                        }
-                    }
-                    
-                    type = typeWithId;
-                    // above line is a change to behaviour; previously we proceeded below with the version dropped in code above;
-                    // but that seems like a bug as the code below will have ignored version.
-                    // likely this means we are now stricter about loading things that reference new versions, but correctly so. 
-                }
             }
             
             if (tryWithoutOptionalKey || candidateYamlWithKeyAdded==null) {
@@ -1450,8 +1416,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         itemToAttemptO = itemToAttempt;
                         
                         itemSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
-                        
-                        // TODO log warning -- legacy works but modern doesn't!
+
+                        if (ATTEMPT_INSTANTIATION_WITH_TYPE_PLAN_TRANSFORMERS) {
+                            log.warn("Instantiation of this blueprint was only possible with legacy plan-to-spec converter, will likely not be supported in future versions:\n"+candidateYaml);
+                        }
                     }
                     
                 } else {
@@ -1520,7 +1488,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                                     .libraries(libraryBundles)
                                     .build();
                             cutdownSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
-                            // TODO warn
+                            if (ATTEMPT_INSTANTIATION_WITH_TYPE_PLAN_TRANSFORMERS) {
+                                log.warn("Instantiation of this cut-down blueprint was only possible with legacy plan-to-spec converter, will likely not be supported in future versions:\n"+candidateYaml);
+                            }
                         }
 
                     } else {
@@ -1540,6 +1510,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     }
                     
                     if (cutdownSpecInstantiated!=null) {
+                        log.debug("Instantiation of this blueprint was only possible using cut-down syntax; assuming dependencies on other items. May resolve subsequently or may cause errors when used:\n"+candidateYaml);
+                        
                         catalogItemType = candidateCiType;
                         planYaml = candidateYaml;
                         resolved = true;
