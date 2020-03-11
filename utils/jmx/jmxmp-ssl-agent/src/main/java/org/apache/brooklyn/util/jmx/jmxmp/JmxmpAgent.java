@@ -47,8 +47,11 @@ import org.apache.brooklyn.util.jmx.jmxmp.JmxmpAgent;
 
 
 /**
- * This exposes JMX access over JMXMP, suitable for high-security environments,
+ * This exposes JMX access over JMXMP. This is intended to be suitable for high-security environments,
  * with support for going through firewalls as well as encrypting and authenticating securely.
+ * Note, however, that implementations of JMX/RMI are potentially vulnerable to java
+ * deserialization attacks. Users should attend to the security of these components in line with their best
+ * practices, and verify that JMXMP is suitable for their requirements before using this class.
  * <p>
  * Listens on 11099 unless overridden by system property brooklyn.jmxmp.port.
  * <p>
