@@ -559,13 +559,18 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             // If we have a parent but changing to orphaned...
             if (entity==null) { clearParent(); return this; }
             
-            // We have a parent and are changing to another parent...
-            throw new UnsupportedOperationException("Cannot change parent of "+this+" from "+parent+" to "+entity+" (parent change not supported)");
+            if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_DISALLOW_REPARENTING)) {
+                // We have a parent and are changing to another parent...
+                throw new UnsupportedOperationException("Cannot change parent of "+this+" from "+parent+" to "+entity+" (parent change not supported)");
+            }
         }
-        // If we have previously had a parent and are trying to change to another one...
-        if (previouslyOwned && entity != null)
-            throw new UnsupportedOperationException("Cannot set a parent of "+this+" as "+entity+" because it has previously had a parent");
-        // We don't have a parent, never have and are changing to having a parent...
+        if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_DISALLOW_REPARENTING)) {
+            // If we have previously had a parent and are trying to change to another one...
+            if (previouslyOwned && entity != null)
+                throw new UnsupportedOperationException("Cannot set a parent of "+this+" as "+entity+" because it has previously had a parent");
+        }
+        // If reparenting disallowed, we don't have a parent, never have and are changing to having a parent...
+        // If reparenting is allowed, anything could be the case, but that should be okay.
 
         //make sure there is no loop
         if (this.equals(entity)) throw new IllegalStateException("entity "+this+" cannot own itself");
