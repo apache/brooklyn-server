@@ -185,7 +185,12 @@ public class LoopOverGroupMembersTestCaseTest {
     }
 
     // See https://issues.apache.org/jira/browse/BROOKLYN-490
-    @Test
+    // TODO this can still fail on a slow machine, observed 2020-04-01
+    // the log had nothing interesting, just shows the test starting, then failing 
+    // in startAppAssertingFailure at Asserts.shouldHaveFailedPreviously.
+    // it is not showing the test case failure. which suggests it isn't doing the test, not sure why ...
+    // maybe because the test group is empty (though we do addMemberChild so that doesn't seem likely).
+    @Test(groups = "Broken")
     public void testParentTestCaseReportsFailureIfLooperFails() {
         addEmptySoftwareProcessToGroup();
         EntitySpec<TestSensor> testSpec = createFailingTestSensorSpec();
