@@ -21,8 +21,9 @@ package org.apache.brooklyn.entity.group;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttribute;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEquals;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
+import static org.apache.brooklyn.test.Asserts.assertEquals;
 import static org.apache.brooklyn.test.Asserts.assertEqualsIgnoringOrder;
-import static org.apache.brooklyn.test.Asserts.*;
+import static org.apache.brooklyn.test.Asserts.assertTrue;
 import static org.apache.brooklyn.test.Asserts.succeedsEventually;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -135,17 +136,18 @@ public class SequenceGroupTest extends BrooklynAppUnitTestSupport {
     public void testGroupWithMatchingFilterReturnsEverythingThatMatches() throws Exception {
         group = app.addChild(EntitySpec.create(SequenceGroup.class)
                 .configure(SequenceGroup.ENTITY_FILTER, Predicates.alwaysTrue()));
+        assertAttributeEqualsEventually(app, SequenceGroup.SEQUENCE_VALUE, 1);
+        assertAttributeEqualsEventually(group, SequenceGroup.SEQUENCE_VALUE, 2);
+        
         createTestEntities();
         app.start(ImmutableList.of(loc1));
 
         assertAttributeEqualsEventually(group, SequenceGroup.RUNNING, true);
-
+        assertAttributeEqualsEventually(e3, SequenceGroup.SEQUENCE_VALUE, 5);
+        
         assertEqualsIgnoringOrder(group.getMembers(), ImmutableSet.of(e1, e2, e3, app, group));
-        assertAttributeEquals(app, SequenceGroup.SEQUENCE_VALUE, 1);
-        assertAttributeEquals(group, SequenceGroup.SEQUENCE_VALUE, 2);
         assertAttributeEquals(e1, SequenceGroup.SEQUENCE_VALUE, 3);
         assertAttributeEquals(e2, SequenceGroup.SEQUENCE_VALUE, 4);
-        assertAttributeEquals(e3, SequenceGroup.SEQUENCE_VALUE, 5);
         assertAttributeEquals(group, SequenceGroup.SEQUENCE_CURRENT, e3);
         AtomicInteger state = group.sensors().get(SequenceGroup.SEQUENCE_STATE);
         assertEquals(state.get(), 6);
