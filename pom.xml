@@ -144,7 +144,7 @@
         <freemarker.version>2.3.25-incubating</freemarker.version>
         <commons-io.version>2.4</commons-io.version>
         <jsonPath.version>2.4.0</jsonPath.version>
-        <commons-compress.version>1.18</commons-compress.version>
+        <commons-compress.version>1.20</commons-compress.version>
         <validation-api.version>1.1.0.Final</validation-api.version>
         <geronimo-jms_1.1_spec.version>1.1.1</geronimo-jms_1.1_spec.version>
         <geronimo-jta_1.1_spec.version>1.1.1</geronimo-jta_1.1_spec.version>
