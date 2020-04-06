@@ -324,7 +324,7 @@
         <bundle>mvn:io.fabric8/kubernetes-model/4.9.0</bundle>
         <bundle>mvn:io.fabric8/zjsonpatch/0.2.3</bundle>
         <bundle>mvn:io.fabric8/kubernetes-client/4.9.0/jar/bundle</bundle>
-        <bundle>mvn:io.fabric8/openshift-client/1.4.27/jar/bundle</bundle>
+        <bundle>mvn:io.fabric8/openshift-client/4.9.0/jar/bundle</bundle>
     </feature>
 
     <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >
