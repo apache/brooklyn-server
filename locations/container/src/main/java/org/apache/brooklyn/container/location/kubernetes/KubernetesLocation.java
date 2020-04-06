@@ -120,9 +120,9 @@ import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.ServicePortBuilder;
-import io.fabric8.kubernetes.api.model.extensions.Deployment;
-import io.fabric8.kubernetes.api.model.extensions.DeploymentBuilder;
-import io.fabric8.kubernetes.api.model.extensions.DeploymentStatus;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
@@ -347,11 +347,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 if (result.isEmpty()) {
                     return false;
                 }
-                List<HasMetadata> check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
-                if (result.size() > 1 || check.size() != 1 || check.get(0).getMetadata() == null) {
-                    return false;
-                }
-                return true;
+                //List<HasMetadata> check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
+                HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
+                return check != null;
             }
 
             @Override
