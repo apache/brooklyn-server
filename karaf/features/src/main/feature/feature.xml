@@ -321,9 +321,9 @@
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/3.4.1_1</bundle>
 <!--
     these are the main required bundles for the features above: -->
-        <bundle>mvn:io.fabric8/kubernetes-model/1.0.64</bundle>
+        <bundle>mvn:io.fabric8/kubernetes-model/4.9.0</bundle>
         <bundle>mvn:io.fabric8/zjsonpatch/0.2.3</bundle>
-        <bundle>mvn:io.fabric8/kubernetes-client/1.4.27/jar/bundle</bundle>
+        <bundle>mvn:io.fabric8/kubernetes-client/4.9.0/jar/bundle</bundle>
         <bundle>mvn:io.fabric8/openshift-client/1.4.27/jar/bundle</bundle>
     </feature>
 
