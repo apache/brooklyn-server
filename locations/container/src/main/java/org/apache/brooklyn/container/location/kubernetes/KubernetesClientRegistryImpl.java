@@ -55,6 +55,7 @@ public class KubernetesClientRegistryImpl implements KubernetesClientRegistry {
 
         if (Strings.isNonBlank(configFile)) {
             try {
+                // turns out this is all we need, but to be decided later
                 Path configPath = Paths.get(configFile);
                 Config clientConfig = Config.fromKubeconfig(new String(Files.readAllBytes(configPath)));
                 configBuilder = new ConfigBuilder(clientConfig);

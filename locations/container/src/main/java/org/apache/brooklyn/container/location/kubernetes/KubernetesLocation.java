@@ -347,7 +347,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 if (result.isEmpty()) {
                     return false;
                 }
-                //List<HasMetadata> check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
                 HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
                 return check != null;
             }
