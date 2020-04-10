@@ -101,20 +101,20 @@
     <feature name="brooklyn-rest-client" version="${project.version}" description="Brooklyn REST Client">
         <feature>brooklyn-rest-api</feature>
         <feature>swagger</feature>
-        
+
         <bundle>mvn:org.apache.brooklyn/brooklyn-rest-client/${project.version}</bundle>
-        
+
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpclient.version}</bundle>
         <bundle dependency='true'>mvn:commons-logging/commons-logging/${commons-logging.version}</bundle>
         <bundle dependency='true'>mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
 
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
         <bundle dependency='true'>mvn:com.google.code.gson/gson/${gson.version}</bundle>
-        
+
         <bundle dependency='true'>wrap:mvn:javax.activation/activation/${javax-activation.version}</bundle>
         <bundle dependency="true">mvn:commons-io/commons-io/${commons-io.version}</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jcip-annotations/${jcip-annotations.bundle.version}</bundle>
-        
+
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
@@ -142,6 +142,7 @@
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
+
         <bundle dependency="true">mvn:net.minidev/json-smart/${jsonSmart.version}</bundle>
         <bundle dependency="true">mvn:net.minidev/accessors-smart/${minidev.accessors-smart.version}</bundle>
         <bundle dependency="true">mvn:org.ow2.asm/asm/${ow2.asm.version}</bundle>
@@ -294,37 +295,45 @@
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-container/${project.version}</bundle>
 
         <feature>brooklyn-core</feature>
-        
-<!-- the intention is to pull in these features to support deploy-to k8s 
-        <feature>kubernetes-client</feature>
-        <feature>openshift-client</feature>
-     however they pull in incompatible versions - jackson 2.7.5 and snakeyaml 1.17 -
-     so we declare instead the extra deps it declares, but skip those already pulled in.
-     these two we skip because we pull them in elsewhere (same versions, but don't redeclare fixed version)
-        <bundle dependency='true'>mvn:javax.validation/validation-api/1.1.0.Final</bundle>
-        <bundle dependency='true'>mvn:javax.servlet/javax.servlet-api/3.1.0</bundle>
-    these it declares at a different version, right version pulled in elsewhere
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-core/2.7.5</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-annotations/2.7.5</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-databind/2.7.5</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/2.7.5</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/2.7.5</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/2.7.5</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.7.5</bundle>
-        <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.17</bundle>
-    these are needed:  -->
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.1_1</bundle>
+
+        <!-- the intention is to pull in these features to support deploy-to k8s
+                <feature>kubernetes-client</feature>
+                <feature>openshift-client</feature>
+             however they pull in incompatible versions - jackson 2.7.5 and snakeyaml 1.17 -
+             so we declare instead the extra deps it declares, but skip those already pulled in.
+             these two we skip because we pull them in elsewhere (same versions, but don't redeclare fixed version)
+                <bundle dependency='true'>mvn:javax.validation/validation-api/1.1.0.Final</bundle>
+                <bundle dependency='true'>mvn:javax.servlet/javax.servlet-api/3.1.0</bundle>
+            these it declares at a different version, right version pulled in elsewhere
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-core/2.7.5</bundle>
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-annotations/2.7.5</bundle>
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.core/jackson-databind/2.7.5</bundle>
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/2.7.5</bundle>
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-base/2.7.5</bundle>
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/2.7.5</bundle>
+                <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/2.7.5</bundle>
+                <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.17</bundle>
+            these are needed:  -->
+
+        <!-- this is the problem dependency, if we add this bundle 'brooklyn-locations-jclouds' stops Brookyn dead in its tracks,
+        apparently that bundle depends on it too-->
+        <!-- <bundle dependency='true'>mvn:com.google.code.findbugs/jsr305/3.0.1</bundle>-->
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.datatype/jackson-datatype-jsr310/${fasterxml.jackson.version}</bundle>
+
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
-<!-- 
-    these are used elsewhere at different versions, but pull these versions also (OSGi will wire correctly): -->
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okio/1.9.0_1</bundle>
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/3.4.1_1</bundle>
-<!--
-    these are the main required bundles for the features above: -->
-        <bundle>mvn:io.fabric8/kubernetes-model/4.9.0</bundle>
-        <bundle>mvn:io.fabric8/zjsonpatch/0.2.3</bundle>
-        <bundle>mvn:io.fabric8/kubernetes-client/4.9.0/jar/bundle</bundle>
-        <bundle>mvn:io.fabric8/openshift-client/4.9.0/jar/bundle</bundle>
+        <!--
+            these are used elsewhere at different versions, but pull these versions also (OSGi will wire correctly): -->
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/3.14.1_1</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okio/1.15.0_1</bundle>
+        <!--
+            these are the main required bundles for the features above: -->
+        <bundle>mvn:io.fabric8/zjsonpatch/0.3.0</bundle>
+        <bundle>mvn:io.fabric8/kubernetes-model/${kubernetes-client.version}</bundle>
+        <bundle>mvn:io.fabric8/kubernetes-client/${kubernetes-client.version}/jar/bundle</bundle>
+        <bundle>mvn:io.fabric8/openshift-client/${kubernetes-client.version}/jar/bundle</bundle>
     </feature>
 
     <feature name="brooklyn-test-framework" version="${project.version}" description="Brooklyn Test Framework" >
