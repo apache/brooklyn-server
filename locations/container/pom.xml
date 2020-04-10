@@ -31,10 +31,6 @@
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
-    <properties>
-        <kubernetes-client.version>4.9.0</kubernetes-client.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>io.fabric8</groupId>
