@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nullable;
 
+import io.fabric8.kubernetes.api.model.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -92,34 +93,6 @@ import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
-import io.fabric8.kubernetes.api.model.Container;
-import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.ContainerPort;
-import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
-import io.fabric8.kubernetes.api.model.EndpointAddress;
-import io.fabric8.kubernetes.api.model.EndpointSubset;
-import io.fabric8.kubernetes.api.model.Endpoints;
-import io.fabric8.kubernetes.api.model.EnvVar;
-import io.fabric8.kubernetes.api.model.EnvVarBuilder;
-import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.api.model.Namespace;
-import io.fabric8.kubernetes.api.model.NamespaceBuilder;
-import io.fabric8.kubernetes.api.model.PersistentVolume;
-import io.fabric8.kubernetes.api.model.PersistentVolumeBuilder;
-import io.fabric8.kubernetes.api.model.Pod;
-import io.fabric8.kubernetes.api.model.PodList;
-import io.fabric8.kubernetes.api.model.PodTemplateSpec;
-import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
-import io.fabric8.kubernetes.api.model.QuantityBuilder;
-import io.fabric8.kubernetes.api.model.ReplicationController;
-import io.fabric8.kubernetes.api.model.ResourceRequirements;
-import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
-import io.fabric8.kubernetes.api.model.Secret;
-import io.fabric8.kubernetes.api.model.SecretBuilder;
-import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.ServiceBuilder;
-import io.fabric8.kubernetes.api.model.ServicePort;
-import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
@@ -197,7 +170,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     @Override
-    public KubernetesMachineLocation obtain(Map<?, ?> flags) throws NoMachinesAvailableException {
+    public KubernetesMachineLocation obtain(Map<?, ?> flags) {
         ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
 
@@ -262,9 +235,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         try {
             switch (resourceType) {
                 case KubernetesResource.DEPLOYMENT:
-                    return client.extensions().deployments().inNamespace(namespace).withName(resourceName).delete();
+                    return client.apps().deployments().inNamespace(namespace).withName(resourceName).delete();
                 case KubernetesResource.REPLICA_SET:
-                    return client.extensions().replicaSets().inNamespace(namespace).withName(resourceName).delete();
+                    return client.apps().replicaSets().inNamespace(namespace).withName(resourceName).delete();
                 case KubernetesResource.CONFIG_MAP:
                     return client.configMaps().inNamespace(namespace).withName(resourceName).delete();
                 case KubernetesResource.PERSISTENT_VOLUME:
@@ -285,11 +258,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected void undeploy(final String namespace, final String deployment, final String pod) {
-        client.extensions().deployments().inNamespace(namespace).withName(deployment).delete();
+        client.apps().deployments().inNamespace(namespace).withName(deployment).delete();
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
-                return client.extensions().deployments().inNamespace(namespace).withName(deployment).get() == null;
+                return client.apps().deployments().inNamespace(namespace).withName(deployment).get() == null;
             }
 
             @Override
@@ -322,7 +295,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected boolean isNamespaceEmpty(String name) {
-        return client.extensions().deployments().inNamespace(name).list().getItems().isEmpty() &&
+        return client.apps().deployments().inNamespace(name).list().getItems().isEmpty() &&
                 client.services().inNamespace(name).list().getItems().isEmpty() &&
                 client.secrets().inNamespace(name).list().getItems().isEmpty();
     }
@@ -531,8 +504,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         PortForwardManager portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry()
                 .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         List<ServicePort> ports = service.getSpec().getPorts();
-        String publicHostText = ((SshMachineLocation) machine).getSshHostAndPort().getHostText();
-        LOG.debug("Recording port-mappings for container {} of {}: {}", new Object[]{machine, this, ports});
+        String publicHostText = machine.getSshHostAndPort().getHostText();
+        LOG.debug("Recording port-mappings for container {} of {}: {}", machine, this, ports);
 
         for (ServicePort port : ports) {
             String protocol = port.getProtocol();
@@ -572,7 +545,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         if (namespace != null) {
             LOG.debug("Found namespace {}, returning it.", namespace);
         } else if (create) {
-            namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(name).endMetadata().build());
+            namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(name).addToLabels("name", name).endMetadata().build());
             LOG.debug("Created namespace {}.", namespace);
         } else {
             throw new IllegalStateException("Namespace " + name + " does not exist and namespace.create is not set");
@@ -595,8 +568,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         };
         waitForExitCondition(exitCondition);
-        Pod result = client.pods().inNamespace(namespace).withName(name).get();
-        return result;
+        return client.pods().inNamespace(namespace).withName(name).get();
     }
 
     protected Pod getPod(final String namespace, final Map<String, String> metadata) {
@@ -686,7 +658,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 containerBuilder.withResources(resourceRequirements);
             }
         }
-        LOG.debug("Built container {} to be deployed in namespace {} with metadata {}.", new Object[]{containerBuilder.build(), namespace, metadata});
+        LOG.debug("Built container {} to be deployed in namespace {} with metadata {}.", containerBuilder.build(), namespace, metadata);
         return containerBuilder.build();
     }
 
@@ -708,6 +680,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         }
         PodTemplateSpec template = podTemplateSpecBuilder.build();
+
+        LabelSelectorBuilder labelSelectorBuilder = new LabelSelectorBuilder();
+        labelSelectorBuilder.addToMatchLabels(metadata);
+        LabelSelector labelSelector = labelSelectorBuilder.build();
+
         Deployment deployment = new DeploymentBuilder()
                 .withNewMetadata()
                 .withName(deploymentName)
@@ -715,15 +692,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .addToAnnotations(BROOKLYN_APPLICATION_ID, entity.getApplicationId())
                 .endMetadata()
                 .withNewSpec()
+                .withSelector(labelSelector)
                 .withReplicas(replicas)
                 .withTemplate(template)
                 .endSpec()
                 .build();
-        client.extensions().deployments().inNamespace(namespace).create(deployment);
+        client.apps().deployments().inNamespace(namespace).create(deployment);
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
-                Deployment dep = client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
+                Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
                 DeploymentStatus status = (dep == null) ? null : dep.getStatus();
                 Integer replicas = (status == null) ? null : status.getAvailableReplicas();
                 return replicas != null && replicas.intValue() == replicas;
@@ -731,7 +709,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
             @Override
             public String getFailureMessage() {
-                Deployment dep = client.extensions().deployments().inNamespace(namespace).withName(deploymentName).get();
+                Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
                 DeploymentStatus status = (dep == null) ? null : dep.getStatus();
                 return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dep
                         + "; status=" + status
