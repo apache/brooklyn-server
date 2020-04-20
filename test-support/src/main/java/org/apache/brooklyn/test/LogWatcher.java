@@ -158,7 +158,7 @@ public class LogWatcher implements Closeable {
 
         PatternLayoutEncoder ple = new PatternLayoutEncoder() {
             @Override
-            public void doEncode(ILoggingEvent event) throws IOException {
+            public byte[] encode(ILoggingEvent event) {
                 final String txt = layout.doLayout(event);
 
                 // Jump through hoops to turn the input event (without any layout)
@@ -182,7 +182,7 @@ public class LogWatcher implements Closeable {
                 }
                 LOG.trace("level="+event.getLevel()+"; event="+event+"; msg="+event.getFormattedMessage());
 
-                super.doEncode(event);
+                return super.encode(event);
             }
         };
 
