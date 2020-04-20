@@ -54,9 +54,9 @@ import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
 
 /**
- * Testing utility that registers an appender to watch a given logback logger, and records events 
+ * Testing utility that registers an appender to watch a given logback logger, and records events
  * that match a given predicate.
- * 
+ *
  * Callers should first call {@link #start()}, and must call {@link #close()} to de-register the
  * appender (doing this in a finally block).
  */
@@ -137,7 +137,7 @@ public class LogWatcher implements Closeable {
             return input -> input == null ? false : input.getLevel().isGreaterOrEqual(expectedLevel);
         }
     }
-    
+
     private final List<ILoggingEvent> events = Collections.synchronizedList(Lists.<ILoggingEvent>newLinkedList());
     private final AtomicBoolean closed = new AtomicBoolean();
     private final ch.qos.logback.classic.Level loggerLevel;
@@ -148,7 +148,7 @@ public class LogWatcher implements Closeable {
     public LogWatcher(String loggerName, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
         this(ImmutableList.of(checkNotNull(loggerName, "loggerName")), loggerLevel, filter);
     }
-    
+
     public LogWatcher(Iterable<String> loggerNames, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
 
         this.loggerLevel = checkNotNull(loggerLevel, "loggerLevel");
@@ -158,7 +158,7 @@ public class LogWatcher implements Closeable {
 
         PatternLayoutEncoder ple = new PatternLayoutEncoder() {
             @Override
-            public void doEncode(ILoggingEvent event) throws IOException {
+            public byte[] encode(ILoggingEvent event) {
                 final String txt = layout.doLayout(event);
 
                 // Jump through hoops to turn the input event (without any layout)
@@ -180,9 +180,9 @@ public class LogWatcher implements Closeable {
                 if (event != null && filter.apply(formatted)) {
                     events.add(formatted);
                 }
-                LOG.trace("level="+event.getLevel()+"; event="+event+"; msg="+event.getFormattedMessage());
+                LOG.trace("level={}; event={}; msg={}", event.getLevel(), event, event.getFormattedMessage());
 
-                super.doEncode(event);
+                return super.encode(event);
             }
         };
 
@@ -206,7 +206,7 @@ public class LogWatcher implements Closeable {
 
         start();
     }
-    
+
     /** @deprecated since 1.0.0 called by constructor, will go private as no need for anyone else to call */
     public void start() {
         for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
@@ -217,7 +217,7 @@ public class LogWatcher implements Closeable {
             watchedLogger.addAppender(appender);
         }
     }
-    
+
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
@@ -230,7 +230,7 @@ public class LogWatcher implements Closeable {
             origLevels.clear();
         }
     }
-    
+
     public void assertHasEvent() {
         assertFalse(events.isEmpty());
     }
