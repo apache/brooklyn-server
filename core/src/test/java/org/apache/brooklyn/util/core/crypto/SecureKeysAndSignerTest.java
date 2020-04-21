@@ -78,7 +78,7 @@ public class SecureKeysAndSignerTest {
     @Test
     public void testInjectCertificateAuthority() throws Exception {
         KeyPair caKey = SecureKeys.newKeyPair();
-        X509Certificate caCert = new FluentKeySigner("the-root", caKey).selfsign().getAuthorityCertificate();
+        X509Certificate caCert = new FluentKeySigner("the-root", caKey).ca(0).selfsign().getAuthorityCertificate();
 
         FluentKeySigner signer = new FluentKeySigner(caCert, caKey);
         Assert.assertEquals("the-root", signer.getCommonName());

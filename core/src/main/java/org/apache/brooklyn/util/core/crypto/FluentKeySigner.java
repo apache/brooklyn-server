@@ -31,7 +31,9 @@ import javax.security.auth.x500.X500Principal;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.bouncycastle.asn1.x509.AuthorityKeyIdentifier;
+import org.bouncycastle.asn1.x509.BasicConstraints;
 import org.bouncycastle.asn1.x509.X509Extension;
+import org.bouncycastle.asn1.x509.X509Extensions;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
 import org.bouncycastle.jce.X509Principal;
 import org.bouncycastle.x509.X509V3CertificateGenerator;
@@ -56,6 +58,8 @@ public class FluentKeySigner {
     protected AuthorityKeyIdentifier authorityKeyIdentifier;
     protected X509Certificate authorityCertificate;
 
+    protected Integer numAllowedIntermediateCAs;
+    
     public FluentKeySigner(X500Principal issuerPrincipal, KeyPair issuerKey) {
         this.issuerPrincipal = issuerPrincipal;
         this.issuerKey = issuerKey;
@@ -92,6 +96,12 @@ public class FluentKeySigner {
     
     public X509Certificate getAuthorityCertificate() {
         return authorityCertificate;
+    }
+    
+    // See https://unitstep.net/blog/2009/03/16/using-the-basic-constraints-extension-in-x509-v3-certificates-for-intermediate-cas/
+    public FluentKeySigner ca(int numAllowedIntermediateCAs) {
+        this.numAllowedIntermediateCAs = numAllowedIntermediateCAs;
+        return this;
     }
     
     public FluentKeySigner validFromDaysAgo(long days) {
@@ -169,6 +179,12 @@ public class FluentKeySigner {
             v3CertGen.addExtension(X509Extension.subjectKeyIdentifier, false,
                     jcaX509ExtensionUtils.createSubjectKeyIdentifier(keyToCertify));
 
+            if (numAllowedIntermediateCAs != null) {
+                // This certificate is for a CA that can issue certificates.
+                // See https://unitstep.net/blog/2009/03/16/using-the-basic-constraints-extension-in-x509-v3-certificates-for-intermediate-cas/
+                v3CertGen.addExtension(X509Extensions.BasicConstraints, true, new BasicConstraints(numAllowedIntermediateCAs));
+            }
+            
             if (authorityKeyIdentifier!=null)
                 v3CertGen.addExtension(X509Extension.authorityKeyIdentifier, false,
                         authorityKeyIdentifier);
