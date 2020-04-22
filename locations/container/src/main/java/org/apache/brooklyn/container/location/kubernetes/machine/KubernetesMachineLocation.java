@@ -36,10 +36,10 @@ public interface KubernetesMachineLocation extends MachineLocation {
             .description("Type of the resource represented by the KubernetesMachineLocation")
             .build();
 
-    public String getResourceName();
+    String getResourceName();
 
-    public String getResourceType();
+    String getResourceType();
 
-    public String getNamespace();
+    String getNamespace();
 
 }
