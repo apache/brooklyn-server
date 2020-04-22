@@ -61,7 +61,7 @@ class KubernetesCerts {
 
         if (Strings.isNonBlank(data) && Strings.isNonBlank(fileData)) {
             if (data.equals(fileData)) {
-                LOG.warn("Duplicate (matching) configuration for " + dataKey.getName() + " and " + fileKey.getName() + " (continuing)");
+                LOG.warn("Duplicate (matching) configuration for {} and {} (continuing)", dataKey.getName(), fileKey.getName());
             } else {
                 throw new IllegalStateException("Duplicate conflicting configuration for " + dataKey.getName() + " and " + fileKey.getName());
             }

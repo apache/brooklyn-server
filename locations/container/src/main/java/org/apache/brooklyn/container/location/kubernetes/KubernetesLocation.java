@@ -36,7 +36,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
-import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
@@ -186,10 +185,33 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     @Override
     public void release(KubernetesMachineLocation machine) {
         Entity entity = validateCallerContext(machine);
+        reinitClientIfExpired(entity);
         if (isKubernetesResource(entity)) {
             deleteKubernetesResourceLocation(entity);
         } else {
             deleteKubernetesContainerLocation(entity, machine);
+        }
+    }
+
+    /**
+     * When the authentication token is expired, a client reinitialization is needed
+     */
+    protected void reinitClientIfExpired(Entity entity){
+        final String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
+        try {
+            createOrGetNamespace(namespace, false);
+        } catch (Exception e) {
+            if (e instanceof KubernetesClientException) {
+                KubernetesClientException kce = (KubernetesClientException) e;
+                if(kce.getCode() == 401 ) {
+                    LOG.debug("Expired token. Re-authentication performed for {}.", entity.getId());
+                    KubernetesClientRegistry registry = getConfig(KUBERNETES_CLIENT_REGISTRY);
+                    client = registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag()));
+
+                }
+            } else {
+                LOG.error("Unexpected KubernetesClient Exception: ", e);
+            }
         }
     }
 
@@ -335,7 +357,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         String resourceType = metadata.getKind();
         String resourceName = metadata.getMetadata().getName();
         String namespace = metadata.getMetadata().getNamespace();
-        LOG.debug("Resource {} (type {}) deployed to {}", new Object[]{resourceName, resourceType, namespace});
+        LOG.debug("Resource {} (type {}) deployed to {}", resourceName, resourceType, namespace);
 
         entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace);
         entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
@@ -401,7 +423,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 String podName = Iterables.get(podNames, 0);
                 if (podNames.size() > 1) {
                     LOG.warn("Multiple pods referenced by service {} in namespace {}, using {}: {}",
-                            new Object[]{resourceName, namespace, podName, Iterables.toString(podNames)});
+                            resourceName, namespace, podName, Iterables.toString(podNames));
                 }
                 try {
                     Pod pod = getPod(namespace, podName);
@@ -410,7 +432,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
                     locationSpec.configure("address", node);
                 } catch (KubernetesClientException kce) {
-                    LOG.warn("Cannot find pod {} in namespace {} for service {}", new Object[]{podName, namespace, resourceName});
+                    LOG.warn("Cannot find pod {} in namespace {} for service {}", podName, namespace, resourceName);
                 }
             }
 
@@ -471,19 +493,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected void waitForSshable(final SshMachineLocation machine, Duration timeout) {
-        Callable<Boolean> checker = new Callable<Boolean>() {
-            public Boolean call() {
-                int exitstatus = machine.execScript(
-                        ImmutableMap.of( // TODO investigate why SSH connection does not time out with this config
-                                SshTool.PROP_CONNECT_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
-                                SshTool.PROP_SESSION_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
-                                SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
-                                SshTool.PROP_SSH_TRIES.getName(), 1),
-                        "check-sshable",
-                        ImmutableList.of("true"));
-                boolean success = (exitstatus == 0);
-                return success;
-            }
+        Callable<Boolean> checker = () -> {
+            int exitstatus = machine.execScript(
+                    ImmutableMap.of( // TODO investigate why SSH connection does not time out with this config
+                            SshTool.PROP_CONNECT_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
+                            SshTool.PROP_SESSION_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
+                            SshTool.PROP_SSH_TRIES_TIMEOUT.getName(), Duration.TEN_SECONDS.toMilliseconds(),
+                            SshTool.PROP_SSH_TRIES.getName(), 1),
+                    "check-sshable",
+                    ImmutableList.of("true"));
+            return (exitstatus == 0);
         };
 
         Stopwatch stopwatch = Stopwatch.createStarted();
@@ -1023,7 +1042,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    public static interface ExitCondition extends Callable<Boolean> {
-        public String getFailureMessage();
+    public interface ExitCondition extends Callable<Boolean> {
+        String getFailureMessage();
     }
 }
