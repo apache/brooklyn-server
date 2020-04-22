@@ -21,11 +21,7 @@ package org.apache.brooklyn.container.location.kubernetes;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -135,6 +131,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public static final String BROOKLYN_ROOT_PASSWORD = "BROOKLYN_ROOT_PASSWORD";
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocation.class);
     private KubernetesClient client;
+    private Timer authTimer;
 
     public KubernetesLocation() {
         super();
@@ -147,10 +144,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     @Override
     public void init() {
         super.init();
+        authTimer =  new Timer("Auth token lifespan");
+        TokenLifespanTask task = new TokenLifespanTask(this);
+        authTimer.scheduleAtFixedRate(task, 0, 600_000);
     }
 
     protected KubernetesClient getClient() {
         return getClient(MutableMap.of());
+    }
+
+    protected void setClient(KubernetesClient client) {
+        this.client = client;
     }
 
     protected KubernetesClient getClient(Map<?, ?> flags) {
@@ -172,8 +176,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public KubernetesMachineLocation obtain(Map<?, ?> flags) {
         ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
-
         client = getClient(setup);
+
         Entity entity = validateCallerContext(setup);
         if (isKubernetesResource(entity)) {
             return createKubernetesResourceLocation(entity, setup);
@@ -185,33 +189,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     @Override
     public void release(KubernetesMachineLocation machine) {
         Entity entity = validateCallerContext(machine);
-        reinitClientIfExpired(entity);
         if (isKubernetesResource(entity)) {
             deleteKubernetesResourceLocation(entity);
         } else {
             deleteKubernetesContainerLocation(entity, machine);
-        }
-    }
-
-    /**
-     * When the authentication token is expired, a client reinitialization is needed
-     */
-    protected void reinitClientIfExpired(Entity entity){
-        final String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
-        try {
-            createOrGetNamespace(namespace, false);
-        } catch (Exception e) {
-            if (e instanceof KubernetesClientException) {
-                KubernetesClientException kce = (KubernetesClientException) e;
-                if(kce.getCode() == 401 ) {
-                    LOG.debug("Expired token. Re-authentication performed for {}.", entity.getId());
-                    KubernetesClientRegistry registry = getConfig(KUBERNETES_CLIENT_REGISTRY);
-                    client = registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config().getBag()));
-
-                }
-            } else {
-                LOG.error("Unexpected KubernetesClient Exception: ", e);
-            }
         }
     }
 
@@ -224,6 +205,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         undeploy(namespace, deployment, pod);
 
         client.services().inNamespace(namespace).withName(service).delete();
+        authTimer.cancel();
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
@@ -236,7 +218,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         };
         waitForExitCondition(exitCondition);
-
         Boolean delete = machine.config().get(DELETE_EMPTY_NAMESPACE);
         if (delete) {
             deleteEmptyNamespace(namespace);
@@ -1042,7 +1023,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    public interface ExitCondition extends Callable<Boolean> {
-        String getFailureMessage();
+    public static interface ExitCondition extends Callable<Boolean> {
+        public String getFailureMessage();
     }
 }
