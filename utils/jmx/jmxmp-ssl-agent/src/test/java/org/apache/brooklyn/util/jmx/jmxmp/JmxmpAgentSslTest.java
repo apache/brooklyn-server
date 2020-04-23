@@ -76,7 +76,7 @@ public class JmxmpAgentSslTest {
     
     @BeforeMethod
     public void setup() throws Exception {
-        caRootSigner = new FluentKeySigner("ca-root").selfsign();
+        caRootSigner = new FluentKeySigner("ca-root").ca(0).selfsign();
         caRootKey = caRootSigner.getKey();
         caRootCert = caRootSigner.getAuthorityCertificate();
 
