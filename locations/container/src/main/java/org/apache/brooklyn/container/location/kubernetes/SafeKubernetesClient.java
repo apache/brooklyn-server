@@ -19,6 +19,7 @@
 package org.apache.brooklyn.container.location.kubernetes;
 
 import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.*;
@@ -26,15 +27,7 @@ import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.InputStream;
-
-import static org.apache.brooklyn.container.entity.kubernetes.KubernetesResource.*;
-
-/**
- * Wrapper around the Kubernetes client making sure that the token never expires
- */
-public class SafeKubernetesClient {
-    public static final String ENDPOINTS = "Endpoints";
+public class SafeKubernetesClient extends DefaultKubernetesClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(SafeKubernetesClient.class);
 
@@ -44,46 +37,6 @@ public class SafeKubernetesClient {
     public SafeKubernetesClient(KubernetesClient client, KubernetesLocation kubernetesLocation) {
         this.client = client;
         this.kubernetesLocation = kubernetesLocation;
-    }
-
-    public MixedOperation<Service, ServiceList, DoneableService, ServiceResource<Service, DoneableService>> services() {
-        reinitIfTokenExpired();
-        return client.services();
-    }
-
-    public NonNamespaceOperation<Namespace, NamespaceList, DoneableNamespace, Resource<Namespace, DoneableNamespace>> namespaces() {
-        reinitIfTokenExpired();
-        return client.namespaces();
-    }
-
-    public AppsAPIGroupDSL apps() {
-        reinitIfTokenExpired();
-        return client.apps();
-    }
-
-    public ParameterNamespaceListVisitFromServerGetDeleteRecreateWaitApplicable<HasMetadata, Boolean> load(InputStream is) {
-        reinitIfTokenExpired();
-        return client.load(is);
-    }
-
-    public NamespaceVisitFromServerGetWatchDeleteRecreateWaitApplicable<HasMetadata, Boolean> resource(HasMetadata item) {
-        reinitIfTokenExpired();
-        return client.resource(item);
-    }
-
-    public MixedOperation<Secret, SecretList, DoneableSecret, Resource<Secret, DoneableSecret>> secrets() {
-        reinitIfTokenExpired();
-        return client.secrets();
-    }
-
-    public NonNamespaceOperation<PersistentVolume, PersistentVolumeList, DoneablePersistentVolume, Resource<PersistentVolume, DoneablePersistentVolume>> persistentVolumes() {
-        reinitIfTokenExpired();
-        return client.persistentVolumes();
-    }
-
-    public MixedOperation<Pod, PodList, DoneablePod, PodResource<Pod, DoneablePod>> pods() {
-        reinitIfTokenExpired();
-        return client.pods();
     }
 
     private void reinitIfTokenExpired(){
@@ -103,70 +56,63 @@ public class SafeKubernetesClient {
         }
     }
 
-    protected Namespace getNamespace(String name ){
+    @Override
+    public MixedOperation<Service, ServiceList, DoneableService, ServiceResource<Service, DoneableService>> services() {
         reinitIfTokenExpired();
-        return client.namespaces().withName(name).get();
+        return client.services();
     }
 
-    protected Resource<?,?> getResource(String resourceType, String resourceName, String namespaceName) {
+    @Override
+    public AppsAPIGroupDSL apps() {
         reinitIfTokenExpired();
-        try {
-            switch (resourceType) {
-                case ENDPOINTS:
-                    return client.endpoints().inNamespace(namespaceName).withName(resourceName);
-                case DEPLOYMENT:
-                    return client.apps().deployments().inNamespace(namespaceName).withName(resourceName);
-                case REPLICA_SET:
-                    return client.apps().replicaSets().inNamespace(namespaceName).withName(resourceName);
-                case CONFIG_MAP:
-                    return client.configMaps().inNamespace(namespaceName).withName(resourceName);
-                case PERSISTENT_VOLUME:
-                    return client.persistentVolumes().withName(resourceName);
-                case SECRET:
-                    return client.secrets().inNamespace(namespaceName).withName(resourceName);
-                case SERVICE:
-                    return client.services().inNamespace(namespaceName).withName(resourceName);
-                case REPLICATION_CONTROLLER:
-                    return client.replicationControllers().inNamespace(namespaceName).withName(resourceName);
-            }
-        }catch (KubernetesClientException kce) {
-                LOG.warn("Unable to retrieve resource {}: {}", resourceName, kce);
-        }
-        return null;
+        return client.apps();
     }
 
-    protected boolean isNamespaceEmpty(String name) {
+    @Override
+    public MixedOperation<ConfigMap, ConfigMapList, DoneableConfigMap, Resource<ConfigMap, DoneableConfigMap>> configMaps() {
         reinitIfTokenExpired();
-        return client.apps().deployments().inNamespace(name).list().getItems().isEmpty() &&
-                client.services().inNamespace(name).list().getItems().isEmpty() &&
-                client.secrets().inNamespace(name).list().getItems().isEmpty();
+        return client.configMaps();
     }
 
-    protected boolean deleteResource(String resourceType, String resourceName, String namespace) {
+    @Override
+    public NonNamespaceOperation<PersistentVolume, PersistentVolumeList, DoneablePersistentVolume, Resource<PersistentVolume, DoneablePersistentVolume>> persistentVolumes() {
         reinitIfTokenExpired();
-        try {
-            switch (resourceType) {
-                case DEPLOYMENT:
-                    return client.apps().deployments().inNamespace(namespace).withName(resourceName).delete();
-                case REPLICA_SET:
-                    return client.apps().replicaSets().inNamespace(namespace).withName(resourceName).delete();
-                case CONFIG_MAP:
-                    return client.configMaps().inNamespace(namespace).withName(resourceName).delete();
-                case PERSISTENT_VOLUME:
-                    return client.persistentVolumes().withName(resourceName).delete();
-                case SECRET:
-                    return client.secrets().inNamespace(namespace).withName(resourceName).delete();
-                case SERVICE:
-                    return client.services().inNamespace(namespace).withName(resourceName).delete();
-                case REPLICATION_CONTROLLER:
-                    return client.replicationControllers().inNamespace(namespace).withName(resourceName).delete();
-                case NAMESPACE:
-                    return client.namespaces().withName(resourceName).delete();
-            }
-        } catch (KubernetesClientException kce) {
-            LOG.warn("Error deleting resource {}: {}", resourceName, kce);
-        }
-        return false;
+        return client.persistentVolumes();
     }
 
+    @Override
+    public MixedOperation<Secret, SecretList, DoneableSecret, Resource<Secret, DoneableSecret>> secrets() {
+        reinitIfTokenExpired();
+        return client.secrets();
+    }
+
+    @Override
+    public MixedOperation<ReplicationController, ReplicationControllerList, DoneableReplicationController, RollableScalableResource<ReplicationController, DoneableReplicationController>> replicationControllers() {
+        reinitIfTokenExpired();
+        return client.replicationControllers();
+    }
+
+    @Override
+    public NonNamespaceOperation<Namespace, NamespaceList, DoneableNamespace, Resource<Namespace, DoneableNamespace>> namespaces() {
+        reinitIfTokenExpired();
+        return client.namespaces();
+    }
+
+    @Override
+    public NamespaceVisitFromServerGetWatchDeleteRecreateWaitApplicable<HasMetadata, Boolean> resource(HasMetadata item) {
+        reinitIfTokenExpired();
+        return client.resource(item);
+    }
+
+    @Override
+    public MixedOperation<Endpoints, EndpointsList, DoneableEndpoints, Resource<Endpoints, DoneableEndpoints>> endpoints() {
+        reinitIfTokenExpired();
+        return client.endpoints();
+    }
+
+    @Override
+    public MixedOperation<Pod, PodList, DoneablePod, PodResource<Pod, DoneablePod>> pods() {
+        reinitIfTokenExpired();
+        return client.pods();
+    }
 }
