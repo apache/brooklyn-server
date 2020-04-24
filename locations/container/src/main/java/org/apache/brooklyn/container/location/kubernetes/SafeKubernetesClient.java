@@ -26,7 +26,6 @@ import io.fabric8.kubernetes.api.model.coordination.v1.DoneableLease;
 import io.fabric8.kubernetes.api.model.coordination.v1.Lease;
 import io.fabric8.kubernetes.api.model.coordination.v1.LeaseList;
 import io.fabric8.kubernetes.client.Config;
-import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.VersionInfo;
@@ -46,20 +45,23 @@ import java.util.concurrent.ExecutorService;
 
 /**
  * Wrapper implementation for a KubernetesClient that checks if the authentication token is expired before every client call and
- * reinitializes the client with a new token.
+ * re-initializes the client with a new token.
  */
 public class SafeKubernetesClient implements KubernetesClient {
 
     private static final Logger LOG = LoggerFactory.getLogger(SafeKubernetesClient.class);
 
     private KubernetesClient client;
-    private KubernetesLocation kubernetesLocation;
+    private final KubernetesLocation kubernetesLocation;
 
     public SafeKubernetesClient(KubernetesClient client, KubernetesLocation kubernetesLocation) {
         this.client = client;
         this.kubernetesLocation = kubernetesLocation;
     }
 
+    /**
+     * Method that checks before every client method invocation if the token is still valid and if not the client is re-initialized with a new token.
+     */
     private void reinitIfTokenExpired(){
         try {
             client.namespaces().list().getItems();
