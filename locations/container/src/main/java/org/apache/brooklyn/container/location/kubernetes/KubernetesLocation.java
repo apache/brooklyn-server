@@ -51,6 +51,7 @@ import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.network.AbstractOnNetworkEnricher;
 import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -130,7 +131,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      */
     public static final String BROOKLYN_ROOT_PASSWORD = "BROOKLYN_ROOT_PASSWORD";
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocation.class);
-    private KubernetesClient client;
+    public static final String ADDRESS_KEY = "address";
+    private ConfigBag currentConfig;
 
     public KubernetesLocation() {
         super();
@@ -140,12 +142,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         super(properties);
     }
 
-    @Override
-    public void init() {
-        super.init();
-    }
-
     protected KubernetesClient getClient() {
+        if(currentConfig!=null) {
+            return getClient(currentConfig);
+        }
         return getClient(MutableMap.of());
     }
 
@@ -157,10 +157,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected KubernetesClient getClient(ConfigBag config) {
-        if (client == null) {
-            KubernetesClientRegistry registry = getConfig(KUBERNETES_CLIENT_REGISTRY);
-            client = new SafeKubernetesClient(registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config)), this);
-        }
+        currentConfig = config;
+        KubernetesClientRegistry registry = getConfig(KUBERNETES_CLIENT_REGISTRY);
+
+        KubernetesClient client = registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config));
         return client;
     }
 
@@ -168,7 +168,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public KubernetesMachineLocation obtain(Map<?, ?> flags) {
         ConfigBag setupRaw = ConfigBag.newInstanceExtending(config().getBag(), flags);
         ConfigBag setup = ResolvingConfigBag.newInstanceExtending(getManagementContext(), setupRaw);
-        client = getClient(setup);
 
         Entity entity = validateCallerContext(setup);
         if (isKubernetesResource(entity)) {
@@ -191,27 +190,27 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected void deleteKubernetesContainerLocation(Entity entity, MachineLocation machine) {
         final String namespace = entity.sensors().get(KubernetesPod.KUBERNETES_NAMESPACE);
         final String deployment = entity.sensors().get(KubernetesPod.KUBERNETES_DEPLOYMENT);
-        final String pod = entity.sensors().get(KubernetesPod.KUBERNETES_POD);
         final String service = entity.sensors().get(KubernetesPod.KUBERNETES_SERVICE);
 
-        undeploy(namespace, deployment, pod);
+        undeploy(namespace, deployment);
+        try(KubernetesClient client = getClient()) {
+            client.services().inNamespace(namespace).withName(service).delete();
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    return client.services().inNamespace(namespace).withName(service).get() == null;
+                }
 
-        client.services().inNamespace(namespace).withName(service).delete();
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                return client.services().inNamespace(namespace).withName(service).get() == null;
+                @Override
+                public String getFailureMessage() {
+                    return "No service with namespace=" + namespace + ", serviceName=" + service;
+                }
+            };
+            waitForExitCondition(exitCondition);
+            Boolean delete = machine.config().get(DELETE_EMPTY_NAMESPACE);
+            if (Boolean.TRUE.equals(delete)) {
+                deleteEmptyNamespace(namespace);
             }
-
-            @Override
-            public String getFailureMessage() {
-                return "No service with namespace=" + namespace + ", serviceName=" + service;
-            }
-        };
-        waitForExitCondition(exitCondition);
-        Boolean delete = machine.config().get(DELETE_EMPTY_NAMESPACE);
-        if (delete) {
-            deleteEmptyNamespace(namespace);
         }
     }
 
@@ -226,7 +225,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected boolean handleResourceDelete(String resourceType, String resourceName, String namespace) {
-        try {
+        try (KubernetesClient client = getClient()){
             switch (resourceType) {
                 case KubernetesResource.DEPLOYMENT:
                     return client.apps().deployments().inNamespace(namespace).withName(resourceName).delete();
@@ -251,47 +250,53 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return false;
     }
 
-    protected void undeploy(final String namespace, final String deployment, final String pod) {
-        client.apps().deployments().inNamespace(namespace).withName(deployment).delete();
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                return client.apps().deployments().inNamespace(namespace).withName(deployment).get() == null;
-            }
+    protected void undeploy(final String namespace, final String deployment) {
+        try (KubernetesClient client = getClient()) {
+            client.apps().deployments().inNamespace(namespace).withName(deployment).delete();
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    return client.apps().deployments().inNamespace(namespace).withName(deployment).get() == null;
+                }
 
-            @Override
-            public String getFailureMessage() {
-                return "No deployment with namespace=" + namespace + ", deployment=" + deployment;
-            }
-        };
-        waitForExitCondition(exitCondition);
+                @Override
+                public String getFailureMessage() {
+                    return "No deployment with namespace=" + namespace + ", deployment=" + deployment;
+                }
+            };
+            waitForExitCondition(exitCondition);
+        }
     }
 
     protected synchronized void deleteEmptyNamespace(final String name) {
         if (!name.equals("default") && isNamespaceEmpty(name)) {
-            if (client.namespaces().withName(name).get() != null &&
-                    !client.namespaces().withName(name).get().getStatus().getPhase().equals(PHASE_TERMINATING)) {
-                client.namespaces().withName(name).delete();
-                ExitCondition exitCondition = new ExitCondition() {
-                    @Override
-                    public Boolean call() {
-                        return client.namespaces().withName(name).get() == null;
-                    }
+            try (KubernetesClient client = getClient()) {
+                if (client.namespaces().withName(name).get() != null &&
+                        !client.namespaces().withName(name).get().getStatus().getPhase().equals(PHASE_TERMINATING)) {
+                    client.namespaces().withName(name).delete();
+                    ExitCondition exitCondition = new ExitCondition() {
+                        @Override
+                        public Boolean call() {
+                            return client.namespaces().withName(name).get() == null;
+                        }
 
-                    @Override
-                    public String getFailureMessage() {
-                        return "Namespace " + name + " still present";
-                    }
-                };
-                waitForExitCondition(exitCondition);
+                        @Override
+                        public String getFailureMessage() {
+                            return "Namespace " + name + " still present";
+                        }
+                    };
+                    waitForExitCondition(exitCondition);
+                }
             }
         }
     }
 
     protected boolean isNamespaceEmpty(String name) {
-        return client.apps().deployments().inNamespace(name).list().getItems().isEmpty() &&
-                client.services().inNamespace(name).list().getItems().isEmpty() &&
-                client.secrets().inNamespace(name).list().getItems().isEmpty();
+        try (KubernetesClient client = getClient()) {
+            return client.apps().deployments().inNamespace(name).list().getItems().isEmpty() &&
+                    client.services().inNamespace(name).list().getItems().isEmpty() &&
+                    client.secrets().inNamespace(name).list().getItems().isEmpty();
+        }
     }
 
     @Override
@@ -306,53 +311,56 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         String processedContents = TemplateProcessor.processTemplateContents(templateContents, (EntityInternal) entity, setup.getAllConfig());
         InputStream processedResource = Streams.newInputStreamWithContents(processedContents);
 
-        final List<HasMetadata> result = getClient().load(processedResource).createOrReplace();
 
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                if (result.isEmpty()) {
-                    return false;
+        try (KubernetesClient client = getClient()) {
+            final List<HasMetadata> result = client.load(processedResource).createOrReplace();
+
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    if (result.isEmpty()) {
+                        return false;
+                    }
+                    HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
+                    return check != null;
                 }
-                HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
-                return check != null;
+
+                @Override
+                public String getFailureMessage() {
+                    return "Cannot find created resources";
+                }
+            };
+            waitForExitCondition(exitCondition);
+
+            HasMetadata metadata = result.get(0);
+            String resourceType = metadata.getKind();
+            String resourceName = metadata.getMetadata().getName();
+            String namespace = metadata.getMetadata().getNamespace();
+            LOG.debug("Resource {} (type {}) deployed to {}", resourceName, resourceType, namespace);
+
+            entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace);
+            entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
+            entity.sensors().set(KubernetesResource.RESOURCE_TYPE, resourceType);
+
+            LocationSpec<? extends KubernetesMachineLocation> locationSpec = LocationSpec.create(KubernetesSshMachineLocation.class);
+            if (!findResourceAddress(locationSpec, entity, metadata, resourceType, resourceName, namespace)) {
+                LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
+                locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class);
+            }
+            locationSpec.configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT))
+                    .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace)
+                    .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, resourceName)
+                    .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, resourceType);
+
+            KubernetesMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+
+            if (resourceType.equals(KubernetesResource.SERVICE) && machine instanceof KubernetesSshMachineLocation) {
+                Service service = getService(namespace, resourceName, client);
+                registerPortMappings((KubernetesSshMachineLocation) machine, entity, service);
             }
 
-            @Override
-            public String getFailureMessage() {
-                return "Cannot find created resources";
-            }
-        };
-        waitForExitCondition(exitCondition);
-
-        HasMetadata metadata = result.get(0);
-        String resourceType = metadata.getKind();
-        String resourceName = metadata.getMetadata().getName();
-        String namespace = metadata.getMetadata().getNamespace();
-        LOG.debug("Resource {} (type {}) deployed to {}", resourceName, resourceType, namespace);
-
-        entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace);
-        entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
-        entity.sensors().set(KubernetesResource.RESOURCE_TYPE, resourceType);
-
-        LocationSpec<? extends KubernetesMachineLocation> locationSpec = LocationSpec.create(KubernetesSshMachineLocation.class);
-        if (!findResourceAddress(locationSpec, entity, metadata, resourceType, resourceName, namespace)) {
-            LOG.info("Resource {} with type {} has no associated address", resourceName, resourceType);
-            locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class);
+            return machine;
         }
-        locationSpec.configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT))
-                .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace)
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, resourceName)
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, resourceType);
-
-        KubernetesMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
-
-        if (resourceType.equals(KubernetesResource.SERVICE) && machine instanceof KubernetesSshMachineLocation) {
-            Service service = getService(namespace, resourceName);
-            registerPortMappings((KubernetesSshMachineLocation) machine, entity, service);
-        }
-
-        return machine;
     }
 
     protected boolean findResourceAddress(LocationSpec<? extends KubernetesMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
@@ -371,13 +379,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
             String podAddress = pod.getStatus().getPodIP();
 
-            locationSpec.configure("address", node);
+            locationSpec.configure(ADDRESS_KEY, node);
             locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress));
 
             return true;
         } else if (resourceType.equals(KubernetesResource.SERVICE)) {
-            getService(namespace, resourceName);
-            Endpoints endpoints = client.endpoints().inNamespace(namespace).withName(resourceName).get();
+            Endpoints endpoints;
+            try (KubernetesClient client = getClient()) {
+                getService(namespace, resourceName, client);
+                endpoints = client.endpoints().inNamespace(namespace).withName(resourceName).get();
+            }
             Set<String> privateIps = Sets.newLinkedHashSet();
             Set<String> podNames = Sets.newLinkedHashSet();
             for (EndpointSubset subset : endpoints.getSubsets()) {
@@ -390,7 +401,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
             locationSpec.configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.copyOf(privateIps));
 
-            if (podNames.size() > 0) {
+            if (!podNames.isEmpty()) {
                 // Use the first pod name from the list; warn when multiple pods are referenced
                 String podName = Iterables.get(podNames, 0);
                 if (podNames.size() > 1) {
@@ -402,7 +413,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     entity.sensors().set(KubernetesPod.KUBERNETES_POD, podName);
 
                     InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
-                    locationSpec.configure("address", node);
+                    locationSpec.configure(ADDRESS_KEY, node);
                 } catch (KubernetesClientException kce) {
                     LOG.warn("Cannot find pod {} in namespace {} for service {}", podName, namespace, resourceName);
                 }
@@ -446,7 +457,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
         entity.sensors().set(KubernetesPod.KUBERNETES_SERVICE, service.getMetadata().getName());
 
-        LocationSpec<KubernetesSshMachineLocation> locationSpec = prepareSshableLocationSpec(entity, setup, namespace, deploymentName, service, pod)
+        LocationSpec<KubernetesSshMachineLocation> locationSpec = prepareSshableLocationSpec(entity, setup, service, pod)
                 .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace.getMetadata().getName())
                 .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, deploymentName)
                 .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, getContainerResourceType());
@@ -515,69 +526,75 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         }
 
-        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class).configure(OnPublicNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class).configure(AbstractOnNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
     }
 
     protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
-        Namespace namespace = client.namespaces().withName(name).get();
-        ExitCondition namespaceReady = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                Namespace actualNamespace = client.namespaces().withName(name).get();
-                return actualNamespace != null && actualNamespace.getStatus().getPhase().equals(PHASE_ACTIVE);
-            }
+        try (KubernetesClient client = getClient()) {
+            Namespace namespace = client.namespaces().withName(name).get();
+            ExitCondition namespaceReady = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    Namespace actualNamespace = client.namespaces().withName(name).get();
+                    return actualNamespace != null && actualNamespace.getStatus().getPhase().equals(PHASE_ACTIVE);
+                }
 
-            @Override
-            public String getFailureMessage() {
-                Namespace actualNamespace = client.namespaces().withName(name).get();
-                return "Namespace for " + name + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus());
+                @Override
+                public String getFailureMessage() {
+                    Namespace actualNamespace = client.namespaces().withName(name).get();
+                    return "Namespace for " + name + " " + (actualNamespace == null ? "absent" : " status " + actualNamespace.getStatus());
+                }
+            };
+            if (namespace != null) {
+                LOG.debug("Found namespace {}, returning it.", namespace);
+            } else if (create) {
+                namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(name).addToLabels("name", name).endMetadata().build());
+                LOG.debug("Created namespace {}.", namespace);
+            } else {
+                throw new IllegalStateException("Namespace " + name + " does not exist and namespace.create is not set");
             }
-        };
-        if (namespace != null) {
-            LOG.debug("Found namespace {}, returning it.", namespace);
-        } else if (create) {
-            namespace = client.namespaces().create(new NamespaceBuilder().withNewMetadata().withName(name).addToLabels("name", name).endMetadata().build());
-            LOG.debug("Created namespace {}.", namespace);
-        } else {
-            throw new IllegalStateException("Namespace " + name + " does not exist and namespace.create is not set");
+            waitForExitCondition(namespaceReady);
+            return client.namespaces().withName(name).get();
         }
-        waitForExitCondition(namespaceReady);
-        return client.namespaces().withName(name).get();
     }
 
     protected Pod getPod(final String namespace, final String name) {
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                Pod result = client.pods().inNamespace(namespace).withName(name).get();
-                return result != null && result.getStatus().getPodIP() != null;
-            }
+        try (KubernetesClient client = getClient()) {
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    Pod result = client.pods().inNamespace(namespace).withName(name).get();
+                    return result != null && result.getStatus().getPodIP() != null;
+                }
 
-            @Override
-            public String getFailureMessage() {
-                return "Cannot find pod with name: " + name;
-            }
-        };
-        waitForExitCondition(exitCondition);
-        return client.pods().inNamespace(namespace).withName(name).get();
+                @Override
+                public String getFailureMessage() {
+                    return "Cannot find pod with name: " + name;
+                }
+            };
+            waitForExitCondition(exitCondition);
+            return client.pods().inNamespace(namespace).withName(name).get();
+        }
     }
 
     protected Pod getPod(final String namespace, final Map<String, String> metadata) {
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
-                return result.getItems().size() >= 1 && result.getItems().get(0).getStatus().getPodIP() != null;
-            }
+        try (KubernetesClient client = getClient()) {
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
+                    return !result.getItems().isEmpty() && result.getItems().get(0).getStatus().getPodIP() != null;
+                }
 
-            @Override
-            public String getFailureMessage() {
-                return "Cannot find pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
-            }
-        };
-        waitForExitCondition(exitCondition);
-        PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
-        return result.getItems().get(0);
+                @Override
+                public String getFailureMessage() {
+                    return "Cannot find pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
+                }
+            };
+            waitForExitCondition(exitCondition);
+            PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
+            return result.getItems().get(0);
+        }
     }
 
     protected void createSecrets(String namespace, Map<String, String> secrets) {
@@ -587,40 +604,42 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected Secret createSecret(final String namespace, final String secretName, String auth) {
-        Secret secret = client.secrets().inNamespace(namespace).withName(secretName).get();
-        if (secret != null) return secret;
+        try (KubernetesClient client = getClient()) {
+            Secret secret = client.secrets().inNamespace(namespace).withName(secretName).get();
+            if (secret != null) return secret;
 
-        String json = String.format("{\"https://index.docker.io/v1/\":{\"auth\":\"%s\"}}", auth);
-        String base64encoded = BaseEncoding.base64().encode(json.getBytes(Charset.defaultCharset()));
-        secret = new SecretBuilder()
-                .withNewMetadata()
-                .withName(secretName)
-                .endMetadata()
-                .withType(KUBERNETES_DOCKERCFG)
-                .withData(ImmutableMap.of(".dockercfg", base64encoded))
-                .build();
-        try {
-            client.secrets().inNamespace(namespace).create(secret);
-        } catch (KubernetesClientException e) {
-            if (e.getCode() == 500 && e.getMessage().contains("Message: resourceVersion may not be set on objects to be created")) {
-                // ignore exception as per https://github.com/fabric8io/kubernetes-client/issues/451
-            } else {
-                throw Throwables.propagate(e);
+            String json = String.format("{\"https://index.docker.io/v1/\":{\"auth\":\"%s\"}}", auth);
+            String base64encoded = BaseEncoding.base64().encode(json.getBytes(Charset.defaultCharset()));
+            secret = new SecretBuilder()
+                    .withNewMetadata()
+                    .withName(secretName)
+                    .endMetadata()
+                    .withType(KUBERNETES_DOCKERCFG)
+                    .withData(ImmutableMap.of(".dockercfg", base64encoded))
+                    .build();
+            try {
+                client.secrets().inNamespace(namespace).create(secret);
+            } catch (KubernetesClientException e) {
+                if (e.getCode() == 500 && e.getMessage().contains("Message: resourceVersion may not be set on objects to be created")) {
+                    // ignore exception as per https://github.com/fabric8io/kubernetes-client/issues/451
+                } else {
+                    throw Throwables.propagate(e);
+                }
             }
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    return client.secrets().inNamespace(namespace).withName(secretName).get() != null;
+                }
+
+                @Override
+                public String getFailureMessage() {
+                    return "Absent namespace=" + namespace + ", secretName=" + secretName;
+                }
+            };
+            waitForExitCondition(exitCondition);
+            return client.secrets().inNamespace(namespace).withName(secretName).get();
         }
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                return client.secrets().inNamespace(namespace).withName(secretName).get() != null;
-            }
-
-            @Override
-            public String getFailureMessage() {
-                return "Absent namespace=" + namespace + ", secretName=" + secretName;
-            }
-        };
-        waitForExitCondition(exitCondition);
-        return client.secrets().inNamespace(namespace).withName(secretName).get();
     }
 
     protected Container buildContainer(String namespace, Map<String, String> metadata, String deploymentName, String imageName, Iterable<Integer> inboundPorts, Map<String, ?> env, Map<String, String> limits, boolean privileged) {
@@ -688,26 +707,28 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .withTemplate(template)
                 .endSpec()
                 .build();
-        client.apps().deployments().inNamespace(namespace).create(deployment);
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
-                DeploymentStatus status = (dep == null) ? null : dep.getStatus();
-                Integer replicas = (status == null) ? null : status.getAvailableReplicas();
-                return replicas != null && replicas.intValue() == replicas;
-            }
+        try (KubernetesClient client = getClient()) {
+            client.apps().deployments().inNamespace(namespace).create(deployment);
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
+                    DeploymentStatus status = (dep == null) ? null : dep.getStatus();
+                    Integer replicas = (status == null) ? null : status.getAvailableReplicas();
+                    return replicas != null && replicas.intValue() == replicas;
+                }
 
-            @Override
-            public String getFailureMessage() {
-                Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
-                DeploymentStatus status = (dep == null) ? null : dep.getStatus();
-                return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dep
-                        + "; status=" + status
-                        + "; availableReplicas=" + (status == null ? "null" : status.getAvailableReplicas());
-            }
-        };
-        waitForExitCondition(exitCondition);
+                @Override
+                public String getFailureMessage() {
+                    Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
+                    DeploymentStatus status = (dep == null) ? null : dep.getStatus();
+                    return "Namespace=" + namespace + "; deploymentName= " + deploymentName + "; Deployment=" + dep
+                            + "; status=" + status
+                            + "; availableReplicas=" + (status == null ? "null" : status.getAvailableReplicas());
+                }
+            };
+            waitForExitCondition(exitCondition);
+        }
         LOG.debug("Deployed deployment {} in namespace {}.", deployment, namespace);
     }
 
@@ -723,14 +744,16 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .withType(NODE_PORT)
                 .endSpec()
                 .build();
-        client.services().inNamespace(namespace).create(service);
+        try (KubernetesClient client = getClient()) {
+            client.services().inNamespace(namespace).create(service);
 
-        service = getService(namespace, serviceName);
-        LOG.debug("Exposed service {} in namespace {}.", service, namespace);
-        return service;
+            service = getService(namespace, serviceName, client);
+            LOG.debug("Exposed service {} in namespace {}.", service, namespace);
+            return service;
+        }
     }
 
-    protected Service getService(final String namespace, final String serviceName) {
+    protected Service getService(final String namespace, final String serviceName, KubernetesClient client) {
         ExitCondition exitCondition = new ExitCondition() {
             @Override
             public Boolean call() {
@@ -743,7 +766,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     return false;
                 }
                 for (EndpointSubset subset : endpoints.getSubsets()) {
-                    if (subset.getNotReadyAddresses().size() > 0) {
+                    if (!subset.getNotReadyAddresses().isEmpty()) {
                         return false;
                     }
                 }
@@ -761,20 +784,15 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return client.services().inNamespace(namespace).withName(serviceName).get();
     }
 
-    protected LocationSpec<KubernetesSshMachineLocation> prepareSshableLocationSpec(Entity entity, ConfigBag setup, Namespace namespace, String deploymentName, Service service, Pod pod) {
+    protected LocationSpec<KubernetesSshMachineLocation> prepareSshableLocationSpec(Entity entity, ConfigBag setup, Service service, Pod pod) {
         InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
         String podAddress = pod.getStatus().getPodIP();
         LocationSpec<KubernetesSshMachineLocation> locationSpec = LocationSpec.create(KubernetesSshMachineLocation.class)
-                .configure("address", node)
+                .configure(ADDRESS_KEY, node)
                 .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
                 .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
         if (!isDockerContainer(entity)) {
-            Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), new Predicate<ServicePort>() {
-                @Override
-                public boolean apply(ServicePort input) {
-                    return input.getProtocol().equalsIgnoreCase("TCP") && input.getPort().intValue() == 22;
-                }
-            });
+            Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), input -> input.getProtocol().equalsIgnoreCase("TCP") && input.getPort().intValue() == 22);
             Optional<Integer> sshPortNumber;
             if (sshPort.isPresent()) {
                 sshPortNumber = Optional.of(sshPort.get().getNodePort());
@@ -804,22 +822,24 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .withNewHostPath().withPath("/tmp/pv-1").endHostPath() // TODO make it configurable
                     .endSpec()
                     .build();
-            client.persistentVolumes().create(volume);
-            ExitCondition exitCondition = new ExitCondition() {
-                @Override
-                public Boolean call() {
-                    PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
-                    return pv != null && pv.getStatus() != null
-                            && pv.getStatus().getPhase().equals(PHASE_AVAILABLE);
-                }
+            try (KubernetesClient client = getClient()) {
+                client.persistentVolumes().create(volume);
+                ExitCondition exitCondition = new ExitCondition() {
+                    @Override
+                    public Boolean call() {
+                        PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
+                        return pv != null && pv.getStatus() != null
+                                && pv.getStatus().getPhase().equals(PHASE_AVAILABLE);
+                    }
 
-                @Override
-                public String getFailureMessage() {
-                    PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
-                    return "PersistentVolume for " + persistentVolume + " " + (pv == null ? "absent" : "pv=" + pv);
-                }
-            };
-            waitForExitCondition(exitCondition);
+                    @Override
+                    public String getFailureMessage() {
+                        PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
+                        return "PersistentVolume for " + persistentVolume + " " + (pv == null ? "absent" : "pv=" + pv);
+                    }
+                };
+                waitForExitCondition(exitCondition);
+            }
         }
     }
 
@@ -979,12 +999,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      * location, and returning a default value (normally {@literal null}) if neither is present.
      */
     public <T> T lookup(final ConfigKey<T> config, Entity entity, ConfigBag setup, T defaultValue) {
-        boolean entityConfigPresent = !entity.config().findKeysPresent(new Predicate<ConfigKey<?>>() {
-            @Override
-            public boolean apply(@Nullable ConfigKey<?> configKey) {
-                return config.equals(configKey);
-            }
-        }).isEmpty();
+        boolean entityConfigPresent = !entity.config().findKeysPresent(config::equals).isEmpty();
 
         boolean setupBagConfigPresent = setup.containsKey(config);
 
@@ -1007,9 +1022,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .limitTimeTo(duration)
                 .until(exitCondition)
                 .runKeepingError();
-        if (!result.get()) {
-            String err = "Exit condition unsatisfied after " + duration + ": " + exitCondition.getFailureMessage();
-            LOG.info(err + " (rethrowing)");
+        if (!Boolean.TRUE.equals(result.get())) {
+            String err = String.format("Exit condition unsatisfied after %s: %s", duration, exitCondition.getFailureMessage());
+            LOG.info("{} (rethrowing)", err);
             throw new IllegalStateException(err);
         }
     }
