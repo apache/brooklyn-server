@@ -34,52 +34,57 @@ public class ImageChooserTest {
     }
 
     @Test
-    public void testDefault() throws Exception {
-        assertEquals(chooser.chooseImage((String) null, null).get(), "brooklyncentral/centos:7");
+    public void testDefault() {
+        assertEquals(chooser.chooseImage((String) null, null).orNull(), "brooklyncentral/centos:7");
     }
 
     @Test
-    public void testCentos() throws Exception {
-        assertEquals(chooser.chooseImage("cEnToS", null).get(), "brooklyncentral/centos:7");
+    public void testCentos() {
+        assertEquals(chooser.chooseImage("cEnToS", null).orNull(), "brooklyncentral/centos:7");
     }
 
     @Test
-    public void testCentos7() throws Exception {
-        assertEquals(chooser.chooseImage("cEnToS", "7").get(), "brooklyncentral/centos:7");
+    public void testCentos7() {
+        assertEquals(chooser.chooseImage("cEnToS", "7").orNull(), "brooklyncentral/centos:7");
     }
 
     @Test
-    public void testUbnutu() throws Exception {
-        assertEquals(chooser.chooseImage("uBuNtU", null).get(), "brooklyncentral/ubuntu:14.04");
+    public void testUbuntu() {
+        assertEquals(chooser.chooseImage("uBuNtU", null).orNull(), "brooklyncentral/ubuntu:14.04");
     }
 
     @Test
-    public void testUbnutu14() throws Exception {
-        assertEquals(chooser.chooseImage("uBuNtU", "14.*").get(), "brooklyncentral/ubuntu:14.04");
+    public void testUbuntu14() {
+        assertEquals(chooser.chooseImage("uBuNtU", "14.*").orNull(), "brooklyncentral/ubuntu:14.04");
     }
 
     @Test
-    public void testUbnutu16() throws Exception {
-        assertEquals(chooser.chooseImage("uBuNtU", "16.*").get(), "brooklyncentral/ubuntu:16.04");
+    public void testUbuntu16() {
+        assertEquals(chooser.chooseImage("uBuNtU", "16.*").orNull(), "brooklyncentral/ubuntu:16.04");
     }
 
     @Test
-    public void testAbsentForCentos6() throws Exception {
+    public void testUbuntu18() {
+        assertEquals(chooser.chooseImage("uBuNtU", "18.*").orNull(), "brooklyncentral/ubuntu:18.04");
+    }
+
+    @Test
+    public void testAbsentForCentos6() {
         assertFalse(chooser.chooseImage("cEnToS", "6").isPresent());
     }
 
     @Test
-    public void testAbsentForUbuntu15() throws Exception {
+    public void testAbsentForUbuntu15() {
         assertFalse(chooser.chooseImage("uBuNtU", "15").isPresent());
     }
 
     @Test
-    public void testAbsentForDebian() throws Exception {
+    public void testAbsentForDebian() {
         assertFalse(chooser.chooseImage("debian", null).isPresent());
     }
 
     @Test
-    public void testAbsentForWrongOsFamily() throws Exception {
+    public void testAbsentForWrongOsFamily() {
         assertFalse(chooser.chooseImage("weirdOsFamily", null).isPresent());
     }
 }
