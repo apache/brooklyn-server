@@ -244,7 +244,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     }
 
     @Override
-    protected void undeploy(final String namespace, final String deployment, final String pod) {
+    protected void undeploy(final String namespace, final String deployment) {
         client.deploymentConfigs().inNamespace(namespace).withName(deployment).delete();
         ExitCondition exitCondition = new ExitCondition() {
             @Override
