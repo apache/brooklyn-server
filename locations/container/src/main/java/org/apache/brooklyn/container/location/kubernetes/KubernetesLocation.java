@@ -143,7 +143,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected KubernetesClient getClient() {
-        if(currentConfig!=null) {
+        if(currentConfig != null) {
             return getClient(currentConfig);
         }
         return getClient(MutableMap.of());
@@ -159,7 +159,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected KubernetesClient getClient(ConfigBag config) {
         currentConfig = config;
         KubernetesClientRegistry registry = getConfig(KUBERNETES_CLIENT_REGISTRY);
-
         KubernetesClient client = registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config));
         return client;
     }
@@ -363,8 +362,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected boolean findResourceAddress(LocationSpec<? extends KubernetesMachineLocation> locationSpec, Entity entity, HasMetadata metadata, String resourceType, String resourceName, String namespace) {
-        if (resourceType.equals(KubernetesResource.DEPLOYMENT) || resourceType.equals(KubernetesResource.REPLICATION_CONTROLLER) || resourceType.equals(KubernetesResource.POD)) {
+    protected boolean findResourceAddress(LocationSpec<? extends KubernetesMachineLocation> locationSpec, Entity entity,
+                                          HasMetadata metadata, String resourceType, String resourceName, String namespace) {
+        if (resourceType.equals(KubernetesResource.DEPLOYMENT) || resourceType.equals(KubernetesResource.REPLICATION_CONTROLLER)
+                || resourceType.equals(KubernetesResource.POD)) {
             Map<String, String> labels = MutableMap.of();
             if (resourceType.equals(KubernetesResource.DEPLOYMENT)) {
                 Deployment deployment = (Deployment) metadata;
@@ -418,7 +419,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     LOG.warn("Cannot find pod {} in namespace {} for service {}", podName, namespace, resourceName);
                 }
             }
-
             return true;
         } else {
             return false;
@@ -526,7 +526,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             }
         }
 
-        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class).configure(AbstractOnNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
+        entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
+                .configure(AbstractOnNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
     }
 
     protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
@@ -644,14 +645,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected Container buildContainer(String namespace, Map<String, String> metadata, String deploymentName, String imageName, Iterable<Integer> inboundPorts, Map<String, ?> env, Map<String, String> limits, boolean privileged) {
         List<ContainerPort> containerPorts = Lists.newArrayList();
-        for (Integer inboundPort : inboundPorts) {
-            containerPorts.add(new ContainerPortBuilder().withContainerPort(inboundPort).build());
-        }
+        inboundPorts.forEach(inboundPort -> containerPorts.add(new ContainerPortBuilder().withContainerPort(inboundPort).build()));
 
         List<EnvVar> envVars = Lists.newArrayList();
-        for (Map.Entry<String, ?> envVarEntry : env.entrySet()) {
-            envVars.add(new EnvVarBuilder().withName(envVarEntry.getKey()).withValue(envVarEntry.getValue().toString()).build());
-        }
+        env.forEach((key,value) -> envVars.add(new EnvVarBuilder().withName(key).withValue(value.toString()).build()));
 
         ContainerBuilder containerBuilder = new ContainerBuilder()
                 .withName(deploymentName)
@@ -664,7 +661,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         if (limits != null) {
             for (Map.Entry<String, String> nameValueEntry : limits.entrySet()) {
-                ResourceRequirements resourceRequirements = new ResourceRequirementsBuilder().addToLimits(nameValueEntry.getKey(), new QuantityBuilder().withAmount(nameValueEntry.getValue()).build()).build();
+                ResourceRequirements resourceRequirements = new ResourceRequirementsBuilder().addToLimits(nameValueEntry.getKey(),
+                        new QuantityBuilder().withAmount(nameValueEntry.getValue()).build()).build();
                 containerBuilder.withResources(resourceRequirements);
             }
         }
@@ -672,7 +670,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return containerBuilder.build();
     }
 
-    protected void deploy(final String namespace, Entity entity, Map<String, String> metadata, final String deploymentName, Container container, final Integer replicas, Map<String, String> secrets) {
+    protected void deploy(final String namespace, Entity entity, Map<String, String> metadata, final String deploymentName,
+                          Container container, final Integer replicas, Map<String, String> secrets) {
         PodTemplateSpecBuilder podTemplateSpecBuilder = new PodTemplateSpecBuilder()
                 .withNewMetadata()
                 .addToLabels("name", deploymentName)
@@ -715,7 +714,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     Deployment dep = client.apps().deployments().inNamespace(namespace).withName(deploymentName).get();
                     DeploymentStatus status = (dep == null) ? null : dep.getStatus();
                     Integer replicas = (status == null) ? null : status.getAvailableReplicas();
-                    return replicas != null && replicas.intValue() == replicas;
+                    return replicas != null;
                 }
 
                 @Override
@@ -792,7 +791,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(podAddress))
                 .configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT));
         if (!isDockerContainer(entity)) {
-            Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), input -> input.getProtocol().equalsIgnoreCase("TCP") && input.getPort().intValue() == 22);
+            Optional<ServicePort> sshPort = Iterables.tryFind(service.getSpec().getPorts(), input -> "TCP".equalsIgnoreCase(input.getProtocol()) && input.getPort() == 22);
             Optional<Integer> sshPortNumber;
             if (sshPort.isPresent()) {
                 sshPortNumber = Optional.of(sshPort.get().getNodePort());
@@ -865,11 +864,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected Map<String, String> findMetadata(Entity entity, ConfigBag setup, String value) {
         Map<String, String> podMetadata = Maps.newLinkedHashMap();
-        if (isDockerContainer(entity)) {
-            podMetadata.put(IMMUTABLE_CONTAINER_KEY, value);
-        } else {
-            podMetadata.put(SSHABLE_CONTAINER, value);
-        }
+        podMetadata.put(isDockerContainer(entity) ? IMMUTABLE_CONTAINER_KEY : SSHABLE_CONTAINER, value);
 
         Map<String, Object> metadata = MutableMap.<String, Object>builder()
                 .putAll(MutableMap.copyOf(setup.get(KubernetesPod.METADATA)))
@@ -928,22 +923,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected Iterable<Integer> findInboundPorts(Entity entity, ConfigBag setup) {
         Iterable<String> inboundTcpPorts = entity.config().get(DockerContainer.INBOUND_TCP_PORTS);
-        if (inboundTcpPorts != null) {
-            List<Integer> inboundPorts = Lists.newArrayList();
-            List<String> portRanges = MutableList.copyOf(entity.config().get(DockerContainer.INBOUND_TCP_PORTS));
-            for (String portRange : portRanges) {
-                for (Integer port : PortRanges.fromString(portRange)) {
-                    inboundPorts.add(port);
-                }
-            }
-            return inboundPorts;
-        } else {
-            if (setup.containsKey(INBOUND_PORTS)) {
-                return toIntPortList(setup.get(INBOUND_PORTS));
-            } else {
-                return ImmutableList.of(22);
+        if(inboundTcpPorts == null)
+            return setup.containsKey(INBOUND_PORTS) ? toIntPortList(setup.get(INBOUND_PORTS)) : ImmutableList.of(22);
+
+        List<Integer> inboundPorts = Lists.newArrayList();
+        List<String> portRanges = MutableList.copyOf(entity.config().get(DockerContainer.INBOUND_TCP_PORTS));
+        for (String portRange : portRanges) {
+            for (Integer port : PortRanges.fromString(portRange)) {
+                inboundPorts.add(port);
             }
         }
+        return inboundPorts;
     }
 
     protected List<Integer> toIntPortList(Object v) {
