@@ -107,7 +107,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
         if (resourceType.equals(OpenShiftResource.DEPLOYMENT_CONFIG)) {
             DeploymentConfig deploymentConfig = (DeploymentConfig) metadata;
             Map<String, String> labels = deploymentConfig.getSpec().getTemplate().getMetadata().getLabels();
-            Pod pod = getPod(namespace, labels);
+            Pod pod = getPod(namespace, labels, client);
             entity.sensors().set(OpenShiftPod.KUBERNETES_POD, pod.getMetadata().getName());
 
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());

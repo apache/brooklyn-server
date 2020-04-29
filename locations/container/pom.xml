@@ -33,6 +33,17 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.microbean</groupId>
+            <artifactId>microbean-helm</artifactId>
+            <version>2.8.2.1.1.1</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>openshift-client</artifactId>
             <version>${kubernetes-client.version}</version>
@@ -150,4 +161,41 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+
+    <build>
+        <extensions>
+            <!-- Use os-maven-plugin to initialize the "os.detected" properties -->
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.5.0.Final</version>
+            </extension>
+        </extensions>
+        <plugins>
+            <!-- Use Ant to configure the appropriate "tcnative.classifier" property -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>initialize</phase>
+                        <configuration>
+                            <exportAntProperties>true</exportAntProperties>
+                            <target>
+                                <condition property="tcnative.classifier"
+                                           value="${os.detected.classifier}-fedora"
+                                           else="${os.detected.classifier}">
+                                    <isset property="os.detected.release.fedora"/>
+                                </condition>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

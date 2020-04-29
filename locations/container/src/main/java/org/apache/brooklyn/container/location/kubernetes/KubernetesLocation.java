@@ -18,16 +18,35 @@
  */
 package org.apache.brooklyn.container.location.kubernetes;
 
-import java.io.InputStream;
-import java.net.InetAddress;
-import java.nio.charset.Charset;
-import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-
-import javax.annotation.Nullable;
-
+import com.google.common.base.Optional;
+import com.google.common.base.*;
+import com.google.common.collect.*;
+import com.google.common.io.BaseEncoding;
+import com.google.common.net.HostAndPort;
+//import hapi.chart.ChartOuterClass.Chart;
+//import hapi.release.ReleaseOuterClass.Release;
+//import hapi.services.tiller.Tiller.InstallReleaseRequest;
+//import hapi.services.tiller.Tiller.InstallReleaseResponse;
+//import hapi.services.tiller.Tiller.UninstallReleaseRequest;
+//import hapi.services.tiller.Tiller.UninstallReleaseResponse;
+import hapi.chart.ChartOuterClass.Chart;
+import hapi.release.ReleaseOuterClass.Release;
+import hapi.services.tiller.Tiller.InstallReleaseRequest;
+import hapi.services.tiller.Tiller.InstallReleaseResponse;
+import hapi.services.tiller.Tiller.UninstallReleaseRequest;
+import hapi.services.tiller.Tiller.UninstallReleaseResponse;
+import io.fabric8.kubernetes.client.AutoAdaptableKubernetesClient;
+import org.microbean.helm.ReleaseManager;
+import org.microbean.helm.Tiller;
+import org.microbean.helm.TillerInstaller;
+import org.microbean.helm.chart.repository.ChartRepository;
 import io.fabric8.kubernetes.api.model.*;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -37,12 +56,14 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.container.entity.docker.DockerContainer;
+import org.apache.brooklyn.container.entity.kubernetes.KubernetesHelmChart;
 import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
 import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
 import org.apache.brooklyn.container.location.docker.DockerJcloudsLocation;
 import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesEmptyMachineLocation;
 import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesMachineLocation;
 import org.apache.brooklyn.container.location.kubernetes.machine.KubernetesSshMachineLocation;
+import org.apache.brooklyn.container.supplier.TillerSupplier;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -72,28 +93,19 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Functions;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.common.io.BaseEncoding;
-import com.google.common.net.HostAndPort;
-
-import io.fabric8.kubernetes.api.model.apps.Deployment;
-import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
-import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
-import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClientException;
+import javax.annotation.Nullable;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetAddress;
+import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<KubernetesMachineLocation>, KubernetesLocationConfig {
 
@@ -131,6 +143,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
      */
     public static final String BROOKLYN_ROOT_PASSWORD = "BROOKLYN_ROOT_PASSWORD";
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesLocation.class);
+    private Tiller tiller;
     public static final String ADDRESS_KEY = "address";
     private ConfigBag currentConfig;
 
@@ -171,6 +184,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Entity entity = validateCallerContext(setup);
         if (isKubernetesResource(entity)) {
             return createKubernetesResourceLocation(entity, setup);
+        } else if (isKubernetesHelmChart(entity)) {
+            return createKubernetesHelmChartLocation(entity, setup);
         } else {
             return createKubernetesContainerLocation(entity, setup);
         }
@@ -181,6 +196,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Entity entity = validateCallerContext(machine);
         if (isKubernetesResource(entity)) {
             deleteKubernetesResourceLocation(entity);
+        } else if (isKubernetesHelmChart(entity)) {
+            deleteKubernetesHelmChartLocation(entity);
         } else {
             deleteKubernetesContainerLocation(entity, machine);
         }
@@ -266,6 +283,26 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             waitForExitCondition(exitCondition);
         }
     }
+    protected void deleteKubernetesHelmChartLocation(Entity entity) {
+        final String releaseName = entity.sensors().get(KubernetesResource.RESOURCE_NAME);
+        ReleaseManager chartManager = new ReleaseManager(tiller);
+        try {
+            Future<UninstallReleaseResponse> uninstallReleaseResponseFuture = chartManager.uninstall(UninstallReleaseRequest.newBuilder()
+                    .setTimeout(300L)
+                    .setName(releaseName)
+                    .setPurge(true)
+                    .build());
+             UninstallReleaseResponse response = uninstallReleaseResponseFuture.get();
+            LOG.debug("Release {} uninstalled", response);
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        } catch (InterruptedException e) {
+            throw Throwables.propagate(e);
+        } catch (ExecutionException e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
 
     protected synchronized void deleteEmptyNamespace(final String name) {
         if (!name.equals("default") && isNamespaceEmpty(name)) {
@@ -314,15 +351,18 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         try (KubernetesClient client = getClient()) {
             final List<HasMetadata> result = client.load(processedResource).createOrReplace();
 
-            ExitCondition exitCondition = new ExitCondition() {
-                @Override
-                public Boolean call() {
-                    if (result.isEmpty()) {
-                        return false;
-                    }
-                    HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
-                    return check != null;
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                if (result.isEmpty()) {
+                    return false;
                 }
+                HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
+                if (result.size() > 1 || check != null || check.getMetadata() == null) {
+                    return false;
+                }
+                return true;
+            }
 
                 @Override
                 public String getFailureMessage() {
@@ -374,7 +414,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 ReplicationController replicationController = (ReplicationController) metadata;
                 labels = replicationController.getSpec().getTemplate().getMetadata().getLabels();
             }
-            Pod pod = resourceType.equals(KubernetesResource.POD) ? getPod(namespace, resourceName) : getPod(namespace, labels);
+            Pod pod;
+            try(KubernetesClient client = getClient()) {
+                pod = resourceType.equals(KubernetesResource.POD) ? getPod(namespace, resourceName, client) : getPod(namespace, labels, client);
+            }
             entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
 
             InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
@@ -409,8 +452,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     LOG.warn("Multiple pods referenced by service {} in namespace {}, using {}: {}",
                             resourceName, namespace, podName, Iterables.toString(podNames));
                 }
-                try {
-                    Pod pod = getPod(namespace, podName);
+                try(KubernetesClient client = getClient()) {
+                    Pod pod = getPod(namespace, podName, client);
                     entity.sensors().set(KubernetesPod.KUBERNETES_POD, podName);
 
                     InetAddress node = Networking.getInetAddressWithFixedName(pod.getSpec().getNodeName());
@@ -436,43 +479,119 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         Iterable<Integer> inboundPorts = findInboundPorts(entity, setup);
         Map<String, String> env = findEnvironmentVariables(entity, setup, imageName);
         Map<String, String> metadata = findMetadata(entity, setup, deploymentName);
+        KubernetesSshMachineLocation machine;
+        try(KubernetesClient client = getClient())  {
+            if (volumes != null) {
+                createPersistentVolumes(volumes, client);
+            }
 
-        if (volumes != null) {
-            createPersistentVolumes(volumes);
+            Namespace namespace = createOrGetNamespace(lookup(NAMESPACE, entity, setup), setup.get(CREATE_NAMESPACE));
+
+            if (secrets != null) {
+                createSecrets(namespace.getMetadata().getName(), secrets);
+            }
+
+            Container container = buildContainer(namespace.getMetadata().getName(), metadata, deploymentName, imageName, inboundPorts, env, limits, privileged);
+            deploy(namespace.getMetadata().getName(), entity, metadata, deploymentName, container, replicas, secrets);
+            Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
+            Pod pod = getPod(namespace.getMetadata().getName(), metadata, client);
+
+            entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace.getMetadata().getName());
+            entity.sensors().set(KubernetesPod.KUBERNETES_DEPLOYMENT, deploymentName);
+            entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
+            entity.sensors().set(KubernetesPod.KUBERNETES_SERVICE, service.getMetadata().getName());
+
+            LocationSpec<KubernetesSshMachineLocation> locationSpec = prepareSshableLocationSpec(entity, setup, service, pod)
+                    .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace.getMetadata().getName())
+                    .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, deploymentName)
+                    .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, getContainerResourceType());
+
+             machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+            registerPortMappings(machine, entity, service);
+            if (!isDockerContainer(entity)) {
+                waitForSshable(machine, Duration.FIVE_MINUTES);
+            }
         }
-
-        Namespace namespace = createOrGetNamespace(lookup(NAMESPACE, entity, setup), setup.get(CREATE_NAMESPACE));
-
-        if (secrets != null) {
-            createSecrets(namespace.getMetadata().getName(), secrets);
-        }
-
-        Container container = buildContainer(namespace.getMetadata().getName(), metadata, deploymentName, imageName, inboundPorts, env, limits, privileged);
-        deploy(namespace.getMetadata().getName(), entity, metadata, deploymentName, container, replicas, secrets);
-        Service service = exposeService(namespace.getMetadata().getName(), metadata, deploymentName, inboundPorts);
-        Pod pod = getPod(namespace.getMetadata().getName(), metadata);
-
-        entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace.getMetadata().getName());
-        entity.sensors().set(KubernetesPod.KUBERNETES_DEPLOYMENT, deploymentName);
-        entity.sensors().set(KubernetesPod.KUBERNETES_POD, pod.getMetadata().getName());
-        entity.sensors().set(KubernetesPod.KUBERNETES_SERVICE, service.getMetadata().getName());
-
-        LocationSpec<KubernetesSshMachineLocation> locationSpec = prepareSshableLocationSpec(entity, setup, service, pod)
-                .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace.getMetadata().getName())
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, deploymentName)
-                .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, getContainerResourceType());
-
-        KubernetesSshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
-        registerPortMappings(machine, entity, service);
-        if (!isDockerContainer(entity)) {
-            waitForSshable(machine, Duration.FIVE_MINUTES);
-        }
-
         return machine;
     }
 
     protected String getContainerResourceType() {
         return KubernetesResource.DEPLOYMENT;
+    }
+
+    protected KubernetesMachineLocation createKubernetesHelmChartLocation(Entity entity, ConfigBag setup) {
+        try (KubernetesClient client = getClient()){
+        Map<String, String> podLabels = ImmutableMap.of("name", "tiller", "app", "helm");
+        if (!isTillerInstalled("kube-system", podLabels, client)) {
+            installTillerPodAndService("kube-system", "tiller-deploy", podLabels, client);
+        }
+        // Create ${HOME}/.helm/{cache/archive,repository/cache}
+        try {
+            Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "cache", "archive"));
+            Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "repository", "cache"));
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+
+        tiller = Suppliers.memoize(new TillerSupplier((DefaultKubernetesClient) client)).get();
+        String chartName = entity.config().get(KubernetesHelmChart.CHART_NAME);
+        String chartVersion = entity.config().get(KubernetesHelmChart.CHART_VERSION);
+
+        ReleaseManager chartManager = new ReleaseManager(tiller);
+            InstallReleaseRequest.Builder requestBuilder = InstallReleaseRequest.newBuilder();
+            requestBuilder.setTimeout(300L);
+            requestBuilder.setWait(true);
+
+            ChartRepository chartRepository = new ChartRepository("stable", new URI("https://kubernetes-charts.storage.googleapis.com/"));
+            if (chartVersion == null) {
+                ChartRepository.Index.Entry latest = chartRepository.getIndex().getEntries().get(chartName).first();
+                chartVersion = latest.getVersion();
+            }
+
+            Chart.Builder chartBuilder = chartRepository.resolve(chartName, chartVersion);
+
+            Future<InstallReleaseResponse> releaseFuture = chartManager.install(requestBuilder, chartBuilder);
+            Release release = releaseFuture.get().getRelease();
+
+            String resourceName = release.getName();
+            String namespace = release.getNamespace();
+            LOG.debug("Resource {} (from chart {}) deployed to {}", new Object[]{resourceName, chartName, namespace});
+
+            Node node = Iterables.getFirst(client.nodes().list().getItems(), null); // null should never happen here
+            String nodeAddress = node.getStatus().getAddresses().get(0).getAddress();
+            InetAddress inetAddress = Networking.getInetAddressWithFixedName(nodeAddress);
+
+            entity.sensors().set(KubernetesPod.KUBERNETES_NAMESPACE, namespace);
+            entity.sensors().set(KubernetesResource.RESOURCE_NAME, resourceName);
+
+            LocationSpec<? extends KubernetesMachineLocation> locationSpec = LocationSpec.create(KubernetesEmptyMachineLocation.class);
+            locationSpec.configure(CALLER_CONTEXT, setup.get(CALLER_CONTEXT))
+                    .configure(KubernetesMachineLocation.KUBERNETES_NAMESPACE, namespace)
+                    .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, resourceName)
+                    .configure("address", inetAddress)
+                    .configure(SshMachineLocation.PRIVATE_ADDRESSES, ImmutableSet.of(nodeAddress));
+
+            KubernetesMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+
+            String serviceName = String.format("%s-%s", resourceName, chartName);
+            Service service = getService(namespace, serviceName, client);
+            registerPortMappings(machine, entity, service);
+            return machine;
+
+        } catch (Exception e) {
+            throw Throwables.propagate(e);
+        }
+    }
+
+    private void installTillerPodAndService(String namespace, String serviceName, Map<String, String> podLabels, KubernetesClient client) {
+        TillerInstaller installer = new TillerInstaller();
+        installer.init(true);
+        getPod(namespace, podLabels, client);
+        getService(namespace, serviceName, client);
+    }
+
+    private boolean isTillerInstalled(String namespace, Map<String, String> podLabels, KubernetesClient client) {
+        return !Iterables.isEmpty(client.pods().inNamespace(namespace).withLabels(podLabels).list().getItems());
     }
 
     protected void waitForSshable(final SshMachineLocation machine, Duration timeout) {
@@ -502,12 +621,17 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected void registerPortMappings(KubernetesSshMachineLocation machine, Entity entity, Service service) {
+    protected void registerPortMappings(KubernetesMachineLocation machine, Entity entity, Service service) {
         PortForwardManager portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry()
                 .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         List<ServicePort> ports = service.getSpec().getPorts();
-        String publicHostText = machine.getSshHostAndPort().getHostText();
-        LOG.debug("Recording port-mappings for container {} of {}: {}", machine, this, ports);
+        String publicHostText;
+        if (machine instanceof SshMachineLocation) {
+            publicHostText = ((SshMachineLocation) machine).getSshHostAndPort().getHostText();
+        } else {
+            publicHostText = Iterables.getFirst(machine.config().get(SshMachineLocation.PRIVATE_ADDRESSES), null);
+        }
+        LOG.debug("Recording port-mappings for container {} of {}: {}", new Object[]{machine, this, ports});
 
         for (ServicePort port : ports) {
             String protocol = port.getProtocol();
@@ -559,8 +683,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         }
     }
 
-    protected Pod getPod(final String namespace, final String name) {
-        try (KubernetesClient client = getClient()) {
+    protected Pod getPod(final String namespace, final String name, KubernetesClient client) {
             ExitCondition exitCondition = new ExitCondition() {
                 @Override
                 public Boolean call() {
@@ -575,27 +698,30 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             };
             waitForExitCondition(exitCondition);
             return client.pods().inNamespace(namespace).withName(name).get();
-        }
     }
 
-    protected Pod getPod(final String namespace, final Map<String, String> metadata) {
-        try (KubernetesClient client = getClient()) {
-            ExitCondition exitCondition = new ExitCondition() {
-                @Override
-                public Boolean call() {
-                    PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
-                    return !result.getItems().isEmpty() && result.getItems().get(0).getStatus().getPodIP() != null;
-                }
+    protected Pod getPod(final String namespace, final Map<String, String> metadata, KubernetesClient client) {
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
+                return result.getItems().size() >= 1 &&
+                        Iterables.any(result.getItems().get(0).getStatus().getConditions(), new Predicate<PodCondition>() {
+                            @Override
+                            public boolean apply(@Nullable PodCondition input) {
+                                return input.getStatus().equals("True");
+                            }
+                        });
+            }
 
-                @Override
-                public String getFailureMessage() {
-                    return "Cannot find pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
-                }
-            };
-            waitForExitCondition(exitCondition);
-            PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
-            return result.getItems().get(0);
-        }
+            @Override
+            public String getFailureMessage() {
+                return "Cannot find pod with metadata: " + Joiner.on(" ").withKeyValueSeparator("=").join(metadata);
+            }
+        };
+        waitForExitCondition(exitCondition);
+        PodList result = client.pods().inNamespace(namespace).withLabels(metadata).list();
+        return result.getItems().get(0);
     }
 
     protected void createSecrets(String namespace, Map<String, String> secrets) {
@@ -765,7 +891,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     return false;
                 }
                 for (EndpointSubset subset : endpoints.getSubsets()) {
-                    if (!subset.getNotReadyAddresses().isEmpty()) {
+                    if (!subset.getNotReadyAddresses().isEmpty() &&
+                            subset.getAddresses().isEmpty() &&
+                            subset.getNotReadyAddresses().size() > 0) {
                         return false;
                     }
                 }
@@ -808,7 +936,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return locationSpec;
     }
 
-    protected void createPersistentVolumes(List<String> volumes) {
+    protected void createPersistentVolumes(List<String> volumes, KubernetesClient client) {
         for (final String persistentVolume : volumes) {
             PersistentVolume volume = new PersistentVolumeBuilder()
                     .withNewMetadata()
@@ -821,7 +949,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .withNewHostPath().withPath("/tmp/pv-1").endHostPath() // TODO make it configurable
                     .endSpec()
                     .build();
-            try (KubernetesClient client = getClient()) {
                 client.persistentVolumes().create(volume);
                 ExitCondition exitCondition = new ExitCondition() {
                     @Override
@@ -838,7 +965,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     }
                 };
                 waitForExitCondition(exitCondition);
-            }
         }
     }
 
@@ -968,6 +1094,10 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected boolean isKubernetesResource(Entity entity) {
         return implementsInterface(entity, KubernetesResource.class);
+    }
+
+    protected boolean isKubernetesHelmChart(Entity entity) {
+        return implementsInterface(entity, KubernetesHelmChart.class);
     }
 
     public boolean implementsInterface(Entity entity, Class<?> type) {
