@@ -124,14 +124,14 @@
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.10.1</fasterxml.jackson.version>
         <cxf.version>3.3.5</cxf.version>
-        <httpcomponents.httpclient.version>4.5.12</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
-        <httpcomponents.httpcore.version>4.4.13</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
+        <httpcomponents.httpclient.version>4.5.10</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
+        <httpcomponents.httpcore.version>4.4.12</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
         <!-- @deprecated since 0.11 -->
-        <httpclient.version>4.5.12</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
+        <httpclient.version>4.5.10</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.4.15</groovy.version> <!-- Version 2.4.7 supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes; not sure what more recent will be -->
         <jsr305.version>2.0.1</jsr305.version>
-        <snakeyaml.version>1.26</snakeyaml.version> <!-- 1.26 matches cxf-jackson 3.3.2 -->
+        <snakeyaml.version>1.25</snakeyaml.version> <!-- 1.25 matches cxf-jackson 3.3.2 -->
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.5.6</swagger.version>
         <gson.version>2.5</gson.version>
@@ -161,7 +161,7 @@
         <aopalliance.version>1.0</aopalliance.version>
         <commons-configuration.version>1.7</commons-configuration.version>
         <commons-lang.version>2.4</commons-lang.version>
-        <jax-rs-api.version>2.1.1</jax-rs-api.version>
+        <jax-rs-api.version>2.1.1</jax-rs-api.version> <!-- differs from jclouds 2.1.2, which depends on v2.0.1 -->
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
         <winrm4j.version>0.9.0-SNAPSHOT</winrm4j.version> <!--  FIXME NO CHECK IN -->
@@ -187,10 +187,10 @@
         <commons-logging.version>1.2</commons-logging.version>
         <jsonSmart.version>2.3</jsonSmart.version>
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
-        <ow2.asm.version>5.2</ow2.asm.version> <!-- minidev.accessors-smart requires 5.x; aries-proxy:4.2.7 brings in 7.1 -->
+        <ow2.asm.version>5.2</ow2.asm.version> <!-- require 5.x from json-path -> json-smart -> accessors-smart; pax-web-core brings in 7.x -->
         <commons-beanutils.version>1.9.4</commons-beanutils.version>
         <javax.mail.version>1.4.7</javax.mail.version> <!-- version should align with 'jetty' feature -->
-        <cxf.javax.annotation-api.version>1.3.1</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.3.2 declares v1.3.1; jetty 9.4.20.v20190813 declares v1.3 -->
+        <cxf.javax.annotation-api.version>1.3.2</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.3.5 declares v1.3.2; jetty 9.4.22 declares v1.3 -->
 
         <!-- Test dependencies -->
         <testng.version>6.10</testng.version>
@@ -210,7 +210,7 @@
 
         <!-- Seemingly unused dependencies! -->
         <ivy.version>2.2.0</ivy.version>
-        <jline.version>3.13.2</jline.version>
+        <jline.version>2.12</jline.version>
         <jansi.version>1.2.1</jansi.version> <!-- Also shipped in vanilla karaf, v1.17.1 in karaf:4.1.6 -->
         <sleepycat-je.version>5.0.34</sleepycat-je.version>
         <jcommander.version>1.27</jcommander.version>

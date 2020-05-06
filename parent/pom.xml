@@ -135,7 +135,7 @@
                 <version>${ow2.asm.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.jline</groupId> <!-- when removing this, replace uses with org.jline -->
+                <groupId>jline</groupId> <!-- when removing this, replace uses with org.jline -->
                 <artifactId>jline</artifactId>
                 <version>${jline.version}</version>
             </dependency>
