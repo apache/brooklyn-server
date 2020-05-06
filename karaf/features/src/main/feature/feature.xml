@@ -202,7 +202,7 @@
         <feature>brooklyn-camp-brooklyn</feature>
         <feature>brooklyn-camp-base</feature>
 
-        <feature>cxf-jaxrs</feature>
+        <feature>cxf-jaxrs-with-optional-dependencies</feature>
         <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-rs-security-cors/${cxf.version}</bundle>
         <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-frontend-jaxrs/${cxf.version}</bundle>
         <bundle dependency="true">mvn:org.apache.cxf.karaf/cxf-karaf-commands/${cxf.version}</bundle>
@@ -217,6 +217,14 @@
             org.apache.cxf.servlet.context = /v1
         </config>
     </feature>
+
+    <feature name="cxf-jaxrs-with-optional-dependencies" version="${project.version}" description="cxf-jaxrs with optional dependencies">
+        <feature>cxf-jaxrs</feature>
+        
+        <!-- otherwise causes jackson-jaxrs-json-provider to be rewired when this optional dep is installed -->
+        <bundle dependency="true" start-level="35">mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
+    </feature>
+
 
     <feature name="brooklyn-rest-resources" version="${project.version}" description="Brooklyn REST Resources">
         <feature>brooklyn-rest-resources-prereqs</feature>
