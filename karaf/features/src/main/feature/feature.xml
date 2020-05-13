@@ -314,7 +314,7 @@
         <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
         <!-- (3) -->
         <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
-        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6</bundle>
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
         <!-- (4) -->
         <!-- these are the main required bundles for these features above -->
         <bundle>mvn:io.fabric8/zjsonpatch/0.3.0</bundle>
