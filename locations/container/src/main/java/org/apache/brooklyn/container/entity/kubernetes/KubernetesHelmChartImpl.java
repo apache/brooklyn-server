@@ -31,5 +31,5 @@ public class KubernetesHelmChartImpl extends EmptySoftwareProcessImpl implements
       config().set(PROVISIONING_PROPERTIES.subKey("pollForFirstReachableAddress"), false);
       config().set(EmptySoftwareProcessImpl.USE_SSH_MONITORING, false);
    }
-   
+
 }

@@ -23,19 +23,12 @@ import com.google.common.base.*;
 import com.google.common.collect.*;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
-//import hapi.chart.ChartOuterClass.Chart;
-//import hapi.release.ReleaseOuterClass.Release;
-//import hapi.services.tiller.Tiller.InstallReleaseRequest;
-//import hapi.services.tiller.Tiller.InstallReleaseResponse;
-//import hapi.services.tiller.Tiller.UninstallReleaseRequest;
-//import hapi.services.tiller.Tiller.UninstallReleaseResponse;
 import hapi.chart.ChartOuterClass.Chart;
 import hapi.release.ReleaseOuterClass.Release;
 import hapi.services.tiller.Tiller.InstallReleaseRequest;
 import hapi.services.tiller.Tiller.InstallReleaseResponse;
 import hapi.services.tiller.Tiller.UninstallReleaseRequest;
 import hapi.services.tiller.Tiller.UninstallReleaseResponse;
-import io.fabric8.kubernetes.client.AutoAdaptableKubernetesClient;
 import org.microbean.helm.ReleaseManager;
 import org.microbean.helm.Tiller;
 import org.microbean.helm.TillerInstaller;
@@ -292,13 +285,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .setName(releaseName)
                     .setPurge(true)
                     .build());
-             UninstallReleaseResponse response = uninstallReleaseResponseFuture.get();
+            UninstallReleaseResponse response = uninstallReleaseResponseFuture.get();
             LOG.debug("Release {} uninstalled", response);
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
-        } catch (InterruptedException e) {
-            throw Throwables.propagate(e);
-        } catch (ExecutionException e) {
+        } catch (IOException | InterruptedException | ExecutionException e) {
             throw Throwables.propagate(e);
         }
     }
@@ -351,18 +340,18 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         try (KubernetesClient client = getClient()) {
             final List<HasMetadata> result = client.load(processedResource).createOrReplace();
 
-        ExitCondition exitCondition = new ExitCondition() {
-            @Override
-            public Boolean call() {
-                if (result.isEmpty()) {
-                    return false;
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    if (result.isEmpty()) {
+                        return false;
+                    }
+                    HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
+                    if (result.size() > 1 || check != null || check.getMetadata() == null) {
+                        return false;
+                    }
+                    return true;
                 }
-                HasMetadata check = client.resource(result.get(0)).inNamespace(result.get(0).getMetadata().getNamespace()).get();
-                if (result.size() > 1 || check != null || check.getMetadata() == null) {
-                    return false;
-                }
-                return true;
-            }
 
                 @Override
                 public String getFailureMessage() {
@@ -506,7 +495,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_NAME, deploymentName)
                     .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, getContainerResourceType());
 
-             machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+            machine = getManagementContext().getLocationManager().createLocation(locationSpec);
             registerPortMappings(machine, entity, service);
             if (!isDockerContainer(entity)) {
                 waitForSshable(machine, Duration.FIVE_MINUTES);
@@ -521,23 +510,23 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
     protected KubernetesMachineLocation createKubernetesHelmChartLocation(Entity entity, ConfigBag setup) {
         try (KubernetesClient client = getClient()){
-        Map<String, String> podLabels = ImmutableMap.of("name", "tiller", "app", "helm");
-        if (!isTillerInstalled("kube-system", podLabels, client)) {
-            installTillerPodAndService("kube-system", "tiller-deploy", podLabels, client);
-        }
-        // Create ${HOME}/.helm/{cache/archive,repository/cache}
-        try {
-            Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "cache", "archive"));
-            Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "repository", "cache"));
-        } catch (IOException e) {
-            throw Throwables.propagate(e);
-        }
+            Map<String, String> podLabels = ImmutableMap.of("name", "tiller", "app", "helm");
+            if (!isTillerInstalled("kube-system", podLabels, client)) {
+                installTillerPodAndService("kube-system", "tiller-deploy", podLabels, client);
+            }
+            // Create ${HOME}/.helm/{cache/archive,repository/cache}
+            try {
+                Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "cache", "archive"));
+                Files.createDirectories(Paths.get(System.getProperty("user.home"),".helm", "repository", "cache"));
+            } catch (IOException e) {
+                throw Throwables.propagate(e);
+            }
 
-        tiller = Suppliers.memoize(new TillerSupplier((DefaultKubernetesClient) client)).get();
-        String chartName = entity.config().get(KubernetesHelmChart.CHART_NAME);
-        String chartVersion = entity.config().get(KubernetesHelmChart.CHART_VERSION);
+            tiller = Suppliers.memoize(new TillerSupplier((DefaultKubernetesClient) client)).get();
+            String chartName = entity.config().get(KubernetesHelmChart.CHART_NAME);
+            String chartVersion = entity.config().get(KubernetesHelmChart.CHART_VERSION);
 
-        ReleaseManager chartManager = new ReleaseManager(tiller);
+            ReleaseManager chartManager = new ReleaseManager(tiller);
             InstallReleaseRequest.Builder requestBuilder = InstallReleaseRequest.newBuilder();
             requestBuilder.setTimeout(300L);
             requestBuilder.setWait(true);
@@ -684,20 +673,20 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected Pod getPod(final String namespace, final String name, KubernetesClient client) {
-            ExitCondition exitCondition = new ExitCondition() {
-                @Override
-                public Boolean call() {
-                    Pod result = client.pods().inNamespace(namespace).withName(name).get();
-                    return result != null && result.getStatus().getPodIP() != null;
-                }
+        ExitCondition exitCondition = new ExitCondition() {
+            @Override
+            public Boolean call() {
+                Pod result = client.pods().inNamespace(namespace).withName(name).get();
+                return result != null && result.getStatus().getPodIP() != null;
+            }
 
-                @Override
-                public String getFailureMessage() {
-                    return "Cannot find pod with name: " + name;
-                }
-            };
-            waitForExitCondition(exitCondition);
-            return client.pods().inNamespace(namespace).withName(name).get();
+            @Override
+            public String getFailureMessage() {
+                return "Cannot find pod with name: " + name;
+            }
+        };
+        waitForExitCondition(exitCondition);
+        return client.pods().inNamespace(namespace).withName(name).get();
     }
 
     protected Pod getPod(final String namespace, final Map<String, String> metadata, KubernetesClient client) {
@@ -949,22 +938,22 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .withNewHostPath().withPath("/tmp/pv-1").endHostPath() // TODO make it configurable
                     .endSpec()
                     .build();
-                client.persistentVolumes().create(volume);
-                ExitCondition exitCondition = new ExitCondition() {
-                    @Override
-                    public Boolean call() {
-                        PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
-                        return pv != null && pv.getStatus() != null
-                                && pv.getStatus().getPhase().equals(PHASE_AVAILABLE);
-                    }
+            client.persistentVolumes().create(volume);
+            ExitCondition exitCondition = new ExitCondition() {
+                @Override
+                public Boolean call() {
+                    PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
+                    return pv != null && pv.getStatus() != null
+                            && pv.getStatus().getPhase().equals(PHASE_AVAILABLE);
+                }
 
-                    @Override
-                    public String getFailureMessage() {
-                        PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
-                        return "PersistentVolume for " + persistentVolume + " " + (pv == null ? "absent" : "pv=" + pv);
-                    }
-                };
-                waitForExitCondition(exitCondition);
+                @Override
+                public String getFailureMessage() {
+                    PersistentVolume pv = client.persistentVolumes().withName(persistentVolume).get();
+                    return "PersistentVolume for " + persistentVolume + " " + (pv == null ? "absent" : "pv=" + pv);
+                }
+            };
+            waitForExitCondition(exitCondition);
         }
     }
 
