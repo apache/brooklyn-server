@@ -56,7 +56,6 @@
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative-boringssl-static</artifactId>
             <version>2.0.30.Final</version>
-            <classifier>${os.detected.classifier}</classifier>
         </dependency>
         <dependency>
             <groupId>io.fabric8</groupId>
@@ -177,40 +176,4 @@
         </dependency>
     </dependencies>
 
-
-    <build>
-        <!-- Use os-maven-plugin to initialize the "os.detected" properties -->
-        <extensions>
-            <extension>
-                <groupId>kr.motd.maven</groupId>
-                <artifactId>os-maven-plugin</artifactId>
-                <version>1.6.2</version>
-            </extension>
-        </extensions>
-        <plugins>
-            <!-- Use Ant to configure the appropriate "tcnative.classifier" property -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <phase>initialize</phase>
-                        <configuration>
-                            <exportAntProperties>true</exportAntProperties>
-                            <target>
-                                <condition property="tcnative.classifier"
-                                           value="${os.detected.classifier}-fedora"
-                                           else="${os.detected.classifier}">
-                                    <isset property="os.detected.release.fedora"/>
-                                </condition>
-                            </target>
-                        </configuration>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
 </project>
