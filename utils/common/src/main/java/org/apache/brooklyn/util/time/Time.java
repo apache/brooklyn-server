@@ -455,6 +455,10 @@ public class Time {
         if (timeString==null)
             throw new NullPointerException("GeneralHelper.parseTimeString cannot parse a null string");
         try {
+            if (timeString.trim().matches(".*[A-Za-z]$")) {
+                // disally parsing eg 1d as a double
+                throw new NumberFormatException("Qualifiers after the number treated as time units not java type indicators");
+            }
             double d = Double.parseDouble(timeString);
             return d;
         } catch (NumberFormatException e) {
