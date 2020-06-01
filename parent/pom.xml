@@ -412,8 +412,18 @@
                 <version>${reflections.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
+                      <!-- different version, and LGPL, and only needed to compile -->
+                      <groupId>com.google.code.findbugs</groupId>
+                      <artifactId>annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                      <!-- different version -->
+                      <groupId>com.google.guava</groupId>
+                      <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                      <groupId>xml-apis</groupId>
+                      <artifactId>xml-apis</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -436,6 +446,18 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
                 <version>${airline.version}</version>
+                <exclusions>
+                  <exclusion>
+                    <!-- LGPL, and only needed to compile -->
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                  </exclusion>
+                  <exclusion>
+                    <!-- we use different version -->
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                  </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.apache.whirr</groupId>
