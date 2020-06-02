@@ -144,6 +144,19 @@
                 <artifactId>org.osgi.compendium</artifactId>
                 <version>${felix-osgi-compendium.version}</version>
             </dependency>
+            <dependency>
+              <groupId>org.apache.karaf.features</groupId>
+              <artifactId>framework</artifactId>
+              <type>kar</type>
+              <version>${karaf.version}</version>
+              <exclusions>
+                  <exclusion>
+                      <!-- ensure the later cxf version is pulled in instead -->
+                      <groupId>javax.annotation</groupId>
+                      <artifactId>javax.annotation-api</artifactId>
+                  </exclusion>
+              </exclusions>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
@@ -1121,6 +1134,7 @@
                   <!-- files not requiring licence -->
                   <exclude>ignored/**</exclude>
                   <exclude>LICENSE.md</exclude>
+                  <exclude>DEPENDENCIES</exclude>
                   <exclude>.mvn/jvm.config</exclude>
                   <exclude>**/src/main/license/**</exclude>
                   <exclude>**/src/test/license/**</exclude>
