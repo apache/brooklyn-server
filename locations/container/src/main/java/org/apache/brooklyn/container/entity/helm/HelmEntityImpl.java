@@ -18,16 +18,12 @@
  */
 package org.apache.brooklyn.container.entity.helm;
 
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynClusterImpl;
-import org.apache.brooklyn.entity.brooklynnode.BrooklynNode;
-import org.apache.brooklyn.entity.software.base.SoftwareProcessDriver;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.time.Duration;
 
-import javax.annotation.Nullable;
 import java.util.concurrent.Callable;
 
 public class HelmEntityImpl extends SoftwareProcessImpl implements HelmEntity {
@@ -46,10 +42,16 @@ public class HelmEntityImpl extends SoftwareProcessImpl implements HelmEntity {
         super.connectSensors();
         connectServiceUpIsRunning();
 
+        addHelmFeed("status", STATUS);
+        addKubernetesFeed();
+    }
+
+    private void addKubernetesFeed() {
         HelmDriver driver = getDriver();
-        Callable status = driver.getCallable("status");
-        FunctionPollConfig pollConfig = new FunctionPollConfig<Object, String>(STATUS)
-                .callable(status);
+        Callable status = driver.getKubeCallable();
+        FunctionPollConfig pollConfig = new FunctionPollConfig<String, Boolean>(DEPLOYMENT_READY)
+                .callable(status)
+                ;
 
         addFeed(FunctionFeed.builder()
                 .entity(this)
@@ -57,6 +59,21 @@ public class HelmEntityImpl extends SoftwareProcessImpl implements HelmEntity {
                 .period(Duration.FIVE_SECONDS)
                 .build());
     }
+
+    private void addHelmFeed(String command, AttributeSensor<String> sensor) {
+        HelmDriver driver = getDriver();
+        Callable status = driver.getCallable(command);
+        FunctionPollConfig pollConfig = new FunctionPollConfig<String, String>(sensor)
+                .callable(status)
+                ;
+
+        addFeed(FunctionFeed.builder()
+                .entity(this)
+                .poll(pollConfig)
+                .period(Duration.FIVE_SECONDS)
+                .build());
+    }
+
 
     @Override
     protected void disconnectSensors() {

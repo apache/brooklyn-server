@@ -19,8 +19,16 @@
 package org.apache.brooklyn.container.entity.helm;
 
 import com.google.common.collect.ImmutableList;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DoneableDeployment;
+import io.fabric8.kubernetes.client.Config;
+import io.fabric8.kubernetes.client.ConfigBuilder;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.entity.java.JavaSoftwareProcessSshDriver;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessDriver;
@@ -28,10 +36,15 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessDriver;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.process.ProcessTool;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -149,8 +162,40 @@ public class HelmSshDriver extends AbstractSoftwareProcessDriver implements Helm
                         ImmutableList.<String>of(String.format("helm %s %s", command, helm_name_install_name));
                 OutputStream out = new ByteArrayOutputStream();
                 OutputStream err = new ByteArrayOutputStream();
-                return ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err,";", false, this);
+                ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err,";", false, this);
+                return out.toString();
             }
         };
     }
+
+    @Override
+    public Callable getKubeCallable() {
+        return new Callable() {
+            @Override
+            public Object call() throws Exception {
+                String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
+                String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
+                KubernetesClient client = getClient(config);
+
+                Deployment deploy = client.apps().deployments().inNamespace("default").withName(helm_name_install_name).get();
+                Integer availableReplicas = deploy.getStatus().getAvailableReplicas();
+                Integer replicas = deploy.getStatus().getReplicas();
+                Boolean ready = availableReplicas.equals(replicas);
+                return ready;
+            } ;
+        };
+    }
+
+    KubernetesClient getClient(String configFile) {
+        Path configPath = Paths.get(configFile);
+        try {
+            Config clientConfig = Config.fromKubeconfig(new String(Files.readAllBytes(configPath)));
+            ConfigBuilder configBuilder = new ConfigBuilder(clientConfig);
+            return new DefaultKubernetesClient(configBuilder.build());
+        }catch (IOException ioe) {
+            Exceptions.propagate(ioe);
+            return null;
+        }
+    }
+
 }

@@ -22,4 +22,6 @@ import java.util.concurrent.Callable;
 
 public interface HelmDriver extends SoftwareProcessDriver {
     Callable getCallable(String command);
+
+    Callable getKubeCallable();
 }

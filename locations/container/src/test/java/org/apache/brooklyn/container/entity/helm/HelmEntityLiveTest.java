@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.container.entity.helm;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
@@ -26,11 +28,14 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
+import static org.apache.brooklyn.core.entity.EntityAsserts.assertPredicateEventuallyTrue;
 import static org.testng.Assert.*;
 
 public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
@@ -43,20 +48,50 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
                 .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, "wordpress-test")
                 .configure(HelmEntity.HELM_TEMPLATE, "bitnami/wordpress"));
 
-        app.start(ImmutableList.<Location>of(app.newLocalhostProvisioningLocation()));
+        app.start(newLocalhostLocation());
 
         assertAttributeEqualsEventually(andManageChild, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+        assertAttributeEqualsEventually(andManageChild, Attributes.SERVICE_UP, true);
         app.stop();
     }
 
-    protected KubernetesLocation newKubernetesLocation(Map<String, ?> flags) throws Exception {
-        Map<String, ?> allFlags = MutableMap.<String, Object>builder()
-                .put("kubeconfig", "/Users/duncangrant/.kube/config")
-                .put("image", "cloudsoft/centos:7")
-                .put("loginUser", "root")
-                .put("loginUser.password", "p4ssw0rd")
-                .putAll(flags)
-                .build();
-        return (KubernetesLocation) mgmt.getLocationRegistry().getLocationManaged("kubernetes", allFlags);
+    @Test
+    public void testCanSenseHelmStatus() {
+        HelmEntity andManageChild = app.createAndManageChild(EntitySpec.create(HelmEntity.class)
+                .configure(HelmEntity.REPO_NAME, "bitnami")
+                .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
+                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, "wordpress-test")
+                .configure(HelmEntity.HELM_TEMPLATE, "bitnami/wordpress"));
+
+        app.start(newLocalhostLocation());
+
+        assertPredicateEventuallyTrue(andManageChild, new Predicate<HelmEntity>() {
+            @Override
+            public boolean apply(@Nullable HelmEntity input) {
+                String status = input.getAttribute(HelmEntity.STATUS);
+                return status == null? false : status.contains("STATUS: deployed");
+            }
+        });
+        app.stop();
+    }
+
+    @Test
+    public void testCanSenseDeploymentStatus() {
+        HelmEntity andManageChild = app.createAndManageChild(EntitySpec.create(HelmEntity.class)
+                .configure(HelmEntity.REPO_NAME, "bitnami")
+                .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
+                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, "nginx-test")
+                .configure(HelmEntity.HELM_TEMPLATE, "bitnami/nginx"));
+
+        app.start(newLocalhostLocation());
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
+        app.stop();
+    }
+
+    private ImmutableList<Location> newLocalhostLocation() {
+        return ImmutableList.<Location>of(
+                app.newLocalhostProvisioningLocation(
+                        ImmutableMap.of(KubernetesLocation.KUBECONFIG, "/Users/duncangrant/.kube/config")));
     }
 }

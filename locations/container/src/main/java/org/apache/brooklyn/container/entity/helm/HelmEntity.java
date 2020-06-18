@@ -46,4 +46,7 @@ public interface HelmEntity extends SoftwareProcess {
 
    AttributeSensor<String> STATUS = Sensors.newStringSensor("helm.status",
            "The results of a status call");
+
+   AttributeSensor<Boolean> DEPLOYMENT_READY = Sensors.newBooleanSensor("kube.deployment.status",
+           "The status of the deploymeny");
 }
