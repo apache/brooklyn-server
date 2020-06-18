@@ -36,7 +36,9 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessDriver;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.internal.ssh.process.ProcessTool;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -65,13 +67,84 @@ public class HelmSshDriver extends AbstractSoftwareProcessDriver implements Helm
 
     @Override
     public void stop() {
-        String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
-        ImmutableList<String> command = ImmutableList.<String>of(String.format("helm delete %s", helm_name_install_name));
-        OutputStream out = new ByteArrayOutputStream();
-        OutputStream err = new ByteArrayOutputStream();
-        ProcessTool.execProcesses(command, null, null, out, err,";",false, this);
-
+        DynamicTasks.queue("stop", new Runnable() {
+                    @Override
+                    public void run() {
+                        String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
+                        ImmutableList<String> command = ImmutableList.<String>of(String.format("helm delete %s", helm_name_install_name));
+                        OutputStream out = new ByteArrayOutputStream();
+                        OutputStream err = new ByteArrayOutputStream();
+                        ProcessTool.execProcesses(command, null, null, out, err, ";", false, this);
+                    }
+                });
         //TODO Do something with output
+    }
+
+    @Override
+    public void install() {
+        String repo_name = getEntity().getConfig(HelmEntity.REPO_NAME);
+        String repo_url = getEntity().getConfig(HelmEntity.REPO_URL);
+
+        String helm_template = getEntity().getConfig(HelmEntity.HELM_TEMPLATE);
+        String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
+
+        if(Strings.isNonBlank(repo_name) && Strings.isNonBlank(repo_url)) {
+
+            DynamicTasks.queue("install repo", new Runnable() {
+                @Override
+                public void run() {
+                    ImmutableList<String> installHelmTemplateCommand =
+                            ImmutableList.<String>of(String.format("helm repo add %s %s", repo_name, repo_url));
+                    OutputStream out = new ByteArrayOutputStream();
+                    OutputStream err = new ByteArrayOutputStream();
+                    ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err, ";", false, this);
+                }});
+        }
+
+        DynamicTasks.queue("install", new Runnable() {
+            @Override
+            public void run() {
+                ImmutableList<String> installHelmTemplateCommand =
+                        ImmutableList.<String>of(String.format("helm install %s %s", helm_name_install_name, helm_template));
+                OutputStream out = new ByteArrayOutputStream();
+                OutputStream err = new ByteArrayOutputStream();
+                ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err, ";", false, this);
+            }});
+        //TODO Do something with output
+    }
+
+    @Override
+    public Callable<String> getCallable(String command) {
+        String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
+        ImmutableList<String> installHelmTemplateCommand =
+                ImmutableList.<String>of(String.format("helm %s %s", command, helm_name_install_name));
+
+        return new Callable() {
+            @Override
+            public Object call() throws Exception {
+                OutputStream out = new ByteArrayOutputStream();
+                OutputStream err = new ByteArrayOutputStream();
+                ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err,";", false, this);
+                return out.toString();
+            }
+        };
+    }
+
+    @Override
+    public Callable getKubeCallable() {
+        String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
+        String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
+
+        return new Callable() {
+            @Override
+            public Object call() throws Exception {
+                KubernetesClient client = getClient(config);
+                Deployment deploy = client.apps().deployments().inNamespace("default").withName(helm_name_install_name).get();
+                Integer availableReplicas = deploy.getStatus().getAvailableReplicas();
+                Integer replicas = deploy.getStatus().getReplicas();
+                return availableReplicas.equals(replicas);
+            } ;
+        };
     }
 
     @Override
@@ -82,24 +155,6 @@ public class HelmSshDriver extends AbstractSoftwareProcessDriver implements Helm
     @Override
     public void setup() {
 
-    }
-
-    @Override
-    public void install() {
-        String repo_name = getEntity().getConfig(HelmEntity.REPO_NAME);
-        String repo_url = getEntity().getConfig(HelmEntity.REPO_URL);
-
-        String helm_template = getEntity().getConfig(HelmEntity.HELM_TEMPLATE);
-        String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
-        //TODO Fix string formating
-        ImmutableList<String> installHelmTemplateCommand =
-                ImmutableList.<String>of(String.format("helm repo add %s %s", repo_name, repo_url),
-                        String.format("helm install %s %s", helm_name_install_name, helm_template));
-        OutputStream out = new ByteArrayOutputStream();
-        OutputStream err = new ByteArrayOutputStream();
-        ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err,";", false, this);
-
-        //TODO Do something with output
     }
 
     @Override
@@ -150,40 +205,6 @@ public class HelmSshDriver extends AbstractSoftwareProcessDriver implements Helm
     @Override
     public int copyResource(Map<Object, Object> sshFlags, InputStream source, String target, boolean createParentDir) {
         return 0;
-    }
-
-    @Override
-    public Callable<String> getCallable(String command) {
-        return new Callable() {
-            @Override
-            public Object call() throws Exception {
-                String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
-                ImmutableList<String> installHelmTemplateCommand =
-                        ImmutableList.<String>of(String.format("helm %s %s", command, helm_name_install_name));
-                OutputStream out = new ByteArrayOutputStream();
-                OutputStream err = new ByteArrayOutputStream();
-                ProcessTool.execProcesses(installHelmTemplateCommand, null, null, out, err,";", false, this);
-                return out.toString();
-            }
-        };
-    }
-
-    @Override
-    public Callable getKubeCallable() {
-        return new Callable() {
-            @Override
-            public Object call() throws Exception {
-                String helm_name_install_name = getEntity().getConfig(HelmEntity.HELM_TEMPLATE_INSTALL_NAME);
-                String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
-                KubernetesClient client = getClient(config);
-
-                Deployment deploy = client.apps().deployments().inNamespace("default").withName(helm_name_install_name).get();
-                Integer availableReplicas = deploy.getStatus().getAvailableReplicas();
-                Integer replicas = deploy.getStatus().getReplicas();
-                Boolean ready = availableReplicas.equals(replicas);
-                return ready;
-            } ;
-        };
     }
 
     KubernetesClient getClient(String configFile) {

@@ -42,11 +42,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test
     public void testSimpleDeploy() throws Exception {
-        HelmEntity andManageChild = app.createAndManageChild(EntitySpec.create(HelmEntity.class)
-                .configure(HelmEntity.REPO_NAME, "bitnami")
-                .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
-                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, "wordpress-test")
-                .configure(HelmEntity.HELM_TEMPLATE, "bitnami/wordpress"));
+        HelmEntity andManageChild = newHelmSpec("wordpress-test", "bitnami/wordpress");
 
         app.start(newLocalhostLocation());
 
@@ -57,11 +53,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test
     public void testCanSenseHelmStatus() {
-        HelmEntity andManageChild = app.createAndManageChild(EntitySpec.create(HelmEntity.class)
-                .configure(HelmEntity.REPO_NAME, "bitnami")
-                .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
-                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, "wordpress-test")
-                .configure(HelmEntity.HELM_TEMPLATE, "bitnami/wordpress"));
+        HelmEntity andManageChild = newHelmSpec("wordpress-test", "bitnami/wordpress");
 
         app.start(newLocalhostLocation());
 
@@ -77,16 +69,20 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test
     public void testCanSenseDeploymentStatus() {
-        HelmEntity andManageChild = app.createAndManageChild(EntitySpec.create(HelmEntity.class)
-                .configure(HelmEntity.REPO_NAME, "bitnami")
-                .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
-                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, "nginx-test")
-                .configure(HelmEntity.HELM_TEMPLATE, "bitnami/nginx"));
+        HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
         app.start(newLocalhostLocation());
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
         app.stop();
+    }
+
+    private HelmEntity newHelmSpec(String templateInstallName, String helmTemplate) {
+        return app.createAndManageChild(EntitySpec.create(HelmEntity.class)
+                .configure(HelmEntity.REPO_NAME, "bitnami")
+                .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
+                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, templateInstallName)
+                .configure(HelmEntity.HELM_TEMPLATE, helmTemplate));
     }
 
     private ImmutableList<Location> newLocalhostLocation() {
