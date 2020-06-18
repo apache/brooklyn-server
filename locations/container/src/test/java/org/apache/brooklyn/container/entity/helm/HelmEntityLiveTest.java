@@ -23,15 +23,20 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
+import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.Map;
 
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
@@ -42,20 +47,20 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test
     public void testSimpleDeploy() throws Exception {
-        HelmEntity andManageChild = newHelmSpec("wordpress-test", "bitnami/wordpress");
+        HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
-        app.start(newLocalhostLocation());
+        app.start(newKubernetesLocation());
 
-        assertAttributeEqualsEventually(andManageChild, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
         assertAttributeEqualsEventually(andManageChild, Attributes.SERVICE_UP, true);
         app.stop();
     }
 
+
     @Test
     public void testCanSenseHelmStatus() {
-        HelmEntity andManageChild = newHelmSpec("wordpress-test", "bitnami/wordpress");
+        HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
-        app.start(newLocalhostLocation());
+        app.start(newKubernetesLocation());
 
         assertPredicateEventuallyTrue(andManageChild, new Predicate<HelmEntity>() {
             @Override
@@ -71,10 +76,30 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
     public void testCanSenseDeploymentStatus() {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
-        app.start(newLocalhostLocation());
+        app.start(newKubernetesLocation());
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
         app.stop();
+    }
+
+    @Test
+    public void testCanScaleCluster() {
+        HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
+
+        app.start(newKubernetesLocation());
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 1);
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 1);
+
+        andManageChild.resize(2);
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 2);
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 2);
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
+
+        app.stop();
+
     }
 
     private HelmEntity newHelmSpec(String templateInstallName, String helmTemplate) {
@@ -89,5 +114,14 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         return ImmutableList.<Location>of(
                 app.newLocalhostProvisioningLocation(
                         ImmutableMap.of(KubernetesLocation.KUBECONFIG, "/Users/duncangrant/.kube/config")));
+    }
+
+    private Collection<? extends Location> newKubernetesLocation() {
+            Map<String, ?> allFlags = MutableMap.<String, Object>builder()
+                    .put(KubernetesLocation.KUBECONFIG.getName(), "/Users/duncangrant/.kube/config")
+                    .put("image", "cloudsoft/centos:7")
+                    .build();
+        KubernetesLocation kubernetesLocation = (KubernetesLocation) mgmt.getLocationRegistry().getLocationManaged("kubernetes", allFlags);
+        return ImmutableList.of(kubernetesLocation);
     }
 }

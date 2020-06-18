@@ -18,15 +18,21 @@
  */
 package org.apache.brooklyn.container.entity.helm;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.annotation.Effector;
+import org.apache.brooklyn.core.annotation.EffectorParam;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.trait.Resizable;
+import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 
 @ImplementedBy(HelmEntityImpl.class)
-public interface HelmEntity extends SoftwareProcess {
+public interface HelmEntity extends Entity, Resizable, Startable {
 
    public static final ConfigKey<String> REPO_NAME = ConfigKeys.newStringConfigKey(
            "repo.name",
@@ -49,4 +55,11 @@ public interface HelmEntity extends SoftwareProcess {
 
    AttributeSensor<Boolean> DEPLOYMENT_READY = Sensors.newBooleanSensor("kube.deployment.status",
            "The status of the deploymeny");
+
+   AttributeSensor<Integer> AVAILABLE_REPLICAS = Sensors.newIntegerSensor("kube.replicas.available",
+           "The number of available replicas");
+
+   AttributeSensor<Integer> REPLICAS = Sensors.newIntegerSensor("kube.replicas",
+           "The number of replicas");
+
 }
