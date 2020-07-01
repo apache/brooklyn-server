@@ -46,9 +46,13 @@ public interface HelmEntity extends Entity, Resizable, Startable {
            "helm.template",
            "Template name or url");
 
-   public static final ConfigKey<String> HELM_TEMPLATE_INSTALL_NAME = ConfigKeys.newStringConfigKey(
-           "helm.template.install.name",
-           "Kuberentes deployment name");
+   public static final ConfigKey<String> HELM_DEPLOYMENT_NAME = ConfigKeys.newStringConfigKey(
+           "helm.deployment.name",
+           "Deployment name");
+
+   public static final ConfigKey<String> HELM_INSTALL_VALUES = ConfigKeys.newStringConfigKey(
+           "helm.install.values",
+           "Helm config values to use at install time - can be file or url");
 
    AttributeSensor<String> STATUS = Sensors.newStringSensor("helm.status",
            "The results of a status call");

@@ -23,16 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
-import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -41,7 +35,6 @@ import java.util.Map;
 
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertPredicateEventuallyTrue;
-import static org.testng.Assert.*;
 
 public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
@@ -102,11 +95,31 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
     }
 
+    @Test
+    public void testCanScaleClusterPrometheus() {
+        HelmEntity andManageChild = newHelmSpec("prometheus", "/Users/duncangrant/workspace/charts/stable/prometheus");
+
+        app.start(newKubernetesLocation());
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 1);
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 1);
+
+        andManageChild.resize(2);
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 2);
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 2);
+
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
+
+        app.stop();
+
+    }
+
     private HelmEntity newHelmSpec(String templateInstallName, String helmTemplate) {
         return app.createAndManageChild(EntitySpec.create(HelmEntity.class)
                 .configure(HelmEntity.REPO_NAME, "bitnami")
                 .configure(HelmEntity.REPO_URL, "https://charts.bitnami.com/bitnami")
-                .configure(HelmEntity.HELM_TEMPLATE_INSTALL_NAME, templateInstallName)
+                .configure(HelmEntity.HELM_DEPLOYMENT_NAME, templateInstallName)
                 .configure(HelmEntity.HELM_TEMPLATE, helmTemplate));
     }
 
