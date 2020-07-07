@@ -39,8 +39,6 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -56,19 +54,11 @@ import java.util.stream.Collectors;
 
 public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
 
-    private static final Logger LOG = LoggerFactory.getLogger(HelmEntityImpl.class);
-
     private FunctionFeed serviceUpFeed;
-
-    @Override
-    public void init() {
-        super.init();
-    }
 
     protected void connectSensors() {
         connectServiceUpIsRunning();
 
-        //TODO do these reconnect after amp restart?
         addHelmFeed("status", STATUS);
         addKubernetesFeeds();
     }
@@ -119,8 +109,8 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
     }
 
     private void addKubernetesFeeds() {
-        Callable status = getKubeDeploymentsReady();
-        FunctionSensor<Integer> initializer = new FunctionSensor<Integer>(ConfigBag.newInstance()
+        Callable<Boolean> status = getKubeDeploymentsReady();
+        FunctionSensor<Integer> initializer = new FunctionSensor<>(ConfigBag.newInstance()
                 .configure(FunctionSensor.SENSOR_PERIOD, Duration.millis(1000))
                 .configure(FunctionSensor.SENSOR_NAME, DEPLOYMENT_READY.getName())
                 .configure(FunctionSensor.SENSOR_TYPE, Boolean.class.getName())
@@ -157,8 +147,8 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
     }
 
     private void addHelmFeed(String command, AttributeSensor<String> sensor) {
-        Callable status = getCallable(command);
-        FunctionPollConfig pollConfig = new FunctionPollConfig<String, String>(sensor)
+        Callable<String> status = getCallable(command);
+        FunctionPollConfig<String, String> pollConfig = new FunctionPollConfig<String, String>(sensor)
                 .callable(status)
                 ;
 
@@ -177,12 +167,7 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 .poll(new FunctionPollConfig<Boolean, Boolean>(Attributes.SERVICE_UP)
                         .suppressDuplicates(true)
                         .onException(Functions.constant(Boolean.FALSE))
-                        .callable(new Callable<Boolean>() {
-                            @Override
-                            public Boolean call() {
-                                return isRunning();
-                            }
-                        }))
+                        .callable(() -> isRunning()))
                 .build();
     }
 
@@ -192,22 +177,22 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
     }
 
     private void doInstall() {
-        String repo_name = getConfig(HelmEntity.REPO_NAME);
-        String repo_url = getConfig(HelmEntity.REPO_URL);
+        String repoName = getConfig(HelmEntity.REPO_NAME);
+        String repoUrl = getConfig(HelmEntity.REPO_URL);
 
-        String helm_template = getConfig(HelmEntity.HELM_TEMPLATE);
-        String helm_deployment_name = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
-        String install_values = getConfig(HelmEntity.HELM_INSTALL_VALUES);
+        String helmTemplate = getConfig(HelmEntity.HELM_TEMPLATE);
+        String helmDeploymentName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
+        String installValues = getConfig(HelmEntity.HELM_INSTALL_VALUES);
 
         String namespace = getNamespace();
 
-        if(Strings.isNonBlank(repo_name) && Strings.isNonBlank(repo_url)) {
+        if(Strings.isNonBlank(repoName) && Strings.isNonBlank(repoUrl)) {
 
             DynamicTasks.queue("install repo", new Runnable() {
                 @Override
                 public void run() {
                     ImmutableList<String> setupRepoCommand =
-                            ImmutableList.<String>of(buildAddRepoCommand(repo_name, repo_url));
+                            ImmutableList.<String>of(buildAddRepoCommand(repoName, repoUrl));
                     ByteArrayOutputStream out = new ByteArrayOutputStream();
                     ByteArrayOutputStream err = new ByteArrayOutputStream();
 
@@ -222,7 +207,7 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
             @Override
             public void run() {
                 ImmutableList<String> installHelmTemplateCommand =
-                        ImmutableList.<String>of(buildInstallCommand(helm_deployment_name, helm_template, install_values, namespace));
+                        ImmutableList.<String>of(buildInstallCommand(helmDeploymentName, helmTemplate, installValues, namespace));
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 ByteArrayOutputStream err = new ByteArrayOutputStream();
 
@@ -243,9 +228,9 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
         DynamicTasks.queue("stop", new Runnable() {
             @Override
             public void run() {
-                String helm_name_install_name = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
+                String helmNameInstallName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
                 String namespace = getNamespace();
-                ImmutableList<String> command = ImmutableList.<String>of(String.format("helm delete %s --namespace %s", helm_name_install_name, namespace));
+                ImmutableList<String> command = ImmutableList.<String>of(String.format("helm delete %s --namespace %s", helmNameInstallName, namespace));
                 OutputStream out = new ByteArrayOutputStream();
                 OutputStream err = new ByteArrayOutputStream();
                 ProcessTool.execProcesses(command, null, null, out, err, ";", false, this);
@@ -258,14 +243,13 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
         String helmNameInstallName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
         String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
 
-        return new Callable() {
+        return new Callable<List<String>>() {
             @Override
             public List<String> call() throws Exception {
                 KubernetesClient client = getClient(config);
                 List<Deployment> deployments = getDeployments(client, helmNameInstallName);
-                List<String> collect = deployments.stream().map(deployment -> deployment.getMetadata().getName()).collect(Collectors.toList());
-                return collect;
-            } ;
+                return deployments.stream().map(deployment -> deployment.getMetadata().getName()).collect(Collectors.toList());
+            }
         };
     }
 
@@ -286,11 +270,11 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
         };
     }
 
-    private Callable getKubeDeploymentsReady() {
+    private Callable<Boolean> getKubeDeploymentsReady() {
         String helmNameInstallName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
         String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
 
-        return new Callable() {
+        return new Callable<Boolean>() {
             @Override
             public Boolean call() throws Exception {
                 KubernetesClient client = getClient(config);
@@ -298,7 +282,7 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 Integer availableReplicas = countAvailableReplicas(deployments);
                 Integer replicas = countReplicas(deployments);
                 return availableReplicas.equals(replicas);
-            } ;
+            }
         };
     }
 
@@ -320,27 +304,27 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
         return (KubernetesLocation) getLocations().stream().filter(KubernetesLocation.class::isInstance).findFirst().get();
     }
 
-    private Callable getKubeReplicasCallable(String deploymentName) {
+    private Callable<Integer> getKubeReplicasCallable(String deploymentName) {
         String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
 
-        return new Callable() {
+        return new Callable<Integer>() {
             @Override
             public Integer call() throws Exception {
                 KubernetesClient client = getClient(config);
                 return countReplicas(getDeployments(client, deploymentName));
-            } ;
+            }
         };
     }
 
-    private Callable getKubeReplicasAvailableCallable(String deploymentName) {
+    private Callable<Integer> getKubeReplicasAvailableCallable(String deploymentName) {
         String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
 
-        return new Callable() {
+        return new Callable<Integer>() {
             @Override
             public Integer call() throws Exception {
                 KubernetesClient client = getClient(config);
                 return countAvailableReplicas(getDeployments(client, deploymentName));
-            } ;
+            }
         };
     }
 
@@ -357,9 +341,8 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
         }
     }
 
-    private String buildAddRepoCommand(String repo_name, String repo_url) {
-        String installCommand = String.format("helm repo add %s %s", repo_name, repo_url);
-        return installCommand;
+    private String buildAddRepoCommand(String repoName, String repoUrl) {
+        return String.format("helm repo add %s %s", repoName, repoUrl);
     }
 
     private String buildInstallCommand(String helmDeploymentName, String helmTemplate, String installValues, String namespace) {
