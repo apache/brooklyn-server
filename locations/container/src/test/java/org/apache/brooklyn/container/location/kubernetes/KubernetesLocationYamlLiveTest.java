@@ -35,10 +35,12 @@ import static org.apache.brooklyn.util.http.HttpAsserts.assertHttpStatusCodeEven
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
@@ -49,7 +51,9 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.location.Machines;
+import org.apache.brooklyn.core.location.access.PortForwardManagerImpl;
 import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
@@ -57,6 +61,7 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -519,7 +524,48 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         String httpPublicPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newStringSensor("kubernetes.http.endpoint.mapped.public"));
         assertReachableEventually(HostAndPort.fromString(httpPublicPort));
     }
+    
+    @Test(groups = {"Live"})
+    public void testNginxService2() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                locationYaml,
+                "services:",
+                "  - type: " + KubernetesResource.class.getName(),
+                "    name: \"nginx-2-deployment\"",
+                "    brooklyn.config:",
+                "      resource: classpath://nginx-2-deployment.yaml",
+                "  - type: " + KubernetesResource.class.getName(),
+                "    name: \"nginx-2-service\"",
+                "    brooklyn.config:",
+                "      resource: classpath://nginx-2-service.yaml");
+        Entity app = createStartWaitAndLogApplication(yaml);
 
+        Iterable<KubernetesResource> resources = Entities.descendantsAndSelf(app, KubernetesResource.class);
+        KubernetesResource nginxDeployment = Iterables.find(resources, EntityPredicates.displayNameEqualTo("nginx-2-deployment"));
+        KubernetesResource nginxService = Iterables.find(resources, EntityPredicates.displayNameEqualTo("nginx-2-service"));
+
+        assertEntityHealthy(nginxDeployment);
+        assertEntityHealthy(nginxService);
+
+        Dumper.dumpInfo(app);
+
+        Integer httpPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newIntegerSensor("kubernetes.http.port"));
+        assertEquals(httpPort, Integer.valueOf(80));
+        String httpPublicPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newStringSensor("kubernetes.http.endpoint.mapped.public"));
+        assertReachableEventually(HostAndPort.fromString(httpPublicPort));
+        
+        // also check locations are cleaned up
+        mgmt().getApplications().forEach(appI -> ((StartableApplication)appI).stop());
+        Collection<Location> ll = mgmt().getLocationManager().getLocations();
+        if (ll.isEmpty()) {
+            // okay
+        } else {
+            // should have an empty PortForwardingManager
+            Asserts.assertSize(ll, 1);  
+            Asserts.assertSize(((PortForwardManagerImpl)Iterables.getOnlyElement(ll)).getPortMappings(), 0);
+        }
+    }
+    
     protected void assertReachableEventually(final HostAndPort hostAndPort) {
         succeedsEventually(new Runnable() {
             public void run() {

@@ -216,6 +216,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         } else {
             deleteKubernetesContainerLocation(entity, machine);
         }
+        getPortForwardManager().forgetPortMappings(machine);
+        removeChild(machine);
     }
 
     protected void deleteKubernetesContainerLocation(Entity entity, MachineLocation machine) {
@@ -400,7 +402,8 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                     .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, resourceType);
 
             KubernetesMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
-
+            addChild(machine);
+            
             if (resourceType.equals(KubernetesResource.SERVICE) && machine instanceof KubernetesSshMachineLocation) {
                 Service service = getService(namespace, resourceName, client);
                 registerPortMappings((KubernetesSshMachineLocation) machine, entity, service);
@@ -511,6 +514,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 .configure(KubernetesMachineLocation.KUBERNETES_RESOURCE_TYPE, getContainerResourceType());
 
         KubernetesSshMachineLocation machine = getManagementContext().getLocationManager().createLocation(locationSpec);
+        addChild(machine);
         registerPortMappings(machine, entity, service);
         if (!isDockerContainer(entity)) {
             waitForSshable(machine, Duration.FIVE_MINUTES);
@@ -551,8 +555,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     protected void registerPortMappings(KubernetesSshMachineLocation machine, Entity entity, Service service) {
-        PortForwardManager portForwardManager = (PortForwardManager) getManagementContext().getLocationRegistry()
-                .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
+        PortForwardManager portForwardManager = getPortForwardManager();
         List<ServicePort> ports = service.getSpec().getPorts();
         String publicHostText = machine.getSshHostAndPort().getHostText();
         LOG.debug("Recording port-mappings for container {} of {}: {}", machine, this, ports);
@@ -576,6 +579,11 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
 
         entity.enrichers().add(EnricherSpec.create(OnPublicNetworkEnricher.class)
                 .configure(AbstractOnNetworkEnricher.MAP_MATCHING, "kubernetes.[a-zA-Z0-9][a-zA-Z0-9-_]*.port"));
+    }
+
+    private PortForwardManager getPortForwardManager() {
+        return (PortForwardManager) getManagementContext().getLocationRegistry()
+                .getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
     }
 
     protected synchronized Namespace createOrGetNamespace(final String name, Boolean create) {
