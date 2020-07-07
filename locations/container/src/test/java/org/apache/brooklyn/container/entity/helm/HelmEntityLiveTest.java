@@ -33,6 +33,7 @@ import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqualsEventually;
@@ -47,7 +48,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         super.tearDown();
     }
 
-    @Test
+    @Test(groups = {"Live"})
     public void testSimpleDeploy() throws Exception {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
@@ -57,8 +58,23 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
+    @Test(groups = {"Live"})
+    public void testMultiDeployment() {
+        HelmEntity andManageChild = newHelmSpec("prometheus", "/Users/duncangrant/workspace/charts/stable/prometheus");
 
-    @Test
+        app.start(newKubernetesLocation());
+
+        assertPredicateEventuallyTrue(andManageChild, new Predicate<HelmEntity>() {
+            @Override
+            public boolean apply(@Nullable HelmEntity input) {
+                List<String> status = input.getAttribute(HelmEntity.DEPLOYMENTS);
+                return status != null && status.contains("prometheus-alertmanager");
+            }
+        });
+    }
+
+
+    @Test(groups = {"Live"})
     public void testCanSenseHelmStatus() {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
@@ -73,7 +89,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         });
     }
 
-    @Test
+    @Test(groups = {"Live"})
     public void testCanSenseDeploymentStatus() {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
@@ -82,7 +98,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
-    @Test
+    @Test(groups = {"Live"})
     public void testCanScaleCluster() {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
@@ -99,7 +115,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
-    @Test
+    @Test(groups = {"Live"})
     public void testCanScaleClusterPrometheus() {
         HelmEntity andManageChild = newHelmSpec("prometheus", "/Users/duncangrant/workspace/charts/stable/prometheus");
 

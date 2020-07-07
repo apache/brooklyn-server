@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.container.entity.helm;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -30,6 +31,9 @@ import org.apache.brooklyn.core.entity.trait.Resizable;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
+import org.w3c.dom.Attr;
+
+import java.util.List;
 
 @ImplementedBy(HelmEntityImpl.class)
 public interface HelmEntity extends Entity, Startable {
@@ -66,6 +70,7 @@ public interface HelmEntity extends Entity, Startable {
    AttributeSensor<Integer> REPLICAS = Sensors.newIntegerSensor("kube.replicas",
            "The number of replicas");
 
+   AttributeSensor<List<String>> DEPLOYMENTS = Sensors.newSensor(new TypeToken<List<String>>() {}, "kube.deployments");
 
    @Effector(description="")
    Integer resize(@EffectorParam(name="deplymentName") String name, @EffectorParam(name="desiredSize") Integer desiredSize);
