@@ -21,13 +21,14 @@ package org.apache.brooklyn.container.location.kubernetes;
 import java.io.InputStream;
 import java.net.InetAddress;
 import java.nio.charset.Charset;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
-import javax.annotation.Nullable;
-
-import io.fabric8.kubernetes.api.model.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -62,6 +63,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -75,7 +77,6 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
@@ -89,9 +90,40 @@ import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.common.net.HostAndPort;
 
+import io.fabric8.kubernetes.api.model.Container;
+import io.fabric8.kubernetes.api.model.ContainerBuilder;
+import io.fabric8.kubernetes.api.model.ContainerPort;
+import io.fabric8.kubernetes.api.model.ContainerPortBuilder;
+import io.fabric8.kubernetes.api.model.EndpointAddress;
+import io.fabric8.kubernetes.api.model.EndpointSubset;
+import io.fabric8.kubernetes.api.model.Endpoints;
+import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.EnvVarBuilder;
+import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.LabelSelector;
+import io.fabric8.kubernetes.api.model.LabelSelectorBuilder;
+import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
+import io.fabric8.kubernetes.api.model.PersistentVolume;
+import io.fabric8.kubernetes.api.model.PersistentVolumeBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
+import io.fabric8.kubernetes.api.model.PodTemplateSpec;
+import io.fabric8.kubernetes.api.model.PodTemplateSpecBuilder;
+import io.fabric8.kubernetes.api.model.QuantityBuilder;
+import io.fabric8.kubernetes.api.model.ReplicationController;
+import io.fabric8.kubernetes.api.model.ResourceRequirements;
+import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
+import io.fabric8.kubernetes.api.model.Secret;
+import io.fabric8.kubernetes.api.model.SecretBuilder;
+import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.ServiceBuilder;
+import io.fabric8.kubernetes.api.model.ServicePort;
+import io.fabric8.kubernetes.api.model.ServicePortBuilder;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
+import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
 
@@ -311,7 +343,22 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         InputStream processedResource = Streams.newInputStreamWithContents(processedContents);
 
 
-        try (KubernetesClient client = getClient()) {
+        try (KubernetesClient clientUnnamespaced = getClient()) {
+            Namespace namespaceFromConfig = null;
+            Boolean shouldCreate = setup.get(CREATE_NAMESPACE);
+            try {
+                namespaceFromConfig = createOrGetNamespace(lookup(NAMESPACE, entity, setup), shouldCreate);
+            } catch (Exception e) {
+                // unable to create
+                if (Boolean.TRUE.equals(shouldCreate)) {
+                    throw Exceptions.propagate(e);
+                }
+                LOG.debug("Unable to create/get namespace; ignoring, but may fail subsequently: " + e, e);
+            }
+            final KubernetesClient client = 
+                namespaceFromConfig!=null ?
+                    ((DefaultKubernetesClient)clientUnnamespaced).inNamespace(namespaceFromConfig.getMetadata().getName())
+                : clientUnnamespaced;
             final List<HasMetadata> result = client.load(processedResource).createOrReplace();
 
             ExitCondition exitCondition = new ExitCondition() {
@@ -331,6 +378,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
             };
             waitForExitCondition(exitCondition);
 
+            // TODO only returns info on the first item :|
             HasMetadata metadata = result.get(0);
             String resourceType = metadata.getKind();
             String resourceName = metadata.getMetadata().getName();

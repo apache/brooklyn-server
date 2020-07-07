@@ -46,6 +46,7 @@ import org.apache.brooklyn.container.entity.docker.DockerContainer;
 import org.apache.brooklyn.container.entity.kubernetes.KubernetesPod;
 import org.apache.brooklyn.container.entity.kubernetes.KubernetesResource;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.Machines;
@@ -59,6 +60,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.StringUtils;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -89,12 +91,20 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     public void setUp() throws Exception {
         super.setUp();
 
+        String config = "    {}";
+
+        if (Strings.isNonBlank(KUBERNETES_ENDPOINT)) {
+            // if the above is set, we use it.  otherwise use ~/.kube/config
+            config = Joiner.on("\n").join(
+                    "    " + KubernetesLocationConfig.MASTER_URL.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
+                    "    " + (StringUtils.isBlank(IDENTITY) ? "" : "identity: " + IDENTITY),
+                    "    " + (StringUtils.isBlank(CREDENTIAL) ? "" : "credential: " + CREDENTIAL));
+        }
+        
         locationYaml = Joiner.on("\n").join(
                 "location:",
                 "  kubernetes:",
-                "    " + KubernetesLocationConfig.MASTER_URL.getName() + ": \"" + KUBERNETES_ENDPOINT + "\"",
-                "    " + (StringUtils.isBlank(IDENTITY) ? "" : "identity: " + IDENTITY),
-                "    " + (StringUtils.isBlank(CREDENTIAL) ? "" : "credential: " + CREDENTIAL));
+                config);
     }
 
     @Test(groups = {"Live"})
@@ -182,7 +192,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
                 "      checkRunning.command: true");
 
         Entity app = createStartWaitAndLogApplication(yaml);
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Entity server1 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("server1"));
         Entity server2 = Iterables.find(Entities.descendantsAndSelf(app), EntityPredicates.displayNameEqualTo("server2"));
@@ -265,7 +275,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         Entity app = createStartWaitAndLogApplication(yaml);
         T entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, type));
 
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
         String publicMapped = assertAttributeEventuallyNonNull(entity, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
@@ -383,7 +393,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
      */
     protected void runWordpress(String yaml, String randomId) throws Exception {
         Entity app = createStartWaitAndLogApplication(yaml);
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Iterable<DockerContainer> containers = Entities.descendantsAndSelf(app, DockerContainer.class);
         DockerContainer mysql = Iterables.find(containers, EntityPredicates.displayNameEqualTo("mysql"));
@@ -441,7 +451,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     protected <T extends Entity> void checkPod(Entity app, Class<T> type) {
         T container = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, type));
 
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         String publicMapped = assertAttributeEventuallyNonNull(container, Sensors.newStringSensor("docker.port.8080.mapped.public"));
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
@@ -468,7 +478,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     protected <T extends Entity> void checkNginxResource(Entity app, Class<T> type) {
         T entity = Iterables.getOnlyElement(Entities.descendantsAndSelf(app, type));
 
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         assertEntityHealthy(entity);
         assertAttributeEqualsEventually(entity, KubernetesResource.RESOURCE_NAME, "nginx-replication-controller");
@@ -502,7 +512,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         assertEntityHealthy(nginxReplicationController);
         assertEntityHealthy(nginxService);
 
-        Entities.dumpInfo(app);
+        Dumper.dumpInfo(app);
 
         Integer httpPort = assertAttributeEventuallyNonNull(nginxService, Sensors.newIntegerSensor("kubernetes.http.port"));
         assertEquals(httpPort, Integer.valueOf(80));
@@ -519,7 +529,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
     }
 
     public KubernetesClient getClient(Entity entity) {
-        MachineProvisioningLocation location = entity.sensors().get(SoftwareProcess.PROVISIONING_LOCATION);
+        MachineProvisioningLocation<?> location = entity.sensors().get(SoftwareProcess.PROVISIONING_LOCATION);
         if (location instanceof KubernetesLocation) {
             KubernetesLocation kubernetes = (KubernetesLocation) location;
             ConfigBag config = kubernetes.config().getBag();
