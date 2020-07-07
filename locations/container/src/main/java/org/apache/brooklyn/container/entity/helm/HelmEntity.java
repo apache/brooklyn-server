@@ -32,7 +32,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 
 @ImplementedBy(HelmEntityImpl.class)
-public interface HelmEntity extends Entity, Resizable, Startable {
+public interface HelmEntity extends Entity, Startable {
 
    public static final ConfigKey<String> REPO_NAME = ConfigKeys.newStringConfigKey(
            "repo.name",
@@ -65,5 +65,9 @@ public interface HelmEntity extends Entity, Resizable, Startable {
 
    AttributeSensor<Integer> REPLICAS = Sensors.newIntegerSensor("kube.replicas",
            "The number of replicas");
+
+
+   @Effector(description="")
+   Integer resize(@EffectorParam(name="deplymentName") String name, @EffectorParam(name="desiredSize") Integer desiredSize);
 
 }

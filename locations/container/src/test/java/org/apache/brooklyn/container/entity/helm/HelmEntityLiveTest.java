@@ -26,7 +26,9 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 import javax.annotation.Nullable;
@@ -38,6 +40,13 @@ import static org.apache.brooklyn.core.entity.EntityAsserts.assertPredicateEvent
 
 public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
+    @AfterMethod(alwaysRun = true, timeOut = Asserts.THIRTY_SECONDS_TIMEOUT_MS)
+    @Override
+    public void tearDown() throws Exception {
+        app.stop();
+        super.tearDown();
+    }
+
     @Test
     public void testSimpleDeploy() throws Exception {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
@@ -45,7 +54,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         app.start(newKubernetesLocation());
 
         assertAttributeEqualsEventually(andManageChild, Attributes.SERVICE_UP, true);
-        app.stop();
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
 
@@ -62,7 +71,6 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
                 return status == null? false : status.contains("STATUS: deployed");
             }
         });
-        app.stop();
     }
 
     @Test
@@ -72,7 +80,6 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         app.start(newKubernetesLocation());
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
-        app.stop();
     }
 
     @Test
@@ -84,15 +91,12 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 1);
         assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 1);
 
-        andManageChild.resize(2);
+        andManageChild.resize("nginx-test",3);
 
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 2);
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 2);
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 3);
+        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 3);
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
-
-        app.stop();
-
     }
 
     @Test
@@ -104,15 +108,12 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 1);
         assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 1);
 
-        andManageChild.resize(2);
+        andManageChild.resize("prometheus-server", 2);
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 2);
         assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 2);
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
-
-        app.stop();
-
     }
 
     private HelmEntity newHelmSpec(String templateInstallName, String helmTemplate) {
