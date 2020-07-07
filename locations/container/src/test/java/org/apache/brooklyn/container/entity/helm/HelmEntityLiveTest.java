@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -40,6 +41,8 @@ import static org.apache.brooklyn.core.entity.EntityAsserts.assertAttributeEqual
 import static org.apache.brooklyn.core.entity.EntityAsserts.assertPredicateEventuallyTrue;
 
 public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
+
+    public static final String PROMETHEUS_TEMPLATE_LOCATION = "~/workspace/charts/stable/prometheus";
 
     @AfterMethod(alwaysRun = true, timeOut = Asserts.THIRTY_SECONDS_TIMEOUT_MS)
     @Override
@@ -60,7 +63,7 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
     @Test(groups = {"Live"})
     public void testMultiDeployment() {
-        HelmEntity andManageChild = newHelmSpec("prometheus", "/Users/duncangrant/workspace/charts/stable/prometheus");
+        HelmEntity andManageChild = newHelmSpec("prometheus", PROMETHEUS_TEMPLATE_LOCATION);
 
         app.start(newKubernetesLocation());
 
@@ -98,26 +101,28 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
+    //TODO Why is this broken?
     @Test(groups = {"Live"})
     public void testCanScaleCluster() {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
 
         app.start(newKubernetesLocation());
 
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 1);
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 1);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.nginx-test.replicas"), 1);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.nginx-test.replicas.available"), 1);
 
         andManageChild.resize("nginx-test",3);
 
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 3);
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 3);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.nginx-test.replicas"), 3);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.nginx-test.replicas.available"), 3);
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
+    //TODO Why is this broken?
     @Test(groups = {"Live"})
     public void testCanScaleClusterPrometheus() {
-        HelmEntity andManageChild = newHelmSpec("prometheus", "/Users/duncangrant/workspace/charts/stable/prometheus");
+        HelmEntity andManageChild = newHelmSpec("prometheus", PROMETHEUS_TEMPLATE_LOCATION);
 
         app.start(newKubernetesLocation());
 
@@ -140,15 +145,8 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
                 .configure(HelmEntity.HELM_TEMPLATE, helmTemplate));
     }
 
-    private ImmutableList<Location> newLocalhostLocation() {
-        return ImmutableList.<Location>of(
-                app.newLocalhostProvisioningLocation(
-                        ImmutableMap.of(KubernetesLocation.KUBECONFIG, "/Users/duncangrant/.kube/config")));
-    }
-
     private Collection<? extends Location> newKubernetesLocation() {
             Map<String, ?> allFlags = MutableMap.<String, Object>builder()
-                    .put(KubernetesLocation.KUBECONFIG.getName(), "/Users/duncangrant/.kube/config")
                     .put("image", "cloudsoft/centos:7")
                     .build();
         KubernetesLocation kubernetesLocation = (KubernetesLocation) mgmt.getLocationRegistry().getLocationManaged("kubernetes", allFlags);
