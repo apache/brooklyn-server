@@ -25,15 +25,20 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
+import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
@@ -52,6 +57,8 @@ import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.cloud.CloudLocationConfig;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.network.AbstractOnNetworkEnricher;
 import org.apache.brooklyn.core.network.OnPublicNetworkEnricher;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -71,6 +78,8 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,8 +133,11 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentStatus;
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
+import io.fabric8.kubernetes.client.Handlers;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientException;
+import io.fabric8.kubernetes.client.ResourceHandler;
+import io.fabric8.kubernetes.client.handlers.ServiceHandler;
 
 public class KubernetesLocation extends AbstractLocation implements MachineProvisioningLocation<KubernetesMachineLocation>, KubernetesLocationConfig {
 
@@ -166,6 +178,25 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     public static final String ADDRESS_KEY = "address";
     private ConfigBag currentConfig;
 
+    private static void fixKubernetesClientClassloadBug(String context, @Nullable ManagementContext mgmt) {
+        // KubernetesListHandler kind Service which means its ResourceHandler.Key clobbers that of ServiceHandler,
+        // causing an error when KubernetesList.edit(item) is called with an item of type Service.
+        // persistently re-declare the ServiceHandler as the preferred item to try to force the right one to be used.
+        // TODO this can be removed once fabric8io has merged https://github.com/fabric8io/kubernetes-client/pull/2336
+        try {
+            // ensure ServiceHandler is loaded in preference to KubernetesList which pretends to be Kind = Service !
+            LOG.trace("HANDLER "+context+" was: "+Handlers.get("Service", "v1"));
+            Handlers.register(new ServiceHandler());
+            LOG.trace("HANDLER "+context+" now: "+Handlers.get("Service", "v1"));
+        } catch (Exception e) {
+            LOG.warn("Error fixing classload error in fabric8/kubernetes-client "+context+"; there may be issues deploying services via KubernetesResource: "+e, e);
+        }
+    }
+    
+    static {
+        fixKubernetesClientClassloadBug("on init", null);
+    }
+    
     public KubernetesLocation() {
         super();
     }
@@ -344,7 +375,6 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         String processedContents = TemplateProcessor.processTemplateContents(templateContents, (EntityInternal) entity, setup.getAllConfig());
         InputStream processedResource = Streams.newInputStreamWithContents(processedContents);
 
-
         try (KubernetesClient clientUnnamespaced = getClient()) {
             Namespace namespaceFromConfig = null;
             Boolean shouldCreate = setup.get(CREATE_NAMESPACE);
@@ -361,7 +391,9 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
                 namespaceFromConfig!=null ?
                     ((DefaultKubernetesClient)clientUnnamespaced).inNamespace(namespaceFromConfig.getMetadata().getName())
                 : clientUnnamespaced;
+            fixKubernetesClientClassloadBug("before create "+resourceUri, getManagementContext());
             final List<HasMetadata> result = client.load(processedResource).createOrReplace();
+            fixKubernetesClientClassloadBug("after create "+resourceUri, getManagementContext());
 
             ExitCondition exitCondition = new ExitCondition() {
                 @Override
