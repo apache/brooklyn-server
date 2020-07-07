@@ -42,6 +42,10 @@ import static org.apache.brooklyn.core.entity.EntityAsserts.assertPredicateEvent
 
 public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
+    /**
+     * To make these tests work you need to clone https://github.com/helm/charts.git
+     * Then configure PROMETHEUS_TEMPLATE_LOCATION to point to the prometheus chart
+     */
     public static final String PROMETHEUS_TEMPLATE_LOCATION = "~/workspace/charts/stable/prometheus";
 
     @AfterMethod(alwaysRun = true, timeOut = Asserts.THIRTY_SECONDS_TIMEOUT_MS)

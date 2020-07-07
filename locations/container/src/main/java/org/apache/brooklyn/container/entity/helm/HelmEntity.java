@@ -35,6 +35,19 @@ import org.w3c.dom.Attr;
 
 import java.util.List;
 
+/**
+ * Deploy using a KubernetesLocation
+ * e.g.
+ * location: kubernetes-location
+ * services:
+ * - type: org.apache.brooklyn.container.entity.helm.HelmEntity
+ *   brooklyn.config:
+ *     repo.name: bitnami
+ *     repo.url: https://charts.bitnami.com/bitnami
+ *     helm.template: bitnami/nginx
+ *     helm.deployment.name: nginx
+ */
+
 @ImplementedBy(HelmEntityImpl.class)
 public interface HelmEntity extends Entity, Startable {
 
