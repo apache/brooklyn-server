@@ -91,7 +91,7 @@ public class DslUtils {
             }
         }
         
-        if (requireType && value instanceof DeferredSupplier) {
+        if (!requireType && value instanceof DeferredSupplier) {
             // Don't cast - let Brooklyn evaluate it later (the value is a resolved DSL expression).
             return Optional.of(value);
         }
