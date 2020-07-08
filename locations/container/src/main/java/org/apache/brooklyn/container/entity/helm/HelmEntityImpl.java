@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.function.FunctionSensor;
@@ -301,7 +302,7 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
     }
 
     private KubernetesLocation getLocation() {
-        return (KubernetesLocation) getLocations().stream().filter(KubernetesLocation.class::isInstance).findFirst().get();
+        return (KubernetesLocation) Entities.getAllInheritedLocations(this).stream().filter(KubernetesLocation.class::isInstance).findFirst().get();
     }
 
     private Callable<Integer> getKubeReplicasCallable(String deploymentName) {
