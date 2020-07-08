@@ -33,6 +33,31 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.microbean</groupId>
+            <artifactId>microbean-helm</artifactId>
+            <version>2.12.4-SNAPSHOT</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.yaml</groupId>
+                    <artifactId>snakeyaml</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.errorprone</groupId>
+                    <artifactId>error_prone_annotations</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>netty-tcnative-boringssl-static</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- Added this dependency explicitly, to calm down IntelliJ IDEA and also upgrade this -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-tcnative-boringssl-static</artifactId>
+            <version>2.0.30.Final</version>
+        </dependency>
+        <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>openshift-client</artifactId>
             <version>${kubernetes-client.version}</version>
@@ -150,4 +175,5 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
 </project>
