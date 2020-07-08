@@ -20,6 +20,7 @@ package org.apache.brooklyn.container.entity.helm;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.DoneableDeployment;
 import io.fabric8.kubernetes.client.*;
@@ -126,7 +127,13 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 .period(Duration.TEN_SECONDS)
                 .build());
 
+        addFeed(FunctionFeed.builder()
+                .entity(this)
+                .poll(new FunctionPollConfig<String, List<String>>(SERVICES).callable(getKubeServicesCallable()))
+                .period(Duration.TEN_SECONDS)
+                .build());
     }
+
 
     private void addHelmFeed(String command, AttributeSensor<String> sensor) {
         Callable<String> status = getCallable(command);
@@ -221,6 +228,24 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
     }
 
 
+    private Callable<List<String>> getKubeServicesCallable() {
+        String helmNameInstallName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
+        String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
+
+        return new Callable<List<String>>() {
+            @Override
+            public List<String> call() throws Exception {
+                KubernetesClient client = getClient(config);
+                List<Service> services = client.services().inNamespace(getNamespace()).list().getItems();
+                return services.stream()
+                        .filter(service -> service.getMetadata().getAnnotations().get("meta.helm.sh/release-name").equals(helmNameInstallName))
+                        .map(service -> service.getMetadata().getName())
+                        .collect(Collectors.toList());
+
+            }
+        };
+    }
+
     private Callable<List<String>> getKubeDeploymentsCallable() {
         String helmNameInstallName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
         String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
@@ -301,19 +326,6 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 KubernetesClient client = getClient(config);
                 Deployment deployment = client.apps().deployments().inNamespace(getNamespace()).withName(deploymentName).get();
                 return deployment.getStatus().getReplicas();
-            }
-        };
-    }
-
-    private Callable<Integer> getKubeReplicasAvailableCallable(String deploymentName) {
-        String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
-
-        return new Callable<Integer>() {
-            @Override
-            public Integer call() throws Exception {
-                KubernetesClient client = getClient(config);
-                Deployment deployment = client.apps().deployments().inNamespace(getNamespace()).withName(deploymentName).get();
-                return deployment.getStatus().getAvailableReplicas();
             }
         };
     }

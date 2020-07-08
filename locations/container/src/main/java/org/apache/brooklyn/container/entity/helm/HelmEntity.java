@@ -77,13 +77,9 @@ public interface HelmEntity extends Entity, Startable {
    AttributeSensor<Boolean> DEPLOYMENT_READY = Sensors.newBooleanSensor("kube.deployment.status",
            "The status of the deploymeny");
 
-   AttributeSensor<Integer> AVAILABLE_REPLICAS = Sensors.newIntegerSensor("kube.replicas.available",
-           "The number of available replicas");
-
-   AttributeSensor<Integer> REPLICAS = Sensors.newIntegerSensor("kube.replicas",
-           "The number of replicas");
-
    AttributeSensor<List<String>> DEPLOYMENTS = Sensors.newSensor(new TypeToken<List<String>>() {}, "kube.deployments");
+
+   AttributeSensor<List<String>> SERVICES = Sensors.newSensor(new TypeToken<List<String>>() {}, "kube.services");
 
    @Effector(description="")
    Integer resize(@EffectorParam(name="deplymentName") String name, @EffectorParam(name="desiredSize") Integer desiredSize);

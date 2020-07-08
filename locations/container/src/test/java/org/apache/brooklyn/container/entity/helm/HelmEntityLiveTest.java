@@ -105,7 +105,6 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
-    //TODO Why is this broken?
     @Test(groups = {"Live"})
     public void testCanScaleCluster() {
         HelmEntity andManageChild = newHelmSpec("nginx-test", "bitnami/nginx");
@@ -123,7 +122,6 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }
 
-    //TODO Why is this broken?
     @Test(groups = {"Live"})
     public void testCanScaleClusterPrometheus() {
         HelmEntity andManageChild = newHelmSpec("prometheus", PROMETHEUS_TEMPLATE_LOCATION);
