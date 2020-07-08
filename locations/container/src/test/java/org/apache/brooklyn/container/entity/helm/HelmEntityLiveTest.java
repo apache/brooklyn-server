@@ -130,13 +130,13 @@ public class HelmEntityLiveTest extends BrooklynAppLiveTestSupport {
 
         app.start(newKubernetesLocation());
 
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 1);
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 1);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.prometheus-server.replicas"), 1);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.prometheus-server.replicas.available"), 1);
 
         andManageChild.resize("prometheus-server", 2);
 
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.AVAILABLE_REPLICAS, 2);
-        assertAttributeEqualsEventually(andManageChild, HelmEntity.REPLICAS, 2);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.prometheus-server.replicas"), 2);
+        assertAttributeEqualsEventually(andManageChild, Sensors.newIntegerSensor("helm.deployment.prometheus-server.replicas.available"), 2);
 
         assertAttributeEqualsEventually(andManageChild, HelmEntity.DEPLOYMENT_READY, true);
     }

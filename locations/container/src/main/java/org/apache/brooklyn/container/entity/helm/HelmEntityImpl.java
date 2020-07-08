@@ -21,7 +21,9 @@ package org.apache.brooklyn.container.entity.helm;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DoneableDeployment;
 import io.fabric8.kubernetes.client.*;
+import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.container.location.kubernetes.KubernetesLocation;
@@ -124,27 +126,6 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 .period(Duration.TEN_SECONDS)
                 .build());
 
-        String config = getLocation().getConfig(KubernetesLocation.KUBECONFIG);
-        KubernetesClient client = getClient(config);
-        String helmNameInstallName = getConfig(HelmEntity.HELM_DEPLOYMENT_NAME);
-        List<Deployment> deployments = getDeployments(client, helmNameInstallName);
-
-        for (Deployment deployment : deployments) {
-            String sensorName = "helm.deployment." + deployment.getMetadata().getName() + ".replicas";
-            addFeed(FunctionFeed.builder()
-            .entity(this)
-            .poll(new FunctionPollConfig<String, Integer>(Sensors.newIntegerSensor(sensorName))
-                    .callable(getKubeReplicasCallable(deployment.getMetadata().getName())))
-                    .period(Duration.TEN_SECONDS)
-                    .build());
-
-            addFeed(FunctionFeed.builder()
-                    .entity(this)
-                    .poll(new FunctionPollConfig<String, Integer>(Sensors.newIntegerSensor(sensorName))
-                            .callable(getKubeReplicasAvailableCallable(deployment.getMetadata().getName())))
-                    .period(Duration.TEN_SECONDS)
-                    .build());
-        }
     }
 
     private void addHelmFeed(String command, AttributeSensor<String> sensor) {
@@ -249,6 +230,12 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
             public List<String> call() throws Exception {
                 KubernetesClient client = getClient(config);
                 List<Deployment> deployments = getDeployments(client, helmNameInstallName);
+                for (Deployment deployment : deployments) {
+                    String sensorName = "helm.deployment." + deployment.getMetadata().getName() + ".replicas";
+                    sensors().set(Sensors.newIntegerSensor(sensorName), deployment.getStatus().getReplicas());
+                    sensors().set(Sensors.newIntegerSensor(sensorName+".available"), deployment.getStatus().getAvailableReplicas());
+                }
+
                 return deployments.stream().map(deployment -> deployment.getMetadata().getName()).collect(Collectors.toList());
             }
         };
@@ -312,7 +299,8 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
             @Override
             public Integer call() throws Exception {
                 KubernetesClient client = getClient(config);
-                return countReplicas(getDeployments(client, deploymentName));
+                Deployment deployment = client.apps().deployments().inNamespace(getNamespace()).withName(deploymentName).get();
+                return deployment.getStatus().getReplicas();
             }
         };
     }
@@ -324,7 +312,8 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
             @Override
             public Integer call() throws Exception {
                 KubernetesClient client = getClient(config);
-                return countAvailableReplicas(getDeployments(client, deploymentName));
+                Deployment deployment = client.apps().deployments().inNamespace(getNamespace()).withName(deploymentName).get();
+                return deployment.getStatus().getAvailableReplicas();
             }
         };
     }
