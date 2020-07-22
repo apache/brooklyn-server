@@ -144,6 +144,19 @@
                 <artifactId>org.osgi.compendium</artifactId>
                 <version>${felix-osgi-compendium.version}</version>
             </dependency>
+            <dependency>
+              <groupId>org.apache.karaf.features</groupId>
+              <artifactId>framework</artifactId>
+              <type>kar</type>
+              <version>${karaf.version}</version>
+              <exclusions>
+                  <exclusion>
+                      <!-- ensure the later cxf version is pulled in instead -->
+                      <groupId>javax.annotation</groupId>
+                      <artifactId>javax.annotation-api</artifactId>
+                  </exclusion>
+              </exclusions>
+            </dependency>
             <!-- END karaf version overrides -->
 
             <dependency>
@@ -412,8 +425,18 @@
                 <version>${reflections.version}</version>
                 <exclusions>
                     <exclusion>
-                        <groupId>com.google.code.findbugs</groupId>
-                        <artifactId>annotations</artifactId>
+                      <!-- different version, and LGPL, and only needed to compile -->
+                      <groupId>com.google.code.findbugs</groupId>
+                      <artifactId>annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                      <!-- different version -->
+                      <groupId>com.google.guava</groupId>
+                      <artifactId>guava</artifactId>
+                    </exclusion>
+                    <exclusion>
+                      <groupId>xml-apis</groupId>
+                      <artifactId>xml-apis</artifactId>
                     </exclusion>
                 </exclusions>
             </dependency>
@@ -436,6 +459,18 @@
                 <groupId>io.airlift</groupId>
                 <artifactId>airline</artifactId>
                 <version>${airline.version}</version>
+                <exclusions>
+                  <exclusion>
+                    <!-- LGPL, and only needed to compile -->
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>annotations</artifactId>
+                  </exclusion>
+                  <exclusion>
+                    <!-- we use different version -->
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                  </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.apache.whirr</groupId>
@@ -1099,6 +1134,7 @@
                   <!-- files not requiring licence -->
                   <exclude>ignored/**</exclude>
                   <exclude>LICENSE.md</exclude>
+                  <exclude>DEPENDENCIES</exclude>
                   <exclude>.mvn/jvm.config</exclude>
                   <exclude>**/src/main/license/**</exclude>
                   <exclude>**/src/test/license/**</exclude>

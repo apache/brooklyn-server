@@ -48,7 +48,17 @@
                     <artifactId>jsr305</artifactId>
                 </exclusion>
                 <!-- okio was here, but now we use the right version -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                    <artifactId>jackson-datatype-jsr310</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <!-- needed for above, but wanted at the same version of jackson we use elsewhere in brooklyn -->
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${fasterxml.jackson.version}</version>
         </dependency>
 
         <!--
