@@ -50,6 +50,11 @@ import java.util.Map;
 public class ChildrenBatchEffector implements EntityInitializer {
     public static final Effector<Object> EFFECTOR = Effectors.effector(Object.class, "childrenBatchEffector").
             description("Invokes an effector e.g. across children or members").buildAbstract();
+    public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.builder(String.class)
+            .name("name")
+            .description("Effector name")
+            .defaultValue("childrenBatchEffector")
+            .build();
     public static final ConfigKey<Integer> BATCH_SIZE = ConfigKeys.builder(Integer.class)
             .name("batchSize")
             .description("Supply a limit to the number of elements replaced at a time; 0 (default) means no limit")
@@ -73,7 +78,6 @@ public class ChildrenBatchEffector implements EntityInitializer {
     public static final MapConfigKey<Object> EFFECTOR_ARGS = new MapConfigKey.Builder<Object>(Object.class, "effectorArgs")
             .build();
     private static final Logger log = LoggerFactory.getLogger(ChildrenBatchEffector.class);
-    // TODO config to apply to children or members or both
     private final ConfigBag paramsCreationTime;
 
     public ChildrenBatchEffector(ConfigBag params) {
@@ -89,8 +93,11 @@ public class ChildrenBatchEffector implements EntityInitializer {
 
     private static Effector<Object> makeEffector(ConfigBag paramsCreationTime) {
         return Effectors.effector(EFFECTOR)
-                .parameter(BATCH_SIZE)
-                .parameter(EFFECTOR_TO_INVOKE)
+                .name(paramsCreationTime.get(EFFECTOR_NAME))
+                .parameter(Integer.class, BATCH_SIZE.getName(), BATCH_SIZE.getDescription(), paramsCreationTime.get(BATCH_SIZE))
+                .parameter(String.class, EFFECTOR_TO_INVOKE.getName(), EFFECTOR_TO_INVOKE.getDescription(), paramsCreationTime.get(EFFECTOR_TO_INVOKE))
+                .parameter(Boolean.class, FAIL_ON_MISSING_EFFECTOR_TO_INVOKE.getName(), FAIL_ON_MISSING_EFFECTOR_TO_INVOKE.getDescription(), paramsCreationTime.get(FAIL_ON_MISSING_EFFECTOR_TO_INVOKE))
+                .parameter(Boolean.class, FAIL_ON_EFFECTOR_FAILURE.getName(), FAIL_ON_EFFECTOR_FAILURE.getDescription(), paramsCreationTime.get(FAIL_ON_EFFECTOR_FAILURE))
                 .parameter(EFFECTOR_ARGS)
                 .impl(new EffectorBodyTaskFactory<>(new ChildrenBatchEffectorBody(paramsCreationTime))).build();
     }
@@ -175,9 +182,7 @@ public class ChildrenBatchEffector implements EntityInitializer {
                     }
                 }
             }
-
             return "Invoked " + count + " of " + initialSize + " effectors";
         }
-
     }
 }
