@@ -18,13 +18,13 @@
  */
 
 node(label: 'ubuntu') {
-    if (env.CHANGE_ID) {
+/*    if (env.CHANGE_ID) {
         properties([
             pipelineTriggers([
                 issueCommentTrigger('.*test this please.*')
             ])
         ])
-    }
+    }*/
 
     catchError {
         def environmentDockerImage
