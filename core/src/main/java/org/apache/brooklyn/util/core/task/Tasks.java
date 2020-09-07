@@ -130,11 +130,11 @@ public class Tasks {
     /** creates a {@link ValueResolver} instance which allows significantly more customization than
      * the various {@link #resolveValue(Object, Class, ExecutionContext)} methods here */
     public static <T> ValueResolver<T> resolving(Object v, TypeToken<T> type) {
-        return new ValueResolver<T>(v, type);
+        return new ValueResolver<>(v, type);
     }
     /** @see #resolving(Object, TypeToken) */
     public static <T> ValueResolver<T> resolving(Object v, Class<T> type) {
-        return new ValueResolver<T>(v, TypeToken.of(type));
+        return new ValueResolver<>(v, TypeToken.of(type));
     }
 
     public static ValueResolver.ResolverBuilderPretype resolving(Object v) {
@@ -147,9 +147,9 @@ public class Tasks {
 
     /** @see #resolveValue(Object, TypeToken, ExecutionContext, String) */
     public static <T> T resolveValue(Object v, TypeToken<T> type, @Nullable ExecutionContext exec) throws ExecutionException, InterruptedException {
-        return new ValueResolver<T>(v, type).context(exec).get();
+        return new ValueResolver<>(v, type).context(exec).get();
     }
-    /** @see #resolveValue(Object, TypeToken) */
+    /** @see #resolveValue(Object, TypeToken, ExecutionContext) */
     public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec) throws ExecutionException, InterruptedException {
         return resolveValue(v, TypeToken.of(type), exec);
     }
@@ -159,7 +159,7 @@ public class Tasks {
      * contextMessage (optional) will be displayed in status reports while it waits (e.g. the name of the config key being looked up).
      * if no execution context supplied (null) this method will throw an exception if the object is an unsubmitted task */
     public static <T> T resolveValue(Object v, TypeToken<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return new ValueResolver<T>(v, type).context(exec).description(contextMessage).get();
+        return new ValueResolver<>(v, type).context(exec).description(contextMessage).get();
     }
     /** @see #resolveValue(Object, TypeToken, ExecutionContext, String) */
     public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
@@ -200,7 +200,7 @@ public class Tasks {
     }
 
     public static <T> T resolveValueShallow(Object v, TypeToken<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return new ValueResolver<T>(v, type).context(exec).description(contextMessage).deep(false, false, false).get();
+        return new ValueResolver<>(v, type).context(exec).description(contextMessage).deep(false, false, false).get();
     }
 
     @VisibleForTesting @Beta
@@ -243,17 +243,16 @@ public class Tasks {
      * their values. This expects a type token parameterized with generics, and those generics
      * will be used to coerce the keys and entries.
      *
-     *
      * For example, the following will return a list containing a map with "1": Boolean.TRUE:
      *
-     *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, "true")),
-     *      new TypeToken<List<Map<String,Boolean>>>() {}, exec)}
+     *   {@code Object result = resolveDeepValueCoerced(ImmutableList.of(ImmutableMap.of(1, "true")),
+     *      new TypeToken<List<Map<String,Boolean>>>() {}, exec, "sample")}
      *
-     * For a simpler mechanism, see {@link #resolveDeepValue(Object, Class, ExecutionContext, String)}.
+     * See also {@link #resolveDeepValueWithoutCoercion(Object, ExecutionContext, String)}
      */
     public static <T> T resolveDeepValueCoerced(Object value, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
         if (ValueResolver.supportsDeepResolution(value)) {
-            Object resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);            // TODO
+            Object resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);
             try {
                 if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE!= LegacyDeepResolutionMode.ONLY_LEGACY) {
                     resultO = resolveValueShallow(resultO, type, exec, "Resolving typed " + contextMessage);
