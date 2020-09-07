@@ -134,7 +134,7 @@ public class Transformer<T,U> extends AbstractTransformer<T,U> {
         return (U) Tasks.resolving(rawVal).as(targetSensor.getTypeToken())
                 .context(entity)
                 .description("Computing sensor "+targetSensor+" from "+rawVal)
-                .deep(true, true, false)
+                .deep()
                 .immediately(true)
                 .getMaybe().orNull();
     }

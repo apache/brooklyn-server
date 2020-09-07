@@ -55,7 +55,7 @@ import com.google.common.reflect.TypeToken;
 /** 
  * Resolves a given object, as follows:
  * <li> If it is a {@link Tasks} or a {@link DeferredSupplier} then get its contents
- * <li> If it's a map/iterable depending on {@link #deep(boolean, boolean, Boolean)}, it can apply resolution to contents
+ * <li> If it's a map/iterable depending on {@link #deep()}, it can apply resolution to contents
  * <li> It applies coercion
  * <p>
  * Fluent-style API exposes a number of other options.
@@ -108,18 +108,24 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     final TypeToken<T> typeT;
     ExecutionContext exec;
     String description;
+
+    boolean allowDeepResolution = true;
+    /** whether to traverse into the object coercing even if the types appear to match at this level;
+     * useful if resolving a map to a map but we want to look inside the map */
     boolean forceDeep;
-    /** whether the type supplied should be used to convert things in maps and lists;
-     * null means to autodetect */
-    // TODO this is a weird and messy API; we should instead always use TypeToken's generics
-    Boolean deepTraversalUsesRootType;
+    /** if true, the type specified here is re-used when coercing contents (eg map keys, values);
+     * if null (the default), then do that only if the type here has no generics;
+     * if false then rely on generics or if no generics then don't coerce.
+     * if the {@link #typeT} is Object this has no effect. */
+    // TODO i don't think we ever rely this -Alex
+    Boolean ignoreGenericsAndApplyThisTypeToContents;
+
     /** null means do it if you can; true means always, false means never */
     Boolean embedResolutionInTask;
     /** timeout on execution, if possible, or if embedResolutionInTask is true */
     Duration timeout;
     boolean immediately;
     boolean recursive = true;
-    boolean allowDeepResolution = true;
 
     boolean isTransientTask = true;
     
@@ -156,7 +162,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         defaultValue = null;
         swallowExceptions = false;
         recursive = true;
-        deepTraversalUsesRootType = null;
+        ignoreGenericsAndApplyThisTypeToContents = null;
     }
 
     private void copyNonFinalFields(ValueResolver<?> parent) {
@@ -168,7 +174,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         recursive = parent.recursive;
         forceDeep = parent.forceDeep;
         allowDeepResolution = parent.allowDeepResolution;
-        deepTraversalUsesRootType = parent.deepTraversalUsesRootType;
+        ignoreGenericsAndApplyThisTypeToContents = parent.ignoreGenericsAndApplyThisTypeToContents;
 
         timeout = parent.timeout;
         immediately = parent.immediately;
@@ -269,6 +275,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         else return Maybe.absent("No default value set");
     }
 
+    /** causes nested structures (maps, lists) to be descended, resolved, and (if the target type is not Object) coerced.
+     * as {@link #deep(boolean, boolean, Boolean)} with true, true, false. */
+    public ValueResolver<T> deep() { return deep(true, true, false); }
     /** causes nested structures (maps, lists) to be descended and nested unresolved values resolved.
      * for legacy reasons this sets deepTraversalUsesRootType.
      * @deprecated use {@link #deep(boolean, boolean, Boolean)} */
@@ -286,7 +295,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     public ValueResolver<T> deep(boolean allowDeepResolution, boolean forceDeep, Boolean deepTraversalUsesRootType) {
         this.allowDeepResolution = allowDeepResolution;
         this.forceDeep = forceDeep;
-        this.deepTraversalUsesRootType = deepTraversalUsesRootType;
+        this.ignoreGenericsAndApplyThisTypeToContents = deepTraversalUsesRootType;
         return this;
     }
 
@@ -338,7 +347,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     /**
      * Whether the value should be resolved deeply, if it's a map or collection, by looking inside it.
      * The default here is true (mainly for legacy reasons).
-     * If used, and {@link #deepTraversalUsesRootType} is set (which it often is),
+     * If used, and {@link #ignoreGenericsAndApplyThisTypeToContents} is set (which it often is),
      * the type supplied is used to convert keys _and_ values of the map or collection,
      * rather than the overall return type (so set false if trying to convert a map to another type).
      * There is not currently any support for entry schemas on the map,
@@ -565,16 +574,18 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     // allows user to resolveValue(map, String) with the effect
                     // that things _in_ the collection would be resolved as string.
                     // alternatively use generics.
-                    boolean useRootObect = typeT.getRawType()==Object.class || Boolean.TRUE.equals(deepTraversalUsesRootType);
+                    boolean applyThisTypeToContents = typeT.getRawType()==Object.class || Boolean.TRUE.equals(ignoreGenericsAndApplyThisTypeToContents);
 
                     TypeToken<?>[] innerTypes = new TypeToken<?>[0];
-                    if (!useRootObect) {
+                    if (!applyThisTypeToContents) {
                         if (!TypeToken.of(typeT.getRawType()).equals(typeT)) {
+                            // we have generics
                             innerTypes = Reflections.getGenericParameterTypeTokens(typeT);
                         } else {
-                            if (deepTraversalUsesRootType==null) {
+                            // no generics
+                            if (ignoreGenericsAndApplyThisTypeToContents == null) {
                                 // for null, autodetect
-                                useRootObect = true;
+                                applyThisTypeToContents = true;
                             } else {
                                 // we will warn and fall back to autodetect for legacy reasons
                                 // (same if the number of inner types above is wrong)
@@ -586,13 +597,17 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     // in particular need to avoid for "interesting iterables" such as PortRange
 
                     if (v instanceof Map) {
-                        TypeToken<?> keyT = typeT;
-                        TypeToken<?> valT = typeT;
-                        if (!useRootObect) {
+                        TypeToken<?> keyT;
+                        TypeToken<?> valT;
+                        if (applyThisTypeToContents) {
+                            keyT = typeT;
+                            valT = typeT;
+                        } else {
                             if (innerTypes.length==2) {
                                 keyT = innerTypes[0];
                                 valT = innerTypes[1];
                             } else {
+                                keyT = valT = TypeToken.of(Object.class);
                                 // deprecated in 1.0.0
                                 log.warn("Coercing deep into map "+v+" when expected to coerce to incompatible "+typeT+"; "
                                     + "will attempt conversion of keys and values, but this behaviour is deprecated. "
@@ -616,7 +631,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
                     } else if (v instanceof Iterable) {
                         TypeToken<?> entryT = typeT;
-                        if (!useRootObect) {
+                        if (!applyThisTypeToContents) {
                             if (innerTypes.length==1) {
                                 entryT = innerTypes[0];
                             } else {

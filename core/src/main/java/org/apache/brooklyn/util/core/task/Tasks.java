@@ -169,7 +169,7 @@ public class Tasks {
     /** As @see #resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String) but without any coercion
      * (ie resolving {@link DeferredSupplier} values only) */
     public static Object resolveDeepValueWithoutCoercion(Object v, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return new ValueResolver<>(v, TypeToken.of(Object.class)).context(exec).deep(true, true, true).description(contextMessage).get();
+        return new ValueResolver<>(v, TypeToken.of(Object.class)).context(exec).deep().description(contextMessage).get();
     }
     /** @see #resolveDeepValue(Object, Class, ExecutionContext, String) */
     public static Object resolveDeepValueWithoutCoercion(Object v, ExecutionContext exec) throws ExecutionException, InterruptedException {
@@ -252,15 +252,18 @@ public class Tasks {
      */
     public static <T> T resolveDeepValueCoerced(Object value, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
         if (ValueResolver.supportsDeepResolution(value)) {
-            Object resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);
+            Object resultO;
             try {
-                if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE!= LegacyDeepResolutionMode.ONLY_LEGACY) {
-                    resultO = resolveValueShallow(resultO, type, exec, "Resolving typed " + contextMessage);
+                if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE != LegacyDeepResolutionMode.ONLY_LEGACY) {
+                    resultO = new ValueResolver<>(value, type).context(exec).deep().description(contextMessage).get();
+                } else {
+                    resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);
                 }
             } catch (Exception e) {
                 if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.DISALLOW_LEGACY) {
                     throw Exceptions.propagate(e);
                 }
+                resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);
                 if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.WARN) {
                     log.warn("Conversion of '" + contextMessage + "' (" + value + ") to " + type + " failed; leaving as deep container type for legacy compatibility, but this feature may be removed in future");
                 }
