@@ -228,8 +228,13 @@ public class Tasks {
         public static enum LegacyDeepResolutionMode {
             WARN, DISALLOW_LEGACY, ALLOW_LEGACY, ONLY_LEGACY
         }
+
+        /** Being aggressive at breaking the legacy deep resolution mode, where a map is generic and the value doesn't fit even after coercion;
+         * have confirmed the extent of these breakages is minor. And if it's a real problem, there is a way (by a plugin which changes this static),
+         * for users to revert to the old behaviour.
+         */
         @VisibleForTesting @Beta
-        public static LegacyDeepResolutionMode LEGACY_DEEP_RESOLUTION_MODE = LegacyDeepResolutionMode.ONLY_LEGACY;
+        public static LegacyDeepResolutionMode LEGACY_DEEP_RESOLUTION_MODE = LegacyDeepResolutionMode.DISALLOW_LEGACY;
     }
 
     /**
