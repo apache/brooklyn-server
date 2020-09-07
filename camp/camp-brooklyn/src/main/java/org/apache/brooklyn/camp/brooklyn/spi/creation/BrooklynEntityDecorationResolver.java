@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -38,18 +39,18 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiat
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.base.Function;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 /**
  * Pattern for resolving "decorations" on service specs / entity specs, such as policies, enrichers, etc.
@@ -64,10 +65,10 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         this.instantiator = instantiator;
     }
 
-    /** @deprected since 0.10.0 - use {@link #decorate(EntitySpec<?>, ConfigBag, Set<String>)} */
+    /** @deprecated since 0.10.0 - use {@link #decorate(EntitySpec, ConfigBag, Set)} */
     @Deprecated
     public final void decorate(EntitySpec<?> entitySpec, ConfigBag attrs) {
-        decorate(entitySpec, attrs, ImmutableSet.<String>of());
+        decorate(entitySpec, attrs, ImmutableSet.of());
     }
 
     public abstract void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds);
@@ -103,14 +104,6 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
     protected abstract String getDecorationKind();
 
     protected abstract Object getDecorationAttributeJsonValue(ConfigBag attrs);
-
-    /**
-     * Creates and adds decorations from the given json to the given collection; 
-     * default impl requires a map and calls {@link #addDecorationFromJsonMap(Map, List)}
-     */
-    protected void addDecorationFromJson(Object decorationJson, List<DT> decorations) {
-        addDecorationFromJsonMap(checkIsMap(decorationJson), decorations);
-    }
 
     protected abstract void addDecorationFromJsonMap(Map<?,?> decorationJson, List<DT> decorations);
 
@@ -182,7 +175,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
     public static class InitializerResolver extends BrooklynEntityDecorationResolver<EntityInitializer> {
 
-        public InitializerResolver(BrooklynYamlTypeInstantiator.Factory loader) { super(loader); }
+        public InitializerResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator); }
 
         @Override 
         protected String getDecorationKind() { return "Entity initializer"; }
@@ -199,7 +192,14 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
         @Override
         protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<EntityInitializer> decorations) {
-            decorations.add(instantiator.from(decorationJson).prefix("initializer").newInstance(EntityInitializer.class));
+            EntityInitializer result;
+            try {
+                result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, TypeToken.of(EntityInitializer.class));
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                result = instantiator.from(decorationJson).prefix("initializer").newInstance(EntityInitializer.class);
+            }
+            decorations.add(result);
         }
     }
 
@@ -268,15 +268,9 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
             } else if (!(brooklynTags instanceof List)) {
                 throw new IllegalArgumentException(BrooklynCampReservedKeys.BROOKLYN_TAGS + " should be a List of String elements. You supplied " + brooklynTags);
             } else {
-                checkArgument(Iterables.all((List<?>) brooklynTags, new Predicate<Object>() {
-                    @Override
-                    public boolean apply(Object input) {
-                        return !(input instanceof DeferredSupplier);
-                    }
-                }), BrooklynCampReservedKeys.BROOKLYN_TAGS + " should not contain DeferredSupplier. A DeferredSupplier is made when using $brooklyn:attributeWhenReady. You supplied " + brooklynTags);
-                @SuppressWarnings("unchecked")
-                List<Object> result = (List<Object>)brooklynTags;
-                return result;
+                checkArgument(((List<?>) brooklynTags).stream().noneMatch(input -> input instanceof DeferredSupplier),
+                        BrooklynCampReservedKeys.BROOKLYN_TAGS + " should not contain DeferredSupplier. A DeferredSupplier is made when using $brooklyn:attributeWhenReady. You supplied " + brooklynTags);
+                return (List<Object>)brooklynTags;
             }
         }
 
