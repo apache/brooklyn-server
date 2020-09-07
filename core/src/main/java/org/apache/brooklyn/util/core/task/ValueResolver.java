@@ -109,6 +109,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     ExecutionContext exec;
     String description;
     boolean forceDeep;
+    /** whether the type supplied should be used to convert things in maps and lists;
+     * null means to autodetect */
+    // TODO this is a weird and messy API; we should instead always use TypeToken's generics
     Boolean deepTraversalUsesRootType;
     /** null means do it if you can; true means always, false means never */
     Boolean embedResolutionInTask;
@@ -117,6 +120,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     boolean immediately;
     boolean recursive = true;
     boolean allowDeepResolution = true;
+
     boolean isTransientTask = true;
     
     T defaultValue = null;
@@ -141,22 +145,38 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         this.value = v;
         this.typeT = type;
         checkTypeNotNull();
-        
-        exec = parent.exec;
-        description = parent.description;
-        forceDeep = parent.forceDeep;
-        embedResolutionInTask = parent.embedResolutionInTask;
 
         parentOriginalValue = parent.getOriginalValue();
+        parentTimer = parent.parentTimer;
+
+        copyNonFinalFields(parent);
+
+        // these should need to be nested/copied (this constructor is for setting up a nested resolver during deep resolution)
+        returnDefaultOnGet = false;
+        defaultValue = null;
+        swallowExceptions = false;
+        recursive = true;
+        deepTraversalUsesRootType = null;
+    }
+
+    private void copyNonFinalFields(ValueResolver<?> parent) {
+        exec = parent.exec;
+        description = parent.description;
+        embedResolutionInTask = parent.embedResolutionInTask;
+        swallowExceptions = parent.swallowExceptions;
+
+        recursive = parent.recursive;
+        forceDeep = parent.forceDeep;
+        allowDeepResolution = parent.allowDeepResolution;
+        deepTraversalUsesRootType = parent.deepTraversalUsesRootType;
 
         timeout = parent.timeout;
         immediately = parent.immediately;
-        // not copying recursive as we want deep resolving to be recursive, only top-level values should be non-recursive
-        parentTimer = parent.parentTimer;
         if (parentTimer!=null && parentTimer.isExpired())
             expired = true;
-        
-        // default value and swallow exceptions do not need to be nested
+
+        defaultValue = (T)parent.defaultValue;
+        returnDefaultOnGet = parent.returnDefaultOnGet;
     }
 
     public static class ResolverBuilderPretype {
@@ -183,22 +203,15 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         if (!superType.isAssignableFrom(typeT)) {
             throw new IllegalStateException("superType must be assignable from " + typeT);
         }
-        ValueResolver<S> result = new ValueResolver<S>(newValue, superType)
-            .context(exec).description(description)
-            .embedResolutionInTask(embedResolutionInTask)
-            .deep(allowDeepResolution, forceDeep, deepTraversalUsesRootType)
-            .timeout(timeout)
-            .immediately(immediately)
-            .recursive(recursive);
+        ValueResolver<S> result = new ValueResolver<S>(newValue, superType);
+        result.copyNonFinalFields(this);
+
         if (returnDefaultOnGet) {
             if (!superType.getRawType().isInstance(defaultValue)) {
                 throw new IllegalStateException("Existing default value " + defaultValue + " not compatible with new type " + superType);
             }
-            @SuppressWarnings("unchecked")
-            S typedDefaultValue = (S)defaultValue;
-            result.defaultValue(typedDefaultValue);
         }
-        if (swallowExceptions) result.swallowExceptions();
+
         return result;
     }
     
@@ -270,7 +283,6 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
      *
      * see {@link #allowDeepResolution}, {@link Tasks#resolveDeepValue(Object, Class, ExecutionContext, String)} and
      * {@link Tasks#resolveDeepValueCoerced(Object, TypeToken, ExecutionContext, String)}. */
-    // TODO cf allowDeepResolution
     public ValueResolver<T> deep(boolean allowDeepResolution, boolean forceDeep, Boolean deepTraversalUsesRootType) {
         this.allowDeepResolution = allowDeepResolution;
         this.forceDeep = forceDeep;
