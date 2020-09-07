@@ -41,9 +41,12 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.Tasks.ForTestingAndLegacyCompatibilityOnly.LegacyDeepResolutionMode;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.Assert;
@@ -254,7 +257,8 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testSetConfigKeyAddItemMod() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "aval");
         entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, SetModifications.addItem(ImmutableList.of("bval", "cval")));
-        assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval",ImmutableList.of("bval","cval")));
+        Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ONLY_LEGACY,
+                () -> Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval",ImmutableList.of("bval","cval"))));
     }
     @Test
     public void testSetConfigKeyListMod() throws Exception {
@@ -303,8 +307,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testListConfigKeyAddMod() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.add("bval", "cval"));
-        //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["aval","bval","cval"])
-        assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("aval","bval","cval"));
+        Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableSet.of("aval","bval","cval"));
     }
 
     @Test // ListConfigKey deprecated, as order no longer guaranteed
@@ -312,22 +315,21 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.addAll(ImmutableList.of("bval", "cval")));
         //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["aval","bval","cval"])
-        assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("aval","bval","cval"));
+        Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableSet.of("aval","bval","cval"));
     }
     
     @Test // ListConfigKey deprecated, as order no longer guaranteed
     public void testListConfigKeyAddItemMod() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set((ConfigKey)TestEntity.CONF_LIST_THING, ListModifications.addItem(ImmutableList.of("bval", "cval")));
-        //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["aval",["bval","cval"]])
-        assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("aval",ImmutableList.of("bval","cval")));
+        Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ONLY_LEGACY,
+                () -> Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableSet.of("aval",ImmutableList.of("bval","cval"))));
     }
     
     @Test // ListConfigKey deprecated, as order no longer guaranteed
     public void testListConfigKeyListMod() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.set(ImmutableList.of("bval", "cval")));
-        //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["bval","cval"])
         assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("bval","cval"));
     }
 

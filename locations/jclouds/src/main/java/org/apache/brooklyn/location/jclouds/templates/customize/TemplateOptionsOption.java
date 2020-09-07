@@ -50,7 +50,7 @@ public class TemplateOptionsOption implements TemplateOptionCustomizer {
                 try {
                     final ExecutionContext exec = BrooklynTaskTags.getCurrentExecutionContext();
                     if (exec != null) {
-                        optionValue = Tasks.resolveDeepValue(optionValue, Object.class, exec);
+                        optionValue = Tasks.resolveDeepValueWithoutCoercion(optionValue, exec);
                     }
                 } catch (ExecutionException | InterruptedException e) {
                     Exceptions.propagate(e);

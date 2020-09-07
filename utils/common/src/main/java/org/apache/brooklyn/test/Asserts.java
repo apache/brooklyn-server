@@ -1281,35 +1281,38 @@ public class Asserts {
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
      * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
-    public static void expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+    public static boolean expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
             assertStringContains(Exceptions.collapseText(e), phrase1ToContain, optionalOtherPhrasesToContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
+        return true;
     }
 
     /** As {@link #expectedFailureContains(Throwable, String, String...)} but case insensitive */
-    public static void expectedFailureContainsIgnoreCase(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+    public static boolean expectedFailureContainsIgnoreCase(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
             assertStringContainsIgnoreCase(Exceptions.collapseText(e), phrase1ToContain, optionalOtherPhrasesToContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
+        return true;
     }
 
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
      * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
-    public static void expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+    public static boolean expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
             assertStringDoesNotContain(Exceptions.collapseText(e), phrase1ToNotContain, optionalOtherPhrasesToNotContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
+        return true;
     }
     
     /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class...)} and others,

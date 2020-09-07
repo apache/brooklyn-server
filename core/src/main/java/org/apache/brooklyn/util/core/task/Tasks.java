@@ -18,6 +18,29 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Supplier;
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.*;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.Tasks.ForTestingAndLegacyCompatibilityOnly.LegacyDeepResolutionMode;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -29,34 +52,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
-
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.api.mgmt.ExecutionContext;
-import org.apache.brooklyn.api.mgmt.HasTaskChildren;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.api.mgmt.TaskFactory;
-import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.entity.Dumper;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.ReferenceWithError;
-import org.apache.brooklyn.util.repeat.Repeater;
-import org.apache.brooklyn.util.time.CountdownTimer;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Supplier;
-import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
 
 public class Tasks {
     
@@ -170,47 +165,115 @@ public class Tasks {
     public static <T> T resolveValue(Object v, Class<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
         return resolveValue(v, TypeToken.of(type), exec, contextMessage);
     }
-    
-    /** @see #resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String) */
-    public static <T> T resolveDeepValueExactly(Object v, TypeToken<T> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
-        return resolveDeepValueExactly(v, type, exec, null);
+
+    /** As @see #resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String) but without any coercion
+     * (ie resolving {@link DeferredSupplier} values only) */
+    public static Object resolveDeepValueWithoutCoercion(Object v, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return new ValueResolver<>(v, TypeToken.of(Object.class)).context(exec).deep(true, true, true).description(contextMessage).get();
     }
     /** @see #resolveDeepValue(Object, Class, ExecutionContext, String) */
-    public static Object resolveDeepValue(Object v, Class<?> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
-        return resolveDeepValue(v, type, exec, null);
+    public static Object resolveDeepValueWithoutCoercion(Object v, ExecutionContext exec) throws ExecutionException, InterruptedException {
+        return resolveDeepValueWithoutCoercion(v, exec, null);
     }
 
-    /**
-     * Resolves the given object, blocking on futures and coercing it to the given type. If the object is a 
-     * map or iterable (or a list of map of maps, etc, etc) then walks these maps/iterables to convert all of 
-     * their values. This expects a type token parameterized with generics, and those generics
-     * will be used to coerce the keys and entries.
-     * 
-     * 
-     * For example, the following will return a list containing a map with "1": Boolean.TRUE:
-     * 
-     *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, "true")), 
-     *      new TypeToken<List<Map<String,Boolean>>>() {}, exec)} 
-     *
-     * For a simpler mechanism, see {@link #resolveDeepValue(Object, Class, ExecutionContext, String)}.
-     */
-    public static <T> T resolveDeepValueExactly(Object v, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return new ValueResolver<T>(v, type).context(exec).deep(true, false).description(contextMessage).get();
-    }
     /** As @see #resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String) except the type supplied here is
      * used to coerce non-map/iterable entries inside any encountered map/iterable:.
-     * 
+     *
      * For example, the following will return a list containing a map with "1": "true":
-     * 
-     *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, true)), String.class, exec)} 
+     *
+     *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, true)), String.class, exec)}
      *
      * To perform a deep conversion of futures contained within a {@link Collection} or {@link Map} without coercion of each element,
      * the type should normally be Object, not the type of the collection. This differs from
      * {@link #resolveValue(Object, Class, ExecutionContext, String)} which will accept {@link Map} and {@link Collection}
      * as the required type.
-     * */
+     * @deprecated only really used when type is {@link Object} thus use {@link #resolveDeepValueWithoutCoercion(Object, ExecutionContext, String)} */
+    @Deprecated
     public static Object resolveDeepValue(Object v, Class<?> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        return new ValueResolver<>(v, TypeToken.of(type)).context(exec).deep(true, true).description(contextMessage).get();
+        return new ValueResolver<>(v, TypeToken.of(type)).context(exec).deep(true, true, true).description(contextMessage).get();
+    }
+    /** @see #resolveDeepValue(Object, Class, ExecutionContext, String)
+     * @deprecated only really used when type is {@link Object} thus use {@link #resolveDeepValueWithoutCoercion(Object, ExecutionContext)} */
+    @Deprecated
+    public static Object resolveDeepValue(Object v, Class<?> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
+        return resolveDeepValue(v, type, exec, null);
+    }
+
+    public static <T> T resolveValueShallow(Object v, TypeToken<T> type, @Nullable ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return new ValueResolver<T>(v, type).context(exec).description(contextMessage).deep(false, false, false).get();
+    }
+
+    @VisibleForTesting @Beta
+    public static class ForTestingAndLegacyCompatibilityOnly {
+        public static <T> T withLegacyDeepResolutionMode(LegacyDeepResolutionMode m, Callable<T> r) throws Exception {
+            LegacyDeepResolutionMode old = LEGACY_DEEP_RESOLUTION_MODE;
+            LEGACY_DEEP_RESOLUTION_MODE = m;
+            try {
+                return r.call();
+            } finally {
+                LEGACY_DEEP_RESOLUTION_MODE = old;
+            }
+        }
+        public static void withLegacyDeepResolutionMode(LegacyDeepResolutionMode m, Runnable r) {
+            LegacyDeepResolutionMode old = LEGACY_DEEP_RESOLUTION_MODE;
+            LEGACY_DEEP_RESOLUTION_MODE = m;
+            try {
+                r.run();
+            } finally {
+                LEGACY_DEEP_RESOLUTION_MODE = old;
+            }
+        }
+
+        @VisibleForTesting @Beta
+        public static enum LegacyDeepResolutionMode {
+            WARN, DISALLOW_LEGACY, ALLOW_LEGACY, ONLY_LEGACY
+        }
+        @VisibleForTesting @Beta
+        public static LegacyDeepResolutionMode LEGACY_DEEP_RESOLUTION_MODE = LegacyDeepResolutionMode.ONLY_LEGACY;
+    }
+
+    /**
+     * Resolves the given object, blocking on futures and coercing it to the given type. If the object is a
+     * map or iterable (or a list of map of maps, etc, etc) then walks these maps/iterables to convert all of
+     * their values. This expects a type token parameterized with generics, and those generics
+     * will be used to coerce the keys and entries.
+     *
+     *
+     * For example, the following will return a list containing a map with "1": Boolean.TRUE:
+     *
+     *   {@code Object result = resolveDeepValue(ImmutableList.of(ImmutableMap.of(1, "true")),
+     *      new TypeToken<List<Map<String,Boolean>>>() {}, exec)}
+     *
+     * For a simpler mechanism, see {@link #resolveDeepValue(Object, Class, ExecutionContext, String)}.
+     */
+    public static <T> T resolveDeepValueCoerced(Object value, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        if (ValueResolver.supportsDeepResolution(value)) {
+            Object resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);            // TODO
+            try {
+                if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE!= LegacyDeepResolutionMode.ONLY_LEGACY) {
+                    resultO = resolveValueShallow(resultO, type, exec, "Resolving typed " + contextMessage);
+                }
+            } catch (Exception e) {
+                if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.DISALLOW_LEGACY) {
+                    throw Exceptions.propagate(e);
+                }
+                if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.WARN) {
+                    log.warn("Conversion of '" + contextMessage + "' (" + value + ") to " + type + " failed; leaving as deep container type for legacy compatibility, but this feature may be removed in future");
+                }
+            }
+            return (T) resultO;
+        } else {
+            return Tasks.resolveValue(value, type, exec, "Resolving "+ contextMessage);
+        }
+    }
+    /** @deprecated use {@link #resolveDeepValueCoerced(Object, TypeToken, ExecutionContext, String)} */ @Deprecated
+    public static <T> T resolveDeepValueExactly(Object v, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
+        return resolveDeepValueCoerced(v, type, exec, contextMessage);
+
+    }
+    /** @deprecated use {@link #resolveDeepValueCoerced(Object, TypeToken, ExecutionContext, String)} */ @Deprecated
+    public static <T> T resolveDeepValueExactly(Object v, TypeToken<T> type, ExecutionContext exec) throws ExecutionException, InterruptedException {
+        return resolveDeepValueCoerced(v, type, exec, "(n/a)");
     }
 
     /** sets extra status details on the current task, if possible (otherwise does nothing).

@@ -661,7 +661,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (!resolved) {
                 // attempt to resolve, and recurse
                 final ExecutionContext executionContext = entity().getExecutionContext();
-                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true, true).immediately(true).context(executionContext).getMaybe();
+                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true, true, true).immediately(true).context(executionContext).getMaybe();
                 if (resolvedSi.isAbsent()) return Maybe.absent();
                 return getImmediately(resolvedSi.get(), true);
             }
@@ -693,7 +693,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                             if (!resolved) {
                                 // attempt to resolve, and recurse
                                 final ExecutionContext executionContext = entity().getExecutionContext();
-                                return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
+                                return resolve(Tasks.resolveDeepValueWithoutCoercion(si, executionContext), true);
                             }
                             throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
                         }})
@@ -889,7 +889,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     .as(Object.class)
                     .context(findExecutionContext(this))
                     .immediately(immediately)
-                    .deep(true, true)
+                    .deep(true, true, true)
                     .description("Resolving substitutions " + substitutions + " for template " + template)
                     .get();
         }

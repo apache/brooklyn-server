@@ -643,7 +643,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (parser != null) {
             itemMetadataWithoutItemDef = parser.parse((Map<String, Object>) itemMetadataWithoutItemDef);
             try {
-                itemMetadataWithoutItemDef = (Map<String, Object>) Tasks.resolveDeepValue(itemMetadataWithoutItemDef, Object.class, mgmt.getServerExecutionContext());
+                itemMetadataWithoutItemDef = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(itemMetadataWithoutItemDef, mgmt.getServerExecutionContext());
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }

@@ -442,7 +442,8 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     
     protected Object resolveValue(Object v, ExecutionContext exec) throws ExecutionException, InterruptedException {
         if (ValueResolver.supportsDeepResolution(v)) {
-            return Tasks.resolveDeepValue(v, Object.class, exec, "Resolving deep config "+name);
+            return Tasks.resolveDeepValueWithoutCoercion(v, exec, "Resolving deep config "+name);
+            // TODO
         } else {
             return Tasks.resolveValue(v, getTypeToken(), exec, "Resolving config "+name);
         }

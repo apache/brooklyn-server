@@ -142,7 +142,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
                 // Try to resolve the configuration in the env Map
                 try {
-                    env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+                    env = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, ((EntityInternal) entity).getExecutionContext());
                 } catch (InterruptedException | ExecutionException e) {
                     Exceptions.propagateIfFatal(e);
                 }
@@ -220,7 +220,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
             // Try to resolve the configuration in the env Map
             try {
-                env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+                env = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, ((EntityInternal) entity).getExecutionContext());
             } catch (InterruptedException | ExecutionException e) {
                 Exceptions.propagateIfFatal(e);
             }

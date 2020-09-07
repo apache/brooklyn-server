@@ -256,12 +256,12 @@ public class TypeCoercerExtensible implements TypeCoercer {
         for (Map.Entry<?,?> entry : ((Map<?,?>) value).entrySet()) {
             Maybe<?> k = tryCoerce(entry.getKey(), mapKeyType);
             if (k.isAbsent()) return Maybe.absent(new ClassCoercionException(
-                "Could not coerce key of entry "+i+" ("+entry.getKey()+") to "+targetTypeToken,
+                "Could not coerce key of entry "+i+" ("+entry.getKey()+") to "+mapKeyType+" in "+targetTypeToken,
                 ((Maybe.Absent<T>)k).getException()));
 
             Maybe<?> v = tryCoerce(entry.getValue(), mapValueType);
             if (v.isAbsent()) return Maybe.absent(new ClassCoercionException(
-                "Could not coerce value of entry "+i+" ("+entry.getValue()+") to "+targetTypeToken,
+                "Could not coerce value of entry "+i+" ("+entry.getValue()+") to "+mapValueType+" in "+targetTypeToken,
                 ((Maybe.Absent<T>)v).getException()));
             
             coerced.put(k.get(), v.get());

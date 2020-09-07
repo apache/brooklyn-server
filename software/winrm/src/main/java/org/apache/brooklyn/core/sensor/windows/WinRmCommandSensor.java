@@ -108,7 +108,7 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
                 // Try to resolve the configuration in the env Map
                 try {
-                    env = Tasks.resolveDeepValueExactly(env, new TypeToken<Map<String,String>>() {}, ((EntityInternal) entity).getExecutionContext());
+                    env = Tasks.resolveDeepValueCoerced(env, new TypeToken<Map<String,String>>() {}, ((EntityInternal) entity).getExecutionContext(), "WinRM environment");
                 } catch (InterruptedException | ExecutionException e) {
                     Exceptions.propagateIfFatal(e);
                 }

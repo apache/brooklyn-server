@@ -182,7 +182,7 @@ public final class SshCommandEffector extends AddEffector {
 
         @SuppressWarnings("unchecked")
         private Map<String, Object> resolveEnv(MutableMap<String, Object> env) throws ExecutionException, InterruptedException {
-            return (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, entity().getExecutionContext());
+            return (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, entity().getExecutionContext());
         }
     }
 }
