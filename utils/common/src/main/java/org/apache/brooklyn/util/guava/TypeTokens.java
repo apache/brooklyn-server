@@ -100,5 +100,5 @@ public class TypeTokens {
             throw new IllegalStateException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
         }
     }
-    
+
 }

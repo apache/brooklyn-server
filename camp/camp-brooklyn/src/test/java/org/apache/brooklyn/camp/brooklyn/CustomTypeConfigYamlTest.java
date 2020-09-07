@@ -18,16 +18,11 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-
-import java.util.Map;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -38,6 +33,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 @Test
 public class CustomTypeConfigYamlTest extends AbstractYamlTest {
@@ -71,17 +68,18 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
             "      x: foo");
     }
 
-    protected void assertObjectIsOurCustomTypeWithFieldValueFoo(Object customObj) {
+    protected void assertObjectIsOurCustomTypeWithFieldValues(Object customObj, String x, String y) {
         Assert.assertNotNull(customObj);
 
         Asserts.assertInstanceOf(customObj, TestingCustomType.class);
-        Asserts.assertEquals(((TestingCustomType)customObj).x, "foo");
+        Asserts.assertEquals(((TestingCustomType)customObj).x, x);
+        Asserts.assertEquals(((TestingCustomType)customObj).y, y);
     }
 
-    protected Entity deployWithTestingCustomTypeObjectConfigAndAssert(String type, ConfigKey<?> key) throws Exception {
+    protected Entity deployWithTestingCustomTypeObjectConfigAndAssert(String type, ConfigKey<?> key, String x, String y) throws Exception {
         Entity testEntity = deployWithTestingCustomTypeObjectConfig(type, key);
         Object customObj = testEntity.getConfig(key);
-        assertObjectIsOurCustomTypeWithFieldValueFoo(customObj);
+        assertObjectIsOurCustomTypeWithFieldValues(customObj, x, y);
         return testEntity;
     }
 
@@ -101,20 +99,32 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     public static final ConfigKey<TestingCustomType> CONF_OBJECT_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class, 
         "test.confTyped", "Configuration key that's our custom type");
     
-    @Test(groups="WIP")
+    @Test
     public void testCustomTypeInTypedConfigKeyJavaType() throws Exception {
         // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the java type
-        // TODO this will require the config to convert or coerce using new routines
-        deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_OBJECT_TYPED);
+        deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_OBJECT_TYPED,
+                "foo", null);
     }
     
-    @Test(groups="WIP")
+    @Test
     public void testCustomTypeInTypedConfigKeyRegisteredType() throws Exception {
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, CustomTypeConfigYamlTest.TestingCustomType.class.getName())), false);
         // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the brooklyn registered type
-        // TODO this will require the config to convert or coerce using new routines
-        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_OBJECT_TYPED);
+        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_OBJECT_TYPED,
+                "foo", null);
     }
-    
+
+    @Test
+    public void testCustomTypeInTypedConfigKeyRegisteredTypeWithBeanWithTypeFields() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName()+"\n" +
+                        "x: unfoo\n"+
+                        "y: bar")), false);
+        // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the brooklyn registered type
+        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_OBJECT_TYPED,
+                "foo", "bar");
+    }
+
 }

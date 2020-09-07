@@ -19,19 +19,31 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.BeanDescription;
 import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.util.collections.MutableList;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.util.List;
 import java.util.function.Function;
 
 public class BrooklynJacksonSerializationUtils {
+
+    public static <T> TypeReference<T> asTypeReference(TypeToken<T> typeToken) {
+        return new TypeReference<T>() {
+            @Override
+            public Type getType() {
+                return typeToken.getType();
+            }
+        };
+    }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
         List<Function<Object,Object>> postConstructFunctions = MutableList.of();

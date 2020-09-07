@@ -27,9 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 
 import javax.annotation.Nullable;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -60,6 +62,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -304,7 +307,8 @@ public class BrooklynComponentTemplateResolver {
         for (FlagConfigKeyAndValueRecord r: records) {
             // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
 
-            Function<Maybe<Object>, Maybe<Object>> rawConvFn = Functions.identity();
+            BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn =
+                    (input, type) -> BeanWithTypeUtils.tryConvertOrOriginal(mgmt, input, type);
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
@@ -372,6 +376,7 @@ public class BrooklynComponentTemplateResolver {
             // (that's why we check whether it is used)
             if (!keyNamesUsed.contains(key)) {
                 Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(key));
+                transformed = BeanWithTypeUtils.tryConvertOrOriginal(mgmt, Maybe.of(transformed), TypeToken.of(Object.class)).get();
                 spec.configure(ConfigKeys.newConfigKey(Object.class, key.toString()), transformed);
             }
         }
