@@ -25,6 +25,7 @@ import java.lang.ref.SoftReference;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -282,8 +283,15 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         if (isPresent()) return ImmutableSet.of(get());
         return Collections.emptySet();
     }
-    
+
+    /** alias for {@link #map(Function)} - does lazy conversion */
     public <V> Maybe<V> transform(final Function<? super T, V> f) {
+        return map(f);
+    }
+
+    /** lazy conversion if a value is present, otherwise preserves the absence;
+     * see {@link #transformNow(Function)} for immediate conversion */
+    public <V> Maybe<V> map(final Function<? super T, V> f) {
         if (isPresent()) return new AbstractPresent<V>() {
             private static final long serialVersionUID = 325089324325L;
             @Override
@@ -291,7 +299,23 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
                 return f.apply(Maybe.this.get());
             }
         };
-        return absent();
+        return (Maybe<V>)this;
+    }
+
+    /** applies a function immediately if a value is present and returns the transformed object,
+     * or returns the original absence */
+    public <V> Maybe<V> transformNow(final Function<? super T, V> f) {
+        if (isPresent()) return Maybe.of(f.apply(Maybe.this.get()));
+        return (Maybe<V>)this;
+    }
+
+    /** applies a consumer immediately if a value is present;
+     * returns the same object for convenience (as obviously there is no result from the consumer) */
+    public Maybe<T> apply(final Consumer<? super T> f) {
+        if (isPresent()) {
+            f.accept(Maybe.this.get());
+        }
+        return this;
     }
 
     /**

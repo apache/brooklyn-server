@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -55,6 +56,8 @@ import org.apache.brooklyn.util.guava.Maybe;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Pattern for resolving "decorations" on service specs / entity specs, such as policies, enrichers, etc.
@@ -62,6 +65,8 @@ import com.google.common.collect.ImmutableSet;
  * @since 0.7.0
  */
 public abstract class BrooklynEntityDecorationResolver<DT> {
+
+    private static final Logger log = LoggerFactory.getLogger(BrooklynEntityDecorationResolver.class);
 
     final BrooklynYamlTypeInstantiator.Factory instantiator;
     final String decorationKind;
@@ -194,10 +199,26 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<EntityInitializer> decorations) {
             EntityInitializer result;
             try {
-                result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, TypeToken.of(EntityInitializer.class));
+                result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, TypeToken.of(EntityInitializer.class),
+                        true, true);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                result = instantiator.from(decorationJson).prefix(typeKeyPrefix).newInstance(EntityInitializer.class);
+                // fall back to the old way, eg if caller specifies initializerType, or for some other reason bean-with-type fails
+                Object type = decorationJson.get("type");
+                try {
+                    result = instantiator.from(decorationJson).prefix(typeKeyPrefix).newInstance(EntityInitializer.class);
+                    if (type!=null) {
+                        // make a note of this because the new syntax should do everything the old one does except if the type is specified as 'initializerType'
+                        log.debug("Initializer for type '"+type+"' instantiated via old syntax (due to "+e+")");
+                    }
+                } catch (Exception e2) {
+                    Exceptions.propagateIfFatal(e2);
+                    if (type!=null) {
+                        throw Exceptions.propagate("Error instantiating " + typeKeyPrefix + " '"+type+"'", Arrays.asList(e, e2));
+                    } else {
+                        throw Exceptions.propagate("Error instantiating " + typeKeyPrefix, Arrays.asList(e, e2));
+                    }
+                }
             }
             decorations.add(result);
         }

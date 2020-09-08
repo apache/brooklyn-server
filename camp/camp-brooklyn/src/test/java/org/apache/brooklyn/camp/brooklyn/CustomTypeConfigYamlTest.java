@@ -101,9 +101,10 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     
     @Test
     public void testCustomTypeInTypedConfigKeyJavaType() throws Exception {
-        // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the java type
-        deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_OBJECT_TYPED,
-                "foo", null);
+        // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the java type;
+        // but types used in config must be registered types
+        Asserts.assertFailsWith(() -> deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_OBJECT_TYPED, "foo", null),
+                e -> Asserts.expectedFailureContains(e, "TestingCustomType", "map", "test.confTyped"));
     }
     
     @Test

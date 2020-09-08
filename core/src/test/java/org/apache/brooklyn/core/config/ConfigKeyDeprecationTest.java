@@ -18,10 +18,11 @@
  */
 package org.apache.brooklyn.core.config;
 
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithFieldsFromConfigKeys;
 import static org.testng.Assert.assertEquals;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -297,19 +298,21 @@ public class ConfigKeyDeprecationTest extends BrooklynAppUnitTestSupport {
                 .build();
     }
     
-    public static class MyEntityInitializer implements EntityInitializer {
+    public static class MyEntityInitializer extends InitializerPatternWithFieldsFromConfigKeys {
         public static final ConfigKey<String> KEY_1 = ConfigKeys.builder(String.class, "key1")
                 .deprecatedNames("oldKey1", "oldKey1b")
                 .build();
         
         private String key1;
-
-        public MyEntityInitializer(ConfigBag params) {
-            this.key1 = params.get(KEY_1);
+        {
+            addInitConfigMapping(KEY_1, v -> key1 = v);
         }
+
+        public MyEntityInitializer(ConfigBag params) { super(params); }
 
         @Override
         public void apply(EntityLocal entity) {
+            initParamsFailIfAnyUnused();
             entity.config().set(KEY_1, key1);
         }
     }

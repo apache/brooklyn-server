@@ -46,7 +46,7 @@ import com.google.common.collect.Iterables;
  * 
  * @since 0.7.0 */
 @Beta
-public class AddChildrenEffector extends AddEffector {
+public class AddChildrenEffector extends AddEffectorInitializerAbstract {
     
     private static final Logger log = LoggerFactory.getLogger(AddChildrenEffector.class);
     
@@ -54,18 +54,13 @@ public class AddChildrenEffector extends AddEffector {
     public static final ConfigKey<String> BLUEPRINT_TYPE = ConfigKeys.newStringConfigKey("blueprint_type");
     public static final ConfigKey<Boolean> AUTO_START = ConfigKeys.newBooleanConfigKey("auto_start");
     
-    public AddChildrenEffector(ConfigBag params) {
-        super(newEffectorBuilder(params).build());
-    }
-    
-    public AddChildrenEffector(Map<String,String> params) {
-        this(ConfigBag.newInstance(params));
-    }
+    private AddChildrenEffector() {}
+    public AddChildrenEffector(ConfigBag params) { super(params); }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    public static EffectorBuilder<List<String>> newEffectorBuilder(ConfigBag params) {
-        EffectorBuilder<List<String>> eff = (EffectorBuilder) AddEffector.newEffectorBuilder(List.class, params);
-        eff.impl(new Body(eff.buildAbstract(), params));
+    public EffectorBuilder<List<String>> newEffectorBuilder() {
+        EffectorBuilder<List<String>> eff = (EffectorBuilder) newAbstractEffectorBuilder(List.class);
+        eff.impl(new Body(eff.buildAbstract(), initParams()));
         return eff;
     }
 

@@ -19,10 +19,25 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Iterables;
+import javassist.tools.rmi.Sample;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
 public class PerverseSerializationTest implements MapperTestFixture {
+
+    public ObjectMapper mapper() {
+        return BeanWithTypeUtils.newMapper(null, true, true);
+    }
 
     private static class BeanWithFieldCalledType {
         String type;
@@ -40,10 +55,6 @@ public class PerverseSerializationTest implements MapperTestFixture {
         BeanWithFieldCalledType bean;
     }
 
-    public ObjectMapper mapper() {
-        return BeanWithTypeUtils.newMapper(null);
-    }
-
     @Test
     public void testFieldCalledTypeOkayIfTypeConcrete() throws Exception {
         BeanWithFieldCalledType a = new BeanWithFieldCalledType();
@@ -59,5 +70,78 @@ public class PerverseSerializationTest implements MapperTestFixture {
         Assert.assertEquals(b2.bean.type, "not my type");
     }
 
+    /* lists with maps - some funny things */
+
+    static final String LIST_MAP_TYPE_SAMPLE_BEAN = "[{\"type\":\"" + SampleBean.class.getName() + "\"}]";
+    @Test
+    public void testSerializeListMapWithTypeTwoWays() throws Exception {
+        // these are the same, but that's normally okay, we should have context to help us out
+        Assert.assertEquals(ser(new LinkedList<Object>(MutableList.of(new SampleBean()))),
+                LIST_MAP_TYPE_SAMPLE_BEAN);
+        Assert.assertEquals(ser(MutableList.of(MutableMap.of("type", SampleBean.class.getName()))),
+                LIST_MAP_TYPE_SAMPLE_BEAN);
+
+        // and same is true if we know it is a list
+        Assert.assertEquals(ser(new LinkedList<Object>(MutableList.of(new SampleBean())), List.class),
+                LIST_MAP_TYPE_SAMPLE_BEAN);
+        Assert.assertEquals(ser(MutableList.of(MutableMap.of("type", SampleBean.class.getName())), List.class),
+                LIST_MAP_TYPE_SAMPLE_BEAN);
+    }
+
+    // see AsPropertyIfAmbiguousTypeSerializer for discussion
+    @Test
+    public void testDeserializeListMapWithType() throws Exception {
+        Object x;
+
+        // here, if it's an object we are reading, we get a list containing a map
+        x = deser(LIST_MAP_TYPE_SAMPLE_BEAN, Object.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List) x), Map.class);
+
+        // but if we know it's a list then we are more aggressive about reading type information
+        x = deser(LIST_MAP_TYPE_SAMPLE_BEAN, List.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List) x), SampleBean.class);
+    }
+
+    static class ListsGenericAndRaw {
+        List<SampleBean> ls;
+        List<Object> lo;
+        List lr;
+        Object o;
+        List<Object> lo2;
+    }
+    @Test
+    public void testDeserializeContextualListMapWithType() throws Exception {
+        ListsGenericAndRaw o = deser("{\"ls\":"+LIST_MAP_TYPE_SAMPLE_BEAN+","+
+                "\"lo\":"+LIST_MAP_TYPE_SAMPLE_BEAN+","+
+                "\"lo2\":["+LIST_MAP_TYPE_SAMPLE_BEAN+"],"+
+                "\"lr\":"+LIST_MAP_TYPE_SAMPLE_BEAN+","+
+                "\"o\":"+LIST_MAP_TYPE_SAMPLE_BEAN+","+
+                "\"lo2\":["+LIST_MAP_TYPE_SAMPLE_BEAN+"]"+
+                "}", ListsGenericAndRaw.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement(o.ls), SampleBean.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement(o.lo), SampleBean.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement(o.lr), SampleBean.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List)o.o), Map.class);
+        Asserts.assertInstanceOf(Iterables.getOnlyElement((List)Iterables.getOnlyElement(o.lo2)), Map.class);
+    }
+
+    /* arrays - no surprises - always read and written as lists, and coerced if context requires */
+
+    static class ArrayWrapper {
+        String[] o;
+    }
+    @Test
+    public void testArray() throws Exception {
+        ArrayWrapper o = new ArrayWrapper();
+        o.o = new String[]{"a", "b"};
+        String s = "[\"a\",\"b\"]";
+        Assert.assertEquals(ser(o.o), s);
+        Assert.assertEquals(deser(s), Arrays.asList("a", "b"));
+
+        String aws = "{\"o\":" + s + "}";
+        Assert.assertEquals(ser(o, ArrayWrapper.class), aws);
+        ArrayWrapper x = deser(aws, ArrayWrapper.class);
+        Assert.assertEquals(x.o, o.o);
+    }
 
 }

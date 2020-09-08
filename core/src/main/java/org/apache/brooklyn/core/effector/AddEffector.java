@@ -18,20 +18,10 @@
  */
 package org.apache.brooklyn.core.effector;
 
-import java.util.Collections;
-import java.util.Map;
-
 import org.apache.brooklyn.api.effector.Effector;
-import org.apache.brooklyn.api.effector.ParameterType;
-import org.apache.brooklyn.api.entity.EntityInitializer;
-import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
@@ -45,72 +35,54 @@ import com.google.common.base.Preconditions;
  * <li> the description from {@link #EFFECTOR_DESCRIPTION}
  * <li> the parameters from {@link #EFFECTOR_PARAMETER_DEFS}
  * <p>
- * Callers should pass the effector to instantiate into the constructor.
+ * Extenders may pass the effector to instantiate into the constructor.
  * Often subclasses will supply a constructor which takes a ConfigBag of parameters,
  * and a custom {@link #newEffectorBuilder(Class, ConfigBag)} which adds the body
  * before passing to this class.
+ * <p>
+ * Alternatively (recommended) extenders may override {@link #effector()} to recompute the effector each time,
+ * and provide two constructors, a no-arg, and a 1-arg {@link ConfigBag} calling the super {@link ConfigBag} constructor here.
+ * As per {@link org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigBag} their code
+ * may refer to {@link #initParam(ConfigKey)} to access parameters.
  * <p>
  * Note that the parameters passed to the call method in the body of the effector implementation
  * are only those supplied by a user at runtime; in order to merge with default
  * values, use {@link #getMergedParams(Effector, ConfigBag)}.
  *  
- * @since 0.7.0 */
+ * @since 0.7.0
+ * @deprecated since 1.1 use {@link AddEffectorInitializerAbstract} because the static {@link Effector} constructor
+ * does not lend itself to bean-with-type creation */
 @Beta
-public class AddEffector implements EntityInitializer {
-    
-    public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.newStringConfigKey("name");
-    public static final ConfigKey<String> EFFECTOR_DESCRIPTION = ConfigKeys.newStringConfigKey("description");
-    
-    public static final ConfigKey<Map<String,Object>> EFFECTOR_PARAMETER_DEFS = new MapConfigKey<Object>(Object.class, "parameters");
+@Deprecated
+public class AddEffector extends AddEffectorInitializerAbstractProto {
 
-    protected final Effector<?> effector;
-    
+    protected Effector<?> effector;
+
     public AddEffector(Effector<?> effector) {
-        this.effector = Preconditions.checkNotNull(effector, "effector");
-    }
-    
-    @Override
-    public void apply(EntityLocal entity) {
-        ((EntityInternal)entity).getMutableEntityType().addEffector(effector);
-    }
-    
-    public static <T> EffectorBuilder<T> newEffectorBuilder(Class<T> type, ConfigBag params) {
-        String name = Preconditions.checkNotNull(params.get(EFFECTOR_NAME), "name must be supplied when defining an effector: %s", params);
-        EffectorBuilder<T> eff = Effectors.effector(type, name);
-        eff.description(params.get(EFFECTOR_DESCRIPTION));
-        
-        Map<String, Object> paramDefs = params.get(EFFECTOR_PARAMETER_DEFS);
-        if (paramDefs!=null) {
-            for (Map.Entry<String, Object> paramDef: paramDefs.entrySet()){
-                if (paramDef!=null) {
-                    String paramName = paramDef.getKey();
-                    Object value = paramDef.getValue();
-                    if (value==null) value = Collections.emptyMap();
-                    if (!(value instanceof Map)) {
-                        if (value instanceof CharSequence && Strings.isBlank((CharSequence) value)) 
-                            value = Collections.emptyMap();
-                    }
-                    if (!(value instanceof Map))
-                        throw new IllegalArgumentException("Illegal argument of type "+value.getClass()+" value '"+value+"' supplied as parameter definition "
-                            + "'"+paramName);
-                    eff.parameter(ConfigKeys.DynamicKeys.newNamedInstance(paramName, (Map<?, ?>) value));
-                }
-            }
-        }
-        
-        return eff;
+        super();
+        initEffector(Preconditions.checkNotNull(effector, "effector"));
     }
 
-    /** returns a ConfigBag containing the merger of the supplied parameters with default values on the effector-defined parameters */
-    @SuppressWarnings({ "rawtypes", "unchecked" })
-    public static ConfigBag getMergedParams(Effector<?> eff, ConfigBag params) {
-        ConfigBag result = ConfigBag.newInstanceCopying(params);
-        for (ParameterType<?> param: eff.getParameters()) {
-            ConfigKey key = Effectors.asConfigKey(param);
-            if (!result.containsKey(key))
-                result.configure(key, params.get(key));
-        }
-        return result;
+    protected AddEffector(ConfigBag params) {
+        super(params);
+    }
+
+    // JSON deserialization constructor
+    protected AddEffector() {}
+
+    protected void init(ConfigBag params) {
+        throw new IllegalStateException("Not supported as bean-with type; subclasses should overwrite this method");
+    }
+
+    protected void initEffector(Effector<?> effector) {
+        this.effector = effector;
+    }
+    protected Effector<?> effector() {
+        return effector;
+    }
+
+    public static <T> EffectorBuilder<T> newEffectorBuilder(Class<T> type, ConfigBag params) {
+        return AddEffectorInitializerAbstractProto.newEffectorBuilder(type, params);
     }
 
 }

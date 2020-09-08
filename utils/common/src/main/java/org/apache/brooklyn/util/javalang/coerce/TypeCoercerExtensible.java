@@ -239,6 +239,12 @@ public class TypeCoercerExtensible implements TypeCoercer {
             // it might be nice to have more than just the first error but for now that's all we remember
             return firstError;
         }
+        if (value instanceof Map) {
+            if (((Map)value).containsKey("type")) {
+                return Maybe.absent(new ClassCoercionException("Cannot coerce map containing {type: \""+((Map)value).get("type")+"\"} to "+targetTypeToken+": type not known or not supported here"));
+            }
+            return Maybe.absent(new ClassCoercionException("Cannot coerce map to "+targetTypeToken+" ("+value+"): no adapter known"));
+        }
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): no adapter known"));
     }
 

@@ -72,7 +72,7 @@ public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Invalid YAML in definition of '"+registeredType.getId()+"'", e);
         }
-        return BeanWithTypeUtils.newMapper(mgmt).readValue(
+        return BeanWithTypeUtils.newMapper(mgmt, true, true).readValue(
                 BeanWithTypeUtils.newSimpleMapper().writeValueAsString(definition), Object.class);
     }
 

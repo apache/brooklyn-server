@@ -22,10 +22,11 @@ import java.util.Map;
 import java.util.Set;
 
 import com.google.common.annotations.Beta;
-import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithFieldsFromConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.feed.windows.WindowsPerformanceCounterFeed;
@@ -38,7 +39,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.reflect.TypeToken;
 
 @Beta
-public class WindowsPerformanceCounterSensors implements EntityInitializer {
+public class WindowsPerformanceCounterSensors extends InitializerPatternWithFieldsFromConfigKeys {
 
     private static final Logger LOG = LoggerFactory.getLogger(WindowsPerformanceCounterSensors.class);
 
@@ -53,17 +54,17 @@ public class WindowsPerformanceCounterSensors implements EntityInitializer {
             "poll period",
             Duration.seconds(30));
 
-    protected final Set<Map<String, String>> sensors;
-    protected final Duration period;
-
-    public WindowsPerformanceCounterSensors(ConfigBag params) {
-        sensors = params.get(PERFORMANCE_COUNTERS);
-        period = params.get(PERIOD);
+    protected Set<Map<String, String>> sensors;
+    protected Duration period;
+    {
+        addInitConfigMapping(PERFORMANCE_COUNTERS, v -> sensors = v);
+        addInitConfigMapping(PERIOD, v -> period = v);
     }
 
-    public WindowsPerformanceCounterSensors(Map<String, String> params) {
-        this(ConfigBag.newInstance(params));
-    }
+    private WindowsPerformanceCounterSensors() {}
+    public WindowsPerformanceCounterSensors(ConfigBag params) { super(params); }
+
+    public WindowsPerformanceCounterSensors(Map<String, String> params) { this(ConfigBag.newInstance(params)); }
 
     @Override
     public void apply(EntityLocal entity) {

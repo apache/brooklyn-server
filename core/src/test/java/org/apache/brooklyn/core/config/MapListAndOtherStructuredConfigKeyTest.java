@@ -175,14 +175,8 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testConfigKeyStringWontStoreAndRetrieveMaps() throws Exception {
         Map<String, String> v1 = ImmutableMap.of("a", "1", "b", "bb");
         //it only allows strings
-        try {
-            entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING.subKey("akey"), v1);
-            fail();
-        } catch (Exception e) {
-            ClassCastException cce = Exceptions.getFirstThrowableOfType(e, ClassCastException.class);
-            if (cce == null) throw e;
-            if (!cce.getMessage().contains("Cannot coerce type")) throw e;
-        }
+        Asserts.assertFailsWith(() -> entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING.subKey("akey"), v1),
+            e -> Asserts.expectedFailureContainsIgnoreCase(e, "cannot coerce", "map to ", "String", "test.confMapThing", "akey"));
     }
     
     @Test

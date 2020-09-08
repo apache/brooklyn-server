@@ -30,11 +30,7 @@ import java.util.function.Supplier;
 public class WrappedValuesSerializationTest implements MapperTestFixture {
 
     public ObjectMapper mapper() {
-        return
-                WrappedValuesSerialization.apply(
-                    BrooklynRegisteredTypeJacksonSerialization.apply(
-                        JsonMapper.builder().build(), null )
-                );
+        return BeanWithTypeUtils.newMapper(null, false, true);
     }
 
     // baseline

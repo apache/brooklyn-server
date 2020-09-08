@@ -18,10 +18,18 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonCreator.Mode;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.google.common.base.Predicates;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.EntityInitializers.AddTags;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -37,6 +45,8 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
 
 @Test
 public class CustomTypeInitializerYamlTest extends AbstractYamlTest {
@@ -69,14 +79,35 @@ public class CustomTypeInitializerYamlTest extends AbstractYamlTest {
         public void apply(EntityLocal entity) {
             lastEntity = entity;
             lastX = x;
+            lastY = y;
         }
     }
 
     public static class TestingCustomInitializerTypeAcceptingConfigBag extends TestingCustomInitializerType {
-        public TestingCustomInitializerTypeAcceptingConfigBag(ConfigBag keys) {
-            if (this.x==null) this.x = (String) keys.getStringKey("x");
-            if (this.y==null) this.y = (String) keys.getStringKey("y");
+        // no-arg constructor needed for bean-with-type instantiation; it can be private
+        private TestingCustomInitializerTypeAcceptingConfigBag() {}
+
+        // old-style constructor if config bag is injected
+        public TestingCustomInitializerTypeAcceptingConfigBag(ConfigBag config) {
+            if (config!=null) setConfig(config.getAllConfig());
+            throw new IllegalStateException("This test should not use the config-bag constructor");
         }
+
+        // this pattern is needed to support nested brooklyn config on initializers (and other beans)
+        @JsonProperty("brooklyn.config")
+        void setConfig(Map<String,Object> config) {
+            if (this.x==null) this.x = (String) config.get("x");
+            if (this.y==null) this.y = (String) config.get("y");
+        }
+
+        // as an alternative to the above, the follow sort-of works
+        // but NOT if brooklyn.config is defined at two levels (ie a bean and then extended);
+        // we need the annotated setter for that.
+        // and even then it doesn't support config inheritance; so only use brooklyn.config for spec objects.
+//        @JsonCreator(mode= Mode.PROPERTIES)
+//        public TestingCustomInitializerTypeAcceptingConfigBag(@JsonProperty("brooklyn.config") Map<String,Object> config) {
+//            if (config!=null) setConfig(config);
+//        }
     }
     
     protected Entity deployWithTestingCustomInitializerType(String type, String ...extras) throws Exception {
@@ -105,24 +136,13 @@ public class CustomTypeInitializerYamlTest extends AbstractYamlTest {
         assertInitializerRanAndXY(testEntity, "foo", null);
     }
 
-    @Test(groups="WIP")  // TODO support brooklyn.config to set config keys on initializers; and/or allow java instantiator to read registered types
-    public void testCustomInitializerTypeSpecifiedAsRegisteredTypeWithArgUsingConfigBag() throws Exception {
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
-                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, CustomTypeInitializerYamlTest.TestingCustomInitializerType.class.getName())), false);
-
-        Entity testEntity = deployWithTestingCustomInitializerType("custom-type",
-                "    brooklyn.config:",
-                "      x: foo");
-        assertInitializerRanAndXY(testEntity, "foo", null);
-    }
-
     @Test
     public void testCustomInitializerTypeSpecifiedAsJavaTypeWithArgUsingField() throws Exception {
         Entity testEntity = deployWithTestingCustomInitializerType(TestingCustomInitializerType.class.getName(), "    x: foo");
         assertInitializerRanAndXY(testEntity, "foo", null);
     }
 
-    @Test(groups="WIP")  // TODO support brooklyn.config to set config keys on initializers
+    @Test
     public void testCustomInitializerTypeSpecifiedAsJavaTypeWithArgUsingFieldAndConfigBag() throws Exception {
         Entity testEntity = deployWithTestingCustomInitializerType(TestingCustomInitializerTypeAcceptingConfigBag.class.getName(),
                 "    y: bar",
@@ -150,10 +170,21 @@ public class CustomTypeInitializerYamlTest extends AbstractYamlTest {
         assertInitializerRanAndXY(testEntity, "foo", null);
     }
 
-    @Test(groups="WIP")  // TODO support brooklyn.config to set config keys on initializers
+    @Test
+    public void testCustomInitializerTypeSpecifiedAsRegisteredTypeWithArgUsingConfigBag() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeAcceptingConfigBag.class.getName())), false);
+
+        Entity testEntity = deployWithTestingCustomInitializerType("custom-type",
+                "    brooklyn.config:",
+                "      x: foo");
+        assertInitializerRanAndXY(testEntity, "foo", null);
+    }
+
+    @Test
     public void testCustomInitializerTypeSpecifiedAsRegisteredTypeWithArgUsingConfigBagAndField() throws Exception {
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
-                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, CustomTypeInitializerYamlTest.TestingCustomInitializerTypeAcceptingConfigBag.class.getName())), false);
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeAcceptingConfigBag.class.getName())), false);
 
         Entity testEntity = deployWithTestingCustomInitializerType("custom-type",
                 "    y: bar",
@@ -162,6 +193,162 @@ public class CustomTypeInitializerYamlTest extends AbstractYamlTest {
         assertInitializerRanAndXY(testEntity, "foo", "bar");
     }
 
-    // TODO try using BeanWithTypePlanTransformer, where value specified in _definition_, here and in CustomTypeConfigYamlTest
+    @Test
+    public void testCustomInitializerTypeSpecifiedAsRegisteredTypeWithArgUsingInheritedFieldAndLocalConfigBag() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeAcceptingConfigBag.class.getName()+"\n" +
+                        "y: bar")), false);
+
+        Entity testEntity = deployWithTestingCustomInitializerType("custom-type",
+                "    brooklyn.config:",
+                "      x: foo");
+        assertInitializerRanAndXY(testEntity, "foo", "bar");
+    }
+
+    @Test
+    public void testCustomInitializerTypeSpecifiedAsRegisteredTypeWithArgUsingInheritedConfigBagAndLocalField() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeAcceptingConfigBag.class.getName()+"\n" +
+                        "brooklyn.config:\n" +
+                        "  x: foo")), false);
+
+        Entity testEntity = deployWithTestingCustomInitializerType("custom-type",
+                "    y: bar");
+        assertInitializerRanAndXY(testEntity, "foo", "bar");
+    }
+
+
+    public static class TestingCustomInitializerTypeOldStyleAcceptingConfigBagOnly extends TestingCustomInitializerType {
+        // old-style constructor; with just this, it will be forced to use the fallback InstantiatorFromKey.newInstance construction mechanism
+        // fields are not supported. see above for discussion why config bag is not great here.
+        public TestingCustomInitializerTypeOldStyleAcceptingConfigBagOnly(ConfigBag config) {
+            setConfig(config.getAllConfig());
+        }
+
+        void setConfig(Map<String,Object> config) {
+            if (this.x==null) this.x = (String) config.get("x");
+            if (this.y==null) this.y = (String) config.get("y");
+        }
+    }
+
+    @Test
+    public void testOldStyleCustomInitializerTypeSpecifiedAsRegisteredTypeFails() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeOldStyleAcceptingConfigBagOnly.class.getName())), false);
+
+        Asserts.assertFailsWith(() ->deployWithTestingCustomInitializerType("custom-type"),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, TestingCustomInitializerTypeOldStyleAcceptingConfigBagOnly.class.getName(), "no creators", "cannot construct"));
+    }
+
+    @Test
+    public void testOldStyleCustomInitializerTypeSpecifiedAsJavaTypeSupportsBrooklynConfigButNotFields() throws Exception {
+        Entity testEntity = deployWithTestingCustomInitializerType(TestingCustomInitializerTypeOldStyleAcceptingConfigBagOnly.class.getName(),
+                "    brooklyn.config:\n" +
+                "      x: foo\n" +
+                "    y: bar");
+
+        // NB: the field 'y' is ignored
+        assertInitializerRanAndXY(testEntity, "foo", null);
+    }
+
+
+    public static class TestingCustomInitializerTypeFinal implements EntityInitializer {
+        static String lastZ;
+//        @JsonProperty
+        final String z;
+
+        // for use deserializing
+        private TestingCustomInitializerTypeFinal() {
+            z=null;
+        }
+
+        // old-style constructor; with just this, it will be forced to use the fallback InstantiatorFromKey.newInstance construction mechanism
+        // fields are not supported. see above for discussion why config bag is not great here.
+        public TestingCustomInitializerTypeFinal(ConfigBag config) {
+            this.z = (String) config.getStringKey("z");
+        }
+
+        @Override
+        public void apply(EntityLocal entity) {
+            lastZ = z;
+        }
+
+    }
+
+    @Test
+    public void testCustomInitializerFinalPatternTakingFields() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeFinal.class.getName())), false);
+
+        Entity entity = deployWithTestingCustomInitializerType("custom-type",
+                "    z: hi");
+        Assert.assertEquals(TestingCustomInitializerTypeFinal.lastZ, "hi");
+    }
+
+    @Test
+    public void testCustomInitializerFinalPatternTakingConfigBag() throws Exception {
+        Entity entity = deployWithTestingCustomInitializerType(TestingCustomInitializerTypeFinal.class.getName(),
+                "    brooklyn.config:",
+                "      z: hi0");
+        Assert.assertEquals(TestingCustomInitializerTypeFinal.lastZ, "hi0");
+    }
+
+    @Test
+    public void testCustomInitializerFinalPatternOverridingFields() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeFinal.class.getName()+"\n" +
+                                "z: hi1")), false);
+
+        Entity entity = deployWithTestingCustomInitializerType("custom-type",
+                "    z: hi2");
+        Assert.assertEquals(TestingCustomInitializerTypeFinal.lastZ, "hi2");
+    }
+
+    @Test
+    public void testCustomInitializerFinalPatternUsingConfigBagWithTypeNotSupported() throws Exception {
+        // we're allowed to add
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+CustomTypeInitializerYamlTest.TestingCustomInitializerTypeFinal.class.getName()+"\n" +
+                        "brooklyn.config:\n" +
+                        "  z: hi1")), false);
+        // but deployment fails as we don't have a json setter; cannot use final var pattern with bean-with-type
+        Asserts.assertFailsWith(() -> deployWithTestingCustomInitializerType("custom-type"),
+            e -> Asserts.expectedFailureContainsIgnoreCase(e, "unrecognized field", "brooklyn.config", "hi1"));
+    }
+
+    // also test the stock initializer
+
+    @Test
+    public void testAddTags() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("add-tags", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+ AddTags.class.getName())), false);
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("sample-bean", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+ SampleBean.class.getName())), false);
+        Entity ent = deployWithTestingCustomInitializerType("add-tags",
+                "    tags:",
+                "    - t1",
+                "    - 4",
+                "    - type: sample-bean",
+                "      x: 4");
+        Set<Object> tags = ent.tags().getTags();
+        Assert.assertTrue(tags.contains("t1"));
+        Assert.assertTrue(tags.contains(4));
+        Assert.assertFalse(tags.contains("4"));
+
+        // should this be converted to the type?  here it is iff we add using bean-with-type
+        // (but not if using the legacy ConfigBag constructor), and if the bean declares the List<Object> as a field.
+        // that seems about the right trade-off, convert to types if known, and through one layer of indirection
+        // (eg List<Object>) but not through two (for ConfigKeys the deserializer doesn't know their types)
+        Assert.assertEquals( ((SampleBean)(tags.stream().filter(t -> t instanceof SampleBean).findFirst().get())).x, "4" );
+//        Assert.assertEquals( ((Map)(tags.stream().filter(t -> t instanceof Map).findFirst().get())).get("x"), 4 );
+    }
 
 }

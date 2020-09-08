@@ -23,19 +23,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.function.Predicate;
 
 public class BeanWithTypeUtils {
 
     public static final String FORMAT = "bean-with-type";
 
-    public static ObjectMapper newMapper(ManagementContext mgmt) {
+    public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, boolean allowJavaTypes) {
         JsonMapper mapper = newSimpleMapper();
 
-        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt);
+        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, allowJavaTypes);
         WrappedValuesSerialization.apply(mapper);
+
+        //TODO DslSerializationAsToString
 
         return mapper;
     }
@@ -45,12 +51,36 @@ public class BeanWithTypeUtils {
         return JsonMapper.builder().build();
     }
 
-    public static <T> T convert(ManagementContext mgmt, Map<?,?> map, TypeToken<T> type) throws JsonProcessingException {
-        ObjectMapper m = newMapper(mgmt);
+    public static boolean isPureJsonX(Object o) {
+        return isJsonAndOthers(o, oo -> false);
+    }
+    public static boolean isJsonAndOthers(Object o, Predicate<Object> acceptOthers) {
+        if (o instanceof String) return true;
+        if (o==null) return true;
+        if (Boxing.isPrimitiveOrBoxedObject(o)) return true;
+        if (o instanceof Collection) {
+            for (Object oo : (Collection<?>) o) {
+                if (!isJsonAndOthers(oo, acceptOthers)) return false;
+            }
+        }
+        if (o instanceof Map) {
+            for (Map.Entry<?,?> oo : ((Map<?,?>) o).entrySet()) {
+                if (!isJsonAndOthers(oo.getKey(), acceptOthers)) return false;
+                if (!isJsonAndOthers(oo.getValue(), acceptOthers)) return false;
+            }
+        }
+        return acceptOthers.test(o);
+    }
+    public static boolean isJsonOrDeferredSupplier(Object o) {
+        return isJsonAndOthers(o, oo -> oo instanceof DeferredSupplier);
+    }
+
+    public static <T> T convert(ManagementContext mgmt, Map<?,?> map, TypeToken<T> type, boolean allowRegisteredTypes, boolean allowJavaTypes) throws JsonProcessingException {
+        ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, allowJavaTypes);
         return m.readValue(m.writeValueAsString(map), BrooklynJacksonSerializationUtils.asTypeReference(type));
     }
 
-    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type) {
+    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, boolean allowJavaTypes) {
         if (inputMap.isAbsent()) return (Maybe<T>)inputMap;
 
         Object o = inputMap.get();
@@ -74,14 +104,11 @@ public class BeanWithTypeUtils {
         }
 
         try {
-            return Maybe.of(convert(mgmt, (Map<?,?>)o, type));
+            return Maybe.of(convert(mgmt, (Map<?,?>)o, type, allowRegisteredTypes, allowJavaTypes));
         } catch (Exception e) {
             if (fallback!=null) return fallback;
             return Maybe.absent("BeanWithType cannot convert given map to "+type, e);
         }
     }
 
-    public static <T> Maybe<T> tryConvertOrOriginal(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type) {
-        return tryConvertOrAbsent(mgmt, inputMap, type).or((Maybe<T>)inputMap);
-    }
 }

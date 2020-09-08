@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.effector.AddSensorInitializer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -30,7 +31,7 @@ import com.google.common.annotations.Beta;
  * Super-class for entity initializers that add feeds.
  */
 @Beta
-public abstract class AbstractAddSensorFeed<T> extends AddSensor<T> {
+public abstract class AbstractAddSensorFeed<T> extends AddSensorInitializer<T> {
 
     public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
             "suppressDuplicates", 
@@ -50,6 +51,7 @@ public abstract class AbstractAddSensorFeed<T> extends AddSensor<T> {
             "Length of time, after a successful poll, before a subsequent failure can be logged at WARN.",
             Duration.millis(0));
 
+    protected AbstractAddSensorFeed() {}
     public AbstractAddSensorFeed(final ConfigBag params) {
         super(params);
     }

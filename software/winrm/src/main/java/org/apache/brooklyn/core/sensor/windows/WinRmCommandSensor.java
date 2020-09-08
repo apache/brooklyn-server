@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
@@ -72,30 +73,26 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
     public static final ConfigKey<Map<String, String>> SENSOR_ENVIRONMENT = WinRmTool.ENVIRONMENT;
 
-    protected final String command;
-    protected final String executionDir;
-    protected final Map<String,String> sensorEnv;
-
-    public WinRmCommandSensor(final ConfigBag params) {
-        super(params);
-
-        // TODO create a supplier for the command string to support attribute embedding
-        command = Preconditions.checkNotNull(params.get(SENSOR_COMMAND), "SSH command must be supplied when defining this sensor");
-        executionDir = params.get(SENSOR_EXECUTION_DIR);
-        sensorEnv = params.get(SENSOR_ENVIRONMENT);
-    }
+    protected WinRmCommandSensor() {}
+    public WinRmCommandSensor(final ConfigBag params) { super(params); }
 
     @Override
     public void apply(final EntityLocal entity) {
-            super.apply(entity);
+        AttributeSensor<T> sensor = addSensor(entity);
+
+        String name = initParam(SENSOR_NAME);
+        // TODO create a supplier for the command string to support attribute embedding
+        String command = Preconditions.checkNotNull(initParam(SENSOR_COMMAND), "SSH command must be supplied when defining this sensor");
+        String executionDir = initParam(SENSOR_EXECUTION_DIR);
+        Map<String, String> sensorEnv = initParam(SENSOR_ENVIRONMENT);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding WinRM sensor {} to {}", name, entity);
         }
 
-        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
-        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME_ON_STARTUP);
-        final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
+        final Boolean suppressDuplicates = EntityInitializers.resolve(initParams(), SUPPRESS_DUPLICATES);
+        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(initParams(), LOG_WARNING_GRACE_TIME_ON_STARTUP);
+        final Duration logWarningGraceTime = EntityInitializers.resolve(initParams(), LOG_WARNING_GRACE_TIME);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @SuppressWarnings("serial")
@@ -127,7 +124,7 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
         };
 
         CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
-                .period(period)
+                .period(initParam(SENSOR_PERIOD))
                 .env(envSupplier)
                 .command(commandSupplier)
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
@@ -158,6 +155,24 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
             finalCommand = "(if exist \"" + execDir + "\" (rundll32) else (mkdir \""+execDir+"\")) && cd \""+execDir+"\" && "+finalCommand;
         }
         return finalCommand;
+    }
+
+    private String command;
+    private String executionDir;
+    private Map<String,String> sensorEnv;
+    // introduced in 1.1 for legacy compatibility
+    protected Object readResolve() {
+        super.readResolve();
+        initFromConfigBag(ConfigBag.newInstance()
+                .putIfAbsentAndNotNull(SENSOR_COMMAND, command)
+                .putIfAbsentAndNotNull(SENSOR_EXECUTION_DIR, executionDir)
+                .putIfAbsentAndNotNull(SENSOR_ENVIRONMENT, sensorEnv)
+        );
+        command = null;
+        executionDir = null;
+        sensorEnv = null;
+
+        return this;
     }
 
 }

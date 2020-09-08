@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializerBase.TestConfigurableInitializerConfigBag;
+import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializerBase.TestConfigurableInitializerOld;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -25,7 +27,6 @@ import static org.testng.Assert.assertTrue;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializer.TestConfigurableInitializer;
 import org.apache.brooklyn.camp.brooklyn.catalog.CatalogYamlLocationTest;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -92,7 +93,7 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
     public void testWrapsWhenInitializer() throws Exception {
         Entity app = createAndStartApplication(
                 "brooklyn.initializers:",
-                "- type: " + TestConfigurableInitializer.class.getName(),
+                "- type: " + TestConfigurableInitializerConfigBag.class.getName(),
                 "services:",
                 "- type: " + BasicApplication.class.getName());
         assertWrapped(app, BasicApplication.class);

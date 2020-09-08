@@ -307,8 +307,7 @@ public class BrooklynComponentTemplateResolver {
         for (FlagConfigKeyAndValueRecord r: records) {
             // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
 
-            BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn =
-                    (input, type) -> BeanWithTypeUtils.tryConvertOrOriginal(mgmt, input, type);
+            BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn = this::convertConfig;
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
@@ -376,10 +375,14 @@ public class BrooklynComponentTemplateResolver {
             // (that's why we check whether it is used)
             if (!keyNamesUsed.contains(key)) {
                 Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(key));
-                transformed = BeanWithTypeUtils.tryConvertOrOriginal(mgmt, Maybe.of(transformed), TypeToken.of(Object.class)).get();
+                transformed = convertConfig(Maybe.of(transformed), TypeToken.of(Object.class)).get();
                 spec.configure(ConfigKeys.newConfigKey(Object.class, key.toString()), transformed);
             }
         }
+    }
+
+    private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
+        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, false).or((Maybe<T>)(input));
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {

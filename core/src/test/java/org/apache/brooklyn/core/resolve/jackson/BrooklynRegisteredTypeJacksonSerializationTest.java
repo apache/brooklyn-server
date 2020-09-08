@@ -33,14 +33,14 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     // public because of use of JavaClassNameTypePlanTransformer
     public static class SampleBean {
-        String x;
+        public String x;
         String y;
         String z;
         SampleBean bean;
     }
 
     public ObjectMapper mapper() {
-        return BeanWithTypeUtils.newMapper(mgmt());
+        return BeanWithTypeUtils.newMapper(mgmt(), true, true);
     }
 
     @Test
