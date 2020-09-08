@@ -52,6 +52,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
+import javax.annotation.Nullable;
+
 /** 
  * Resolves a given object, as follows:
  * <li> If it is a {@link Tasks} or a {@link DeferredSupplier} then get its contents
@@ -569,29 +571,12 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                 }
 
             } else {
-                if (allowDeepResolution && supportsDeepResolution(v)) {
+                if (allowDeepResolution && supportsDeepResolution(v, typeT)) {
 
                     // allows user to resolveValue(map, String) with the effect
                     // that things _in_ the collection would be resolved as string.
                     // alternatively use generics.
-                    boolean applyThisTypeToContents = typeT.getRawType()==Object.class || Boolean.TRUE.equals(ignoreGenericsAndApplyThisTypeToContents);
-
-                    TypeToken<?>[] innerTypes = new TypeToken<?>[0];
-                    if (!applyThisTypeToContents) {
-                        if (!TypeToken.of(typeT.getRawType()).equals(typeT)) {
-                            // we have generics
-                            innerTypes = Reflections.getGenericParameterTypeTokens(typeT);
-                        } else {
-                            // no generics
-                            if (ignoreGenericsAndApplyThisTypeToContents == null) {
-                                // for null, autodetect
-                                applyThisTypeToContents = true;
-                            } else {
-                                // we will warn and fall back to autodetect for legacy reasons
-                                // (same if the number of inner types above is wrong)
-                            }
-                        }
-                    }
+                    boolean applyThisTypeToContents = Boolean.TRUE.equals(ignoreGenericsAndApplyThisTypeToContents);
 
                     // restrict deep resolution to the same set of types as calling code;
                     // in particular need to avoid for "interesting iterables" such as PortRange
@@ -603,15 +588,12 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             keyT = typeT;
                             valT = typeT;
                         } else {
+                            TypeToken<?>[] innerTypes = Reflections.getGenericParameterTypeTokens( typeT.resolveType(Map.class) ); // innerTypes = Reflections.getGenericParameterTypeTokens( typeT );
                             if (innerTypes.length==2) {
                                 keyT = innerTypes[0];
                                 valT = innerTypes[1];
                             } else {
                                 keyT = valT = TypeToken.of(Object.class);
-                                // deprecated in 1.0.0
-                                log.warn("Coercing deep into map "+v+" when expected to coerce to incompatible "+typeT+"; "
-                                    + "will attempt conversion of keys and values, but this behaviour is deprecated. "
-                                    + "Should correctly request conversion to generic TypeToken<Map<...>>.");
                             }
                         }
                         //and if a map or list we look inside
@@ -627,18 +609,18 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             if (vv.isAbsent()) return (Maybe<T>)vv;
                             result.put(kk.get(), vv.get());
                         }
-                        return Maybe.of((T) result);
+                        v = result;
 
                     } else if (v instanceof Iterable) {
-                        TypeToken<?> entryT = typeT;
-                        if (!applyThisTypeToContents) {
+                        TypeToken<?> entryT;
+                        if (applyThisTypeToContents) {
+                            entryT = typeT;
+                        } else {
+                            TypeToken<?>[] innerTypes = Reflections.getGenericParameterTypeTokens( typeT.resolveType(Iterable.class) );
                             if (innerTypes.length==1) {
                                 entryT = innerTypes[0];
                             } else {
-                                // deprecated in 1.0.0
-                                log.warn("Coercing deep into iterable "+v+" when expected to coerce to incompatible "+typeT+"; "
-                                    + "will attempt conversion of keys and values, but this behaviour is deprecated. "
-                                    + "Should correctly request conversion to generic TypeToken<Map<...>>.");
+                                entryT = TypeToken.of(Object.class);
                             }
                         }
 
@@ -652,7 +634,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             result.add(vv.get());
                             count++;
                         }
-                        return Maybe.of((T) result);
+                        v = result;
                     }
                 }
 
@@ -683,9 +665,20 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     }
 
     // whether value resolution supports deep resolution
-    @Beta
+    /** @deprecated since 1.0.0 use {@link #supportsDeepResolution(Object, TypeToken)} */
+    @Beta @Deprecated
     public static boolean supportsDeepResolution(Object v) {
-        return (v instanceof Map || v instanceof Collection);
+        return supportsDeepResolution(v, null);
+    }
+    @Beta
+    public static boolean supportsDeepResolution(Object v, @Nullable TypeToken<?> type) {
+        return (v instanceof Map || v instanceof Collection) && (type==null || typeAllowsDeepResolution(type));
+    }
+    @Beta
+    public static boolean typeAllowsDeepResolution(@Nullable TypeToken<?> type) {
+        if (type==null) return true;
+        Class<?> clz = type.getRawType();
+        return Map.class.isAssignableFrom(clz) || Iterable.class.isAssignableFrom(clz) || Object.class.equals(clz);
     }
 
     protected String getDescription() {

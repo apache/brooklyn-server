@@ -251,7 +251,7 @@ public class Tasks {
      * See also {@link #resolveDeepValueWithoutCoercion(Object, ExecutionContext, String)}
      */
     public static <T> T resolveDeepValueCoerced(Object value, TypeToken<T> type, ExecutionContext exec, String contextMessage) throws ExecutionException, InterruptedException {
-        if (ValueResolver.supportsDeepResolution(value)) {
+        if (ValueResolver.supportsDeepResolution(value, null)) {
             Object resultO;
             try {
                 if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE != LegacyDeepResolutionMode.ONLY_LEGACY) {
@@ -265,7 +265,7 @@ public class Tasks {
                 }
                 resultO = resolveDeepValueWithoutCoercion(value, exec, "Resolving deep "+ contextMessage);
                 if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.WARN) {
-                    log.warn("Conversion of '" + contextMessage + "' (" + value + ") to " + type + " failed; leaving as deep container type for legacy compatibility, but this feature may be removed in future");
+                    log.warn("Conversion of '" + contextMessage + "' (" + value + ") to " + type + " failed; leaving as map/list type for legacy compatibility, but this feature may be removed in future");
                 }
             }
             return (T) resultO;

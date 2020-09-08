@@ -256,9 +256,8 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 Asserts.assertFailsWith(
                         () -> entity.config().get(TestEntity.CONF_MAP_THING),
                         e -> Asserts.expectedFailureContainsIgnoreCase(e,
+                                // exception used to come on coercion of map result, but now BasicConfigKey.resolve also does some coercion
                                 "confMapThing",
-                                "generic type mismatch",
-                                "Map<java.lang.String, java.lang.String>",
                                 "Cannot coerce type java.util.LinkedHashMap to java.lang.String",
                                 "{sub2=4}")));
     }
@@ -279,10 +278,9 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                         () -> entity.config().get(TestEntity.CONF_MAP_THING),
                         e -> Asserts.expectedFailureContainsIgnoreCase(e,
                                 "confMapThing",
-                                "generic type mismatch",
-                                "Map<java.lang.String, java.lang.String>",
                                 "Cannot coerce type java.util.LinkedHashMap to java.lang.String",
-                                "{sub2=4}")));
+                                "{sub2=4}")
+                ));
     }
 
     @Test

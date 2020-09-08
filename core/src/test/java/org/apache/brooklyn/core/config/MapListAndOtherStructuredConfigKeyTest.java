@@ -401,7 +401,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testInterestingIterableConfig() throws Exception {
         PortRange r12 = PortRanges.fromString("1-2");
         // previously VR would act on iterables such as PRs inside maps and lists, but not on those at top level, so this test failed
-        Assert.assertFalse(ValueResolver.supportsDeepResolution(r12));
+        Assert.assertFalse(ValueResolver.supportsDeepResolution(r12, null));
         
         entity.config().set(TestEntity.CONF_OBJECT, r12);
         entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("r"), r12);
