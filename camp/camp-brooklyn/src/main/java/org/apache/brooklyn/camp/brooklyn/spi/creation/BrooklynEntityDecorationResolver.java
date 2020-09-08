@@ -27,7 +27,10 @@ import java.util.Set;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -35,6 +38,7 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator.Factory;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiator.InstantiatorFromKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
@@ -59,10 +63,16 @@ import com.google.common.collect.ImmutableSet;
  */
 public abstract class BrooklynEntityDecorationResolver<DT> {
 
-    public final BrooklynYamlTypeInstantiator.Factory instantiator;
+    final BrooklynYamlTypeInstantiator.Factory instantiator;
+    final String decorationKind;
+    final String typeKeyPrefix;
+    final String objectKey;
 
-    protected BrooklynEntityDecorationResolver(BrooklynYamlTypeInstantiator.Factory instantiator) {
+    protected BrooklynEntityDecorationResolver(Factory instantiator, String decorationKind, String typeKeyPrefix, String objectKey) {
         this.instantiator = instantiator;
+        this.decorationKind = decorationKind;
+        this.typeKeyPrefix = typeKeyPrefix;
+        this.objectKey = objectKey;
     }
 
     /** @deprecated since 0.10.0 - use {@link #decorate(EntitySpec, ConfigBag, Set)} */
@@ -101,18 +111,49 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         return decorations;
     }
 
-    protected abstract String getDecorationKind();
+    protected final String getDecorationKind() { return decorationKind; }
 
-    protected abstract Object getDecorationAttributeJsonValue(ConfigBag attrs);
+    protected Object getDecorationAttributeJsonValue(ConfigBag attrs) {
+        return attrs.getStringKey(objectKey);
+    }
 
     protected abstract void addDecorationFromJsonMap(Map<?,?> decorationJson, List<DT> decorations);
 
-    public static class PolicySpecResolver extends BrooklynEntityDecorationResolver<PolicySpec<?>> {
+    public abstract static class BrooklynObjectSpecResolver<DTInterface extends BrooklynObject,DTSpec extends AbstractBrooklynObjectSpec<DTInterface,DTSpec>> extends BrooklynEntityDecorationResolver<DTSpec> {
+        final BrooklynObjectType boType;
 
-        public PolicySpecResolver(BrooklynYamlTypeInstantiator.Factory loader) { super(loader); }
+        protected BrooklynObjectSpecResolver(Factory instantiator, String decorationKind, String typeKeyPrefix, String objectKey, BrooklynObjectType boType) {
+            super(instantiator, decorationKind, typeKeyPrefix, objectKey);
+            this.boType = boType;
+        }
 
-        @Override
-        protected String getDecorationKind() { return "Policy"; }
+        protected DTSpec instantiateSpec(Map<?, ?> decorationJson, Function<Class<DTInterface>,DTSpec> classFactory) {
+            InstantiatorFromKey decoLoader = instantiator.from(decorationJson).prefix(typeKeyPrefix);
+
+            String typeName = decoLoader.getTypeName().get();
+            ManagementContext mgmt = instantiator.loader.getManagementContext();
+
+            Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(typeName), RegisteredTypeLoadingContexts.spec(boType.getInterfaceType()));
+            DTSpec spec;
+            if (!item.isNull()) {
+                // throw error if absent for any reason other than null
+                spec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<DTSpec>) boType.getSpecType());
+            } else {
+                Class<? extends BrooklynObject> type = decoLoader.getType(boType.getInterfaceType());
+                spec = classFactory.apply((Class<DTInterface>)type).parameters(BasicSpecParameter.fromClass(mgmt, type));
+            }
+            spec.configure(decoLoader.getConfigMap());
+            return spec;
+        }
+
+        protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<DTSpec> decorations, Function<Class<DTInterface>,DTSpec> classFactory) {
+            decorations.add(instantiateSpec(decorationJson, classFactory));
+        }
+    }
+
+    public static class PolicySpecResolver extends BrooklynObjectSpecResolver<Policy,PolicySpec<Policy>> {
+
+        public PolicySpecResolver(BrooklynYamlTypeInstantiator.Factory initializer) { super(initializer, "Policy", "policy", BrooklynCampReservedKeys.BROOKLYN_POLICIES, BrooklynObjectType.POLICY); }
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
@@ -120,38 +161,14 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         }
 
         @Override
-        protected Object getDecorationAttributeJsonValue(ConfigBag attrs) {
-            return attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_POLICIES);
-        }
-
-        @Override
-        protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<PolicySpec<?>> decorations) {
-            InstantiatorFromKey decoLoader = instantiator.from(decorationJson).prefix("policy");
-
-            String policyType = decoLoader.getTypeName().get();
-            ManagementContext mgmt = instantiator.loader.getManagementContext();
-
-            Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(policyType), RegisteredTypeLoadingContexts.spec(Policy.class));
-            PolicySpec<?> spec;
-            if (!item.isNull()) {
-                // throw error if absent for any reason other than null
-                spec = mgmt.getTypeRegistry().createSpec(item.get(), null, PolicySpec.class);
-            } else {
-                Class<? extends Policy> type = decoLoader.getType(Policy.class);
-                spec = PolicySpec.create(type)
-                        .parameters(BasicSpecParameter.fromClass(mgmt, type));
-            }
-            spec.configure(decoLoader.getConfigMap());
-            decorations.add(spec);
+        protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<PolicySpec<Policy>> decorations) {
+            addDecorationFromJsonMap(decorationJson, decorations, type -> PolicySpec.create(type));
         }
     }
 
-    public static class EnricherSpecResolver extends BrooklynEntityDecorationResolver<EnricherSpec<?>> {
+    public static class EnricherSpecResolver extends BrooklynObjectSpecResolver<Enricher,EnricherSpec<Enricher>> {
 
-        public EnricherSpecResolver(BrooklynYamlTypeInstantiator.Factory loader) { super(loader); }
-
-        @Override
-        protected String getDecorationKind() { return "Enricher"; }
+        public EnricherSpecResolver(BrooklynYamlTypeInstantiator.Factory initializer) { super(initializer, "Enricher", "enricher", BrooklynCampReservedKeys.BROOKLYN_ENRICHERS, BrooklynObjectType.ENRICHER); }
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
@@ -159,35 +176,18 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         }
 
         @Override
-        protected Object getDecorationAttributeJsonValue(ConfigBag attrs) {
-            return attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_ENRICHERS);
-        }
-
-        @Override
-        protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<EnricherSpec<?>> decorations) {
-            InstantiatorFromKey decoLoader = instantiator.from(decorationJson).prefix("enricher");
-            Class<? extends Enricher> type = decoLoader.getType(Enricher.class);
-            decorations.add(EnricherSpec.create(type)
-                .configure(decoLoader.getConfigMap())
-                .parameters(BasicSpecParameter.fromClass(instantiator.loader.getManagementContext(), type)));
+        protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<EnricherSpec<Enricher>> decorations) {
+            addDecorationFromJsonMap(decorationJson, decorations, type -> EnricherSpec.create(type));
         }
     }
 
     public static class InitializerResolver extends BrooklynEntityDecorationResolver<EntityInitializer> {
 
-        public InitializerResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator); }
-
-        @Override 
-        protected String getDecorationKind() { return "Entity initializer"; }
+        public InitializerResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator, "Entity initializer", "initializer", BrooklynCampReservedKeys.BROOKLYN_INITIALIZERS); }
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
             entitySpec.addInitializers(buildListOfTheseDecorationsFromEntityAttributes(attrs));
-        }
-
-        @Override
-        protected Object getDecorationAttributeJsonValue(ConfigBag attrs) {
-            return attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_INITIALIZERS);
         }
 
         @Override
@@ -197,7 +197,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
                 result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, TypeToken.of(EntityInitializer.class));
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                result = instantiator.from(decorationJson).prefix("initializer").newInstance(EntityInitializer.class);
+                result = instantiator.from(decorationJson).prefix(typeKeyPrefix).newInstance(EntityInitializer.class);
             }
             decorations.add(result);
         }
@@ -208,10 +208,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
         private Function<Object, Object> transformer;
 
-        protected SpecParameterResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator); }
-
-        @Override
-        protected String getDecorationKind() { return "Spec Parameter initializer"; }
+        protected SpecParameterResolver(BrooklynYamlTypeInstantiator.Factory instantiator) { super(instantiator, "Spec Parameter initializer", null, BrooklynCampReservedKeys.BROOKLYN_PARAMETERS); }
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
@@ -228,11 +225,6 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         }
 
         @Override
-        protected Object getDecorationAttributeJsonValue(ConfigBag attrs) {
-            return attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_PARAMETERS);
-        }
-
-        @Override
         protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<SpecParameter<?>> decorations) {
             throw new UnsupportedOperationException("SpecParameterResolver.addDecorationFromJsonMap should never be called.");
         }
@@ -240,7 +232,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
     public static class TagsResolver extends BrooklynEntityDecorationResolver<Iterable<Object>> {
         protected TagsResolver(BrooklynYamlTypeInstantiator.Factory instantiator) {
-            super(instantiator);
+            super(instantiator, "Brooklyn Tags", null, BrooklynCampReservedKeys.BROOKLYN_TAGS);
         }
 
         @Override
@@ -256,13 +248,8 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         }
 
         @Override
-        protected String getDecorationKind() {
-            return "Brooklyn Tags";
-        }
-
-        @Override
         protected Iterable<Object> getDecorationAttributeJsonValue(ConfigBag attrs) {
-            Object brooklynTags = attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_TAGS);
+            Object brooklynTags = super.getDecorationAttributeJsonValue(attrs);
             if (brooklynTags == null) {
                 return null;
             } else if (!(brooklynTags instanceof List)) {
