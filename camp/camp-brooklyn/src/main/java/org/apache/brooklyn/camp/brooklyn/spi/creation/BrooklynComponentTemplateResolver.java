@@ -568,7 +568,7 @@ public class BrooklynComponentTemplateResolver {
                         throw Exceptions.propagateAnnotated(errorMessage, exceptionToInclude);
                     }
                 }
-                cached = EntityManagementUtils.unwrapEntity(entitySpec);
+                cached = EntityManagementUtils.unwrapEntity(entitySpec, true);
                 return cached;
             }
         }

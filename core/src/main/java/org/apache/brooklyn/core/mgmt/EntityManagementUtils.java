@@ -218,10 +218,14 @@ public class EntityManagementUtils {
         return CreationResult.of(children, task);
     }
     
+    public static EntitySpec<? extends Entity> unwrapEntity(EntitySpec<? extends Entity> wrapperApplication) {
+        return unwrapEntity(wrapperApplication, false);
+    }
+    
     /** Unwraps a single {@link Entity} if appropriate. See {@link #WRAPPER_APP_MARKER}.
      * Also see {@link #canUnwrapEntity(EntitySpec)} to test whether it will unwrap. */
-    public static EntitySpec<? extends Entity> unwrapEntity(EntitySpec<? extends Entity> wrapperApplication) {
-        if (!canUnwrapEntity(wrapperApplication)) {
+    public static EntitySpec<? extends Entity> unwrapEntity(EntitySpec<? extends Entity> wrapperApplication, boolean allowUnwrappingApplicationsWithoutWrapperAppMarker) {
+        if (!canUnwrapEntity(wrapperApplication, allowUnwrappingApplicationsWithoutWrapperAppMarker)) {
             return wrapperApplication;
         }
         EntitySpec<?> wrappedEntity = Iterables.getOnlyElement(wrapperApplication.getChildren());
@@ -294,6 +298,10 @@ public class EntityManagementUtils {
         return (childSpec.getType()!=null && Application.class.isAssignableFrom(childSpec.getType()));
     }
     
+    public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec) {
+        return canUnwrapEntity(spec, false);
+    }
+    
     /** Returns true if the spec is for a wrapper app with no important settings, wrapping a single child entity. 
      * for use when adding from a plan specifying multiple entities but there is nothing significant at the application level,
      * and the context would like to flatten it to remove the wrapper yielding just a single entity.
@@ -303,8 +311,10 @@ public class EntityManagementUtils {
      * Note callers will normally use one of {@link #unwrapEntity(EntitySpec)} or {@link #unwrapApplication(EntitySpec)}.
      * 
      * @see #WRAPPER_APP_MARKER for an overview */
-    public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec) {
-        return isWrapperApp(spec) && hasSingleChild(spec) &&
+    public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec, boolean allowUnwrappingApplicationsWithoutWrapperAppMarker) {
+        return ((allowUnwrappingApplicationsWithoutWrapperAppMarker && Application.class.isAssignableFrom(spec.getType())) 
+                || isWrapperApp(spec)) && 
+            hasSingleChild(spec) &&
             // these "brooklyn.*" items on the app rather than the child absolutely prevent unwrapping
             // as their semantics could well be different whether they are on the parent or the child
             spec.getEnricherSpecs().isEmpty() &&
