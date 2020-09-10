@@ -44,6 +44,7 @@ import org.apache.brooklyn.camp.brooklyn.catalog.SpecParameterUnwrappingTest;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
+import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
@@ -57,6 +58,7 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -1272,6 +1274,62 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             
             List<String> keys = params.stream().map((p) -> p.getConfigKey().getName()).collect(Collectors.toList());
             assertEquals(keys.subList(0, 6), ImmutableList.of("pinned1", "pinned2", "pinned3", "unpinned1", "unpinned2", "unpinned3"), "item="+symbolicName+"; actual="+keys);
+        }
+    }
+    
+    @Test
+    public void testRequiredParameterSetInConfigBlockTreatedAsDefault() throws Exception {
+        String version = TEST_VERSION;
+        String nameOfItem = "mySuperType";
+        ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("myconfig");
+        
+        String valInConfigBlock = "myValInSubType";
+        String valInDeploy = "myValInDeploy";
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + nameOfItem,
+                "  version: " + version,
+                "  itemType: entity",
+                "  item:",
+                "    type: " + BasicEntity.class.getName(),
+                "    brooklyn.parameters:",
+                "      - name: " + configKey.getName(),
+                "        type: String",
+                "        constraints:",
+                "          - required",
+                "    brooklyn.config:",
+                "      " + configKey.getName() + ": " + valInConfigBlock);
+        
+        // Entity has a config value set in catalog item
+        {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + nameOfItem + ":" + version);
+            Entity entity = Iterables.getOnlyElement(app.getChildren());
+            assertEquals(entity.config().get(configKey), valInConfigBlock);
+        }
+
+        // Config value overridden at deploy-time
+        {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + nameOfItem + ":" + version,
+                    "  brooklyn.config:",
+                    "    myconfig: " + valInDeploy);
+            Entity entity = Iterables.getOnlyElement(app.getChildren());
+            assertEquals(entity.config().get(configKey), valInDeploy);
+        }
+
+        // Catalog item has a value for the config; this should be shown as the default
+        {
+            RegisteredType subType = mgmt().getTypeRegistry().get(nameOfItem, version);
+            EntitySpec<?> spec = mgmt().getTypeRegistry().createSpec(subType, null, EntitySpec.class);
+            List<SpecParameter<?>> parameters = spec.getParameters();
+            SpecParameter<?> param = Iterables.find(parameters, (p) -> p.getConfigKey().equals(configKey));
+            
+            assertEquals(param.getConfigKey().getDefaultValue(), valInConfigBlock);
+            assertEquals(param.getConfigKey().getConstraint(), new ConfigConstraints.RequiredPredicate<String>());
         }
     }
     

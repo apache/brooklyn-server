@@ -268,6 +268,8 @@ public class BrooklynComponentTemplateResolver {
         new BrooklynEntityDecorationResolver.TagsResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
 
         configureEntityConfig(spec, encounteredRegisteredTypeIds);
+        
+        new BrooklynEntityDecorationResolver.SpecParameterResolver(yamlLoader).decorateDefaultVals(spec, attrs, encounteredRegisteredTypeIds);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

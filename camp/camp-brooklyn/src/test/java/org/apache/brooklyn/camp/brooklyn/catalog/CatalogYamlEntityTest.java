@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.Identifiable;
+import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -37,7 +38,10 @@ import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.ConstraintViolationException;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -760,6 +764,107 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Assert.assertNull(item3, "Type should have been deleted");
     }
     
+    @Test
+    public void testRequiredParameterSetInSubTypeNoLongerRequired() throws Exception {
+        String version = TEST_VERSION;
+        String nameOfSuperType = "mySuperType";
+        String nameOfSubType = "mySubType";
+        ConfigKey<String> configKey = ConfigKeys.newStringConfigKey("myconfig");
+        
+        String valInSubType = "myValInSubType";
+        String valInDeploy = "myValInDeploy";
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + nameOfSuperType,
+                "  version: " + version,
+                "  itemType: entity",
+                "  item:",
+                "    type: " + BasicEntity.class.getName(),
+                "    brooklyn.parameters:",
+                "      - name: " + configKey.getName(),
+                "        type: String",
+                "        constraints:",
+                "          - required");
+        
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + nameOfSubType,
+                "  version: " + version,
+                "  itemType: entity",
+                "  item:",
+                "    type: " + nameOfSuperType + ":" + version,
+                "    brooklyn.config:",
+                "      " + configKey.getName() + ": " + valInSubType);
+        
+        // No value for 'required' config; should fail 
+        try {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + nameOfSuperType + ":" + version);
+            Dumper.dumpInfo(app);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (ConstraintViolationException e) {
+            // success - config has no value
+        }
+        
+        // If explicitly set config, then deploy should work
+        {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + nameOfSuperType + ":" + version,
+                    "  brooklyn.config:",
+                    "    myconfig: " + valInDeploy);
+            Entity entity = Iterables.getOnlyElement(app.getChildren());
+            assertEquals(entity.config().get(configKey), valInDeploy);
+        }
+        
+        // Subtype has a config value set, but that should be overridden if explicitly value is passed
+        {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + nameOfSubType + ":" + version,
+                    "  brooklyn.config:",
+                    "    myconfig: " + valInDeploy);
+            Entity entity = Iterables.getOnlyElement(app.getChildren());
+            assertEquals(entity.config().get(configKey), valInDeploy);
+        }
+
+        // Subtype has a config value set, so 'required' constraint is satisfied
+        {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + nameOfSubType + ":" + version);
+            Entity entity = Iterables.getOnlyElement(app.getChildren());
+            assertEquals(entity.config().get(configKey), valInSubType);
+        }
+        
+        // UI uses spec-parameter's metadata to validate inputs.
+        // Check that reports constraints / defaults correctly.
+
+        // Supertype has no default value, and constraint is 'required'
+        {
+            RegisteredType superType = mgmt().getTypeRegistry().get(nameOfSuperType, version);
+            EntitySpec<?> spec = mgmt().getTypeRegistry().createSpec(superType, null, EntitySpec.class);
+            List<SpecParameter<?>> parameters = spec.getParameters();
+            SpecParameter<?> param = Iterables.find(parameters, (p) -> p.getConfigKey().equals(configKey));
+            
+            assertEquals(param.getConfigKey().getDefaultValue(), null);
+            assertEquals(param.getConfigKey().getConstraint(), new ConfigConstraints.RequiredPredicate<String>());
+        }
+
+        // Subtype has a value; this should be shown as the default
+        {
+            RegisteredType subType = mgmt().getTypeRegistry().get(nameOfSubType, version);
+            EntitySpec<?> spec = mgmt().getTypeRegistry().createSpec(subType, null, EntitySpec.class);
+            List<SpecParameter<?>> parameters = spec.getParameters();
+            SpecParameter<?> param = Iterables.find(parameters, (p) -> p.getConfigKey().equals(configKey));
+            
+            assertEquals(param.getConfigKey().getDefaultValue(), valInSubType);
+            assertEquals(param.getConfigKey().getConstraint(), new ConfigConstraints.RequiredPredicate<String>());
+        }
+    }
+
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
         registerAndLaunchAndAssertSimpleEntity(symbolicName, serviceType, serviceType);
     }
