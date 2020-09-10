@@ -19,18 +19,12 @@
 package org.apache.brooklyn.core.effector;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
@@ -69,26 +63,7 @@ interface AddSensorInitializerAbstractProto<T> extends EntityInitializer {
     }
 
     static String getFullClassName(String className) {
-        if (className.equalsIgnoreCase("string")) {
-            return "java.lang.String";
-        } else if (className.equalsIgnoreCase("int") || className.equalsIgnoreCase("integer")) {
-            return "java.lang.Integer";
-        } else if (className.equalsIgnoreCase("long")) {
-            return "java.lang.Long";
-        } else if (className.equalsIgnoreCase("float")) {
-            return "java.lang.Float";
-        } else if (className.equalsIgnoreCase("double")) {
-            return "java.lang.Double";
-        } else if (className.equalsIgnoreCase("bool") || className.equalsIgnoreCase("boolean")) {
-            return "java.lang.Boolean";
-        } else if (className.equalsIgnoreCase("byte")) {
-            return "java.lang.Byte";
-        } else if (className.equalsIgnoreCase("char") || className.equalsIgnoreCase("character")) {
-            return "java.lang.Character";
-        } else if (className.equalsIgnoreCase("object")) {
-            return "java.lang.Object";
-        } else {
-            return className;
-        }
+        return BrooklynTypeNameResolution.getClassForBuiltInTypeName(className).transform(c -> c.getName())
+                .or(className);
     }
 }
