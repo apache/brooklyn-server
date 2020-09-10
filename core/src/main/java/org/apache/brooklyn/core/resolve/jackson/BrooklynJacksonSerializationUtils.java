@@ -19,22 +19,26 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.BeanDescription;
-import com.fasterxml.jackson.databind.DeserializationConfig;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.util.collections.MutableList;
-
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.function.Function;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BrooklynJacksonSerializationUtils {
+
+    private static final Logger log = LoggerFactory.getLogger(BrooklynJacksonSerializationUtils.class);
 
     public static <T> TypeReference<T> asTypeReference(TypeToken<T> typeToken) {
         return new TypeReference<T>() {
@@ -46,34 +50,119 @@ public class BrooklynJacksonSerializationUtils {
     }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
+        List<Function<JsonDeserializer<?>,JsonDeserializer<?>>> deserializerWrappers = MutableList.of();
         List<Function<Object,Object>> postConstructFunctions = MutableList.of();
+
+        public ConfigurableBeanDeserializerModifier addDeserializerWrapper(Function<JsonDeserializer<?>,JsonDeserializer<?>> ...f) {
+            for (Function<JsonDeserializer<?>,JsonDeserializer<?>> fi: f) deserializerWrappers.add(fi);
+            return this;
+        }
 
         public ConfigurableBeanDeserializerModifier addPostConstructFunction(Function<Object,Object> f) {
             postConstructFunctions.add(f);
             return this;
         }
 
-        private class JsonDeserializerInvokingPostConstruct extends DelegatingDeserializer {
-            public JsonDeserializerInvokingPostConstruct(JsonDeserializer<?> deserializer) {
-                super(deserializer);
-            }
-
-            @Override
-            protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee) {
-                return new JsonDeserializerInvokingPostConstruct(newDelegatee);
-            }
-
-            @Override
-            public Object deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
-                return postConstructFunctions.stream().reduce(Function::andThen).orElse(x -> x).apply( _delegatee.deserialize(jp, ctxt) );
-            }
-        }
-
         public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config,
                                                       BeanDescription beanDesc,
-                                                      final JsonDeserializer<?> deserializer) {
-            return new JsonDeserializerInvokingPostConstruct(deserializer);
+                                                      JsonDeserializer<?> deserializer) {
+            for (Function<JsonDeserializer<?>,JsonDeserializer<?>> d: deserializerWrappers) {
+                deserializer = d.apply(deserializer);
+            }
+            if (!postConstructFunctions.isEmpty()) {
+                deserializer = new JsonDeserializerInvokingPostConstruct(postConstructFunctions, deserializer);
+            }
+            return deserializer;
+        }
+
+        public <T extends ObjectMapper> T apply(T mapper) {
+            SimpleModule module = new SimpleModule();
+            module.setDeserializerModifier(this);
+            return (T)mapper.registerModule(module);
         }
     }
+
+    static class JsonDeserializerInvokingPostConstruct extends DelegatingDeserializer {
+        final List<Function<Object,Object>> postConstructFunctions;
+        public JsonDeserializerInvokingPostConstruct(List<Function<Object,Object>> postConstructFunctions, JsonDeserializer<?> deserializer) {
+            super(deserializer);
+            this.postConstructFunctions = postConstructFunctions;
+        }
+
+        @Override
+        protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee) {
+            return new JsonDeserializerInvokingPostConstruct(postConstructFunctions, newDelegatee);
+        }
+
+        @Override
+        public Object deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+            return postConstructFunctions.stream().reduce(Function::andThen).orElse(x -> x).apply( _delegatee.deserialize(jp, ctxt) );
+        }
+    }
+
+    public static class NestedLoggingDeserializer extends DelegatingDeserializer {
+        private final StringBuilder prefix;
+
+        public NestedLoggingDeserializer(StringBuilder prefix, JsonDeserializer<?> deserializer) {
+            super(deserializer);
+            this.prefix = prefix;
+        }
+
+        @Override
+        protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee) {
+            prefix.append(".");
+            try {
+                return new NestedLoggingDeserializer(prefix, newDelegatee);
+            } finally {
+                prefix.setLength(prefix.length()-1);
+            }
+        }
+
+        @Override
+        public Object deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+            String v = jp.getCurrentToken()==JsonToken.VALUE_STRING ? jp.getValueAsString() : null;
+            try {
+                prefix.append("  ");
+                log.info(prefix+"> "+jp.getCurrentToken());
+                Object result = _delegatee.deserialize(jp, ctxt);
+                log.info(prefix+"< "+result);
+                return result;
+            } catch (Exception e) {
+                log.info(prefix+"< "+e);
+                throw e;
+            } finally {
+                prefix.setLength(prefix.length()-2);
+            }
+        }
+    }
+
+    public static class JsonDeserializerForCommonBrooklynThings extends DelegatingDeserializer {
+        public JsonDeserializerForCommonBrooklynThings(JsonDeserializer<?> deserializer) {
+            super(deserializer);
+        }
+
+        @Override
+        protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee) {
+            return new JsonDeserializerForCommonBrooklynThings(newDelegatee);
+        }
+
+        @Override
+        public Object deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
+            String v = jp.getCurrentToken()==JsonToken.VALUE_STRING ? jp.getValueAsString() : null;
+            try {
+                return _delegatee.deserialize(jp, ctxt);
+            } catch (Exception e) {
+                // if it fails, get the raw json and attempt a coercion?; currently just for strings
+                if (v!=null && handledType()!=null) {
+                    // attempt type coercion
+                    Maybe<?> coercion = TypeCoercions.tryCoerce(v, handledType());
+                    if (coercion.isPresent()) return coercion.get();
+                }
+                throw e;
+            }
+        }
+
+    }
+
 
 }

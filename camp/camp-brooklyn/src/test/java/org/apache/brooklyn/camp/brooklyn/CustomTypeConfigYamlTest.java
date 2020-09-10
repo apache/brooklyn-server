@@ -142,11 +142,19 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 "foo", "bar");
     }
 
-    // TODO - implicit typing - base type figured out from key type.  on read?  or on access?
-    // usually done on access
-
+    // TODO - implicit typing - deserialization base type implied by key type.  on creation?  or on access?
+    // probably on access, by config lookup.  though that will need custom logic for initializers and maybe others,
+    // in addition to the obvious place(s) where it is done for entities
+    //
     // test:  type declared on a parameter; get as object it recasts it as official type, and coerces
-    // testRegisteredTypeValueImplicitlyCoercedOn{read?,write?}TypedConfigKey_InheritedFieldsWork
-    // testRegisteredTypeImplicitInValueOfTypedConfigKey_CoercedOnCreation
+    // testRegisteredTypeImplicitInValueReadByTypedConfigKey_CoercedOnCreation
+    // testRegisteredTypeImplicitInValueReadByObjectConfigKey_ReturnsMap
+    // (and change testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType,
+    //      if the java type exactly matches the expected type)
+
+    // TODO DSL expressions inside these types might mess things up
+    // they might just work, or maybe just when wrapped in ValueSupplier, or maybe they break horribly ...
+    // can make jackson serialize and deserialize them specially, either pass-through or as strings TBD
+    // see reference to DslSerializationAsToString in BeanWithTypeUtils
 
 }

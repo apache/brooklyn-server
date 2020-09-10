@@ -33,16 +33,6 @@ public class WrappedValuesSerializationTest implements MapperTestFixture {
         return BeanWithTypeUtils.newMapper(null, false, true);
     }
 
-    // baseline
-
-    static class EmptyObject {}
-
-    @Test
-    public void testMapperDoesntBreakBasicThings() throws Exception {
-        Asserts.assertEquals(deser("\"hello\""), "hello");
-        Asserts.assertInstanceOf(deser("{\"type\":\""+EmptyObject.class.getName()+"\"}"), EmptyObject.class);
-    }
-
     // basic serialization / deserialization of wrapped values
     static class ObjectWithWrappedValueString extends WrappedValuesInitialized {
         private WrappedValue<String> x;

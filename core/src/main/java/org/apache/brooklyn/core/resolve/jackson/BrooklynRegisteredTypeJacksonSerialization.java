@@ -33,6 +33,7 @@ import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.type.SimpleType;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer;
@@ -41,10 +42,12 @@ import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseTyp
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynRegisteredTypeAndClassNameIdResolver;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.RegisteredTypeDeserializers;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import java.io.IOException;
 import java.util.*;
+import org.apache.brooklyn.util.guava.Maybe;
 
 public class BrooklynRegisteredTypeJacksonSerialization {
 
@@ -118,6 +121,11 @@ public class BrooklynRegisteredTypeJacksonSerialization {
 
         @Override
         public JavaType typeFromId(DatabindContext context, String id) throws IOException {
+            Maybe<Class<?>> builtin = BrooklynTypeNameResolution.getClassForBuiltInTypeName(id);
+            if (builtin.isPresent()) {
+                return context.constructType(builtin.get());
+            }
+
             if (allowRegisteredTypes && mgmt!=null) {
                 RegisteredType rt = mgmt.getTypeRegistry().get(id);
                 if (rt != null) {

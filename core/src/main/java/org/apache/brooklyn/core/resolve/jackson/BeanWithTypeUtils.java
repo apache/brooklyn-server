@@ -23,6 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -40,8 +42,11 @@ public class BeanWithTypeUtils {
 
         BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, allowJavaTypes);
         WrappedValuesSerialization.apply(mapper);
-
-        //TODO DslSerializationAsToString
+        mapper = new ConfigurableBeanDeserializerModifier()
+                .addDeserializerWrapper(
+                        d -> new JsonDeserializerForCommonBrooklynThings(d)
+                        //TODO DslSerializationAsToString - see CustomTypeConfigYamlTest
+                ).apply(mapper);
 
         return mapper;
     }
