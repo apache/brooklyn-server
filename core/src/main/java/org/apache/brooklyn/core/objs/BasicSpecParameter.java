@@ -26,7 +26,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
@@ -54,7 +53,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -258,7 +256,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
             boolean hasType = type!=null;
 
-            TypeToken typeToken = inferType(type, loader);
+            TypeToken typeToken = resolveType(type, loader);
             Object immutableDefaultValue = tryToImmutable(defaultValue, typeToken);
 
             Builder builder = BasicConfigKey.builder(typeToken)
@@ -301,9 +299,10 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             }
         }
         
-        private static TypeToken<?> inferType(String typeRaw, BrooklynClassLoadingContext loader) {
+        private static TypeToken<?> resolveType(String typeRaw, BrooklynClassLoadingContext loader) {
             if (typeRaw == null) return TypeToken.of(String.class);
-            return BrooklynTypeNameResolution.getTypeTokenForBuiltInAndJava(typeRaw, "parameter", loader);
+            return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("parameter", loader, true, true)
+                    .getTypeToken(typeRaw);
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })

@@ -22,6 +22,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.reflect.TypeToken;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import org.apache.brooklyn.core.effector.AddChildrenEffector;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import static org.testng.Assert.assertEquals;
@@ -1454,7 +1460,29 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         fixtureForTestingType("list<string>", "[a, 1]", (cfg,entity) -> {
             assertEquals(cfg.getType(), List.class);
             assertEquals(cfg.getTypeToken(), new TypeToken<List<String>>() {});
-            assertEquals(entity.getConfig(cfg), MutableList.of("a", 1));
+            assertEquals(entity.getConfig(cfg), MutableList.of("a", "1"));
         });
     }
+
+    // TODO
+//    @Test
+//    public void testMapGenericsRegisteredType() throws Exception {
+//        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(
+//                RegisteredTypes.addSuperType(
+//                    RegisteredTypes.bean("my-bean", "1",
+//                        new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+//                                "type: "+ SampleBean.class.getName()
+//                        )),
+//                    SampleBean.class), false);
+//
+//        // cf tests in CustomTypeConfigYamlTest
+//        fixtureForTestingType("map <string, my-bean>", "{ a: {x:1} }", (cfg,entity) -> {
+//            assertEquals(cfg.getType(), Map.class);
+//            assertEquals(cfg.getTypeToken(), new TypeToken<Map<String,SampleBean>>() {});
+//            Map<?,?> l = (Map<?,?>) entity.getConfig(cfg);
+//            SampleBean b = (SampleBean) l.get("a");
+//            Assert.assertEquals(b.x, "1");
+//        });
+//    }
+
 }

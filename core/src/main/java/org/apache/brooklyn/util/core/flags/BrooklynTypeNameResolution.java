@@ -18,18 +18,21 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import java.lang.reflect.Type;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.PortRange;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -57,10 +60,26 @@ public class BrooklynTypeNameResolution {
             .put("map", Map.class)
             .put("list", List.class)
 
+            .put("wrapped", WrappedValue.class)
+            .put("wrapped-value", WrappedValue.class)
+            .put("wrappedvalue", WrappedValue.class)
+
             .put("duration", Duration.class)
             .put("timestamp", Date.class)
             .put("port", PortRange.class)
             .build();
+
+    private static final Map<String,Class<?>> BUILT_IN_TYPE_CLASSES;
+    static {
+        MutableMap<String,Class<?>> collector = MutableMap.of();
+        BUILT_IN_TYPES.values().forEach(t -> collector.put(t.getName(), t));
+        BUILT_IN_TYPE_CLASSES = collector.asUnmodifiable();
+    }
+    private static final Set<String> BUILT_IN_TYPE_RESERVED_WORDS = MutableSet.copyOf(
+            BUILT_IN_TYPE_CLASSES.keySet().stream().map(String::toLowerCase).collect(Collectors.toList()))
+            .asUnmodifiable();
+
+
 
     public static Maybe<TypeToken<?>> getTypeTokenForBuiltInTypeName(String className) {
         return getClassForBuiltInTypeName(className).transform(TypeToken::of);
@@ -68,40 +87,80 @@ public class BrooklynTypeNameResolution {
 
     public static Maybe<Class<?>> getClassForBuiltInTypeName(String className) {
         if (className==null) return Maybe.absent(new NullPointerException("className is null"));
-        return Maybe.ofDisallowingNull(BUILT_IN_TYPES.get(className.trim().toLowerCase()));
+        Class<?> candidate = BUILT_IN_TYPES.get(className.trim().toLowerCase());
+        if (candidate!=null) return Maybe.of(candidate);
+        candidate = BUILT_IN_TYPE_CLASSES.get(className);
+        if (candidate!=null) return Maybe.of(candidate);
+        return Maybe.absent();
     }
 
     public static Map<String, Class<?>> standardTypesMap() {
         return BUILT_IN_TYPES;
     }
 
-    private static final Set<String> BUILT_IN_TYPE_RESERVED_WORDS = MutableSet.copyOf(BUILT_IN_TYPES.keySet())
-            .putAll(BUILT_IN_TYPES.values().stream().map(c -> c.getName().toLowerCase()).collect(Collectors.toList()))
-            .asUnmodifiable();
-
     public static boolean isBuiltInType(String s) {
         return BUILT_IN_TYPE_RESERVED_WORDS.contains(s.trim().toLowerCase());
     }
 
-    public static TypeToken<?> getTypeTokenForBuiltInAndJava(String typeName, String context, BrooklynClassLoadingContext loader) {
-        return parseTypeToken(typeName, newTypeResolverComposite(context, loader));
-    }
+    public static class BrooklynTypeNameResolver {
+        final String context;
+        final ManagementContext mgmt;
+        final BrooklynClassLoadingContext loader;
+        final boolean allowJavaType;
+        final boolean allowRegisteredTypes;
+        final Map<String,Function<String,Maybe<Class<?>>>> rules = MutableMap.of();
 
-    static Function<String,Type> newTypeResolverComposite(String context, BrooklynClassLoadingContext loaderContext) {
-        Map<String,Function<String,Maybe<Class<?>>>> rules = MutableMap.of(
-                "simple types ("+Strings.join(BrooklynTypeNameResolution.standardTypesMap().keySet(), ", ")+")",
-                    BrooklynTypeNameResolution::getClassForBuiltInTypeName,
-                "Java types", loaderContext::tryLoadClass);
+        /** resolver supporting only built-ins */
+        public BrooklynTypeNameResolver(String context) {
+            this( context, null, null, false, false );
+        }
+        /** resolver supporting only built-ins and (unless mgmt is null) registered types */
+        public BrooklynTypeNameResolver(String context, ManagementContext mgmt) {
+            this(context, mgmt, null, false, mgmt != null);
+        }
+        /** resolver supporting configurable sources of types */
+        public BrooklynTypeNameResolver(String context, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
+            this(context, loader.getManagementContext(), loader, allowJavaType, allowRegisteredTypes);
+        }
+        private BrooklynTypeNameResolver(String context, ManagementContext mgmt, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
+            this.context = context;
+            this.mgmt = mgmt;
+            this.loader = loader;
+            this.allowJavaType = allowJavaType;
+            this.allowRegisteredTypes = allowRegisteredTypes;
 
-        Function<String,Maybe<Class<?>>> composite = s -> {
+            rules.put("simple types ("+Strings.join(BrooklynTypeNameResolution.standardTypesMap().keySet(), ", ")+")",
+                    BrooklynTypeNameResolution::getClassForBuiltInTypeName);
+
+            if (allowJavaType) {
+                rules.put("Java types", loader::tryLoadClass);
+            }
+
+            if (allowRegisteredTypes) {
+                rules.put("Brooklyn registered types", s -> {
+                    Maybe<RegisteredType> t = mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader));
+                    if (t.isPresent()) {
+                        Optional<Object> st1 = t.get().getSuperTypes().stream().filter(st -> st instanceof Class).findFirst();
+                        if (st1.isPresent()) {
+                            return Maybe.of( (Class<?>) st1.get() );
+                        }
+                    }
+                    return Maybe.absent();
+                });
+            }
+        }
+
+        protected Maybe<Class<?>> getBaseClassInternal(String s) {
             for (Function<String, Maybe<Class<?>>> r : rules.values()) {
                 Maybe<Class<?>> candidate = r.apply(s);
                 if (candidate.isPresent()) return candidate;
             }
             return Maybe.absent(() -> new IllegalArgumentException("Invalid type for "+context+": '"+s+"' not found in "+rules.keySet()));
-        };
+        }
 
-        return s -> composite.apply(s).get();
+        public <T> TypeToken<T> getTypeToken(String typeName) {
+            return (TypeToken<T>) parseTypeToken(typeName, bs -> getBaseClassInternal(bs).get());
+        }
     }
 
     static GenericsRecord parseTypeGenerics(String s) { return parseTypeGenerics(s, (String t, List<GenericsRecord> tt) -> new GenericsRecord(t, tt)); }

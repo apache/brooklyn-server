@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.effector;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
+import com.google.common.reflect.TypeToken;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamException;
@@ -76,18 +77,13 @@ public class AddSensorInitializer<T> extends EntityInitializers.InitializerPatte
     }
 
     private AttributeSensor<T> sensor(Entity entity) {
-        String className = getFullClassName(initParam(SENSOR_TYPE));
-        Class<T> clazz = getType(entity, className);
+        TypeToken<T> clazz = getType(entity, initParam(SENSOR_TYPE));
         return Sensors.newSensor(clazz, Preconditions.checkNotNull(initParam(SENSOR_NAME)));
     }
 
     @SuppressWarnings("unchecked")
-    protected Class<T> getType(Entity entity, String className) {
-        return AddSensorInitializerAbstractProto.getType(entity, className, initParam(SENSOR_NAME), this);
-    }
-
-    protected String getFullClassName(String className) {
-        return AddSensorInitializerAbstractProto.getFullClassName(className);
+    protected TypeToken<T> getType(Entity entity, String className) {
+        return AddSensorInitializerAbstractProto.getType(entity, className, initParam(SENSOR_NAME));
     }
 
     // kept for backwards deserialization compatibility

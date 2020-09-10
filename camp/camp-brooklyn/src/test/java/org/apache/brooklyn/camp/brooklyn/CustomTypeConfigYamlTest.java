@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -61,11 +62,19 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     }
     
     protected Entity deployWithTestingCustomTypeObjectConfig(String type, ConfigKey<?> key) throws Exception {
-        return setupAndCheckTestEntityInBasicYamlWith( 
-            "  brooklyn.config:",
-            "    "+key.getName()+":",
-            "      type: "+type,
-            "      x: foo");
+        return deployWithTestingCustomTypeObjectConfig(false, type, key);
+    }
+    protected Entity deployWithTestingCustomTypeObjectConfig(boolean useParameter, String type, ConfigKey<?> key) throws Exception {
+        return setupAndCheckTestEntityInBasicYamlWith(
+                useParameter ? Strings.lines(
+                        "  brooklyn.parameters:",
+                        "  - name: "+key.getName(),
+                        "    type: "+type) : "",
+                "  brooklyn.config:",
+                "    "+key.getName()+":",
+                !useParameter ?
+                        "      type: "+type : "",
+                "      x: foo");
     }
 
     protected void assertObjectIsOurCustomTypeWithFieldValues(Object customObj, String x, String y) {
@@ -83,49 +92,61 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         return testEntity;
     }
 
-    @Test
-    public void testCustomTypeInObjectConfigKeyReturnsMap() throws Exception {
-        // baseline behaviour - if the config is of type 'object' there is no conversion; you get raw json map
+    public static final ConfigKey<Object> CONF_ANONYMOUS_OBJECT = ConfigKeys.newConfigKey(Object.class,
+            "test.confAnonymous", "Configuration key that's declared as an Object, but not defined on the Entity, and should be our custom type; was it coerced when created?");
+    public static final ConfigKey<TestingCustomType> CONF_ANONYMOUS_OBJECT_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class,
+            "test.confAnonymous", "Configuration key that's declared as our custom type, matching the key name as the Object, and also not defined on the Entity, and should be our custom type; is it coercible on read with this key (or already coerced)?");
+    
+    public static final ConfigKey<TestingCustomType> CONF_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class,
+        "test.confTyped", "Configuration key that's our custom type");
 
-        Entity testEntity = deployWithTestingCustomTypeObjectConfig(TestingCustomType.class.getName(), TestEntity.CONF_OBJECT);
-        Object customObj = testEntity.getConfig(TestEntity.CONF_OBJECT);
+    @Test
+    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_ReturnsMap() throws Exception {
+        // java types are not permitted as the type of a value of a config key - it gets deserialized as a map
+         Entity testEntity = deployWithTestingCustomTypeObjectConfig(false, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT);
+        Object customObj = testEntity.getConfig(CONF_ANONYMOUS_OBJECT);
 
         Assert.assertNotNull(customObj);
 
         Asserts.assertInstanceOf(customObj, Map.class);
         Asserts.assertEquals(((Map<?,?>)customObj).get("x"), "foo");
     }
-
-    public static final ConfigKey<TestingCustomType> CONF_OBJECT_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class, 
-        "test.confTyped", "Configuration key that's our custom type");
-    
     @Test
-    public void testCustomTypeInTypedConfigKeyJavaType() throws Exception {
-        // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the java type;
-        // but types used in config must be registered types
-        Asserts.assertFailsWith(() -> deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_OBJECT_TYPED, "foo", null),
+    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType() throws Exception {
+        // and if we try to access it with a typed key it fails
+        // TODO we might support this - as a type coercion
+        Asserts.assertFailsWith(() -> deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_TYPED, "foo", null),
                 e -> Asserts.expectedFailureContains(e, "TestingCustomType", "map", "test.confTyped"));
     }
-    
-    @Test
-    public void testCustomTypeInTypedConfigKeyRegisteredType() throws Exception {
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
-                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, CustomTypeConfigYamlTest.TestingCustomType.class.getName())), false);
-        // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the brooklyn registered type
-        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_OBJECT_TYPED,
-                "foo", null);
-    }
 
     @Test
-    public void testCustomTypeInTypedConfigKeyRegisteredTypeWithBeanWithTypeFields() throws Exception {
+    public void testRegisteredTypeDeclaredInValueOfAnonymousConfigKey_CoercedOnCreation_ReturnsCustomType() throws Exception {
+        // however if the value states its type as a registered type (and of course bean with type allows java type in definitions)
+        // then it _is_ read and accessed as the custom type
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, CustomTypeConfigYamlTest.TestingCustomType.class.getName())), false);
+        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_ANONYMOUS_OBJECT,
+                "foo", null);
+        // and of course now accessing it with the typed key works
+        Asserts.assertInstanceOf(testEntity.getConfig(CONF_ANONYMOUS_OBJECT_TYPED), TestingCustomType.class);
+    }
+    @Test
+    public void testRegisteredTypeDeclaredInValueOfAnonymousConfigKey_CoercedOnCreation_InheritedFieldsWork() throws Exception {
+        // in the above case, fields are correctly inherited from ancestors and overridden
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
                 new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
                         "type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName()+"\n" +
                         "x: unfoo\n"+
                         "y: bar")), false);
-        // if the config key is typed, coercion returns the strongly typed value, correctly deserializing the brooklyn registered type
-        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_OBJECT_TYPED,
+        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_ANONYMOUS_OBJECT,
                 "foo", "bar");
     }
+
+    // TODO - implicit typing - base type figured out from key type.  on read?  or on access?
+    // usually done on access
+
+    // test:  type declared on a parameter; get as object it recasts it as official type, and coerces
+    // testRegisteredTypeValueImplicitlyCoercedOn{read?,write?}TypedConfigKey_InheritedFieldsWork
+    // testRegisteredTypeImplicitInValueOfTypedConfigKey_CoercedOnCreation
 
 }

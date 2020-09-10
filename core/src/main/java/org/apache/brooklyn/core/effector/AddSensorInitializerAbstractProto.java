@@ -19,12 +19,16 @@
 package org.apache.brooklyn.core.effector;
 
 import com.google.common.annotations.Beta;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.BrooklynTypeNameResolver;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
@@ -41,29 +45,7 @@ interface AddSensorInitializerAbstractProto<T> extends EntityInitializer {
     public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
 
     @SuppressWarnings("unchecked")
-    static <T> Class<T> getType(Entity entity, String className, String name, Object contextInstanceForClassloading) {
-        try {
-            // TODO use OSGi loader (low priority however); also ensure that allows primitives
-            Maybe<Class<?>> primitive = Boxing.getPrimitiveType(className);
-            if (primitive.isPresent()) return (Class<T>) primitive.get();
-
-            return (Class<T>) new ClassLoaderUtils(contextInstanceForClassloading, entity).loadClass(className);
-        } catch (ClassNotFoundException e) {
-            if (!className.contains(".")) {
-                // could be assuming "java.lang" package; try again with that
-                try {
-                    return (Class<T>) Class.forName("java.lang."+className);
-                } catch (ClassNotFoundException e2) {
-                    throw new IllegalArgumentException("Invalid target type for sensor "+name+": " + className+" (also tried java.lang."+className+")");
-                }
-            } else {
-                throw new IllegalArgumentException("Invalid target type for sensor "+name+": " + className);
-            }
-        }
-    }
-
-    static String getFullClassName(String className) {
-        return BrooklynTypeNameResolution.getClassForBuiltInTypeName(className).transform(c -> c.getName())
-                .or(className);
+    static <T> TypeToken<T> getType(Entity entity, String className, String name) {
+        return new BrooklynTypeNameResolver("sensor "+name+" on "+entity, new OsgiBrooklynClassLoadingContext(entity), true, true).getTypeToken(className);
     }
 }

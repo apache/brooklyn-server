@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.effector;
 
+import com.google.common.reflect.TypeToken;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -74,8 +75,7 @@ public class AddSensor<T> extends EntityInitializers.InitializerPatternWithField
     }
 
     private AttributeSensor<T> newSensor(Entity entity) {
-        String className = AddSensorInitializerAbstractProto.getFullClassName(type);
-        Class<T> clazz = AddSensorInitializerAbstractProto.getType(entity, className, name, this);
+        TypeToken<T> clazz = AddSensorInitializerAbstractProto.getType(entity, type, name);
         return Sensors.newSensor(clazz, Preconditions.checkNotNull(name));
     }
 

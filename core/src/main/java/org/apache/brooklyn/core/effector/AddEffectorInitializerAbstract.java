@@ -63,6 +63,7 @@ public abstract class AddEffectorInitializerAbstract extends AddEffectorInitiali
 
     protected abstract <T> EffectorBuilder<T> newEffectorBuilder();
 
+    // TODO support TypeToken here ... and anyone who looks this up dynamically should use BrooklynTypeNameResolver
     protected <T> EffectorBuilder<T> newAbstractEffectorBuilder(Class<T> type) {
         return AddEffectorInitializerAbstractProto.newEffectorBuilder(type, initParams());
     }

@@ -22,9 +22,11 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -43,6 +45,9 @@ public class OsgiBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
         this._bundles = bundles;
         this.hasBundles = bundles!=null && !bundles.isEmpty();
         this.catalogItemId = catalogItemId;
+    }
+    public OsgiBrooklynClassLoadingContext(Entity entity) {
+        this(((EntityInternal)entity).getManagementContext(), entity.getCatalogItemId(), null);
     }
 
     public Collection<? extends OsgiBundleWithUrl> getBundles() {

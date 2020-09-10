@@ -42,7 +42,7 @@ import com.google.common.base.Preconditions;
  * <p>
  * Alternatively (recommended) extenders may override {@link #effector()} to recompute the effector each time,
  * and provide two constructors, a no-arg, and a 1-arg {@link ConfigBag} calling the super {@link ConfigBag} constructor here.
- * As per {@link org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigBag} their code
+ * As per {@link org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigKeys} their code
  * may refer to {@link #initParam(ConfigKey)} to access parameters.
  * <p>
  * Note that the parameters passed to the call method in the body of the effector implementation
