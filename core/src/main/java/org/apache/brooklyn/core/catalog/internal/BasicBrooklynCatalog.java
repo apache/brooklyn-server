@@ -741,7 +741,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.warn("Name property will be ignored due to the existence of displayName and at least one of id, symbolicName");
         }
 
-        PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format, libraryBundles, resultLegacyFormat).resolve();
+        PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format,
+                (containingBundle instanceof CatalogBundle ? ((CatalogBundle)containingBundle) : null), libraryBundles, resultLegacyFormat).resolve();
         Exception resolutionError = null;
         if (!planInterpreter.isResolved()) {
             // don't throw yet, we may be able to add it in an unresolved state
@@ -1214,6 +1215,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final Map<?,?> item;
         final String itemYaml;
         final String format;
+        final CatalogBundle containingBundle;
         final Collection<CatalogBundle> libraryBundles;
         final List<CatalogItemDtoAbstract<?, ?>> itemsDefinedSoFar;
         
@@ -1225,10 +1227,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<Exception> transformerErrors = MutableList.of();
 
         public PlanInterpreterInferringType(@Nullable String itemId, Object itemDefinitionParsedToStringOrMap, String itemYaml, @Nullable CatalogItemType optionalCiType, @Nullable String format,
-                                            Collection<CatalogBundle> libraryBundles, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
+                                            CatalogBundle containingBundle, Collection<CatalogBundle> libraryBundles, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
             // ID is useful to prevent recursive references (possibly only supported for entities?)
             this.itemId = itemId;
-            
+            this.containingBundle = containingBundle;
+
             if (itemDefinitionParsedToStringOrMap instanceof String) {
                 if (((String)itemDefinitionParsedToStringOrMap).trim().indexOf("\n")<0) {
                     // if just a one-line string supplied, treat at type unless it parses as a map
@@ -1324,10 +1327,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 Exception e = null;
                 boolean suspicionOfABean = false;
 
-                Set<OsgiBundleWithUrl> searchBundles = MutableSet.copyOf(libraryBundles)
-                        // TODO do we need access to the brooklyn or containing bundle?
-//                    .addAll(currentBundleOrBrooklyn)
-                        ;
+                Set<? extends OsgiBundleWithUrl> searchBundles = MutableSet.copyOf(libraryBundles)
+                        .putIfNotNull(containingBundle);
                 BrooklynClassLoadingContext loader = new OsgiBrooklynClassLoadingContext(mgmt, null, searchBundles);
                 if (catalogItemType == null) {
                     // attempt to detect whether it is a bean
@@ -1838,8 +1839,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // but do not allow this to run if we are expanding a nested definition as that may fail to find recursive loops
             // (the legacy routines this uses don't support that type of context)
             String yaml = RegisteredTypes.getImplementationDataStringForSpec(typeToValidate);
+            CatalogBundle bundle = typeToValidate.getContainingBundle() != null ? CatalogItemDtoAbstract.parseLibraries(Arrays.asList(typeToValidate.getContainingBundle())).iterator().next() : null;
             PlanInterpreterInferringType guesser = new PlanInterpreterInferringType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ),
-                yaml, null, null, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
+                yaml, null, null, bundle, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
             guesser.resolve();
             guesserErrors.addAll(guesser.getErrors());
             

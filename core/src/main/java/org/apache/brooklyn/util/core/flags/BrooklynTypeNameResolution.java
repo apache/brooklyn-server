@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -132,7 +133,8 @@ public class BrooklynTypeNameResolution {
                     BrooklynTypeNameResolution::getClassForBuiltInTypeName);
 
             if (allowJavaType) {
-                rules.put("Java types", loader::tryLoadClass);
+                rules.put("Java types visible to bundles", loader::tryLoadClass);
+                rules.put("Java types", JavaBrooklynClassLoadingContext.create(mgmt)::tryLoadClass);
             }
 
             if (allowRegisteredTypes) {

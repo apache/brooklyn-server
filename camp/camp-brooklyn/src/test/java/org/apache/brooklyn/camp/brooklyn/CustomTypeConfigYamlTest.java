@@ -154,7 +154,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 "  version: "+TEST_VERSION,
                 "  items:",
                 "  - id: custom-type",
-                "    itemType: bean",   // TODO should be optional, correct the loading in BasicBrooklynCatalog
+//                "    itemType: bean",   // optional
                 "    format: bean-with-type",
                 "    item:",
                 "      type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
