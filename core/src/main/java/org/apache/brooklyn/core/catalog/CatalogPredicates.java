@@ -151,7 +151,9 @@ public class CatalogPredicates {
             CatalogPredicates.<Enricher,EnricherSpec<?>>isCatalogItemType(CatalogItemType.ENRICHER);
     public static final Predicate<CatalogItem<Location,LocationSpec<?>>> IS_LOCATION = 
             CatalogPredicates.<Location,LocationSpec<?>>isCatalogItemType(CatalogItemType.LOCATION);
-    
+    public static final Predicate<CatalogItem<Location,LocationSpec<?>>> IS_BEAN =
+            CatalogPredicates.<Location,LocationSpec<?>>isCatalogItemType(CatalogItemType.BEAN);
+
     // TODO PERSISTENCE WORKAROUND kept anonymous function in case referenced in persisted state
     @SuppressWarnings("unused")
     private static final Function<CatalogItem<?,?>,String> ID_OF_ITEM_TRANSFORMER_ANONYMOUS = new Function<CatalogItem<?,?>, String>() {

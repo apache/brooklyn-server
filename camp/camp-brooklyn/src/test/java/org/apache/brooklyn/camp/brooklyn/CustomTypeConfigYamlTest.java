@@ -19,15 +19,20 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -136,9 +141,31 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.bean("custom-type", "1",
                 new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
                         "type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName()+"\n" +
-                        "x: unfoo\n"+
-                        "y: bar")), false);
-        Entity testEntity = deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_ANONYMOUS_OBJECT,
+                                "x: unfoo\n"+
+                                "y: bar")), false);
+        deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_ANONYMOUS_OBJECT,
+                "foo", "bar");
+    }
+    @Test
+    public void testRegisteredTypeDeclaredInValueOfAnonymousConfigKey_CoercedOnCreation_InheritedFieldsWork_BeanAddCatalogSyntax() throws Exception {
+        // in the above case, fields are correctly inherited from ancestors and overridden
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: "+TEST_VERSION,
+                "  items:",
+                "  - id: custom-type",
+                "    itemType: bean",   // TODO should be optional, correct the loading in BasicBrooklynCatalog
+                "    format: bean-with-type",
+                "    item:",
+                "      type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
+                "      x: unfoo",
+                "      y: bar");
+
+        RegisteredType item = mgmt().getTypeRegistry().get("custom-type", TEST_VERSION);
+        Assert.assertNotNull(item);
+        Assert.assertEquals(item.getKind(), RegisteredTypeKind.BEAN);
+
+        deployWithTestingCustomTypeObjectConfigAndAssert("custom-type", CONF_ANONYMOUS_OBJECT,
                 "foo", "bar");
     }
 

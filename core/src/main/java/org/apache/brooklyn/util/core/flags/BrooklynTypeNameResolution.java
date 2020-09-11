@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import java.lang.reflect.Type;
@@ -32,7 +31,6 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -114,7 +112,8 @@ public class BrooklynTypeNameResolution {
         public BrooklynTypeNameResolver(String context) {
             this( context, null, null, false, false );
         }
-        /** resolver supporting only built-ins and (unless mgmt is null) registered types */
+        /** resolver supporting only built-ins and registered types, ie not java (which requires a loader);
+         * or just built-ins if mgmt is null */
         public BrooklynTypeNameResolver(String context, ManagementContext mgmt) {
             this(context, mgmt, null, false, mgmt != null);
         }
@@ -150,7 +149,8 @@ public class BrooklynTypeNameResolution {
             }
         }
 
-        protected Maybe<Class<?>> getBaseClassInternal(String s) {
+        // more efficient method if s has already been sliced
+        Maybe<Class<?>> findBaseClassInternal(String s) {
             for (Function<String, Maybe<Class<?>>> r : rules.values()) {
                 Maybe<Class<?>> candidate = r.apply(s);
                 if (candidate.isPresent()) return candidate;
@@ -158,8 +158,12 @@ public class BrooklynTypeNameResolution {
             return Maybe.absent(() -> new IllegalArgumentException("Invalid type for "+context+": '"+s+"' not found in "+rules.keySet()));
         }
 
+        public Maybe<Class<?>> findBaseClass(String typeName) {
+            typeName = Strings.removeAfter(typeName, "<", true).trim();
+            return findBaseClassInternal(typeName);
+        }
         public <T> TypeToken<T> getTypeToken(String typeName) {
-            return (TypeToken<T>) parseTypeToken(typeName, bs -> getBaseClassInternal(bs).get());
+            return (TypeToken<T>) parseTypeToken(typeName, bs -> findBaseClassInternal(bs).get());
         }
     }
 

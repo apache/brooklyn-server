@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import org.apache.brooklyn.api.catalog.CatalogItem;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -75,12 +76,17 @@ public class CatalogYamlVersioningTest extends AbstractYamlTest {
         addCatalogEntity(symbolicName, version);
     }
     
-    @Test
+    @Test(groups="Broken")    // used to pass, depends on logic at BasicBrooklynCatalog.checkItemAllowedAndIfSoReturnAnyDuplicate
+    // which doesn't have an analogue in registered types; we allow conflicting ID:versions so long as their bundles are consistent
     public void testAddSameVersionFailsWhenIconIsDifferent() {
         String symbolicName = "sampleId";
         String version = "0.1.0";
         addCatalogEntity(symbolicName, version);
         try {
+//            mgmt().getCatalog().
+//                addTypesAndValidateAllowInconsistent(catalogYaml, null, forceUpdate);
+//                // if we do the code below, this test used to pass
+//                addItems(catalogYaml, true, forceUpdate);
             addCatalogEntity(symbolicName, version, BasicEntity.class.getName(), "classpath:/another/icon.png");
             Asserts.shouldHaveFailedPreviously("Expected to fail");
         } catch (Exception e) {
