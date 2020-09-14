@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 
-public class ProxyEffector extends AddEffector {
+public class ProxyEffector extends AddEffectorInitializerAbstract {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProxyEffector.class);
 
@@ -45,17 +45,17 @@ public class ProxyEffector extends AddEffector {
     public static final ConfigKey<String> TARGET_EFFECTOR_NAME = ConfigKeys.newStringConfigKey(
             "targetEffector", "The effector to invoke on the target entity");
 
+    private ProxyEffector() {}
     public ProxyEffector(ConfigBag params) {
-        super(newEffectorBuilder(params).build());
+        super(params);
     }
-
     public ProxyEffector(Map<?, ?> params) {
         this(ConfigBag.newInstance(params));
     }
 
-    public static EffectorBuilder<Object> newEffectorBuilder(ConfigBag params) {
-        EffectorBuilder<Object> eff = AddEffector.newEffectorBuilder(Object.class, params);
-        eff.impl(new Body(eff.buildAbstract(), params));
+    public EffectorBuilder<Object> newEffectorBuilder() {
+        EffectorBuilder<Object> eff = newAbstractEffectorBuilder(Object.class);
+        eff.impl(new Body(eff.buildAbstract(), initParams()));
         return eff;
     }
 

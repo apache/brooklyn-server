@@ -38,7 +38,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.AddEffector;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.EntityInitializers;
@@ -71,7 +71,7 @@ import com.jayway.jsonpath.JsonPath;
  *
  * It allows to specify the URI, the HTTP verb, credentials for authentication and HTTP headers.
  * 
- * It deals with some {@link HttpHeaders.CONTENT_TYPE} namely 'application/json' (as default) and 'application/x-www-form-urlencoded'. 
+ * It deals with some {@link HttpHeaders#CONTENT_TYPE} namely 'application/json' (as default) and 'application/x-www-form-urlencoded'.
  * In the latter case, a map payload will be URLEncoded in a single string
  * 
  * With optional JSON_PATH config key, the effector will extract a section of the json response. 
@@ -79,7 +79,7 @@ import com.jayway.jsonpath.JsonPath;
  * Using JSON_PATHS_AND_SENSORS, it is possible to extract one or more values from a json response, and publish them in sensors
  */
 @Beta
-public final class HttpCommandEffector extends AddEffector {
+public final class HttpCommandEffector extends AddEffectorInitializerAbstract {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpCommandEffector.class);
 
@@ -105,13 +105,12 @@ public final class HttpCommandEffector extends AddEffector {
         GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
     }
 
-    public HttpCommandEffector(ConfigBag params) {
-        super(newEffectorBuilder(params).build());
-    }
+    private HttpCommandEffector() {}
+    public HttpCommandEffector(ConfigBag params) { super(params); }
 
-    public static EffectorBuilder<String> newEffectorBuilder(ConfigBag params) {
-        EffectorBuilder<String> eff = AddEffector.newEffectorBuilder(String.class, params);
-        eff.impl(new Body(eff.buildAbstract(), params));
+    public EffectorBuilder<String> newEffectorBuilder() {
+        EffectorBuilder<String> eff = newAbstractEffectorBuilder(String.class);
+        eff.impl(new Body(eff.buildAbstract(), initParams()));
         return eff;
     }
 

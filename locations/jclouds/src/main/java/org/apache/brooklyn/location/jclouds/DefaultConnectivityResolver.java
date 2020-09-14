@@ -34,6 +34,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternForConfigurable;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
@@ -93,7 +94,7 @@ import com.google.common.net.HostAndPort;
  * This class is annotated @Beta and is likely to change in the future.
  */
 @Beta
-public class DefaultConnectivityResolver extends BasicConfigurableObject implements ConnectivityResolver, EntityInitializer {
+public class DefaultConnectivityResolver extends InitializerPatternForConfigurable implements ConnectivityResolver, EntityInitializer {
 
     private static final Logger LOG = LoggerFactory.getLogger(DefaultConnectivityResolver.class);
 
@@ -137,16 +138,10 @@ public class DefaultConnectivityResolver extends BasicConfigurableObject impleme
     public DefaultConnectivityResolver() {
         this(ImmutableMap.of());
     }
-
     public DefaultConnectivityResolver(Map<?, ?> params) {
         this(ConfigBag.newInstance(params));
     }
-
-    public DefaultConnectivityResolver(final ConfigBag params) {
-        for (Map.Entry<String, Object> entry : params.getAllConfig().entrySet()) {
-            config().set(ConfigKeys.newConfigKey(Object.class, entry.getKey()), entry.getValue());
-        }
-    }
+    public DefaultConnectivityResolver(final ConfigBag params) { super(params); }
 
     // --------------------------------------------------------------------------------------
 

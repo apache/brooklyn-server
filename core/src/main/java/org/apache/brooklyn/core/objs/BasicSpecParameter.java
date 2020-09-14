@@ -23,11 +23,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
 
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
@@ -53,9 +51,8 @@ import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -199,48 +196,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
         return type;
     }
 
-    /** Allows extensions to define additional types that are supported for parameters in YAML.
-     * Rules should return a TypeToken if the given name is known, null if not handled, or 
-     * throw if the name is decisively problematic. Handlers will throw if no rules match. 
-     */
-    @Beta
-    public static void addCustomTypeNameInference(String ruleName, BiFunction<String,BrooklynClassLoadingContext,TypeToken<?>> rule) {
-        ParseYamlInputs.customTypeNameInferencing.put(ruleName, rule);
-    }
-    
     private static final class ParseYamlInputs {
-        private static final String DEFAULT_TYPE = "string";
-        private static final Map<String, Class<?>> BUILT_IN_TYPES = ImmutableMap.<String, Class<?>>builder()
-                .put(DEFAULT_TYPE, String.class)
-                .put("bool", Boolean.class)
-                .put("boolean", Boolean.class)
-                .put("byte", Byte.class)
-                .put("char", Character.class)
-                .put("character", Character.class)
-                .put("short", Short.class)
-                .put("integer", Integer.class)
-                .put("int", Integer.class)
-                .put("long", Long.class)
-                .put("float", Float.class)
-                .put("double", Double.class)
-                .put("duration", Duration.class)
-                .put("timestamp", Date.class)
-                .put("port", PortRange.class)
-                .build();
-
-        /** Map of rule-name to rule; see {@link BasicSpecParameter#addCustomTypeNameInference(String, BiFunction)} */
-        public static Map<String,BiFunction<String,BrooklynClassLoadingContext,TypeToken<?>>> customTypeNameInferencing = MutableMap.of();
-        static {
-            customTypeNameInferencing.put("simple types ("+Strings.join(BUILT_IN_TYPES.keySet(), ", ")+")", 
-                (name, loaderContext) -> BUILT_IN_TYPES.containsKey(name.toLowerCase()) ? 
-                    TypeToken.of(BUILT_IN_TYPES.get(name.toLowerCase())) : null);
-            customTypeNameInferencing.put("Java types", (name, loaderContext) -> {
-                // Assume it's a Java type
-                Maybe<Class<?>> inputType = loaderContext.tryLoadClass(name);
-                return inputType.isPresent() ? TypeToken.of(inputType.get()) : null;
-            });
-        }
-
         private static List<SpecParameter<?>> parseParameters(List<?> inputsRaw, Function<Object, Object> specialFlagTransformer, BrooklynClassLoadingContext loader) {
             if (inputsRaw == null) return ImmutableList.of();
             List<SpecParameter<?>> inputs = new ArrayList<>(inputsRaw.size());
@@ -300,7 +256,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
             boolean hasType = type!=null;
 
-            TypeToken typeToken = inferType(type, loader);
+            TypeToken typeToken = resolveType(type, loader);
             Object immutableDefaultValue = tryToImmutable(defaultValue, typeToken);
 
             Builder builder = BasicConfigKey.builder(typeToken)
@@ -343,16 +299,10 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             }
         }
         
-        private static TypeToken inferType(String typeRaw, BrooklynClassLoadingContext loader) {
+        private static TypeToken<?> resolveType(String typeRaw, BrooklynClassLoadingContext loader) {
             if (typeRaw == null) return TypeToken.of(String.class);
-            String type = typeRaw.trim();
-            for (BiFunction<String,BrooklynClassLoadingContext,TypeToken<?>> f: customTypeNameInferencing.values()) {
-                TypeToken<?> result = f.apply(type, loader);
-                if (result!=null) return result;
-            }
-            throw new IllegalArgumentException("The type '" + type + "' for a parameter is not recognised; supported items are: "
-                + Strings.join(customTypeNameInferencing.keySet(), ", "));
-
+            return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("parameter", loader, true, true)
+                    .getTypeToken(typeRaw);
         }
 
         @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -473,7 +423,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
      * {@link AbstractBrooklynObjectSpec spec}, and if spec has no parameters it 
      * also generates a list from the spec
      *
-     * @see EntitySpec#parameters(List)
+     * @see EntitySpec#parameters(Iterable)
      */
     @Beta
     public static void initializeSpecWithExplicitParameters(AbstractBrooklynObjectSpec<?, ?> spec, List<? extends SpecParameter<?>> explicitParams, BrooklynClassLoadingContext loader) {
@@ -528,7 +478,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
     }
 
     /** instance of {@link SpecParameter} which includes information about what fields are explicitly set,
-     * for use with a subsequent merge with ancestor config keys; see {@link #resolveParameters(Collection, Collection, AbstractBrooklynObjectSpec)}*/
+     * for use with a subsequent merge with ancestor config keys; see {@link #resolveParameters(Collection, AbstractBrooklynObjectSpec)}*/
     @SuppressWarnings("serial")
     @Beta
     static class SpecParameterIncludingDefinitionForInheritance<T> extends BasicSpecParameter<T> {

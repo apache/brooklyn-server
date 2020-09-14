@@ -27,6 +27,8 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.effector.AddSensorInitializer;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -35,7 +37,7 @@ import org.apache.brooklyn.util.time.Duration;
 import com.google.common.base.Supplier;
 import com.google.common.reflect.TypeToken;
 
-public class DurationSinceSensor extends AddSensor<Duration> {
+public class DurationSinceSensor extends AddSensorInitializer<Duration> {
 
     private static final Supplier<Long> CURRENT_TIME_SUPPLIER = new CurrentTimeSupplier();
 
@@ -55,24 +57,17 @@ public class DurationSinceSensor extends AddSensor<Duration> {
             .defaultValue(CURRENT_TIME_SUPPLIER)
             .build();
 
-    private final Supplier<Long> epochSupplier;
-    private final Supplier<Long> timeSupplier;
-    private AttributeSensor<Long> epochSensor;
-
-    public DurationSinceSensor(ConfigBag params) {
-        super(params);
-        epochSupplier = params.get(EPOCH_SUPPLIER);
-        timeSupplier = params.get(TIME_SUPPLIER);
-    }
+    private DurationSinceSensor() {}
+    public DurationSinceSensor(ConfigBag params) { super(params); }
 
     @Override
     public void apply(final EntityLocal entity) {
-        super.apply(entity);
+        AttributeSensor<Duration> sensor = addSensor(entity);
 
-        epochSensor = Sensors.newLongSensor(sensor.getName() + ".epoch");
+        AttributeSensor<Long> epochSensor = Sensors.newLongSensor(sensor.getName() + ".epoch");
 
         if (entity.sensors().get(epochSensor) == null) {
-            Long epoch = epochSupplier.get();
+            Long epoch = initParam(EPOCH_SUPPLIER).get();
             if (epoch == null) {
                 epoch = CURRENT_TIME_SUPPLIER.get();
             }
@@ -81,11 +76,11 @@ public class DurationSinceSensor extends AddSensor<Duration> {
 
         FunctionFeed feed = FunctionFeed.builder()
                 .entity(entity)
-                .poll(new FunctionPollConfig<>(sensor).callable(new UpdateTimeSince(entity)))
-                .period(period)
+                .poll(new FunctionPollConfig<>(sensor).callable(new UpdateTimeSince(entity, epochSensor, initParam(TIME_SUPPLIER))))
+                .period(initParam(SENSOR_PERIOD))
                 .build();
 
-        entity.addFeed(feed);
+        ((EntityInternal)entity).feeds().add(feed);
     }
 
     private static class CurrentTimeSupplier implements Supplier<Long> {
@@ -95,11 +90,15 @@ public class DurationSinceSensor extends AddSensor<Duration> {
         }
     }
 
-    private class UpdateTimeSince implements Callable<Duration> {
+    private static class UpdateTimeSince implements Callable<Duration> {
         private final Entity entity;
+        private final AttributeSensor<Long> epochSensor;
+        private final Supplier<Long> timeSupplier;
 
-        private UpdateTimeSince(Entity entity) {
+        private <T> UpdateTimeSince(EntityLocal entity, AttributeSensor<Long> epochSensor, Supplier<Long> timeSupplier) {
             this.entity = entity;
+            this.epochSensor = epochSensor;
+            this.timeSupplier = timeSupplier;
         }
 
         @Override

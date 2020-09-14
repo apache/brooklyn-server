@@ -239,6 +239,12 @@ public class TypeCoercerExtensible implements TypeCoercer {
             // it might be nice to have more than just the first error but for now that's all we remember
             return firstError;
         }
+        if (value instanceof Map) {
+            if (((Map)value).containsKey("type")) {
+                return Maybe.absent(new ClassCoercionException("Cannot coerce map containing {type: \""+((Map)value).get("type")+"\"} to "+targetTypeToken+": type not known or not supported here"));
+            }
+            return Maybe.absent(new ClassCoercionException("Cannot coerce map to "+targetTypeToken+" ("+value+"): no adapter known"));
+        }
         return Maybe.absent(new ClassCoercionException("Cannot coerce type "+value.getClass().getCanonicalName()+" to "+targetTypeToken+" ("+value+"): no adapter known"));
     }
 
@@ -256,12 +262,12 @@ public class TypeCoercerExtensible implements TypeCoercer {
         for (Map.Entry<?,?> entry : ((Map<?,?>) value).entrySet()) {
             Maybe<?> k = tryCoerce(entry.getKey(), mapKeyType);
             if (k.isAbsent()) return Maybe.absent(new ClassCoercionException(
-                "Could not coerce key of entry "+i+" ("+entry.getKey()+") to "+targetTypeToken,
+                "Could not coerce key of entry "+i+" ("+entry.getKey()+") to "+mapKeyType+" in "+targetTypeToken,
                 ((Maybe.Absent<T>)k).getException()));
 
             Maybe<?> v = tryCoerce(entry.getValue(), mapValueType);
             if (v.isAbsent()) return Maybe.absent(new ClassCoercionException(
-                "Could not coerce value of entry "+i+" ("+entry.getValue()+") to "+targetTypeToken,
+                "Could not coerce value of entry "+i+" ("+entry.getValue()+") to "+mapValueType+" in "+targetTypeToken,
                 ((Maybe.Absent<T>)v).getException()));
             
             coerced.put(k.get(), v.get());

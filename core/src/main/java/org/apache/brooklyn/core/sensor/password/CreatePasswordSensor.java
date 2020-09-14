@@ -26,38 +26,30 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.effector.AddSensorInitializer;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Identifiers;
 
-public class CreatePasswordSensor extends AddSensor<String> {
+public class CreatePasswordSensor extends AddSensorInitializer<String> {
 
     public static final ConfigKey<Integer> PASSWORD_LENGTH = ConfigKeys.newIntegerConfigKey("password.length", "The length of the password to be created", 12);
-
     public static final ConfigKey<String> ACCEPTABLE_CHARS = ConfigKeys.newStringConfigKey("password.chars", "The characters allowed in password");
-
     public static final ConfigKey<List<String>> CHARACTER_GROUPS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "password.character.groups", "A list of strings, where each string is a character group (such as letters, or numbers). The password will be constructed using only characters from these strings, and will use at least one character from each group. When using this option, `password.length` must be at least as long as the number of character groups given.");
 
-    private Integer passwordLength;
-    private String acceptableChars;
-    private List<String> characterGroups;
-
-    public CreatePasswordSensor(Map<String, String> params) {
-        this(ConfigBag.newInstance(params));
-    }
-
-    public CreatePasswordSensor(ConfigBag params) {
-        super(params);
-        passwordLength = params.get(PASSWORD_LENGTH);
-        acceptableChars = params.get(ACCEPTABLE_CHARS);
-        characterGroups = params.get(CHARACTER_GROUPS);
-    }
+    private CreatePasswordSensor() {}
+    public CreatePasswordSensor(Map<String, String> params) { this(ConfigBag.newInstance(params)); }
+    public CreatePasswordSensor(ConfigBag params) { super(params); }
 
     @Override
     public void apply(EntityLocal entity) {
-        super.apply(entity);
+        AttributeSensor<String> sensor = addSensor(entity);
+        List<String> characterGroups = initParam(CHARACTER_GROUPS);
+        String acceptableChars = initParam(ACCEPTABLE_CHARS);
+        Integer passwordLength = initParam(PASSWORD_LENGTH);
 
         boolean isCharacterGroupsPresent = characterGroups != null
                 && characterGroups.size() > 0;

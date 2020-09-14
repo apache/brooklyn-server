@@ -23,6 +23,8 @@ import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Function;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
@@ -68,6 +70,9 @@ public abstract class BrooklynYamlTypeInstantiator {
             return new InstantiatorFromName(this, typeName);
         }
 
+        public BrooklynClassLoadingContext getClassLoadingContext() {
+            return loader;
+        }
     }
         
     public static class InstantiatorFromKey extends BrooklynYamlTypeInstantiator {

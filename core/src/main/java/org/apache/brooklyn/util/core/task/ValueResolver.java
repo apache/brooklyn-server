@@ -52,10 +52,12 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 
+import javax.annotation.Nullable;
+
 /** 
  * Resolves a given object, as follows:
  * <li> If it is a {@link Tasks} or a {@link DeferredSupplier} then get its contents
- * <li> If it's a map/iterable and {@link #deep(boolean, Boolean)} is requested, it applies resolution to contents
+ * <li> If it's a map/iterable depending on {@link #deep()}, it can apply resolution to contents
  * <li> It applies coercion
  * <p>
  * Fluent-style API exposes a number of other options.
@@ -108,14 +110,25 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     final TypeToken<T> typeT;
     ExecutionContext exec;
     String description;
+
+    boolean allowDeepResolution = true;
+    /** whether to traverse into the object coercing even if the types appear to match at this level;
+     * useful if resolving a map to a map but we want to look inside the map */
     boolean forceDeep;
-    Boolean deepTraversalUsesRootType;
+    /** if true, the type specified here is re-used when coercing contents (eg map keys, values);
+     * if null (the default), then do that only if the type here has no generics;
+     * if false then rely on generics or if no generics then don't coerce.
+     * if the {@link #typeT} is Object this has no effect. */
+    // TODO i don't think we ever rely this -Alex
+    Boolean ignoreGenericsAndApplyThisTypeToContents;
+
     /** null means do it if you can; true means always, false means never */
     Boolean embedResolutionInTask;
     /** timeout on execution, if possible, or if embedResolutionInTask is true */
     Duration timeout;
     boolean immediately;
     boolean recursive = true;
+
     boolean isTransientTask = true;
     
     T defaultValue = null;
@@ -140,22 +153,38 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         this.value = v;
         this.typeT = type;
         checkTypeNotNull();
-        
-        exec = parent.exec;
-        description = parent.description;
-        forceDeep = parent.forceDeep;
-        embedResolutionInTask = parent.embedResolutionInTask;
 
         parentOriginalValue = parent.getOriginalValue();
+        parentTimer = parent.parentTimer;
+
+        copyNonFinalFields(parent);
+
+        // these should need to be nested/copied (this constructor is for setting up a nested resolver during deep resolution)
+        returnDefaultOnGet = false;
+        defaultValue = null;
+        swallowExceptions = false;
+        recursive = true;
+        ignoreGenericsAndApplyThisTypeToContents = null;
+    }
+
+    private void copyNonFinalFields(ValueResolver<?> parent) {
+        exec = parent.exec;
+        description = parent.description;
+        embedResolutionInTask = parent.embedResolutionInTask;
+        swallowExceptions = parent.swallowExceptions;
+
+        recursive = parent.recursive;
+        forceDeep = parent.forceDeep;
+        allowDeepResolution = parent.allowDeepResolution;
+        ignoreGenericsAndApplyThisTypeToContents = parent.ignoreGenericsAndApplyThisTypeToContents;
 
         timeout = parent.timeout;
         immediately = parent.immediately;
-        // not copying recursive as we want deep resolving to be recursive, only top-level values should be non-recursive
-        parentTimer = parent.parentTimer;
         if (parentTimer!=null && parentTimer.isExpired())
             expired = true;
-        
-        // default value and swallow exceptions do not need to be nested
+
+        defaultValue = (T)parent.defaultValue;
+        returnDefaultOnGet = parent.returnDefaultOnGet;
     }
 
     public static class ResolverBuilderPretype {
@@ -182,22 +211,15 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         if (!superType.isAssignableFrom(typeT)) {
             throw new IllegalStateException("superType must be assignable from " + typeT);
         }
-        ValueResolver<S> result = new ValueResolver<S>(newValue, superType)
-            .context(exec).description(description)
-            .embedResolutionInTask(embedResolutionInTask)
-            .deep(forceDeep, deepTraversalUsesRootType)
-            .timeout(timeout)
-            .immediately(immediately)
-            .recursive(recursive);
+        ValueResolver<S> result = new ValueResolver<S>(newValue, superType);
+        result.copyNonFinalFields(this);
+
         if (returnDefaultOnGet) {
             if (!superType.getRawType().isInstance(defaultValue)) {
                 throw new IllegalStateException("Existing default value " + defaultValue + " not compatible with new type " + superType);
             }
-            @SuppressWarnings("unchecked")
-            S typedDefaultValue = (S)defaultValue;
-            result.defaultValue(typedDefaultValue);
         }
-        if (swallowExceptions) result.swallowExceptions();
+
         return result;
     }
     
@@ -249,29 +271,33 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         this.isTransientTask = isTransientTask;
         return this;
     }
-    
+
     public Maybe<T> getDefault() {
         if (returnDefaultOnGet) return Maybe.of(defaultValue);
         else return Maybe.absent("No default value set");
     }
-    
+
+    /** causes nested structures (maps, lists) to be descended, resolved, and (if the target type is not Object) coerced.
+     * as {@link #deep(boolean, boolean, Boolean)} with true, true, false. */
+    public ValueResolver<T> deep() { return deep(true, true, false); }
     /** causes nested structures (maps, lists) to be descended and nested unresolved values resolved.
      * for legacy reasons this sets deepTraversalUsesRootType.
-     * @deprecated use {@link #deep(boolean, boolean)} */
-    public ValueResolver<T> deep(boolean forceDeep) {
-        return deep(true, true);
-    }
+     * @deprecated use {@link #deep(boolean, boolean, Boolean)} */
+    @Deprecated public ValueResolver<T> deep(boolean forceDeep) { return deep(true, true, true); }
+    /* @deprecated use {@link #deep(boolean, boolean, Boolean)} */
+    @Deprecated public ValueResolver<T> deep(boolean forceDeep, Boolean deepTraversalUsesRootType) { return deep(true,true,true); }
     /** causes nested structures (maps, lists) to be descended and nested unresolved values resolved.
      * if the second argument is true, the type specified here is used against non-map/iterable items
      * inside maps and iterables encountered. if false, any generic signature on the supplied type
      * is traversed to match contained items. if null (default), it is inferred from the type,
-     * those with generics imply false, and those without imply true. 
-     * 
-     * see {@link Tasks#resolveDeepValue(Object, Class, ExecutionContext, String)} and 
-     * {@link Tasks#resolveDeepValueExactly(Object, TypeToken, ExecutionContext, String)}. */
-    public ValueResolver<T> deep(boolean forceDeep, Boolean deepTraversalUsesRootType) {
+     * those with generics imply false, and those without imply true.
+     *
+     * see {@link #allowDeepResolution}, {@link Tasks#resolveDeepValue(Object, Class, ExecutionContext, String)} and
+     * {@link Tasks#resolveDeepValueCoerced(Object, TypeToken, ExecutionContext, String)}. */
+    public ValueResolver<T> deep(boolean allowDeepResolution, boolean forceDeep, Boolean deepTraversalUsesRootType) {
+        this.allowDeepResolution = allowDeepResolution;
         this.forceDeep = forceDeep;
-        this.deepTraversalUsesRootType = deepTraversalUsesRootType;
+        this.ignoreGenericsAndApplyThisTypeToContents = deepTraversalUsesRootType;
         return this;
     }
 
@@ -285,7 +311,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         this.embedResolutionInTask = embedResolutionInTask;
         return this;
     }
-    
+
     /** sets a time limit on executions
      * <p>
      * used for {@link Task} and {@link DeferredSupplier} instances.
@@ -320,8 +346,23 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         return this;
     }
 
+    /**
+     * Whether the value should be resolved deeply, if it's a map or collection, by looking inside it.
+     * The default here is true (mainly for legacy reasons).
+     * If used, and {@link #ignoreGenericsAndApplyThisTypeToContents} is set (which it often is),
+     * the type supplied is used to convert keys _and_ values of the map or collection,
+     * rather than the overall return type (so set false if trying to convert a map to another type).
+     * There is not currently any support for entry schemas on the map,
+     * not even by supplying a generically typed map (eg Map<String,Integer>).
+     */
+    @Beta
+    public ValueResolver<T> allowDeepResolution(boolean val) {
+        this.allowDeepResolution = val;
+        return this;
+    }
+
     protected void checkTypeNotNull() {
-        if (typeT==null) 
+        if (typeT==null)
             throw new NullPointerException("type must be set to resolve, for '"+value+"'"+(description!=null ? ", "+description : ""));
     }
 
@@ -345,52 +386,52 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         }
         return result;
     }
-    
+
     protected boolean isEvaluatingImmediately() {
         return immediately || BrooklynTaskTags.hasTag(Tasks.current(), BrooklynTaskTags.IMMEDIATE_TASK_TAG);
     }
-    
+
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected Maybe<T> getMaybeInternal() {
         if (started.getAndSet(true))
             throw new IllegalStateException("ValueResolver can only be used once");
-        
+
         if (expired) return Maybe.absent("Nested resolution of "+getOriginalValue()+" did not complete within "+timeout);
-        
+
         ExecutionContext exec = this.exec;
         if (exec==null) {
             // if execution context not specified, take it from the current task if present
             exec = BasicExecutionContext.getCurrentExecutionContext();
         }
-        
+
         if (!recursive && typeT.getRawType() != Object.class) {
             throw new IllegalStateException("When non-recursive resolver requested the return type must be Object " +
                     "as the immediately resolved value could be a number of (deferred) types.");
         }
-        
+
         CountdownTimer timerU = parentTimer;
         if (timerU==null && timeout!=null)
             timerU = timeout.countdownTimer();
         final CountdownTimer timer = timerU;
         if (timer!=null && !timer.isNotPaused())
             timer.start();
-        
+
         checkTypeNotNull();
         Object v = this.value;
-        
+
         //if the expected type is what we have, we're done (or if it's null);
         //but not allowed to return a future or DeferredSupplier as the resolved value,
         //and not if generics signatures might be different
         if (v==null || (!forceDeep && TypeToken.of(typeT.getRawType()).equals(typeT) && typeT.getRawType().isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
             return Maybe.of((T) v);
-        
+
         try {
             boolean allowImmediateExecution = false;
             boolean bailOutAfterImmediateExecution = false;
-            
+
             if (v instanceof ImmediateSupplier || v instanceof DeferredSupplier) {
                 allowImmediateExecution = true;
-                
+
             } else {
                 if (v instanceof TaskFactory<?>) {
                     v = ((TaskFactory<?>)v).newTask();
@@ -398,7 +439,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     bailOutAfterImmediateExecution = true;
                     BrooklynTaskTags.setTransient(((TaskAdaptable<?>)v).asTask());
                 }
-                
+
                 //if it's a task or a future, we wait for the task to complete
                 if (v instanceof TaskAdaptable<?>) {
                     v = ((TaskAdaptable<?>) v).asTask();
@@ -407,22 +448,22 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
             if (allowImmediateExecution && isEvaluatingImmediately()) {
                 // Feb 2017 - many things now we try to run immediate; notable exceptions are:
-                // * where the target isn't safe to run again (such as a Task which someone else might need), 
+                // * where the target isn't safe to run again (such as a Task which someone else might need),
                 // * or where he can't be run in an "interrupting" mode even if non-blocking (eg Future.get(), some other tasks)
                 // (the latter could be tried here, with bailOut false, but in most cases it will just throw so we still need to
                 // have the timings as in SHORT_WAIT etc as a fallack)
-                
+
                 // TODO svet suggested at https://github.com/apache/brooklyn-server/pull/565#pullrequestreview-27124074
                 // that we might flip the immediately bit if interrupted -- or maybe instead (alex's idea)
                 // enter this block
                 // if (allowImmediateExecution && (isEvaluatingImmediately() || Thread.isInterrupted())
-                // -- feels right, and would help with some recursive immediate values but no compelling 
+                // -- feels right, and would help with some recursive immediate values but no compelling
                 // use case yet and needs some deep thought which we're deferring for now
-                
+
                 Maybe<T> result = null;
                 try {
                     result = exec.getImmediately(v);
-                    
+
                     return (result.isPresent())
                         ? recursive
                             ? new ValueResolver<T>(result.get(), typeT, this).getMaybe()
@@ -441,7 +482,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
                 }
             }
-            
+
             if (v instanceof Task) {
                 //if it's a task, we make sure it is submitted
                 Task<?> task = (Task<?>) v;
@@ -472,7 +513,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     if (isEvaluatingImmediately()) {
                         return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
                     }
-                    
+
                     Callable<Maybe> callable = new Callable<Maybe>() {
                         @Override
                         public Maybe call() throws Exception {
@@ -486,7 +527,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
                 } else {
                     v = vfuture.get();
-                    
+
                 }
 
             } else if (v instanceof DeferredSupplier<?>) {
@@ -495,7 +536,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                 if ((!Boolean.FALSE.equals(embedResolutionInTask) && (exec!=null || timeout!=null)) || Boolean.TRUE.equals(embedResolutionInTask)) {
                     if (exec==null)
                         return Maybe.absent("Embedding in task needed for '"+getDescription()+"' but no execution context available");
-                        
+
                     Callable<Object> callable = new Callable<Object>() {
                         @Override
                         public Object call() throws Exception {
@@ -512,14 +553,14 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             .displayName("Resolving dependent value of deferred supplier")
                             .description(description);
                     if (isTransientTask) tb.tag(BrooklynTaskTags.TRANSIENT_TASK_TAG);
-                    
+
                     // immediate resolution is handled above
                     Task<Object> vt = exec.submit(tb.build());
                     Maybe<Object> vm = Durations.get(vt, timer);
                     vt.cancel(true);
                     if (vm.isAbsent()) return (Maybe<T>)vm;
                     v = vm.get();
-                    
+
                 } else {
                     try {
                         Tasks.setBlockingDetails("Retrieving (non-task) "+ds);
@@ -530,43 +571,29 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                 }
 
             } else {
-                if (supportsDeepResolution(v)) {
+                if (allowDeepResolution && supportsDeepResolution(v, typeT)) {
 
                     // allows user to resolveValue(map, String) with the effect
                     // that things _in_ the collection would be resolved as string.
                     // alternatively use generics.
-                    boolean useRootObect = typeT.getRawType()==Object.class || Boolean.TRUE.equals(deepTraversalUsesRootType);
-                    
-                    TypeToken<?>[] innerTypes = new TypeToken<?>[0];
-                    if (!useRootObect) {
-                        if (!TypeToken.of(typeT.getRawType()).equals(typeT)) {
-                            innerTypes = Reflections.getGenericParameterTypeTokens(typeT);
-                        } else {
-                            if (deepTraversalUsesRootType==null) {
-                                // for null, autodetect
-                                useRootObect = true;
-                            } else {
-                                // we will warn and fall back to autodetect for legacy reasons
-                                // (same if the number of inner types above is wrong)
-                            }
-                        }
-                    }
-                        
+                    boolean applyThisTypeToContents = Boolean.TRUE.equals(ignoreGenericsAndApplyThisTypeToContents);
+
                     // restrict deep resolution to the same set of types as calling code;
                     // in particular need to avoid for "interesting iterables" such as PortRange
-                    
+
                     if (v instanceof Map) {
-                        TypeToken<?> keyT = typeT;
-                        TypeToken<?> valT = typeT;
-                        if (!useRootObect) {
+                        TypeToken<?> keyT;
+                        TypeToken<?> valT;
+                        if (applyThisTypeToContents) {
+                            keyT = typeT;
+                            valT = typeT;
+                        } else {
+                            TypeToken<?>[] innerTypes = Reflections.getGenericParameterTypeTokens( typeT.resolveType(Map.class) ); // innerTypes = Reflections.getGenericParameterTypeTokens( typeT );
                             if (innerTypes.length==2) {
                                 keyT = innerTypes[0];
                                 valT = innerTypes[1];
                             } else {
-                                // deprecated in 1.0.0
-                                log.warn("Coercing deep into map "+v+" when expected to coerce to incompatible "+typeT+"; "
-                                    + "will attempt conversion of keys and values, but this behaviour is deprecated. "
-                                    + "Should correctly request conversion to generic TypeToken<Map<...>>.");
+                                keyT = valT = TypeToken.of(Object.class);
                             }
                         }
                         //and if a map or list we look inside
@@ -582,21 +609,21 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             if (vv.isAbsent()) return (Maybe<T>)vv;
                             result.put(kk.get(), vv.get());
                         }
-                        return Maybe.of((T) result);
-        
+                        v = result;
+
                     } else if (v instanceof Iterable) {
-                        TypeToken<?> entryT = typeT;
-                        if (!useRootObect) {
+                        TypeToken<?> entryT;
+                        if (applyThisTypeToContents) {
+                            entryT = typeT;
+                        } else {
+                            TypeToken<?>[] innerTypes = Reflections.getGenericParameterTypeTokens( typeT.resolveType(Iterable.class) );
                             if (innerTypes.length==1) {
                                 entryT = innerTypes[0];
                             } else {
-                                // deprecated in 1.0.0
-                                log.warn("Coercing deep into iterable "+v+" when expected to coerce to incompatible "+typeT+"; "
-                                    + "will attempt conversion of keys and values, but this behaviour is deprecated. "
-                                    + "Should correctly request conversion to generic TypeToken<Map<...>>.");
+                                entryT = TypeToken.of(Object.class);
                             }
                         }
-                        
+
                         Collection<Object> result = v instanceof Set ? MutableSet.of() : Lists.newArrayList();
                         int count = 0;
                         for (Object it : (Iterable)v) {
@@ -607,16 +634,16 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             result.add(vv.get());
                             count++;
                         }
-                        return Maybe.of((T) result);
+                        v = result;
                     }
                 }
-                
+
                 return TypeCoercions.tryCoerce(v, typeT);
             }
 
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            
+
             String msg = "Error resolving "+(description!=null ? description+", " : "")+v+", in "+exec;
             String eTxt = Exceptions.collapseText(e);
             IllegalArgumentException problem = eTxt.startsWith(msg) ? new IllegalArgumentException(e) : new IllegalArgumentException(msg+": "+eTxt, e);
@@ -629,7 +656,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                 log.debug("Resolution of "+this+" failed, throwing: "+e);
             throw problem;
         }
-        
+
         if (recursive) {
             return new ValueResolver(v, typeT, this).getMaybe();
         } else {
@@ -638,11 +665,22 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     }
 
     // whether value resolution supports deep resolution
-    @Beta
+    /** @deprecated since 1.0.0 use {@link #supportsDeepResolution(Object, TypeToken)} */
+    @Beta @Deprecated
     public static boolean supportsDeepResolution(Object v) {
-        return (v instanceof Map || v instanceof Collection);
+        return supportsDeepResolution(v, null);
     }
-    
+    @Beta
+    public static boolean supportsDeepResolution(Object v, @Nullable TypeToken<?> type) {
+        return (v instanceof Map || v instanceof Collection) && (type==null || typeAllowsDeepResolution(type));
+    }
+    @Beta
+    public static boolean typeAllowsDeepResolution(@Nullable TypeToken<?> type) {
+        if (type==null) return true;
+        Class<?> clz = type.getRawType();
+        return Map.class.isAssignableFrom(clz) || Iterable.class.isAssignableFrom(clz) || Object.class.equals(clz);
+    }
+
     protected String getDescription() {
         return description!=null ? description : ""+value;
     }

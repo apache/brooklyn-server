@@ -21,20 +21,24 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.AddEffector;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
 /** simple effector which returns the contents of a file, used to test resolution of */
-public class GetFileContentsEffector extends AddEffector {
+public class GetFileContentsEffector extends AddEffectorInitializerAbstract {
 
     final static ConfigKey<String> FILENAME = ConfigKeys.newStringConfigKey("filename");
     final static Effector<String> GET_FILE_CONTENTS = Effectors.effector(String.class, "getFileContents").parameter(FILENAME).buildAbstract();
     
-    public GetFileContentsEffector() {
-        super(Effectors.effector(GET_FILE_CONTENTS).impl(new Body()).build());
+    public GetFileContentsEffector() {}
+
+    @Override
+    protected EffectorBuilder<String> newEffectorBuilder() {
+        return Effectors.effector(GET_FILE_CONTENTS).impl(new Body());
     }
 
     static class Body extends EffectorBody<String> {

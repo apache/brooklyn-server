@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.Rebindable;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -49,8 +50,9 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
         ENTITY, 
         POLICY,
         ENRICHER,
-        LOCATION;
-        
+        LOCATION,
+        BEAN;
+
         public static CatalogItemType ofSpecClass(Class<? extends AbstractBrooklynObjectSpec<?, ?>> type) {
             if (type==null) return null;
             if (PolicySpec.class.isAssignableFrom(type)) return POLICY;
@@ -67,6 +69,10 @@ public interface CatalogItem<T,SpecT> extends BrooklynObject, Rebindable {
             if (Application.class.isAssignableFrom(type)) return APPLICATION;
             if (Entity.class.isAssignableFrom(type)) return ENTITY;
             return null;
+        }
+
+        public BrooklynObjectType getBrooklynObjectType() {
+            return BrooklynObjectType.of(this);
         }
 
         @Override

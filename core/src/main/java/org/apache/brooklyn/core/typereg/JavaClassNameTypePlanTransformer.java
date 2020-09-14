@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import java.lang.reflect.Constructor;
 import java.util.List;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 
 /**
@@ -68,7 +70,14 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return getType(type, context).newInstance();
+        Class<?> clz = getType(type, context);
+        Constructor<?> constr;
+        try {
+            constr = clz.getDeclaredConstructor();
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("No 0-arg constructor found for "+clz+" for "+type.getId(), e);
+        }
+        return constr.newInstance();
     }
 
     private Class<?> getType(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {

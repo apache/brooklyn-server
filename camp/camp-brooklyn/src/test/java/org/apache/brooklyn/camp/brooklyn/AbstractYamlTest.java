@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.Reader;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -250,7 +251,9 @@ public abstract class AbstractYamlTest {
     }
 
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().addItems(catalogYaml, true, forceUpdate);
+        mgmt().getCatalog().
+                addTypesAndValidateAllowInconsistent(catalogYaml, null, forceUpdate);
+//                addItems(catalogYaml, true, forceUpdate);
     }
 
     /*

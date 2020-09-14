@@ -25,6 +25,7 @@ import javax.management.ObjectName;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
@@ -62,27 +63,23 @@ public final class JmxAttributeSensor<T> extends AbstractAddSensorFeed<T> {
     public static final ConfigKey<String> ATTRIBUTE = ConfigKeys.newStringConfigKey("attribute", "JMX attribute to poll in object");
     public static final ConfigKey<Object> DEFAULT_VALUE = ConfigKeys.newConfigKey(Object.class, "defaultValue", "Default value for sensor; normally null");
 
-    protected final String objectName;
-    protected final String attribute;
-    protected final Object defaultValue;
-    
-    public JmxAttributeSensor(final ConfigBag params) {
-        super(params);
+    protected JmxAttributeSensor() {}
+    public JmxAttributeSensor(final ConfigBag params) { super(params); }
 
-        objectName = Preconditions.checkNotNull(params.get(OBJECT_NAME), "objectName");
-        attribute = Preconditions.checkNotNull(params.get(ATTRIBUTE), "attribute");
-        defaultValue = params.get(DEFAULT_VALUE);
+    @Override
+    public void apply(final EntityLocal entity) {
+        AttributeSensor<T> sensor = addSensor(entity);
+
+        ConfigBag params = initParams();
+        String objectName = Preconditions.checkNotNull(params.get(OBJECT_NAME), "objectName");
+        String attribute = Preconditions.checkNotNull(params.get(ATTRIBUTE), "attribute");
+        Object defaultValue = params.get(DEFAULT_VALUE);
 
         try {
             ObjectName.getInstance(objectName);
         } catch (MalformedObjectNameException mone) {
             throw new IllegalArgumentException("Malformed JMX object name: " + objectName, mone);
         }
-    }
-
-    @Override
-    public void apply(final EntityLocal entity) {
-        super.apply(entity);
 
         final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
         final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME_ON_STARTUP);
@@ -90,7 +87,7 @@ public final class JmxAttributeSensor<T> extends AbstractAddSensorFeed<T> {
 
         if (entity instanceof UsesJmx) {
             if (LOG.isDebugEnabled()) {
-                LOG.debug("Submitting task to add JMX sensor {} to {}", name, entity);
+                LOG.debug("Submitting task to add JMX sensor {} to {}", params.get(SENSOR_NAME), entity);
             }
 
             Task<Integer> jmxPortTask = DependentConfiguration.attributeWhenReady(entity, UsesJmx.JMX_PORT);
@@ -103,7 +100,7 @@ public final class JmxAttributeSensor<T> extends AbstractAddSensorFeed<T> {
 
                             JmxFeed feed = JmxFeed.builder()
                                     .entity(entity)
-                                    .period(period)
+                                    .period(params.get(SENSOR_PERIOD))
                                     .helper(helper)
                                     .pollAttribute(new JmxAttributePollConfig<T>(sensor)
                                             .objectName(objectName)

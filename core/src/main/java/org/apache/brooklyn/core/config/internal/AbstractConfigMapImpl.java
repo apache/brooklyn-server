@@ -18,17 +18,10 @@
  */
 package org.apache.brooklyn.core.config.internal;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Future;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -53,7 +46,6 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -61,10 +53,10 @@ import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.concurrent.Future;
 
 public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> implements ConfigMapWithInheritance<TContainer> {
 
@@ -364,17 +356,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> T coerceDefaultValue(TContainer container, String name, Object value, TypeToken<T> type) {
+    protected <T> T coerceConfigValue(TContainer container, String name, Object value, TypeToken<T> type) {
         if (type==null || value==null) return (T) value;
         ExecutionContext exec = getExecutionContext(container);
         try {
-            T result;
-            if (ValueResolver.supportsDeepResolution(value)) {
-                result = (T) Tasks.resolveDeepValue(value, Object.class, exec, "Resolving deep default config "+name);
-            } else {
-                result = Tasks.resolveValue(value, type, exec, "Resolving default config "+name);
-            }
-            
+            T result = Tasks.resolveDeepValueCoerced(value, type, exec, "config "+name); // entity should be in context, and entity toString might be disallowed (during initial validation)
+
             // best effort to preserve/enforce immutability for defaults
             if (result instanceof Map) return (T) Collections.unmodifiableMap((Map<?,?>)result);
             if (result instanceof List) return (T) Collections.unmodifiableList((List<?>)result);
@@ -383,7 +370,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             
             return result;
         } catch (Exception e) {
-            throw Exceptions.propagate(e);
+            throw Exceptions.propagateAnnotated("Error coercing " + container + "->" + name, e);
         }
     }
 
@@ -416,7 +403,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
                 // use lambda to defer execution if default value not needed.
                 // this coercion should never be persisted so this is safe.
-                return new MaybeSupplier<T>(() -> (coerceDefaultValue(getContainer(), ownKey.getName(), input.get(), type)));
+                return new MaybeSupplier<T>(() -> (coerceConfigValue(getContainer(), ownKey.getName(), input.get(), type)));
             }
         };
         // prefer default and type of ownKey

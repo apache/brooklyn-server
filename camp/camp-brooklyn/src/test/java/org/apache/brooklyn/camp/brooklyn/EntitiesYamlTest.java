@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializerBase.*;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -78,6 +81,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -963,61 +967,106 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         String yaml =
                 "services:\n"+
                 "- type: "+TestEntity.class.getName()+"\n"+
-                "  brooklyn.initializers: [ { type: "+TestSensorAndEffectorInitializer.class.getName()+" } ]";
+                "  brooklyn.initializers: [ { type: "+ TestConfigurableInitializerStatic.class.getName()+" } ]";
         
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        Effector<?> hi = entity.getEffector(TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO);
+        Effector<?> hi = entity.getEffector(TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO);
         Assert.assertNotNull(hi);
         
-        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED) );
-        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED_EMITTED) );
-        Assert.assertNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializer.SENSOR_LAST_HELLO) );
+        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED) );
+        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED_EMITTED) );
+        Assert.assertNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializerBase.SENSOR_LAST_HELLO) );
         
-        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_LAST_HELLO)) );
-        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED)) );
-        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED_EMITTED)),
+        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_LAST_HELLO)) );
+        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED)) );
+        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED_EMITTED)),
             "1");
         
-        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
             MutableMap.of("name", "Bob"));
         Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hello Bob");
-        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_LAST_HELLO)),
+        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_LAST_HELLO)),
             "Bob");
     }
 
-    @Test
-    public void testEntityWithConfigurableInitializerEmpty() throws Exception {
+    @Test(dataProvider = "initializersToTest")
+    public void testEntityWithConfigurableInitializerEmpty(Class<? extends EntityInitializer> init) throws Exception {
+        new TestConfigurableInitializerFieldsWithConfigKeys(ConfigBag.newInstance());
         String yaml =
                 "services:\n"+
                 "- type: "+TestEntity.class.getName()+"\n"+
-                "  brooklyn.initializers: [ { type: "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.class.getName()+" } ]";
+                "  brooklyn.initializers: [ { type: "+init.getName()+" } ]";
         
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
             MutableMap.of("name", "Bob"));
         Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hello Bob");
     }
 
-    @Test
-    public void testEntityWithConfigurableInitializerNonEmpty() throws Exception {
+    @Test(dataProvider = "initializersToTest")
+    public void testEntityWithConfigurableInitializerBrooklynConfig(Class<? extends EntityInitializer> init) throws Exception {
         String yaml =
                 "services:\n"+
                 "- type: "+TestEntity.class.getName()+"\n"+
                 "  brooklyn.initializers: [ { "
-                  + "type: "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.class.getName()+","
-                  + "brooklyn.config: { "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.HELLO_WORD+": Hey }"
+                  + "type: "+init.getName()+","
+                  + "brooklyn.config: { " + TestConfigurableInitializerConfigBag.HELLO_WORD.getName() + ": Hey }"
                   + " } ]";
-        
-        Application app = (Application) createStartWaitAndLogApplication(yaml);
+
+
+        Application app;
+        try {
+            app = (Application) createStartWaitAndLogApplication(yaml);
+        } catch (Exception e) {
+            if (init == TestConfigurableInitializerSimpleField.class) {
+                // brooklyn.config shouldn't be supported here
+                Asserts.expectedFailureContains(e, "Unrecognized field \"brooklyn.config\"", "TestConfigurableInitializerSimpleField");
+                return;
+            }
+            throw Exceptions.propagate(e);
+        }
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
             MutableMap.of("name", "Bob"));
         Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hey Bob");
+    }
+
+    @Test(dataProvider = "initializersToTest")
+    public void testEntityWithConfigurableInitializerFields(Class<? extends EntityInitializer> init) throws Exception {
+        String yaml =
+                "services:\n"+
+                        "- type: "+TestEntity.class.getName()+"\n"+
+                        "  brooklyn.initializers: [ { "
+                        + "type: "+init.getName()+","
+                        + TestConfigurableInitializerConfigBag.HELLO_WORD.getName() + ": Hey"
+                        + " } ]";
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
+                MutableMap.of("name", "Bob"));
+        if (init==TestConfigurableInitializerOld.class) {
+            // configuration outside brooklyn.config not supported with old style
+            Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hello Bob");
+        } else {
+            Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hey Bob");
+        }
+    }
+
+    @DataProvider(name="initializersToTest")
+    protected Object[][] initializersToTest() {
+        return new Object[][] {
+                new Object[] { TestConfigurableInitializerOld.class },
+                new Object[] { TestConfigurableInitializerSimpleField.class },
+                new Object[] { TestConfigurableInitializerConfigBag.class },
+                new Object[] { TestConfigurableInitializerFieldsWithConfigKeys.class },
+        };
     }
 
     @Test

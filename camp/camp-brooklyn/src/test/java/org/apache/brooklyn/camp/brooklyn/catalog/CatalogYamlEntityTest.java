@@ -411,6 +411,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION + "-update"), symbolicName);
             Asserts.shouldHaveFailedPreviously("Catalog addition expected to fail due to recursive reference to " + symbolicName);
         } catch (Exception e) {
+            // TODO only the old (SpecToPlanTransformer) reports the recursive problem; the new transformer just doesn't accept it, without error
             Asserts.expectedFailureContains(e, "recursive", symbolicName);
         }
     }
