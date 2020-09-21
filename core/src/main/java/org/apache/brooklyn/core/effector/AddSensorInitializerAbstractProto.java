@@ -38,7 +38,7 @@ import org.apache.brooklyn.util.time.Duration;
  *
  * @since 0.7.0 */
 @Beta
-interface AddSensorInitializerAbstractProto<T> extends EntityInitializer {
+public interface AddSensorInitializerAbstractProto<T> extends EntityInitializer {
 
     public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
     public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms; default 5 minutes", Duration.FIVE_MINUTES);
