@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.Map;
 
 @Beta
-abstract class AddEffectorInitializerAbstractProto extends EntityInitializers.InitializerPatternWithConfigKeys {
+public abstract class AddEffectorInitializerAbstractProto extends EntityInitializers.InitializerPatternWithConfigKeys {
 
     public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.newStringConfigKey("name");
     public static final ConfigKey<String> EFFECTOR_DESCRIPTION = ConfigKeys.newStringConfigKey("description");
