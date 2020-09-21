@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.Map;
 
 @Beta
-abstract class AddEffectorInitializerAbstractProto extends EntityInitializers.InitializerPatternWithConfigKeys {
+public abstract class AddEffectorInitializerAbstractProto extends EntityInitializers.InitializerPatternWithConfigKeys {
 
     public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.newStringConfigKey("name");
     public static final ConfigKey<String> EFFECTOR_DESCRIPTION = ConfigKeys.newStringConfigKey("description");
@@ -70,7 +70,7 @@ abstract class AddEffectorInitializerAbstractProto extends EntityInitializers.In
         return result;
     }
 
-    static <T> EffectorBuilder<T> newEffectorBuilder(Class<T> type, ConfigBag params) {
+    protected static <T> EffectorBuilder<T> newEffectorBuilder(Class<T> type, ConfigBag params) {
         String name = Preconditions.checkNotNull(params.get(EFFECTOR_NAME), "name must be supplied when defining an effector: %s", params);
         EffectorBuilder<T> eff = Effectors.effector(type, name);
         eff.description(params.get(EFFECTOR_DESCRIPTION));
