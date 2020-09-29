@@ -39,10 +39,8 @@ import java.util.Set;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
-
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
@@ -1270,13 +1268,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             boolean onlyNewStyleTransformer = format != null || catalogItemType == CatalogItemType.BEAN;
             if (transformedResult.isPresent() || onlyNewStyleTransformer) {
                 planYaml = itemYaml;
-                if (catalogItemType!=CatalogItemType.BEAN && catalogItemType!=CatalogItemType.TEMPLATE) {
-                    // for specs types, _also_ do the legacy and let it set resolution,
-                    // as it is better at spotting some types of errors (recursive ones)
+                if (catalogItemType!=CatalogItemType.BEAN && catalogItemType!=CatalogItemType.TEMPLATE && !"bean-with-type".equals(format)) {
+                    // for spec types, _also_ run the legacy resolution because it is better at spotting some types of errors (recursive ones);
+                    // note this code will also run if there was an error when format was specified (other than bean-with-type) and we couldn't determine it was a bean
                     resolved = false;
                     attemptLegacySpecTransformersForVariousSpecTypes();
                 } else {
                     resolved = transformedResult.isPresent() || catalogItemType == CatalogItemType.TEMPLATE;
+                    if (!resolved) {
+                        errors.add(Maybe.Absent.getException(transformedResult));
+                    }
                 }
                 return this;
             }
@@ -1323,8 +1324,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         private Maybe<Object> attemptPlanTranformer() {
+            Exception errorInBean = null;
             try {
-                Exception e = null;
                 boolean suspicionOfABean = false;
 
                 Set<? extends OsgiBundleWithUrl> searchBundles = MutableSet.copyOf(libraryBundles)
@@ -1350,10 +1351,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     try {
                         t = mgmt.getTypeRegistry().createBeanFromPlan(format, itemYaml, constraint, null);
                         catalogItemType = CatalogItemType.BEAN;
-                    } catch (Exception eS) {
-                        Exceptions.propagateIfFatal(eS);
-                        // if we were speculatively trying bean then rety as plan
-                        e = eS;
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        // if we were speculatively trying bean then retry as plan
+                        errorInBean = e;
                     }
                 }
 
@@ -1366,7 +1367,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
 
                 if (t==null) {
-                    if (e!=null) throw e;
+                    if (errorInBean!=null) throw errorInBean;
                     throw new IllegalStateException("Type registry creation returned null");
                 }
 
@@ -1374,7 +1375,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 return Maybe.of(t);
 
             } catch (Exception e) {
-                return Maybe.absent(e);
+                Exceptions.propagateIfFatal(e);
+                MutableList<Throwable> exceptions = MutableList.<Throwable>of().appendIfNotNull(errorInBean, e);
+                return Maybe.absent(() -> {
+                    return Exceptions.propagate("Unable to parse definition of "+
+                            (itemId!=null ? itemId : "plan:\n"+itemYaml+"\n"),
+                            exceptions);
+                });
             }
         }
 
