@@ -61,7 +61,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Assert.assertFalse(yaml.indexOf("description")>=0,
             "YAML included metadata which should have been excluded; it was:\n"+yaml);
 
-        deleteCatalogEntity("t1");
+        deleteCatalogRegisteredType("t1");
     }
 
     @Test
@@ -76,7 +76,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Assert.assertFalse(yaml.indexOf("description")>=0,
             "YAML included metadata which should have been excluded; it was:\n"+yaml);
 
-        deleteCatalogEntity("t1");
+        deleteCatalogRegisteredType("t1");
     }
 
     public void testServiceTypeEntityOfTypeCatalogTemplateNotWrapped() throws Exception {

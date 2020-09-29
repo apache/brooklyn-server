@@ -90,7 +90,7 @@ public class ReferencedOsgiYamlTest extends AbstractYamlTest {
         Entity child = Iterables.getOnlyElement(children);
         Assert.assertEquals(child.getEntityType().getName(), "org.apache.brooklyn.test.osgi.entities.SimpleEntity");
 
-        deleteCatalogEntity(parentCatalogId);
+        deleteCatalogRegisteredType(parentCatalogId);
     }
 
     @Test
