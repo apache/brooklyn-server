@@ -106,7 +106,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         // delete one but not the other to prevent resolution and thus rewrite until later validation phase,
         // thus initial addition will compare unmodified plan from here against modified plan added above;
         // replacement will then succeed only if we've correctly recorded equivalence tags 
-        deleteCatalogEntity("forward-referenced-entity");
+        deleteCatalogRegisteredType("forward-referenced-entity");
         
         addForwardReferencePlan(symbolicName);
     }
@@ -146,7 +146,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         Asserts.assertThat(item.getTags(), CollectionFunctionals.contains("bar"));
         Asserts.assertThat(item.getTags(), Predicates.not(CollectionFunctionals.contains("baz")));
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
     @Test
     public void testAddCatalogItemWithInheritedTags() throws Exception {
@@ -167,7 +167,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         Asserts.assertThat(item.getTags(), CollectionFunctionals.contains("bar"));
         Asserts.assertThat(item.getTags(), Predicates.not(CollectionFunctionals.contains("baz")));
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
     
     // also runs many other tests from super, here using the osgi/type-registry appraoch

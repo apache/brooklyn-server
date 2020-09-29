@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.Reader;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
@@ -312,12 +311,21 @@ public abstract class AbstractYamlTest {
             throw Exceptions.propagate(e);
         }
     }
-    
-    protected void deleteCatalogEntity(String catalogItemSymbolicName) {
-        deleteCatalogEntity(catalogItemSymbolicName, TEST_VERSION);
+
+    protected void deleteCatalogRegisteredType(String regTypeSymbolicName) {
+        deleteCatalogRegisteredType(regTypeSymbolicName, TEST_VERSION);
     }
+    protected void deleteCatalogRegisteredType(String regTypeSymbolicName, String version) {
+        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(regTypeSymbolicName, version));
+    }
+
+    @Deprecated /** @deprecated use {@link #deleteCatalogEntity(String)} */
+    protected void deleteCatalogEntity(String catalogItemSymbolicName) {
+        deleteCatalogRegisteredType(catalogItemSymbolicName);
+    }
+    @Deprecated /** @deprecated use {@link #deleteCatalogEntity(String)} */
     protected void deleteCatalogEntity(String catalogItemSymbolicName, String version) {
-        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItemSymbolicName, version));
+        deleteCatalogRegisteredType(catalogItemSymbolicName, version);
     }
 
     protected Logger getLogger() {

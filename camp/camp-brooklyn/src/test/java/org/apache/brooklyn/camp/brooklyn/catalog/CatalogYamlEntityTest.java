@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Collection;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -82,14 +83,13 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         // EntitySpec.class should not be included; it's the supers of the _target_
         Asserts.assertFalse(item.getSuperTypes().contains(EntitySpec.class), "Wrong supertypes (should not have spec): "+item.getSuperTypes());
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     } 
     
     private void assertHasSuperType(RegisteredType item, Object expectedSuper) {
         assertTrue(item.getSuperTypes().contains(expectedSuper), "Wrong supertypes, missing "+expectedSuper+"; declared supertypes are: "+item.getSuperTypes());
     }
 
-    // Legacy / backwards compatibility: should always specify itemType
     @Test
     public void testAddCatalogItemAsStringWithoutItemType() throws Exception {
         String symbolicName = "my.catalog.app.id.load";
@@ -104,8 +104,31 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         assertEquals(item.getSymbolicName(), symbolicName);
+        assertEquals(item.getKind(), RegisteredTypeKind.SPEC);
+        assertHasSuperType(item, Entity.class);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
+    }
+
+    @Test
+    public void testAddCatalogItemAsTypedStringWithoutItemType() throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  name: My Catalog App",
+                "  description: My description",
+                "  icon_url: classpath://path/to/myicon.jpg",
+                "  item:",
+                "    type: " + BasicEntity.class.getName());
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        assertEquals(item.getSymbolicName(), symbolicName);
+        assertEquals(item.getKind(), RegisteredTypeKind.SPEC);
+        assertHasSuperType(item, Entity.class);
+
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -121,7 +144,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         assertEquals(item.getSymbolicName(), symbolicName);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -138,7 +161,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         assertEquals(item.getSymbolicName(), symbolicName);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     // Legacy / backwards compatibility: should use id
@@ -184,7 +207,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -199,7 +222,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -234,8 +257,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
 
     @Test
@@ -252,8 +275,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
 
     @Test
@@ -287,8 +310,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity grandGrandChild = Iterables.getOnlyElement(grandChild.getChildren());
         assertEquals(grandGrandChild.getEntityType().getName(), TestEntity.class.getName());
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
 
     @Test
@@ -321,8 +344,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity grandGrandChild = Iterables.getOnlyElement(grandChild.getChildren());
         assertEquals(grandGrandChild.getEntityType().getName(), TestEntity.class.getName());
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
     
     @Test
@@ -386,7 +409,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), TestEntity.class.getName());
         forceCatalogUpdate();
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), TestEntity.class.getName());
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -695,8 +718,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
             "should have just " + symbolicNameInner + " in search path");
 
-        deleteCatalogEntity(symbolicNameInner);
-        deleteCatalogEntity(symbolicNameOuter);
+        deleteCatalogRegisteredType(symbolicNameInner);
+        deleteCatalogRegisteredType(symbolicNameOuter);
     }
 
     @Test
@@ -756,7 +779,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(item2.getKind(), RegisteredTypeKind.SPEC, "Type was replaced by broken item");
         assertEquals(item2, item);
 
-        deleteCatalogEntity(symbolicName, TEST_VERSION_SNAPSHOT);
+        deleteCatalogRegisteredType(symbolicName, TEST_VERSION_SNAPSHOT);
         RegisteredType item3 = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION_SNAPSHOT);
         Assert.assertNull(item3, "Type should have been deleted");
     }
@@ -775,7 +798,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         Entity simpleEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(simpleEntity.getEntityType().getName(), expectedType);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     public static class IdAndVersion {

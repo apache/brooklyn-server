@@ -68,9 +68,9 @@ public class CatalogYamlAppTest extends AbstractYamlTest {
                     "  itemType: entity",
                     "  item:",
                     "    type: " + BasicEntity.class.getName());
-            deleteCatalogEntity("another.app.in.the.catalog");
+            deleteCatalogRegisteredType("another.app.in.the.catalog");
         } finally {
-            deleteCatalogEntity("org.apache.brooklyn.entity.stock.BasicEntity");
+            deleteCatalogRegisteredType("org.apache.brooklyn.entity.stock.BasicEntity");
         }
     }
 
@@ -98,9 +98,9 @@ public class CatalogYamlAppTest extends AbstractYamlTest {
                     "  itemType: entity",
                     "  item:",
                     "    type: org.apache.brooklyn.entity.stock.BasicApplication");
-            deleteCatalogEntity("another.app.in.the.catalog");
+            deleteCatalogRegisteredType("another.app.in.the.catalog");
         } finally {
-            deleteCatalogEntity("org.apache.brooklyn.entity.stock.BasicApplication");
+            deleteCatalogRegisteredType("org.apache.brooklyn.entity.stock.BasicApplication");
         }
     }
 

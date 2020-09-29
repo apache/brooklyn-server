@@ -1377,11 +1377,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 MutableList<Throwable> exceptions = MutableList.<Throwable>of().appendIfNotNull(errorInBean, e);
-                return Maybe.absent(() -> {
-                    return Exceptions.propagate("Unable to parse definition of "+
-                            (itemId!=null ? itemId : "plan:\n"+itemYaml+"\n"),
-                            exceptions);
-                });
+                return Maybe.absent(
+                        () ->
+                            Exceptions.create("Unable to parse definition of "+
+                                (itemId!=null ? itemId : "plan:\n"+itemYaml+"\n"),
+                                exceptions)
+                );
             }
         }
 

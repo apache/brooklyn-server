@@ -76,7 +76,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         assertEquals(item.getSymbolicName(), symbolicName);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -103,8 +103,8 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         Entity simpleEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(simpleEntity.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
 
     @Test
@@ -131,8 +131,8 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         Entity grandGrandChild = Iterables.getOnlyElement(grandChild.getChildren());
         assertEquals(grandGrandChild.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
 
     @Test
@@ -157,8 +157,8 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         Entity grandGrandChild = Iterables.getOnlyElement(grandChild.getChildren());
         assertEquals(grandGrandChild.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
 
-        deleteCatalogEntity(referencedSymbolicName);
-        deleteCatalogEntity(referrerSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+        deleteCatalogRegisteredType(referrerSymbolicName);
     }
     
     @Test
@@ -194,7 +194,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
             "    type: " + SIMPLE_ENTITY_TYPE);
-        deleteCatalogEntity(firstItemId);
+        deleteCatalogRegisteredType(firstItemId);
 
         addCatalogItems(
             "brooklyn.catalog:",
@@ -207,7 +207,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
             "  item:",
             "    type: " + SIMPLE_ENTITY_TYPE);
 
-        deleteCatalogEntity(secondItemId);
+        deleteCatalogRegisteredType(secondItemId);
     }
 
     @Test
@@ -279,7 +279,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
             "    url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
             "    type: " + SIMPLE_ENTITY_TYPE);
-        deleteCatalogEntity(itemId);
+        deleteCatalogRegisteredType(itemId);
     }
 
     /**
@@ -345,7 +345,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         addCatalogOSGiEntity(id);
         forceCatalogUpdate();
         addCatalogOSGiEntity(id);
-        deleteCatalogEntity(id);
+        deleteCatalogRegisteredType(id);
     }
 
     @Test
@@ -715,7 +715,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         AbstractBrooklynObjectSpec<?, ?> spec = registry.createSpec(item, null, null);
         assertEquals(spec.getCatalogItemId(), ver(symbolicName));
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -746,8 +746,8 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
 
         ResourceUtils.create(entity).getResourceAsString("classpath://yaml-ref-osgi-entity.yaml");
 
-        deleteCatalogEntity(symbolicNameInner);
-        deleteCatalogEntity(symbolicNameOuter);
+        deleteCatalogRegisteredType(symbolicNameInner);
+        deleteCatalogRegisteredType(symbolicNameOuter);
     }
 
     @Test
@@ -780,8 +780,8 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
             "should have just " + symbolicNameInner + " in search path");
 
-        deleteCatalogEntity(symbolicNameInner);
-        deleteCatalogEntity(symbolicNameOuter);
+        deleteCatalogRegisteredType(symbolicNameInner);
+        deleteCatalogRegisteredType(symbolicNameOuter);
     }
     @Test
     public void testDeepCatalogItemCanLoadResources() throws Exception {
@@ -817,9 +817,9 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         final String catalogBom = ResourceUtils.create(entity).getResourceAsString("classpath://" + MORE_ENTITIES_POM_PROPERTIES_PATH);
         assertTrue(catalogBom.contains("artifactId=brooklyn-test-osgi-more-entities"));
 
-        deleteCatalogEntity(symbolicNameOuter);
-        deleteCatalogEntity(symbolicNameFiller);
-        deleteCatalogEntity(symbolicNameInner);
+        deleteCatalogRegisteredType(symbolicNameOuter);
+        deleteCatalogRegisteredType(symbolicNameFiller);
+        deleteCatalogRegisteredType(symbolicNameInner);
     }
 
     private void registerAndLaunchAndAssertSimpleEntity(String symbolicName, String serviceType) throws Exception {
@@ -833,7 +833,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         Entity simpleEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(simpleEntity.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     private void addCatalogEntity(String symbolicName, String serviceType) {

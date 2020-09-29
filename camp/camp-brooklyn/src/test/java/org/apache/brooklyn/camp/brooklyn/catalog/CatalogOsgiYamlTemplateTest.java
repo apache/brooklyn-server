@@ -70,7 +70,7 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
         
-        deleteCatalogEntity("t1");
+        deleteCatalogRegisteredType("t1");
     }
 
     @Test
