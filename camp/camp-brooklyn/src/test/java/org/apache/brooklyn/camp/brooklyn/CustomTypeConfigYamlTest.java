@@ -184,4 +184,24 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     // can make jackson serialize and deserialize them specially, either pass-through or as strings TBD
     // see reference to DslSerializationAsToString in BeanWithTypeUtils
 
+
+    @Test
+    public void testRegisteredTypeMalformed_GoodError() throws Exception {
+        // in the above case, fields are correctly inherited from ancestors and overridden
+        Asserts.assertFailsWith(() -> {
+                    addCatalogItems(
+                            "brooklyn.catalog:",
+                            "  version: " + TEST_VERSION,
+                            "  items:",
+                            "  - id: custom-type",
+//                            "    itemType: bean",   // optional
+                            "    format: bean-with-type",
+                            "    item:",
+                            "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
+                            "      x: {}");
+                }, e -> {
+                    Asserts.expectedFailureContainsIgnoreCase(e, "bean", "custom-type", "cannot deserialize", "string", "\"x\"");
+                    return true;
+                });
+    }
 }
