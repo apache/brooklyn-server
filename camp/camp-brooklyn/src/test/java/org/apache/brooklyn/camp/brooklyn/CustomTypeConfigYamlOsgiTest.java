@@ -60,9 +60,7 @@ public class CustomTypeConfigYamlOsgiTest extends CustomTypeConfigYamlTest {
 
         OsgiBundleInstallationResult r = result.getWithError();
         RegisteredType rt = r.getTypesInstalled().stream().filter(rti -> "sampleBean:0.1.0".equals(rti.getId())).findAny()
-                .orElseThrow(() -> {
-                    throw Asserts.fail("Bean not found; RTs were: " + r.getTypesInstalled());
-                });
+                .orElseThrow(() -> Asserts.fail("Bean not found; RTs were: " + r.getTypesInstalled()));
         Asserts.assertEquals(rt.getKind(), RegisteredTypeKind.BEAN);
 
         Object b1 = mgmt().getTypeRegistry().create(rt, null, null);

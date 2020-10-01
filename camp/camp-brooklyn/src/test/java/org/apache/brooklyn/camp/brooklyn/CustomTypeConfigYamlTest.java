@@ -101,27 +101,38 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
             "test.confAnonymous", "Configuration key that's declared as an Object, but not defined on the Entity, and should be our custom type; was it coerced when created?");
     public static final ConfigKey<TestingCustomType> CONF_ANONYMOUS_OBJECT_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class,
             "test.confAnonymous", "Configuration key that's declared as our custom type, matching the key name as the Object, and also not defined on the Entity, and should be our custom type; is it coercible on read with this key (or already coerced)?");
-    
-    public static final ConfigKey<TestingCustomType> CONF_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class,
-        "test.confTyped", "Configuration key that's our custom type");
 
+    // old behaviour; previously java wouldn't be deserialized, but now if we are in the context of an entity,
+    // we use its classpath when deserializing
+    // TODO ideally restrict this behaviour to the outermost layer, where the type is defined (and so we have to use java),
+    // but make any type: blocks within only valid for registered types
+//    @Test
+//    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_ReturnsMap() throws Exception {
+//        // java types are not permitted as the type of a value of a config key - it gets deserialized as a map
+//        Entity testEntity = deployWithTestingCustomTypeObjectConfig(false, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT);
+//        Object customObj = testEntity.getConfig(CONF_ANONYMOUS_OBJECT);
+//
+//        Assert.assertNotNull(customObj);
+//
+//        Asserts.assertInstanceOf(customObj, Map.class);
+//        Asserts.assertEquals(((Map<?,?>)customObj).get("x"), "foo");
+//    }
+//    @Test
+//    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType() throws Exception {
+//        // and if we try to access it with a typed key it fails
+//        Asserts.assertFailsWith(() -> deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT_TYPED, "foo", null),
+//                e -> Asserts.expectedFailureContains(e, "TestingCustomType", "map", "test.confAnonymous"));
+//    }
+    // new behaviour, cf above
     @Test
-    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_ReturnsMap() throws Exception {
-        // java types are not permitted as the type of a value of a config key - it gets deserialized as a map
-         Entity testEntity = deployWithTestingCustomTypeObjectConfig(false, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT);
-        Object customObj = testEntity.getConfig(CONF_ANONYMOUS_OBJECT);
-
-        Assert.assertNotNull(customObj);
-
-        Asserts.assertInstanceOf(customObj, Map.class);
-        Asserts.assertEquals(((Map<?,?>)customObj).get("x"), "foo");
+    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_TypeInferred() throws Exception {
+        // java types now set on read, so okay as value for config
+        deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT_TYPED, "foo", null);
     }
     @Test
-    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType() throws Exception {
-        // and if we try to access it with a typed key it fails
-        // TODO we might support this - as a type coercion
-        Asserts.assertFailsWith(() -> deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_TYPED, "foo", null),
-                e -> Asserts.expectedFailureContains(e, "TestingCustomType", "map", "test.confTyped"));
+    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_TypeMatched() throws Exception {
+        // java types now set on read, so okay as value for config
+        deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT_TYPED, "foo", null);
     }
 
     @Test
