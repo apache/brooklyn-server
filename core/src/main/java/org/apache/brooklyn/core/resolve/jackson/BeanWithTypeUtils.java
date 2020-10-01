@@ -23,6 +23,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -37,10 +38,10 @@ public class BeanWithTypeUtils {
 
     public static final String FORMAT = "bean-with-type";
 
-    public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, boolean allowJavaTypes) {
+    public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
         JsonMapper mapper = newSimpleMapper();
 
-        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, allowJavaTypes);
+        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
         WrappedValuesSerialization.apply(mapper);
         mapper = new ConfigurableBeanDeserializerModifier()
                 .addDeserializerWrapper(
@@ -80,12 +81,12 @@ public class BeanWithTypeUtils {
         return isJsonAndOthers(o, oo -> oo instanceof DeferredSupplier);
     }
 
-    public static <T> T convert(ManagementContext mgmt, Map<?,?> map, TypeToken<T> type, boolean allowRegisteredTypes, boolean allowJavaTypes) throws JsonProcessingException {
-        ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, allowJavaTypes);
+    public static <T> T convert(ManagementContext mgmt, Map<?,?> map, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
+        ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
         return m.readValue(m.writeValueAsString(map), BrooklynJacksonSerializationUtils.asTypeReference(type));
     }
 
-    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, boolean allowJavaTypes) {
+    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) {
         if (inputMap.isAbsent()) return (Maybe<T>)inputMap;
 
         Object o = inputMap.get();
@@ -109,7 +110,7 @@ public class BeanWithTypeUtils {
         }
 
         try {
-            return Maybe.of(convert(mgmt, (Map<?,?>)o, type, allowRegisteredTypes, allowJavaTypes));
+            return Maybe.of(convert(mgmt, (Map<?,?>)o, type, allowRegisteredTypes, loader, allowJavaTypes));
         } catch (Exception e) {
             if (fallback!=null) return fallback;
             return Maybe.absent("BeanWithType cannot convert given map to "+type, e);

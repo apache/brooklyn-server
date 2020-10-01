@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -58,14 +59,14 @@ public class CustomTypeConfigYamlOsgiTest extends CustomTypeConfigYamlTest {
                 new ResourceUtils(getClass()).getResourceFromUrl(OsgiTestResources.BROOKLYN_TEST_OSGI_BEANS_URL));
 
         OsgiBundleInstallationResult r = result.getWithError();
-        RegisteredType rt = r.getTypesInstalled().stream().filter(rti -> "sampleBean".equals(rti.getId())).findAny()
+        RegisteredType rt = r.getTypesInstalled().stream().filter(rti -> "sampleBean:0.1.0".equals(rti.getId())).findAny()
                 .orElseThrow(() -> {
                     throw Asserts.fail("Bean not found; RTs were: " + r.getTypesInstalled());
                 });
         Asserts.assertEquals(rt.getKind(), RegisteredTypeKind.BEAN);
 
         Object b1 = mgmt().getTypeRegistry().create(rt, null, null);
-        Object b1n = b1.getClass().getField("number").get(b1);
+        Object b1n = Reflections.getFieldValueMaybe(b1, "number").get();
         Asserts.assertEquals(b1n, 1);
     }
 }

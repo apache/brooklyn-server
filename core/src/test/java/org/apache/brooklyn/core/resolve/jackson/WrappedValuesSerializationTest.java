@@ -19,18 +19,16 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import java.util.function.Supplier;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue.WrappedValuesInitialized;
 import org.apache.brooklyn.test.Asserts;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.function.Supplier;
-
 public class WrappedValuesSerializationTest implements MapperTestFixture {
 
     public ObjectMapper mapper() {
-        return BeanWithTypeUtils.newMapper(null, false, true);
+        return BeanWithTypeUtils.newMapper(null, false, null, true);
     }
 
     // basic serialization / deserialization of wrapped values
