@@ -36,7 +36,7 @@ import java.util.Map;
 public class PerverseSerializationTest implements MapperTestFixture {
 
     public ObjectMapper mapper() {
-        return BeanWithTypeUtils.newMapper(null, true, true);
+        return BeanWithTypeUtils.newMapper(null, true, null, true);
     }
 
     private static class BeanWithFieldCalledType {

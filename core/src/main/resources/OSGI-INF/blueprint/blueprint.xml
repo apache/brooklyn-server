@@ -42,6 +42,13 @@ limitations under the License.
     <service ref="containerFramework"
           interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 
+
+    <bean id="beanWithTypePlanTransformer" scope="prototype"
+          class="org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer"/>
+    <service id="beanWithTypePlanTransformerService" ref="beanWithTypePlanTransformer"
+             interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
+
+
     <bean id="javaClassNameTypePlanTransformer" scope="prototype"
           class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"/>
     <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"

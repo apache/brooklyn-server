@@ -19,9 +19,12 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -72,7 +75,12 @@ public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Invalid YAML in definition of '"+registeredType.getId()+"'", e);
         }
-        return BeanWithTypeUtils.newMapper(mgmt, true, true).readValue(
+
+
+        BrooklynClassLoadingContext loader = registeredTypeLoadingContext != null ? registeredTypeLoadingContext.getLoader() : null;
+        loader = CatalogUtils.newClassLoadingContext(mgmt, registeredType, loader);
+
+        return BeanWithTypeUtils.newMapper(mgmt, true, loader, true).readValue(
                 BeanWithTypeUtils.newSimpleMapper().writeValueAsString(definition), Object.class);
     }
 

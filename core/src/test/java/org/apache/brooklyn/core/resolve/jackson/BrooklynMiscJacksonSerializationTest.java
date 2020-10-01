@@ -19,20 +19,14 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.function.Supplier;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.NestedLoggingDeserializer;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue.WrappedValuesInitialized;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
 
     public ObjectMapper mapper() {
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, true);
+        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
 
         return mapper;
     }

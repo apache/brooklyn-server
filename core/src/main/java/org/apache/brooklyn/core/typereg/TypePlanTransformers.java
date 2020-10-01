@@ -93,6 +93,9 @@ public class TypePlanTransformers {
         Collection<BrooklynTypePlanTransformer> transformers = all(mgmt);
         for (BrooklynTypePlanTransformer transformer : transformers) {
             double score = transformer.scoreForType(type, constraint);
+            if (log.isTraceEnabled()) {
+                log.trace("SCORE for '" + type + "' at " + transformer + ": " + score);
+            }
             if (score>0) byScoreMulti.put(score, transformer);
         }
         Map<Double, Collection<BrooklynTypePlanTransformer>> tree = new TreeMap<Double, Collection<BrooklynTypePlanTransformer>>(byScoreMulti.asMap());

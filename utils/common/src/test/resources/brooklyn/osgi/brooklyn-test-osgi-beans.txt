@@ -15,10 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-The file brooklyn-test-osgi-entities.jar is for testing a deployment of
-an OSGi bundle containing entities.
+The file brooklyn-test-osgi-beans.jar is for testing a deployment of
+an OSGi bundle containing beans.
 
-The source is in utils/common/dependencies/osgi/more-entities-v2-evil-twin
+The source is in utils/common/dependencies/osgi/beans
 
 Under Apache conventions, binary files are not part of the source
 release. If you are using the source release, you may add this file

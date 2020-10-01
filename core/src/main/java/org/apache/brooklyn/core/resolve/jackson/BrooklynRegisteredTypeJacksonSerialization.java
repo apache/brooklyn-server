@@ -33,15 +33,12 @@ import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.type.SimpleType;
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyIfAmbiguousTypeSerializer;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseType;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynRegisteredTypeAndClassNameIdResolver;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.RegisteredTypeDeserializers;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
@@ -109,14 +106,16 @@ public class BrooklynRegisteredTypeJacksonSerialization {
     static class BrooklynRegisteredTypeAndClassNameIdResolver extends ClassNameIdResolver implements HasBaseType {
         private final ManagementContext mgmt;
         private final boolean allowRegisteredTypes;
-        private final boolean allowJavaTypes;
+        private final BrooklynClassLoadingContext loader;
+        private final boolean allowPojoJavaTypes;
 
         public BrooklynRegisteredTypeAndClassNameIdResolver(JavaType baseType, MapperConfig<?> config, PolymorphicTypeValidator subtypeValidator, ManagementContext mgmt,
-                boolean allowRegisteredTypes, boolean allowJavaTypes) {
+                boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
             super(baseType, config.getTypeFactory(), subtypeValidator);
             this.mgmt = mgmt;
             this.allowRegisteredTypes = allowRegisteredTypes;
-            this.allowJavaTypes = allowJavaTypes;
+            this.loader = loader;
+            this.allowPojoJavaTypes = allowPojoJavaTypes;
         }
 
         @Override
@@ -132,7 +131,13 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                     return new BrooklynJacksonType(mgmt, rt);
                 }
             }
-            if (allowJavaTypes) {
+            if (loader!=null) {
+                Maybe<Class<?>> fromLoader = loader.tryLoadClass(id);
+                if (fromLoader.isPresent()) {
+                    return context.constructType(fromLoader.get());
+                }
+            }
+            if (allowPojoJavaTypes) {
                 return super.typeFromId(context, id);
             }
 
@@ -152,9 +157,10 @@ public class BrooklynRegisteredTypeJacksonSerialization {
     static class BrtTypeResolverBuilder extends DefaultTypeResolverBuilder {
         private final ManagementContext mgmt;
         private final boolean allowRegisteredTypes;
-        private final boolean allowJavaTypes;
+        private final BrooklynClassLoadingContext loader;
+        private final boolean allowPojoJavaTypes;
 
-        public BrtTypeResolverBuilder(ManagementContext mgmt, boolean allowRegisteredTypes, boolean allowJavaTypes) {
+        public BrtTypeResolverBuilder(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
             super(DefaultTyping.NON_FINAL, LaissezFaireSubTypeValidator.instance);
             this.mgmt = mgmt;
 
@@ -165,12 +171,13 @@ public class BrooklynRegisteredTypeJacksonSerialization {
             inclusion(As.PROPERTY);
             typeProperty("type");
             this.allowRegisteredTypes = allowRegisteredTypes;
-            this.allowJavaTypes = allowJavaTypes;
+            this.loader = loader;
+            this.allowPojoJavaTypes = allowPojoJavaTypes;
         }
 
         @Override
         protected TypeIdResolver idResolver(MapperConfig<?> config, JavaType baseType, PolymorphicTypeValidator subtypeValidator, Collection<NamedType> subtypes, boolean forSer, boolean forDeser) {
-            return new BrooklynRegisteredTypeAndClassNameIdResolver(baseType, config, subtypeValidator, mgmt, allowRegisteredTypes, allowJavaTypes);
+            return new BrooklynRegisteredTypeAndClassNameIdResolver(baseType, config, subtypeValidator, mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
         }
 
         @Override
@@ -216,10 +223,10 @@ public class BrooklynRegisteredTypeJacksonSerialization {
         }
     }
 
-    public static ObjectMapper apply(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, boolean allowJavaTypes) {
+    public static ObjectMapper apply(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
         // the type resolver is extended to recognise brooklyn registered type names
         // and return a subtype of jackson JavaType
-        mapper.setDefaultTyping(new BrtTypeResolverBuilder(mgmt, allowRegisteredTypes, allowJavaTypes));
+        mapper.setDefaultTyping(new BrtTypeResolverBuilder(mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes));
 
         SimpleModule module = new SimpleModule();
         if (allowRegisteredTypes) {

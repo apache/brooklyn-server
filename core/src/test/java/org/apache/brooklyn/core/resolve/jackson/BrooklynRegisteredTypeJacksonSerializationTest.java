@@ -40,7 +40,7 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
     }
 
     public ObjectMapper mapper() {
-        return BeanWithTypeUtils.newMapper(mgmt(), true, true);
+        return BeanWithTypeUtils.newMapper(mgmt(), true, null, true);
     }
 
     @Test

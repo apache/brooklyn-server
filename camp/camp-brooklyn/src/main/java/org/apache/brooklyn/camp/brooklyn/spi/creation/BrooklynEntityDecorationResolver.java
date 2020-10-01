@@ -200,7 +200,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
             EntityInitializer result;
             try {
                 result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, TypeToken.of(EntityInitializer.class),
-                        true, true);
+                        true, instantiator.getClassLoadingContext(), true);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 // fall back to the old way, eg if caller specifies initializerType, or for some other reason bean-with-type fails

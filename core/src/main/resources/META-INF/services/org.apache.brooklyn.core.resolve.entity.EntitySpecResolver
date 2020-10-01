@@ -16,5 +16,9 @@
 # specific language governing permissions and limitations
 # under the License.
 #
+
+# Note: items added here should also be added to OSGI-INF/blueprint/blueprint.xml
+# so that they are also available in OSGi
+
 org.apache.brooklyn.core.resolve.entity.CatalogEntitySpecResolver
 org.apache.brooklyn.core.resolve.entity.JavaEntitySpecResolver

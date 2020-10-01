@@ -382,7 +382,7 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
-        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, false).or((Maybe<T>)(input));
+        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>)(input));
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {
