@@ -154,8 +154,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 "  version: "+TEST_VERSION,
                 "  items:",
                 "  - id: custom-type",
-//                "    itemType: bean",   // optional
-                "    format: bean-with-type",
+//                "    itemType: bean",             // optional
+//                "    format: bean-with-type",     // optional
                 "    item:",
                 "      type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
                 "      x: unfoo",
@@ -194,8 +194,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                             "  version: " + TEST_VERSION,
                             "  items:",
                             "  - id: custom-type",
-//                            "    itemType: bean",   // optional
-                            "    format: bean-with-type",
+                            "    itemType: bean",         // optional - but force it here
+                            "    format: bean-with-type", // optional - but force it here
                             "    item:",
                             "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
                             "      x: {}");

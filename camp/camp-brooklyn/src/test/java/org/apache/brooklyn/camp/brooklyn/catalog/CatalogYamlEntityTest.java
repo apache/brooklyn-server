@@ -19,6 +19,7 @@
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Throwables;
 import java.util.Collection;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -381,6 +382,28 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, referrerSymbolicName);
+            Asserts.assertStringDoesNotContain(Throwables.getStackTraceAsString(e), "StackOverflow");
+        }
+    }
+
+    @Test(groups="WIP")
+    public void testLaunchApplicationChildLoopCatalogIdFailsWithNewSyntax() throws Exception {
+        String referrerSymbolicName = "my.catalog.app.id.child.referring";
+        try {
+            // TODO previous test using 'services' fails nicely, but this doesn't; it throws an SO exception, doesn't see the cyclic dependency
+            addCatalogItems(
+                    "brooklyn.catalog:",
+                    "  id: " + referrerSymbolicName,
+                    "  version: " + TEST_VERSION,
+                    "  itemType: entity",
+                    "  item:",
+                    "      type: " + BasicEntity.class.getName(),
+                    "      brooklyn.children:",
+                    "      - type: " + ver(referrerSymbolicName, TEST_VERSION));
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, referrerSymbolicName);
+            Asserts.assertStringDoesNotContain(Throwables.getStackTraceAsString(e), "StackOverflow");
         }
     }
 

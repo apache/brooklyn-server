@@ -52,15 +52,15 @@ import com.google.common.collect.Iterables;
 
 public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
     
-    // Some of these testes duplicate several of the non-osgi test. However, that is important 
+    // Some of these tests duplicate several of the non-osgi test. However, that is important 
     // because there are subtleties of which OSGi bundles a catalog item will use for loading,
     // particularly when nesting and/or sub-typing entities.
     //
     // The non-osgi tests are much faster to run!
 
     private static final String SIMPLE_ENTITY_TYPE = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-   private static final String MORE_ENTITIES_POM_PROPERTIES_PATH =
-      "META-INF/maven/org.apache.brooklyn.test.resources.osgi/brooklyn-test-osgi-more-entities/pom.properties";
+    private static final String MORE_ENTITIES_POM_PROPERTIES_PATH =
+        "META-INF/maven/org.apache.brooklyn.test.resources.osgi/brooklyn-test-osgi-more-entities/pom.properties";
 
     @Override
     protected boolean disableOsgi() {
