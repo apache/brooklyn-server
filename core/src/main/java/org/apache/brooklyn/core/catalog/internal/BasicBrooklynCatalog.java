@@ -1848,8 +1848,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // (the legacy routines this uses don't support that type of context)
             String yaml = RegisteredTypes.getImplementationDataStringForSpec(typeToValidate);
             CatalogBundle bundle = typeToValidate.getContainingBundle() != null ? CatalogItemDtoAbstract.parseLibraries(Arrays.asList(typeToValidate.getContainingBundle())).iterator().next() : null;
+            CatalogItemType itemType = boType!=null ? CatalogItemType.ofTargetClass(boType.getInterfaceType()) : null;
+            if (itemType==null && typeToValidate.getKind() == RegisteredTypeKind.BEAN) {
+                itemType = CatalogItemType.BEAN;
+            }
+            String format = typeToValidate.getPlan().getPlanFormat();
             PlanInterpreterInferringType guesser = new PlanInterpreterInferringType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ),
-                yaml, null, null, bundle, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
+                yaml, itemType, format, bundle, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
             guesser.resolve();
             guesserErrors.addAll(guesser.getErrors());
             
