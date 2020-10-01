@@ -229,10 +229,19 @@ public class RegisteredTypeLoadingContexts {
         result.loader = loader;
         return result;
     }
-    
+
     public static RegisteredTypeLoadingContext withLoader(RegisteredTypeLoadingContext constraint, BrooklynClassLoadingContext loader) {
         BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext(constraint);
         result.loader = loader;
+        return result;
+    }
+
+    public static RegisteredTypeLoadingContext withEncounteredItem(RegisteredTypeLoadingContext constraint, String itemId) {
+        if (constraint.getAlreadyEncounteredTypes().contains(itemId)) {
+            return constraint;
+        }
+        BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext(constraint);
+        result.encounteredTypes = ImmutableSet.<String>builder().addAll(constraint.getAlreadyEncounteredTypes()).add(itemId).build();
         return result;
     }
 

@@ -368,7 +368,6 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public void testLaunchApplicationChildLoopCatalogIdFails() throws Exception {
         String referrerSymbolicName = "my.catalog.app.id.child.referring";
         try {
-            // TODO only fails if using 'services', because that forces plan parsing; should fail in all cases
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + referrerSymbolicName,
@@ -386,11 +385,10 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         }
     }
 
-    @Test(groups="WIP")
-    public void testLaunchApplicationChildLoopCatalogIdFailsWithNewSyntax() throws Exception {
+    @Test
+    public void testLaunchApplicationChildLoopCatalogIdFailsWithTypeSyntax() throws Exception {
         String referrerSymbolicName = "my.catalog.app.id.child.referring";
         try {
-            // TODO previous test using 'services' fails nicely, but this doesn't; it throws an SO exception, doesn't see the cyclic dependency
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + referrerSymbolicName,

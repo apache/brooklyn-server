@@ -740,7 +740,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format,
-                (containingBundle instanceof CatalogBundle ? ((CatalogBundle)containingBundle) : null), libraryBundles, resultLegacyFormat).resolve();
+                (containingBundle instanceof CatalogBundle ? ((CatalogBundle)containingBundle) : null), libraryBundles,
+                null, resultLegacyFormat).resolve();
         Exception resolutionError = null;
         if (!planInterpreter.isResolved()) {
             // don't throw yet, we may be able to add it in an unresolved state
@@ -1216,7 +1217,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final CatalogBundle containingBundle;
         final Collection<CatalogBundle> libraryBundles;
         final List<CatalogItemDtoAbstract<?, ?>> itemsDefinedSoFar;
-        
+        RegisteredTypeLoadingContext constraint;
+
         CatalogItemType catalogItemType;
         String planYaml;
         boolean resolved = false;
@@ -1225,10 +1227,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<Exception> transformerErrors = MutableList.of();
 
         public PlanInterpreterInferringType(@Nullable String itemId, Object itemDefinitionParsedToStringOrMap, String itemYaml, @Nullable CatalogItemType optionalCiType, @Nullable String format,
-                                            CatalogBundle containingBundle, Collection<CatalogBundle> libraryBundles, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
+                                            CatalogBundle containingBundle, Collection<CatalogBundle> libraryBundles,
+                                            RegisteredTypeLoadingContext constraint, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
             // ID is useful to prevent recursive references (possibly only supported for entities?)
             this.itemId = itemId;
             this.containingBundle = containingBundle;
+
+            this.constraint = constraint;
 
             if (itemDefinitionParsedToStringOrMap instanceof String) {
                 if (((String)itemDefinitionParsedToStringOrMap).trim().indexOf("\n")<0) {
@@ -1345,8 +1350,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     }
                 }
 
+                if (constraint==null) {
+                    constraint = RegisteredTypeLoadingContexts.loaderAlreadyEncountered(loader, null, itemId);
+                } else {
+                    constraint = RegisteredTypeLoadingContexts.withLoader(constraint, loader);
+                    constraint = RegisteredTypeLoadingContexts.withEncounteredItem(constraint, itemId);
+                }
+
                 Object t = null;
-                RegisteredTypeLoadingContext constraint = RegisteredTypeLoadingContexts.loader(loader);
                 if (catalogItemType == CatalogItemType.BEAN || suspicionOfABean) {
                     try {
                         t = mgmt.getTypeRegistry().createBeanFromPlan(format, itemYaml, constraint, null);
@@ -1854,7 +1865,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             String format = typeToValidate.getPlan().getPlanFormat();
             PlanInterpreterInferringType guesser = new PlanInterpreterInferringType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ),
-                yaml, itemType, format, bundle, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), null);
+                yaml, itemType, format, bundle, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), constraint, null);
             guesser.resolve();
             guesserErrors.addAll(guesser.getErrors());
             
