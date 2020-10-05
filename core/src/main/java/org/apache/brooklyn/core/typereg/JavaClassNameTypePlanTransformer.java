@@ -85,16 +85,4 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     }
     
     
-    // not supported as a catalog format (yet? should we?)
-    
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        throw new UnsupportedTypePlanException("this transformer does not support YAML catalog additions");
-    }
-
 }

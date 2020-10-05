@@ -80,19 +80,6 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
         return new XmlSerializer<Object>().fromString((String)type.getPlan().getPlanData());
     }
 
-
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // defining types not supported
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // defining types not supported
-        return null;
-    }
-
     private Document parseXml(String plan) {
         DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
         Document dom;

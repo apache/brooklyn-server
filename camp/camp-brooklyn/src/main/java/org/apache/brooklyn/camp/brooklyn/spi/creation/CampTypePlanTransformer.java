@@ -133,18 +133,6 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
         throw new IllegalStateException("beans not supported here");
     }
 
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return null;
-    }
-
     public static class CampTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {
         public CampTypeImplementationPlan(TypeImplementationPlan otherPlan) {
             super(FORMATS.get(0), String.class, otherPlan);

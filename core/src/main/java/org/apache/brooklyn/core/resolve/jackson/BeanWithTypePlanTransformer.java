@@ -84,14 +84,4 @@ public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
                 BeanWithTypeUtils.newSimpleMapper().writeValueAsString(definition), Object.class);
     }
 
-    // TODO experimental on spec, not used
-    @Override
-    public double scoreForTypeDefinition(String s, Object o) {
-        return 0;
-    }
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String s, Object o) {
-        return null;
-    }
-
 }
