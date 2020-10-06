@@ -1302,6 +1302,14 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
 
     /**
      * Default entity initialization sets ID sensors and calls {@link #initEnrichers()}.
+     * <p>
+     * See superclass Javadoc for more info.
+     * <p>
+     * Note that this is invoked before {@link org.apache.brooklyn.api.entity.EntityInitializer} instances are called,
+     * before policies and enrichers are added,
+     * before descendants are initialized,
+     * before {@link EntityPostInitializable#postInit()},
+     * and before this entity is managed.
      */
     @Override
     public void init() {
