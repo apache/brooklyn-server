@@ -18,26 +18,149 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Multimap;
 import java.io.InputStream;
+import java.util.*;
+import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BrooklynCatalogBundleResolvers {
 
-    public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext managementContext, InputStream input,
-                                                                           BrooklynCatalogBundleResolver.BundleInstallationOptions options) {
+    private static Logger LOG = LoggerFactory.getLogger(BrooklynCatalogBundleResolvers.class);
 
-        if (options==null) options = new BrooklynCatalogBundleResolver.BundleInstallationOptions();
+    private static Collection<BrooklynCatalogBundleResolver> getAll() {
+        return ImmutableList.copyOf(FrameworkLookup.lookupAll(BrooklynCatalogBundleResolver.class));
+    }
 
-        BrooklynCatalogBundleResolver r;
-        if (BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(options.format)) {
-            r = new BrooklynBomYamlCatalogBundleResolver();
+    private static Collection<Class<? extends BrooklynCatalogBundleResolver>> OVERRIDE;
+    @SafeVarargs
+    @VisibleForTesting
+    public synchronized static void forceAvailable(Class<? extends BrooklynCatalogBundleResolver> ...classes) {
+        OVERRIDE = Arrays.asList(classes);
+    }
+    public synchronized static void clearForced() {
+        OVERRIDE = null;
+    }
+
+    public static Collection<BrooklynCatalogBundleResolver> all(ManagementContext mgmt) {
+        // TODO cache these in the TypeRegistry, looking for new ones periodically or supplying a way to register them
+        Collection<Class<? extends BrooklynCatalogBundleResolver>> override = OVERRIDE;
+        Collection<BrooklynCatalogBundleResolver> result = new ArrayList<>();
+        if (override!=null) {
+            for (Class<? extends BrooklynCatalogBundleResolver> o1: override) {
+                try {
+                    result.add(o1.newInstance());
+                } catch (Exception e) {
+                    Exceptions.propagate(e);
+                }
+            }
         } else {
-            r = new BrooklynBomBundleCatalogBundleResolver();
+            result.addAll(getAll());
         }
-        r.setManagementContext(managementContext);
-        return r.install(input, options);
+        for(BrooklynCatalogBundleResolver t : result) {
+            t.setManagementContext(mgmt);
+        }
+        return result;
+    }
+
+    /** returns a list of {@link BrooklynCatalogBundleResolver} instances for this {@link ManagementContext}
+     * which may be able to handle the given bundle; the list is sorted with highest-score transformer first */
+    @Beta
+    public static List<BrooklynCatalogBundleResolver> forBundle(ManagementContext mgmt, InputStream input,
+                                                                BrooklynCatalogBundleResolver.BundleInstallationOptions options) {
+        Multimap<Double,BrooklynCatalogBundleResolver> byScoreMulti = ArrayListMultimap.create();
+        Collection<BrooklynCatalogBundleResolver> transformers = all(mgmt);
+        for (BrooklynCatalogBundleResolver transformer : transformers) {
+            double score = transformer.scoreForBundle(options.format, input);
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("SCORE for '" + input + "' at " + transformer + ": " + score);
+            }
+            if (score>0) byScoreMulti.put(score, transformer);
+        }
+        Map<Double, Collection<BrooklynCatalogBundleResolver>> tree = new TreeMap<Double, Collection<BrooklynCatalogBundleResolver>>(byScoreMulti.asMap());
+        List<Collection<BrooklynCatalogBundleResolver>> highestFirst = new ArrayList<Collection<BrooklynCatalogBundleResolver>>(tree.values());
+        Collections.reverse(highestFirst);
+        return ImmutableList.copyOf(Iterables.concat(highestFirst));
+    }
+
+    public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, InputStream input,
+                                                                           BundleInstallationOptions options) {
+//
+//        if (options==null) options = new BrooklynCatalogBundleResolver.BundleInstallationOptions();
+//
+//        BrooklynCatalogBundleResolver r;
+//        if (BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(options.format)) {
+//            r = new BrooklynBomYamlCatalogBundleResolver();
+//        } else {
+//            r = new BrooklynBomBundleCatalogBundleResolver();
+//        }
+//        r.setManagementContext(managementContext);
+//        return r.install(input, options);
+
+        List<BrooklynCatalogBundleResolver> resolvers = forBundle(mgmt, input, options);
+        Collection<String> resolversWhoDontSupport = new ArrayList<String>();
+        Collection<Exception> failuresFromResolvers = new ArrayList<Exception>();
+        for (BrooklynCatalogBundleResolver t: resolvers) {
+            try {
+                ReferenceWithError<OsgiBundleInstallationResult> result = t.install(input, options);
+                if (result==null) {
+                    resolversWhoDontSupport.add(t.getFormatCode() + " (returned null)");
+                    continue;
+                }
+                return result;
+            } catch (@SuppressWarnings("deprecation") UnsupportedCatalogBundleException e) {
+                resolversWhoDontSupport.add(t.getFormatCode() +
+                        (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
+            } catch (Throwable e) {
+                Exceptions.propagateIfFatal(e);
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("Transformer for "+t.getFormatCode()+" gave an error creating this plan (may retry): "+e, e);
+                }
+                failuresFromResolvers.add(new PropagatedRuntimeException(
+                        (t.getFormatCode()+" bundle installation error") + ": "+
+                                Exceptions.collapseText(e), e));
+            }
+        }
+
+        // failed
+        Exception result;
+        if (!failuresFromResolvers.isEmpty()) {
+            // at least one thought he could do it
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failure transforming plan; returning summary failure, but for reference "
+                        + "potentially application transformers were "+resolvers+", "
+                        + "available ones are "+ MutableList.builder().addAll(all(mgmt))
+                        .build()+"; "
+                        + "failures: "+failuresFromResolvers);
+            }
+            result = failuresFromResolvers.size()==1 ? Exceptions.create(null, failuresFromResolvers) :
+                    Exceptions.create("All plan transformers failed", failuresFromResolvers);
+        } else {
+            if (resolvers.isEmpty()) {
+                result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available resolvers "+all(mgmt)+" support it");
+            } else {
+                result = new UnsupportedTypePlanException("Invalid plan; potentially applicable resolvers "+resolvers+" do not support it, " +
+                        "and other available resolvers do not accept it");
+            }
+        }
+        return ReferenceWithError.newInstanceThrowingError(null, result);
     }
 
 }
