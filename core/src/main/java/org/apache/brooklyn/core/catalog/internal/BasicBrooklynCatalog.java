@@ -75,6 +75,7 @@ import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -1594,7 +1595,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, OsgiManager osgiManager) {
-        return osgiManager.install(new ByteArrayInputStream(yaml.getBytes()), BrooklynBomYamlCatalogBundleResolver.FORMAT, forceUpdate).get();
+        return osgiManager.install(InputStreamSource.of("addItemsOsgi supplied yaml", yaml.getBytes()), BrooklynBomYamlCatalogBundleResolver.FORMAT, forceUpdate).get();
     }
     
     @SuppressWarnings("deprecation")

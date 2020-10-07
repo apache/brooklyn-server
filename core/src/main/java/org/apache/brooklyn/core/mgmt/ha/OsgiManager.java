@@ -31,6 +31,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -375,13 +376,13 @@ public class OsgiManager {
     }
     
     /** See {@link BrooklynCatalogBundleResolvers} */
-    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream zipIn) {
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> zipIn) {
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, null);
     }
 
     /** See {@link BrooklynCatalogBundleResolvers} */
     public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(
-            @Nullable ManagedBundle knownBundleMetadata, InputStream zipIn, boolean validateTypes) {
+            @Nullable ManagedBundle knownBundleMetadata, Supplier<InputStream> zipIn, boolean validateTypes) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setDeferredStart(true);
         options.setFormat(knownBundleMetadata.getFormat());
@@ -390,7 +391,7 @@ public class OsgiManager {
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, options);
     }
 
-    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream input, String format, boolean force) {
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, String format, boolean force) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setFormat(format);
         options.setForceUpdateOfNonSnapshots(force);
@@ -401,7 +402,7 @@ public class OsgiManager {
      * with extra arguments */
     @Beta
     public ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBomBundle(
-            @Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream input,
+            @Nullable ManagedBundle knownBundleMetadata, Supplier<InputStream> input,
             boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setKnownBundleMetadata(knownBundleMetadata);

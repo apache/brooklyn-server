@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import java.io.InputStream;
 import java.util.*;
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -83,7 +84,7 @@ public class BrooklynCatalogBundleResolvers {
     /** returns a list of {@link BrooklynCatalogBundleResolver} instances for this {@link ManagementContext}
      * which may be able to handle the given bundle; the list is sorted with highest-score transformer first */
     @Beta
-    public static List<BrooklynCatalogBundleResolver> forBundle(ManagementContext mgmt, InputStream input,
+    public static List<BrooklynCatalogBundleResolver> forBundle(ManagementContext mgmt, Supplier<InputStream> input,
                                                                 BrooklynCatalogBundleResolver.BundleInstallationOptions options) {
         Multimap<Double,BrooklynCatalogBundleResolver> byScoreMulti = ArrayListMultimap.create();
         Collection<BrooklynCatalogBundleResolver> transformers = all(mgmt);
@@ -100,7 +101,7 @@ public class BrooklynCatalogBundleResolvers {
         return ImmutableList.copyOf(Iterables.concat(highestFirst));
     }
 
-    public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, InputStream input,
+    public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, Supplier<InputStream> input,
                                                                            BundleInstallationOptions options) {
         List<BrooklynCatalogBundleResolver> resolvers = forBundle(mgmt, input, options);
         Collection<String> resolversWhoDontSupport = new ArrayList<String>();

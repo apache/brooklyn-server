@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.launcher;
 
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -305,7 +306,7 @@ public abstract class AbstractBrooklynLauncherRebindTest {
 
     protected ReferenceWithError<OsgiBundleInstallationResult> installBundle(BrooklynLauncher launcher, byte[] zipInput, boolean force) {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
-        return mgmt.getOsgiManager().get().install(new ByteArrayInputStream(zipInput), null, force);
+        return mgmt.getOsgiManager().get().install(InputStreamSource.of("test bundle bytes", zipInput), null, force);
     }
     
     protected ManagedBundle findManagedBundle(BrooklynLauncher launcher, VersionedName bundleId) {

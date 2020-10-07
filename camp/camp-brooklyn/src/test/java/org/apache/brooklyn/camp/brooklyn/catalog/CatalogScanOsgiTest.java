@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import static org.testng.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
@@ -84,7 +85,7 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  scanJavaAnnotations: true").getBytes() ) ));
         
-        ((ManagementContextInternal)mgmt).getOsgiManager().get().install(new FileInputStream(f)).checkNoError();
+        ((ManagementContextInternal)mgmt).getOsgiManager().get().install(InputStreamSource.of("test:"+f, f)).checkNoError();
     }
     
     @Test

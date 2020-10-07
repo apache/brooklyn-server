@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.typereg;
 
 import java.io.File;
 import java.io.InputStream;
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
@@ -80,7 +81,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
     }
     
     @Override
-    public double scoreForBundle(String format, InputStream f) {
+    public double scoreForBundle(String format, Supplier<InputStream> f) {
         if (getFormatCode().equals(format)) return 1;
         if (format==null)
             return scoreForNullFormat(f);
@@ -88,9 +89,9 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
             return scoreForNonmatchingNonnullFormat(format, f);
     }
 
-    protected abstract double scoreForNullFormat(InputStream f);
+    protected abstract double scoreForNullFormat(Supplier<InputStream> f);
 
-    protected double scoreForNonmatchingNonnullFormat(String format, InputStream f) {
+    protected double scoreForNonmatchingNonnullFormat(String format, Supplier<InputStream> f) {
         return 0;
     }
 

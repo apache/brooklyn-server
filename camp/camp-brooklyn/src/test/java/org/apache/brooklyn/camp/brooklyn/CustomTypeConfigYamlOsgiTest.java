@@ -43,7 +43,7 @@ public class CustomTypeConfigYamlOsgiTest extends CustomTypeConfigYamlTest {
     @Test
     public void testLoadBundleBom() throws NoSuchFieldException, IllegalAccessException {
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal) mgmt()).getOsgiManager().get().install(
-                new ResourceUtils(getClass()).getResourceFromUrl(OsgiTestResources.BROOKLYN_TEST_OSGI_BEANS_URL));
+                () -> new ResourceUtils(getClass()).getResourceFromUrl(OsgiTestResources.BROOKLYN_TEST_OSGI_BEANS_URL));
 
         OsgiBundleInstallationResult r = result.getWithError();
         RegisteredType rt = r.getTypesInstalled().stream().filter(rti -> "sampleBean:0.1.0".equals(rti.getId())).findAny()

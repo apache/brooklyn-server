@@ -58,6 +58,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Constants;
@@ -271,7 +272,7 @@ public abstract class AbstractYamlTest {
                 new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(
                 new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null, null, null, null),
-                new FileInputStream(bf),
+                InputStreamSource.of("tests:"+bundleName+":"+bf, bf),
                 false);
             
             // bundle not started (no need, and can break), and BOM not installed nor validated above; 
@@ -303,7 +304,7 @@ public abstract class AbstractYamlTest {
                     Constants.BUNDLE_VERSION, bundleName.getOsgiVersion().toString()));
             }
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().install(
-                new FileInputStream(bf) );
+                    InputStreamSource.of("tests:"+bundleName+":"+bf, bf) );
 
             b.checkNoError();
             

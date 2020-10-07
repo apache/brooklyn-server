@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.InputStream;
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -46,17 +47,17 @@ public class BrooklynBomBundleCatalogBundleResolver extends AbstractCatalogBundl
     // TODO
 
     @Override
-    protected double scoreForNullFormat(InputStream f) {
+    protected double scoreForNullFormat(Supplier<InputStream> f) {
         return 0;
     }
 
     @Override
-    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream input, BundleInstallationOptions options) {
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, BundleInstallationOptions options) {
         LOG.debug("Installing bundle from stream - known details: "+options.knownBundleMetadata);
 
         BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(
                 ((ManagementContextInternal)mgmt).getOsgiManager().get(),
-                options.knownBundleMetadata, input);
+                options.knownBundleMetadata, input.get());
         installer.setStart(options.start);
         installer.setCatalogBomText(FORMAT, null);
         installer.setLoadCatalogBom(options.loadCatalogBom);

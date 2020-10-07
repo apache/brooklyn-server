@@ -61,6 +61,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -159,7 +160,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(new ByteArrayInputStream(zipInput), null, forceUpdate);
+            .install(InputStreamSource.of("REST bundle upload", zipInput), null, forceUpdate);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)

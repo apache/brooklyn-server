@@ -22,7 +22,9 @@ import com.google.common.annotations.Beta;
 import java.io.File;
 import java.io.InputStream;
 import java.util.ServiceLoader;
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
@@ -54,6 +56,10 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
     /** 
      * Determines how appropriate is this transformer for the artifact.
      *
+     * @param format the format, eg {@link BrooklynBomBundleCatalogBundleResolver#FORMAT}; if null, auto-detect
+     * @param input a renewable supplier of {@link InputStream} -- each call should return a new stream.
+     *              consider using {@link org.apache.brooklyn.util.stream.InputStreamSource}.
+     *
      * @return A co-ordinated score / confidence value in the range 0 to 1. 
      * 0 means not compatible, 
      * 1 means this is clearly the intended transformer and no others need be tried 
@@ -66,18 +72,18 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
      * which prevents parsing (eg mal-formed YAML) and the transformer could likely be the intended target.
      * <p>
      * */
-    double scoreForBundle(String format, @Nonnull InputStream input);
+    double scoreForBundle(@Nullable String format, @Nonnull Supplier<InputStream> input);
 
     /** Installs the given bundle to the type {@link BrooklynTypeRegistry}.
      * <p>
-     * The framework guarantees this will only be invoked when {@link #scoreForBundle(String, InputStream)}
+     * The framework guarantees this will only be invoked when {@link #scoreForBundle(String, Supplier<InputStream>)}
      * has returned a positive value.
      * <p>
      * Implementations should either return null or throw {@link UnsupportedCatalogBundleException}
      * if upon closer inspection following a non-null score, they do not actually support the given {@link File}.
      * If they should support the artifact but it contains an error, they should throw the relevant error for feedback to the user. */
     @Beta  // return type is too detailed, but the detail is useful
-    public ReferenceWithError<OsgiBundleInstallationResult> install(@Nonnull InputStream input, BundleInstallationOptions options);
+    public ReferenceWithError<OsgiBundleInstallationResult> install(@Nonnull Supplier<InputStream> input, BundleInstallationOptions options);
 
     public class BundleInstallationOptions {
         protected String format;

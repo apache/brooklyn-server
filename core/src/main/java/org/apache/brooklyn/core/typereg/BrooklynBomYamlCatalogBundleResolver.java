@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.typereg;
 
 import java.io.*;
 import java.util.Map;
+import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -52,13 +54,14 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
     // TODO
 
     @Override
-    protected double scoreForNullFormat(InputStream f) {
+    protected double scoreForNullFormat(Supplier<InputStream> f) {
         return 0;
     }
 
     @Override
-    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream input, BundleInstallationOptions options) {
-        String yaml = Streams.readFullyString(input);
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, BundleInstallationOptions options) {
+        // TODO read a few chars to make sure it's YAML; no need to read an entire ZIP!
+        String yaml = Streams.readFullyString(input.get());
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
 
         if (cm == null) {
@@ -92,9 +95,7 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
                     new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
                             null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
-                            null, null), new FileInputStream(bf), true, true, options.forceUpdateOfNonSnapshots).get();
-        } catch (FileNotFoundException e) {
-            throw Exceptions.propagate(e);
+                            null, null), InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), true, true, options.forceUpdateOfNonSnapshots).get();
         } finally {
             bf.delete();
         }
