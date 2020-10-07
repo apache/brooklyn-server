@@ -102,18 +102,6 @@ public class BrooklynCatalogBundleResolvers {
 
     public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, InputStream input,
                                                                            BundleInstallationOptions options) {
-//
-//        if (options==null) options = new BrooklynCatalogBundleResolver.BundleInstallationOptions();
-//
-//        BrooklynCatalogBundleResolver r;
-//        if (BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(options.format)) {
-//            r = new BrooklynBomYamlCatalogBundleResolver();
-//        } else {
-//            r = new BrooklynBomBundleCatalogBundleResolver();
-//        }
-//        r.setManagementContext(managementContext);
-//        return r.install(input, options);
-
         List<BrooklynCatalogBundleResolver> resolvers = forBundle(mgmt, input, options);
         Collection<String> resolversWhoDontSupport = new ArrayList<String>();
         Collection<Exception> failuresFromResolvers = new ArrayList<Exception>();

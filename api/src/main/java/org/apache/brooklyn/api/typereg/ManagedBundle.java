@@ -35,5 +35,8 @@ public interface ManagedBundle extends BrooklynObject, Rebindable, OsgiBundleWit
 
     /** MD5 checksum of the contents of bundle as installed to OSGi */
     String getChecksum();
-    
+
+    /** The format to use to resolve this bundle; default null is to auto-detect */
+    String getFormat();
+
 }

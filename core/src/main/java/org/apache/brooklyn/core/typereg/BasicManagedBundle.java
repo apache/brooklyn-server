@@ -42,6 +42,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String symbolicName;
     private String version;
     private String checksum;
+    private String format;
     private String url;
     private Credentials credentials;
     private transient boolean persistenceNeeded = false;
@@ -49,11 +50,16 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
     public BasicManagedBundle() {}
 
+    /** @deprecated since 1.1 use larger constructor */ @Deprecated
     public BasicManagedBundle(String name, String version, String url, @Nullable String checksum) {
-        this(name, version, url, null, checksum);
+        this(name, version, url, null, null, checksum);
+    }
+    /** @deprecated since 1.1 use larger constructor */ @Deprecated
+    public BasicManagedBundle(String name, String version, String url, Credentials credentials, @Nullable String checksum) {
+        this(name, version, url, null, credentials, checksum);
     }
 
-    public BasicManagedBundle(String name, String version, String url, Credentials credentials, @Nullable String checksum) {
+    public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -62,6 +68,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         }
         this.symbolicName = name;
         this.version = version;
+        this.format = format;
         this.url = url;
         this.checksum = checksum;
         this.credentials = credentials;
@@ -100,7 +107,16 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         if (symbolicName==null) return null;
         return new VersionedName(symbolicName, version);
     }
-    
+
+    public void setFormat(String format) {
+        this.format = format;
+    }
+
+    @Override
+    public String getFormat() {
+        return format;
+    }
+
     @Override
     public String getUrl() {
         return url;
@@ -132,6 +148,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         return MoreObjects.toStringHelper(this)
                 .add("symbolicName", symbolicName)
                 .add("version", version)
+                .add("format", format)
                 .add("url", url)
                 .toString();
     }
@@ -215,6 +232,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
                 bundle.getSymbolicName(),
                 bundle.getSuppliedVersionString(),
                 bundle.getUrl(),
+                null,
                 bundle.getUrlCredential(),
                 checksum);
     }

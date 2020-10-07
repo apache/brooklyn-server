@@ -384,6 +384,7 @@ public class OsgiManager {
             @Nullable ManagedBundle knownBundleMetadata, InputStream zipIn, boolean validateTypes) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setDeferredStart(true);
+        options.setFormat(knownBundleMetadata.getFormat());
         options.setValidateTypes(validateTypes);
         options.setKnownBundleMetadata(knownBundleMetadata);
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, options);
@@ -543,17 +544,18 @@ public class OsgiManager {
      * non-persisted but done on rebind for each persisted bundle
      * 
      * @param bundle
+     * @param bomText optional override/extension in brooklyn catalog.bom format to be applied against the given bundle
      * @param force
      * @param validate
      * @param result optional parameter collecting all results, with new type as key, and any type it replaces as value
      * 
      * @since 0.12.0
      */
-    // returns map of new items pointing at any replaced item (for reference / rollback)
     @Beta
-    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate, Map<RegisteredType,RegisteredType> result) {
+    // returns map of new items pointing at any replaced item (for reference / rollback)
+    public void loadBrooklynBundleWithCatalogBom(Bundle bundle, @Nullable String bomText, boolean force, boolean validate, Map<RegisteredType,RegisteredType> result) {
         try {
-            new CatalogBundleLoader(mgmt).scanForCatalog(bundle, force, validate, result);
+            new CatalogBundleLoader(mgmt).scanForCatalog(bundle, bomText, force, validate, result);
             
         } catch (RuntimeException ex) {
             // as of May 2017 we no longer uninstall the bundle here if install of catalog items fails;

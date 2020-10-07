@@ -90,7 +90,9 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
         OsgiBundleInstallationResult result;
         try {
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
-                    new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null, null), new FileInputStream(bf), true, true, options.forceUpdateOfNonSnapshots).get();
+                    new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
+                            null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
+                            null, null), new FileInputStream(bf), true, true, options.forceUpdateOfNonSnapshots).get();
         } catch (FileNotFoundException e) {
             throw Exceptions.propagate(e);
         } finally {

@@ -58,6 +58,7 @@ public class BrooklynBomBundleCatalogBundleResolver extends AbstractCatalogBundl
                 ((ManagementContextInternal)mgmt).getOsgiManager().get(),
                 options.knownBundleMetadata, input);
         installer.setStart(options.start);
+        installer.setCatalogBomText(FORMAT, null);
         installer.setLoadCatalogBom(options.loadCatalogBom);
         installer.setForce(options.forceUpdateOfNonSnapshots);
 

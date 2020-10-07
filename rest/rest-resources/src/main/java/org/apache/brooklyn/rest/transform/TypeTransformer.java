@@ -165,6 +165,9 @@ public class TypeTransformer {
         if (detail) {
             result.setExtraField("osgiVersion", b.getOsgiVersionString());
             result.setExtraField("checksum", b.getChecksum());            
+            if (b.getFormat()!=null) {
+                result.setExtraField("format", b.getFormat());
+            }
         }
         if (detail) {
             for (RegisteredType t: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b))) {
