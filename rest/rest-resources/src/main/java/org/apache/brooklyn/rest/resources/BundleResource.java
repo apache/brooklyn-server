@@ -192,7 +192,7 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         if (force==null) force = false;
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(null, new ByteArrayInputStream(zipInput), true, true, force);
+            .install(new ByteArrayInputStream(zipInput), null, force);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)

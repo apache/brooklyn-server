@@ -19,12 +19,8 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.File;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import java.io.InputStream;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +28,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Convenience supertype for {@link BrooklynCatalogBundleResolver} instances.
  * <p>
- * This supplies a default {@link #scoreForBundle(String, File)} method
+ * This supplies a default {@link #scoreForBundle(String, InputStream)} method
  * method which returns 1 if the format code matches,
  * and otherwise branches to various abstract score methods which subclasses can implement,
  * cf {@link AbstractTypePlanTransformer}.
@@ -46,6 +42,11 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
     @Override
     public void setManagementContext(ManagementContext mgmt) {
         this.mgmt = mgmt;
+    }
+
+    public AbstractCatalogBundleResolver withManagementContext(ManagementContext mgmt) {
+        this.mgmt = mgmt;
+        return this;
     }
 
     private final String format;
@@ -79,7 +80,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
     }
     
     @Override
-    public double scoreForBundle(String format, File f) {
+    public double scoreForBundle(String format, InputStream f) {
         if (getFormatCode().equals(format)) return 1;
         if (format==null)
             return scoreForNullFormat(f);
@@ -87,9 +88,9 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
             return scoreForNonmatchingNonnullFormat(format, f);
     }
 
-    protected abstract double scoreForNullFormat(File f);
+    protected abstract double scoreForNullFormat(InputStream f);
 
-    protected double scoreForNonmatchingNonnullFormat(String format, File f) {
+    protected double scoreForNonmatchingNonnullFormat(String format, InputStream f) {
         return 0;
     }
 

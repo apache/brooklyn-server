@@ -903,7 +903,7 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     protected ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBundle(BrooklynLauncher launcher, File bundleFile, boolean force) throws Exception {
         OsgiManager osgiManager = ((ManagementContextInternal)launcher.getManagementContext()).getOsgiManager().get();
         try (FileInputStream bundleStream = new FileInputStream(bundleFile)) {
-            return osgiManager.install(null, bundleStream, true, true, force);
+            return osgiManager.install(bundleStream, null, force);
         }
     }
     

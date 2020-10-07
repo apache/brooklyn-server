@@ -314,7 +314,7 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
             OsgiBundleInstallationResult.ResultCode.ERROR_PREPARING_BUNDLE);
         
         // force upgrade
-        OsgiBundleInstallationResult b2b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install(b2a.getMetadata(), 
+        OsgiBundleInstallationResult b2b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installBrooklynBomBundle(b2a.getMetadata(),
             new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL), true, true, true).get();
         Assert.assertEquals(b2a.getBundle(), b2b.getBundle());
         Assert.assertEquals(b2b.getCode(), OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE);

@@ -27,7 +27,6 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -306,7 +305,7 @@ public abstract class AbstractBrooklynLauncherRebindTest {
 
     protected ReferenceWithError<OsgiBundleInstallationResult> installBundle(BrooklynLauncher launcher, byte[] zipInput, boolean force) {
         ManagementContextInternal mgmt = (ManagementContextInternal)launcher.getManagementContext();
-        return mgmt.getOsgiManager().get().install(null, new ByteArrayInputStream(zipInput), true, true, force);
+        return mgmt.getOsgiManager().get().install(new ByteArrayInputStream(zipInput), null, force);
     }
     
     protected ManagedBundle findManagedBundle(BrooklynLauncher launcher, VersionedName bundleId) {

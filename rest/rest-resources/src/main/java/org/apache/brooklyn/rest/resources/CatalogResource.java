@@ -159,7 +159,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(null, new ByteArrayInputStream(zipInput), true, true, forceUpdate);
+            .install(new ByteArrayInputStream(zipInput), null, forceUpdate);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)

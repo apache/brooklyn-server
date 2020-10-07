@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.ha;
 
+import com.google.common.annotations.Beta;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -41,14 +42,11 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
+import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
-import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -77,10 +75,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
-// package-private so we can move this one if/when we move OsgiManager
-class OsgiArchiveInstaller {
+@Beta
+public class BrooklynBomOsgiArchiveInstaller {
 
-    private static final Logger log = LoggerFactory.getLogger(OsgiArchiveInstaller.class);
+    private static final Logger log = LoggerFactory.getLogger(BrooklynBomOsgiArchiveInstaller.class);
     
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX;
     
@@ -107,7 +105,7 @@ class OsgiArchiveInstaller {
     
     private volatile Predicate<ManagedBundle> blacklistBundlePersistencePredicate;
     
-    OsgiArchiveInstaller(OsgiManager osgiManager, ManagedBundle knownBundleMetadata, InputStream zipIn) {
+    public BrooklynBomOsgiArchiveInstaller(OsgiManager osgiManager, ManagedBundle knownBundleMetadata, InputStream zipIn) {
         this.osgiManager = osgiManager;
         this.suppliedKnownBundleMetadata = knownBundleMetadata;
         this.zipIn = zipIn;
@@ -163,13 +161,13 @@ class OsgiArchiveInstaller {
                     }
                 }
                 if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getOsgiUniqueUrl()!=null) {
-                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.framework).requiringFromUrl(suppliedKnownBundleMetadata.getOsgiUniqueUrl()).find();
+                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).requiringFromUrl(suppliedKnownBundleMetadata.getOsgiUniqueUrl()).find();
                 }
                 if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getUrl()!=null) {
-                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.framework).requiringFromUrl(suppliedKnownBundleMetadata.getUrl()).find();
+                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).requiringFromUrl(suppliedKnownBundleMetadata.getUrl()).find();
                 }
                 if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.isNameResolved()) {
-                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.framework).symbolicName(suppliedKnownBundleMetadata.getSymbolicName()).version(suppliedKnownBundleMetadata.getSuppliedVersionString()).find();
+                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).symbolicName(suppliedKnownBundleMetadata.getSymbolicName()).version(suppliedKnownBundleMetadata.getSuppliedVersionString()).find();
                 }
                 if (existingOsgiInstalledBundle.isPresent()) {
                     if (existingBrooklynInstalledBundle.isAbsent()) {
@@ -418,7 +416,7 @@ class OsgiArchiveInstaller {
                     }
                 }
 
-                result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
+                result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
                 // Check if exactly this bundle is already installed
                 if (result.bundle != null && checksumsMatch(result.getMetadata(), inferredMetadata)) {
@@ -535,7 +533,7 @@ class OsgiArchiveInstaller {
                     } else {
                         assert result.getBundle()==null;
                         log.debug("Installing bundle "+result.getMetadata().getVersionedName()+", using OSGi location "+result.getMetadata().getOsgiUniqueUrl());
-                        result.bundle = osgiManager.framework.getBundleContext().installBundle(result.getMetadata().getOsgiUniqueUrl(), fin);
+                        result.bundle = osgiManager.getFramework().getBundleContext().installBundle(result.getMetadata().getOsgiUniqueUrl(), fin);
                     }
                 } else {
                     result.bundle.update(fin);
@@ -669,7 +667,7 @@ class OsgiArchiveInstaller {
                                 // add back all itemsFromOldBundle (when replacing a bundle)
                                 for (RegisteredType oldItem: itemsFromOldBundle) {
                                     if (log.isTraceEnabled()) {
-                                        log.trace("RESTORING replaced bundle item "+oldItem+"\n"+RegisteredTypes.getImplementationDataStringForSpec(oldItem));
+                                        log.trace("RESTORING replaced bundle item "+oldItem+"\n"+ RegisteredTypes.getImplementationDataStringForSpec(oldItem));
                                     }
                                     ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(oldItem, true);
                                 }
@@ -747,7 +745,7 @@ class OsgiArchiveInstaller {
         if (replacementBundle.isPresentAndNonNull()) {
             result.metadata = osgiManager.getManagedBundle(replacementBundle.get());
             if (result.getMetadata() != null) {
-                result.bundle = osgiManager.framework.getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
+                result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
                 log.debug("Bundle "+inferredMetadata+" forcibly replaced by bundle "+result.getMetadata()
                         +"; install is no-op");
@@ -801,7 +799,7 @@ class OsgiArchiveInstaller {
     }
     
     private static List<Bundle> findBundlesByVersion(OsgiManager osgiManager, ManagedBundle desired) {
-        return Osgis.bundleFinder(osgiManager.framework).symbolicName(desired.getSymbolicName()).version(desired.getOsgiVersionString()).findAll();
+        return Osgis.bundleFinder(osgiManager.getFramework()).symbolicName(desired.getSymbolicName()).version(desired.getOsgiVersionString()).findAll();
     }
     
     private static boolean checksumsMatch(ManagedBundle actual, ManagedBundle desired) {
