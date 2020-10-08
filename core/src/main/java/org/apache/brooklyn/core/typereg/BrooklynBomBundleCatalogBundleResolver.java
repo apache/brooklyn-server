@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.function.Supplier;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
@@ -44,11 +45,12 @@ public class BrooklynBomBundleCatalogBundleResolver extends AbstractCatalogBundl
         return (BrooklynBomBundleCatalogBundleResolver) super.withManagementContext(mgmt);
     }
 
-    // TODO
-
     @Override
     protected double scoreForNullFormat(Supplier<InputStream> f) {
-        return 0;
+        FileTypeDetector detector = new FileTypeDetector(f);
+        if (detector.isZip()) return 0.7;
+        // so we get good errors
+        return 0.1;
     }
 
     @Override

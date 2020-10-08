@@ -79,9 +79,9 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
      * The framework guarantees this will only be invoked when {@link #scoreForBundle(String, Supplier<InputStream>)}
      * has returned a positive value.
      * <p>
-     * Implementations should either return null or throw {@link UnsupportedCatalogBundleException}
+     * Implementations should either return null or reference {@link UnsupportedCatalogBundleException} in the return object (or throw);
      * if upon closer inspection following a non-null score, they do not actually support the given {@link File}.
-     * If they should support the artifact but it contains an error, they should throw the relevant error for feedback to the user. */
+     * If they should support the artifact but it contains an error, they should reference (or throw) the relevant error for feedback to the user. */
     @Beta  // return type is too detailed, but the detail is useful
     public ReferenceWithError<OsgiBundleInstallationResult> install(@Nonnull Supplier<InputStream> input, BundleInstallationOptions options);
 

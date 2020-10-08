@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.*;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.jar.Attributes;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
@@ -51,16 +53,37 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
         super(FORMAT, "Brooklyn catalog.bom YAML", "YAML map with a single brooklyn.catalog key");
     }
 
-    // TODO
-
     @Override
     protected double scoreForNullFormat(Supplier<InputStream> f) {
-        return 0;
+        FileTypeDetector detector = new FileTypeDetector(f);
+        // positive but very small, so we can get errors
+        if (!detector.isPrintableText()) return 0.001;
+        if (!detector.isYaml()) return 0.01;
+        Object yaml = detector.getYaml().get();
+        if (yaml instanceof Iterable) {
+            Iterator yi = ((Iterable) yaml).iterator();
+            if (!yi.hasNext()) return 0;
+            Object yo = yi.next();
+            if (yi.hasNext()) {
+                // multiple documents
+                return 0.01;
+            }
+            if (yo instanceof Map) {
+                if (((Map<?,?>)yo).containsKey("brooklyn.catalog")) return 0.9;
+                return 0.1;
+            } else {
+                return 0.01;
+            }
+        }
+        // expected an iterable
+        return 0.01;
     }
 
     @Override
     public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, BundleInstallationOptions options) {
-        // TODO read a few chars to make sure it's YAML; no need to read an entire ZIP!
+        // throw if not valid yaml
+        new FileTypeDetector(input).getYaml().get();
+
         String yaml = Streams.readFullyString(input.get());
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
 

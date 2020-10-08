@@ -89,6 +89,10 @@ public abstract class InputStreamSource implements Supplier<InputStream> {
             this.data = data;
         }
 
+        public File getFile() {
+            return data;
+        }
+
         @Override
         public InputStream get() {
             try {

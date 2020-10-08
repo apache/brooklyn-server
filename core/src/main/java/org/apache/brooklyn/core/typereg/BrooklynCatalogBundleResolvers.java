@@ -24,6 +24,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import java.io.File;
 import java.io.InputStream;
 import java.util.*;
 import java.util.function.Supplier;
@@ -31,13 +32,17 @@ import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
+import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller.PrepareInstallResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -103,53 +108,85 @@ public class BrooklynCatalogBundleResolvers {
 
     public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, Supplier<InputStream> input,
                                                                            BundleInstallationOptions options) {
-        List<BrooklynCatalogBundleResolver> resolvers = forBundle(mgmt, input, options);
-        Collection<String> resolversWhoDontSupport = new ArrayList<String>();
-        Collection<Exception> failuresFromResolvers = new ArrayList<Exception>();
-        for (BrooklynCatalogBundleResolver t: resolvers) {
-            try {
-                ReferenceWithError<OsgiBundleInstallationResult> result = t.install(input, options);
-                if (result==null) {
-                    resolversWhoDontSupport.add(t.getFormatCode() + " (returned null)");
-                    continue;
-                }
-                return result;
-            } catch (@SuppressWarnings("deprecation") UnsupportedCatalogBundleException e) {
-                resolversWhoDontSupport.add(t.getFormatCode() +
-                        (Strings.isNonBlank(e.getMessage()) ? " ("+e.getMessage()+")" : ""));
-            } catch (Throwable e) {
-                Exceptions.propagateIfFatal(e);
-                if (LOG.isTraceEnabled()) {
-                    LOG.trace("Transformer for "+t.getFormatCode()+" gave an error creating this plan (may retry): "+e, e);
-                }
-                failuresFromResolvers.add(new PropagatedRuntimeException(
-                        (t.getFormatCode()+" bundle installation error") + ": "+
-                                Exceptions.collapseText(e), e));
-            }
+        File fileToDelete = null;
+        if (input==null  && options.knownBundleMetadata==null) {
+            return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or reference must be supplied"));
+        }
+//            if (options.knownBundleMetadata.getOsgiUniqueUrl()==null) {
+//                return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or reference with URL must be supplied"));
+//            }
+        PrepareInstallResult prepareResult = BrooklynBomOsgiArchiveInstaller.prepareInstall(mgmt, options.knownBundleMetadata, input, options.forceUpdateOfNonSnapshots);
+        if (prepareResult.alreadyInstalledResult!=null) {
+            return ReferenceWithError.newInstanceWithoutError(prepareResult.alreadyInstalledResult);
         }
 
-        // failed
-        Exception result;
-        if (!failuresFromResolvers.isEmpty()) {
-            // at least one thought he could do it
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Failure transforming plan; returning summary failure, but for reference "
-                        + "potentially application transformers were "+resolvers+", "
-                        + "available ones are "+ MutableList.builder().addAll(all(mgmt))
-                        .build()+"; "
-                        + "failures: "+failuresFromResolvers);
-            }
-            result = failuresFromResolvers.size()==1 ? Exceptions.create(null, failuresFromResolvers) :
-                    Exceptions.create("All plan transformers failed", failuresFromResolvers);
-        } else {
-            if (resolvers.isEmpty()) {
-                result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available resolvers "+all(mgmt)+" support it");
+        fileToDelete = prepareResult.zipFile;
+        //we don't need it put into a file, but that's what we used to do so keep doing it that way;
+        //and again for backwards compatibility, prefer the zip file that prepareInstall gives us,
+        //although it would feel better not to, unless needed
+        //if (input==null) {
+            if (prepareResult.zipFile!=null) {
+                input = InputStreamSource.of(prepareResult.zipFile.getName(), prepareResult.zipFile);
             } else {
-                result = new UnsupportedTypePlanException("Invalid plan; potentially applicable resolvers "+resolvers+" do not support it, " +
-                        "and other available resolvers do not accept it");
+                return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or knwon reference must be supplied; "+
+                        options.knownBundleMetadata+" not known"));
+            }
+        //}
+
+        try {
+            List<BrooklynCatalogBundleResolver> resolvers = forBundle(mgmt, input, options);
+            Collection<String> resolversWhoDontSupport = new ArrayList<String>();
+            Collection<Exception> failuresFromResolvers = new ArrayList<Exception>();
+            for (BrooklynCatalogBundleResolver t : resolvers) {
+                try {
+                    ReferenceWithError<OsgiBundleInstallationResult> result = t.install(input, options);
+                    if (result == null) {
+                        resolversWhoDontSupport.add(t.getFormatCode() + " (returned null)");
+                        continue;
+                    }
+                    result.get();  // assert there is no error
+                    return result;
+                } catch (@SuppressWarnings("deprecation") UnsupportedCatalogBundleException e) {
+                    resolversWhoDontSupport.add(t.getFormatCode() +
+                            (Strings.isNonBlank(e.getMessage()) ? " (" + e.getMessage() + ")" : ""));
+                } catch (Throwable e) {
+                    Exceptions.propagateIfFatal(e);
+                    if (LOG.isTraceEnabled()) {
+                        LOG.trace("Transformer for " + t.getFormatCode() + " gave an error creating this plan (may retry): " + e, e);
+                    }
+                    failuresFromResolvers.add(new PropagatedRuntimeException(
+                            (t.getFormatCode() + " bundle installation error") + ": " +
+                                    Exceptions.collapseText(e), e));
+                }
+            }
+
+            // failed
+            Exception result;
+            if (!failuresFromResolvers.isEmpty()) {
+                // at least one thought he could do it
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Failure transforming plan; returning summary failure, but for reference "
+                            + "potentially application transformers were " + resolvers + ", "
+                            + "available ones are " + MutableList.builder().addAll(all(mgmt))
+                            .build() + "; "
+                            + "failures: " + failuresFromResolvers);
+                }
+                result = failuresFromResolvers.size() == 1 ? Exceptions.create(null, failuresFromResolvers) :
+                        Exceptions.create("All plan transformers failed", failuresFromResolvers);
+            } else {
+                if (resolvers.isEmpty()) {
+                    result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
+                } else {
+                    result = new UnsupportedTypePlanException("Invalid plan; potentially applicable resolvers " + resolvers + " do not support it, " +
+                            "and other available resolvers do not accept it");
+                }
+            }
+            return ReferenceWithError.newInstanceThrowingError(null, result);
+        } finally {
+            if (fileToDelete!=null) {
+                fileToDelete.delete();
             }
         }
-        return ReferenceWithError.newInstanceThrowingError(null, result);
     }
 
 }

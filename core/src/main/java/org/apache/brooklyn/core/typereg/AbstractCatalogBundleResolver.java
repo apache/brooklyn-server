@@ -18,18 +18,26 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.io.File;
+import com.google.common.collect.Lists;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.Supplier;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * Convenience supertype for {@link BrooklynCatalogBundleResolver} instances.
  * <p>
- * This supplies a default {@link #scoreForBundle(String, InputStream)} method
+ * This supplies a default {@link #scoreForBundle(String, Supplier<InputStream>)} method
  * method which returns 1 if the format code matches,
  * and otherwise branches to various abstract score methods which subclasses can implement,
  * cf {@link AbstractTypePlanTransformer}.
@@ -95,4 +103,114 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
         return 0;
     }
 
+    protected static class FileTypeDetector {
+        final Supplier<InputStream> streamSupplier;
+
+        private byte[] bytesRead = new byte[0];
+
+        protected FileTypeDetector(Supplier<InputStream> streamSupplier) {
+            this.streamSupplier = streamSupplier;
+        }
+
+        protected byte[] readBytes(int length) {
+            if (bytesRead.length >= length) {
+                return bytesRead;
+            }
+            bytesRead = new byte[length];
+            InputStream stream = streamSupplier.get();
+            int size;
+            try {
+                size = stream.read(bytesRead);
+                stream.close();
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
+            }
+            if (size<length) {
+                bytesRead = Arrays.copyOf(bytesRead, size);
+            }
+            return bytesRead;
+        }
+
+        // https://en.wikipedia.org/wiki/List_of_file_signatures
+        private final static byte[] HEADER_ZIP              = new byte[] { 0x50, 0x4B, 0x03, 0x04 };
+        private final static byte[] HEADER_ZIP_EMPTY        = new byte[] { 0x50, 0x4B, 0x05, 0x06 };
+        private final static byte[] HEADER_ZIP_SPANNED      = new byte[] { 0x50, 0x4B, 0x07, 0x08 };
+        private final static List<byte[]> HEADERS_ZIP = Arrays.asList(HEADER_ZIP, HEADER_ZIP_EMPTY, HEADER_ZIP_SPANNED);
+
+        public boolean isZip() {
+            byte[] header = readBytes(4);
+            return HEADERS_ZIP.stream().anyMatch(zip -> Arrays.equals(header, zip));
+        }
+
+
+//[1] c-printable ::= #x9 | #xA | #xD | [#x20-#x7E]          /* 8 bit */
+//                  | #x85 | [#xA0-#xD7FF]
+//                  | [#xE000-#xFFFD]                        /* 16 bit */
+//                  | [#x10000-#x10FFFF]                     /* 32 bit */
+        private boolean isValidYamlChar(int c) {
+            if (c < 0x20) {
+                return c==0x09 || c==0x0a || c==0x0d;
+            }
+            if (c <= 0x7E) return true;
+            if (c < 0xA0) {
+                return (c == 0x85);
+            }
+            if (c <= 0xD7FF) return true;
+            if (c < 0xE000) return false;
+            if (c <= 0xFFFD) return true;
+            if (c < 0x10000) return false;
+            if (c <= 0x10FFFF) return true;
+            return false;
+        }
+
+        public boolean isPrintableText() {
+            int size = 16;  // enough to rule out most binary files
+
+            while (true) {
+                byte[] headerB = readBytes(size);
+                String header = new String(headerB);
+
+                // scan
+                if (!header.chars().allMatch(this::isValidYamlChar)) {
+                    return false;
+                }
+
+                if (headerB.length < size) {
+                    // we have read everything
+                    return true;
+                }
+
+                // keep scaling out until we read the whole thing
+                size *= 16;
+            }
+        }
+
+        private Object yaml;
+
+        public boolean isYaml() {
+            if (!isPrintableText()) return false;
+            String header = new String(bytesRead);
+
+            try {
+                yaml = Yamls.parseAll(header);
+                return true;
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                return false;
+            }
+        }
+
+        public Maybe<Object> getYaml() {
+            if (yaml!=null) return Maybe.of(yaml);
+            if (!isPrintableText()) return Maybe.absent("Input does not consist of valid printable YAML characters.");
+
+            try {
+                yaml = Yamls.parseAll(new String(bytesRead));
+                return Maybe.ofAllowingNull(yaml);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                return Maybe.absent(e);
+            }
+        }
+    }
 }

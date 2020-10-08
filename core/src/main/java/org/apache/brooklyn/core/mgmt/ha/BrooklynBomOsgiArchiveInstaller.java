@@ -19,34 +19,39 @@
 package org.apache.brooklyn.core.mgmt.ha;
 
 import com.google.common.annotations.Beta;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Objects;
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
+import java.io.*;
 import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
-import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
+import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -57,6 +62,7 @@ import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource.InputStreamSourceFromFile;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
@@ -67,14 +73,6 @@ import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-
 @Beta
 public class BrooklynBomOsgiArchiveInstaller {
 
@@ -83,7 +81,7 @@ public class BrooklynBomOsgiArchiveInstaller {
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX;
     
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX;
-    
+
     final private OsgiManager osgiManager;
     private ManagedBundle suppliedKnownBundleMetadata;
     private InputStream zipIn;
@@ -154,24 +152,185 @@ public class BrooklynBomOsgiArchiveInstaller {
     }
     
     private synchronized void makeLocalZipFileFromInputStreamOrUrl() {
-        Maybe<Bundle> existingOsgiInstalledBundle = Maybe.absent();
-        Maybe<ManagedBundle> existingBrooklynInstalledBundle = Maybe.absent();
-        if (zipIn==null) {
-            if (suppliedKnownBundleMetadata!=null) {
+        PrepareInstallResult pr = prepareInstall(mgmt(), suppliedKnownBundleMetadata, () -> zipIn, force);
+        if (pr.isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
+            isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
+        }
+        if (pr.existingBundle!=null) {
+            result.bundle = pr.existingBundle;
+        }
+
+        if (pr.alreadyInstalledResult !=null) {
+            result.metadata = pr.alreadyInstalledResult.metadata;
+            result.setIgnoringAlreadyInstalled();
+            return;
+        }
+
+        zipFile = pr.zipFile;
+//
+//
+//        Maybe<Bundle> existingOsgiInstalledBundle = Maybe.absent();
+//        Maybe<ManagedBundle> existingBrooklynInstalledBundle = Maybe.absent();
+//        if (zipIn==null) {
+//            if (suppliedKnownBundleMetadata!=null) {
+//                // if no input stream (zipIn), look for a URL and/or a matching bundle
+//                if (!suppliedKnownBundleMetadata.isNameResolved()) {
+//                    existingBrooklynInstalledBundle = Maybe.ofDisallowingNull(osgiManager.getManagedBundleFromUrl(suppliedKnownBundleMetadata.getUrl()));
+//                    if (existingBrooklynInstalledBundle.isPresent()) {
+//                        // user supplied just a URL (eg brooklyn.libraries), but we recognise it,
+//                        // so don't try to reload it, just record the info we know about it to retrieve the bundle
+//                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setSymbolicName(existingBrooklynInstalledBundle.get().getSymbolicName());
+//                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setVersion(existingBrooklynInstalledBundle.get().getSuppliedVersionString());
+//                    }
+//                }
+//                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getOsgiUniqueUrl()!=null) {
+//                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).requiringFromUrl(suppliedKnownBundleMetadata.getOsgiUniqueUrl()).find();
+//                }
+//                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getUrl()!=null) {
+//                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).requiringFromUrl(suppliedKnownBundleMetadata.getUrl()).find();
+//                }
+//                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.isNameResolved()) {
+//                    existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).symbolicName(suppliedKnownBundleMetadata.getSymbolicName()).version(suppliedKnownBundleMetadata.getSuppliedVersionString()).find();
+//                }
+//                if (existingOsgiInstalledBundle.isPresent()) {
+//                    if (existingBrooklynInstalledBundle.isAbsent()) {
+//                        // try to find as brooklyn bundle based on knowledge of OSGi bundle
+//                        existingBrooklynInstalledBundle = Maybe.ofDisallowingNull(osgiManager.getManagedBundle(new VersionedName(existingOsgiInstalledBundle.get())));
+//                    }
+//                    if (suppliedKnownBundleMetadata.getUrl()==null) {
+//                        // installer did not supply a usable URL, just coords
+//                        // but bundle is installed at least to OSGi
+//                        if (existingBrooklynInstalledBundle.isPresent()) {
+//                            log.debug("Detected bundle "+suppliedKnownBundleMetadata+" installed to Brooklyn already; no URL or stream supplied, so re-using existing installation");
+//                            // if bundle is brooklyn-managed simply say "already installed"
+//                            result.metadata = existingBrooklynInstalledBundle.get();
+//                            result.setIgnoringAlreadyInstalled();
+//                            return;
+//
+//                        } else {
+//                            // if bundle is not brooklyn-managed we want to make it be so
+//                            // and for that we need to find a URL.
+//                            // the getLocation() _might_ be usable, or might be totally opaque;
+//                            // in tests we rely on the block below (see system:file:) and things
+//                            // being explicitly set, but in live and rebind deployments the URL
+//                            // in practice with karaf how we package it is of the form mvn:...
+//                            // which _does_ work in this block, so we will be able to do most
+//                            // things which rely on taking osgi-installed bundles into brooklyn mgmt
+//                            // (and if not don't think it's a big deal, we just uninstall and reinstall
+//                            // sometimes or fail with a reasonable error message)
+//                            String candidateUrl = existingOsgiInstalledBundle.get().getLocation();
+//                            log.debug("Detected bundle "+suppliedKnownBundleMetadata+" installed to OSGi but not Brooklyn; trying to find a URL to get bundle binary, candidate "+candidateUrl);
+//                            if (Strings.isBlank(candidateUrl)) {
+//                                throw new IllegalArgumentException("No input stream available and no URL could be found: no way to promote "+suppliedKnownBundleMetadata+" from "+existingOsgiInstalledBundle.get()+" to Brooklyn management");
+//                            }
+//                            try {
+//                                // do this in special try block, not below, so we can give a better error
+//                                // (the user won't understand the URL)
+//                                zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(candidateUrl);
+//                                isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
+//                            } catch (Exception e) {
+//                                Exceptions.propagateIfFatal(e);
+//                                throw new IllegalArgumentException("Could not find binary for already installed OSGi bundle "+existingOsgiInstalledBundle.get()+" (location "+candidateUrl+") when trying to promote "+suppliedKnownBundleMetadata+" to Brooklyn management", e);
+//                            }
+//                        }
+//                    }
+//                } else if (suppliedKnownBundleMetadata.getUrl()==null) {
+//                    // not installed anywhere and no URL
+//                    throw new IllegalArgumentException("No input stream available and no URL could be found: no way to install "+suppliedKnownBundleMetadata);
+//                }
+//
+//                assert zipIn!=null || suppliedKnownBundleMetadata.getUrl()!=null : "should have found a stream or inferred a URL";
+//
+//                if (zipIn!=null) {
+//                    // found input stream for existing osgi bundle
+//
+//                } else if (existingBrooklynInstalledBundle.isAbsent() || force) {
+//                    // reload
+//                    String url = suppliedKnownBundleMetadata.getUrl();
+//                    if (BrooklynVersion.isDevelopmentEnvironment() && url.startsWith("system:file:")) {
+//                        // in live dists the url is usually mvn: but in dev/test karaf will prefix it with system;
+//                        // leave the url alone so we correctly dedupe when considering whether to update, but create a zip file
+//                        // so that things work consistently in dev/test (in particular ClassLoaderUtilsTest passes).
+//                        // pretty sure we have to do this, even if not replacing the osgi bundle, because we need to
+//                        // get a handle on the zip file (although we could skip if not doing persistence - but that feels even worse than this!)
+//                        try {
+//                            url = Strings.removeFromStart(url, "system:");
+//                            File zipTemp = new BundleMaker(ResourceUtils.create()).createJarFromClasspathDir(url);
+//                            zipIn = new FileInputStream( zipTemp );
+//                        } catch (FileNotFoundException e) {
+//                            throw Exceptions.propagate(e);
+//                        }
+//                    } else {
+//                        zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(url, suppliedKnownBundleMetadata.getUrlCredential());
+//                    }
+//                } else {
+//                    // already installed, not forced, just say already installed
+//                    // (even if snapshot as this is a reference by URL, not uploaded content)
+//                    result.metadata = existingBrooklynInstalledBundle.get();
+//                    result.setIgnoringAlreadyInstalled();
+//                    return;
+//                }
+//            }
+//
+//            result.bundle = existingOsgiInstalledBundle.orNull();
+//        }
+//
+//        zipFile = Os.newTempFile("brooklyn-bundle-transient-"+suppliedKnownBundleMetadata, "zip");
+//        try {
+//            FileOutputStream fos = new FileOutputStream(zipFile);
+//            Streams.copyClose(zipIn, fos);
+//            try (ZipFile zf = new ZipFile(zipFile)) {
+//                // validate it is a valid ZIP, otherwise errors are more obscure later.
+//                // can happen esp if user supplies a file://path/to/folder/ as the URL.openStream returns a list of that folder (!)
+//                // the error thrown by the below is useful enough, and caller will wrap with suppliedKnownBundleMetadata details
+//                zf.entries();
+//            }
+//        } catch (Exception e) {
+//            throw Exceptions.propagate(e);
+//        } finally {
+//            Streams.closeQuietly(zipIn);
+//            zipIn = null;
+//        }
+    }
+
+    // result.setIgnoringAlreadyInstalled()
+    public static class PrepareInstallResult {
+//        /** set if there is a bundle matching the given metadata */
+//        public ManagedBundle existingBundleMetadata = null;
+        /** set if there is a bundle matching the given metadata */
+        public Bundle existingBundle;
+        /** set if already completely installed, and ready for returning to a user */
+        public OsgiBundleInstallationResult alreadyInstalledResult = null;
+        /** set if already installed to OSGi but not to Brooklyn */
+        public boolean isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = false;
+        /** set if we anticipate a caller may want to read from a ZIP file;
+         * this is for the case where no input stream was supplied but
+         * OSGi bundle co-ordinates were supplied and can be used to find a ZIP */
+        public File zipFile;
+    }
+    public static PrepareInstallResult prepareInstall(ManagementContext mgmt, ManagedBundle suppliedKnownBundleMetadata, Supplier<InputStream> zipInS, boolean force) {
+        InputStream zipIn = zipInS == null ? null : zipInS.get();
+        PrepareInstallResult prepareInstallResult = new PrepareInstallResult();
+        try {
+            Maybe<Bundle> existingOsgiInstalledBundle = Maybe.absent();
+            Maybe<ManagedBundle> existingBrooklynInstalledBundle = Maybe.absent();
+            OsgiManager osgiManager = ((ManagementContextInternal) mgmt).getOsgiManager().get();
+
+            if (suppliedKnownBundleMetadata != null) {
                 // if no input stream (zipIn), look for a URL and/or a matching bundle
                 if (!suppliedKnownBundleMetadata.isNameResolved()) {
                     existingBrooklynInstalledBundle = Maybe.ofDisallowingNull(osgiManager.getManagedBundleFromUrl(suppliedKnownBundleMetadata.getUrl()));
                     if (existingBrooklynInstalledBundle.isPresent()) {
                         // user supplied just a URL (eg brooklyn.libraries), but we recognise it,
                         // so don't try to reload it, just record the info we know about it to retrieve the bundle
-                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setSymbolicName(existingBrooklynInstalledBundle.get().getSymbolicName());
-                        ((BasicManagedBundle)suppliedKnownBundleMetadata).setVersion(existingBrooklynInstalledBundle.get().getSuppliedVersionString());
+                        ((BasicManagedBundle) suppliedKnownBundleMetadata).setSymbolicName(existingBrooklynInstalledBundle.get().getSymbolicName());
+                        ((BasicManagedBundle) suppliedKnownBundleMetadata).setVersion(existingBrooklynInstalledBundle.get().getSuppliedVersionString());
                     }
                 }
-                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getOsgiUniqueUrl()!=null) {
+                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getOsgiUniqueUrl() != null) {
                     existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).requiringFromUrl(suppliedKnownBundleMetadata.getOsgiUniqueUrl()).find();
                 }
-                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getUrl()!=null) {
+                if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.getUrl() != null) {
                     existingOsgiInstalledBundle = Osgis.bundleFinder(osgiManager.getFramework()).requiringFromUrl(suppliedKnownBundleMetadata.getUrl()).find();
                 }
                 if (existingOsgiInstalledBundle.isAbsent() && suppliedKnownBundleMetadata.isNameResolved()) {
@@ -182,16 +341,17 @@ public class BrooklynBomOsgiArchiveInstaller {
                         // try to find as brooklyn bundle based on knowledge of OSGi bundle
                         existingBrooklynInstalledBundle = Maybe.ofDisallowingNull(osgiManager.getManagedBundle(new VersionedName(existingOsgiInstalledBundle.get())));
                     }
-                    if (suppliedKnownBundleMetadata.getUrl()==null) { 
+                    if (suppliedKnownBundleMetadata.getUrl() == null) {
                         // installer did not supply a usable URL, just coords
                         // but bundle is installed at least to OSGi
                         if (existingBrooklynInstalledBundle.isPresent()) {
-                            log.debug("Detected bundle "+suppliedKnownBundleMetadata+" installed to Brooklyn already; no URL or stream supplied, so re-using existing installation");
+                            log.debug("Detected bundle " + suppliedKnownBundleMetadata + " installed to Brooklyn already; no URL or stream supplied, so re-using existing installation");
                             // if bundle is brooklyn-managed simply say "already installed"
-                            result.metadata = existingBrooklynInstalledBundle.get();
-                            result.setIgnoringAlreadyInstalled();
-                            return;
-                            
+//                            prepareInstallResult.existingBundleMetadata = existingBrooklynInstalledBundle.get();
+                            prepareInstallResult.alreadyInstalledResult = new OsgiBundleInstallationResult();
+                            prepareInstallResult.alreadyInstalledResult.metadata = existingBrooklynInstalledBundle.get();
+                            prepareInstallResult.alreadyInstalledResult.setIgnoringAlreadyInstalled();
+
                         } else {
                             // if bundle is not brooklyn-managed we want to make it be so
                             // and for that we need to find a URL.
@@ -204,31 +364,31 @@ public class BrooklynBomOsgiArchiveInstaller {
                             // (and if not don't think it's a big deal, we just uninstall and reinstall
                             // sometimes or fail with a reasonable error message)
                             String candidateUrl = existingOsgiInstalledBundle.get().getLocation();
-                            log.debug("Detected bundle "+suppliedKnownBundleMetadata+" installed to OSGi but not Brooklyn; trying to find a URL to get bundle binary, candidate "+candidateUrl);
+                            log.debug("Detected bundle " + suppliedKnownBundleMetadata + " installed to OSGi but not Brooklyn; trying to find a URL to get bundle binary, candidate " + candidateUrl);
                             if (Strings.isBlank(candidateUrl)) {
-                                throw new IllegalArgumentException("No input stream available and no URL could be found: no way to promote "+suppliedKnownBundleMetadata+" from "+existingOsgiInstalledBundle.get()+" to Brooklyn management");
+                                throw new IllegalArgumentException("No input stream available and no URL could be found: no way to promote " + suppliedKnownBundleMetadata + " from " + existingOsgiInstalledBundle.get() + " to Brooklyn management");
                             }
                             try {
                                 // do this in special try block, not below, so we can give a better error
                                 // (the user won't understand the URL)
-                                zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(candidateUrl);
-                                isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
+                                zipIn = ResourceUtils.create(mgmt).getResourceFromUrl(candidateUrl);
+                                prepareInstallResult.isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = true;
                             } catch (Exception e) {
                                 Exceptions.propagateIfFatal(e);
-                                throw new IllegalArgumentException("Could not find binary for already installed OSGi bundle "+existingOsgiInstalledBundle.get()+" (location "+candidateUrl+") when trying to promote "+suppliedKnownBundleMetadata+" to Brooklyn management", e);
+                                throw new IllegalArgumentException("Could not find binary for already installed OSGi bundle " + existingOsgiInstalledBundle.get() + " (location " + candidateUrl + ") when trying to promote " + suppliedKnownBundleMetadata + " to Brooklyn management", e);
                             }
                         }
                     }
-                } else if (suppliedKnownBundleMetadata.getUrl()==null) {
+                } else if (suppliedKnownBundleMetadata.getUrl() == null) {
                     // not installed anywhere and no URL
-                    throw new IllegalArgumentException("No input stream available and no URL could be found: no way to install "+suppliedKnownBundleMetadata);
+                    throw new IllegalArgumentException("No input stream available and no URL could be found: no way to install " + suppliedKnownBundleMetadata);
                 }
-                
-                assert zipIn!=null || suppliedKnownBundleMetadata.getUrl()!=null : "should have found a stream or inferred a URL";
-                
-                if (zipIn!=null) {
+
+                assert zipIn != null || suppliedKnownBundleMetadata.getUrl() != null : "should have found a stream or inferred a URL or already installed";
+
+                if (zipIn != null) {
                     // found input stream for existing osgi bundle
-                    
+
                 } else if (existingBrooklynInstalledBundle.isAbsent() || force) {
                     // reload
                     String url = suppliedKnownBundleMetadata.getUrl();
@@ -241,41 +401,51 @@ public class BrooklynBomOsgiArchiveInstaller {
                         try {
                             url = Strings.removeFromStart(url, "system:");
                             File zipTemp = new BundleMaker(ResourceUtils.create()).createJarFromClasspathDir(url);
-                            zipIn = new FileInputStream( zipTemp );
+                            zipIn = new FileInputStream(zipTemp);
                         } catch (FileNotFoundException e) {
                             throw Exceptions.propagate(e);
                         }
                     } else {
-                        zipIn = ResourceUtils.create(mgmt()).getResourceFromUrl(url, suppliedKnownBundleMetadata.getUrlCredential());
+                        zipIn = ResourceUtils.create(mgmt).getResourceFromUrl(url, suppliedKnownBundleMetadata.getUrlCredential());
                     }
                 } else {
                     // already installed, not forced, just say already installed
-                    // (even if snapshot as this is a reference by URL, not uploaded content) 
-                    result.metadata = existingBrooklynInstalledBundle.get();
-                    result.setIgnoringAlreadyInstalled();
-                    return;
+                    // (even if snapshot as this is a reference by URL, not uploaded content)
+//                    prepareInstallResult.existingBundleMetadata = existingBrooklynInstalledBundle.get();
+                    prepareInstallResult.alreadyInstalledResult = new OsgiBundleInstallationResult();
+                    prepareInstallResult.alreadyInstalledResult.metadata = existingBrooklynInstalledBundle.get();
+                    prepareInstallResult.alreadyInstalledResult.setIgnoringAlreadyInstalled();
+
                 }
             }
-            
-            result.bundle = existingOsgiInstalledBundle.orNull();
-        }
-        
-        zipFile = Os.newTempFile("brooklyn-bundle-transient-"+suppliedKnownBundleMetadata, "zip");
-        try {
-            FileOutputStream fos = new FileOutputStream(zipFile);
-            Streams.copyClose(zipIn, fos);
-            try (ZipFile zf = new ZipFile(zipFile)) {
-                // validate it is a valid ZIP, otherwise errors are more obscure later.
-                // can happen esp if user supplies a file://path/to/folder/ as the URL.openStream returns a list of that folder (!) 
-                // the error thrown by the below is useful enough, and caller will wrap with suppliedKnownBundleMetadata details
-                zf.entries();
+
+            prepareInstallResult.existingBundle = existingOsgiInstalledBundle.orNull();
+
+            if (zipIn != null) {
+                if (zipInS instanceof InputStreamSourceFromFile) {
+                    prepareInstallResult.zipFile = ((InputStreamSourceFromFile) zipInS).getFile();
+                } else {
+                    prepareInstallResult.zipFile = Os.newTempFile("brooklyn-bundle-transient-" + suppliedKnownBundleMetadata, "zip");
+                    try {
+                        FileOutputStream fos = new FileOutputStream(prepareInstallResult.zipFile);
+                        Streams.copyClose(zipIn, fos);
+                        try (ZipFile zf = new ZipFile(prepareInstallResult.zipFile)) {
+                            // validate it is a valid ZIP, otherwise errors are more obscure later.
+                            // can happen esp if user supplies a file://path/to/folder/ as the URL.openStream returns a list of that folder (!)
+                            // the error thrown by the below is useful enough, and caller will wrap with suppliedKnownBundleMetadata details
+                            zf.entries();
+                        }
+                    } catch (Exception e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
             }
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
         } finally {
             Streams.closeQuietly(zipIn);
             zipIn = null;
         }
+
+        return prepareInstallResult;
     }
 
     private void discoverManifestFromCatalogBom(boolean isCatalogBomRequired) {
@@ -711,11 +881,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                     // (rebind is deferred, as are tests, but REST is not)
                     final int MAX_TO_LIST_EXPLICITLY = 5;
                     Iterable<String> firstN = Iterables.transform(MutableList.copyOf(Iterables.limit(result.typesInstalled, MAX_TO_LIST_EXPLICITLY)),
-                        new Function<RegisteredType,String>() {
-                            @Override public String apply(RegisteredType input) {
-                                return input.getVersionedName().toString();
-                            }
-                        });
+                            input -> input.getVersionedName().toString());
                     log.info(result.message+", items: "+firstN+
                         (result.typesInstalled.size() > MAX_TO_LIST_EXPLICITLY ? " (and others, "+result.typesInstalled.size()+" total)" : "") );
                     if (log.isDebugEnabled() && result.typesInstalled.size()>MAX_TO_LIST_EXPLICITLY) {
@@ -790,8 +956,7 @@ public class BrooklynBomOsgiArchiveInstaller {
             final Pattern whitelistPattern = (whitelistRegex != null) ? Pattern.compile(whitelistRegex) : null;
             final Pattern blacklistPattern = (blacklistRegex != null) ? Pattern.compile(blacklistRegex) : null;
 
-            blacklistBundlePersistencePredicate = new Predicate<ManagedBundle>() {
-                @Override public boolean apply(ManagedBundle input) {
+            blacklistBundlePersistencePredicate = input -> {
                     String bundleName = input.getSymbolicName();
                     if (whitelistPattern != null && whitelistPattern.matcher(bundleName).matches()) {
                         return false;
@@ -800,11 +965,10 @@ public class BrooklynBomOsgiArchiveInstaller {
                         return true;
                     }
                     return false;
-                }
             };
         }
         
-        return blacklistBundlePersistencePredicate.apply(managedBundle);
+        return blacklistBundlePersistencePredicate.test(managedBundle);
     }
     
     private static List<Bundle> findBundlesByVersion(OsgiManager osgiManager, ManagedBundle desired) {

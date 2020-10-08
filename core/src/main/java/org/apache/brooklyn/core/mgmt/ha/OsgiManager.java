@@ -382,7 +382,7 @@ public class OsgiManager {
 
     /** See {@link BrooklynCatalogBundleResolvers} */
     public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(
-            @Nullable ManagedBundle knownBundleMetadata, Supplier<InputStream> zipIn, boolean validateTypes) {
+            @Nullable ManagedBundle knownBundleMetadata, @Nullable Supplier<InputStream> zipIn, boolean validateTypes) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setDeferredStart(true);
         options.setFormat(knownBundleMetadata.getFormat());
