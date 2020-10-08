@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
@@ -57,12 +58,18 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
 
     public BasicExternalConfigSupplierRegistry(ManagementContext mgmt) {
         addProvider(DEMO_SAMPLE_PROVIDER, new InPlaceExternalConfigSupplier(mgmt, DEMO_SAMPLE_PROVIDER,
-            MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)));
+                MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)),
+                /** suppress logging when running this from ide; a nicer way would be to remove this altogether in most tests */
+                !BrooklynVersion.isDevelopmentEnvironment());
         updateFromBrooklynProperties(mgmt);
     }
 
     @Override
     public void addProvider(String name, ExternalConfigSupplier supplier) {
+        addProvider(name, supplier, true);
+    }
+
+    protected void addProvider(String name, ExternalConfigSupplier supplier, boolean logInfo) {
         synchronized (providersMapMutex) {
             if (providersByName.containsKey(name) && !DEMO_SAMPLE_PROVIDER.equals(name)) {
                 // allow demo to be overridden

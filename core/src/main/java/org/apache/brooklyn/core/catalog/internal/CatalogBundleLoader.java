@@ -91,7 +91,7 @@ public class CatalogBundleLoader {
         result.legacyResult = MutableList.of();
         result.mapOfNewToReplaced = resultNewFormat;
 
-        final URL bomUrl = bomText==null ? null : bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
+        final URL bomUrl = bomText!=null ? null : bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
         if (null != bomUrl) {
             LOG.debug("Catalog load, found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
             bomText = readBom(bomUrl);

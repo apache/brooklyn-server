@@ -145,7 +145,7 @@ public class TypePlanTransformers {
             // at least one thought he could do it
             if (log.isDebugEnabled()) {
                 log.debug("Failure transforming plan; returning summary failure, but for reference "
-                    + "potentially application transformers were "+transformers+", "
+                    + "potentially applicable transformers were "+transformers+", "
                     + "available ones are "+MutableList.builder().addAll(all(mgmt))
                         // when all(mgmt) has a cache, reinstate this and add the word "other" above
 //                        .removeAll(transformers)

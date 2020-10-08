@@ -55,18 +55,19 @@ public class BrooklynBomBundleCatalogBundleResolver extends AbstractCatalogBundl
 
     @Override
     public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, BundleInstallationOptions options) {
-        LOG.debug("Installing bundle from stream - known details: "+options.knownBundleMetadata);
+        LOG.debug("Installing bundle from stream - known details: "+(options==null ? null : options.knownBundleMetadata));
 
         BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(
                 ((ManagementContextInternal)mgmt).getOsgiManager().get(),
-                options.knownBundleMetadata, input.get());
-        installer.setStart(options.start);
+                (options==null ? null : options.knownBundleMetadata), input.get());
         installer.setCatalogBomText(FORMAT, null);
-        installer.setLoadCatalogBom(options.loadCatalogBom);
-        installer.setForce(options.forceUpdateOfNonSnapshots);
-
-        installer.setDeferredStart(options.deferredStart);
-        installer.setValidateTypes(options.validateTypes);
+        if (options!=null) {
+            installer.setStart(options.start);
+            installer.setLoadCatalogBom(options.loadCatalogBom);
+            installer.setForce(options.forceUpdateOfNonSnapshots);
+            installer.setDeferredStart(options.deferredStart);
+            installer.setValidateTypes(options.validateTypes);
+        }
 
         return installer.install();
     }

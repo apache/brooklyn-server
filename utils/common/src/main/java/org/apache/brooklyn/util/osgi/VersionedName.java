@@ -154,7 +154,7 @@ public class VersionedName implements Comparable<VersionedName> {
         return new VersionedName(vn.getSymbolicName(), vn.getOsgiVersion());
     }
 
-    /** As {@link #parseMaybe(String)} but throwing if invalid; allows null version */
+    /** As {@link #parseMaybe(String, boolean)} but throwing if invalid; allows null version */
     public static VersionedName fromString(String vn) {
         return parseMaybe(vn, false).get();
     }

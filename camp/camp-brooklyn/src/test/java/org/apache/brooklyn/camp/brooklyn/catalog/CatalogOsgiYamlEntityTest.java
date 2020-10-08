@@ -226,7 +226,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "  item:",
                 "    type: " + SIMPLE_ENTITY_TYPE);
             Asserts.shouldHaveFailedPreviously();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, nonExistentId, nonExistentVersion, "no input stream", "no URL");
         }
     }
@@ -307,7 +307,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "  item:",
                 "    type: " + SIMPLE_ENTITY_TYPE);
             Asserts.shouldHaveFailedPreviously();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, nonExistentId, nonExistentVersion,
                 "symbolic name mismatch", OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_NAME,
                 OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
@@ -396,7 +396,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                     "  item:",
                     "    type: " + symbolicName);
             fail("Catalog addition expected to fail due to non-existent java type " + symbolicName);
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
         }
     }
@@ -422,7 +422,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "  item:",
                 "    type: " + versionedId);
             fail("Catalog addition expected to fail due to non-existent java type " + versionedId);
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
         }
     }
@@ -457,7 +457,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                     "  item:",
                     "    type: " + symbolicName + ".callee");
             fail();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
         }
     }
@@ -497,7 +497,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                     "      brooklyn.children:",
                     "      - type: " + symbolicName + ".callee");
             fail();
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
         }
     }
@@ -535,7 +535,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                     "  item:",
                     "    type: " + SIMPLE_ENTITY_TYPE);
             fail("Catalog addition expected to fail due to non-existent java type " + SIMPLE_ENTITY_TYPE);
-        } catch (IllegalStateException e) {
+        } catch (Exception e) {
             assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
         }
     }

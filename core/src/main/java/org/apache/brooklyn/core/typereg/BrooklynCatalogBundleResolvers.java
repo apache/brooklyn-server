@@ -94,7 +94,7 @@ public class BrooklynCatalogBundleResolvers {
         Multimap<Double,BrooklynCatalogBundleResolver> byScoreMulti = ArrayListMultimap.create();
         Collection<BrooklynCatalogBundleResolver> transformers = all(mgmt);
         for (BrooklynCatalogBundleResolver transformer : transformers) {
-            double score = transformer.scoreForBundle(options.format, input);
+            double score = transformer.scoreForBundle(options==null ? null : options.format, input);
             if (LOG.isTraceEnabled()) {
                 LOG.trace("SCORE for '" + input + "' at " + transformer + ": " + score);
             }
@@ -108,31 +108,28 @@ public class BrooklynCatalogBundleResolvers {
 
     public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, Supplier<InputStream> input,
                                                                            BundleInstallationOptions options) {
+        LOG.debug("Installing bundle {} / {}", input, (options==null ? null : options.knownBundleMetadata));
         File fileToDelete = null;
-        if (input==null  && options.knownBundleMetadata==null) {
+        if (input==null && options.knownBundleMetadata==null) {
             return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or reference must be supplied"));
         }
-//            if (options.knownBundleMetadata.getOsgiUniqueUrl()==null) {
-//                return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or reference with URL must be supplied"));
-//            }
-        PrepareInstallResult prepareResult = BrooklynBomOsgiArchiveInstaller.prepareInstall(mgmt, options.knownBundleMetadata, input, options.forceUpdateOfNonSnapshots);
-        if (prepareResult.alreadyInstalledResult!=null) {
-            return ReferenceWithError.newInstanceWithoutError(prepareResult.alreadyInstalledResult);
-        }
+        if (input==null && options.knownBundleMetadata!=null) {
+            // installing to brooklyn a bundle already installed to OSGi
+            PrepareInstallResult prepareResult = BrooklynBomOsgiArchiveInstaller.prepareInstall(mgmt, options.knownBundleMetadata, null, input, options.forceUpdateOfNonSnapshots, null);
+            if (prepareResult.resultObject != null) {
+                return ReferenceWithError.newInstanceWithoutError(prepareResult.resultObject);
+            }
 
-        fileToDelete = prepareResult.zipFile;
-        //we don't need it put into a file, but that's what we used to do so keep doing it that way;
-        //and again for backwards compatibility, prefer the zip file that prepareInstall gives us,
-        //although it would feel better not to, unless needed
-        //if (input==null) {
-            if (prepareResult.zipFile!=null) {
+            fileToDelete = prepareResult.zipFile;
+            if (prepareResult.zipFile != null) {
                 input = InputStreamSource.of(prepareResult.zipFile.getName(), prepareResult.zipFile);
             } else {
-                return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or knwon reference must be supplied; "+
-                        options.knownBundleMetadata+" not known"));
+                return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or known reference must be supplied; " +
+                        options.knownBundleMetadata + " not known"));
             }
-        //}
+        }
 
+        OsgiBundleInstallationResult firstResult = null;
         try {
             List<BrooklynCatalogBundleResolver> resolvers = forBundle(mgmt, input, options);
             Collection<String> resolversWhoDontSupport = new ArrayList<String>();
@@ -144,7 +141,12 @@ public class BrooklynCatalogBundleResolvers {
                         resolversWhoDontSupport.add(t.getFormatCode() + " (returned null)");
                         continue;
                     }
+                    if (firstResult == null) {
+                        // return the first result for more info
+                        firstResult = result.getWithoutError();
+                    }
                     result.get();  // assert there is no error
+                    LOG.debug("Installed bundle {} / {}: {}: {}", input, (options==null ? null : options.knownBundleMetadata), result.get().getCode(), result.get().getMessage());
                     return result;
                 } catch (@SuppressWarnings("deprecation") UnsupportedCatalogBundleException e) {
                     resolversWhoDontSupport.add(t.getFormatCode() +
@@ -152,7 +154,7 @@ public class BrooklynCatalogBundleResolvers {
                 } catch (Throwable e) {
                     Exceptions.propagateIfFatal(e);
                     if (LOG.isTraceEnabled()) {
-                        LOG.trace("Transformer for " + t.getFormatCode() + " gave an error creating this plan (may retry): " + e, e);
+                        LOG.trace("Resolver for " + t.getFormatCode() + " gave an error creating this plan (may retry): " + e, e);
                     }
                     failuresFromResolvers.add(new PropagatedRuntimeException(
                             (t.getFormatCode() + " bundle installation error") + ": " +
@@ -161,27 +163,29 @@ public class BrooklynCatalogBundleResolvers {
             }
 
             // failed
-            Exception result;
+            Exception exception;
             if (!failuresFromResolvers.isEmpty()) {
                 // at least one thought he could do it
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failure transforming plan; returning summary failure, but for reference "
-                            + "potentially application transformers were " + resolvers + ", "
+                    LOG.debug("Failure resolving bundle; returning summary failure, but for reference "
+                            + "potentially applicable resolvers were " + resolvers + ", "
                             + "available ones are " + MutableList.builder().addAll(all(mgmt))
                             .build() + "; "
                             + "failures: " + failuresFromResolvers);
                 }
-                result = failuresFromResolvers.size() == 1 ? Exceptions.create(null, failuresFromResolvers) :
+                exception = failuresFromResolvers.size() == 1 ? Exceptions.create(null, failuresFromResolvers) :
                         Exceptions.create("All plan transformers failed", failuresFromResolvers);
             } else {
                 if (resolvers.isEmpty()) {
-                    result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
+                    exception = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
                 } else {
-                    result = new UnsupportedTypePlanException("Invalid plan; potentially applicable resolvers " + resolvers + " do not support it, " +
+                    exception = new UnsupportedTypePlanException("Invalid plan; potentially applicable resolvers " + resolvers + " do not support it, " +
                             "and other available resolvers do not accept it");
                 }
             }
-            return ReferenceWithError.newInstanceThrowingError(null, result);
+            return ReferenceWithError.newInstanceThrowingError(firstResult, exception);
+        } catch (Exception e) {
+            return ReferenceWithError.newInstanceThrowingError(firstResult, e);
         } finally {
             if (fileToDelete!=null) {
                 fileToDelete.delete();

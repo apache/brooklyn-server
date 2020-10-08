@@ -126,7 +126,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
                 throw Exceptions.propagate(e);
             }
             if (size<length) {
-                bytesRead = Arrays.copyOf(bytesRead, size);
+                bytesRead = Arrays.copyOf(bytesRead, size<0 ? 0 : size);
             }
             return bytesRead;
         }

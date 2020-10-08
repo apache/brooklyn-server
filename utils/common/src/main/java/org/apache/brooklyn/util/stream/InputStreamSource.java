@@ -52,6 +52,10 @@ public abstract class InputStreamSource implements Supplier<InputStream> {
         this.name = name;
     }
 
+    @Override
+    public String toString() {
+        return "InputStreamSource("+name+")";
+    }
 
     public static class InputStreamSourceFromSupplier extends InputStreamSource {
         private final Supplier<InputStream> supplier;
