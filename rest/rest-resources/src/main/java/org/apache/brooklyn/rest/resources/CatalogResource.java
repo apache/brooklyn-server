@@ -24,7 +24,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -34,13 +33,13 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
@@ -57,7 +56,6 @@ import org.apache.brooklyn.rest.transform.CatalogTransformer;
 import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -105,8 +103,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
     static Set<String> missingIcons = MutableSet.of();
 
-    @Override
-    @Beta
+    @Override @Deprecated @Beta
     public Response createFromUpload(byte[] item, boolean forceUpdate) {
         Throwable yamlException = null;
         try {
@@ -124,61 +121,48 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         return createFromArchive(item, false, forceUpdate);
     }
     
-    @Override
-    @Deprecated
+    @Override @Deprecated
     public Response create(String yaml, boolean forceUpdate) {
         return createFromYaml(yaml, forceUpdate);
     }
     
-    @SuppressWarnings("deprecation")
-    @Override
+    @Override @Deprecated
     public Response createFromYaml(String yaml, boolean forceUpdate) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
-                Entitlements.getEntitlementContext().user());
-        }
+        return create(yaml.getBytes(), BrooklynBomYamlCatalogBundleResolver.FORMAT, false, true, forceUpdate);
+    }
 
-        try {
-            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml, true, forceUpdate);
-            List<RegisteredType> itemsRT = MutableList.of();
-            for (CatalogItem<?, ?> ci: items) {
-                RegisteredType rt = brooklyn().getTypeRegistry().get(ci.getId());
-                itemsRT.add(rt!=null ? rt : RegisteredTypes.of(ci));
-            }
-            return buildCreateResponse(itemsRT);
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            return badRequest(e);
-        }
+    @Override @Deprecated @Beta
+    public Response createFromArchive(byte[] zipInput, boolean detail, boolean forceUpdate) {
+        return create(zipInput, "", detail, false, forceUpdate);
     }
 
     @Override
-    @Beta
-    public Response createFromArchive(byte[] zipInput, boolean detail, boolean forceUpdate) {
+    public Response create(byte[] archive, String format, boolean detail, boolean itemDetails, boolean forceUpdate) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
-                Entitlements.getEntitlementContext().user());
+                    Entitlements.getEntitlementContext().user());
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(InputStreamSource.of("REST bundle upload", zipInput), null, forceUpdate);
+                .install(InputStreamSource.of("REST bundle upload", archive), format, forceUpdate);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
             if (log.isTraceEnabled()) {
-                log.trace("Unable to create from archive, returning 400: "+result.getError().getMessage(), result.getError());
+                log.trace("Unable to create, format '"+format+"', returning 400: "+result.getError().getMessage(), result.getError());
             }
             Builder error = ApiError.builder().errorCode(Status.BAD_REQUEST);
             if (result.getWithoutError()!=null) {
                 error = error.message(result.getWithoutError().getMessage())
                         .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui));
             } else {
-                error.message(result.getError().getMessage());
+                error.message(Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString());
             }
             return error.build().asJsonResponse();
         }
 
-        BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
+        BundleInstallationRestResult resultR = itemDetails ? TypeTransformer.bundleInstallationResultLegacyItemDetails(result.get(), mgmt(), brooklyn(), ui)
+                : TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
         Status status;
         switch (result.get().getCode()) {
             case IGNORING_BUNDLE_AREADY_INSTALLED:
@@ -191,28 +175,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 break;
         }
         return Response.status(status).entity( detail ? resultR : resultR.getTypes() ).build();
-    }
-
-    private Response buildCreateResponse(Iterable<RegisteredType> catalogItems) {
-        log.info("REST created catalog items: "+catalogItems);
-
-        Map<String,Object> result = MutableMap.of();
-
-        for (RegisteredType catalogItem: catalogItems) {
-            try {
-                result.put(
-                        catalogItem.getId(),
-                        CatalogTransformer.catalogItemSummary(brooklyn(), catalogItem, ui.getBaseUriBuilder()));
-            } catch (Throwable t) {
-                log.warn("Error loading catalog item '"+catalogItem+"' (rethrowing): "+t);
-                // unfortunately items are already added to the catalog and hard to remove,
-                // but at least let the user know;
-                // happens eg if a class refers to a missing class, like
-                // loading nosql items including mongo without the mongo bson class on the classpath
-                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+catalogItem.getId()+")", t);
-            }
-        }
-        return Response.status(Status.CREATED).entity(result).build();
     }
 
     @Override
