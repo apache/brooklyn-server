@@ -36,7 +36,7 @@ import org.apache.brooklyn.util.exceptions.ReferenceWithError;
  * Typically this is by installing an OSGi bundle with metadata, or sometimes with a YAML file.
  * <p>
  * To add a new resolver for a bundle of types, simply create an implementation and declare it
- * as a java service (cf {@link ServiceLoader}).
+ * as an OSGi service in blueprint.xml (and usually also as a java service cf {@link ServiceLoader} for testing).
  * <p>
  * Implementations may wish to extend {@link AbstractCatalogBundleResolver} which simplifies the process.
  * <p>

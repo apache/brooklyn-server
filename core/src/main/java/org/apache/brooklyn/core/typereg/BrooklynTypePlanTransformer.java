@@ -37,7 +37,7 @@ import com.google.common.annotations.Beta;
  * (serialized descriptions) to brooklyn objecs and specs.
  * <p>
  * To add a new plan transformation scheme, simply create an implementation and declare it
- * as a java service (cf {@link ServiceLoader}).
+ * as an OSGi service in blueprint.xml (and usually also as a java service cf {@link ServiceLoader} for testing).
  * <p>
  * Implementations may wish to extend {@link AbstractTypePlanTransformer} which simplifies the process.
  * <p>
@@ -87,10 +87,10 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * If they should support the plan but the plan contains an error, they should throw the relevant error for feedback to the user. */
     @Nullable Object create(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
 
-    /** @deprecated since 1.0; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */
+    /** @deprecated since 1.1; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */
     @Deprecated
     default double scoreForTypeDefinition(String formatCode, Object catalogData) { return 0; }
-    /** @deprecated since 1.0; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */
+    /** @deprecated since 1.1; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */
     @Deprecated
     default List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) { return null; }
 

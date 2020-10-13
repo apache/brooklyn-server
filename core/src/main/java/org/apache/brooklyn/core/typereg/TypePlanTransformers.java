@@ -18,13 +18,8 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import com.google.common.collect.*;
+import java.util.*;
 
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -41,10 +36,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 
 public class TypePlanTransformers {
 
@@ -89,7 +80,7 @@ public class TypePlanTransformers {
      * which may be able to handle the given plan; the list is sorted with highest-score transformer first */
     @Beta
     public static List<BrooklynTypePlanTransformer> forType(ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext constraint) {
-        Multimap<Double,BrooklynTypePlanTransformer> byScoreMulti = ArrayListMultimap.create(); 
+        Multimap<Double,BrooklynTypePlanTransformer> byScoreMulti = TreeMultimap.create(Comparator.reverseOrder(), (r1, r2) -> 0);
         Collection<BrooklynTypePlanTransformer> transformers = all(mgmt);
         for (BrooklynTypePlanTransformer transformer : transformers) {
             double score = transformer.scoreForType(type, constraint);
@@ -98,10 +89,7 @@ public class TypePlanTransformers {
             }
             if (score>0) byScoreMulti.put(score, transformer);
         }
-        Map<Double, Collection<BrooklynTypePlanTransformer>> tree = new TreeMap<Double, Collection<BrooklynTypePlanTransformer>>(byScoreMulti.asMap());
-        List<Collection<BrooklynTypePlanTransformer>> highestFirst = new ArrayList<Collection<BrooklynTypePlanTransformer>>(tree.values());
-        Collections.reverse(highestFirst);
-        return ImmutableList.copyOf(Iterables.concat(highestFirst));
+        return ImmutableList.copyOf(Iterables.concat(byScoreMulti.values()));
     }
 
     /** transforms the given type to an instance, if possible
@@ -139,21 +127,20 @@ public class TypePlanTransformers {
             }
         }
         
+        if (log.isDebugEnabled()) {
+            log.debug("Failure transforming plan; returning summary failure, but for reference "
+                + "potentially applicable transformers were "+transformers+", "
+                + "available ones are "+MutableList.builder().addAll(all(mgmt)).build()+"; "
+                + "failures: "+failuresFromTransformers +"; "
+                + "unsupported by: "+transformersWhoDontSupport);
+        }
+
         // failed
         Exception result;
         if (!failuresFromTransformers.isEmpty()) {
             // at least one thought he could do it
-            if (log.isDebugEnabled()) {
-                log.debug("Failure transforming plan; returning summary failure, but for reference "
-                    + "potentially applicable transformers were "+transformers+", "
-                    + "available ones are "+MutableList.builder().addAll(all(mgmt))
-                        // when all(mgmt) has a cache, reinstate this and add the word "other" above
-//                        .removeAll(transformers)
-                        .build()+"; "
-                    + "failures: "+failuresFromTransformers);
-            }
             result = failuresFromTransformers.size()==1 ? Exceptions.create(null, failuresFromTransformers) :
-                Exceptions.create("All plan transformers failed", failuresFromTransformers);
+                Exceptions.create("All applicable plan transformers failed", failuresFromTransformers);
         } else {
             if (transformers.isEmpty()) {
                 result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+

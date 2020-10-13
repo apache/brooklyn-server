@@ -20,10 +20,7 @@ package org.apache.brooklyn.core.typereg;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.*;
 import java.io.File;
 import java.io.InputStream;
 import java.util.*;
@@ -91,19 +88,16 @@ public class BrooklynCatalogBundleResolvers {
     @Beta
     public static List<BrooklynCatalogBundleResolver> forBundle(ManagementContext mgmt, Supplier<InputStream> input,
                                                                 BrooklynCatalogBundleResolver.BundleInstallationOptions options) {
-        Multimap<Double,BrooklynCatalogBundleResolver> byScoreMulti = ArrayListMultimap.create();
-        Collection<BrooklynCatalogBundleResolver> transformers = all(mgmt);
-        for (BrooklynCatalogBundleResolver transformer : transformers) {
+        Multimap<Double,BrooklynCatalogBundleResolver> byScoreMulti = TreeMultimap.create(Comparator.reverseOrder(), (r1, r2) -> 0);
+        Collection<BrooklynCatalogBundleResolver> resolvers = all(mgmt);
+        for (BrooklynCatalogBundleResolver transformer : resolvers) {
             double score = transformer.scoreForBundle(options==null ? null : options.format, input);
             if (LOG.isTraceEnabled()) {
                 LOG.trace("SCORE for '" + input + "' at " + transformer + ": " + score);
             }
             if (score>0) byScoreMulti.put(score, transformer);
         }
-        Map<Double, Collection<BrooklynCatalogBundleResolver>> tree = new TreeMap<Double, Collection<BrooklynCatalogBundleResolver>>(byScoreMulti.asMap());
-        List<Collection<BrooklynCatalogBundleResolver>> highestFirst = new ArrayList<Collection<BrooklynCatalogBundleResolver>>(tree.values());
-        Collections.reverse(highestFirst);
-        return ImmutableList.copyOf(Iterables.concat(highestFirst));
+        return ImmutableList.copyOf(Iterables.concat(byScoreMulti.values()));
     }
 
     public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, Supplier<InputStream> input,
@@ -162,25 +156,28 @@ public class BrooklynCatalogBundleResolvers {
                 }
             }
 
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Failure resolving bundle; returning summary failure, but for reference "
+                        + "potentially applicable resolvers were " + resolvers + ", "
+                        + "available ones are " + MutableList.builder().addAll(all(mgmt)).build() + "; "
+                        + "failures: " + failuresFromResolvers+"; "
+                        + "unsupported by: "+resolversWhoDontSupport);
+            }
+
             // failed
             Exception exception;
             if (!failuresFromResolvers.isEmpty()) {
                 // at least one thought he could do it
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Failure resolving bundle; returning summary failure, but for reference "
-                            + "potentially applicable resolvers were " + resolvers + ", "
-                            + "available ones are " + MutableList.builder().addAll(all(mgmt))
-                            .build() + "; "
-                            + "failures: " + failuresFromResolvers);
-                }
                 exception = failuresFromResolvers.size() == 1 ? Exceptions.create(null, failuresFromResolvers) :
-                        Exceptions.create("All plan transformers failed", failuresFromResolvers);
+                        Exceptions.create("All applicable bundle resolvers failed", failuresFromResolvers);
             } else {
                 if (resolvers.isEmpty()) {
-                    exception = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
+                    exception = new UnsupportedTypePlanException("Invalid bundle; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
                 } else {
-                    exception = new UnsupportedTypePlanException("Invalid plan; potentially applicable resolvers " + resolvers + " do not support it, " +
-                            "and other available resolvers do not accept it");
+                    exception = new UnsupportedTypePlanException("Invalid bundle; potentially applicable resolvers " + resolvers + " do not support it, and other available resolvers " +
+//                    // the removeAll call below won't work until "all" caches it
+//                    MutableList.builder().addAll(all(mgmt)).removeAll(transformers).build()+" "+
+                            "do not accept it");
                 }
             }
             return ReferenceWithError.newInstanceThrowingError(firstResult, exception);
