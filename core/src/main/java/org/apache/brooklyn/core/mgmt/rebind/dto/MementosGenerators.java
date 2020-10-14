@@ -352,7 +352,8 @@ public class MementosGenerators {
         populateBrooklynObjectMementoBuilder(bundle, builder);
         builder.url(bundle.getUrl())
             .symbolicName(bundle.getSymbolicName())
-            .version(bundle.getSuppliedVersionString());
+            .version(bundle.getSuppliedVersionString())
+            .format(bundle.getFormat());
         return builder.build();
     }
     

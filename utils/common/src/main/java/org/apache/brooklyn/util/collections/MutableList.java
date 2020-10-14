@@ -115,7 +115,7 @@ public class MutableList<V> extends ArrayList<V> {
     }
 
     /**
-     * @see guava's ImMutableList.Builder
+     * @see ImmutableList.Builder from Guava
      */
     public static class Builder<V> {
         final MutableList<V> result = new MutableList<V>();
@@ -222,7 +222,11 @@ public class MutableList<V> extends ArrayList<V> {
     public MutableList<V> append(V item1, V item2, V ...items) {
         add(item1);
         add(item2);
-        for (V item: items) add(item);
+        if (items==null) {
+            add(null);
+        } else {
+            for (V item : items) add(item);
+        }
         return this;
     }
 
@@ -230,8 +234,10 @@ public class MutableList<V> extends ArrayList<V> {
     public MutableList<V> appendIfNotNull(V item1, V item2, V ...items) {
         if (item1!=null) add(item1);
         if (item2!=null) add(item2);
-        for (V item: items) 
-            if (item!=null) add(item);
+        if (items!=null) {
+            for (V item : items)
+                if (item != null) add(item);
+        }
         return this;
     }
 

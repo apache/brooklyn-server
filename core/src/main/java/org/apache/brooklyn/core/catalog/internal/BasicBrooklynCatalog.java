@@ -21,12 +21,7 @@ package org.apache.brooklyn.core.catalog.internal;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,9 +31,6 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Set;
-import java.util.jar.Attributes;
-import java.util.jar.Manifest;
-import java.util.zip.ZipEntry;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
@@ -58,6 +50,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
+import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -71,7 +64,6 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.BrooklynTypeNameResolver;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -83,15 +75,14 @@ import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.brooklyn.util.yaml.Yamls.YamlExtract;
 import org.osgi.framework.Bundle;
-import org.osgi.framework.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -496,22 +487,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @SuppressWarnings("unchecked")
     private static <T> Maybe<T> getFirstAs(Map<?,?> map, Class<T> type, String firstKey, String ...otherKeys) {
-        if (map==null) return Maybe.absent("No map available");
-        String foundKey = null;
-        Object value = null;
-        if (map.containsKey(firstKey)) foundKey = firstKey;
-        else for (String key: otherKeys) {
-            if (map.containsKey(key)) {
-                foundKey = key;
-                break;
-            }
-        }
-        if (foundKey==null) return Maybe.absent("Missing entry '"+firstKey+"'");
-        value = map.get(foundKey);
-        if (type.equals(String.class) && Number.class.isInstance(value)) value = value.toString();
-        if (!type.isInstance(value)) 
-            throw new IllegalArgumentException("Entry for '"+firstKey+"' should be of type "+type+", not "+(value==null ? "null" : value.getClass()));
-        return Maybe.of((T)value);
+        return ConfigUtils.getFirstAs(map, type, firstKey, otherKeys);
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -1619,48 +1595,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     protected OsgiBundleInstallationResult addItemsOsgi(String yaml, boolean forceUpdate, OsgiManager osgiManager) {
-        Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
-
-        if(cm == null) {
-            throw new IllegalStateException("No catalog meta data supplied. brooklyn.catalog must be specified");
-        }
-
-        VersionedName vn = BasicBrooklynCatalog.getVersionedName( cm, false );
-        if (vn==null) {
-            // for better legacy compatibiity, if id specified at root use that
-            String id = (String) cm.get("id");
-            if (Strings.isNonBlank(id)) {
-                vn = VersionedName.fromString(id);
-            }
-            vn = new VersionedName(vn!=null && Strings.isNonBlank(vn.getSymbolicName()) ? vn.getSymbolicName() : "brooklyn-catalog-bom-"+Identifiers.makeRandomId(8), 
-                vn!=null && vn.getVersionString()!=null ? vn.getVersionString() : getFirstAs(cm, String.class, "version").or(NO_VERSION));
-        }
-        log.debug("Wrapping supplied BOM as "+vn);
-        Manifest mf = new Manifest();
-        mf.getMainAttributes().putValue(Constants.BUNDLE_SYMBOLICNAME, vn.getSymbolicName());
-        mf.getMainAttributes().putValue(Constants.BUNDLE_VERSION, vn.getOsgiVersionString());
-        mf.getMainAttributes().putValue(Constants.BUNDLE_MANIFESTVERSION, "2");
-        mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), OSGI_MANIFEST_VERSION_VALUE);
-        mf.getMainAttributes().putValue(BROOKLYN_WRAPPED_BOM_BUNDLE, Boolean.TRUE.toString());
-        
-        BundleMaker bm = new BundleMaker(mgmt);
-        File bf = bm.createTempBundle(vn.getSymbolicName(), mf, MutableMap.of(
-            new ZipEntry(CATALOG_BOM), (InputStream) new ByteArrayInputStream(yaml.getBytes())) );
-
-        OsgiBundleInstallationResult result = null;
-        try {
-            result = osgiManager.install(new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(), null, null), new FileInputStream(bf), true, true, forceUpdate).get();
-        } catch (FileNotFoundException e) {
-            throw Exceptions.propagate(e);
-        } finally {
-            bf.delete();
-        }
-        if (result.getCode().isError()) {
-            // rollback done by install call above
-            throw new IllegalStateException(result.getMessage());
-        }
-        uninstallEmptyWrapperBundles();
-        return result;
+        return osgiManager.install(InputStreamSource.of("addItemsOsgi supplied yaml", yaml.getBytes()), BrooklynBomYamlCatalogBundleResolver.FORMAT, forceUpdate).get();
     }
     
     @SuppressWarnings("deprecation")

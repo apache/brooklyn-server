@@ -60,6 +60,17 @@ limitations under the License.
              interface="org.apache.brooklyn.core.plan.PlanToSpecTransformer"/>
 
 
+    <bean id="brooklynBomBundleCatalogBundleResolver" scope="prototype"
+          class="org.apache.brooklyn.core.typereg.BrooklynBomBundleCatalogBundleResolver"/>
+    <service id="brooklynBomBundleCatalogBundleResolverService" ref="brooklynBomBundleCatalogBundleResolver"
+             interface="org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver" />
+
+    <bean id="brooklynBomYamlCatalogBundleResolver" scope="prototype"
+          class="org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver"/>
+    <service id="brooklynBomYamlCatalogBundleResolverService" ref="brooklynBomYamlCatalogBundleResolver"
+             interface="org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver" />
+
+
     <bean id="javaEntitySpecResolver" scope="prototype"
           class="org.apache.brooklyn.core.resolve.entity.JavaEntitySpecResolver"/>
     <service id="javaEntitySpecResolverService" ref="javaEntitySpecResolver"

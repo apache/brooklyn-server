@@ -32,7 +32,7 @@ import org.apache.brooklyn.util.osgi.VersionedName;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
+public class BrooklynBomOsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
 
     // The tests here will so far not need an actual OSGi Framework! Therefore we're using the simple
     // BrooklynMgmtUnitTestSupport, which does not expose `useOsgi` or `osgiReuse`
@@ -40,7 +40,7 @@ public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testBlacklistPersistingOrgApacheBrooklyn() throws Exception {
         OsgiManager osgiManager = newMockOsgiManager(mgmt);
-        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
+        BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
         
         assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
         assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.mybundle", "1.0.0")));
@@ -51,7 +51,7 @@ public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
     public void testWhitelistPersistingBundle() throws Exception {
         mgmt.getBrooklynProperties().put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX, "org\\.apache\\.brooklyn\\.mywhitelistedbundle");
         OsgiManager osgiManager = newMockOsgiManager(mgmt);
-        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
+        BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
         
         assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
         assertFalse(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.mywhitelistedbundle", "1.0.0")));
@@ -61,7 +61,7 @@ public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
     public void testCustomBlacklistPersistingBundle() throws Exception {
         mgmt.getBrooklynProperties().put(BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX, "org\\.example\\.myblacklistprefix.*");
         OsgiManager osgiManager = newMockOsgiManager(mgmt);
-        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
+        BrooklynBomOsgiArchiveInstaller installer = new BrooklynBomOsgiArchiveInstaller(osgiManager, Mockito.mock(ManagedBundle.class), new ByteArrayInputStream(new byte[0]));
         
         assertTrue(installer.isBlacklistedForPersistence(newMockManagedBundle("org.example.myblacklistprefix.mysuffix", "1.0.0")));
         assertFalse(installer.isBlacklistedForPersistence(newMockManagedBundle("org.apache.brooklyn.core", "1.0.0")));
@@ -69,13 +69,13 @@ public class OsgiArchiveInstallerTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testInferBundleNameFromMvnUrl() throws Exception {
-        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:toofewslashes/1.0.0").isPresent());
-        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:too/many/slashes/1.0.0").isPresent());
-        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:emptystring//1.0.0").isPresent());
-        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:/emptystring/1.0.0").isPresent());
-        assertFalse(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:/emptystring/emptystring/").isPresent());
-        assertEquals(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:mygroupid/myartifactid/1.0.0").get(), new VersionedName("mygroupid.myartifactid", "1.0.0"));
-        assertEquals(OsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:my.group.id/my.artifact.id/1.0.0").get(), new VersionedName("my.group.id.my.artifact.id", "1.0.0"));
+        assertFalse(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:toofewslashes/1.0.0").isPresent());
+        assertFalse(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:too/many/slashes/1.0.0").isPresent());
+        assertFalse(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:emptystring//1.0.0").isPresent());
+        assertFalse(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:/emptystring/1.0.0").isPresent());
+        assertFalse(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:/emptystring/emptystring/").isPresent());
+        assertEquals(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:mygroupid/myartifactid/1.0.0").get(), new VersionedName("mygroupid.myartifactid", "1.0.0"));
+        assertEquals(BrooklynBomOsgiArchiveInstaller.inferBundleNameFromMvnUrl("mvn:my.group.id/my.artifact.id/1.0.0").get(), new VersionedName("my.group.id.my.artifact.id", "1.0.0"));
     }
     
     public OsgiManager newMockOsgiManager(ManagementContext mgmt) throws Exception {

@@ -51,6 +51,7 @@ import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpEntity;
@@ -225,6 +226,17 @@ public class ResourceUtils {
      */
     public InputStream getResourceFromUrl(String url) {
         return getResourceFromUrl(url, null, null);
+    }
+
+    public InputStreamSource getResourceInputStreamSourceFromUrl(String url) {
+        InputStreamSource result = InputStreamSource.ofRenewableSupplier(url, () -> getResourceFromUrl(url, null, null));
+        try {
+            // make sure here that it is accessible
+            result.get().close();
+        } catch (IOException e) {
+            throw Exceptions.propagate(e);
+        }
+        return result;
     }
 
     private InputStream getResourceFromUrl(String url, String username, String password) {

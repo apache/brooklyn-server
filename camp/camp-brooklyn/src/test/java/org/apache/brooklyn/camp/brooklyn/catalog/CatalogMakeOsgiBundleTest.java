@@ -20,7 +20,6 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
@@ -48,6 +47,7 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
@@ -154,7 +154,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
     }
 
     private void installBundle(File jf) {
-        try (FileInputStream fin = new FileInputStream(jf)) {
+        try {
+            InputStreamSource fin = InputStreamSource.of("test:" + jf, jf);
             OsgiBundleInstallationResult br = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install(fin).get();
             bundlesToRemove.add(br.getBundle());
         } catch (Exception e) {

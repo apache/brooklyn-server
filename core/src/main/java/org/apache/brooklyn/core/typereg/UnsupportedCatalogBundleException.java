@@ -16,25 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.api.mgmt.rebind.mementos;
+package org.apache.brooklyn.core.typereg;
 
-import javax.annotation.Nullable;
+/** Used by {@link BrooklynCatalogBundleResolver} for a resolver to indicate an error resolving a plan. */
+// TODO add another hierarchy RecognizedTypePlanException or a score to indicate priority of errors for reporting?
+public class UnsupportedCatalogBundleException extends RuntimeException {
 
-import com.google.common.io.ByteSource;
+    private static final long serialVersionUID = -5590108442839125317L;
 
-public interface ManagedBundleMemento extends Memento {
+    public UnsupportedCatalogBundleException(String message, Throwable cause) {
+        super(message, cause);
+    }
 
-    String getSymbolicName();
-    String getVersion();
+    public UnsupportedCatalogBundleException(String message) {
+        super(message);
+    }
 
-    String getFormat();
-
-    String getUrl();
-    
-    @Nullable
-    String getChecksum();
-    
-    ByteSource getJarContent();
-    void setJarContent(ByteSource byteSource);
+    public UnsupportedCatalogBundleException(Throwable cause) {
+        super(cause);
+    }
 
 }

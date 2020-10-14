@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.config.WrappedConfigKey;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -142,5 +143,27 @@ public class ConfigUtils {
                 destinationBucket.put(Strings.removeFromStart(keyName, configPrefix), entry.getValue());
             }
         }
+    }
+
+    /** finds the first entry in the map matching the firstKey, or if none trying other keys in order, and returns it as the given type,
+     * with trivial coercion (number to string) */
+    @SuppressWarnings("unchecked")
+    public static <T> Maybe<T> getFirstAs(Map<?,?> map, Class<T> type, String firstKey, String ...otherKeys) {
+        if (map==null) return Maybe.absent("No map available");
+        String foundKey = null;
+        Object value = null;
+        if (map.containsKey(firstKey)) foundKey = firstKey;
+        else for (String key: otherKeys) {
+            if (map.containsKey(key)) {
+                foundKey = key;
+                break;
+            }
+        }
+        if (foundKey==null) return Maybe.absent("Missing entry '"+firstKey+"'");
+        value = map.get(foundKey);
+        if (type.equals(String.class) && Number.class.isInstance(value)) value = value.toString();
+        if (!type.isInstance(value))
+            throw new IllegalArgumentException("Entry for '"+firstKey+"' should be of type "+type+", not "+(value==null ? "null" : value.getClass()));
+        return Maybe.of((T)value);
     }
 }

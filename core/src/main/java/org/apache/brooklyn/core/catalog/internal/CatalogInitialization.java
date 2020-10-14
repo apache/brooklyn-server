@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
@@ -66,6 +67,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.BundleContext;
@@ -507,8 +509,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
             VersionedName bundleId = entry.getKey();
             InstallableManagedBundle installableBundle = entry.getValue();
             rebindLogger.debug("RebindManager installing bundle {}", bundleId);
-            try (InputStream in = installableBundle.getInputStream()) {
-                installs.put(installableBundle, installBundle(installableBundle.getManagedBundle(), in));
+            try {
+                installs.put(installableBundle, installBundle(installableBundle.getManagedBundle(), installableBundle.getInputStreamSource()));
             } catch (Exception e) {
                 exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId.toString(), installableBundle.getManagedBundle().getSymbolicName(), e);
             }
@@ -580,7 +582,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     /** install the bundles into brooklyn and osgi, but do not start nor validate;
      * caller (rebind) will do that manually, doing each step across all bundles before proceeding 
      * to prevent reference errors */
-    private OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
+    private OsgiBundleInstallationResult installBundle(ManagedBundle bundle, Supplier<InputStream> zipInput) {
         return getManagementContext().getOsgiManager().get().installDeferredStart(bundle, zipInput, false).get();
     }
     
@@ -627,8 +629,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     public interface InstallableManagedBundle {
         public ManagedBundle getManagedBundle();
-        /** The caller is responsible for closing the returned stream. */
-        public InputStream getInputStream() throws IOException;
+        /** The caller is responsible for closing each stream. */
+        public Supplier<InputStream> getInputStreamSource() throws IOException;
     }
     
     public static class PersistedCatalogState {

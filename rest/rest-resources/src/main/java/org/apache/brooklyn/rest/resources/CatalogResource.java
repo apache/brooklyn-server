@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.domain.ApiError.Builder;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
@@ -61,6 +62,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -159,15 +161,21 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(null, new ByteArrayInputStream(zipInput), true, true, forceUpdate);
+            .install(InputStreamSource.of("REST bundle upload", zipInput), null, forceUpdate);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
             if (log.isTraceEnabled()) {
                 log.trace("Unable to create from archive, returning 400: "+result.getError().getMessage(), result.getError());
             }
-            return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
-                .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
+            Builder error = ApiError.builder().errorCode(Status.BAD_REQUEST);
+            if (result.getWithoutError()!=null) {
+                error = error.message(result.getWithoutError().getMessage())
+                        .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui));
+            } else {
+                error.message(result.getError().getMessage());
+            }
+            return error.build().asJsonResponse();
         }
 
         BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
