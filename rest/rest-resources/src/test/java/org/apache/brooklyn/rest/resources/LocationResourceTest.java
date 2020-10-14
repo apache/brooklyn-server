@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -66,6 +68,11 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
     private String configDisplayName = "config_displayName";
     private String testsDisplayName = "tests_displayName";
     private String byonHostname = "10.10.10.102";
+
+    @Override
+    protected boolean useOsgi() {
+        return true;
+    }
 
     @Test
     @Deprecated

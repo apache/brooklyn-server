@@ -134,17 +134,11 @@ public interface ApplicationApi {
                     required = true)
             @PathParam("application") String application);
 
+    /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
+    @Deprecated
     @POST
-    @Consumes({"application/x-yaml",
-            // see http://stackoverflow.com/questions/332129/yaml-mime-type
-            "text/yaml", "text/x-yaml", "application/yaml"})
-    @ApiOperation(
-            value = "Create and start a new application from YAML",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location"),
-    })
+    @Consumes("application/deprecated-yaml-app-spec")
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createFromYaml(
             @ApiParam(
                     name = "applicationSpec",
@@ -152,7 +146,15 @@ public interface ApplicationApi {
                     required = true)
             String yaml);
 
-    @Beta
+    /** @deprecated since 1.1 use {@link #createFromYamlWithAppId(String, String, String)}  instead */
+    @Deprecated
+    @POST
+    @Consumes("application/deprecated-yaml-app-spec")
+    @ApiOperation(value = "(deprecated)", hidden = true)
+    public Response createFromYamlWithAppId(
+            @ApiParam(name = "applicationSpec", value = "App spec in CAMP YAML format", required = true) String yaml,
+            @ApiParam(name = "application", value = "Application id", required = true) @PathParam("application") String appId);
+
     @PUT
     @Path("/{application}")
     @Consumes({"application/x-yaml",
@@ -167,18 +169,15 @@ public interface ApplicationApi {
             @ApiResponse(code = 409, message = "Application already registered")
     })
     public Response createFromYamlWithAppId(
-            @ApiParam(name = "applicationSpec", value = "App spec in CAMP YAML format", required = true) String yaml,
+            @ApiParam(name = "plan", value = "Plan", required = true) String yaml,
+            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false) String format,
             @ApiParam(name = "application", value = "Application id", required = true) @PathParam("application") String appId);
 
+    /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
+    @Deprecated
     @POST
-    @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
-    @ApiOperation(
-            value = "Create and start a new application from miscellaneous types, including JSON either new CAMP format or legacy AppSpec format",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location")
-    })
+    @Consumes("application/deprecated-yaml-app-spec")
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createPoly(
             @ApiParam(
                     name = "applicationSpec",
@@ -201,6 +200,21 @@ public interface ApplicationApi {
                     value = "App spec in form-encoded YAML, JSON, or other (auto-detected) format",
                     required = true)
             @Valid String contents);
+
+    @Beta
+    @POST
+    @Consumes
+    @ApiOperation(
+            value = "Create and start a new application from YAML",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location")
+    })
+    public Response createWithFormat(
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true) byte[] plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false) String format);
+
 
     @DELETE
     @Path("/{application}")
