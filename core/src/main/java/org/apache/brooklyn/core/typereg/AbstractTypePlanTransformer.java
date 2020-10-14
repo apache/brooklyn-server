@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +82,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     @Override
     public double scoreForType(RegisteredType type, RegisteredTypeLoadingContext context) {
         if (getFormatCode().equals(type.getPlan().getPlanFormat())) return 1;
-        if (type.getPlan().getPlanFormat()==null)
+        if (Strings.isBlank(type.getPlan().getPlanFormat()))
             return scoreForNullFormat(type.getPlan().getPlanData(), type, context);
         else
             return scoreForNonmatchingNonnullFormat(type.getPlan().getPlanFormat(), type.getPlan().getPlanData(), type, context);

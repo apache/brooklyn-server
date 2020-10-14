@@ -171,10 +171,11 @@ public class BrooklynCatalogBundleResolvers {
                 exception = failuresFromResolvers.size() == 1 ? Exceptions.create(null, failuresFromResolvers) :
                         Exceptions.create("All applicable bundle resolvers failed", failuresFromResolvers);
             } else {
+                String prefix = Strings.isBlank(options.format) ? "Invalid bundle" : "Invalid '"+options.format+"' bundle";
                 if (resolvers.isEmpty()) {
-                    exception = new UnsupportedTypePlanException("Invalid bundle; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
+                    exception = new UnsupportedTypePlanException(prefix + "; format could not be recognized, none of the available resolvers " + all(mgmt) + " support it");
                 } else {
-                    exception = new UnsupportedTypePlanException("Invalid bundle; potentially applicable resolvers " + resolvers + " do not support it, and other available resolvers " +
+                    exception = new UnsupportedTypePlanException(prefix + "; potentially applicable resolvers " + resolvers + " do not support it, and other available resolvers " +
 //                    // the removeAll call below won't work until "all" caches it
 //                    MutableList.builder().addAll(all(mgmt)).removeAll(transformers).build()+" "+
                             "do not accept it");
