@@ -52,8 +52,11 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         switch (itemsInstallMode!=null ? itemsInstallMode : 
             // this is the default because some "bundles" aren't resolvable or library BOMs loadable in test context
             CatalogItemsInstallationMode.BUNDLE_BUT_NOT_STARTED) {
-        case ADD_YAML_ITEMS_UNBUNDLED: super.addCatalogItems(catalogYaml); break;
-        case BUNDLE_BUT_NOT_STARTED: 
+        case ADD_YAML_ITEMS_UNBUNDLED:
+            super.addCatalogItems(catalogYaml);
+            break;
+        case BUNDLE_BUT_NOT_STARTED:
+            // TODO if id/bundle set in catalog yaml use that
             addCatalogItemsAsOsgiWithoutStartingBundles(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
             break;
         case USUAL_OSGI_WAY_AS_BUNDLE_WITH_DEFAULT_NAME:

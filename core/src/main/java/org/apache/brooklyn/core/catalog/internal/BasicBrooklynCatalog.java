@@ -500,26 +500,52 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         return getFirstAsMap(itemDef, "brooklyn.catalog").orNull();        
     }
     
-    /** @deprecated since 0.12.0 - use {@link #getVersionedName(Map, boolean)} */
-    @Deprecated
-    public static VersionedName getVersionedName(Map<?,?> catalogMetadata) {
-        return getVersionedName(catalogMetadata, true);
-    }
-    
     public static VersionedName getVersionedName(Map<?,?> catalogMetadata, boolean required) {
+        // for better legacy compatibility, if id specified at root use that for bundle symbolic name and optionally for version
+        VersionedName idV = null;
+        String idS = getFirstAs(catalogMetadata, String.class, "id").orNull();
+        if (Strings.isNonBlank(idS)) {
+            idV = VersionedName.fromString(idS);
+        }
+
         String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
         String bundle = getFirstAs(catalogMetadata, String.class, "bundle").orNull();
+        if (bundle==null) {
+            // if bundle not specified, ID indicates bundle name, and version if specified must match
+            if (idV!=null) {
+                bundle = idV.getSymbolicName();
+                if (Strings.isNonBlank(idV.getVersionString())) {
+                    if (version!=null) {
+                        if (!Objects.equal(version, idV.getVersionString()) && !Objects.equal(version, idV.getOsgiVersionString())) {
+                            throw new IllegalStateException("Catalog BOM using ID '" + idV + "' to define bundle does not match declared version '" + version + "'");
+                        }
+                    } else {
+                        version = idV.getVersionString();
+                    }
+                } else {
+                    if (required) {
+                        throw new IllegalStateException("Catalog BOM must define bundle name and version or include version as part of the id '" + bundle + "' (eg '" + bundle + ":1.0')");
+                    } else {
+                        // allow null version
+                    }
+                }
+            }
+        }
+
         if (Strings.isBlank(bundle) && Strings.isBlank(version)) {
             if (!required) return null;
-            throw new IllegalStateException("Catalog BOM must define bundle and version");
+            throw new IllegalStateException("Catalog BOM must define bundle name and version");
         }
         if (Strings.isBlank(bundle)) {
             if (!required) return null;
-            throw new IllegalStateException("Catalog BOM must define bundle");
+            throw new IllegalStateException("Catalog BOM must define bundle (or id)");
         }
         if (Strings.isBlank(version)) {
-            throw new IllegalStateException("Catalog BOM must define version if bundle is defined");
+            if (required) {
+                throw new IllegalStateException("Catalog BOM must define version where bundle name '" + bundle + "' is defined");
+            }
         }
+
         return new VersionedName(bundle, version);
     }
 

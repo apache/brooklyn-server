@@ -258,6 +258,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 }
                 type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
                 if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                    // TODO show the resolution error
                     throw new ReferencedUnresolvedTypeException(type);
                 }
                 return createSpec(type, constraint, specSuperType);

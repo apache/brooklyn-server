@@ -106,7 +106,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
 
         private byte[] bytesRead = new byte[0];
 
-        protected FileTypeDetector(Supplier<InputStream> streamSupplier) {
+        public FileTypeDetector(Supplier<InputStream> streamSupplier) {
             this.streamSupplier = streamSupplier;
         }
 

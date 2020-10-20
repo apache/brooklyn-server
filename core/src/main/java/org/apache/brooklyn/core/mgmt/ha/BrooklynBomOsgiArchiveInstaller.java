@@ -364,6 +364,12 @@ public class BrooklynBomOsgiArchiveInstaller {
 
     private void discoverManifestFromCatalogBom(boolean isCatalogBomRequired) {
         discoveredManifest = new BundleMaker(mgmt()).getManifest(zipFile);
+
+        if (Strings.isNonBlank(bomText)) {
+            discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName(BasicBrooklynCatalog.getCatalogMetadata(bomText), false );
+            return;
+        }
+
         ZipFile zf = null;
         try {
             try {
@@ -382,20 +388,19 @@ public class BrooklynBomOsgiArchiveInstaller {
                     return;
                 }
             }
-            String bomS;
             try {
-                bomS = Streams.readFullyString(zf.getInputStream(bom));
+                bomText = Streams.readFullyString(zf.getInputStream(bom));
             } catch (IOException e) {
                 throw new IllegalArgumentException("Error reading catalog.bom from ZIP/JAR archive: "+e);
             }
-            discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomS), false );
+            discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName( BasicBrooklynCatalog.getCatalogMetadata(bomText), false );
         } finally {
             Streams.closeQuietly(zf);
         }
     }
     
     private void updateManifestFromAllSourceInformation() {
-        if (discoveredBomVersionedName!=null) {
+        if (discoveredBomVersionedName !=null) {
             matchSetOrFail("catalog.bom in archive", discoveredBomVersionedName.getSymbolicName(), discoveredBomVersionedName.getVersionString());
         }
         
@@ -953,7 +958,22 @@ public class BrooklynBomOsgiArchiveInstaller {
         } else if (Strings.isBlank(inferredMetadata.getSymbolicName())) {
             ((BasicManagedBundle)inferredMetadata).setSymbolicName(name);
         } else if (!Objects.equal(inferredMetadata.getSymbolicName(), name)){
-            throw new IllegalArgumentException("Symbolic name mismatch '"+name+"' from "+source+" (expected '"+inferredMetadata.getSymbolicName()+"')");
+            // if bundle name is inferred from ID, it is allowed to be overridden by manifest, but with a warning, for legacy and non-bundle BOM compatibility.
+            // if bundle name is set using 'bundle' it must match (previous behaviour).
+            boolean inferredMetadataCanBeOverridden = false;
+            try {
+                Map<?, ?> catalogMetadata = BasicBrooklynCatalog.getCatalogMetadata(bomText);
+                if (!catalogMetadata.containsKey("bundle") && catalogMetadata.containsKey("id")) {
+                    inferredMetadataCanBeOverridden = true;
+                    log.warn("Installing bundle '" + inferredMetadata + "' from " + source + ", even though 'id' in its catalog BOM is different ('" + name + "', v '"+version+"'); strongly recommended that the BOM 'id' match the bundle symbolic name");
+                }
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+            }
+
+            if (!inferredMetadataCanBeOverridden) {
+                throw new IllegalArgumentException("Symbolic name mismatch '" + name + "' from " + source + " (expected '" + inferredMetadata.getSymbolicName() + "')");
+            }
         }
         
         if (Strings.isBlank(version)) {
@@ -961,7 +981,24 @@ public class BrooklynBomOsgiArchiveInstaller {
         } else if (Strings.isBlank(inferredMetadata.getSuppliedVersionString())) {
             ((BasicManagedBundle)inferredMetadata).setVersion(version);
         } else if (!BrooklynVersionSyntax.equalAsOsgiVersions(inferredMetadata.getSuppliedVersionString(), version)) {
-            throw new IllegalArgumentException("Bundle version mismatch '"+version+"' from "+source+" (expected '"+inferredMetadata.getSuppliedVersionString()+"')");
+            boolean inferredMetadataCanBeOverridden = false;
+            try {
+                if (BasicBrooklynCatalog.NO_VERSION.equals(version)) {
+                    inferredMetadataCanBeOverridden = true;
+                } else {
+                    Map<?, ?> catalogMetadata = BasicBrooklynCatalog.getCatalogMetadata(bomText);
+                    if (!catalogMetadata.containsKey("bundle") && catalogMetadata.containsKey("id")) {
+                        inferredMetadataCanBeOverridden = true;
+                        log.warn("Installing bundle '" + inferredMetadata + "' from " + source + ", even though 'version' in its catalog BOM is different ('" + name + "', v '" + version + "'); strongly recommended that the BOM 'version' match the bundle version");
+                    }
+                }
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+            }
+
+            if (!inferredMetadataCanBeOverridden) {
+                throw new IllegalArgumentException("Bundle version mismatch '" + version + "' from " + source + " (expected '" + inferredMetadata.getSuppliedVersionString() + "')");
+            }
         }
         
         return suppliedIsComplete;

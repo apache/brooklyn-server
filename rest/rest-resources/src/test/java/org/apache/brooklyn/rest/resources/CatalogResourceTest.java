@@ -660,7 +660,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Catalog BOM must define version");
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "BOM", "bundle", "version");
     }
 
     @Test

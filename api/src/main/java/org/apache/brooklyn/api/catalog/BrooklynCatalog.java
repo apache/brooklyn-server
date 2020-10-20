@@ -143,6 +143,8 @@ public interface BrooklynCatalog {
      * <p>
      * A null bundle can be supplied although that will cause oddness in production installations
      * that assume bundles for persistence, lookup and other capabilities. (But it's fine for tests.)
+     * <p>
+     * Most callers will want to use the OsgiManager to install a bundle. This is primarily to support that.
      */
     @Beta  // method may move elsewhere, or return type may change
     public void addTypesFromBundleBom(String yaml, @Nullable ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result);
@@ -154,6 +156,8 @@ public interface BrooklynCatalog {
      * and the type registry may have some of the items updated.  It is the caller's responsibility to clean up if required
      * (note, clean up is only possible if an empty results map is supplied to collect the items, and even then finding the bundle needs work;
      * or, most commonly, where the management context is just being thrown away, like in tests).
+     * <p>
+     * Most callers will want to use the OsgiManager to install a bundle. This is primarily to support that.
      */
     @Beta
     Collection<RegisteredType> addTypesAndValidateAllowInconsistent(String catalogYaml, @Nullable Map<RegisteredType, RegisteredType> result, boolean forceUpdate);
@@ -176,7 +180,7 @@ public interface BrooklynCatalog {
 
     /** As {@link #addItems(String, boolean, boolean)}
      *
-     * @deprecated since 1.1, use {@link #addTypesAndValidateAllowInconsistent(String, Map, boolean)}
+     * @deprecated since 1.1, use {@link #addTypesAndValidateAllowInconsistent(String, Map, boolean)} for direct access to catalog (non-OSGi, eg tests) or use the OsgiManager
      * (Used in tests.)
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml);
@@ -192,7 +196,7 @@ public interface BrooklynCatalog {
      *
      * @throws IllegalArgumentException if the yaml was invalid
      *
-     * @deprecated Since 1.1, use {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)};
+     * @deprecated Since 1.1, use {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} for direct access to catalog (non/partial-OSGi, eg tests) or use the OsgiManager
      * (Used for REST API, a few tests, and legacy-compatibility additions.)
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate);
@@ -207,7 +211,7 @@ public interface BrooklynCatalog {
      *
      * @throws IllegalArgumentException if the yaml was invalid
      *
-     * @deprecated Since 1.1, use {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)};
+     * @deprecated Since 1.1, use {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} for direct access to catalog (non/partial-OSGi, eg tests) or use the OsgiManager
      * (Only used for legacy OSGi bundles.) */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
@@ -217,7 +221,6 @@ public interface BrooklynCatalog {
      *
      * @deprecated since 0.7.0 Construct catalogs with yaml (referencing OSGi bundles) instead
      */
-    // TODO maybe this should stay on the API? -AH Apr 2015 
     @Deprecated
     void addItem(CatalogItem<?,?> item);
 
@@ -249,6 +252,10 @@ public interface BrooklynCatalog {
     @VisibleForTesting
     CatalogItem<?,?> addItem(Class<?> clazz);
 
+    /** @deprecated since 1.1 remove all bundles, that should clear the catalog
+     * Used for legacy catalog initialization and rebind.
+     */
+    @Deprecated
     void reset(Collection<CatalogItem<?, ?>> entries);
 
 }
