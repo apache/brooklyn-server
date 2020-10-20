@@ -18,14 +18,12 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import com.google.common.collect.Lists;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -91,7 +89,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
     @Override
     public double scoreForBundle(String format, Supplier<InputStream> f) {
         if (getFormatCode().equals(format)) return 1;
-        if (format==null)
+        if (Strings.isBlank(format))
             return scoreForNullFormat(f);
         else
             return scoreForNonmatchingNonnullFormat(format, f);
@@ -108,7 +106,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
 
         private byte[] bytesRead = new byte[0];
 
-        protected FileTypeDetector(Supplier<InputStream> streamSupplier) {
+        public FileTypeDetector(Supplier<InputStream> streamSupplier) {
             this.streamSupplier = streamSupplier;
         }
 

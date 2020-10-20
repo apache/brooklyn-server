@@ -251,9 +251,7 @@ public abstract class AbstractYamlTest {
     }
 
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().
-                addTypesAndValidateAllowInconsistent(catalogYaml, null, forceUpdate);
-//                addItems(catalogYaml, true, forceUpdate);
+        mgmt().getCatalog().addTypesAndValidateAllowInconsistent(catalogYaml, null, forceUpdate);
     }
 
     /*

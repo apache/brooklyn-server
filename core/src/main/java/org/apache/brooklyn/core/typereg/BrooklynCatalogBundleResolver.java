@@ -121,6 +121,34 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
         public void setKnownBundleMetadata(ManagedBundle knownBundleMetadata) {
             this.knownBundleMetadata = knownBundleMetadata;
         }
+
+        public String getFormat() {
+            return format;
+        }
+
+        public ManagedBundle getKnownBundleMetadata() {
+            return knownBundleMetadata;
+        }
+
+        public boolean isDeferredStart() {
+            return deferredStart;
+        }
+
+        public boolean isForceUpdateOfNonSnapshots() {
+            return forceUpdateOfNonSnapshots;
+        }
+
+        public boolean isLoadCatalogBom() {
+            return loadCatalogBom;
+        }
+
+        public boolean isStart() {
+            return start;
+        }
+
+        public boolean isValidateTypes() {
+            return validateTypes;
+        }
     }
 
 }

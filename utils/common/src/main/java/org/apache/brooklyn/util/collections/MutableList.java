@@ -59,7 +59,11 @@ public class MutableList<V> extends ArrayList<V> {
         MutableList<V> result = new MutableList<V>();
         result.add(v1);
         result.add(v2);
-        for (V v: vv) result.add(v);
+        if (vv==null) {
+            result.add(null);
+        } else {
+            for (V v : vv) result.add(v);
+        }
         return result;
     }
 
@@ -135,7 +139,11 @@ public class MutableList<V> extends ArrayList<V> {
         public Builder<V> add(V value1, V value2, V ...values) {
             result.add(value1);
             result.add(value2);
-            for (V v: values) result.add(v);
+            if (values==null) {
+                result.add(null);
+            } else {
+                for (V v : values) result.add(v);
+            }
             return this;
         }
 
@@ -145,7 +153,9 @@ public class MutableList<V> extends ArrayList<V> {
         }
         
         public Builder<V> addAll(Iterable<? extends V> iterable) {
-            if (iterable instanceof Collection) {
+            if (iterable==null) {
+                // nothing
+            } else if (iterable instanceof Collection) {
                 result.addAll((Collection<? extends V>) iterable);
             } else {
                 for (V v : iterable) {
@@ -156,21 +166,27 @@ public class MutableList<V> extends ArrayList<V> {
         }
 
         public Builder<V> addAll(Iterator<? extends V> iter) {
-            while (iter.hasNext()) {
-                add(iter.next());
+            if (iter!=null) {
+                while (iter.hasNext()) {
+                    add(iter.next());
+                }
             }
             return this;
         }
 
         public Builder<V> addAll(V[] vals) {
-            for (V v : vals) {
-                result.add(v);
+            if (vals!=null) {
+                for (V v : vals) {
+                    result.add(v);
+                }
             }
             return this;
         }
 
         public Builder<V> removeAll(Iterable<? extends V> iterable) {
-            if (iterable instanceof Collection) {
+            if (iterable==null) {
+                // nothing
+            } else if (iterable instanceof Collection) {
                 result.removeAll((Collection<? extends V>) iterable);
             } else {
                 for (V v : iterable) {
@@ -181,7 +197,9 @@ public class MutableList<V> extends ArrayList<V> {
         }
 
         public Builder<V> retainAll(Iterable<? extends V> iterable) {
-            if (iterable instanceof Collection) {
+            if (iterable==null) {
+                // nothing
+            } else if (iterable instanceof Collection) {
                 result.retainAll((Collection<? extends V>) iterable);
             } else {
                 List<V> toretain = Lists.newArrayList(iterable);
@@ -199,8 +217,10 @@ public class MutableList<V> extends ArrayList<V> {
         }
 
         public Builder<V> addLists(Iterable<? extends V> ...items) {
-            for (Iterable<? extends V> item: items) {
-                addAll(item);
+            if (items!=null) {
+                for (Iterable<? extends V> item : items) {
+                    addAll(item);
+                }
             }
             return this;
         }

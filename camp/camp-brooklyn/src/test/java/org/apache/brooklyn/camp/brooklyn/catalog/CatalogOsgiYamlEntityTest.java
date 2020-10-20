@@ -245,7 +245,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "    type: " + SIMPLE_ENTITY_TYPE);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, "both name and version are required");
+            Asserts.expectedFailureContainsIgnoreCase(e, "name", "version");
         }
         try {
             addCatalogItems(
@@ -259,7 +259,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                 "    type: " + SIMPLE_ENTITY_TYPE);
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, "both name and version are required");
+            Asserts.expectedFailureContainsIgnoreCase(e, "name", "version");
         }
     }
 

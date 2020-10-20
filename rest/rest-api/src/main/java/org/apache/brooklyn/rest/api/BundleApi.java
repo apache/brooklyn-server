@@ -151,18 +151,11 @@ public interface BundleApi {
         @QueryParam("force") @DefaultValue("false")
         Boolean force);
 
+    /** @deprecated since 1.1 use {@link #create(byte[], String, Boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
-        // see http://stackoverflow.com/questions/332129/yaml-mime-type
-        "text/yaml", "text/x-yaml", "application/yaml"})
-    @ApiOperation(
-            value = "Adds types to the registry from a given BOM YAML/JSON descriptor (creating a bundle with just this file in it)",
-            response = BundleInstallationRestResult.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given YAML"),
-            @ApiResponse(code = 201, message = "Items added successfully")
-    })
+    @Consumes("application/deprecated-yaml")
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "BOM YAML declaring the types to be installed", required = true)
             @Valid String yaml,
@@ -170,17 +163,11 @@ public interface BundleApi {
             @QueryParam("force") @DefaultValue("false")
             Boolean forceUpdate);
 
+    /** @deprecated since 1.1 use {@link #create(byte[], String, Boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes({"application/x-zip", "application/x-jar"})
-    @ApiOperation(
-            value = "Adds types to the registry from a given JAR or ZIP",
-            notes = "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Either format must "
-                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key.",
-            response = BundleInstallationRestResult.class)
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
-    })
+    @Consumes({"application/deprecated-zip"})
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
@@ -190,5 +177,32 @@ public interface BundleApi {
             @ApiParam(name = "force", value = "Whether to forcibly remove it, even if in use and/or errors", required = false, defaultValue = "false")
             @QueryParam("force") @DefaultValue("false")
             Boolean force);
+
+    /** @deprecated since 1.1 use {@link #create(byte[], String, Boolean)} instead */
+    @Deprecated
+    @POST
+    @Consumes // anything - now autodetect is done for everything unless 'format' is specified
+    // (mime type is ignored; though it could be useful in the "score" function, and probably is available on the thread)
+    @ApiOperation(
+            value = "Add a bundle of types (entities, etc) to the type registry",
+            notes = "This will auto-detect the format, with the 'brooklyn-bom-bundle' being common and consisting of "
+                    + "a ZIP/JAR containing a catalog.bom",
+            response = BundleInstallationRestResult.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response create(
+            @ApiParam(
+                    name = "archive",
+                    value = "Bundle contents to install, eg for brooklyn-catalog-bundle a ZIP or JAR containing a catalog.bom file",
+                    required = true)
+                    byte[] archive,
+            @ApiParam(name = "format", value="Specify the format to indicate a specific resolver for handling this", required=false)
+            @QueryParam("format") @DefaultValue("")
+                    String format,
+            @ApiParam(name = "force", value = "Whether to forcibly remove it, even if in use and/or errors", required = false, defaultValue = "false")
+            @QueryParam("force") @DefaultValue("false")
+                    Boolean force);
 
 }

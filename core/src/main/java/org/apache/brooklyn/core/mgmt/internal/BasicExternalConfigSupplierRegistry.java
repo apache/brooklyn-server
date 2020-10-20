@@ -58,18 +58,12 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
 
     public BasicExternalConfigSupplierRegistry(ManagementContext mgmt) {
         addProvider(DEMO_SAMPLE_PROVIDER, new InPlaceExternalConfigSupplier(mgmt, DEMO_SAMPLE_PROVIDER,
-                MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)),
-                /** suppress logging when running this from ide; a nicer way would be to remove this altogether in most tests */
-                !BrooklynVersion.isDevelopmentEnvironment());
+                MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)));
         updateFromBrooklynProperties(mgmt);
     }
 
     @Override
     public void addProvider(String name, ExternalConfigSupplier supplier) {
-        addProvider(name, supplier, true);
-    }
-
-    protected void addProvider(String name, ExternalConfigSupplier supplier, boolean logInfo) {
         synchronized (providersMapMutex) {
             if (providersByName.containsKey(name) && !DEMO_SAMPLE_PROVIDER.equals(name)) {
                 // allow demo to be overridden
@@ -77,7 +71,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
             }
             providersByName.put(name, supplier);
         }
-        LOG.info("Added external config supplier named '" + name + "': " + supplier);
+        LOG.debug("Added external config supplier named '" + name + "': " + supplier);
     }
 
     @Override

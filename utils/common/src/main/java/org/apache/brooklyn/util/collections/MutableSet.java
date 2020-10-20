@@ -60,7 +60,11 @@ public class MutableSet<V> extends LinkedHashSet<V> {
         result.add(v1);
         result.add(v2);
         result.add(v3);
-        for (V vi: vMore) result.add(vi);
+        if (vMore==null) {
+            result.add(null);
+        } else {
+            for (V vi : vMore) result.add(vi);
+        }
         return result;
     }
 
@@ -126,7 +130,11 @@ public class MutableSet<V> extends LinkedHashSet<V> {
         public Builder<V> add(V v1, V v2, @SuppressWarnings("unchecked") V ...values) {
             result.add(v1);
             result.add(v2);
-            for (V value: values) result.add(value);
+            if (values==null) {
+                result.add(null);
+            } else {
+                for (V value : values) result.add(value);
+            }
             return this;
         }
 

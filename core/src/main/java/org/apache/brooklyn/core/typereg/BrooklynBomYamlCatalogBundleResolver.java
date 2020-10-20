@@ -84,6 +84,8 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
         // throw if not valid yaml
         new FileTypeDetector(input).getYaml().get();
 
+        if (options==null) options = new BundleInstallationOptions();
+
         String yaml = Streams.readFullyString(input.get());
         Map<?, ?> cm = BasicBrooklynCatalog.getCatalogMetadata(yaml);
 
@@ -93,13 +95,11 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
 
         VersionedName vn = BasicBrooklynCatalog.getVersionedName(cm, false);
         if (vn == null) {
-            // for better legacy compatibiity, if id specified at root use that
-            String id = (String) cm.get("id");
-            if (Strings.isNonBlank(id)) {
-                vn = VersionedName.fromString(id);
-            }
-            vn = new VersionedName(vn != null && Strings.isNonBlank(vn.getSymbolicName()) ? vn.getSymbolicName() : "brooklyn-catalog-bom-" + Identifiers.makeRandomId(8),
-                    vn != null && vn.getVersionString() != null ? vn.getVersionString() : ConfigUtils.getFirstAs(cm, String.class, "version").or(BasicBrooklynCatalog.NO_VERSION));
+            vn = new VersionedName("brooklyn-catalog-bom-" + Identifiers.makeRandomId(8), (String)null);
+        }
+        if (Strings.isBlank(vn.getVersionString())) {
+            vn = new VersionedName(vn.getSymbolicName(),
+                    ConfigUtils.getFirstAs(cm, String.class, "version").or(BasicBrooklynCatalog.NO_VERSION));
         }
         LOG.debug("Wrapping supplied BOM as " + vn);
         Manifest mf = new Manifest();
@@ -118,7 +118,7 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
                     new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
                             null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
-                            null, null), InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), true, true, options.forceUpdateOfNonSnapshots).get();
+                            null, null), InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots()).get();
         } finally {
             bf.delete();
         }

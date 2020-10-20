@@ -131,6 +131,10 @@ public abstract class BrooklynRestApiTest {
         }
     }
 
+    protected boolean useOsgi() {
+        return useLocalScannedCatalog() || false;
+    }
+
     protected boolean useLocalScannedCatalog() {
         return false;
     }
@@ -141,13 +145,15 @@ public abstract class BrooklynRestApiTest {
 
     protected synchronized ManagementContext getManagementContext() {
         if (manager==null) {
-            if (useLocalScannedCatalog()) {
+            if (useOsgi()) {
                 manager = LocalManagementContextForTests.builder(true)
                         .enableOsgiReusable()
                         .build();
-                forceUseOfDefaultCatalogWithJavaClassPath();
             } else {
                 manager = new LocalManagementContextForTests();
+            }
+            if (useLocalScannedCatalog()) {
+                forceUseOfDefaultCatalogWithJavaClassPath();
             }
             manager.getHighAvailabilityManager().disabled(false);
             ((LocalManagementContext)manager).generateManagementPlaneId();

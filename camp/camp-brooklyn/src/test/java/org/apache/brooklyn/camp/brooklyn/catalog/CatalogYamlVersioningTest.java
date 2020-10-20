@@ -310,14 +310,16 @@ public class CatalogYamlVersioningTest extends AbstractYamlTest {
     private void addCatalogEntity(String symbolicName, String version, String type, String iconUrl) {
         addCatalogItems(
             "brooklyn.catalog:",
-            "  id: " + symbolicName,
-            (version != null ? "  version: " + version : ""),
-            "  itemType: entity",
-            "  name: My Catalog App",
-            "  description: My description",
-            "  icon_url: "+iconUrl,
-            "  item:",
-            "    type: " + type);
+//            "  items:",
+//            "  - ",
+            "    id: " + symbolicName,
+            (version != null ? "    version: " + version : ""),
+            "    itemType: entity",
+            "    name: My Catalog App",
+            "    description: My description",
+            "    icon_url: "+iconUrl,
+            "    item:",
+            "      type: " + type);
     }
 
     protected void addCatalogEntityWithoutBundle(String symbolicName, String version) {

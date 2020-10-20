@@ -32,6 +32,8 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BrooklynBomBundleCatalogBundleResolver;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.BundleApi;
@@ -167,34 +169,26 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     }
 
 
-    @Override
+    @Override @Deprecated
     public Response createFromYaml(String yaml, Boolean force) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog items",
-                Entitlements.getEntitlementContext().user());
-        }
-        if (force==null) force = false;
-
-        try {
-            return Response.status(Status.CREATED).entity(
-                    TypeTransformer.bundleInstallationResult(
-                        ((BasicBrooklynCatalog)brooklyn().getCatalog()).addItemsBundleResult(yaml, force), mgmt(), brooklyn(), ui)).build();
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            return badRequest(e);
-        }
+        return create(yaml.getBytes(), BrooklynBomYamlCatalogBundleResolver.FORMAT, force);
     }
     
-    @Override
+    @Override @Deprecated
     public Response createFromArchive(byte[] zipInput, Boolean force) {
+        return create(zipInput, BrooklynBomBundleCatalogBundleResolver.FORMAT, force);
+    }
+
+    @Override @Deprecated
+    public Response create(byte[] contents, String format, Boolean force) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog items",
-                Entitlements.getEntitlementContext().user());
+                    Entitlements.getEntitlementContext().user());
         }
         if (force==null) force = false;
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(InputStreamSource.of("REST bundle upload", zipInput), null, force);
+                .install(InputStreamSource.of("REST bundle upload", contents), format, force);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
@@ -206,7 +200,7 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
                 error = error.message(result.getWithoutError().getMessage())
                         .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui));
             } else {
-                error.message(result.getError().getMessage());
+                error.message(Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString());
             }
             return error.build().asJsonResponse();
         }

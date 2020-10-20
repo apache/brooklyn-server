@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.find;
+import org.apache.brooklyn.util.text.Strings;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -126,7 +127,12 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
      */
 
     private static final Logger log = LoggerFactory.getLogger(ApplicationResourceTest.class);
-    
+
+    @Override
+    protected boolean useOsgi() {
+        return true;
+    }
+
     private final ApplicationSpec simpleSpec = ApplicationSpec.builder().name("simple-app")
           .entities(ImmutableSet.of(
                   new EntitySpec("simple-ent", RestMockSimpleEntity.class.getName()),
@@ -238,8 +244,13 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
 
     @Test
     public void testReferenceCatalogEntity() throws Exception {
-        getManagementContext().getCatalog().addItems("{ name: "+BasicEntity.class.getName()+", "
-            + "services: [ { type: "+BasicEntity.class.getName()+" } ] }");
+        getManagementContext().getCatalog().addItems(Strings.lines(
+                "brooklyn.catalog:",
+                "  id: test-reference",
+                "  version: 0.0.1",
+                "  item:",
+                "    name: "+BasicEntity.class.getName(),
+                "    services: [ { type: "+BasicEntity.class.getName()+" } ]"));
 
         String yaml = "{ name: simple-app-yaml, location: localhost, services: [ { type: " + BasicEntity.class.getName() + " } ] }";
 

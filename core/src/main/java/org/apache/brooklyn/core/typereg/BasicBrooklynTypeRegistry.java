@@ -252,12 +252,13 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                 
             } else {
                 // try just-in-time validation
-                Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint);
+                Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint, false);
                 if (!validationErrors.isEmpty()) {
                     throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
                 }
                 type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
                 if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                    // shouldn't come here
                     throw new ReferencedUnresolvedTypeException(type);
                 }
                 return createSpec(type, constraint, specSuperType);
