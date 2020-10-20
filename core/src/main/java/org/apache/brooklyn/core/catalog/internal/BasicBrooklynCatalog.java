@@ -1660,7 +1660,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // (validation normally done by osgi load routines)
         Map<String,Collection<Throwable>> errors = MutableMap.of();
         for (CatalogItemDtoAbstract<?, ?> item: result) {
-            Collection<Throwable> errorsInItem = validateType(RegisteredTypes.of(item), null);
+            Collection<Throwable> errorsInItem = validateType(RegisteredTypes.of(item), null, true);
             if (!errorsInItem.isEmpty()) {
                 errors.put(item.getCatalogItemId(), errorsInItem);
             }
@@ -1710,7 +1710,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.debug("Catalog load, starting validation cycle, "+typesRemainingToValidate.size()+" to validate");
             Map<RegisteredType,Collection<Throwable>> result = MutableMap.of();
             for (RegisteredType t: typesRemainingToValidate) {
-                Collection<Throwable> tr = validateType(t, null);
+                Collection<Throwable> tr = validateType(t, null, true);
                 if (!tr.isEmpty()) {
                     result.put(t, tr);
                 }
@@ -1727,10 +1727,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
     
     @Override @Beta
-    public Collection<Throwable> validateType(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint) {
+    public Collection<Throwable> validateType(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint, boolean allowUnresolved) {
         ReferenceWithError<RegisteredType> result = validateResolve(typeToValidate, constraint);
         if (result.hasError()) {
-            if (RegisteredTypes.isTemplate(typeToValidate)) {
+            if (allowUnresolved && RegisteredTypes.isTemplate(typeToValidate)) {
                 // ignore for templates
                 return Collections.emptySet();
             }

@@ -149,7 +149,7 @@ public interface BrooklynCatalog {
     @Beta  // method may move elsewhere, or return type may change
     public void addTypesFromBundleBom(String yaml, @Nullable ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result);
 
-    /** As {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} followed by {@link #validateType(RegisteredType, RegisteredTypeLoadingContext)}
+    /** As {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} followed by {@link #validateType(RegisteredType, RegisteredTypeLoadingContext, boolean)}
      * e.g. for use in tests and ad hoc setup when there is just a YAML file.  In OSGi mode this adds a bundle; otherwise it uses legacy catalog item addition mode.
      * <p>
      * Note that if addition or validation fails, this throws, unlike {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)},
@@ -162,8 +162,8 @@ public interface BrooklynCatalog {
     @Beta
     Collection<RegisteredType> addTypesAndValidateAllowInconsistent(String catalogYaml, @Nullable Map<RegisteredType, RegisteredType> result, boolean forceUpdate);
 
-    /** As {@link #validateType(RegisteredType, RegisteredTypeLoadingContext)} but taking a set of types, returning a map whose keys are
-     * those types where validation failed, mapped to the collection of errors validating that type. 
+    /** As {@link #validateType(RegisteredType, RegisteredTypeLoadingContext, boolean)} allowing unresolved, taking a set of types,
+     * and returning a map whose keys are those types where validation failed, mapped to the collection of errors validating that type.
      * An empty map result indicates no validation errors in the types passed in. 
      */
     @Beta  // method may move elsewhere
@@ -176,7 +176,7 @@ public interface BrooklynCatalog {
      * for the given registered type.
      */
     @Beta  // method may move elsewhere
-    Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
+    Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint, boolean allowUnresolved);
 
     /** As {@link #addItems(String, boolean, boolean)}
      *
