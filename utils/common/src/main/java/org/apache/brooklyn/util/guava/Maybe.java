@@ -137,21 +137,43 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     }
     
     /**
-     * Casts the given value to the desired type. This is valid because {@link Maybe} is immutable,
+     * Casts the given value to the desired super-type. This is valid because {@link Maybe} is immutable,
      * so things like {@code Maybe<Object>} is a super-type of {@code Maybe<String>}.
      */
     @SuppressWarnings("unchecked")
     public static <T> Maybe<T> cast(Maybe<? extends T> value) {
         return (Maybe<T>) value;
     }
-    
-    /** Converts the given {@link Maybe} to {@link Optional}, failing if this {@link Maybe} contains null. */
+
+    /** Like {@link #cast(Maybe)} but allows any casting because that is valid for absents.
+     * Enforces that the argument really is absent (or null). */
+    @SuppressWarnings("unchecked")
+    public static <T> Maybe<T> castAbsent(Maybe<?> absent) {
+        if (absent!=null && absent.isPresent() && !absent.isNull()) {
+            throw new IllegalArgumentException("Expected an absent, but instead got: "+absent);
+        }
+        return (Maybe<T>)absent;
+    }
+
+    /** Converts the given {@link Maybe} to {@link Optional} (guava), failing if this {@link Maybe} contains null.
+     * Recommend use {@link #toGuavaOptional()} instead to avoid confusion. */
     public Optional<T> toOptional() {
+        return toGuavaOptional();
+    }
+
+    /** Converts the given {@link Maybe} to {@link Optional}, failing if this {@link Maybe} contains null. */
+    public Optional<T> toGuavaOptional() {
         if (isPresent()) return Optional.of(get());
         return Optional.absent();
     }
 
-    /** Creates a new Maybe object using {@link #ofDisallowingNull(Object)} semantics. 
+    /** Converts the given {@link Maybe} to {@link java.util.Optional}, failing if this {@link Maybe} contains null. */
+    public java.util.Optional<T> toJavaOptional() {
+        if (isPresent()) return java.util.Optional.of(get());
+        return java.util.Optional.empty();
+    }
+
+    /** Creates a new Maybe object using {@link #ofDisallowingNull(Object)} semantics.
      * It is recommended to use that method for clarity. 
      * This method is provided for consistency with {@link Optional#fromNullable(Object)}. */
     public static <T> Maybe<T> fromNullable(@Nullable T value) {
@@ -160,9 +182,14 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     
     /** Creates a new Maybe object out of the {@link Optional} argument */
     public static <T> Maybe<T> fromOptional(Optional<T> value) {
-        return Maybe.fromNullable(value.orNull());
+        return new MaybeGuavaOptional<>(value);
     }
-    
+
+    /** Creates a new Maybe object out of the {@link Optional} argument */
+    public static <T> Maybe<T> fromOptional(java.util.Optional<T> value) {
+        return new MaybeJavaOptional<>(value);
+    }
+
     /** creates an instance wrapping a {@link SoftReference}, so it might go absent later on.
      * if null is supplied the result is a present null. */
     public static <T> Maybe<T> soft(@Nonnull T value) {
@@ -178,6 +205,10 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     }
 
     public static <T> Maybe<T> of(final Optional<T> value) {
+        return fromOptional(value);
+    }
+
+    private static <T> Maybe<T> ofOldKeptForDeserializationOfAnonymousInnerClass(final Optional<T> value) {
         if (value.isPresent()) return new AbstractPresent<T>() {
             private static final long serialVersionUID = -5735268814211401356L;
             @Override
@@ -186,6 +217,10 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             }
         };
         return absent();
+    }
+
+    public static <T> Maybe<T> of(final java.util.Optional<T> value) {
+        return fromOptional(value);
     }
     
     @SuppressWarnings("unused")
@@ -197,6 +232,44 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
                 return value.get();
             }
         };
+    }
+
+    public static class MaybeGuavaOptional<T> extends Maybe<T> {
+        private static final long serialVersionUID = -823731500051341455L;
+        private final Optional<T> value;
+        public MaybeGuavaOptional(Optional<T> value) {
+            this.value = value;
+        }
+        @Override
+        public T get() {
+            return value.get();
+        }
+        @Override
+        public boolean isNull() { return false; }
+        public Optional<T> getOptional() {
+            return value;
+        }
+        @Override
+        public boolean isPresent() { return value.isPresent(); }
+    }
+
+    public static class MaybeJavaOptional<T> extends Maybe<T> {
+        private static final long serialVersionUID = -823731500051341455L;
+        private final java.util.Optional<T> value;
+        public MaybeJavaOptional(java.util.Optional<T> value) {
+            this.value = value;
+        }
+        @Override
+        public T get() {
+            return value.get();
+        }
+        @Override
+        public boolean isNull() { return false; }
+        public java.util.Optional<T> getOptional() {
+            return value;
+        }
+        @Override
+        public boolean isPresent() { return value.isPresent(); }
     }
     
     public static <T> Maybe<T> of(final Supplier<T> value) {
@@ -217,8 +290,8 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             return supplier;
         }
     }
-    
-    /** returns a Maybe containing the next element in the iterator, or absent if none */ 
+
+    /** returns a Maybe containing the next element in the iterator, or absent if none */
     public static <T> Maybe<T> next(Iterator<T> iterator) {
         return iterator.hasNext() ? Maybe.of(iterator.next()) : Maybe.<T>absent();
     }
@@ -276,9 +349,35 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
      * The benefit of this is simpler stack traces and preservation of original exception type.
      */
     public T orThrowUnwrapped() {
+        // note: the difference in behaviour to get() is in the Absent subclass
         return get();
     }
-    
+
+    public Maybe<T> orThrowing(String message) {
+        return or(Maybe.absent(message));
+    }
+
+    public Maybe<T> orThrowing(Throwable t) {
+        return or(Maybe.absent(t));
+    }
+
+    public Maybe<T> orThrowing(Supplier<RuntimeException> t) {
+        return or(Maybe.absent(t));
+    }
+
+
+    public T orThrow(String message) {
+        return orThrowing(message).get();
+    }
+
+    public T orThrow(Throwable t) {
+        return orThrowing(t).get();
+    }
+
+    public T orThrow(Supplier<RuntimeException> t) {
+        return orThrowing(t).get();
+    }
+
     public Set<T> asSet() {
         if (isPresent()) return ImmutableSet.of(get());
         return Collections.emptySet();
@@ -292,6 +391,10 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     /** lazy conversion if a value is present, otherwise preserves the absence;
      * see {@link #transformNow(Function)} for immediate conversion */
     public <V> Maybe<V> map(final Function<? super T, V> f) {
+        return new MaybeTransforming(this, f);
+    }
+
+    private <V> Maybe<V> mapKeptForDeserializingOld(final Function<? super T, V> f) {
         if (isPresent()) return new AbstractPresent<V>() {
             private static final long serialVersionUID = 325089324325L;
             @Override
@@ -300,6 +403,32 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             }
         };
         return (Maybe<V>)this;
+    }
+
+    public static class MaybeTransforming<T,V> extends Maybe<V> {
+        private static final long serialVersionUID = 325089324325L;
+        private final Maybe<T> input;
+        private final Function<? super T, V> f;
+
+        public MaybeTransforming(Maybe<T> input, Function<? super T,V> f) {
+            this.input = input;
+            this.f = f;
+        }
+
+        @Override
+        public boolean isPresent() {
+            return input.isPresent();
+        }
+
+        @Override
+        public V get() {
+            return f.apply(input.get());
+        }
+
+        @Override
+        public boolean isNull() {
+            return isPresent() ? get()==null : input.isNull();
+        }
     }
 
     /** applies a function immediately if a value is present and returns the transformed object,
@@ -395,15 +524,6 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
             if (!(supplier instanceof AnyExceptionSupplier)) return original;
             
             return Maybe.absent(transform.apply((AnyExceptionSupplier<?>)supplier));
-        }
-        /** Like {@link #cast(Maybe)} but allows any casting because that is valid for absents.
-         * Enforces that the argument really is absent. */
-        @SuppressWarnings("unchecked")
-        public static <T> Maybe<T> castAbsent(Maybe<?> absent) {
-            if (absent!=null && absent.isPresent()) {
-                throw new IllegalArgumentException("Expected an absent, but instead got: "+absent);
-            }
-            return (Maybe<T>)absent;
         }
     }
 
