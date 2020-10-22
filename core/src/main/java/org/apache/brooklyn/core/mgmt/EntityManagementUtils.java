@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
 import javax.annotation.Nullable;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -247,7 +249,7 @@ public class EntityManagementUtils {
         EntitySpec<? extends Application> wrappedApplication = (EntitySpec<? extends Application>) unwrapEntity(wrapperApplication);
         return wrappedApplication;
     }
-    
+
     /** Modifies the child so it includes the inessential setup of its parent,
      * for use when unwrapping specific children, but a name or other item may have been set on the parent.
      * See {@link #WRAPPER_APP_MARKER}. */
@@ -263,8 +265,6 @@ public class EntityManagementUtils {
             wrappedChild.parametersAdd(wrapperParent.getParameters());
         }
 
-        wrappedChild.catalogItemIdAndSearchPath(wrapperParent.getCatalogItemId(), wrapperParent.getCatalogItemIdSearchPath());
-
         // NB: this clobber's child config wherever they conflict; might prefer to deeply merge maps etc
         // (or maybe even prevent the merge in these cases; 
         // not sure there is a compelling reason to have config on a pure-wrapper parent)
@@ -273,7 +273,25 @@ public class EntityManagementUtils {
                 Predicates.not(Predicates.<ConfigKey<?>>equalTo(EntityManagementUtils.WRAPPER_APP_MARKER)));
         wrappedChild.configure(configWithoutWrapperMarker);
         wrappedChild.configure(wrapperParent.getFlags());
-        
+
+        // add the search path to children when unwrapped, in preference to anything on the children
+        String preferredCatalogItemId, otherCatalogItemId;
+        if (wrapperParent.getCatalogItemId()!=null) {
+            preferredCatalogItemId = wrapperParent.getCatalogItemId();
+            otherCatalogItemId = wrappedChild.getCatalogItemId();
+            if (Objects.equals(otherCatalogItemId, preferredCatalogItemId)) {
+                otherCatalogItemId = null;
+            }
+        } else {
+            preferredCatalogItemId = wrappedChild.getCatalogItemId();
+            otherCatalogItemId = null;
+        }
+        MutableList<String> searchPath = MutableList.<String>of()
+                .appendAll(wrapperParent.getCatalogItemIdSearchPath())
+                .appendIfNotNull(otherCatalogItemId)
+                .appendAll(wrappedChild.getCatalogItemIdSearchPath());
+        wrappedChild.catalogItemIdAndSearchPath(preferredCatalogItemId, searchPath);
+
         // copying tags to all entities may be something the caller wants to control,
         // e.g. if we're adding multiple, the caller might not want to copy the parent
         // (the BrooklynTags.YAML_SPEC tag will include the parents source including siblings),

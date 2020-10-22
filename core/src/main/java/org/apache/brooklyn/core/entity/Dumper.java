@@ -94,9 +94,9 @@ public class Dumper {
             out.append(currentIndentation + tab + tab + "searchPath = [");
             for (int i = 0 ; i < searchPath.size() ; i++) {
                 out.append(i > 0 ? ",\n" : "\n");
-                out.append(currentIndentation + tab + tab + searchPath.get(i));
+                out.append(currentIndentation + tab + tab + tab + searchPath.get(i));
             }
-            out.append("\n" + currentIndentation + tab + tab + "]");
+            out.append("\n" + currentIndentation + tab + tab + "]\n");
         }
 
         out.append(currentIndentation+tab+tab+"locations = "+e.getLocations()+"\n");

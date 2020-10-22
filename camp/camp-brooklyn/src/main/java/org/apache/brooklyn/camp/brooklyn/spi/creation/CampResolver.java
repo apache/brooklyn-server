@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
+import com.google.common.annotations.Beta;
 import java.util.Set;
 
+import java.util.Stack;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -81,6 +83,9 @@ class CampResolver {
         return createSpecFromFull(mgmt, type, context.getExpectedJavaSuperType(), context.getAlreadyEncounteredTypes(), context.getLoader());
     }
 
+    @Beta
+    public static final ThreadLocal<Stack<RegisteredType>> currentlyCreatingSpec = new ThreadLocal<Stack<RegisteredType>>();
+
     static AbstractBrooklynObjectSpec<?, ?> createSpecFromFull(ManagementContext mgmt, RegisteredType item, Class<?> expectedType, Set<String> parentEncounteredTypes, BrooklynClassLoadingContext loaderO) {
         // for this method, a prefix "services" or "brooklyn.{location,policies}" is required at the root;
         // we now prefer items to come in "{ type: .. }" format, except for application roots which
@@ -98,49 +103,67 @@ class CampResolver {
             encounteredTypes = parentEncounteredTypes;
         }
 
-        AbstractBrooklynObjectSpec<?, ?> spec;
-        String planYaml = RegisteredTypes.getImplementationDataStringForSpec(item);
-        MutableSet<Object> supers = MutableSet.copyOf(item.getSuperTypes());
-        supers.addIfNotNull(expectedType);
-        if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Policy.class)) {
-            spec = CampInternalUtils.createPolicySpec(planYaml, loader, encounteredTypes);
-        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Enricher.class)) {
-            spec = CampInternalUtils.createEnricherSpec(planYaml, loader, encounteredTypes);
-        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Location.class)) {
-            spec = CampInternalUtils.createLocationSpec(planYaml, loader, encounteredTypes);
-        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Application.class)) {
-            spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, true);
-        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
-            spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, false);
-        } else {
-            throw new IllegalStateException("Cannot detect spec type from "+item.getSuperTypes()+" for "+item+"\n"+planYaml);
+        // store the currently creating spec so that we can set the search path on items created by this
+        // (messy using a thread local; ideally we'll add it to the API, and/or use the LoadingContext for both this and for encountered types)
+        if (currentlyCreatingSpec.get()==null) {
+            currentlyCreatingSpec.set(new Stack<>());
         }
-        if (expectedType!=null && !expectedType.isAssignableFrom(spec.getType())) {
-            throw new IllegalStateException("Creating spec from "+item+", got "+spec.getType()+" which is incompatible with expected "+expectedType);                
-        }
+        currentlyCreatingSpec.get().push(item);
+        try {
 
-        spec.stackCatalogItemId(item.getId());
-
-        if (spec instanceof EntitySpec) {
-            String name = spec.getDisplayName();
-            Object defaultNameConf = spec.getConfig().get(AbstractEntity.DEFAULT_DISPLAY_NAME);
-            Object defaultNameFlag = spec.getFlags().get(AbstractEntity.DEFAULT_DISPLAY_NAME.getName());
-            if (Strings.isBlank(name) && defaultNameConf == null && defaultNameFlag == null) {
-                spec.configure(AbstractEntity.DEFAULT_DISPLAY_NAME, item.getDisplayName());
+            AbstractBrooklynObjectSpec<?, ?> spec;
+            String planYaml = RegisteredTypes.getImplementationDataStringForSpec(item);
+            MutableSet<Object> supers = MutableSet.copyOf(item.getSuperTypes());
+            supers.addIfNotNull(expectedType);
+            if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Policy.class)) {
+                spec = CampInternalUtils.createPolicySpec(planYaml, loader, encounteredTypes);
+            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Enricher.class)) {
+                spec = CampInternalUtils.createEnricherSpec(planYaml, loader, encounteredTypes);
+            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Location.class)) {
+                spec = CampInternalUtils.createLocationSpec(planYaml, loader, encounteredTypes);
+            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Application.class)) {
+                spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, true);
+            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
+                spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, false);
+            } else {
+                throw new IllegalStateException("Cannot detect spec type from " + item.getSuperTypes() + " for " + item + "\n" + planYaml);
             }
-        } else {
-            // See https://issues.apache.org/jira/browse/BROOKLYN-248, and the tests in 
-            // ApplicationYamlTest and CatalogYamlLocationTest.
-            if (Strings.isNonBlank(item.getDisplayName())) {
-                spec.displayName(item.getDisplayName());
+            if (expectedType != null && !expectedType.isAssignableFrom(spec.getType())) {
+                throw new IllegalStateException("Creating spec from " + item + ", got " + spec.getType() + " which is incompatible with expected " + expectedType);
+            }
+
+            spec.stackCatalogItemId(item.getId());
+
+            if (spec instanceof EntitySpec) {
+                String name = spec.getDisplayName();
+                Object defaultNameConf = spec.getConfig().get(AbstractEntity.DEFAULT_DISPLAY_NAME);
+                Object defaultNameFlag = spec.getFlags().get(AbstractEntity.DEFAULT_DISPLAY_NAME.getName());
+                if (Strings.isBlank(name) && defaultNameConf == null && defaultNameFlag == null) {
+                    spec.configure(AbstractEntity.DEFAULT_DISPLAY_NAME, item.getDisplayName());
+                }
+            } else {
+                // See https://issues.apache.org/jira/browse/BROOKLYN-248, and the tests in
+                // ApplicationYamlTest and CatalogYamlLocationTest.
+                if (Strings.isNonBlank(item.getDisplayName())) {
+                    spec.displayName(item.getDisplayName());
+                }
+            }
+
+            return spec;
+
+        } finally {
+            currentlyCreatingSpec.get().pop();
+            if (currentlyCreatingSpec.get().isEmpty()) {
+                currentlyCreatingSpec.remove();
             }
         }
-        
-        return spec;
     }
  
     private static EntitySpec<?> createEntitySpecFromServicesBlock(String plan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes, boolean isApplication) {
         CampPlatform camp = CampInternalUtils.getCampPlatform(loader.getManagementContext());
+
+        // TODO instead of BasicBrooklynCatalog.attemptLegacySpecTransformers where candidate yaml has 'services:' prepended, try that in this method
+        // if 'services:' is not declared, but a 'type:' is, then see whether we can parse it with services.
 
         AssemblyTemplate at = CampInternalUtils.resolveDeploymentPlan(plan, loader, camp);
         AssemblyTemplateInstantiator instantiator = CampInternalUtils.getInstantiator(at);

@@ -21,6 +21,9 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Throwables;
 import java.util.Collection;
+import java.util.Set;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.util.collections.MutableSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -420,7 +423,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), BasicEntity.class.getName());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "different", symbolicName, TEST_VERSION, "already present");
+            Asserts.expectedFailureContains(e, "different", symbolicName, TEST_VERSION);
         }
     }
 
@@ -512,6 +515,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             // Being a child is important, triggers the case where: we allow retrying with other transformers.
             addCatalogItems(
                     "brooklyn.catalog:",
+                    "  bundle: " + callerSymbolicName,
                     "  id: " + callerSymbolicName,
                     "  version: " + TEST_VERSION,
                     "  itemType: entity",
@@ -719,8 +723,10 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     public void testCatalogItemIdInReferencedItems() throws Exception {
         String symbolicNameInner = "my.catalog.app.id.inner";
         String symbolicNameOuter = "my.catalog.app.id.outer";
+        String bundleName = "my.catalog.app.bundle";
         addCatalogItems(
             "brooklyn.catalog:",
+            "  bundle: "+bundleName,
             "  version: " + TEST_VERSION,
             "  items:",
             "  - id: " + symbolicNameInner,
@@ -736,8 +742,13 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         Entity entity = app.getChildren().iterator().next();
         assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
-            "should have just " + symbolicNameInner + " in search path");
+        Dumper.dumpInfo(entity);
+        Set<String> searchPath = MutableSet.copyOf(entity.getCatalogItemIdSearchPath());
+        boolean hadThisBundleOrInner = searchPath.remove(bundleName+":"+TEST_VERSION);
+        hadThisBundleOrInner = searchPath.remove(ver(symbolicNameInner)) || hadThisBundleOrInner;
+        Assert.assertTrue(hadThisBundleOrInner, "search path should have referred to inner or bundle");
+        searchPath.remove(ver(symbolicNameOuter));  // this might get added (in osgi subclass)
+        Assert.assertTrue(searchPath.isEmpty(), "search path contained unexpected items: "+searchPath);
 
         deleteCatalogRegisteredType(symbolicNameInner);
         deleteCatalogRegisteredType(symbolicNameOuter);
@@ -844,6 +855,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  id: " + idAndVersion.id,
+                "  bundle: " + idAndVersion.id,
                 "  version: " + idAndVersion.version,
                 "  itemType: entity",
                 "  item:",

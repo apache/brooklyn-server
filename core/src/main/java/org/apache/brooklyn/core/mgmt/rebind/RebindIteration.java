@@ -85,6 +85,7 @@ import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
@@ -1009,6 +1010,17 @@ public abstract class RebindIteration {
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
                     String fixedSearchItemId = null;
+                    OsgiManager osgi = managementContext.getOsgiManager().orNull();
+                    if (osgi!=null) {
+                        ManagedBundle bundle = osgi.getManagedBundle(VersionedName.fromString(searchItemId));
+                        if (bundle!=null) {
+                            // found as bundle
+                            reboundSearchPath.add(searchItemId);
+                            continue;
+                        }
+                    }
+
+                    // look for as a type now
                     RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);
                     if (t1==null) {
                         String newSearchItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, searchItemId);

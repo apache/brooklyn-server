@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.Map;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -26,6 +27,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
@@ -49,6 +51,8 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     // use type registry approach
     @Override
     protected void addCatalogItems(String catalogYaml) {
+        boolean skipStart = false;
+
         switch (itemsInstallMode!=null ? itemsInstallMode : 
             // this is the default because some "bundles" aren't resolvable or library BOMs loadable in test context
             CatalogItemsInstallationMode.BUNDLE_BUT_NOT_STARTED) {
@@ -56,11 +60,20 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
             super.addCatalogItems(catalogYaml);
             break;
         case BUNDLE_BUT_NOT_STARTED:
-            // TODO if id/bundle set in catalog yaml use that
-            addCatalogItemsAsOsgiWithoutStartingBundles(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
-            break;
+            skipStart = true;
+            // continue to below
         case USUAL_OSGI_WAY_AS_BUNDLE_WITH_DEFAULT_NAME:
-            addCatalogItemsAsOsgiInUsualWay(mgmt(), catalogYaml, new VersionedName(bundleName(), bundleVersion()), isForceUpdate());
+            String bundle = bundleName();
+            String version = bundleVersion();
+            Map<?, ?> cy = (Map<?, ?>) Yamls.parseAll(catalogYaml).iterator().next();
+            cy = (Map<?, ?>) cy.get("brooklyn.catalog");
+            if (cy.containsKey("bundle")) bundle = (String)cy.get("bundle");
+            if (cy.containsKey("version")) version = (String)cy.get("version");
+            if (skipStart) {
+                addCatalogItemsAsOsgiWithoutStartingBundles(mgmt(), catalogYaml, new VersionedName(bundle, version), isForceUpdate());
+            } else {
+                addCatalogItemsAsOsgiInUsualWay(mgmt(), catalogYaml, new VersionedName(bundle, version), isForceUpdate());
+            }
             break;
         case USUAL_OSGI_WAY_AS_ZIP_NO_MANIFEST_NAME_MAYBE_IN_BOM:
             addCatalogItemsAsOsgiInUsualWay(mgmt(), catalogYaml, null, isForceUpdate());
@@ -87,7 +100,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         String symbolicName = "my.catalog.app.id.load";
         addCatalogEntity(IdAndVersion.of(symbolicName, TEST_VERSION), BasicEntity.class.getName());
 
-        Iterable<RegisteredType> itemsInstalled = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(new VersionedName(bundleName(), bundleVersion())));
+        Iterable<RegisteredType> itemsInstalled = mgmt().getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(new VersionedName(symbolicName, TEST_VERSION)));
         Asserts.assertSize(itemsInstalled, 1);
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         Asserts.assertEquals(item, Iterables.getOnlyElement(itemsInstalled), "Wrong item; installed: "+itemsInstalled);
@@ -174,5 +187,9 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     }
     
     // also runs many other tests from super, here using the osgi/type-registry appraoch
-    
+
+    @Test
+    public void testCatalogItemIdInReferencedItems() throws Exception {
+        super.testCatalogItemIdInReferencedItems();
+    }
 }
