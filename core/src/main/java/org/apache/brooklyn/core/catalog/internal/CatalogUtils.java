@@ -134,11 +134,16 @@ public class CatalogUtils {
         return result;
     }
 
+    /** Creates a new loading context using the primary bundle and the search bundles.
+     *  If the primary bundle is included in the search bundles, then it is read in the order it lies within the search bundle.
+     *  If it is not in the search list it is read first. */
     public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
         ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
 
         BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
-        addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
+        if (!searchPath.contains(primaryItemId)) {
+            addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
+        }
         for (String searchId : searchPath) {
             addSearchItem(managementContext, seqLoader, searchId, true);
         }

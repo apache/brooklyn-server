@@ -18,6 +18,14 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynComponentTemplateResolver;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -102,9 +110,97 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
 
         Entity simpleEntity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(simpleEntity.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
+        Assert.assertEquals(simpleEntity.getCatalogItemId(), ver(referrerSymbolicName));
+        Dumper.dumpInfo(simpleEntity);
+        assertCatalogItemIdAndSearchPath(simpleEntity, ver(referrerSymbolicName), Arrays.asList(
+                ver(referencedSymbolicName), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSIONED_NAME));
 
         deleteCatalogRegisteredType(referencedSymbolicName);
         deleteCatalogRegisteredType(referrerSymbolicName);
+    }
+
+    private void assertCatalogItemIdAndSearchPath(Entity ent, String cid, List<String> csp) {
+        Asserts.assertEquals(ent.getCatalogItemId(), cid);
+
+        // treat catalog item id at the head of the search path as equivalent to it not being present
+        List<String> sp = ent.getCatalogItemIdSearchPath();
+        if (sp.contains(cid)) {
+            if (!csp.contains(cid)) {
+                Asserts.assertEquals(sp, MutableList.of(cid).appendAll(csp));
+                return;
+            }
+        } else if (csp.contains(cid)) {
+            Asserts.assertEquals(MutableList.of(cid).appendAll(sp), csp);
+            return;
+        }
+        Asserts.assertEquals(sp, csp);
+        return;
+    }
+
+    @Test
+    public void testLaunchApplicationWithCatalogReferencingOtherCatalogInServicesBlock() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        String referencedSymbolicName = "my.catalog.app.id.referenced";
+        String referrer1SymbolicName = "my.catalog.app.id.referring1";
+        String referrer2SymbolicName = "my.catalog.app.id.referring2";
+        addCatalogOSGiEntity(referencedSymbolicName, SIMPLE_ENTITY_TYPE);
+        addCatalogEntity(referrer1SymbolicName, ver(referencedSymbolicName));
+        addCatalogEntityInServicesBlock(referrer2SymbolicName, ver(referrer1SymbolicName));
+
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + ver(referrer2SymbolicName));
+
+        Dumper.dumpInfo(app);
+        Entity parent = app;
+        Assert.assertNull(parent.getCatalogItemId());  // is just an implicit BasicApplication
+        Asserts.assertEquals(parent.getCatalogItemIdSearchPath(), Collections.emptyList());
+
+        Entity child = app.getChildren().iterator().next();
+        assertEquals(child.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
+        assertCatalogItemIdAndSearchPath(child, ver(referrer2SymbolicName), Arrays.asList(
+                ver(referrer1SymbolicName),
+                ver(referencedSymbolicName),
+                OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSIONED_NAME));
+
+        deleteCatalogRegisteredType(referrer2SymbolicName);
+        deleteCatalogRegisteredType(referrer1SymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
+    }
+
+
+    @Test
+    public void testLaunchApplicationWithCatalogReferencingOtherCatalogInServicesBlockTwice() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH);
+
+        String referencedSymbolicName = "my.catalog.app.id.referenced";
+        String referrer1SymbolicName = "my.catalog.app.id.referring1";
+        String referrer2SymbolicName = "my.catalog.app.id.referring2";
+        addCatalogOSGiEntity(referencedSymbolicName, SIMPLE_ENTITY_TYPE);
+        addCatalogEntity(referrer1SymbolicName, ver(referencedSymbolicName));
+        addCatalogEntityInServicesBlockTwice(referrer2SymbolicName, ver(referrer1SymbolicName));
+
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + ver(referrer2SymbolicName));
+
+        Dumper.dumpInfo(app);  // referrer2 is an application here so is promoted, and should see referrer 2, but not referrer 1 or referenced as those are the children nodes only
+        Entity parent = app;
+        Assert.assertEquals(parent.getCatalogItemId(), ver(referrer2SymbolicName));
+        Asserts.assertEquals(parent.getCatalogItemIdSearchPath(), Arrays.asList(ver(referrer2SymbolicName)));
+
+        Entity child = app.getChildren().iterator().next();
+        assertEquals(child.getEntityType().getName(), SIMPLE_ENTITY_TYPE);
+        assertCatalogItemIdAndSearchPath(child, ver(referrer1SymbolicName), Arrays.asList(
+                ver(referrer2SymbolicName),
+                ver(referrer1SymbolicName),
+                ver(referencedSymbolicName),
+                OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSIONED_NAME));
+
+        deleteCatalogRegisteredType(referrer2SymbolicName);
+        deleteCatalogRegisteredType(referrer1SymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
     }
 
     @Test
@@ -758,6 +854,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
         String symbolicNameOuter = "my.catalog.app.id.outer";
         addCatalogItems(
             "brooklyn.catalog:",
+            "  bundle: " + symbolicNameOuter,
             "  version: " + TEST_VERSION,
             "  items:",
             "  - id: " + symbolicNameInner,
@@ -776,9 +873,11 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
 
         Entity app = createAndStartApplication(yaml);
         Entity entity = app.getChildren().iterator().next();
-        assertEquals(entity.getCatalogItemId(), ver(symbolicNameOuter));
-        assertEquals(entity.getCatalogItemIdSearchPath(), ImmutableList.of(ver(symbolicNameInner)),
-            "should have just " + symbolicNameInner + " in search path");
+        Dumper.dumpInfo(entity);
+        assertCatalogItemIdAndSearchPath(entity, ver(symbolicNameOuter), ImmutableList.of(
+                ver(symbolicNameInner),
+                ver(symbolicNameOuter),
+                OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_VERSIONED_NAME));
 
         deleteCatalogRegisteredType(symbolicNameInner);
         deleteCatalogRegisteredType(symbolicNameOuter);
@@ -844,6 +943,29 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
             "  itemType: entity",
             "  item:",
             "    type: " + serviceType);
+    }
+
+    private void addCatalogEntityInServicesBlock(String symbolicName, String serviceType) {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  item:",
+                "    services:",
+                "    - type: " + serviceType);
+    }
+
+    private void addCatalogEntityInServicesBlockTwice(String symbolicName, String serviceType) {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  itemType: entity",
+                "  item:",
+                "    services:",
+                "    - type: " + serviceType,
+                "    - type: " + serviceType);
     }
 
     private void addCatalogChildEntity(String symbolicName, String serviceType) {

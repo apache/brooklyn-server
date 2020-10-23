@@ -20,15 +20,11 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import com.google.common.reflect.TypeToken;
@@ -213,6 +209,8 @@ public class BrooklynComponentTemplateResolver {
         return overrides;
     }
 
+
+
     @SuppressWarnings("unchecked")
     private <T extends Entity> void populateSpec(EntitySpec<T> spec, Set<String> encounteredRegisteredTypeIds) {
         String name, source=null, templateId=null, planId=null;
@@ -226,6 +224,14 @@ public class BrooklynComponentTemplateResolver {
         planId = (String)attrs.getStringKey("id");
         if (planId==null)
             planId = (String) attrs.getStringKey(BrooklynCampConstants.PLAN_ID_FLAG);
+
+        Stack<RegisteredType> itemBeingResolved = CampResolver.currentlyCreatingSpec.get();
+        if (itemBeingResolved!=null && itemBeingResolved.peek()!=null) {
+            MutableList<String> searchPath = MutableList.<String>of()
+                    .appendIfNotNull(itemBeingResolved.peek().getContainingBundle())
+                    .appendAll(itemBeingResolved.peek().getLibraries().stream().map(bundle -> bundle.getVersionedName().toString()).collect(Collectors.toList()));
+            spec.addSearchPathAtStart(searchPath);
+        }
 
         Object childrenObj = attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_CHILDREN);
         if (childrenObj != null) {

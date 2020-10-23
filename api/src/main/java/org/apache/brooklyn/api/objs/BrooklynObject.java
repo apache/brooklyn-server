@@ -47,7 +47,7 @@ public interface BrooklynObject extends Identifiable, Configurable {
     String getDisplayName();
 
     /**
-     * The catalog item ID this object was loaded from.
+     * The registered type (catalog item) ID this object was loaded from.
      * <p>
      * This can be used to understand the appropriate classloading context,
      * such as for versioning purposes, as well as meta-information such as 
@@ -63,8 +63,8 @@ public interface BrooklynObject extends Identifiable, Configurable {
     String getCatalogItemId();
 
     /**
-     * An immutable list of ids of catalog items that this item depends on in some way,
-     * with the item that directly defines it implicit, but other items it references explicit.
+     * An immutable list of ids of registered types or bundles that contain them (catalog items) that this item depends on in some way,
+     * with the item (itself and its bundle) that directly defines it usually implicit, but other items it references explicit.
      * Wrapping items are first in the list (i.e. wrapping items precede wrapped items),
      * so for example, if the catalog is:
      * <pre>
@@ -77,6 +77,14 @@ public interface BrooklynObject extends Identifiable, Configurable {
      * </pre>
      * the spec for Z will have getCatalogId() of Z and getCatalogItemIdSearchPath() of Y, X.
      * (The self catalog ID is implicit at the head of the search path.)
+     * <p>
+     * The {@link #getCatalogItemId()} is often not included in this list, and that bundle/type should be used as the first target when searching.
+     * However if {@link #getCatalogItemId()} is included in this list, it should be used in the order where it occurs in this list, and not first.
+     * (This is because sometimes the entity is being referenced from a context where that context's search path should take priority.)
+     * <p>
+     * It is sufficient, functionally equivalent, and more efficient for this to contain just bundle IDs, ie the containing bundles of registered types,
+     * rather than many registered types, because the search path can be de-duped if bundles are used.
+     * However for legacy and complexity reasons in many cases registered type IDs are included here.
      */
     List<String> getCatalogItemIdSearchPath();
     

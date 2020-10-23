@@ -1304,8 +1304,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 return this;
             }
 
-            // couldn't resolve it with the plan transformers; retry with legacy "spec" transformers
-            // (not sure if/when we come here...)
+            // couldn't resolve it with the plan transformers; retry with legacy "spec" transformers.
+            // TODO this legacy path is still needed where an entity is declared with nice abbreviated 'type: xxx' syntax, not the full-camp 'services: [ { type: xxx } ]' syntax.
+            // would be nice to move that logic internally to CAMP and see if we can remove this altogether.
+            // (see org.apache.brooklyn.camp.brooklyn.spi.creation.CampResolver.createEntitySpecFromServicesBlock )
             if (format==null) {
                 attemptLegacySpecTransformersForVariousSpecTypes();
             }

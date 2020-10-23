@@ -52,6 +52,7 @@ public class OsgiStandaloneTest extends OsgiTestBase {
     public static final String BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_URL = "classpath:"+BROOKLYN_TEST_OSGI_MORE_ENTITIES_0_1_0_PATH;
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_NAME = "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities";
     public static final String BROOKLYN_TEST_OSGI_ENTITIES_VERSION = "0.1.0";
+    public static final String BROOKLYN_TEST_OSGI_ENTITIES_VERSIONED_NAME = BROOKLYN_TEST_OSGI_ENTITIES_NAME+":"+BROOKLYN_TEST_OSGI_ENTITIES_VERSION;
 
     @Test
     public void testInstallBundle() throws Exception {
