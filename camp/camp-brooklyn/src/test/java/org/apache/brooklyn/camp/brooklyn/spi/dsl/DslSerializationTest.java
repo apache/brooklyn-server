@@ -28,6 +28,8 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.testng.Assert;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.testng.annotations.Test;
@@ -36,9 +38,9 @@ import org.testng.annotations.Test;
 public class DslSerializationTest extends AbstractYamlTest {
 
     @Test
-    public void testSerializeAttributeWhenReady() throws Exception {
+    public void testSerializeAttributeWhenReadyAtRootWorksWithoutBrooklynLiteralMarker() throws Exception {
         BrooklynDslDeferredSupplier<?> awr = new DslComponent(Scope.GLOBAL, "entity_id").attributeWhenReady("my_sensor");
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
+        ObjectMapper mapper = newMapper();
 
         String out = mapper.writerFor(Object.class).writeValueAsString(awr);
         Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
@@ -49,14 +51,35 @@ public class DslSerializationTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testSerializeDslConfigSupplierInMapObject() throws Exception {
+    public void testSerializeDslConfigSupplierInMapObjectFailsWithoutBrooklynLiteralMarker() throws Exception {
         BrooklynDslDeferredSupplier<?> awr = new DslComponent(Scope.GLOBAL, "entity_id").config("my_config");
         Map<String,Object> stuff = MutableMap.<String,Object>of("stuff", awr);
-
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
+        ObjectMapper mapper = newMapper();
 
         String out = mapper.writerFor(Object.class).writeValueAsString(stuff);
+        /* literal not present, and we get a map */
         Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
+        Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
+
+        Object stuff2 = mapper.readValue(out, Object.class);
+        Object stuff2I = ((Map<?, ?>) stuff2).get("stuff");
+        Asserts.assertInstanceOf(stuff2I, Map.class);
+    }
+
+    private ObjectMapper newMapper() {
+        return BeanWithTypeUtils.newMapper(mgmt(), false, null, true);
+    }
+
+    @Test
+    public void testSerializeDslConfigSupplierInMapObjectWorksWithBrooklynLiteralMarker() throws Exception {
+        BrooklynDslDeferredSupplier<?> awr =
+                (BrooklynDslDeferredSupplier<?>) DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:component(\"entity_id\").config(\"my_config\")");
+        Map<String,Object> stuff = MutableMap.<String,Object>of("stuff", awr);
+        ObjectMapper mapper = newMapper();
+
+        String out = mapper.writerFor(Object.class).writeValueAsString(stuff);
+        /* literal IS present, and we get the right type */
+        Assert.assertTrue(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
         Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
 
         Object stuff2 = mapper.readValue(out, Object.class);
@@ -65,16 +88,13 @@ public class DslSerializationTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testSerializeDslConfigSupplierInWrappedValue() throws Exception {
-        BrooklynDslDeferredSupplier<?> awr =
-                (BrooklynDslDeferredSupplier<?>) DslUtils.resolveBrooklynDslValue("$brooklyn:component(\"entity_id\").config(\"my_config\")", null, mgmt(), null).get();
-                //new DslComponent(Scope.GLOBAL, "entity_id").config("my_config");
+    public void testSerializeDslConfigSupplierInWrappedValueFailsWithoutBrooklynLiteralMarker() throws Exception {
+        BrooklynDslDeferredSupplier<?> awr = new DslComponent(Scope.GLOBAL, "entity_id").config("my_config");
         WrappedValue<Object> stuff = WrappedValue.of(awr);
-
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
+        ObjectMapper mapper = newMapper();
 
         String out = mapper.writeValueAsString(stuff);
-        Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
+        Assert.assertTrue(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
         Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
 
         WrappedValue<?> stuff2 = mapper.readValue(out, WrappedValue.class);
@@ -82,21 +102,29 @@ public class DslSerializationTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testSerializeDslLiteral() throws Exception {
-        /*
-        options:
-        - ensure DSL only converted at the last mile
-        - ensure DSL read/written as string when reading object
-        - ensure DSL readable from type even when reading object <- if has $brooklyn:literal set then it will
-         */
-        String unwrappedDesiredValue = JavaStringEscapes.wrapJavaString("$brooklyn:literal(" + JavaStringEscapes.wrapJavaString("foo") + ")");
+    public void testSerializeDslConfigSupplierInWrappedValueWorksWithBrooklynLiteralMarker() throws Exception {
+        BrooklynDslDeferredSupplier<?> awr =
+                (BrooklynDslDeferredSupplier<?>) DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:component(\"entity_id\").config(\"my_config\")");
+        WrappedValue<Object> stuff = WrappedValue.of(awr);
+        ObjectMapper mapper = newMapper();
+
+        String out = mapper.writeValueAsString(stuff);
+        Assert.assertTrue(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
+        Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
+
+        WrappedValue<?> stuff2 = mapper.readValue(out, WrappedValue.class);
+        Asserts.assertInstanceOf(stuff2.getSupplier(), BrooklynDslDeferredSupplier.class);
+    }
+
+    @Test
+    public void testSerializeDslLiteralWorksWithBrooklynLiteralMarker() throws Exception {
+        String unwrappedDesiredValue = "$brooklyn:literal(" + JavaStringEscapes.wrapJavaString("foo") + ")";
         Optional<Object> l = DslUtils.resolveBrooklynDslValue("$brooklyn:literal(" +
-                unwrappedDesiredValue
+                JavaStringEscapes.wrapJavaString(unwrappedDesiredValue)
                 + ")", null, mgmt(), null);
         Assert.assertTrue(l.isPresent());
         Map<String,Object> stuff = MutableMap.<String,Object>of("stuff", l.get());
-
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(mgmt(), false, null, true);
+        ObjectMapper mapper = newMapper();
 
         String out = mapper.writerFor(Object.class).writeValueAsString(stuff);
         Assert.assertTrue(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
@@ -105,6 +133,9 @@ public class DslSerializationTest extends AbstractYamlTest {
         Object stuff2 = mapper.readValue(out, Object.class);
         Object stuff2I = ((Map<?, ?>) stuff2).get("stuff");
         Asserts.assertInstanceOf(stuff2I, BrooklynDslDeferredSupplier.class);
-        Assert.assertEquals( ((BrooklynDslDeferredSupplier)stuff2I).get(), unwrappedDesiredValue );
+        BasicExecutionManager execManager = new BasicExecutionManager("mycontextid");
+        BasicExecutionContext execContext = new BasicExecutionContext(execManager);
+
+        Assert.assertEquals( execContext.submit(((BrooklynDslDeferredSupplier)stuff2I).newTask()).get(), unwrappedDesiredValue );
     }
 }

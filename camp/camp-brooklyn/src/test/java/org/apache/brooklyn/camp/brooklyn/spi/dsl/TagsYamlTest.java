@@ -129,7 +129,7 @@ public class TagsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
                 "  brooklyn.tags:",
-                "  - $brooklyn:literal(\"myval\")");
+                "  - $brooklyn:formatString(\"myval\")");
         assertTrue(app.tags().getTags().contains("myval"));
     }
 

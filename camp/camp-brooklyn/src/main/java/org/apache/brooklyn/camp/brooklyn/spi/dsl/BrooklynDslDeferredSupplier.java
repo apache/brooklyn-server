@@ -76,11 +76,11 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
     /** The original DSL which generated the expression, if available.
      * Note the {@link #toString()} should create an equivalent expression.
      */
-    // not required in persistence, but potentially interesting.
-    // xstream deserialization may use this or the toString.
-    // jackson deserialization relies on the presence of this field if reading an Object,
+    // not required in persistence; potentially interesting, but increases size significantly
+    // xstream deserialization should use the toString, and skips transients;
+    // jackson deserialization includes this, and relies on it if reading an Object,
     // but if reading to a Supplier it will correctly instantiate based on the type field.
-    private Object dsl = null;
+    private transient Object dsl = null;
 
     public BrooklynDslDeferredSupplier() {
         PlanInterpretationNode sourceNode = BrooklynDslInterpreter.currentNode();
