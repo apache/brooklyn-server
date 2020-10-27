@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import java.util.function.Supplier;
@@ -70,6 +71,7 @@ import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
@@ -294,7 +296,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
      * Expected to be called only during tests, where the test has not gone through the same 
      * management-context lifecycle as is done in BasicLauncher.
      * 
-     * Subsequent calls will fail to things like {@link #populateInitialCatalog()} or 
+     * Subsequent calls will fail to things like {@link #populateInitialCatalogOnly()} or
      * {@link #populateInitialAndPersistedCatalog(ManagementNodeState, PersistedCatalogState, RebindExceptionHandler, RebindLogger)}.
      */
     @VisibleForTesting
@@ -505,17 +507,30 @@ public class CatalogInitialization implements ManagementContextInjectable {
         Map<InstallableManagedBundle, OsgiBundleInstallationResult> installs = MutableMap.of();
 
         // Install the bundles
-        for (Map.Entry<VersionedName, InstallableManagedBundle> entry : bundles.entrySet()) {
-            VersionedName bundleId = entry.getKey();
-            InstallableManagedBundle installableBundle = entry.getValue();
-            rebindLogger.debug("RebindManager installing bundle {}", bundleId);
-            try {
-                installs.put(installableBundle, installBundle(installableBundle.getManagedBundle(), installableBundle.getInputStreamSource()));
-            } catch (Exception e) {
-                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId.toString(), installableBundle.getManagedBundle().getSymbolicName(), e);
+        Map<VersionedName, InstallableManagedBundle> remaining = MutableMap.copyOf(bundles);
+        Set<Pair<Entry<VersionedName, InstallableManagedBundle>,Exception>> errors = MutableSet.of();
+        while (!remaining.isEmpty()) {
+            int installed = 0;
+            for (Entry<VersionedName, InstallableManagedBundle> entry : MutableSet.copyOf(remaining.entrySet())) {
+                rebindLogger.debug("RebindManager installing bundle {}", entry.getKey());
+                try {
+                    installs.put(entry.getValue(), installBundle(entry.getValue().getManagedBundle(), entry.getValue().getInputStreamSource()));
+                    remaining.remove(entry.getKey());
+                    installed++;
+                } catch (Exception e) {
+                    rebindLogger.debug("Unable to install bundle "+entry.getKey()+", but may re-try in case it has a dependency on another bundle ("+e+")");
+                    errors.add(Pair.of(entry, e));
+                }
+            }
+            if (installed==0) {
+                // keep trying until either nothing is installed or nothing is left to install
+                break;
             }
         }
-        
+        rebindLogger.debug("RebindManager installed bundles {}, {} errors", installs.keySet(), errors.size());
+        errors.forEach(err -> exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE,
+                err.getLeft().getKey().toString(), err.getLeft().getValue().getManagedBundle().getSymbolicName(), err.getRight()) );
+
         // Start the bundles (now that we've installed them all)
         Set<RegisteredType> installedTypes = MutableSet.of();
         for (OsgiBundleInstallationResult br : installs.values()) {
