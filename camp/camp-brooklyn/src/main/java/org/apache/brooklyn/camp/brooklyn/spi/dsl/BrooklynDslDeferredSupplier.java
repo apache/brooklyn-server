@@ -60,12 +60,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * these should be only used as the value of a {@link ConfigKey} set in the YAML,
  * and should not accessed until after the components / entities are created
  * and are being started.
- * (TODO the precise semantics of this are under development.)
  * <p>
- * The threading model is that only one thread can call {@link #get()} at a time. An interruptible
- * lock is obtained using {@link #lock} for the duration of that method. It is important to not
- * use {@code synchronized} because that is not interruptible - if someone tries to get the value
- * and interrupts after a short wait, then we must release the lock immediately and return.
+ * The {@link #get()} method may (and often does) rely on thread locals from the task.
+ * In some cases, eg when using {@link #getImmediately()} the thread is temporarily interrupted
+ * to prevent any blocking activities.  {@link #get()} must support interruption.
  **/
 public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier<T>, ImmediateSupplier<T>, TaskFactory<Task<T>>, Serializable {
 
@@ -73,11 +71,16 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynDslDeferredSupplier.class);
 
-    // TODO json of this object should *be* this, not wrapped this ($brooklyn:literal is a bit of a hack, though it might work!)
     @JsonInclude(Include.NON_NULL)
     @JsonProperty(value="$brooklyn:literal")
-    // currently marked transient because it's only needed for logging
-    private transient Object dsl = null;
+    /** The original DSL which generated the expression, if available.
+     * Note the {@link #toString()} should create an equivalent expression.
+     */
+    // not required in persistence, but potentially interesting.
+    // xstream deserialization may use this or the toString.
+    // jackson deserialization relies on the presence of this field if reading an Object,
+    // but if reading to a Supplier it will correctly instantiate based on the type field.
+    private Object dsl = null;
 
     public BrooklynDslDeferredSupplier() {
         PlanInterpretationNode sourceNode = BrooklynDslInterpreter.currentNode();
