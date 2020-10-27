@@ -19,6 +19,8 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Optional;
+import com.google.common.reflect.TypeToken;
 import java.util.Map;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
@@ -81,50 +83,6 @@ public class DslParseTest {
         assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"x\"")) );
         assertEquals( ((FunctionWithArgs)fx2).getFunction(), "g" );
         assertTrue( ((FunctionWithArgs)fx2).getArgs().isEmpty() );
-    }
-
-    @Test
-    public void testSerializeAttributeWhenReady() throws Exception {
-        BrooklynDslDeferredSupplier<?> awr = new DslComponent(Scope.GLOBAL, "entity_id").attributeWhenReady("my_sensor");
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
-
-        String out = mapper.writerFor(Object.class).writeValueAsString(awr);
-        Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
-        Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
-
-        Object supplier2 = mapper.readValue(out, Object.class);
-        Asserts.assertInstanceOf(supplier2, BrooklynDslDeferredSupplier.class);
-    }
-
-    @Test
-    public void testSerializeDslConfigSupplierInMapObject() throws Exception {
-        BrooklynDslDeferredSupplier<?> awr = new DslComponent(Scope.GLOBAL, "entity_id").config("my_config");
-        Map<String,Object> stuff = MutableMap.<String,Object>of("stuff", awr);
-
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
-
-        String out = mapper.writerFor(Object.class).writeValueAsString(stuff);
-        Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
-        Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
-
-        Object stuff2 = mapper.readValue(out, Object.class);
-        Object stuff2I = ((Map<?, ?>) stuff2).get("stuff");
-        Asserts.assertInstanceOf(stuff2I, BrooklynDslDeferredSupplier.class);
-    }
-
-    @Test
-    public void testSerializeDslConfigSupplierInWrappedValue() throws Exception {
-        BrooklynDslDeferredSupplier<?> awr = new DslComponent(Scope.GLOBAL, "entity_id").config("my_config");
-        WrappedValue<Object> stuff = WrappedValue.of(awr);
-
-        ObjectMapper mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
-
-        String out = mapper.writeValueAsString(stuff);
-        Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
-        Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
-
-        WrappedValue<?> stuff2 = mapper.readValue(out, WrappedValue.class);
-        Asserts.assertInstanceOf(stuff2.getSupplier(), BrooklynDslDeferredSupplier.class);
     }
 
 }
