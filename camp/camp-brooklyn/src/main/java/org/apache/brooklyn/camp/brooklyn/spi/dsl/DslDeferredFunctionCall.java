@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -54,7 +55,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         this.args = args;
     }
 
-    @Override
+    @Override @JsonIgnore
     public Maybe<Object> getImmediately() {
         return invokeOnDeferred(object, true);
     }

@@ -191,7 +191,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     //      if the java type exactly matches the expected type)
 
     // TODO DSL expressions inside these types might mess things up
-    // they might just work, or maybe just when wrapped in ValueSupplier, or maybe they break horribly ...
+    // they might just work, or maybe just when wrapped in WrappedValue, or maybe they break horribly ...
     // can make jackson serialize and deserialize them specially, either pass-through or as strings TBD
     // see reference to DslSerializationAsToString in BeanWithTypeUtils
 

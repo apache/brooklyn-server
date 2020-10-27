@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
@@ -180,7 +181,7 @@ public class BrooklynDslCommon {
                 .get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             if (obj instanceof Entity) {
                 // Shouldn't worry too much about it since DSL can fetch objects from same app only.
@@ -403,7 +404,7 @@ public class BrooklynDslCommon {
             this.arg = arg;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
             return DependentConfiguration.urlEncodeImmediately(arg);
         }
@@ -449,7 +450,7 @@ public class BrooklynDslCommon {
             this.args = args;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
             return DependentConfiguration.formatStringImmediately(pattern, args);
         }
@@ -493,7 +494,7 @@ public class BrooklynDslCommon {
             this.source = source;
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<String> getImmediately() {
             return DependentConfiguration.regexReplacementImmediately(source, pattern, replacement);
         }
@@ -603,7 +604,7 @@ public class BrooklynDslCommon {
         }
 
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
@@ -768,7 +769,7 @@ public class BrooklynDslCommon {
             this.key = key;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             // Note this call to getConfig() is different from entity.getConfig.
             // We expect it to not block waiting for other entities.
@@ -848,7 +849,7 @@ public class BrooklynDslCommon {
                 this.replacement = replacement;
             }
 
-            @Override
+            @Override @JsonIgnore
             public Maybe<Function<String, String>> getImmediately() {
                 return DependentConfiguration.regexReplacementImmediately(pattern, replacement);
             }
@@ -890,7 +891,7 @@ public class BrooklynDslCommon {
                 this.entityId = entityId;
             }
 
-            @Override
+            @Override @JsonIgnore
             public Maybe<Entity> getImmediately() {
                 EntityInternal entity = entity();
                 if (entity == null) {

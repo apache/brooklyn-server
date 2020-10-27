@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.fail;
@@ -453,7 +454,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             this.failImmediately = failImmediately;
         }
         
-        @Override
+        @Override @JsonIgnore
         public Maybe<CallInfo> getImmediately() {
             if (failImmediately!=null) {
                 throw failImmediately;
@@ -479,7 +480,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             return getImmediately().get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             return Maybe.of(value);
         }
@@ -493,7 +494,7 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
             throw new IllegalStateException("Not to be called");
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             throw new IllegalStateException("Not to be called");
         }
