@@ -36,6 +36,7 @@ import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.PropertyBuilder;
 import com.fasterxml.jackson.databind.ser.SerializerFactory;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
+import java.util.Map;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynRegisteredTypeAndClassNameIdResolver;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -82,7 +83,18 @@ public class WrappedValuesSerialization {
 
                 // fall back to just using object
                 try {
-                    return ctxt.findNonContextualValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
+                    return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
+                    // above should be sufficient, but if not we could try the below:
+//                    Object result ctxt.findNonContextualValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
+//                    try {
+//                        if (result instanceof Map) {
+//                            // if we got a map, try reading it as typed
+//                            return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
+//                        }
+//                    } catch (Exception e) {
+//                        exceptions.add(e);
+//                    }
+//                    return result;
                 } catch (Exception e) {
                     exceptions.add(e);
                 }
