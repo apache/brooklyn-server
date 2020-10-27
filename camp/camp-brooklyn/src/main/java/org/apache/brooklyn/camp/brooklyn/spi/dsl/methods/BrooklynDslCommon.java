@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -67,6 +68,8 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -339,10 +342,44 @@ public class BrooklynDslCommon {
 
     // String manipulation
 
-    /** Return the expression as a literal string without any further parsing. */
+    /** Return a supplier for the given expression as a literal string without any further parsing. */
     @DslAccessible
     public static Object literal(Object expression) {
-        return expression;
+        // since 2020-10 always defer, in case something else might try to parse it
+        return new DslLiteral(expression);
+    }
+
+    protected final static class DslLiteral extends BrooklynDslDeferredSupplier<Object> {
+        final String literalString;
+        final String literalObjectJson;
+
+        private DslLiteral() { this(null); }
+
+        public DslLiteral(Object input) {
+            this.literalString = input instanceof String ? (String)input : null;
+            this.literalObjectJson = input instanceof String ? null : Jsonya.render(input);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.builder().displayName("DSL literal value")
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(() -> getImmediately().get())
+                    .build();
+        }
+
+        @Override @JsonIgnore
+        public Maybe<Object> getImmediately() {
+            return Maybe.ofAllowingNull( literalObjectJson!=null ? Yamls.parseAll(literalObjectJson).iterator().next() : literalString );
+        }
+
+        @Override
+        public String toString() {
+            return "$brooklyn:literal(" +
+                    (literalString!=null ? JavaStringEscapes.wrapJavaString(literalString) : literalObjectJson)
+                    +")";
+        }
     }
 
     /**
