@@ -55,6 +55,10 @@ public class WrappedValue<T> implements Supplier<T> {
             return guavaSupplier.get();
         }
 
+        public com.google.common.base.Supplier<T> getGuavaSupplier() {
+            return guavaSupplier;
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
