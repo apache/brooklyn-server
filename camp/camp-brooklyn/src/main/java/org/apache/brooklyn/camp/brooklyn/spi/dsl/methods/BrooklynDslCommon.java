@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Arrays;
@@ -50,7 +52,9 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -66,6 +70,8 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +93,9 @@ public class BrooklynDslCommon {
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
     public static final String PREFIX = "$brooklyn:";
+    static {
+        BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
+    }
     
     // Access specific entities
 
@@ -180,7 +189,7 @@ public class BrooklynDslCommon {
                 .get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             if (obj instanceof Entity) {
                 // Shouldn't worry too much about it since DSL can fetch objects from same app only.
@@ -338,10 +347,44 @@ public class BrooklynDslCommon {
 
     // String manipulation
 
-    /** Return the expression as a literal string without any further parsing. */
+    /** Return a supplier for the given expression as a literal string without any further parsing. */
     @DslAccessible
     public static Object literal(Object expression) {
-        return expression;
+        // since 2020-10 always defer, in case something else might try to parse it
+        return new DslLiteral(expression);
+    }
+
+    protected final static class DslLiteral extends BrooklynDslDeferredSupplier<Object> {
+        final String literalString;
+        final String literalObjectJson;
+
+        private DslLiteral() { this(null); }
+
+        public DslLiteral(Object input) {
+            this.literalString = input instanceof String ? (String)input : null;
+            this.literalObjectJson = input instanceof String ? null : Jsonya.render(input);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.builder().displayName("DSL literal value")
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(() -> getImmediately().get())
+                    .build();
+        }
+
+        @Override @JsonIgnore
+        public Maybe<Object> getImmediately() {
+            return Maybe.ofAllowingNull( literalObjectJson!=null ? Yamls.parseAll(literalObjectJson).iterator().next() : literalString );
+        }
+
+        @Override
+        public String toString() {
+            return "$brooklyn:literal(" +
+                    (literalString!=null ? JavaStringEscapes.wrapJavaString(literalString) : literalObjectJson)
+                    +")";
+        }
     }
 
     /**
@@ -403,7 +446,7 @@ public class BrooklynDslCommon {
             this.arg = arg;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
             return DependentConfiguration.urlEncodeImmediately(arg);
         }
@@ -449,7 +492,7 @@ public class BrooklynDslCommon {
             this.args = args;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
             return DependentConfiguration.formatStringImmediately(pattern, args);
         }
@@ -493,7 +536,7 @@ public class BrooklynDslCommon {
             this.source = source;
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<String> getImmediately() {
             return DependentConfiguration.regexReplacementImmediately(source, pattern, replacement);
         }
@@ -603,7 +646,7 @@ public class BrooklynDslCommon {
         }
 
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
@@ -768,7 +811,7 @@ public class BrooklynDslCommon {
             this.key = key;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             // Note this call to getConfig() is different from entity.getConfig.
             // We expect it to not block waiting for other entities.
@@ -848,7 +891,7 @@ public class BrooklynDslCommon {
                 this.replacement = replacement;
             }
 
-            @Override
+            @Override @JsonIgnore
             public Maybe<Function<String, String>> getImmediately() {
                 return DependentConfiguration.regexReplacementImmediately(pattern, replacement);
             }
@@ -890,7 +933,7 @@ public class BrooklynDslCommon {
                 this.entityId = entityId;
             }
 
-            @Override
+            @Override @JsonIgnore
             public Maybe<Entity> getImmediately() {
                 EntityInternal entity = entity();
                 if (entity == null) {

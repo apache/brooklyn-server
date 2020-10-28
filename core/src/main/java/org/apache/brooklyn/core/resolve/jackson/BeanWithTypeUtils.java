@@ -45,7 +45,7 @@ public class BeanWithTypeUtils {
         WrappedValuesSerialization.apply(mapper);
         mapper = new ConfigurableBeanDeserializerModifier()
                 .addDeserializerWrapper(
-                        d -> new JsonDeserializerForCommonBrooklynThings(d)
+                        d -> new JsonDeserializerForCommonBrooklynThings(mgmt, d)
                         //TODO DslSerializationAsToString - see CustomTypeConfigYamlTest
                 ).apply(mapper);
 

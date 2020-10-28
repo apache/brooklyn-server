@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.Semaphore;
@@ -52,7 +53,7 @@ public class InterruptingImmediateSupplier<T> implements ImmediateSupplier<T>, D
         this.nestedSupplier = nestedSupplier;
     }
     
-    @Override
+    @Override @JsonIgnore
     public Maybe<T> getImmediately() {
         boolean interrupted = Thread.currentThread().isInterrupted();
         try {

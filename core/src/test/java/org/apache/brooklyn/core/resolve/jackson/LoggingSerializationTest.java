@@ -36,7 +36,7 @@ public class LoggingSerializationTest implements MapperTestFixture {
         mapper = new ConfigurableBeanDeserializerModifier()
                 .addDeserializerWrapper(
                         d -> new NestedLoggingDeserializer(d1, d),
-                        d -> new JsonDeserializerForCommonBrooklynThings(d),
+                        d -> new JsonDeserializerForCommonBrooklynThings(null, d),
                         d -> new NestedLoggingDeserializer(d2, d)
                 ).apply(mapper);
         return mapper;

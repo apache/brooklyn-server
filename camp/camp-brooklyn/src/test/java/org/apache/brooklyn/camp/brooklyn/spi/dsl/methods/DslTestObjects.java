@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -59,7 +60,7 @@ public class DslTestObjects {
             return getImmediately().get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             return Maybe.of(value);
         }
@@ -67,7 +68,7 @@ public class DslTestObjects {
 
     public static class DslTestCallable implements DslFunctionSource, DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<TestDslSupplier> getImmediately() {
             throw new IllegalStateException("Not to be called");
         }

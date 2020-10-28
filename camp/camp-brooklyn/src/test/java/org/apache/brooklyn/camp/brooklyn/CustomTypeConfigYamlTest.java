@@ -180,8 +180,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 "foo", "bar");
     }
 
-    // TODO - implicit typing - deserialization base type implied by key type.  on creation?  or on access?
-    // probably on access, by config lookup.  though that will need custom logic for initializers and maybe others,
+    // NOTE, re implicit typing - deserialization base type implied by key type.  on creation?  or on access?
+    // mainly done on access, by config lookup.  though that will need custom logic for initializers and maybe others,
     // in addition to the obvious place(s) where it is done for entities
     //
     // test:  type declared on a parameter; get as object it recasts it as official type, and coerces
@@ -190,11 +190,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     // (and change testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType,
     //      if the java type exactly matches the expected type)
 
-    // TODO DSL expressions inside these types might mess things up
-    // they might just work, or maybe just when wrapped in ValueSupplier, or maybe they break horribly ...
-    // can make jackson serialize and deserialize them specially, either pass-through or as strings TBD
-    // see reference to DslSerializationAsToString in BeanWithTypeUtils
-
+    // NOTE,re DSL expressions; currently if implied by context, or if a $brooklyn:literal key is present, the DSL is parsed and restored;
+    // see in JsonDeserializerForCommonBrooklynThings.  See DslSerializationTest .
 
     @Test
     public void testRegisteredTypeMalformed_GoodError() throws Exception {

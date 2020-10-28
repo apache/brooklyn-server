@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -425,7 +426,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         
         private DeferredSupplier<String> immediateSupplier(final boolean withSleep) {
             class DeferredImmediateSupplier implements DeferredSupplier<String>, ImmediateSupplier<String> {
-                @Override
+                @Override @JsonIgnore
                 public Maybe<String> getImmediately() {
                     try {
                         sleepIfNeeded();

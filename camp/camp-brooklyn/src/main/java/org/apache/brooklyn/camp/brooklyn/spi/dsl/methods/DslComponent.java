@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Collection;
@@ -150,6 +152,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         this(null, scope, componentIdSupplier);
     }
 
+    // for JSON deserialization only
+    private DslComponent() {
+        this.scopeComponent = null;
+        this.componentId = null;
+        this.componentIdSupplier = null;
+        this.scope = null;
+    }
+
     /**
      * Resolve componentId in scope relative to scopeComponent.
      */
@@ -178,7 +188,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         return scope;
     }
     
-    @Override
+    @Override @JsonIgnore
     public final Maybe<Entity> getImmediately() {
         return new EntityInScopeFinder(scopeComponent, scope, componentId, componentIdSupplier).getImmediately();
     }
@@ -205,7 +215,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.componentIdSupplier = componentIdSupplier;
         }
 
-        @Override 
+        @Override @JsonIgnore
         public Maybe<Entity> getImmediately() {
             try {
                 return callImpl(true);
@@ -419,7 +429,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.component = Preconditions.checkNotNull(component);
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
@@ -461,6 +471,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object sensorName;
 
+        // JSON deserialization only
+        private AttributeWhenReady() {
+            this.component = null;
+            this.sensorName = null;
+        }
         public AttributeWhenReady(DslComponent component, Object sensorName) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
@@ -479,7 +494,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .get();
         }
         
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity not available: "+component, targetEntityMaybe);
@@ -535,6 +550,11 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         private final Object keyName;
         private static final long serialVersionUID = -4735177561947722511L;
 
+        // JSON-only constructor
+        private DslConfigSupplier() {
+            component = null;
+            keyName = null;
+        }
         public DslConfigSupplier(DslComponent component, Object keyName) {
             this.component = Preconditions.checkNotNull(component);
             this.keyName = keyName;
@@ -553,7 +573,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .get();
         }
         
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Maybe<Object> maybeWrappedMaybe = findExecutionContext(this).getImmediately(newCallableReturningImmediateMaybeOrNonImmediateValue(true));
             // the answer will be wrapped twice due to the callable semantics;
@@ -638,7 +658,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.sensorName = sensorIndicator;
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Sensor<?>> getImmediately() {
             return getImmediately(sensorName, false);
         }
@@ -741,7 +761,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.index = index;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Callable<Object> job = new Callable<Object>() {
                 @Override public Object call() {
@@ -894,7 +914,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     .get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             String resolvedTemplate = resolveTemplate(true);
             Map<String, ?> resolvedSubstitutions = resolveSubstitutions(true);
