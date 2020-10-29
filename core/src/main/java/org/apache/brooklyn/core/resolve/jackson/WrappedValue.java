@@ -21,13 +21,20 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.google.common.base.Preconditions;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 
 /**
  * Wraps a value which might be constant or might come from a supplier.
  * The pattern where fields are of this type is used to assist with (de)serialization
  * where values might come from a DSL.
+ *
+ * This will be unwrapped using {@link org.apache.brooklyn.util.core.flags.TypeCoercions}
+ * if it contains a value (unless a WrappedValue is requested), but not if it uses a supplier.
+ * Any object can be coerced to a {@link WrappedValue} using {@link org.apache.brooklyn.util.core.flags.TypeCoercions}.
+ *
+ * It will always be unwrapped (attempted) using {@link org.apache.brooklyn.util.core.task.Tasks#resolving(Object)}.
  */
-public class WrappedValue<T> implements Supplier<T> {
+public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supplier<T>, DeferredSupplier<T> {
     final static WrappedValue<?> NULL_WRAPPED_VALUE = new WrappedValue<>(null, false);
     final T value;
     final Supplier<T> supplier;
@@ -75,14 +82,14 @@ public class WrappedValue<T> implements Supplier<T> {
 
     public static <T> WrappedValue<T> of(Object x) {
         if (x instanceof Supplier) return ofSupplier((Supplier<T>)x);
-        if (x instanceof com.google.common.base.Supplier) return ofSupplier((com.google.common.base.Supplier<T>)x);
+        if (x instanceof com.google.common.base.Supplier) return ofGuavaSupplier((com.google.common.base.Supplier<T>)x);
         return new WrappedValue<>(x, false);
     }
     public static <T> WrappedValue<T> ofConstant(T x) {
         return new WrappedValue<>(x, false);
     }
     public static <T> WrappedValue<T> ofSupplier(Supplier<T> x) { return new WrappedValue<>(x, true); }
-    public static <T> WrappedValue<T> ofSupplier(com.google.common.base.Supplier<T> x) { return new WrappedValue<>(new GuavaSupplierAsJavaSupplier<>( (com.google.common.base.Supplier<T>)x ), true); }
+    public static <T> WrappedValue<T> ofGuavaSupplier(com.google.common.base.Supplier<T> x) { return new WrappedValue<>(new GuavaSupplierAsJavaSupplier<>( (com.google.common.base.Supplier<T>)x ), true); }
     public static <T> WrappedValue<T> ofNull() { return (WrappedValue<T>)NULL_WRAPPED_VALUE; }
 
     public T get() {

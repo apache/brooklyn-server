@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -269,6 +270,16 @@ public class TypeCoercions {
         
         public BrooklynCommonAdaptorTypeCoercions(TypeCoercerExtensible coercer) { super(coercer); }
 
+        public CommonAdaptorTypeCoercions registerAllAdapters() {
+            super.registerAllAdapters();
+            registerWrappedValueAdapters();
+
+            //these are deliberately not included here, but added by routines which need them
+            // registerInstanceForClassnameAdapter
+
+            return this;
+        }
+
         @SuppressWarnings("rawtypes")
         @Override
         public void registerClassForNameAdapters() {
@@ -304,6 +315,42 @@ public class TypeCoercions {
                     } else {
                         throw new IllegalStateException("Failed to create "+supertype.getSimpleName()+" from class name '"+input+"' using no-arg constructor");
                     }
+                }
+            });
+        }
+
+        public void registerWrappedValueAdapters() {
+            registerAdapter("10-unwrap-wrapped-value", new TryCoercer() {
+                        @Override
+                        public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                            if (!(input instanceof WrappedValue)) {
+                                return null;
+                            }
+                            if (WrappedValue.class.isAssignableFrom(type.getRawType())) {
+                                // don't unwrap if a wrapped value is wanted (won't come here anyway)
+                                return null;
+                            }
+                            WrappedValue<?> w = (WrappedValue<?>) input;
+                            if (w.getSupplier()!=null) {
+                                // don't unwrap if it is a supplier
+                                return null;
+                            }
+                            return (Maybe) Maybe.of(((WrappedValue<?>) input).get());
+                        }
+                    });
+            registerAdapter("99-wrap-to-wrapped-value", new TryCoercer() {
+                @Override
+                public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                    if (!WrappedValue.class.equals(type.getRawType())) {
+                        // only applies if a WrappedValue is wanted
+                        return null;
+                    }
+                    if (input instanceof WrappedValue) {
+                        // already wrapped (won't come here anyway, unless possibly thing _in_ the wrapped value needs generic coercion)
+                        return null;
+                    }
+                    // note, generics on type are not respected
+                    return Maybe.of( (T) WrappedValue.ofConstant(input) );
                 }
             });
         }

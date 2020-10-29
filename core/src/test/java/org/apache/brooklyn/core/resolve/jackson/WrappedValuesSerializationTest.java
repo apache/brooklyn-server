@@ -22,6 +22,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.function.Supplier;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue.WrappedValuesInitialized;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.flags.TypeCoercions.BrooklynCommonAdaptorTypeCoercions;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -114,6 +121,41 @@ public class WrappedValuesSerializationTest implements MapperTestFixture {
         Assert.assertEquals(ser(b), expected);
         ObjectWithWrappedValueObject b2 = deser(expected);
         Assert.assertEquals(b2.x.get().x.get(), "hello");
+    }
+
+    @Test
+    public void testWrappedValueCoercion() throws Exception {
+        ObjectWithWrappedValueString a = new ObjectWithWrappedValueString();
+
+        a.x = WrappedValue.of("hello");
+        Assert.assertEquals(TypeCoercions.coerce(a.x, String.class), "hello");
+        Assert.assertEquals(TypeCoercions.coerce(a.x, Object.class), a.x);
+        Assert.assertEquals(TypeCoercions.coerce(a.x, WrappedValue.class), a.x);
+
+        a.x = WrappedValue.ofSupplier((Supplier) () -> "hello");
+        Asserts.assertNotPresent(TypeCoercions.tryCoerce(a.x, String.class));
+    }
+
+    @Test
+    public void testWrappedValueResolution() throws Exception {
+        ObjectWithWrappedValueString a = new ObjectWithWrappedValueString();
+
+        a.x = WrappedValue.of("hello");
+        Assert.assertEquals(resolve(a.x, String.class).get(), "hello");
+        Assert.assertEquals(resolve(a.x, Object.class).get(), "hello");
+        Assert.assertEquals(resolve(a.x, WrappedValue.class).get().get(), "hello");
+
+        a.x = WrappedValue.ofSupplier((Supplier) () -> "hello");
+        Asserts.assertEquals(resolve(a.x, String.class).get(), "hello");
+        Asserts.assertEquals(resolve(a.x, Object.class).get(), "hello");
+        Asserts.assertEquals(resolve(a.x, WrappedValue.class).get().get(), "hello");
+    }
+
+    protected <T> Maybe<T> resolve(Object o, Class<T> type) {
+        BasicExecutionManager execManager = new BasicExecutionManager("test-context-"+ JavaClassNames.niceClassAndMethod());
+        BasicExecutionContext execContext = new BasicExecutionContext(execManager);
+
+        return Tasks.resolving(o).as(type).context(execContext).deep().getMaybe();
     }
 
 }
