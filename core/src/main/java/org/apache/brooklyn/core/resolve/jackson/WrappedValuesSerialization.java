@@ -67,10 +67,6 @@ public class WrappedValuesSerialization {
                 TokenBuffer b = new TokenBuffer(p, ctxt);
                 b.copyCurrentStructure(p);
                 try {
-//                        // could do this first for primitives, but no need as the object serializer below will do the same
-//                        TreeNode v = b.asParserOnFirstToken().readValueAsTree();
-//                        if (v instanceof ValueNode) return ((ValueNode)v).asText();  // this makes strings for everything; would need to do all the subtypes of ValueNode
-
                     // this should work for primitives, objects, and suppliers (which will declare type)
                     // only time it won't is where generics are used to drop the type declaration during serialization
                     JavaType genericType = getGenericType(typeDeserializer);
@@ -84,17 +80,6 @@ public class WrappedValuesSerialization {
                 // fall back to just using object
                 try {
                     return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
-                    // above should be sufficient, but if not we could try the below:
-//                    Object result ctxt.findNonContextualValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
-//                    try {
-//                        if (result instanceof Map) {
-//                            // if we got a map, try reading it as typed
-//                            return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
-//                        }
-//                    } catch (Exception e) {
-//                        exceptions.add(e);
-//                    }
-//                    return result;
                 } catch (Exception e) {
                     exceptions.add(e);
                 }
@@ -220,9 +205,6 @@ public class WrappedValuesSerialization {
             .registerModule(new SimpleModule()
                 .addSerializer(WrappedValue.class, new WrappedValueSerializer())
                 .addDeserializer(WrappedValue.class, new WrappedValueDeserializer())
-//                .setDeserializerModifier(new ConfigurableBeanDeserializerModifier()
-//                        .addPostConstructFunction(WrappedValuesSerialization::ensureWrappedValuesInitialized)
-//                )
             );
     }
 
