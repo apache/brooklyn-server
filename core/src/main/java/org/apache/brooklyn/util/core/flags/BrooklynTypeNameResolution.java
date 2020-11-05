@@ -39,8 +39,12 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.lang3.reflect.TypeUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BrooklynTypeNameResolution {
+
+    private static Logger LOG = LoggerFactory.getLogger(BrooklynTypeNameResolution.class);
 
     private static final Map<String, Class<?>> BUILT_IN_TYPES = ImmutableMap.<String, Class<?>>builder()
             .put("string", String.class)
@@ -145,6 +149,7 @@ public class BrooklynTypeNameResolution {
                         if (st1.isPresent()) {
                             return Maybe.of( (Class<?>) st1.get() );
                         }
+                        LOG.warn("Attempt to use registered type '"+s+"' as a type but no associated Java type is recorded; skipping");
                     }
                     return Maybe.absent();
                 });
