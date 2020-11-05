@@ -316,9 +316,9 @@ public class BrooklynComponentTemplateResolver {
             BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn = this::convertConfig;
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
-                final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                if (key==null) ConfigKeys.newConfigKey(Object.class, flag);
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final ConfigKey<Object> key = Maybe.ofDisallowingNull((ConfigKey<Object>) r.getConfigKey()).or(() -> ConfigKeys.newConfigKey(Object.class, flag));
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
@@ -339,7 +339,8 @@ public class BrooklynComponentTemplateResolver {
 
             if (r.getConfigKeyMaybeValue().isPresent()) {
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
