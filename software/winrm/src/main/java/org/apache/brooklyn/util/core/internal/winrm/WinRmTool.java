@@ -105,6 +105,6 @@ public interface WinRmTool {
     WinRmToolResponse executeCommand(List<String> commands);
 
     WinRmToolResponse executePs(List<String> commands);
-    
+
     WinRmToolResponse copyToServer(InputStream source, String destination);
 }

@@ -20,7 +20,7 @@ package org.apache.brooklyn.util.core.internal.winrm.winrm4j;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.InputStream;
+import java.io.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Threads;
@@ -116,7 +117,16 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     public org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse executeCommand(final List<String> commands) {
         return exec(new Function<io.cloudsoft.winrm4j.winrm.WinRmTool, io.cloudsoft.winrm4j.winrm.WinRmToolResponse>() {
             @Override public WinRmToolResponse apply(io.cloudsoft.winrm4j.winrm.WinRmTool tool) {
-                return tool.executeCommand(commands);
+                OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
+                OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
+                try(Writer out = outputStream != null ? new OutputStreamWriter(outputStream): new StringWriter();
+                Writer err = errorStream != null ? new OutputStreamWriter(errorStream): new StringWriter()) {
+                    return tool.executeCommand(commands, out, err);
+                } catch (IOException e) {
+                    // TODO Duncan
+                    e.printStackTrace();
+                    return null;
+                }
             }
         });
     }

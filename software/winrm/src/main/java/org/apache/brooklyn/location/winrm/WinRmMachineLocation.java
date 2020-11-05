@@ -21,10 +21,7 @@ package org.apache.brooklyn.location.winrm;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +29,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.google.common.base.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -41,24 +39,25 @@ import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.location.ssh.CanResolveOnBoxDir;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.Winrm4jTool;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.stream.StreamGobbler;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.codec.binary.Base64;
@@ -66,10 +65,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Charsets;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -204,8 +199,51 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
         return UNKNOWN_MACHINE_DETAILS;
     }
 
+    @Override
     public String getUser() {
         return config().get(USER);
+    }
+
+    @Override
+    public int execCommands(String summaryForLogging, List<String> commands) {
+        return executeCommand(commands).getStatusCode();
+    }
+
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands) {
+        return executeCommand(props, commands).getStatusCode();
+    }
+
+    @Override
+    public int execCommands(String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        return executeCommand(ImmutableMap.of(Winrm4jTool.ENVIRONMENT, env),commands).getStatusCode();
+    }
+
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        ImmutableMap<Object, Object> properties = ImmutableMap.builder().putAll(props).put(Winrm4jTool.ENVIRONMENT, env).build();
+        return executeCommand(properties, commands).getStatusCode();
+    }
+
+    @Override
+    public int execScript(String summaryForLogging, List<String> commands) {
+        return executePsScript(commands).getStatusCode();
+    }
+
+    @Override
+    public int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands) {
+        return executePsScript(props, commands).getStatusCode();
+    }
+
+    @Override
+    public int execScript(String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        return executePsScript(ImmutableMap.of(Winrm4jTool.ENVIRONMENT,env), commands).getStatusCode();
+    }
+
+    @Override
+    public int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        ImmutableMap<Object, Object> properties = ImmutableMap.builder().putAll(props).put(Winrm4jTool.ENVIRONMENT, env).build();
+        return executePsScript(properties, commands).getStatusCode();
     }
 
     @Override
@@ -507,4 +545,41 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
         return unresolvedPath.replaceAll("/", "\\");
     }
 
+    public int installTo(ResourceUtils utils, Map<String, ?> props, String url, String destPath) {
+        LOG.debug("installing {} to {} on {}, attempting remote curl", new Object[] { url, destPath, this });
+
+        try(PipedInputStream insO = new PipedInputStream(); OutputStream outO = new PipedOutputStream(insO);
+            PipedInputStream insE = new PipedInputStream(); OutputStream outE = new PipedOutputStream(insE);
+            StreamGobbler sgsO = new StreamGobbler(insO, null, LOG);
+            StreamGobbler sgsE = new StreamGobbler(insE, null, LOG)
+            ){
+            sgsO.setLogPrefix("[curl @ "+getAddress()+":stdout] ").start();
+            sgsE.setLogPrefix("[curl @ "+getAddress()+":stderr] ").start();
+            Map<String, ?> winrmProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
+            int result = execScript(winrmProps,"",ImmutableList.of(
+                    "$WebClient = New-Object System.Net.WebClient",
+                    "$WebClient.DownloadFile(" + url + "," + destPath + ")"
+            ));
+
+            if (result != 0) {
+                LOG.debug("installing {} to {} on {}, curl failed, attempting local fetch and copy", new Object[] { url, destPath, this });
+                try {
+                    Tasks.setBlockingDetails("retrieving resource "+url+" for copying across");
+                    InputStream stream = utils.getResourceFromUrl(url);
+                    Tasks.setBlockingDetails("copying resource "+url+" to server");
+                    result = copyTo(props, stream, destPath);
+                } finally {
+                    Tasks.setBlockingDetails(null);
+                }
+            }
+            if (result == 0) {
+                LOG.debug("installing {} complete; {} on {}", new Object[] { url, destPath, this });
+            } else {
+                LOG.warn("installing {} failed; {} on {}: {}", new Object[] { url, destPath, this, result });
+            }
+            return result;
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
 }

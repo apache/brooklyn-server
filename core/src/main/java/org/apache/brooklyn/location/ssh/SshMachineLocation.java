@@ -514,6 +514,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         return HostAndPort.fromParts(host, port);
     }
 
+    @Override
     public String getUser() {
         if (!groovyTruth(user)) {
             if (config().getLocalRaw(SshTool.PROP_USER).isPresent()) {
@@ -698,16 +699,20 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
      * and/or {@code commandPrepend} and {@code commandAppend} similar to
      * (currently supported in SshjTool) {@code separator}.)
      */
+    @Override
     public int execCommands(String summaryForLogging, List<String> commands) {
         return execCommands(MutableMap.<String,Object>of(), summaryForLogging, commands, MutableMap.<String,Object>of());
     }
-    public int execCommands(Map<String,?> props, String summaryForLogging, List<String> commands) {
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands) {
         return execCommands(props, summaryForLogging, commands, MutableMap.<String,Object>of());
     }
-    public int execCommands(String summaryForLogging, List<String> commands, Map<String,?> env) {
+    @Override
+    public int execCommands(String summaryForLogging, List<String> commands, Map<String, ?> env) {
         return execCommands(MutableMap.<String,Object>of(), summaryForLogging, commands, env);
     }
-    public int execCommands(Map<String,?> props, String summaryForLogging, List<String> commands, Map<String,?> env) {
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
         return newExecWithLoggingHelpers().execCommands(augmentPropertiesWithSshConfigGivenToProps(props), summaryForLogging, commands, env);
     }
 
@@ -718,15 +723,19 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
      * flags 'noStdoutLogging' and 'noStderrLogging' are set. To set a logging prefix, use
      * the flag 'logPrefix'.
      */
+    @Override
     public int execScript(String summaryForLogging, List<String> commands) {
         return execScript(MutableMap.<String,Object>of(), summaryForLogging, commands, MutableMap.<String,Object>of());
     }
+    @Override
     public int execScript(Map<String,?> props, String summaryForLogging, List<String> commands) {
         return execScript(props, summaryForLogging, commands, MutableMap.<String,Object>of());
     }
+    @Override
     public int execScript(String summaryForLogging, List<String> commands, Map<String,?> env) {
         return execScript(MutableMap.<String,Object>of(), summaryForLogging, commands, env);
     }
+    @Override
     public int execScript(Map<String,?> props, String summaryForLogging, List<String> commands, Map<String,?> env) {
         return newExecWithLoggingHelpers().execScript(augmentPropertiesWithSshConfigGivenToProps(props), summaryForLogging, commands, env);
     }
@@ -869,7 +878,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
             PipedInputStream insO = new PipedInputStream(); OutputStream outO = new PipedOutputStream(insO);
             PipedInputStream insE = new PipedInputStream(); OutputStream outE = new PipedOutputStream(insE);
             StreamGobbler sgsO = new StreamGobbler(insO, null, LOG); sgsO.setLogPrefix("[curl @ "+address+":stdout] ").start();
-            StreamGobbler sgsE = new StreamGobbler(insE, null, LOG); sgsE.setLogPrefix("[curl @ "+address+":stdout] ").start();
+            StreamGobbler sgsE = new StreamGobbler(insE, null, LOG); sgsE.setLogPrefix("[curl @ "+address+":stderr] ").start();
             Map<String, ?> sshProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
             int result = execScript(sshProps, "copying remote resource "+url+" to server",  ImmutableList.of(
                     BashCommands.INSTALL_CURL, // TODO should hold the 'installing' mutex
