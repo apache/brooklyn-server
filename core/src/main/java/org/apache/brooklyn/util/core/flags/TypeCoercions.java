@@ -19,15 +19,20 @@
 package org.apache.brooklyn.util.core.flags;
 
 import java.lang.reflect.Constructor;
+import java.util.Collection;
 import java.util.Map;
 
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -283,6 +288,7 @@ public class TypeCoercions {
         @SuppressWarnings("rawtypes")
         @Override
         public void registerClassForNameAdapters() {
+            // do we need this one? should it go further and use the context entity to resolve registered types too?
             registerAdapter(String.class, Class.class, new Function<String,Class>() {
                 @Override
                 public Class apply(final String input) {
@@ -295,7 +301,8 @@ public class TypeCoercions {
                 }
             });        
         }
-        
+
+        // very similar to above, but uses configurable loader
         public static <T> void registerInstanceForClassnameAdapter(ClassLoaderUtils loader, Class<T> supertype) {
             TypeCoercions.registerAdapter(String.class, supertype, new Function<String, T>() {
                 @Override public T apply(String input) {
@@ -351,6 +358,25 @@ public class TypeCoercions {
                     }
                     // note, generics on type are not respected
                     return Maybe.of( (T) WrappedValue.ofConstant(input) );
+                }
+            });
+        }
+
+        public void registerBeanWithTypeAdapter() {
+            // if we want to do bean-with-type coercion ... probably nice to do if it doesn't already match
+            registerAdapter("80-bean-with-type", new TryCoercer() {
+                @Override
+                public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                    if (!(input instanceof Map || input instanceof Collection)) {
+                        return null;
+                    }
+                    if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {
+                        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+                        ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
+                        OsgiBrooklynClassLoadingContext loader = entity != null ? new OsgiBrooklynClassLoadingContext(entity) : null;
+                        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, Maybe.of(input), type, true, loader, false);
+                    }
+                    return null;
                 }
             });
         }

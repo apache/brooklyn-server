@@ -89,7 +89,9 @@ public class BeanWithTypeUtils {
 
     /* a lot of consideration over where bean-with-type conversion should take place.
      * it is especially handy for config and for initializers, and sometimes for values _within_ those items.
-     * currently these are done in BrooklynComponentTemplateResolver for config, initializers etc.
+     * currently these are done:
+     * - in BrooklynComponentTemplateResolver for config, initializers etc
+     * - on coercion, when accessing config
      * see esp CustomTypeConfigYamlTest.
      *
      * BrooklynComponentTemplateResolver is also responsible for parsing the DSL, which it does first,
