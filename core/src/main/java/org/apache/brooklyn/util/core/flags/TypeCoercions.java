@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeOrTypeToken;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -372,10 +373,7 @@ public class TypeCoercions {
                         return null;
                     }
                     if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {
-                        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
-                        ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
-                        OsgiBrooklynClassLoadingContext loader = entity != null ? new OsgiBrooklynClassLoadingContext(entity) : null;
-                        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, Maybe.of(input), type, true, loader, false);
+                        return BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), RegisteredTypeOrTypeToken.of(type));
                     }
                     return null;
                 }

@@ -224,24 +224,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         RegisteredTypes.addSuperType(bean, TestingCustomType.class);
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
 
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS, "foo", "bar");
-    }
-
-    @Test
-    public void testRegisteredType_InheritedFieldsNotSupported_WhenTypeIsInferredFromDeclaredParameterType() throws Exception {
-        // in the above case, fields are correctly inherited from ancestors and overridden
-        RegisteredType bean = RegisteredTypes.bean("custom-type", "1",
-                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
-                        "type: " + TestingCustomType.class.getName() + "\n" +
-                                "x: unfoo\n" +
-                                "y: bar"));
-        RegisteredTypes.addSuperType(bean, TestingCustomType.class);
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
-
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS,
-                "foo",
-                // NOTE: 'bar' is not available here -- all we preserve from a declared parameter/key type is the java type
-                null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, false, "custom-type", CONF1_ANONYMOUS, "foo", "bar");
     }
 
     @Test
@@ -263,8 +246,26 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         Assert.assertNotNull(item);
         Assert.assertEquals(item.getKind(), RegisteredTypeKind.BEAN);
 
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS,
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, false, "custom-type", CONF1_ANONYMOUS,
                 "foo", "bar");
+    }
+
+    @Test
+    public void testRegisteredType_InheritedFieldsNotSupported_WhenTypeIsInferredFromDeclaredParameterType() throws Exception {
+        // in the above case, fields are correctly inherited from ancestors and overridden
+        RegisteredType bean = RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: " + TestingCustomType.class.getName() + "\n" +
+                                "x: unfoo\n" +
+                                "y: bar"));
+        RegisteredTypes.addSuperType(bean, TestingCustomType.class);
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
+
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS,
+                "foo",
+                // NOTE: 'bar' is not available here -- all we preserve from a declared parameter/key type is the java type
+                // in order to support this, we actually have to record the _registered type_ on the config key
+                null);
     }
 
     @Test

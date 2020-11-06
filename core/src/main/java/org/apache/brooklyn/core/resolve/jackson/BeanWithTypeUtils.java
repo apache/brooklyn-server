@@ -19,16 +19,26 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Optional;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -86,6 +96,42 @@ public class BeanWithTypeUtils {
         return isJsonAndOthers(o, oo -> oo instanceof DeferredSupplier);
     }
 
+    @Beta
+    public static class RegisteredTypeOrTypeToken<T> {
+        private final TypeToken<T> tt;
+        private final RegisteredType rt;
+        private RegisteredTypeOrTypeToken(TypeToken<T> tt, RegisteredType rt) {
+            this.tt = tt;
+            this.rt = rt;
+        }
+
+        public Class<T> getRawClass() {
+            if (rt!=null) {
+                return (Class<T>) rt.getSuperTypes().stream().filter(i -> i instanceof Class).findAny().orElse(Object.class);
+            }
+            return (Class<T>) tt.getRawType();
+        }
+        public TypeToken<T> getTypeToken() {
+            if (tt!=null) return tt;
+            return TypeToken.of(getRawClass());
+        }
+
+        public Optional<RegisteredType> getRegisteredType() {
+            return Optional.ofNullable(rt);
+        }
+
+        public static <T> RegisteredTypeOrTypeToken<T> of(Class<T> t) {
+            return of(TypeToken.of(t));
+        }
+
+        public static <T> RegisteredTypeOrTypeToken<T> of(TypeToken<T> t) {
+            return new RegisteredTypeOrTypeToken(t, null);
+        }
+
+        public static <T> RegisteredTypeOrTypeToken<T> of(RegisteredType t) {
+            return new RegisteredTypeOrTypeToken(null, t);
+        }
+    }
 
     /* a lot of consideration over where bean-with-type conversion should take place.
      * it is especially handy for config and for initializers, and sometimes for values _within_ those items.
@@ -99,17 +145,29 @@ public class BeanWithTypeUtils {
      * see in JsonDeserializerForCommonBrooklynThings.  See DslSerializationTest.
      */
 
-    public static <T> T convert(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
+    public static <T> T convert(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, RegisteredTypeOrTypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
         ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
-        return m.readValue(m.writeValueAsString(mapOrListToSerializeThenDeserialize), BrooklynJacksonSerializationUtils.asTypeReference(type));
+        String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
+        if (type.rt!=null) {
+            return m.readValue(serialization, new BrooklynJacksonType(mgmt, type.rt));
+        } else {
+            return m.readValue(serialization, m.constructType(type.tt.getType()));
+        }
     }
 
-    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) {
+    public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, RegisteredTypeOrTypeToken<T> type) {
+        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
+        OsgiBrooklynClassLoadingContext loader = entity != null ? new OsgiBrooklynClassLoadingContext(entity) : null;
+        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false);
+    }
+
+    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, RegisteredTypeOrTypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) {
         if (inputMap.isAbsent()) return (Maybe<T>)inputMap;
 
         Object o = inputMap.get();
         if (!(o instanceof Map) && !(o instanceof List)) {
-            if (type.isAssignableFrom(o.getClass())) {
+            if (type.getTypeToken().isAssignableFrom(o.getClass())) {
                 return (Maybe<T>)inputMap;
             }  else {
                 return Maybe.absent(() -> new RuntimeException("BeanWithType cannot convert from "+o.getClass()+" to "+type));
@@ -117,13 +175,13 @@ public class BeanWithTypeUtils {
         }
 
         Maybe<T> fallback = null;
-        if (type.isAssignableFrom(Object.class)) {
+        if (type.getTypeToken().isAssignableFrom(Object.class)) {
             // the input is already valid, so use it as the fallback result
             fallback = (Maybe<T>)inputMap;
 
             // there isn't a 'type' key so little obvious point in converting .. might make a difference _inside_ a map or list, but we've not got any generics so it won't
             if (!(o instanceof Map) || !((Map<?, ?>) o).containsKey("type")) return fallback;
-        } else if (type.isAssignableFrom(Map.class)) {
+        } else if (type.getTypeToken().isAssignableFrom(Map.class)) {
             // skip conversion for a map if it isn't an object
             return (Maybe<T>)inputMap;
         }
