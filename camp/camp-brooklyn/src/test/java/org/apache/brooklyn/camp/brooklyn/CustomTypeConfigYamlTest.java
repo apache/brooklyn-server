@@ -132,13 +132,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
             Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
         }
 
-        // and typed-key access also fails, because we con't coerce
-        try {
-            assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_TYPED, "foo", null);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (Throwable expected) {
-            Asserts.expectedFailureContainsIgnoreCase(expected, "cannot coerce map");
-        }
+        // but typed-key access works because now we coerce
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_TYPED, "foo", null);
     }
 
     @Test
@@ -265,13 +260,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
             Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
         }
 
-        // and typed-key access also fails, because we con't coerce
-        try {
-            assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_LIST_TYPED, "foo", null);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (Throwable expected) {
-            Asserts.expectedFailureContainsIgnoreCase(expected, "cannot coerce map");
-        }
+        // but typed-key access works because now we coerce
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_LIST_TYPED, "foo", null);
     }
 
     @Test
@@ -288,6 +278,9 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         } catch (AssertionError expected) {
             Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
         }
+
+        // but typed-key access works because now we coerce
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_LIST_TYPED, "foo", null);
     }
 
 }

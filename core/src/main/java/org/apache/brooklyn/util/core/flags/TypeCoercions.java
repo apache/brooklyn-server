@@ -278,8 +278,9 @@ public class TypeCoercions {
         public CommonAdaptorTypeCoercions registerAllAdapters() {
             super.registerAllAdapters();
             registerWrappedValueAdapters();
+            registerBeanWithTypeAdapter();
 
-            //these are deliberately not included here, but added by routines which need them
+            //// deliberately not included here, but added by routines which need them:
             // registerInstanceForClassnameAdapter
 
             return this;
