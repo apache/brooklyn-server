@@ -141,6 +141,11 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                 return super.typeFromId(context, id);
             }
 
+            // even if we aren't allowed to load java types, if the expected type matches, then we will allow it
+            if (_baseType!=null && _baseType.toCanonical().equals(id)) {
+                return _baseType;
+            }
+
             // copied from super if it fails to find the type
             if (context instanceof DeserializationContext) {
                 return ((DeserializationContext) context).handleUnknownTypeId(_baseType, id, this, "no such class found");
