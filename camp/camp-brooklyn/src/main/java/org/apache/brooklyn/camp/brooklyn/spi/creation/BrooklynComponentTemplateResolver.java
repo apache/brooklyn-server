@@ -388,10 +388,11 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
-        if (BeanWithTypeUtils.isConversionPlausible(input, type) && BeanWithTypeUtils.isJsonOrDeferredSupplier(input.orNull())) {
-            // attempt bean-with-type conversion if we're given a map when a map is not explicitly wanted
-            return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
-        }
+        // no longer do conversion on set; do it on read instead
+//        if (BeanWithTypeUtils.isConversionPlausible(input, type) && BeanWithTypeUtils.isJsonOrDeferredSupplier(input.orNull())) {
+//            // attempt bean-with-type conversion if we're given a map when a map is not explicitly wanted
+//            return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
+//        }
         return (Maybe<T>)input;
     }
 

@@ -234,30 +234,31 @@ public class InternalEntityFactory extends InternalFactory {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec) {
         try {
-            final AbstractEntity theEntity = (AbstractEntity) entity;
-            if (spec.getDisplayName()!=null)
-                theEntity.setDisplayName(spec.getDisplayName());
-            
-            if (spec.getCatalogItemId()!=null) {
-                theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
-            }
-            
-            entity.tags().addTags(spec.getTags());
-            addSpecParameters(spec, theEntity.getMutableEntityType());
-            
-            theEntity.configure(MutableMap.copyOf(spec.getFlags()));
-            for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
-                entity.config().set((ConfigKey)entry.getKey(), entry.getValue());
-            }
-            
-            Entity parent = spec.getParent();
-            if (parent != null) {
-                parent = (parent instanceof AbstractEntity) ? ((AbstractEntity)parent).getProxyIfAvailable() : parent;
-                entity.setParent(parent);
-            }
-            
-            return entity;
-            
+            return ((AbstractEntity) entity).getExecutionContext().submit("initialize", () -> {
+                final AbstractEntity theEntity = (AbstractEntity) entity;
+                if (spec.getDisplayName() != null)
+                    theEntity.setDisplayName(spec.getDisplayName());
+
+                if (spec.getCatalogItemId() != null) {
+                    theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
+                }
+
+                entity.tags().addTags(spec.getTags());
+                addSpecParameters(spec, theEntity.getMutableEntityType());
+
+                theEntity.configure(MutableMap.copyOf(spec.getFlags()));
+                for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
+                    entity.config().set((ConfigKey) entry.getKey(), entry.getValue());
+                }
+
+                Entity parent = spec.getParent();
+                if (parent != null) {
+                    parent = (parent instanceof AbstractEntity) ? ((AbstractEntity) parent).getProxyIfAvailable() : parent;
+                    entity.setParent(parent);
+                }
+                return entity;
+            }).get();
+
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

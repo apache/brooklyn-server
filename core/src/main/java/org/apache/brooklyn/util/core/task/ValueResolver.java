@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.core.task;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
@@ -306,7 +307,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
      * if null, the default, it runs in a task if a time limit is applied.
      * <p>
      * running inside a task is required for some {@link DeferredSupplier}
-     * instances which look up a task {@link ExecutionContext}. */
+     * instances which look up a task {@link ExecutionContext},
+     * and for coercions that need to look up registered types in the mgmt context,
+     * and such tasks might be automatically applied if so. */
     public ValueResolver<T> embedResolutionInTask(Boolean embedResolutionInTask) {
         this.embedResolutionInTask = embedResolutionInTask;
         return this;
@@ -638,7 +641,13 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     }
                 }
 
-                return TypeCoercions.tryCoerce(v, typeT);
+                if (exec!=null && (v instanceof Map || v instanceof List)) {
+                    // do type coercion in a task to allow registered types
+                    Object vf = v;
+                    return exec.submit("type coercion", () -> TypeCoercions.tryCoerce(vf, typeT)).get();
+                } else {
+                    return TypeCoercions.tryCoerce(v, typeT);
+                }
             }
 
         } catch (Exception e) {
