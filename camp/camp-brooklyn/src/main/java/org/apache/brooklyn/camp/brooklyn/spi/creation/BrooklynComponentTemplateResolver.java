@@ -77,7 +77,6 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -389,13 +388,10 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
-        if (input.isAbsentOrNull() || type==null) return (Maybe<T>)input;
-        Object t = input.get();
-        if (t instanceof Map && !Map.class.isAssignableFrom(type.getRawType())) {
-            // attempt bean-with-type conversion if we're given a map when a map is not wanted
+        if (BeanWithTypeUtils.isConversionPlausible(input, type) && BeanWithTypeUtils.isJsonOrDeferredSupplier(input.orNull())) {
+            // attempt bean-with-type conversion if we're given a map when a map is not explicitly wanted
             return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
         }
-        // TODO if type.getRawType is a map, we should check the deeper generics
         return (Maybe<T>)input;
     }
 

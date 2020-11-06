@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
+import java.util.List;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -61,7 +64,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         String y;
     }
     
-    protected Entity deployWithTestingCustomTypeObjectConfig(boolean declareParameter, boolean declareType, String type, ConfigKey<?> key) throws Exception {
+    protected Entity deployWithTestingCustomTypeObjectConfig(boolean declareParameter, boolean declareType, boolean isList, String type, ConfigKey<?> key) throws Exception {
         return setupAndCheckTestEntityInBasicYamlWith(
                 declareParameter ? Strings.lines(
                         "  brooklyn.parameters:",
@@ -69,8 +72,9 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                         "    type: "+type) : "",
                 "  brooklyn.config:",
                 "    "+key.getName()+":",
+                isList ? "    - " : "",
                 declareType ?
-                        "      type: "+type : "",
+                        "      type: "+(isList ? Strings.removeAllFromEnd(Strings.removeAllFromStart(type, "list", "<"), ">") : type) : "",
                 "      x: foo");
     }
 
@@ -82,102 +86,81 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(((TestingCustomType)customObj).y, y);
     }
 
-    protected Entity deployWithTestingCustomTypeObjectConfigAndAssert(boolean declareParameter, boolean declareType, String type, ConfigKey<?> key, String x, String y) throws Exception {
-        Entity testEntity = deployWithTestingCustomTypeObjectConfig(declareParameter, declareType, type, key);
-        Object customObj = testEntity.getConfig(key);
+    protected void assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(ConfigKey<?> key, String x, String y) {
+        Object customObj = lastDeployedEntity.getConfig(key);
+        if (customObj instanceof List) {
+            customObj = Iterables.getOnlyElement((List)customObj);
+        }
         assertObjectIsOurCustomTypeWithFieldValues(customObj, x, y);
-        return testEntity;
     }
 
-    public static final ConfigKey<Object> CONF_ANONYMOUS_OBJECT = ConfigKeys.newConfigKey(Object.class,
-            "test.confAnonymous", "Configuration key that's declared as an Object, but not defined on the Entity, and should be our custom type; was it coerced when created?");
-    public static final ConfigKey<TestingCustomType> CONF_ANONYMOUS_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class,
-            "test.confAnonymous", "Configuration key that's declared as our custom type, matching the key name as the Object, and also not defined on the Entity, and should be our custom type; is it coercible on read with this key (or already coerced)?");
+    Entity lastDeployedEntity;
 
-    // old behaviour; previously java wouldn't be deserialized, but now if we are in the context of an entity,
-    // we use its classpath when deserializing
-    // TODO ideally restrict this behaviour to the outermost layer, where the type is defined (and so we have to use java),
-    // but make any type: blocks within only valid for registered types
-//    @Test
-//    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_ReturnsMap() throws Exception {
-//        // java types are not permitted as the type of a value of a config key - it gets deserialized as a map
-//        Entity testEntity = deployWithTestingCustomTypeObjectConfig(false, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT);
-//        Object customObj = testEntity.getConfig(CONF_ANONYMOUS_OBJECT);
-//
-//        Assert.assertNotNull(customObj);
-//
-//        Asserts.assertInstanceOf(customObj, Map.class);
-//        Asserts.assertEquals(((Map<?,?>)customObj).get("x"), "foo");
-//    }
-//    @Test
-//    public void testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType() throws Exception {
-//        // and if we try to access it with a typed key it fails
-//        Asserts.assertFailsWith(() -> deployWithTestingCustomTypeObjectConfigAndAssert(TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT_TYPED, "foo", null),
-//                e -> Asserts.expectedFailureContains(e, "TestingCustomType", "map", "test.confAnonymous"));
-//    }
+    protected Entity deployWithTestingCustomTypeObjectConfigAndAssert(boolean declareParameter, boolean declareType, boolean isList, String type, ConfigKey<?> key, String x, String y) throws Exception {
+        lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(declareParameter, declareType, isList, type, key);
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(key, x, y);
+        return lastDeployedEntity;
+    }
 
-
-    /*
-    testJavaTypeDeclaredWithoutTypeInTypedParameter_TypeSetInEntityConfig
-    testJavaTypeDeclaredWithTypeInTypedParameter_TypeSetOfCourse
-
-    testJavaTypeDeclaredWithoutTypeInAnonymousParameter_TypeNotSetOfCourse
-
-    testJavaTypeDeclaredWithTypeInValueOfObjectParameter_Type_NOT_SetBecauseThatsNotTheBehaviourForJava
-    testRegisteredTypeDeclaredWithTypeInValueOfObjectParameter_Type_IS_SetBecauseThatsTheBehaviourForRegisteredTypes
-
-    testRegisteredTypeDeclaredWithTypeInValueOfMapParameter_NotSetBecauseItsAMap
-
-    // if those act as expected, then repeat _within_ a map
-     */
+    public static final ConfigKey<Object> CONF1_ANONYMOUS = ConfigKeys.newConfigKey(Object.class, "test.conf1");
+    public static final ConfigKey<TestingCustomType> CONF1_TYPED = ConfigKeys.newConfigKey(TestingCustomType.class, "test.conf1");
+    public static final ConfigKey<List<TestingCustomType>> CONF1_LIST_TYPED = ConfigKeys.newConfigKey(new TypeToken<List<TestingCustomType>>() {}, "test.conf1");
 
     @Test
     public void testJavaTypeDeclaredWithoutTypeInTypedParameter_TypeSetInEntityConfig() throws Exception {
         // java type set when spec is analysed by camp, declared type of parameter used with bean with type as per org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynComponentTemplateResolver.convertConfig
         // so when we get the object using an untyped key, it is correctly typed
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT, "foo", null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, TestingCustomType.class.getName(), CONF1_ANONYMOUS, "foo", null);
     }
     @Test
     public void testJavaTypeDeclaredWithTypeInAnonymousParameter_TypeSetInEntityConfig() throws Exception {
         // here the _parameter_ is not declared, but there is a 'type:' entry in the map; that is sufficient
-        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT, "foo", null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, false, TestingCustomType.class.getName(), CONF1_ANONYMOUS, "foo", null);
     }
     @Test
     public void testJavaTypeDeclaredWithTypeInTypedParameter_TypeSetOfCourse() throws Exception {
         // having _both_ a declared type on the parameter / config key name, and a type: line, that also works as expected
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT, "foo", null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, false, TestingCustomType.class.getName(), CONF1_ANONYMOUS, "foo", null);
     }
     @Test
     public void testJavaTypeDeclaredWithoutTypeInAnonymousParameter_TypeNotSetOfCourse() throws Exception {
         // if there is no type info at all, the parameter not declared AND type: not in the map, of course there's no way it gets the right type
         try {
-            deployWithTestingCustomTypeObjectConfigAndAssert(false, false, TestingCustomType.class.getName(), CONF_ANONYMOUS_OBJECT, "foo", null);
+            deployWithTestingCustomTypeObjectConfigAndAssert(false, false, false, TestingCustomType.class.getName(), CONF1_ANONYMOUS, "foo", null);
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError expected) {
             Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
+        }
+
+        // and typed-key access also fails, because we con't coerce
+        try {
+            assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_TYPED, "foo", null);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable expected) {
+            Asserts.expectedFailureContainsIgnoreCase(expected, "cannot coerce map");
         }
     }
 
     @Test
     public void testRegisteredTypeDeclaredWithoutTypeInTypedParameter_TypeSetInEntityConfig() throws Exception {
         registerCustomType();
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, "custom-type", CONF_ANONYMOUS_OBJECT, "foo", null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS, "foo", null);
     }
     @Test
     public void testRegisteredTypeDeclaredWithTypeInAnonymousParameter_TypeSetInEntityConfig() throws Exception {
         registerCustomType();
-        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, "custom-type", CONF_ANONYMOUS_OBJECT, "foo", null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, false, "custom-type", CONF1_ANONYMOUS, "foo", null);
     }
     @Test
     public void testRegisteredTypeDeclaredWithTypeInTypedParameter_TypeSetOfCourse() throws Exception {
         registerCustomType();
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, "custom-type", CONF_ANONYMOUS_OBJECT, "foo", null);
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, false, "custom-type", CONF1_ANONYMOUS, "foo", null);
     }
     @Test
     public void testRegisteredTypeDeclaredWithoutTypeInAnonymousParameter_TypeNotSetOfCourse() throws Exception {
         registerCustomType();
         try {
-            deployWithTestingCustomTypeObjectConfigAndAssert(false, false, "custom-type", CONF_ANONYMOUS_OBJECT, "foo", null);
+            deployWithTestingCustomTypeObjectConfigAndAssert(false, false, false, "custom-type", CONF1_ANONYMOUS, "foo", null);
             Asserts.shouldHaveFailedPreviously();
         } catch (AssertionError expected) {
             Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
@@ -202,7 +185,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         RegisteredTypes.addSuperType(bean, TestingCustomType.class);
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
 
-        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, "custom-type", CONF_ANONYMOUS_OBJECT,
+        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, false, "custom-type", CONF1_ANONYMOUS,
                 "foo", "bar");
     }
 
@@ -217,7 +200,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         RegisteredTypes.addSuperType(bean, TestingCustomType.class);
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
 
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, "custom-type", CONF_ANONYMOUS_OBJECT,
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS,
                 "foo",
                 // NOTE: 'bar' is not available here -- all we preserve from a declared parameter/key type is the java type
                 null);
@@ -242,22 +225,9 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         Assert.assertNotNull(item);
         Assert.assertEquals(item.getKind(), RegisteredTypeKind.BEAN);
 
-        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, "custom-type", CONF_ANONYMOUS_OBJECT,
+        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, false, "custom-type", CONF1_ANONYMOUS,
                 "foo", "bar");
     }
-
-    // NOTE, re implicit typing - deserialization base type implied by key type.  on creation?  or on access?
-    // mainly done on access, by config lookup.  though that will need custom logic for initializers and maybe others,
-    // in addition to the obvious place(s) where it is done for entities
-    //
-    // test:  type declared on a parameter; get as object it recasts it as official type, and coerces
-    // testRegisteredTypeImplicitInValueReadByTypedConfigKey_CoercedOnCreation
-    // testRegisteredTypeImplicitInValueReadByObjectConfigKey_ReturnsMap
-    // (and change testJavaTypeDeclaredInValueOfAnonymousConfigKey_IgnoresType_FailsCoercionToCustomType,
-    //      if the java type exactly matches the expected type)
-
-    // NOTE,re DSL expressions; currently if implied by context, or if a $brooklyn:literal key is present, the DSL is parsed and restored;
-    // see in JsonDeserializerForCommonBrooklynThings.  See DslSerializationTest .
 
     @Test
     public void testRegisteredTypeMalformed_GoodError() throws Exception {
@@ -277,6 +247,47 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                     Asserts.expectedFailureContainsIgnoreCase(e, "bean", "custom-type", "cannot deserialize", "string", "\"x\"");
                     return true;
                 });
+    }
+
+    // as above but when wrapped in a list: behaviour _mostly_ the same, except if type declared on items in the list
+
+    @Test
+    public void testJavaTypeInListDeclaredWithoutTypeInTypedParameter_TypeSetInEntityConfig() throws Exception {
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, true, "list<"+TestingCustomType.class.getName()+">", CONF1_ANONYMOUS, "foo", null);
+    }
+    @Test
+    public void testJavaTypeInListDeclaredWithTypeInAnonymousParameter_TypeNotSetBecauseNotTopLevel() throws Exception {
+        // here, we expect it to fail
+        try {
+            deployWithTestingCustomTypeObjectConfigAndAssert(false, true, true, "list<"+TestingCustomType.class.getName()+">", CONF1_ANONYMOUS, "foo", null);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (AssertionError expected) {
+            Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
+        }
+
+        // and typed-key access also fails, because we con't coerce
+        try {
+            assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_LIST_TYPED, "foo", null);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Throwable expected) {
+            Asserts.expectedFailureContainsIgnoreCase(expected, "cannot coerce map");
+        }
+    }
+
+    @Test
+    public void testJavaTypeInListDeclaredWithTypeInTypedParameter_TypeSetOfCourse() throws Exception {
+        // having _both_ a declared type on the parameter / config key name, and a type: line, that also works as expected
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, true, true, "list<"+TestingCustomType.class.getName()+">", CONF1_ANONYMOUS, "foo", null);
+    }
+    @Test
+    public void testJavaTypeInListDeclaredWithoutTypeInAnonymousParameter_TypeNotSetOfCourse() throws Exception {
+        // if there is no type info at all, the parameter not declared AND type: not in the map, of course there's no way it gets the right type
+        try {
+            deployWithTestingCustomTypeObjectConfigAndAssert(false, false, true, "list<"+TestingCustomType.class.getName()+">", CONF1_ANONYMOUS, "foo", null);
+            Asserts.shouldHaveFailedPreviously();
+        } catch (AssertionError expected) {
+            Asserts.expectedFailureContainsIgnoreCase(expected, "expected", TestingCustomType.class.getName().toLowerCase(), "but found", "map");
+        }
     }
 
 }
