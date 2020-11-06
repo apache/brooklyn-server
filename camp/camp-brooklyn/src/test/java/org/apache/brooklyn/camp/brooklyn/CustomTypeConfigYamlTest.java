@@ -185,25 +185,46 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     }
 
     private void registerCustomType() {
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(
-                RegisteredTypes.addSuperType(RegisteredTypes.bean("custom-type", "1",
-                    new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, TestingCustomType.class.getName())), TestingCustomType.class),
-                false);
+        RegisteredType bean = RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, TestingCustomType.class.getName()));
+        bean = RegisteredTypes.addSuperType(bean, TestingCustomType.class);
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
     }
 
     @Test
-    public void testRegisteredTypeDeclaredWithoutTypeInTypedParameter_and_InheritedFieldsWork() throws Exception {
+    public void testRegisteredType_InheritedFieldsWork_WhenTypeIsDeclared() throws Exception {
         // in the above case, fields are correctly inherited from ancestors and overridden
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(RegisteredTypes.addSuperType(RegisteredTypes.bean("custom-type", "1",
+        RegisteredType bean = RegisteredTypes.bean("custom-type", "1",
                 new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
-                        "type: "+CustomTypeConfigYamlTest.TestingCustomType.class.getName()+"\n" +
-                                "x: unfoo\n"+
-                                "y: bar")), TestingCustomType.class), false);
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, "custom-type", CONF_ANONYMOUS_OBJECT,
+                        "type: " + TestingCustomType.class.getName() + "\n" +
+                                "x: unfoo\n" +
+                                "y: bar"));
+        RegisteredTypes.addSuperType(bean, TestingCustomType.class);
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
+
+        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, "custom-type", CONF_ANONYMOUS_OBJECT,
                 "foo", "bar");
     }
+
     @Test
-    public void testRegisteredTypeDeclaredWithoutTypeInTypedParameter_and_InheritedFieldsWork_BeanAddCatalogSyntax() throws Exception {
+    public void testRegisteredType_InheritedFieldsNotSupported_WhenTypeIsInferredFromDeclaredParameterType() throws Exception {
+        // in the above case, fields are correctly inherited from ancestors and overridden
+        RegisteredType bean = RegisteredTypes.bean("custom-type", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: " + TestingCustomType.class.getName() + "\n" +
+                                "x: unfoo\n" +
+                                "y: bar"));
+        RegisteredTypes.addSuperType(bean, TestingCustomType.class);
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
+
+        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, "custom-type", CONF_ANONYMOUS_OBJECT,
+                "foo",
+                // NOTE: 'bar' is not available here -- all we preserve from a declared parameter/key type is the java type
+                null);
+    }
+
+    @Test
+    public void testRegisteredType_InheritedFieldsWork_BeanAddCatalogSyntax() throws Exception {
         // in the above case, fields are correctly inherited from ancestors and overridden
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -221,7 +242,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         Assert.assertNotNull(item);
         Assert.assertEquals(item.getKind(), RegisteredTypeKind.BEAN);
 
-        deployWithTestingCustomTypeObjectConfigAndAssert(true, false, "custom-type", CONF_ANONYMOUS_OBJECT,
+        deployWithTestingCustomTypeObjectConfigAndAssert(false, true, "custom-type", CONF_ANONYMOUS_OBJECT,
                 "foo", "bar");
     }
 

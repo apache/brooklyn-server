@@ -389,7 +389,14 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
-        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>)(input));
+        if (input.isAbsentOrNull() || type==null) return (Maybe<T>)input;
+        Object t = input.get();
+        if (t instanceof Map && !Map.class.isAssignableFrom(type.getRawType())) {
+            // attempt bean-with-type conversion if we're given a map when a map is not wanted
+            return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
+        }
+        // TODO if type.getRawType is a map, we should check the deeper generics
+        return (Maybe<T>)input;
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {

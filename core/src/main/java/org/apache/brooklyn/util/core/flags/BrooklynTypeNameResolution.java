@@ -149,7 +149,9 @@ public class BrooklynTypeNameResolution {
                         if (st1.isPresent()) {
                             return Maybe.of( (Class<?>) st1.get() );
                         }
-                        LOG.warn("Attempt to use registered type '"+s+"' as a type but no associated Java type is recorded; skipping");
+                        // tests may not set supertypes which could cause odd behaviour; real OSGi addition should set supertypes so this should be rare IRL
+                        LOG.warn("Attempt to use registered type '"+s+"' as a type but no associated Java type is recorded; returning as Object");
+                        return Maybe.of(Object.class);
                     }
                     return Maybe.absent();
                 });
