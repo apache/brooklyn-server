@@ -24,6 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 
@@ -35,6 +36,7 @@ import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
@@ -234,30 +236,33 @@ public class InternalEntityFactory extends InternalFactory {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec) {
         try {
-            final AbstractEntity theEntity = (AbstractEntity) entity;
-            if (spec.getDisplayName()!=null)
-                theEntity.setDisplayName(spec.getDisplayName());
-            
-            if (spec.getCatalogItemId()!=null) {
-                theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
-            }
-            
-            entity.tags().addTags(spec.getTags());
-            addSpecParameters(spec, theEntity.getMutableEntityType());
-            
-            theEntity.configure(MutableMap.copyOf(spec.getFlags()));
-            for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
-                entity.config().set((ConfigKey)entry.getKey(), entry.getValue());
-            }
-            
-            Entity parent = spec.getParent();
-            if (parent != null) {
-                parent = (parent instanceof AbstractEntity) ? ((AbstractEntity)parent).getProxyIfAvailable() : parent;
-                entity.setParent(parent);
-            }
-            
-            return entity;
-            
+            Task<T> initialize = Tasks.create("initialize", () -> {
+                final AbstractEntity theEntity = (AbstractEntity) entity;
+                if (spec.getDisplayName() != null)
+                    theEntity.setDisplayName(spec.getDisplayName());
+
+                if (spec.getCatalogItemId() != null) {
+                    theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
+                }
+
+                entity.tags().addTags(spec.getTags());
+                addSpecParameters(spec, theEntity.getMutableEntityType());
+
+                theEntity.configure(MutableMap.copyOf(spec.getFlags()));
+                for (Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
+                    entity.config().set((ConfigKey) entry.getKey(), entry.getValue());
+                }
+
+                Entity parent = spec.getParent();
+                if (parent != null) {
+                    parent = (parent instanceof AbstractEntity) ? ((AbstractEntity) parent).getProxyIfAvailable() : parent;
+                    entity.setParent(parent);
+                }
+                return entity;
+            });
+            BrooklynTaskTags.setTransient(initialize);
+            return ((AbstractEntity) entity).getExecutionContext().get(initialize);
+
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

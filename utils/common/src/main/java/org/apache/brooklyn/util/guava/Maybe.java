@@ -643,8 +643,18 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         return Objects.equal(get(), other.get());
     }
 
-    /** Finds the {@link Absent#getException()} if {@link #isAbsent()}, or null */
+    /** Finds the {@link Absent#getException()} if {@link #isAbsent()}, or else null */
     public static RuntimeException getException(Maybe<?> t) {
-        return t instanceof Maybe.Absent ? ((Maybe.Absent<?>)t).getException() : null;
+        if (t instanceof Maybe.Absent) return ((Maybe.Absent<?>)t).getException();
+        if (t.isPresent()) return null;
+        if (t instanceof MaybeTransforming) return getException( ((MaybeTransforming)t).input );
+
+        // fall back to attempting access
+        try {
+            t.get();
+        } catch (RuntimeException e) {
+            return e;
+        }
+        return new RuntimeException("Unsupported exception access on maybe type "+t.getClass()+", not present, but not in error: "+t);
     }
 }

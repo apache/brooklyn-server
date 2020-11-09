@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeOrTypeToken;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -199,7 +200,7 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
         protected void addDecorationFromJsonMap(Map<?, ?> decorationJson, List<EntityInitializer> decorations) {
             EntityInitializer result;
             try {
-                result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, TypeToken.of(EntityInitializer.class),
+                result = BeanWithTypeUtils.convert(instantiator.getClassLoadingContext().getManagementContext(), decorationJson, RegisteredTypeOrTypeToken.of(EntityInitializer.class),
                         true, instantiator.getClassLoadingContext(), true);
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
