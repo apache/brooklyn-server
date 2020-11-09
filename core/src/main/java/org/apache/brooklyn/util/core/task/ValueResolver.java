@@ -641,10 +641,15 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     }
                 }
 
-                if (exec!=null && (v instanceof Map || v instanceof List)) {
+                if (exec!=null && (
+                        ((v instanceof Map) && !((Map)v).isEmpty())
+                                ||
+                        ((v instanceof List) && !((List)v).isEmpty())) ) {
                     // do type coercion in a task to allow registered types
                     Object vf = v;
-                    return exec.submit("type coercion", () -> TypeCoercions.tryCoerce(vf, typeT)).get();
+                    Task<Maybe<T>> task = Tasks.create("type coercion", () -> TypeCoercions.tryCoerce(vf, typeT));
+                    BrooklynTaskTags.setTransient(task);
+                    return exec.get(task);
                 } else {
                     return TypeCoercions.tryCoerce(v, typeT);
                 }
