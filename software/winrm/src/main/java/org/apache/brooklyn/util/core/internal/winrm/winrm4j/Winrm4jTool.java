@@ -141,7 +141,11 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     public org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse executePs(final List<String> commands) {
         return exec(new Function<io.cloudsoft.winrm4j.winrm.WinRmTool, io.cloudsoft.winrm4j.winrm.WinRmToolResponse>() {
             @Override public WinRmToolResponse apply(io.cloudsoft.winrm4j.winrm.WinRmTool tool) {
-                return tool.executePs(commands);
+                OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
+                OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
+                Writer out = outputStream != null ? new OutputStreamWriter(outputStream): new StringWriter();
+                Writer err = errorStream != null ? new OutputStreamWriter(errorStream): new StringWriter();
+                return tool.executePs(commands, out, err);
             }
         });
     }

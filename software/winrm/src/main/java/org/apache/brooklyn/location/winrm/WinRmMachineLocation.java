@@ -556,10 +556,12 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
             sgsO.setLogPrefix("[curl @ "+getAddress()+":stdout] ").start();
             sgsE.setLogPrefix("[curl @ "+getAddress()+":stderr] ").start();
             Map<String, ?> winrmProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
-            int result = execScript(winrmProps,"",ImmutableList.of(
-                    "$WebClient = New-Object System.Net.WebClient",
-                    "$WebClient.DownloadFile(" + url + "," + destPath + ")"
-            ));
+//            int result = execScript(winrmProps,"",ImmutableList.of(
+//                    "$WebClient = New-Object System.Net.WebClient",
+//                    "$WebClient.DownloadFile(" + url + "," + destPath + ")"
+//            ));
+
+            int result = 1;
 
             if (result != 0) {
                 LOG.debug("installing {} to {} on {}, curl failed, attempting local fetch and copy", new Object[] { url, destPath, this });
