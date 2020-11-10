@@ -48,19 +48,7 @@ public interface MachineLocation extends AddressableLocation, HasNetworkAddresse
 
     String getUser();
 
-    int execCommands(String summaryForLogging, List<String> commands);
-
-    int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands);
-
-    int execCommands(String summaryForLogging, List<String> commands, Map<String, ?> env);
-
     int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env);
-
-    int execScript(String summaryForLogging, List<String> commands);
-
-    int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands);
-
-    int execScript(String summaryForLogging, List<String> commands, Map<String, ?> env);
 
     int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env);
 }

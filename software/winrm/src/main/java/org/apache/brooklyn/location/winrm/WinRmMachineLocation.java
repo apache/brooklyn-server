@@ -205,39 +205,9 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     }
 
     @Override
-    public int execCommands(String summaryForLogging, List<String> commands) {
-        return executeCommand(commands).getStatusCode();
-    }
-
-    @Override
-    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands) {
-        return executeCommand(props, commands).getStatusCode();
-    }
-
-    @Override
-    public int execCommands(String summaryForLogging, List<String> commands, Map<String, ?> env) {
-        return executeCommand(ImmutableMap.of(Winrm4jTool.ENVIRONMENT, env),commands).getStatusCode();
-    }
-
-    @Override
     public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
         ImmutableMap<Object, Object> properties = ImmutableMap.builder().putAll(props).put(Winrm4jTool.ENVIRONMENT, env).build();
         return executeCommand(properties, commands).getStatusCode();
-    }
-
-    @Override
-    public int execScript(String summaryForLogging, List<String> commands) {
-        return executePsScript(commands).getStatusCode();
-    }
-
-    @Override
-    public int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands) {
-        return executePsScript(props, commands).getStatusCode();
-    }
-
-    @Override
-    public int execScript(String summaryForLogging, List<String> commands, Map<String, ?> env) {
-        return executePsScript(ImmutableMap.of(Winrm4jTool.ENVIRONMENT,env), commands).getStatusCode();
     }
 
     @Override
@@ -556,12 +526,12 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
             sgsO.setLogPrefix("[curl @ "+getAddress()+":stdout] ").start();
             sgsE.setLogPrefix("[curl @ "+getAddress()+":stderr] ").start();
             Map<String, ?> winrmProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
-//            int result = execScript(winrmProps,"",ImmutableList.of(
-//                    "$WebClient = New-Object System.Net.WebClient",
-//                    "$WebClient.DownloadFile(" + url + "," + destPath + ")"
-//            ));
-
-            int result = 1;
+            ImmutableList<String> commands = ImmutableList.of(
+                    "echo $WebClient = New-Object System.Net.WebClient > C:\\temp.ps1",
+                    "echo $WebClient.DownloadFile(" + url + "," + destPath + ") >> C:\\temp.ps1",
+                    "powershell -c c:\\temp.ps1"
+            );
+            int result = execCommands(winrmProps,"", commands, ImmutableMap.of());
 
             if (result != 0) {
                 LOG.debug("installing {} to {} on {}, curl failed, attempting local fetch and copy", new Object[] { url, destPath, this });

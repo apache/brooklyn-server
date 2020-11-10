@@ -115,19 +115,12 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
 
     @Override
     public org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse executeCommand(final List<String> commands) {
-        return exec(new Function<io.cloudsoft.winrm4j.winrm.WinRmTool, io.cloudsoft.winrm4j.winrm.WinRmToolResponse>() {
-            @Override public WinRmToolResponse apply(io.cloudsoft.winrm4j.winrm.WinRmTool tool) {
-                OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
-                OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
-                try(Writer out = outputStream != null ? new OutputStreamWriter(outputStream): new StringWriter();
-                Writer err = errorStream != null ? new OutputStreamWriter(errorStream): new StringWriter()) {
-                    return tool.executeCommand(commands, out, err);
-                } catch (IOException e) {
-                    // TODO Duncan
-                    e.printStackTrace();
-                    return null;
-                }
-            }
+        return exec(tool -> {
+            OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
+            OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
+            Writer out = outputStream != null ? new OutputStreamWriter(outputStream): new StringWriter();
+            Writer err = errorStream != null ? new OutputStreamWriter(errorStream): new StringWriter();
+            return tool.executeCommand(commands, out, err);
         });
     }
 
@@ -136,17 +129,15 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     public org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse executeScript(final List<String> commands) {
         return executeCommand(commands);
     }
-    
+
     @Override
     public org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse executePs(final List<String> commands) {
-        return exec(new Function<io.cloudsoft.winrm4j.winrm.WinRmTool, io.cloudsoft.winrm4j.winrm.WinRmToolResponse>() {
-            @Override public WinRmToolResponse apply(io.cloudsoft.winrm4j.winrm.WinRmTool tool) {
-                OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
-                OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
-                Writer out = outputStream != null ? new OutputStreamWriter(outputStream): new StringWriter();
-                Writer err = errorStream != null ? new OutputStreamWriter(errorStream): new StringWriter();
-                return tool.executePs(commands, out, err);
-            }
+        return exec(tool -> {
+            OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
+            OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
+            Writer out = outputStream != null ? new OutputStreamWriter(outputStream): new StringWriter();
+            Writer err = errorStream != null ? new OutputStreamWriter(errorStream): new StringWriter();
+            return tool.executePs(commands, out, err);
         });
     }
 
@@ -161,9 +152,9 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
             int i=0;
             while ((bytesRead = source.read(inputData)) > 0) {
                 i++;
-                
+
                 LOG.debug("Copying chunk "+i+" to "+destination+" on "+host);
-                
+
                 byte[] chunk;
                 if (bytesRead == chunkSize) {
                     chunk = inputData;
@@ -176,7 +167,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
                 expectedFileSize += bytesRead;
             }
             LOG.debug("Finished copying to "+destination+" on "+host);
-            
+
             return new org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse("", "", 0);
         } catch (java.io.IOException e) {
             throw propagate(e, "Failed copying to server at "+destination);
@@ -186,7 +177,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
     private org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse exec(Function<io.cloudsoft.winrm4j.winrm.WinRmTool, io.cloudsoft.winrm4j.winrm.WinRmToolResponse> task) {
         Collection<Throwable> exceptions = Lists.newArrayList();
         Stopwatch totalStopwatch = Stopwatch.createStarted();
-        
+
         for (int i = 0; i < execTries; i++) {
             Stopwatch stopwatch = Stopwatch.createStarted();
             Duration connectTimestamp = null;
@@ -212,7 +203,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
                 String timeMsg = "total time "+Duration.of(totalStopwatch).toStringRounded()
                         + ", this attempt failed after "+Duration.of(failTimestamp).toStringRounded()
                         + (connectTimestamp != null ? ", connected in "+Duration.of(connectTimestamp).toStringRounded() : "");
-                
+
                 if ((i + 1) == execTries) {
                     LOG.info("Propagating exception - WinRM failed on "+user+"@"+host+":"+port+" "
                             + (logCredentials ? "password=" + password : "")
