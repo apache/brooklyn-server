@@ -25,47 +25,47 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 
 import java.util.List;
 
-public class PlainWinRMExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
+public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
 
     /** constructor where machine will be added later */
-    public PlainWinRMExecTaskFactory(String ...commands) {
+    public PlainWinRmExecTaskFactory(String ...commands) {
         super(commands);
     }
 
     /** convenience constructor to supply machine immediately */
-    public PlainWinRMExecTaskFactory(WinRmMachineLocation machine, String ...commands) {
+    public PlainWinRmExecTaskFactory(WinRmMachineLocation machine, String ...commands) {
         this(commands);
         machine(machine);
     }
 
     /** Constructor where machine will be added later */
-    public PlainWinRMExecTaskFactory(List<String> commands) {
+    public PlainWinRmExecTaskFactory(List<String> commands) {
         this(commands.toArray(new String[commands.size()]));
     }
 
     /** Convenience constructor to supply machine immediately */
-    public PlainWinRMExecTaskFactory(WinRmMachineLocation machine, List<String> commands) {
+    public PlainWinRmExecTaskFactory(WinRmMachineLocation machine, List<String> commands) {
         this(machine, commands.toArray(new String[commands.size()]));
     }
 
     @Override
-    public <T2> PlainWinRMExecTaskFactory<T2> returning(ScriptReturnType type) {
-        return (PlainWinRMExecTaskFactory<T2>) super.<T2>returning(type);
+    public <T2> PlainWinRmExecTaskFactory<T2> returning(ScriptReturnType type) {
+        return (PlainWinRmExecTaskFactory<T2>) super.<T2>returning(type);
     }
 
     @Override
-    public <RET2> PlainWinRMExecTaskFactory<RET2> returning(Function<ProcessTaskWrapper<?>, RET2> resultTransformation) {
-        return (PlainWinRMExecTaskFactory<RET2>) super.returning(resultTransformation);
+    public <RET2> PlainWinRmExecTaskFactory<RET2> returning(Function<ProcessTaskWrapper<?>, RET2> resultTransformation) {
+        return (PlainWinRmExecTaskFactory<RET2>) super.returning(resultTransformation);
     }
 
     @Override
-    public PlainWinRMExecTaskFactory<Boolean> returningIsExitCodeZero() {
-        return (PlainWinRMExecTaskFactory<Boolean>) super.returningIsExitCodeZero();
+    public PlainWinRmExecTaskFactory<Boolean> returningIsExitCodeZero() {
+        return (PlainWinRmExecTaskFactory<Boolean>) super.returningIsExitCodeZero();
     }
 
     @Override
-    public PlainWinRMExecTaskFactory<String> requiringZeroAndReturningStdout() {
-        return (PlainWinRMExecTaskFactory<String>) super.requiringZeroAndReturningStdout();
+    public PlainWinRmExecTaskFactory<String> requiringZeroAndReturningStdout() {
+        return (PlainWinRmExecTaskFactory<String>) super.requiringZeroAndReturningStdout();
     }
 }
 

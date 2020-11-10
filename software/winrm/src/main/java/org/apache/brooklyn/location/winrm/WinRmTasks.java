@@ -20,8 +20,6 @@ package org.apache.brooklyn.location.winrm;
 
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
-import org.apache.brooklyn.location.winrm.PlainWinRMExecTaskFactory;
-import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
@@ -29,9 +27,9 @@ import org.apache.brooklyn.util.net.Urls;
 
 import java.util.Map;
 
-public class WinRMTasks {
+public class WinRmTasks {
     public static ProcessTaskFactory<Integer> newWinrmExecTaskFactory(org.apache.brooklyn.location.winrm.WinRmMachineLocation winRmMachineLocation, String ...commands) {
-        return new PlainWinRMExecTaskFactory<>(winRmMachineLocation, commands);
+        return new PlainWinRmExecTaskFactory<>(winRmMachineLocation, commands);
     }
 
     public static TaskFactory<?> installFromUrl(final ResourceUtils utils, final Map<String, ?> props, final WinRmMachineLocation location, final String url, final String destPath) {
@@ -48,5 +46,12 @@ public class WinRMTasks {
                 }).build();
             }
         };
+    }
+
+    public static WinRmPutTaskFactory newWinrmPutTaskFactory(WinRmMachineLocation winRmMachineLocation, String remoteFile) {
+        return newWinRmPutTaskFactory(winRmMachineLocation, true, remoteFile);
+    }
+    public static WinRmPutTaskFactory newWinRmPutTaskFactory(WinRmMachineLocation machine, final boolean useMachineConfig, String remoteFile) {
+        return new WinRmPutTaskFactory(machine, remoteFile);
     }
 }

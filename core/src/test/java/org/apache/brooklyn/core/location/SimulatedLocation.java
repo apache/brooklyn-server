@@ -170,37 +170,7 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
     }
 
     @Override
-    public int execCommands(String summaryForLogging, List<String> commands) {
-        return 0;
-    }
-
-    @Override
-    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands) {
-        return 0;
-    }
-
-    @Override
-    public int execCommands(String summaryForLogging, List<String> commands, Map<String, ?> env) {
-        return 0;
-    }
-
-    @Override
     public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
-        return 0;
-    }
-
-    @Override
-    public int execScript(String summaryForLogging, List<String> commands) {
-        return 0;
-    }
-
-    @Override
-    public int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands) {
-        return 0;
-    }
-
-    @Override
-    public int execScript(String summaryForLogging, List<String> commands, Map<String, ?> env) {
         return 0;
     }
 
