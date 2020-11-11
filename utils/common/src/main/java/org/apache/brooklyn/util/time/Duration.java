@@ -56,6 +56,8 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     private final long nanos;
 
+    /** JSON constructor */
+    private Duration() { nanos = 0; }
     public Duration(long value, TimeUnit unit) {
         if (value != 0) {
             Preconditions.checkNotNull(unit, "Cannot accept null timeunit (unless value is 0)");
