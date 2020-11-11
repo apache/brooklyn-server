@@ -55,7 +55,7 @@ public class BeanWithTypeUtils {
         JsonMapper mapper = newSimpleMapper();
 
         BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
-        WrappedValuesSerialization.apply(mapper);
+        WrappedValuesSerialization.apply(mapper, mgmt);
         mapper = new ConfigurableBeanDeserializerModifier()
                 .addDeserializerWrapper(
                         d -> new JsonDeserializerForCommonBrooklynThings(mgmt, d)

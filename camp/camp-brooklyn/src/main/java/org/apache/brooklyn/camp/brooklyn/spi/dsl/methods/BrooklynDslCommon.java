@@ -91,8 +91,12 @@ public class BrooklynDslCommon {
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
     public static final String PREFIX = "$brooklyn:";
-    static {
+
+    public static void registerSerializationHooks() {
         BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
+    }
+    static {
+        registerSerializationHooks();
     }
     
     // Access specific entities

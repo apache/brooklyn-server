@@ -33,6 +33,8 @@ import org.apache.brooklyn.util.core.task.DeferredSupplier;
  * Any object can be coerced to a {@link WrappedValue} using {@link org.apache.brooklyn.util.core.flags.TypeCoercions}.
  *
  * It will always be unwrapped (attempted) using {@link org.apache.brooklyn.util.core.task.Tasks#resolving(Object)}.
+ *
+ * When deserialized, this will parse Brooklyn DSL expressions.
  */
 public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supplier<T>, DeferredSupplier<T> {
     final static WrappedValue<?> NULL_WRAPPED_VALUE = new WrappedValue<>(null, false);

@@ -23,20 +23,24 @@ import com.google.common.base.Optional;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.MapperTestFixture;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest.ObjectWithWrappedValueString;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
-import org.testng.Assert;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 @Test
-public class DslSerializationTest extends AbstractYamlTest {
+public class DslSerializationTest extends AbstractYamlTest implements MapperTestFixture {
 
     @Test
     public void testSerializeAttributeWhenReadyAtRootWorksWithoutBrooklynLiteralMarker() throws Exception {
@@ -68,6 +72,10 @@ public class DslSerializationTest extends AbstractYamlTest {
     }
 
     private ObjectMapper newMapper() {
+        return mapper();
+    }
+
+    public ObjectMapper mapper() {
         return BeanWithTypeUtils.newMapper(mgmt(), false, null, true);
     }
 
@@ -138,5 +146,15 @@ public class DslSerializationTest extends AbstractYamlTest {
         BasicExecutionContext execContext = new BasicExecutionContext(execManager);
 
         Assert.assertEquals( execContext.submit(((BrooklynDslDeferredSupplier)stuff2I).newTask()).get(), unwrappedDesiredValue );
+    }
+
+    @Test
+    public void testDeserializeDsl() throws Exception {
+        BrooklynDslCommon.registerSerializationHooks();
+        // test in CAMP where DSL is registered
+        String dslLiteralFoo = "$brooklyn:literal(\"foo\")";
+        WrappedValuesSerializationTest.ObjectWithWrappedValueString impl = deser(json("x: " + dslLiteralFoo), ObjectWithWrappedValueString.class);
+        Asserts.assertNotNull(impl.x);
+        Asserts.assertEquals(resolve(impl.x, String.class).get(), "foo");
     }
 }

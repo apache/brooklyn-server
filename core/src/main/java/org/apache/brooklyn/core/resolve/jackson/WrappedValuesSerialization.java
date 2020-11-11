@@ -36,7 +36,10 @@ import com.fasterxml.jackson.databind.ser.BeanSerializerFactory;
 import com.fasterxml.jackson.databind.ser.PropertyBuilder;
 import com.fasterxml.jackson.databind.ser.SerializerFactory;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
+import com.google.common.collect.Iterables;
 import java.util.Map;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynRegisteredTypeAndClassNameIdResolver;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -53,14 +56,38 @@ public class WrappedValuesSerialization {
     private static final Logger log = LoggerFactory.getLogger(WrappedValuesSerialization.class);
 
     public static class WrappedValueDeserializer extends JsonDeserializer {
+        ManagementContext mgmt;
+        public WrappedValueDeserializer(ManagementContext mgmt) {
+            this.mgmt = mgmt;
+        }
+
         @Override
         public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
             return deserializeWithType(p, ctxt, null);
         }
         @Override
         public Object deserializeWithType(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException {
-            return WrappedValue.of(deserializeWithTypeUnwrapped(p, ctxt, typeDeserializer));
+            Object v = deserializeWithTypeUnwrapped(p, ctxt, typeDeserializer);
+            if (JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION!=null && mgmt!= null) {
+                if (looksLikeDsl(v)) {
+                    v = JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION.apply(mgmt, v);
+                }
+            }
+            return WrappedValue.of(v);
         }
+
+        private boolean looksLikeDsl(Object v) {
+            if (v instanceof String) {
+                return ((String)v).startsWith("$brooklyn:");
+            }
+            if (v instanceof Map) {
+                if (((Map)v).size()==1) {
+                    return looksLikeDsl(Iterables.getOnlyElement( ((Map)v).keySet() ));
+                }
+            }
+            return false;
+        }
+
         Object deserializeWithTypeUnwrapped(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException {
             List<Exception> exceptions = MutableList.of();
             try {
@@ -194,7 +221,9 @@ public class WrappedValuesSerialization {
         return x;
     }
 
-    public static ObjectMapper apply(ObjectMapper mapper) {
+    /** Applies de/serializers which will automatically wrap/unwrap objects and suppliers in a WrappedValue where a WrappedValue is expected.
+     * If {@link ManagementContext} is supplied and a DSL deserialization hook is registered this will additionally resolve DSL expressions in the wrapped value. */
+    public static ObjectMapper apply(ObjectMapper mapper, ManagementContext mgmt) {
         if (mapper.getSerializationConfig().getDefaultTyper(null) == null) {
             throw new IllegalStateException("Mapper must be set up to use a TypeResolverBuilder including type info for wrapped value serialization to work.");
         }
@@ -204,7 +233,7 @@ public class WrappedValuesSerialization {
             .setVisibility(new VisibilityChecker.Std(Visibility.ANY, Visibility.ANY, Visibility.ANY, Visibility.ANY, Visibility.ANY))
             .registerModule(new SimpleModule()
                 .addSerializer(WrappedValue.class, new WrappedValueSerializer())
-                .addDeserializer(WrappedValue.class, new WrappedValueDeserializer())
+                .addDeserializer(WrappedValue.class, new WrappedValueDeserializer(mgmt))
             );
     }
 

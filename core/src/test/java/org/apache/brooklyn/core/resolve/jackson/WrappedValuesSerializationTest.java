@@ -39,8 +39,8 @@ public class WrappedValuesSerializationTest implements MapperTestFixture {
     }
 
     // basic serialization / deserialization of wrapped values
-    static class ObjectWithWrappedValueString extends WrappedValuesInitialized {
-        private WrappedValue<String> x;
+    public static class ObjectWithWrappedValueString extends WrappedValuesInitialized {
+        public WrappedValue<String> x;
     }
 
     @Test
@@ -151,11 +151,12 @@ public class WrappedValuesSerializationTest implements MapperTestFixture {
         Asserts.assertEquals(resolve(a.x, WrappedValue.class).get().get(), "hello");
     }
 
-    protected <T> Maybe<T> resolve(Object o, Class<T> type) {
-        BasicExecutionManager execManager = new BasicExecutionManager("test-context-"+ JavaClassNames.niceClassAndMethod());
-        BasicExecutionContext execContext = new BasicExecutionContext(execManager);
-
-        return Tasks.resolving(o).as(type).context(execContext).deep().getMaybe();
+    @Test
+    public void testDeserializeDsl() throws Exception {
+        // test in CAMP where DSL is registered
+        String dslLiteralFoo = "$brooklyn:literal(\"foo\")";
+        ObjectWithWrappedValueString impl = deser(json("x: " + dslLiteralFoo), ObjectWithWrappedValueString.class);
+        Asserts.assertNotNull(impl.x);
+        Asserts.assertEquals(impl.x.get(), dslLiteralFoo);
     }
-
 }
