@@ -31,6 +31,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -58,7 +61,7 @@ public class RecordingSshTool implements SshTool {
         public final Map<String, ?> props;
         public final List<String> commands;
         public final Map<String, ?> env;
-        
+
         public ExecParams(Map<?, ?> constructorProps, Map<String, ?> props, List<String> commands, Map<String, ?> env) {
             this.constructorProps = constructorProps;
             this.props = props;
@@ -111,6 +114,7 @@ public class RecordingSshTool implements SshTool {
         public final String summaryForLogging;
         public final List<String> commands;
         public final Map<?,?> env;
+        public final Task<?> task;
         
         ExecCmd(Map<?, ?> constructorProps, Map<String,?> props, String summaryForLogging, List<String> commands, Map<?,?> env) {
             this.constructorProps = constructorProps;
@@ -118,6 +122,7 @@ public class RecordingSshTool implements SshTool {
             this.summaryForLogging = summaryForLogging;
             this.commands = commands;
             this.env = env;
+            this.task = Tasks.current();
         }
         
         @Override
@@ -128,6 +133,7 @@ public class RecordingSshTool implements SshTool {
                     .add("env", env)
                     .add("constructorProps", constructorProps)
                     .add("props", props)
+                    .add("task", task)
                     .toString();
         }
     }
