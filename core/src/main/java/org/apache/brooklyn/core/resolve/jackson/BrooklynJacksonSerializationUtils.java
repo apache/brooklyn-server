@@ -157,6 +157,7 @@ public class BrooklynJacksonSerializationUtils {
                 if (BROOKLYN_PARSE_DSL_FUNCTION!=null && mgmt!=null && result instanceof Map) {
                     Map<?, ?> rm = (Map<?, ?>) result;
                     if (Object.class.equals(_valueClass) || _valueClass==null) {
+                        // this marker indicates that a DSL object was serialized and we need to re-parse it to deserialize it
                         Object brooklynLiteral = rm.get("$brooklyn:literal");
                         if (brooklynLiteral != null) {
                             return BROOKLYN_PARSE_DSL_FUNCTION.apply(mgmt, brooklynLiteral);

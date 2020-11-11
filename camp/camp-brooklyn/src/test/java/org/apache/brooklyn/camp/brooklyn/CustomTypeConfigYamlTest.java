@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,6 +68,9 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     }
     
     protected Entity deployWithTestingCustomTypeObjectConfig(boolean declareParameter, boolean declareType, boolean isList, String type, ConfigKey<?> key) throws Exception {
+        return deployWithTestingCustomTypeObjectConfig(declareParameter, declareType, isList, type, key, true);
+    }
+    protected Entity deployWithTestingCustomTypeObjectConfig(boolean declareParameter, boolean declareType, boolean isList, String type, ConfigKey<?> key, boolean includeValue) throws Exception {
         return setupAndCheckTestEntityInBasicYamlWith(
                 declareParameter ? Strings.lines(
                         "  brooklyn.parameters:",
@@ -76,7 +81,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 isList ? "    - " : "",
                 declareType ?
                         "      type: "+(isList ? Strings.removeAllFromEnd(Strings.removeAllFromStart(type, "list", "<"), ">") : type) : "",
-                "      x: foo");
+                includeValue ? "      x: foo" : "");
     }
 
     protected void assertObjectIsOurCustomTypeWithFieldValues(Object customObj, String x, String y) {
@@ -317,4 +322,55 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_LIST_TYPED, "foo", null);
     }
 
+    @Test
+    public void TestRegisteredType_Inherited_OneStep_FailsInPojo() {
+        Asserts.assertFailsWith(this::doTestRegisteredType_Inherited,
+                e -> {
+                    Asserts.expectedFailureContainsIgnoreCase(Exceptions.collapseIncludingAllCausalMessages(e), "could not resolve", "custom-type-0");
+                    return true;
+                });
+    }
+
+    protected void doTestRegisteredType_Inherited() {
+        try {
+            addCatalogItems(
+                    "brooklyn.catalog:",
+                    "  version: " + TEST_VERSION,
+                    "  items:",
+                    "  - id: custom-type-0",
+                    "    item:",
+                    "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
+                    "      x: foo2",
+                    "  - id: custom-type",
+                    "    item:",
+                    "      type: custom-type-0",
+                    "      y: bar");
+            lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(true, true, false, "custom-type", CONF1_ANONYMOUS, false);
+            assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_ANONYMOUS, "foo2", "bar");
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
+    @Test
+    public void testRegisteredType_InheritedTwoStep() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: custom-type-0",
+                "    item:",
+                "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
+                "      x: foo2");
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: custom-type",
+                "    item:",
+                "      type: custom-type-0",
+                "      y: bar");
+        lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(true, true, false, "custom-type", CONF1_ANONYMOUS, false);
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_ANONYMOUS, "foo2", "bar");
+    }
 }

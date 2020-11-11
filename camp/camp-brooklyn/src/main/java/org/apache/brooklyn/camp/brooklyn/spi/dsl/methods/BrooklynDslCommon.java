@@ -21,12 +21,10 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import java.util.*;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
@@ -93,8 +91,12 @@ public class BrooklynDslCommon {
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
     public static final String PREFIX = "$brooklyn:";
-    static {
+
+    public static void registerSerializationHooks() {
         BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
+    }
+    static {
+        registerSerializationHooks();
     }
     
     // Access specific entities
@@ -343,6 +345,23 @@ public class BrooklynDslCommon {
                 return new DslObject(type, factoryMethodName, factoryMethodArgs, objectFields, brooklynConfig);
             }
         }
+    }
+
+    @DslAccessible
+    public static Object object(String argumentsMapAsYamlStringOrShorthand) {
+        Object arg = Yamls.parseAll(argumentsMapAsYamlStringOrShorthand).iterator().next();
+        if (arg instanceof Map) return object( (Map<String,Object>)arg );
+        if (arg instanceof Collection) {
+            List argL = MutableList.copyOf((Collection)arg);
+            if (argL.size()>=1) {
+                return object(MutableMap.of("type", argL.remove(0), "constructor.args", argL));
+            }
+        }
+        if (arg instanceof String) {
+            return object(MutableMap.of("type", arg, "constructor.args", Collections.emptyList()));
+        }
+
+        throw new IllegalArgumentException("Argument to object should be a map, or shorthand type name as string, or type name and constructor arguments as list");
     }
 
     // String manipulation

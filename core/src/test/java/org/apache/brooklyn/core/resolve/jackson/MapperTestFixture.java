@@ -21,7 +21,12 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterables;
+import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.yaml.Yamls;
 
 public interface MapperTestFixture {
@@ -58,6 +63,13 @@ public interface MapperTestFixture {
         } catch (JsonProcessingException e) {
             throw Exceptions.propagate(e);
         }
+    }
+
+    default <T> Maybe<T> resolve(Object o, Class<T> type) {
+        BasicExecutionManager execManager = new BasicExecutionManager("test-context-"+ JavaClassNames.niceClassAndMethod());
+        BasicExecutionContext execContext = new BasicExecutionContext(execManager);
+
+        return Tasks.resolving(o).as(type).context(execContext).deep().getMaybe();
     }
 
 }
