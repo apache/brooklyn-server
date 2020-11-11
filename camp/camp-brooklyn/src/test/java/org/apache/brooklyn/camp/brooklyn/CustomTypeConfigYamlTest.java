@@ -331,7 +331,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 });
     }
 
-    public void doTestRegisteredType_Inherited() {
+    protected void doTestRegisteredType_Inherited() {
         try {
             addCatalogItems(
                     "brooklyn.catalog:",
