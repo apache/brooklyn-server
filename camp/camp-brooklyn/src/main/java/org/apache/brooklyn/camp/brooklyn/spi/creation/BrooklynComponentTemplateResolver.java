@@ -77,7 +77,6 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -316,9 +315,9 @@ public class BrooklynComponentTemplateResolver {
             BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn = this::convertConfig;
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
-                final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                if (key==null) ConfigKeys.newConfigKey(Object.class, flag);
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final ConfigKey<Object> key = Maybe.ofDisallowingNull((ConfigKey<Object>) r.getConfigKey()).or(() -> ConfigKeys.newConfigKey(Object.class, flag));
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
@@ -339,7 +338,8 @@ public class BrooklynComponentTemplateResolver {
 
             if (r.getConfigKeyMaybeValue().isPresent()) {
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
@@ -388,7 +388,12 @@ public class BrooklynComponentTemplateResolver {
     }
 
     private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
-        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>)(input));
+        // no longer do conversion on set; do it on read instead
+//        if (BeanWithTypeUtils.isConversionPlausible(input, type) && BeanWithTypeUtils.isJsonOrDeferredSupplier(input.orNull())) {
+//            // attempt bean-with-type conversion if we're given a map when a map is not explicitly wanted
+//            return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
+//        }
+        return (Maybe<T>)input;
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {

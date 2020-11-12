@@ -54,4 +54,10 @@ public class CustomTypeConfigYamlOsgiTest extends CustomTypeConfigYamlTest {
         Object b1n = Reflections.getFieldValueMaybe(b1, "number").get();
         Asserts.assertEquals(b1n, 1);
     }
+
+    @Override // multiple type works in OSGi
+    @Test
+    public void TestRegisteredType_Inherited_OneStep_FailsInPojo() {
+        doTestRegisteredType_Inherited();
+    }
 }

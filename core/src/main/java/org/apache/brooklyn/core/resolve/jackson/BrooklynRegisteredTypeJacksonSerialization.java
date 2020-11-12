@@ -141,6 +141,15 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                 return super.typeFromId(context, id);
             }
 
+            // even if we aren't allowed to load java types, if the expected type matches, then we will allow it
+            if (_baseType!=null && _baseType.toCanonical().equals(id)) {
+                return _baseType;
+            }
+
+            if (id!=null && id.startsWith("org.apache.brooklyn.camp.brooklyn.spi.dsl.")) {
+                // allow DSL objects to be treated as objects even if we can't instantiate the types
+                return context.constructType(Object.class);
+            }
             // copied from super if it fails to find the type
             if (context instanceof DeserializationContext) {
                 return ((DeserializationContext) context).handleUnknownTypeId(_baseType, id, this, "no such class found");

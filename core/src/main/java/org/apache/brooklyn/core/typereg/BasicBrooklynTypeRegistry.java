@@ -18,11 +18,8 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -98,17 +95,30 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     private Iterable<RegisteredType> getAllWithoutCatalog(Predicate<? super RegisteredType> filter) {
         // TODO optimisation? make indexes and look up?
         Ordering<RegisteredType> typeOrder = Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE);
-        return Locks.withLock(localRegistryLock.readLock(), 
-            () -> localRegisteredTypesAndContainingBundles.values().stream().
-                flatMap(m -> { return typeOrder.sortedCopy(m.values()).stream(); }).filter(filter::apply).collect(Collectors.toList()) );
+        return withOptionalReadLock(() -> localRegisteredTypesAndContainingBundles.values().stream().
+                flatMap(m -> {
+                    return typeOrder.sortedCopy(m.values()).stream();
+                }).filter(filter::apply).collect(Collectors.toList()));
     }
 
     private Maybe<RegisteredType> getExactWithoutLegacyCatalog(String symbolicName, String version, RegisteredTypeLoadingContext constraint) {
-        RegisteredType item = Locks.withLock(localRegistryLock.readLock(), 
+        RegisteredType item = withOptionalReadLock(
             ()-> getBestValue(localRegisteredTypesAndContainingBundles.get(symbolicName+":"+version)) );
         return RegisteredTypes.tryValidate(item, constraint);
     }
 
+    private <T> T withOptionalReadLock(Callable<T> call) {
+        if (Thread.currentThread().isInterrupted()) {
+            // if we're doing get immediately bypass the lock
+            try {
+                return call.call();
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        } else {
+            return Locks.withLock(localRegistryLock.readLock(), call);
+        }
+    }
     private RegisteredType getBestValue(Map<String, RegisteredType> m) {
         if (m==null) return null;
         if (m.isEmpty()) return null;
