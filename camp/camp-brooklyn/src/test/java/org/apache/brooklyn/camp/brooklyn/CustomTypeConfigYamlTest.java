@@ -323,33 +323,21 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void TestRegisteredType_Inherited_OneStep_FailsInPojo() {
-        Asserts.assertFailsWith(this::doTestRegisteredType_Inherited,
-                e -> {
-                    Asserts.expectedFailureContainsIgnoreCase(Exceptions.collapseIncludingAllCausalMessages(e), "could not resolve", "custom-type-0");
-                    return true;
-                });
-    }
-
-    protected void doTestRegisteredType_Inherited() {
-        try {
-            addCatalogItems(
-                    "brooklyn.catalog:",
-                    "  version: " + TEST_VERSION,
-                    "  items:",
-                    "  - id: custom-type-0",
-                    "    item:",
-                    "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
-                    "      x: foo2",
-                    "  - id: custom-type",
-                    "    item:",
-                    "      type: custom-type-0",
-                    "      y: bar");
-            lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(true, true, false, "custom-type", CONF1_ANONYMOUS, false);
-            assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_ANONYMOUS, "foo2", "bar");
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
-        }
+    public void TestRegisteredType_InheritFromPeer_nowWorksInPojoAndOsgi() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: custom-type-0",
+                "    item:",
+                "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
+                "      x: foo2",
+                "  - id: custom-type",
+                "    item:",
+                "      type: custom-type-0",
+                "      y: bar");
+        lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(true, true, false, "custom-type", CONF1_ANONYMOUS, false);
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_ANONYMOUS, "foo2", "bar");
     }
 
     @Test

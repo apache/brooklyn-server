@@ -258,7 +258,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             
         } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
             if (constraint != null && constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
-                throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
+                throw new TypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
                 
             } else {
                 // try just-in-time validation
@@ -354,8 +354,28 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     public <T> T createBean(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, @Nullable Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
         if (type.getKind()!=RegisteredTypeKind.BEAN) { 
-            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) throw new ReferencedUnresolvedTypeException(type);
-            else throw new UnsupportedTypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
+            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                // attempt to resolve
+                if (constraint != null && constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
+                    throw new TypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
+
+                } else {
+                    // try just-in-time validation
+                    Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint, false);
+                    if (!validationErrors.isEmpty()) {
+                        throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+                    }
+                    type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
+                    if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                        // shouldn't come here
+                        throw new ReferencedUnresolvedTypeException(type);
+                    }
+                    // continue below to do transform
+                }
+
+            } else {
+                throw new UnsupportedTypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
+            }
         }
         if (constraint!=null) {
             if (constraint.getExpectedKind()!=null && constraint.getExpectedKind()!=RegisteredTypeKind.SPEC) {
