@@ -1332,10 +1332,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             attemptLegacySpecTransformersForType(LOCATIONS_KEY, CatalogItemType.LOCATION);
         }
 
+        boolean suspicionOfABean = false;
+
         private Maybe<Object> attemptPlanTranformer() {
             Exception errorInBean = null;
             try {
-                boolean suspicionOfABean = false;
+                suspicionOfABean = false;
 
                 Set<? extends OsgiBundleWithUrl> searchBundles = MutableSet.copyOf(libraryBundles)
                         .putIfNotNull(containingBundle);
@@ -1394,7 +1396,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 MutableList<Throwable> exceptions = MutableList.<Throwable>of().appendIfNotNull(errorInBean, e);
                 return Maybe.absent(
                         () ->
-                            Exceptions.create("Unable to parse definition of "+
+                            Exceptions.create("Unable to transform definition of "+
                                 (itemId!=null ? itemId : "plan:\n"+itemYaml+"\n"),
                                 exceptions)
                 );
@@ -1407,10 +1409,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
          * May only be available where the type is known. */
         public List<Exception> getErrors() {
             // errors are useful in this order, at least historically, and in our tests
-            if (!errors.isEmpty()) return errors;
-            if (!entityErrors.isEmpty()) return entityErrors;
-            if (!transformerErrors.isEmpty()) return transformerErrors;
-            return Collections.emptyList();
+            MutableList<Exception> l = MutableList.copyOf(errors);
+            if (suspicionOfABean && !transformerErrors.isEmpty()) {
+                // suppress entity errors
+            } else {
+                l.appendAll(entityErrors);
+            }
+            l.appendAll(transformerErrors);
+            return l;
         }
         
         public CatalogItemType getCatalogItemType() {

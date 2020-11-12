@@ -82,9 +82,11 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * The framework guarantees this will only be invoked when {@link #scoreForType(RegisteredType, RegisteredTypeLoadingContext)} 
      * has returned a positive value, and the same constraints on the inputs as for that method apply.
      * <p>
-     * Implementations should either return null or throw {@link UnsupportedTypePlanException} 
-     * if upon closer inspection following a non-null score, they do not actually support the given {@link RegisteredType#getPlan()}.
-     * If they should support the plan but the plan contains an error, they should throw the relevant error for feedback to the user. */
+     * Implementations should either return null,
+     * or throw an {@link UnsupportedTypePlanException} if
+     * if upon closer inspection following a non-null score, they are not actually applicable the given {@link RegisteredType#getPlan()};
+     * If they should support the plan but the plan contains an error, they should throw the relevant error for feedback to the user
+     * which may be a different subclass of {@link TypePlanException}. */
     @Nullable Object create(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
 
     /** @deprecated since 1.1; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */

@@ -126,7 +126,7 @@ class CampResolver {
             } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
                 spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, false);
             } else {
-                throw new IllegalStateException("Cannot detect spec type from " + item.getSuperTypes() + " for " + item + "\n" + planYaml);
+                throw new IllegalStateException("Not a spec or cannot detect spec type from " + item.getSuperTypes() + " for " + item + "\n" + planYaml);
             }
             if (expectedType != null && !expectedType.isAssignableFrom(spec.getType())) {
                 throw new IllegalStateException("Creating spec from " + item + ", got " + spec.getType() + " which is incompatible with expected " + expectedType);

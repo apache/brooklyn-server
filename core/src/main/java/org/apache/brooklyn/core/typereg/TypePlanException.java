@@ -18,20 +18,20 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-/** Used by {@link BrooklynTypePlanTransformer} for a transformer to indicate an error resolving a plan. */
-public class UnsupportedTypePlanException extends TypePlanException {
+/** Subclasses used by {@link BrooklynTypePlanTransformer} for a transformer to indicate an error resolving a plan. */
+public class TypePlanException extends RuntimeException {
 
-    private static final long serialVersionUID = -5590108442839125317L;
+    private static final long serialVersionUID = -5590108442839125318L;
 
-    public UnsupportedTypePlanException(String message, Throwable cause) {
+    public TypePlanException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public UnsupportedTypePlanException(String message) {
+    public TypePlanException(String message) {
         super(message);
     }
 
-    public UnsupportedTypePlanException(Throwable cause) {
+    public TypePlanException(Throwable cause) {
         super(cause);
     }
 

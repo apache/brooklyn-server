@@ -102,7 +102,7 @@ public class TypePlanTransformers {
         
         List<BrooklynTypePlanTransformer> transformers = forType(mgmt, type, constraint);
         Collection<String> transformersWhoDontSupport = new ArrayList<String>();
-        Collection<Exception> failuresFromTransformers = new ArrayList<Exception>();
+        List<Exception> failuresFromTransformers = new ArrayList<Exception>();
         for (BrooklynTypePlanTransformer t: transformers) {
             try {
                 Object result = t.create(type, constraint);
@@ -119,11 +119,16 @@ public class TypePlanTransformers {
                 if (log.isTraceEnabled()) {
                     log.trace("Transformer for "+t.getFormatCode()+" gave an error creating this plan (may retry): "+e, e);
                 }
-                failuresFromTransformers.add(new PropagatedRuntimeException(
-                    (type.getSymbolicName()!=null ? 
-                        t.getFormatCode()+" plan creation error in "+type.getId() :
-                        t.getFormatCode()+" plan creation error") + ": "+
-                    Exceptions.collapseText(e), e));
+                PropagatedRuntimeException e1 = new PropagatedRuntimeException(
+                        (type.getSymbolicName() != null ?
+                                t.getFormatCode() + " plan creation error in " + type.getId() :
+                                t.getFormatCode() + " plan creation error") + ": " +
+                                Exceptions.collapseText(e), e);
+                if (Exceptions.getFirstThrowableOfType(e, TypePlanException.class)!=null) {
+                    failuresFromTransformers.add(0, e1);
+                } else {
+                    failuresFromTransformers.add(e1);
+                }
             }
         }
         
