@@ -330,6 +330,11 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         return nextValue.get();
     }
 
+    public Maybe<T> orMaybe(Supplier<Maybe<T>> nextValue) {
+        if (isPresent()) return this;
+        return nextValue.get();
+    }
+
     public T orNull() {
         if (isPresent()) return get();
         return null;
