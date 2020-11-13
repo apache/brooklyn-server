@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.task.ssh.internal;
 
 import com.google.common.base.Preconditions;
 
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
@@ -35,7 +36,7 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
     }
 
     /** convenience constructor to supply machine immediately */
-    public AbstractSshExecTaskFactory(SshMachineLocation machine, String ...commands) {
+    public AbstractSshExecTaskFactory(MachineLocation machine, String ...commands) {
         this(commands);
         machine(machine);
     }

@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task.system.internal;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.config.ConfigKey;
@@ -68,7 +69,7 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     }
     
     @Override
-    public T machine(SshMachineLocation machine) {
+    public T machine(MachineLocation machine) {
         markDirty();
         this.machine = machine;
         return self();

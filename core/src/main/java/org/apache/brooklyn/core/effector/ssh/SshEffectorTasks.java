@@ -27,6 +27,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
@@ -105,7 +106,7 @@ public class SshEffectorTasks {
         public SshEffectorTaskFactory(String ...commands) {
             super(commands);
         }
-        public SshEffectorTaskFactory(SshMachineLocation machine, String ...commands) {
+        public SshEffectorTaskFactory(MachineLocation machine, String ...commands) {
             super(machine, commands);
         }
         @Override
