@@ -18,16 +18,21 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -105,6 +110,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
         final Supplier<InputStream> streamSupplier;
 
         private byte[] bytesRead = new byte[0];
+        private boolean readAll = false;
 
         public FileTypeDetector(Supplier<InputStream> streamSupplier) {
             this.streamSupplier = streamSupplier;
@@ -125,8 +131,27 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
             }
             if (size<length) {
                 bytesRead = Arrays.copyOf(bytesRead, size<0 ? 0 : size);
+                readAll = true;
             }
             return bytesRead;
+        }
+
+        private byte[] readAll() {
+            if (readAll) {
+                return bytesRead;
+            }
+            int size = 1024;
+            while (size < bytesRead.length) {
+                size = size * 16;
+            }
+            do {
+                byte[] br = readBytes(size);
+                if (br.length<size) {
+                    readAll = true;
+                    return br;
+                }
+                size = size * 16;
+            } while (true);
         }
 
         // https://en.wikipedia.org/wiki/List_of_file_signatures
@@ -208,6 +233,50 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 return Maybe.absent(e);
+            }
+        }
+
+        public List<String> zipFileMatchesGlob(String glob) {
+            try {
+                ZipFile zf = getZipFile();
+                return zf.stream().filter(ze -> Os.isPathGlobMatched(glob, ze.getName(), true)).map(ZipEntry::getName).collect(Collectors.toList());
+
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Error reading zip: "+e, e);
+            }
+        }
+
+        File zipFile = null;
+        public ZipFile getZipFile() throws IOException {
+            if (zipFile==null) {
+                zipFile = Os.newTempFile("zip-bundle-detector", "zip");
+                FileOutputStream fout = new FileOutputStream(zipFile);
+                Streams.copy(streamSupplier.get(), fout);
+                fout.close();
+            }
+
+            ZipFile zf = new ZipFile(zipFile);
+            return zf;
+        }
+
+        public String zipFileContents(String s) {
+            try {
+                ZipFile zf = getZipFile();
+                ZipEntry ze = zf.getEntry(s);
+                return Streams.readFullyStringAndClose(zf.getInputStream(ze));
+
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Error reading zip: "+e, e);
+            }
+        }
+
+        @Override
+        protected void finalize() throws Throwable {
+            super.finalize();
+
+            // TODO use autocloseable
+            if (zipFile!=null) {
+                zipFile.delete();
             }
         }
     }

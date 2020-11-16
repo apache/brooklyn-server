@@ -26,7 +26,11 @@ import com.google.common.base.Throwables;
 public class WildcardGlobs {
 
     /** returns true iff the target matches the given pattern,
-     * under simplified bash rules -- viz permitting * and ? and comma delimited patterns inside curly braces 
+     * under simplified bash rules -- viz permitting * and ? and comma delimited patterns inside curly braces.
+     * <p>
+     * does not do anything special with path chars so "*.txt" will match "/path/to/*.txt".
+     * if paths are wanted to match see {@link org.apache.brooklyn.util.os.Os#isPathGlobMatched(String, String, boolean)}.
+     *
      * @throws InvalidPatternException */
     public static boolean isGlobMatched(String globPattern, String targetText) throws InvalidPatternException {
         List<String> patterns = getGlobsAfterBraceExpansion(globPattern);       

@@ -38,6 +38,7 @@ import org.apache.brooklyn.util.osgi.OsgiUtil;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -588,4 +589,20 @@ public class Os {
         return newTempDir(JavaClassNames.cleanSimpleClassName(clazz));
     }
 
+    /** as {@link WildcardGlobs#isGlobMatched(String, String)} but looks at path parts first, so "*.yaml" won't match "/foo/*.yaml" but "/*"+"/*.yaml" would.
+     *  (string addition because otherwise it's treated as javadoc comment end char).
+     *  the "**" pattern which sometims matches multiple path segments is not currently supported, but might be added in future. */
+    public static boolean isPathGlobMatched(String glob, String name, boolean stripIniitalSlashes) {
+        if (stripIniitalSlashes) {
+            glob = Strings.removeAllFromStart(glob, "/", "\\");
+            name = Strings.removeAllFromStart(name, "/", "\\");
+        }
+        String[] globs = glob.split("[/\\\\]");
+        String[] names = name.split("[/\\\\]");
+        if (globs.length != names.length) return false;
+        for (int i=0; i<globs.length; i++) {
+            if (!WildcardGlobs.isGlobMatched(globs[i], names[i])) return false;
+        }
+        return true;
+    }
 }
