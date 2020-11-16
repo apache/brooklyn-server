@@ -522,7 +522,7 @@ public class OsgiManager {
         return mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(vn));
     }
     
-    /** @deprecated since 0.12.0 use {@link #install(InputStream, String, boolean)} */
+    /** @deprecated since 0.12.0 use {@link #install(Supplier, String, boolean)} */
     @Deprecated
     public synchronized Bundle registerBundle(CatalogBundle bundleMetadata) {
         try {
@@ -658,7 +658,7 @@ public class OsgiManager {
                 bundleProblems.put(osgiBundle, e);
 
                 Throwable cause = e.getCause();
-                if (cause != null && cause.getMessage().contains("Unresolved constraint in bundle")) {
+                if (cause != null && cause.getMessage()!=null && cause.getMessage().contains("Unresolved constraint in bundle")) {
                     if (BrooklynVersion.INSTANCE.getVersionFromOsgiManifest()==null) {
                         extraMessages.add("No brooklyn-core OSGi manifest available. OSGi will not work.");
                     }

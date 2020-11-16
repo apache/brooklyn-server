@@ -111,6 +111,13 @@ public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supp
     }
 
     @Override
+    public String toString() {
+        return "WrappedValue{" +
+                (value!=null ? "value=" + value : supplier!=null ? "supplier=" + supplier : "null") +
+                '}';
+    }
+
+    @Override
     public int hashCode() {
         return Objects.hash(value, supplier);
     }

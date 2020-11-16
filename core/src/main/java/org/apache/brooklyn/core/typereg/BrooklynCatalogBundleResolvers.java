@@ -158,10 +158,10 @@ public class BrooklynCatalogBundleResolvers {
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Failure resolving bundle; returning summary failure, but for reference "
-                        + "potentially applicable resolvers were " + resolvers + ", "
-                        + "available ones are " + MutableList.builder().addAll(all(mgmt)).build() + "; "
-                        + "failures: " + failuresFromResolvers+"; "
-                        + "unsupported by: "+resolversWhoDontSupport);
+                        + "potentially applicable resolvers were " + resolvers + " "
+                        + "(available ones are " + MutableList.builder().addAll(all(mgmt)).build() + ")"
+                        + (failuresFromResolvers.isEmpty() ? "" : "; failures: " + failuresFromResolvers)
+                        + (resolversWhoDontSupport.isEmpty() ? "" : "; unsupported by: "+resolversWhoDontSupport));
             }
 
             // failed

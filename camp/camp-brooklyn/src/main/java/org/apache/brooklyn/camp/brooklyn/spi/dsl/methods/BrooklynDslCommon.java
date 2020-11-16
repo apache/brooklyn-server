@@ -734,11 +734,15 @@ public class BrooklynDslCommon {
                     .build();
         }
 
+        @JsonIgnore
         protected Class<?> getOrLoadType() {
             Class<?> type = this.type;
             if (type == null) {
                 EntityInternal entity = entity();
                 try {
+                    if (entity==null) {
+                        throw new IllegalStateException("Cannot invoke without a Task running the context of an entity");
+                    }
                     type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
                 } catch (ClassNotFoundException e) {
                     throw Exceptions.propagate(e);
