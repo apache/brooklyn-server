@@ -38,6 +38,7 @@ import com.fasterxml.jackson.databind.ser.SerializerFactory;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.collect.Iterables;
 import java.util.Map;
+import java.util.Optional;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynRegisteredTypeAndClassNameIdResolver;
@@ -111,7 +112,11 @@ public class WrappedValuesSerialization {
                     exceptions.add(e);
                 }
 
-                throw new IllegalStateException("Cannot parse wrapper data and contextual type info not available: "+exceptions, exceptions.stream().findFirst().orElse(null));
+                // prefer exceptions that aren't from jackson, that usually indicates a deeper problem
+                Optional<Exception> preferred = exceptions.stream().filter(err -> !(err instanceof JsonProcessingException)).findFirst();
+                if (!preferred.isPresent()) preferred = exceptions.stream().findFirst();
+                throw new IllegalStateException("Cannot parse wrapper data and contextual type info not available: "+exceptions,
+                        preferred.orElse(null));
             } finally {
                 if (!exceptions.isEmpty() && log.isTraceEnabled()) {
                     log.trace("Exceptions encountered while deserializing: "+exceptions);

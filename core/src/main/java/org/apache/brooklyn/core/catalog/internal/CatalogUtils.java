@@ -56,6 +56,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
@@ -174,11 +175,14 @@ public class CatalogUtils {
             Stopwatch timer = Stopwatch.createStarted();
             List<OsgiBundleInstallationResult> results = MutableList.of();
             for (CatalogBundle bundle : libraries) {
-                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true).get();
+                ReferenceWithError<OsgiBundleInstallationResult> result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true);
                 if (log.isDebugEnabled()) {
                     logDebugOrTraceIfRebinding(log, "Installation of library "+bundle+": "+result);
                 }
-                results.add(result);
+                if (result.hasError()) {
+                    throw Exceptions.propagateAnnotated("Error installing "+bundle, result.getError());
+                }
+                results.add(result.get());
             }
             Map<String, Throwable> errors = MutableMap.of();
             if (startBundlesAndInstallToBrooklyn) {

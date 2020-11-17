@@ -48,9 +48,13 @@ public class BrooklynBomBundleCatalogBundleResolver extends AbstractCatalogBundl
     @Override
     protected double scoreForNullFormat(Supplier<InputStream> f) {
         FileTypeDetector detector = new FileTypeDetector(f);
-        if (detector.isZip()) return 0.7;
-        // so we get good errors
-        return 0.1;
+        if (detector.isZip()) {
+            if (detector.zipFileMatchesGlob("catalog.bom").size()>0) return 1.0;
+            // add as a plain-old-zip
+            else return 0.4;
+        }
+        // so we get error messages from this
+        return 0.01;
     }
 
     @Override

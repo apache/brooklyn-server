@@ -350,6 +350,12 @@ public class BrooklynBomOsgiArchiveInstaller {
                             zf.entries();
                         }
                     } catch (Exception e) {
+                        try {
+                            prepareInstallResult.zipFile.delete();
+                        } catch (Exception e2) {
+                            Exceptions.propagateIfFatal(e2);
+                            log.warn("Error deleting ZIP file but ignoring because handling error "+e+": "+e2);
+                        }
                         throw Exceptions.propagate(e);
                     }
                 }

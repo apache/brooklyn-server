@@ -71,7 +71,14 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
      * Such a value should be returned even if the plan is not actually parseable, but if it looks like a user error
      * which prevents parsing (eg mal-formed YAML) and the transformer could likely be the intended target.
      * <p>
-     * */
+     * Many implementations will return small but non-zero values in cases where they are unlikely or definitely won't work.
+     * For instance if 0.2 to 0.4 if they might work but probably aren't intended (such as it is a ZIP as expected, but the ZIP is missing common files);
+     * 0.1 if it's a long shot or won't work but looks plausibly intended and had user error (such as expecting YAML but got text with mal-formed YAML); and
+     * 0.01 if they clearly won't work, but there is a tiny chance it was the intended format but there was a user error (such as expecting YAML but the YAML has non-zero characters).
+     * <p>
+     * Typically scores that are <= half the max score will not propagate their error messages beyond the debug log,
+     * so the scoring convention above allows likely errors to be returned to the user even when the format is uncertain.
+     */
     double scoreForBundle(@Nullable String format, @Nonnull Supplier<InputStream> input);
 
     /** Installs the given bundle to the type {@link BrooklynTypeRegistry}.
