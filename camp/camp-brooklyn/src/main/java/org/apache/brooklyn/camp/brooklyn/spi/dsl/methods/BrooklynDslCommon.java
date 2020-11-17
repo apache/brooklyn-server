@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import java.util.*;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
@@ -45,6 +46,7 @@ import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
@@ -52,6 +54,7 @@ import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -68,6 +71,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.beanutils.BeanUtils;
@@ -328,7 +332,7 @@ public class BrooklynDslCommon {
         try {
             type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
         } catch (ClassNotFoundException e) {
-            LOG.debug("Cannot load class " + typeName + " for DLS object; assuming it is in OSGi bundle; will defer its loading");
+            LOG.debug("Cannot load class " + typeName + " for DSL 'object'; assuming it is in OSGi bundle; will defer its loading");
             return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
@@ -667,6 +671,9 @@ public class BrooklynDslCommon {
 
         @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
+            // TODO reconcile with "bean-with-type" usage and constructors;
+            // for now, if it's a registered type we use that to get the java instance but we ignore fields on it
+
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
 
@@ -720,6 +727,8 @@ public class BrooklynDslCommon {
                     .body(new Callable<Object>() {
                         @Override
                         public Object call() throws Exception {
+                            // TODO de-dupe with getImmediately
+
                             Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
                             Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
                             List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
@@ -737,12 +746,23 @@ public class BrooklynDslCommon {
         @JsonIgnore
         protected Class<?> getOrLoadType() {
             Class<?> type = this.type;
+
             if (type == null) {
                 EntityInternal entity = entity();
                 try {
                     if (entity==null) {
                         throw new IllegalStateException("Cannot invoke without a Task running the context of an entity");
                     }
+                    RegisteredType rt = managementContext().getTypeRegistry().get(typeName, RegisteredTypeLoadingContexts.loader(new OsgiBrooklynClassLoadingContext(entity)));
+                    if (rt!=null) {
+                        Object inst = managementContext().getTypeRegistry().create(rt, null, null);
+                        if (inst!=null) {
+                            // we ignore the actually instance for now; see comments at start of this class
+                            return inst.getClass();
+                        }
+                    }
+
+                    // fall back to trying to load as a class
                     type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
                 } catch (ClassNotFoundException e) {
                     throw Exceptions.propagate(e);
