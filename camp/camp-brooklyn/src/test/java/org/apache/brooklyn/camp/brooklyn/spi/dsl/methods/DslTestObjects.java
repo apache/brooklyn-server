@@ -66,8 +66,15 @@ public class DslTestObjects {
         }
     }
 
-    public static class DslTestCallable implements DslFunctionSource, DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
+    public static class DslTestCallable implements DslFunctionSource {
+        @DslAccessible
+        public boolean isSupplierCallable() {
+            return true;
+        }
+    }
 
+    // see comments in DslYamlTest.testDeferredDslChainingWithCustomCallable
+    public static class DslTestCallableAlsoSupplier extends DslTestCallable implements DeferredSupplier<TestDslSupplier>, ImmediateSupplier<TestDslSupplier> {
         @Override @JsonIgnore
         public Maybe<TestDslSupplier> getImmediately() {
             throw new IllegalStateException("Not to be called");
@@ -75,13 +82,9 @@ public class DslTestObjects {
 
         @Override
         public TestDslSupplier get() {
-            throw new IllegalStateException("Not to be called");
+            return getImmediately().get();
         }
 
-        @DslAccessible
-        public boolean isSupplierCallable() {
-            return true;
-        }
     }
 
 }
