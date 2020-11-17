@@ -561,7 +561,7 @@ public class OsgiManager {
         } catch (RuntimeException ex) {
             // as of May 2017 we no longer uninstall the bundle here if install of catalog items fails;
             // the OsgiManager routines which call this method will do this 
-            throw new IllegalArgumentException("Error installing catalog items", ex);
+            throw new IllegalArgumentException("Error installing catalog items from BOM in "+bundle+(Strings.isNonBlank(bomText) ? " (with specified BOM text)" : ""), ex);
         }
     }
     
