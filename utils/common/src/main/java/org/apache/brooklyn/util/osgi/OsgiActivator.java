@@ -17,18 +17,29 @@ package org.apache.brooklyn.util.osgi;
 
 import org.osgi.framework.BundleActivator;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.launch.Framework;
+import org.osgi.framework.startlevel.FrameworkStartLevel;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * handle bundle activation/deactivation
  */
 public class OsgiActivator implements BundleActivator {
 
+  private static Logger LOG = LoggerFactory.getLogger(OsgiActivator.class);
+
   @Override
   public void start(BundleContext context) throws Exception {
+      Framework f = (Framework) context.getBundle(0);
+      // https://issues.apache.org/jira/browse/KARAF-6920: framework start level should report 80 but instead says 100 on clean start
+      // when this is resolved we will no longer need the `startlevel.postinit` property in OsgiLauncherImpl
+      LOG.debug("Starting "+context.getBundle()+", at OSGi start-level "+f.adapt(FrameworkStartLevel.class).getStartLevel()+", bundle state "+context.getBundle().getState());
   }
 
   @Override
   public void stop(BundleContext context) throws Exception {
+      LOG.debug("Stopping "+context.getBundle());
       OsgiUtil.shutdown();
   }
 
