@@ -85,6 +85,11 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         if (user==null) return false;
         checkCanLoad();
 
+        if (Strings.isBlank(pass)) {
+            // InitialDirContext doesn't do authentication if no password is supplied!
+            return false;
+        }
+
         Hashtable env = new Hashtable();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
         env.put(Context.PROVIDER_URL, ldapUrl);
@@ -93,7 +98,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         env.put(Context.SECURITY_CREDENTIALS, pass);
 
         try {
-            new InitialDirContext(env);
+            new InitialDirContext(env);  // will throw if password is invalid
             return allow(sessionSupplierOnSuccess.get(), user);
         } catch (NamingException e) {
             return false;
