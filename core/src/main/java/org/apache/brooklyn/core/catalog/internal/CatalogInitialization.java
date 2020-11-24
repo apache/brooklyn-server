@@ -532,8 +532,23 @@ public class CatalogInitialization implements ManagementContextInjectable {
                 err.getLeft().getKey().toString(), err.getLeft().getValue().getManagedBundle().getSymbolicName(), err.getRight()) );
 
         // Start the bundles (now that we've installed them all)
+
         Set<RegisteredType> installedTypes = MutableSet.of();
-        for (OsgiBundleInstallationResult br : installs.values()) {
+
+        // start order is:  OSGi and not catalog; then OSGi and catalog; then not catalog nor OSGi; then catalog and not OSGi
+        // (we need OSGi and not catalog to start first; the others are less important)
+        Set<OsgiBundleInstallationResult> bundlesInOrder = MutableSet.copyOf(installs.values());
+        MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle()!=null && b.getBundle().getResource("/catalog.bom")!=null).forEach(b -> {
+            bundlesInOrder.remove(b); bundlesInOrder.add(b); // then move catalog.bom items to the end
+        });
+        MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle()!=null && b.getBundle().getResource("/OSGI-INF/MANIFEST.MF")==null).forEach(b -> {
+            bundlesInOrder.remove(b); bundlesInOrder.add(b); // move non-osgi items to the end
+        });
+        if (!bundlesInOrder.isEmpty()) {
+            log.debug("Rebind bundle start order is: "+bundlesInOrder);
+        }
+
+        for (OsgiBundleInstallationResult br : bundlesInOrder) {
             try {
                 startBundle(br);
                 Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
@@ -561,7 +576,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
         }
     }
-    
+
     private void validateAllTypes(Set<RegisteredType> installedTypes, RebindExceptionHandler exceptionHandler) {
         Stopwatch sw = Stopwatch.createStarted();
         log.debug("Getting catalog to validate all types");
