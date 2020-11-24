@@ -176,15 +176,12 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
                 throw Exceptions.propagateAnnotated("Invalid duration specified for '"+BROOKLYN_OSGI_DEPENDENCIES_SERVICES_TIMEOUT+"'", e);
             }
             fallbackThread = new Thread(() -> {
-                if (timeout==null) {
-                    LOG.debug("No timeout specified for '"+BROOKLYN_OSGI_DEPENDENCIES_SERVICES_TIMEOUT+"'; will wait indefinitely for service dependencies");
-                    return;
-                }
-
                 CountdownTimer timer = timeout==null ? null : CountdownTimer.newInstanceStarted(timeout);
                 try {
                     if (timeout!=null) {
                         LOG.debug("Service dependencies timeout detected as " + timeout + "; will start catalog/rebind after that delay if service dependencies not fulfilled sooner");
+                    } else {
+                        LOG.debug("No timeout specified for '"+BROOKLYN_OSGI_DEPENDENCIES_SERVICES_TIMEOUT+"'; will wait indefinitely for service dependencies");
                     }
                     int iteration = 0;
                     do {
