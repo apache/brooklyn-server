@@ -541,7 +541,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle()!=null && b.getBundle().getResource("/catalog.bom")!=null).forEach(b -> {
             bundlesInOrder.remove(b); bundlesInOrder.add(b); // then move catalog.bom items to the end
         });
-        MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle()!=null && b.getBundle().getResource("/OSGI-INF/MANIFEST.MF")==null).forEach(b -> {
+        MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle()!=null && b.getBundle().getResource("/META-INF/MANIFEST.MF")==null).forEach(b -> {
             bundlesInOrder.remove(b); bundlesInOrder.add(b); // move non-osgi items to the end
         });
         if (!bundlesInOrder.isEmpty()) {
