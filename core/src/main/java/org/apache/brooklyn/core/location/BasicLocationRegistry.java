@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalLocationManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -62,6 +63,10 @@ import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.apache.brooklyn.util.text.WildcardGlobs.PhraseTreatment;
+import org.osgi.framework.Constants;
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceEvent;
+import org.osgi.framework.ServiceListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,33 +140,75 @@ public class BasicLocationRegistry implements LocationRegistry {
 
     public BasicLocationRegistry(ManagementContext mgmt) {
         this.mgmt = checkNotNull(mgmt, "mgmt");
-        findServices();
+        if (findServices()) {
+            log.debug("Location resolvers installed as: "+resolvers);
+        } else {
+            if (resolvers.isEmpty()) {
+                log.warn("No location resolvers detected: is src/main/resources correctly included?");
+            } else {
+                // shouldn't come here
+                log.debug("Location resolvers unchanged on initialization but not empty (odd): "+resolvers);
+            }
+        }
+
         updateDefinedLocations();
+
+        // listen for additions if using OSGi
+        Maybe<OsgiManager> osgi = ((ManagementContextInternal) mgmt).getOsgiManager();
+        if (osgi.isPresent()) {
+            try {
+                osgi.get().getFramework().getBundleContext().addServiceListener(new ServiceListener() {
+                    @Override
+                    public void serviceChanged(ServiceEvent event) {
+                        if (findServices()) {
+                            log.debug("Location resolvers changed, now: "+resolvers);
+                        }
+                    }
+                },
+                // filter this based on it being a location resolver services
+                "("+ Constants.OBJECTCLASS+"="+LocationResolver.class.getName()+")");
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                log.warn("Error adding service listener: "+e, e);
+            }
+        }
     }
 
-    protected void findServices() {
-        Iterable<LocationResolver> loader = FrameworkLookup.lookupAll(LocationResolver.class, mgmt.getCatalogClassLoader());
+    protected boolean findServices() {
         MutableList<LocationResolver> loadedResolvers;
         try {
+            Iterable<LocationResolver> loader = FrameworkLookup.lookupAll(LocationResolver.class, mgmt.getCatalogClassLoader());
             loadedResolvers = MutableList.copyOf(loader);
         } catch (Throwable e) {
             log.warn("Error loading resolvers (rethrowing): "+e);
             throw Exceptions.propagate(e);
         }
-        
+
+        // note:  removal not supported
+
+        boolean changedAny = false;
         for (LocationResolver r: loadedResolvers) {
-            registerResolver(r);
+            changedAny = registerResolver(r) || changedAny;
         }
-        if (log.isDebugEnabled()) log.debug("Location resolvers are: "+resolvers);
-        if (resolvers.isEmpty()) log.warn("No location resolvers detected: is src/main/resources correctly included?");
+        return changedAny;
     }
 
     /** Registers the given resolver, invoking {@link LocationResolver#init(ManagementContext)} on the argument
-     * and returning true, unless the argument indicates false for {@link LocationResolver.EnableableLocationResolver#isEnabled()} */
+     * and returning true, unless the argument indicates false for {@link LocationResolver#isEnabled()}
+     * or it is already registered. */
     public boolean registerResolver(LocationResolver r) {
+        LocationResolver oldResolver = resolvers.get(r.getPrefix());
+        if (oldResolver==r) {
+            return false;
+        }
+
         r.init(mgmt);
         if (!r.isEnabled()) {
             return false;
+        }
+
+        if (oldResolver!=null) {
+            log.info("BasicLocationRegistry detected _change_ to service providing location resolver type '"+r.getPrefix()+"', from "+oldResolver+" to "+r);
         }
         resolvers.put(r.getPrefix(), r);
         return true;
