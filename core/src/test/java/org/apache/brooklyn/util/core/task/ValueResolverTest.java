@@ -154,10 +154,12 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         
         // Below, we call ValueResolver.getMaybe() in app's execution context. Therefore it will execute the task
         Maybe<Maybe<String>> result = app.getExecutionContext()
-                .getImmediately(new BasicTask<>( () -> Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe() ));
+                .getImmediately(new BasicTask<>(() -> Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe()));
         
+        // Stupid race condition on slow machines; wait until result is present first
+        Asserts.eventually(() -> result, r -> r.isPresent());
+
         // However, the resubmission will not be waited upon
-        Assert.assertTrue(result.isPresent(), "result="+result);
         Assert.assertTrue(result.get().isAbsent(), "result="+result);
         Exception exception = Maybe.getException(result.get());
         
@@ -169,9 +171,9 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
         Asserts.assertThat(t, (tt) -> Objects.equals(tt.getUnchecked(), "foo"));
         
         // And subsequent get _is_ immediate
-        result = app.getExecutionContext()
-            .getImmediately(new BasicTask<>( () -> Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe() ));
-        Assert.assertEquals(result.get().get(), "foo");
+        Maybe<Maybe<String>> subsequent = app.getExecutionContext()
+            .getImmediately(new BasicTask<>(() -> Tasks.resolving(t).as(String.class).timeout(Asserts.DEFAULT_LONG_TIMEOUT).getMaybe()));
+        Assert.assertEquals(subsequent.get().get(), "foo");
     }
 
     public void testUnsubmittedTaskWithExecutionContextExecutesAndTimesOutImmediate() {
@@ -594,3 +596,4 @@ public class ValueResolverTest extends BrooklynAppUnitTestSupport {
     }
 
 }
+
