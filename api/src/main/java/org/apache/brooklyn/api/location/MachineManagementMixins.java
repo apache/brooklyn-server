@@ -88,4 +88,37 @@ public class MachineManagementMixins {
         MachineLocation resumeMachine(Map<?, ?> flags);
     }
 
+    @Beta
+    public interface ShutsdownMachines {
+        /**
+         * Shut down (stop, but without deleting) the indicated machine, throwing if not possible.
+         * Implementations may opt to suspend rather than shut down if that is usually preferred.
+         */
+        void shutdownMachine(MachineLocation location);
+
+        /**
+         * Ensure that a machine that might have been shutdown is running, or throw if not possible.
+         * May return the original {@link MachineLocation} or may return a new {@link MachineLocation} if data might have changed.
+         */
+        MachineLocation startupMachine(MachineLocation location);
+
+        /** Issues a reboot command via the machine location provider (not on-box), or does a shutdown/startup pair
+         * (but only if the implementation of {@link #shutdownMachine(MachineLocation)} does a true machine stop, not a suspend).
+         */
+        MachineLocation rebootMachine(MachineLocation location);
+    }
+
+    @Beta
+    public interface GivesMetrics {
+        /**
+         * Gets metrics of a machine within a location. The actual metrics supported depends on the implementation, which should advise which config keys it supports.
+         */
+        Map<String,Object> getMachineMetrics(MachineLocation location);
+
+        /**
+         * Returns metrics for a location. The actual metrics supported depends on the implementation, which should advise which config keys it supports.
+         */
+        Map<String,Object> getLocationMetrics(Map<String,Object> properties);
+    }
+
 }

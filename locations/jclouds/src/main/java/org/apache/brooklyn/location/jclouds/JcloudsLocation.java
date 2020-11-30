@@ -20,6 +20,7 @@ package org.apache.brooklyn.location.jclouds;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import org.apache.brooklyn.api.location.MachineManagementMixins.MachineMetadata;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
@@ -1256,6 +1257,39 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         return registered;
     }
 
+    @Override
+    public void shutdownMachine(MachineLocation l) {
+        // jclouds doesn't expose shutdown so just do a suspend
+        suspendMachine(l);
+    }
+
+    @Override
+    public MachineLocation startupMachine(MachineLocation l) {
+        if (!(l instanceof JcloudsSshMachineLocation)) {
+            throw new IllegalStateException("Cannot startup machine "+l+"; wrong type");
+        }
+        return resumeMachine(ImmutableMap.of("id", ((JcloudsSshMachineLocation)l).getJcloudsId()));
+    }
+
+    @Override
+    public MachineLocation rebootMachine(MachineLocation l) {
+        if (!(l instanceof JcloudsSshMachineLocation)) {
+            throw new IllegalStateException("Cannot startup machine "+l+"; wrong type");
+        }
+        getComputeService().rebootNode(((JcloudsSshMachineLocation)l).getJcloudsId());
+        return l;
+    }
+
+    @Override
+    public Map<String, Object> getMachineMetrics(MachineLocation l) {
+        return MutableMap.of();
+    }
+
+    @Override
+    public Map<String, Object> getLocationMetrics(Map<String, Object> properties) {
+        return MutableMap.of();
+    }
+
     // ------------- constructing the template, etc ------------------------
 
     /** @deprecated since 0.11.0 use {@link TemplateOptionCustomizer} instead */
@@ -1523,7 +1557,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
 
     /**
-     * See {@link https://issues.apache.org/jira/browse/JCLOUDS-1108}.
+     * See https://issues.apache.org/jira/browse/JCLOUDS-1108
      * 
      * In jclouds 1.9.x and 2.0.0, google-compute-engine hardwareId must be in the long form. For 
      * example {@code https://www.googleapis.com/compute/v1/projects/jclouds-gce/zones/us-central1-a/machineTypes/n1-standard-1}.
