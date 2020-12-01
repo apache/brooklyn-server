@@ -2225,7 +2225,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     private Object uninstallingEmptyLock = new Object();
     public void uninstallEmptyWrapperBundles() {
-        log.debug("uninstalling empty wrapper bundles");
+        log.debug("Uninstalling empty wrapper bundles");
         synchronized (uninstallingEmptyLock) {
             Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
             if (osgi.isAbsent()) return;
@@ -2233,7 +2233,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (isNoBundleOrSimpleWrappingBundle(mgmt, b)) {
                     Iterable<RegisteredType> typesInBundle = osgi.get().getTypesFromBundle(b.getVersionedName());
                     if (Iterables.isEmpty(typesInBundle)) {
-                        log.info("Uninstalling now-empty BOM wrapper bundle "+b.getVersionedName()+" ("+b.getOsgiUniqueUrl()+")");
+                        log.debug("Uninstalling now-empty BOM wrapper bundle "+b.getVersionedName()+" ("+b.getOsgiUniqueUrl()+")");
                         osgi.get().uninstallUploadedBundle(b);
                     }
                 }
