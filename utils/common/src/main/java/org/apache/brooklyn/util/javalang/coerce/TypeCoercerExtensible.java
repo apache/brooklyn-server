@@ -158,7 +158,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
                 // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
                 // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
                 // First check that value has changed, to avoid stack overflow!
-                if (!Objects.equal(value, result.get()) && !Objects.equal(value.getClass(), result.get().getClass()) && targetTypeToken.getType() instanceof ParameterizedType) {
+                if (!Objects.equal(value, result.get()) && !Objects.equal(value.getClass(), result.get().getClass())
+                        // previously did this just for generics but it's more useful than that, e.g. if was a WrappedValue
+                        //&& targetTypeToken.getType() instanceof ParameterizedType
+                        ) {
                     Maybe<T> resultM = tryCoerce(result.get(), targetTypeToken);
                     if (resultM!=null) {
                         if (resultM.isPresent()) return resultM;
