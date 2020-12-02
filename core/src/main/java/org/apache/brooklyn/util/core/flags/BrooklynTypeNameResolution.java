@@ -24,11 +24,13 @@ import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -150,7 +152,13 @@ public class BrooklynTypeNameResolution {
                             return Maybe.of( (Class<?>) st1.get() );
                         }
                         // tests may not set supertypes which could cause odd behaviour; real OSGi addition should set supertypes so this shouldn't normally happen outside of test/pojo
-                        LOG.debug("Attempt to use registered type '"+s+"' as a type but no associated Java type is yet recorded (normal on install); returning as Object");
+                        Supplier<String> msg = () -> "Attempt to use registered type '"+s+"' as a type but no associated Java type is yet recorded; returning as Object";
+                        if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                            LOG.warn(msg.get());
+                        } else {
+                            // normal when resolving
+                            LOG.trace(msg.get());
+                        }
                         return Maybe.of(Object.class);
                     }
                     return Maybe.absent();

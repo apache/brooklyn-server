@@ -31,6 +31,7 @@ import org.apache.brooklyn.camp.spi.Assembly;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.PlatformComponentTemplate;
 import org.apache.brooklyn.camp.spi.collection.ResolvableLink;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
 import org.apache.brooklyn.core.mgmt.HasBrooklynManagementContext;
@@ -79,7 +80,13 @@ public class BrooklynAssemblyTemplateInstantiator implements AssemblyTemplateSpe
             CampPlatform platform,
             BrooklynClassLoadingContext loader,
             Set<String> encounteredTypeSymbolicNames) {
-        log.debug("CAMP creating application instance for {} ({})", template.getId(), template);
+        if (BasicBrooklynCatalog.currentlyResolvingType.get()!=null) {
+            if (log.isTraceEnabled()) {
+                log.trace("CAMP instantiating application to resolve {} ({} / {})", BasicBrooklynCatalog.currentlyResolvingType.get(), template.getId(), CampResolver.currentlyCreatingSpec.get());
+            }
+        } else {
+            log.debug("CAMP instantiating application for {} ({})", template.getId(), CampResolver.currentlyCreatingSpec.get());
+        }
 
         // AssemblyTemplates created via PDP, _specifying_ then entities to put in
 

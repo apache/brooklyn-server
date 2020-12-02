@@ -118,6 +118,22 @@ public class Strings {
         return Maybe.absent();
     }
 
+    public static <T extends CharSequence> T firstNonBlank(T ...s) {
+        if (s==null) return null;
+        for (T si: s) {
+            if (isNonBlank(si)) return si;
+        }
+        return null;
+    }
+
+    public static String firstNonNull(Object ...s) {
+        if (s==null) return null;
+        for (Object si: s) {
+            if (si!=null) return ""+si;
+        }
+        return null;
+    }
+
     /** throws IllegalArgument if string not empty; cf. guava Preconditions.checkXxxx */
     public static void checkNonEmpty(CharSequence s) {
         if (s==null) throw new IllegalArgumentException("String must not be null");

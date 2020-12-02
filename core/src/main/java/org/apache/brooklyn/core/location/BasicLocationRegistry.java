@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.StringConfigMap;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -476,10 +477,14 @@ public class BasicLocationRegistry implements LocationRegistry {
                             + resolvers.keySet()+" are the only available location resolvers. "
                             + "More information can be found in the logs.";
                 } else {
-                    if (log.isDebugEnabled()) log.debug(errmsg + " (if this is being loaded it will fail shortly): known resolvers are: "+resolvers.keySet());
+                    if (log.isDebugEnabled() && BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                        log.debug(errmsg + " (if this is being loaded it will fail shortly): known resolvers are: "+resolvers.keySet());
+                    }
                 }
             } else {
-                if (log.isDebugEnabled()) log.debug(errmsg + "(with retry, already warned)");
+                if (log.isDebugEnabled() && BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                    log.debug(errmsg + " (with retry, already warned)");
+                }
                 errmsg += " (with retry)";
             }
 
