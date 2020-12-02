@@ -214,11 +214,9 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
                     }
                 } catch (Exception e2) {
                     Exceptions.propagateIfFatal(e2);
-                    if (type!=null) {
-                        throw Exceptions.propagate("Error instantiating " + typeKeyPrefix + " '"+type+"'", Arrays.asList(e, e2));
-                    } else {
-                        throw Exceptions.propagate("Error instantiating " + typeKeyPrefix, Arrays.asList(e, e2));
-                    }
+                    throw Exceptions.propagate("Error instantiating " + typeKeyPrefix +
+                            (type!=null ? " '"+type+"'" : "") +
+                            " (stack "+Arrays.asList(CampResolver.currentlyCreatingSpec.get())+")", Arrays.asList(e, e2));
                 }
             }
             decorations.add(result);
