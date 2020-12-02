@@ -114,7 +114,7 @@
         <guava-swagger.version>18.0</guava-swagger.version>
 
         <!-- xstream -->
-        <xstream.version>1.4.11.1</xstream.version>
+        <xstream.version>1.4.14</xstream.version>
         <!-- xstream has dependencies that are not OSGi bundles, the servicemix repackage version embeds them -->
         <!-- note the servicemix suffix when upgrading xstream -->
         <xstream.servicemix.version>${xstream.version}_1</xstream.servicemix.version>
