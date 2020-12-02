@@ -121,10 +121,10 @@
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.10.1</fasterxml.jackson.version>
         <cxf.version>3.4.1</cxf.version>
-        <httpcomponents.httpclient.version>4.5.10</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
+        <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.12</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
         <!-- @deprecated since 0.11 -->
-        <httpclient.version>4.5.10</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
+        <httpclient.version>4.5.13</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.4.15</groovy.version> <!-- Version 2.4.7 supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes; not sure what more recent will be -->
         <jsr305.version>2.0.1</jsr305.version>
