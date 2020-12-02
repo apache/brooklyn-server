@@ -248,6 +248,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
             .query("limit", children(leafGrandparent).size()+1)
             .accept(MediaType.APPLICATION_JSON)
             .get();
+        response.bufferEntity();
         assertHealthy(response);
         tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
         Assert.assertEquals(tasks.size(), children(leafGrandparent).size()+1);
