@@ -182,7 +182,7 @@
         <objenesis.version>2.5</objenesis.version>
         <clojure.version>1.4.0</clojure.version>
         <clj-time.version>0.4.1</clj-time.version>
-        <commons-codec.version>1.11</commons-codec.version>
+        <commons-codec.version>1.15</commons-codec.version>
         <log4j.version>1.2.17</log4j.version>
         <commons-logging.version>1.2</commons-logging.version>
         <jsonSmart.version>2.3</jsonSmart.version>
