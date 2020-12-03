@@ -169,6 +169,9 @@ public interface BrooklynCatalog {
     @Beta  // method may move elsewhere
     public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate);
 
+    @Beta  // method may move elsewhere
+    public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate, boolean skipIfValidated);
+
     /** Performs YAML validation on the given type, returning a collection of errors. 
      * An empty result indicates no validation errors in the type passed in. 
      * <p>

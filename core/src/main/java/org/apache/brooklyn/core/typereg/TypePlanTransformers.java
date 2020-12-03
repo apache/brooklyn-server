@@ -21,11 +21,13 @@ package org.apache.brooklyn.core.typereg;
 import com.google.common.collect.*;
 import java.util.*;
 
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
@@ -133,11 +135,16 @@ public class TypePlanTransformers {
         }
         
         if (log.isDebugEnabled()) {
-            log.debug("Failure transforming plan; returning summary failure, but for reference "
+            Supplier<String> s = () -> "Failure transforming plan; returning summary failure, but for reference "
                 + "potentially applicable transformers were "+transformers+", "
                 + "available ones are "+MutableList.builder().addAll(all(mgmt)).build()+"; "
                 + "failures: "+failuresFromTransformers +"; "
-                + "unsupported by: "+transformersWhoDontSupport);
+                + "unsupported by: "+transformersWhoDontSupport;
+            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                log.debug(s.get());
+            } else if (log.isTraceEnabled()) {
+                log.trace(s.get());
+            }
         }
 
         // failed

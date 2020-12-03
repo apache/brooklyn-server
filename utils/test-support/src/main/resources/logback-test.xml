@@ -28,4 +28,7 @@
     <include resource="logback-main.xml"/>
     <include resource="brooklyn/logback-logger-debug-all.xml"/>
 
+    <!-- reload custom in case it overrides brooklyn logging -->
+    <include resource="logback-custom.xml"/>
+
 </configuration>

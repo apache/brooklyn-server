@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import java.util.Map;
 
+import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -28,6 +29,7 @@ import com.google.common.base.Function;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -214,7 +216,12 @@ public abstract class BrooklynYamlTypeInstantiator {
             return getClassLoadingContext().loadClass(getTypeName().get(), type);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            log.debug("Unable to resolve " + type + " " + getTypeName().get() + " (rethrowing) in spec " + factory.contextForLogging);
+            Supplier<String> msg = () -> "Unable to resolve " + type + " " + getTypeName().get() + " (rethrowing) in spec " + factory.contextForLogging;
+            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                log.debug(msg.get());
+            } else if (log.isTraceEnabled()) {
+                log.trace(msg.get());
+            }
             throw Exceptions.propagate(e);
         }
     }
