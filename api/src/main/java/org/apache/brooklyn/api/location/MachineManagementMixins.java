@@ -21,6 +21,7 @@ package org.apache.brooklyn.api.location;
 import java.util.Map;
 
 import com.google.common.annotations.Beta;
+import org.apache.brooklyn.util.collections.MutableMap;
 
 /**
  * Defines mixins for interesting locations.
@@ -83,7 +84,9 @@ public class MachineManagementMixins {
     @Beta
     public interface ResumesMachines {
         /**
-         * Resume the indicated machine.
+         * Resume the indicated machine. Map should have at minimum the `id` of the machine and
+         * the `user` and any other location-specific config keys for connecting subsequently.
+         * May return the original {@link MachineLocation} if found or may return a new {@link MachineLocation} if data might have changed.
          */
         MachineLocation resumeMachine(Map<?, ?> flags);
     }
@@ -97,19 +100,20 @@ public class MachineManagementMixins {
         void shutdownMachine(MachineLocation location);
 
         /**
-         * Ensure that a machine that might have been shutdown is running, or throw if not possible.
-         * May return the original {@link MachineLocation} or may return a new {@link MachineLocation} if data might have changed.
+         * Start up the indicated machine that might have been shutdown, or throw if not possible.
+         * May return the original {@link MachineLocation} if found or may return a new {@link MachineLocation} if data might have changed.
          */
-        MachineLocation startupMachine(MachineLocation location);
+        MachineLocation startupMachine(Map<?, ?> flags);
 
         /** Issues a reboot command via the machine location provider (not on-box), or does a shutdown/startup pair
          * (but only if the implementation of {@link #shutdownMachine(MachineLocation)} does a true machine stop, not a suspend).
          */
-        MachineLocation rebootMachine(MachineLocation location);
+        void rebootMachine(MachineLocation location);
     }
 
     @Beta
     public interface GivesMetrics {
+
         /**
          * Gets metrics of a machine within a location. The actual metrics supported depends on the implementation, which should advise which config keys it supports.
          */

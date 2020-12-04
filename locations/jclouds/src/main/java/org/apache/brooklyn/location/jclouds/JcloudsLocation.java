@@ -20,7 +20,11 @@ package org.apache.brooklyn.location.jclouds;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.stream.Collectors;
+import org.apache.brooklyn.api.location.*;
 import org.apache.brooklyn.api.location.MachineManagementMixins.MachineMetadata;
+import org.apache.brooklyn.core.location.*;
+import org.apache.brooklyn.core.location.MachineLifecycleUtils.MachineStatus;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
@@ -50,24 +54,13 @@ import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.location.MachineLocation;
-import org.apache.brooklyn.api.location.MachineLocationCustomizer;
-import org.apache.brooklyn.api.location.MachineManagementMixins;
-import org.apache.brooklyn.api.location.NoMachinesAvailableException;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.location.BasicMachineMetadata;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
-import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.access.PortMapping;
@@ -554,8 +547,23 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return null;
         return new BasicMachineMetadata(node.getId(), node.getName(),
             ((node instanceof NodeMetadata) ? Iterators.tryFind( ((NodeMetadata)node).getPublicAddresses().iterator(), Predicates.alwaysTrue() ).orNull() : null),
-            ((node instanceof NodeMetadata) ? ((NodeMetadata)node).getStatus()==Status.RUNNING : null),
+            ((node instanceof NodeMetadata) ? toMachineStatus( ((NodeMetadata)node).getStatus() ) : null),
             node);
+    }
+
+    public static MachineStatus toMachineStatus(Status status) {
+        if (status==null) return null;
+        switch (status) {
+            case PENDING: return MachineStatus.TRANSITIONING;
+            case RUNNING: return MachineStatus.RUNNING;
+            case SUSPENDED: return MachineStatus.SUSPENDED;
+            case ERROR: return MachineStatus.ERROR;
+
+            case TERMINATED:
+            case UNRECOGNIZED:
+                //below
+        }
+        return MachineStatus.UNKNOWN;
     }
 
     @Override
@@ -1212,7 +1220,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      */
     @Override
     public void suspendMachine(MachineLocation rawLocation) {
-        String instanceId = vmInstanceIds.remove(rawLocation);
+        String instanceId = vmInstanceIds.get(rawLocation);
         if (instanceId == null) {
             LOG.info("Attempt to suspend unknown machine " + rawLocation + " in " + this);
             throw new IllegalArgumentException("Unknown machine " + rawLocation);
@@ -1225,7 +1233,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             toThrow = e;
             LOG.error("Problem suspending machine " + rawLocation + " in " + this + ", instance id " + instanceId, e);
         }
-        removeChild(rawLocation);
+        // before 2020-12 we removed the child; we don't actually want to, as it still exists; and it can trigger a release which could destroy it
+        //removeChild(rawLocation);
         if (toThrow != null) {
             throw Exceptions.propagate(toThrow);
         }
@@ -1236,6 +1245,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * <p/>
      * Note that this method does <b>not</b> call the lifecycle methods of any
      * {@link #getCustomizers(ConfigBag) customizers} attached to this location.
+     * <p/>
+     * Also note other machines with the same ID may be unmanaged as part of this.
      *
      * @param flags See {@link #registerMachine(ConfigBag)} for a description of required fields.
      * @see #registerMachine(ConfigBag)
@@ -1243,17 +1254,33 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     @Override
     public JcloudsMachineLocation resumeMachine(Map<?, ?> flags) {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
-        LOG.info("{} using resuming node matching properties: {}", this, Sanitizer.sanitize(setup));
+        LOG.info("Resuming machine in {} matching properties {}", this, Sanitizer.sanitize(setup));
         ComputeService computeService = getComputeService(setup);
         NodeMetadata node = findNodeOrThrow(setup);
-        LOG.debug("{} resuming {}", this, node);
+        LOG.debug("{} resuming node {}", this, node);
         computeService.resumeNode(node.getId());
         // Load the node a second time once it is resumed to get an object with
         // hostname and addresses populated.
         node = findNodeOrThrow(setup);
-        LOG.debug("{} resumed {}", this, node);
+        LOG.debug("{} resumed node {}", this, node);
         JcloudsMachineLocation registered = registerMachineLocation(setup, node);
-        LOG.info("{} resumed and registered {}", this, registered);
+        boolean madeNew = true;
+        for (Location l : getChildren()) {
+            if (l instanceof JcloudsMachineLocation && !Boolean.FALSE.equals(MachineLifecycleUtils.isSameInstance((JcloudsMachineLocation)l, registered, false))) {
+                if (MachineLifecycleUtils.isSameInstance((JcloudsMachineLocation) l, registered, true)) {
+                    // use this machine
+                    if (madeNew) {
+                        removeChild(registered);
+                        madeNew = false;
+                    }
+                    registered = (JcloudsMachineLocation) l;
+                } else {
+                    // unmanage any old machine location which has no-longer-valid details
+                    removeChild(l);
+                }
+            }
+        }
+        LOG.info("Resumed {} in {}", registered, this);
         return registered;
     }
 
@@ -1264,20 +1291,16 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     }
 
     @Override
-    public MachineLocation startupMachine(MachineLocation l) {
-        if (!(l instanceof JcloudsSshMachineLocation)) {
-            throw new IllegalStateException("Cannot startup machine "+l+"; wrong type");
-        }
-        return resumeMachine(ImmutableMap.of("id", ((JcloudsSshMachineLocation)l).getJcloudsId()));
+    public MachineLocation startupMachine(Map<?, ?> flags) {
+        return resumeMachine(flags);
     }
 
     @Override
-    public MachineLocation rebootMachine(MachineLocation l) {
+    public void rebootMachine(MachineLocation l) {
         if (!(l instanceof JcloudsSshMachineLocation)) {
             throw new IllegalStateException("Cannot startup machine "+l+"; wrong type");
         }
         getComputeService().rebootNode(((JcloudsSshMachineLocation)l).getJcloudsId());
-        return l;
     }
 
     @Override

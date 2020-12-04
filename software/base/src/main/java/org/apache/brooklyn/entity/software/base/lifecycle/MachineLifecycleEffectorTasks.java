@@ -364,7 +364,7 @@ public abstract class MachineLifecycleEffectorTasks {
 
         // Opportunity to block startup until other dependent components are available
         try (CloseableLatch latch = waitForCloseableLatch(entity(), SoftwareProcess.START_LATCH)) {
-            preStartAtMachineAsync(locationSF);
+            preStartAtMachineAsync(locationSF, parameters);
             DynamicTasks.queue("start (processes)", new StartProcessesAtMachineTask(locationSF));
             postStartAtMachineAsync(parameters);
         }
@@ -452,8 +452,8 @@ public abstract class MachineLifecycleEffectorTasks {
     /**
      * Wraps a call to {@link #preStartCustom(MachineLocation, ConfigBag)}, after setting the hostname and address.
      */
-    protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS) {
-        DynamicTasks.queue("pre-start", new PreStartTask(machineS.get()));
+    protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS, ConfigBag parameters) {
+        DynamicTasks.queue("pre-start", new PreStartTask(machineS.get(), parameters));
     }
 
     protected class PreStartTask implements Runnable {
