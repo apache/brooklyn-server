@@ -187,6 +187,12 @@
             <artifactId>httpclient</artifactId>
             <classifier>tests</classifier>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>commons-codec</groupId>
+                    <artifactId>commons-codec</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Transitive dependencies, declared explicitly due to version mismatch -->
