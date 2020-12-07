@@ -261,7 +261,7 @@ public class MachineLifecycleUtils {
                     primarilySame = false;
                 }
             } else {
-                return false;
+                primarilySame = false;
             }
         }
 
