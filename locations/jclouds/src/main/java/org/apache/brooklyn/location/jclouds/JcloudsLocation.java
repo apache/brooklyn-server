@@ -20,10 +20,9 @@ package org.apache.brooklyn.location.jclouds;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
-import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.*;
-import org.apache.brooklyn.api.location.MachineManagementMixins.MachineMetadata;
 import org.apache.brooklyn.core.location.*;
+
 import org.apache.brooklyn.core.location.MachineLifecycleUtils.MachineStatus;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
@@ -1264,13 +1263,25 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         node = findNodeOrThrow(setup);
         LOG.debug("{} resumed node {}", this, node);
         JcloudsMachineLocation registered = registerMachineLocation(setup, node);
+        // either allow an explicit 'manage' call, or refactor above to create it from a spec
+        getManagementContext().getLocationManager().manage(registered);
+        addChild(registered);
         boolean madeNew = true;
+
+        // we replace, rather than change IP of existing. feels safer, failing fast. but callers/users should be prepared for machine instance to change underneath them.
+        // might be better to change fields in the existing machine location.
+        // but if IP etc haven't changed then we re-use.
+
         for (Location l : getChildren()) {
+            if (l==registered) {
+                continue;
+            }
             if (l instanceof JcloudsMachineLocation && !Boolean.FALSE.equals(MachineLifecycleUtils.isSameInstance((JcloudsMachineLocation)l, registered, false))) {
                 if (MachineLifecycleUtils.isSameInstance((JcloudsMachineLocation) l, registered, true)) {
                     // use this machine
                     if (madeNew) {
                         removeChild(registered);
+                        getManagementContext().getLocationManager().unmanage(registered);
                         madeNew = false;
                     }
                     registered = (JcloudsMachineLocation) l;
