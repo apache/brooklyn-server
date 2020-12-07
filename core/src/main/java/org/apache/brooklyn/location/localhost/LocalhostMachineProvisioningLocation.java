@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.location.geo.HostGeoInfo;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.LocationWithObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -50,6 +51,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.internal.ssh.process.ProcessTool;
 import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.ssh.BashCommands;
@@ -363,7 +365,13 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     @Override
     public PersistenceObjectStore newPersistenceObjectStore(String container) {
         File basedir = new File(container);
-        if (basedir.isFile()) throw new IllegalArgumentException("Destination directory must not be a file");
+        if (basedir.isFile()){
+            throw new IllegalArgumentException("Destination directory must not be a file");
+        }
+        Boolean persistence_dir_must_exist = getManagementContext().getConfig().getConfig(BrooklynServerConfig.PERSISTENCE_DIR_MUST_EXIST);
+        if(persistence_dir_must_exist && !basedir.exists()) {
+            throw new IllegalArgumentException("Destination directory  '" + basedir + "' must exist");
+        }
         return new FileBasedObjectStore(basedir);
     }
     
