@@ -32,7 +32,7 @@ import com.google.common.collect.ImmutableList;
  * (which pulls in many of the jclouds bundles) */
 public interface JcloudsLocationPublic extends 
     JcloudsLocationConfig, MachineManagementMixins.RichMachineProvisioningLocation<MachineLocation>,
-    LocationWithObjectStore, MachineManagementMixins.SuspendResumeLocation 
+    LocationWithObjectStore, MachineManagementMixins.SuspendResumeLocation, MachineManagementMixins.GivesMetrics, MachineManagementMixins.ShutsdownMachines
 {
 
     public static final String ROOT_USERNAME = "root";

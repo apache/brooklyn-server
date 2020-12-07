@@ -18,10 +18,15 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import org.apache.brooklyn.location.jclouds.api.JcloudsMachineLocationPublic;
-import org.jclouds.compute.domain.NodeMetadata;
-
 import com.google.common.base.Optional;
+import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
+import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.core.location.MachineLifecycleUtils;
+import org.apache.brooklyn.location.jclouds.api.JcloudsMachineLocationPublic;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.jclouds.compute.domain.NodeMetadata;
 
 public interface JcloudsMachineLocation extends JcloudsMachineLocationPublic {
     
@@ -39,4 +44,5 @@ public interface JcloudsMachineLocation extends JcloudsMachineLocationPublic {
      */
     @Deprecated
     public NodeMetadata getNode();
+
 }

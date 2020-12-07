@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
+import org.apache.brooklyn.api.location.Location;
 import static org.apache.brooklyn.location.jclouds.api.JcloudsLocationConfigPublic.USE_MACHINE_PUBLIC_ADDRESS_AS_PRIVATE_ADDRESS;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
@@ -296,7 +297,16 @@ public class JcloudsSshMachineLocation extends SshMachineLocation implements Jcl
     public JcloudsLocation getParent() {
         return jcloudsParent;
     }
-    
+
+    @Override
+    public void setParent(Location newParent, boolean updateChildListParents) {
+        if (newParent==null || newParent instanceof JcloudsLocation) {
+            // used to clear parent when removing from parent, to prevent releasing it
+            jcloudsParent = (JcloudsLocation) newParent;
+        }
+        super.setParent(newParent, updateChildListParents);
+    }
+
     @Override
     public String getHostname() {
         // Changed behaviour in Brooklyn 0.9.0. Previously it just did node.getHostname(), which
