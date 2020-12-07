@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.sensor.http;
 
 import java.net.URI;
+import java.util.Collection;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -33,16 +34,22 @@ import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Supplier;
+
+import net.minidev.json.JSONObject;
 
 /**
  * Configurable {@link org.apache.brooklyn.api.entity.EntityInitializer} which adds an HTTP sensor feed to retrieve the
@@ -56,7 +63,7 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
     private static final Logger LOG = LoggerFactory.getLogger(HttpRequestSensor.class);
 
     public static final ConfigKey<String> SENSOR_URI = ConfigKeys.newStringConfigKey("uri", "HTTP URI to poll for JSON");
-    public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response; default $", "$");
+    public static final ConfigKey<String> JSON_PATH = ConfigKeys.newStringConfigKey("jsonPath", "JSON path to select in HTTP response; default $ to take a JSON object, ensuring the sensor is of the correct type; set blank to take the toString", "$");
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
     public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<>(String.class, "headers");
@@ -103,10 +110,24 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
         
         Function<? super HttpToolResponse, T> successFunction;
         if (Strings.isBlank(jsonPath)) {
-            // TODO Should also coerce to type `allConfig.get(SENSOR_TYPE)` (would need to class-load that, using the entity's context)
+            // Could coerce to type `allConfig.get(SENSOR_TYPE)` (would need to class-load that, using the entity's context)
+            // But it is done by the AttributePollHandler.setSensor so not essential
             successFunction = (Function) HttpValueFunctions.stringContentsFunction();
         } else {
             successFunction = HttpValueFunctions.<T>jsonContentsFromPath(jsonPath);
+            if (sensor!=null && String.class.equals(sensor.getType())) {
+                // if sensor type was not set (default string) but the type is not a string/primitive, 
+                // then convert it to a json string (otherwise it just makes an error).
+                // (TODO perhaps the default type shouldn't be string for this initializer?!)
+                successFunction = (Function) Functionals.chain(successFunction, 
+                    x -> {
+                        try {
+                            return x instanceof Map || x instanceof Collection ? new ObjectMapper().writeValueAsString(x) : x;
+                        } catch (JsonProcessingException e) {
+                            throw Exceptions.propagate(e);
+                        }
+                    } );
+            }
         }
         
         HttpPollConfig<T> pollConfig = new HttpPollConfig<T>(sensor)
