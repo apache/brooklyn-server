@@ -71,18 +71,19 @@ public class OwnedChildrenDeprecatedTest extends BrooklynAppUnitTestSupport {
     public void testSetParentWhenDiffersFromParentSetInConstructor() {
         Entity e = new AbstractEntity(app) {};
         Entity e2 = new AbstractEntity() {};
-        try {
-            e.setParent(e2);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (Exception ex) {
-            Exception uoe = Exceptions.getFirstThrowableOfType(ex, UnsupportedOperationException.class);
-            if (uoe == null || !uoe.toString().contains("Cannot change parent")) {
-                throw ex;
-            }
-        }
+        
+        // since 2020 this should still work 
+        e.setParent(e2);
+        assertEquals(e.getParent(), e2);
+        Asserts.assertSize(e2.getChildren(), 1);
+        Asserts.assertEquals(e2.getChildren().iterator().next(), e);
+        
+        // and application ID is cleared
+        Asserts.assertEquals(e.getApplicationId(), null);
+        Asserts.assertEquals(e2.getApplicationId(), null);
     }
     
-    // Tests deprecated setParent still works - should be set through EntitySpec or addChild
+    // Tests deprecated creation with setParent still works - should be set through EntitySpec or addChild
     @Test
     public void testSetParentInSetterMethod() {
         Entity e = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class));
@@ -93,7 +94,6 @@ public class OwnedChildrenDeprecatedTest extends BrooklynAppUnitTestSupport {
         assertEquals(e.getApplication(), app);
     }
 
-    // Tests with deprecated setParent(Entity)
     @Test
     public void testSetParentWhenMatchesParentSetInSpec() {
         Entity e = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class).parent(app));
@@ -103,20 +103,16 @@ public class OwnedChildrenDeprecatedTest extends BrooklynAppUnitTestSupport {
         assertEqualsIgnoringOrder(app.getChildren(), ImmutableList.of(e));
     }
     
-    // Tests with deprecated setParent(Entity)
     @Test
     public void testSetParentWhenDiffersFromParentSetInSpec() {
         Entity e = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class).parent(app));
         Entity e2 = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
-        try {
-            e.setParent(e2);
-            Asserts.shouldHaveFailedPreviously();
-        } catch (Exception ex) {
-            Exception uoe = Exceptions.getFirstThrowableOfType(ex, UnsupportedOperationException.class);
-            if (uoe == null || !uoe.toString().contains("Cannot change parent")) {
-                throw ex;
-            }
-        }
+        
+        // since 2020 allowed to change parent
+        e.setParent(e2);
+        assertEquals(e.getParent(), e2);
+        Asserts.assertSize(e2.getChildren(), 1);
+        Asserts.assertEquals(e2.getChildren().iterator().next(), e);
     }
     
     // Tests deprecated addChild still works - users should instead set it through EntitySpec (or {@code addChild(EntitySpec)})
