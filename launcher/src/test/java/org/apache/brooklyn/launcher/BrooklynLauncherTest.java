@@ -18,12 +18,6 @@
  */
 package org.apache.brooklyn.launcher;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
-
 import java.io.File;
 import java.net.URI;
 
@@ -45,6 +39,7 @@ import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelperTest;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.test.support.FlakyRetryAnalyser;
+import org.apache.brooklyn.util.exceptions.FatalRuntimeException;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
@@ -52,6 +47,7 @@ import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.methods.HttpGet;
 import org.testng.Assert;
@@ -65,62 +61,64 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 
+import static org.testng.Assert.*;
+
 public class BrooklynLauncherTest {
-    
+
     private BrooklynLauncher launcher;
 
-    @AfterMethod(alwaysRun=true)
+    @AfterMethod(alwaysRun = true)
     public void tearDown() throws Exception {
         if (launcher != null) launcher.terminate();
         launcher = null;
     }
 
     // Integration because takes a few seconds to start web-console
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testStartsWebServerOnExpectectedPort() throws Exception {
         launcher = newLauncherForTests(true)
                 .restServerPort("10000+")
                 .installSecurityFilter(false)
                 .start();
-        
+
         String webServerUrlStr = launcher.getServerDetails().getWebServerUrl();
         URI webServerUri = new URI(webServerUrlStr);
-        
+
         assertEquals(launcher.getApplications(), ImmutableList.of());
-        assertTrue(webServerUri.getPort() >= 10000 && webServerUri.getPort() < 10100, "port="+webServerUri.getPort()+"; uri="+webServerUri);
+        assertTrue(webServerUri.getPort() >= 10000 && webServerUri.getPort() < 10100, "port=" + webServerUri.getPort() + "; uri=" + webServerUri);
         HttpAsserts.assertUrlReachable(webServerUrlStr);
     }
-    
+
     // Integration because takes a few seconds to start web-console
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testWebServerTempDirRespectsDataDirConfig() throws Exception {
-        String dataDirName = ".brooklyn-foo"+Strings.makeRandomId(4);
-        String dataDir = "~/"+dataDirName;
+        String dataDirName = ".brooklyn-foo" + Strings.makeRandomId(4);
+        String dataDir = "~/" + dataDirName;
 
         launcher = newLauncherForTests(true)
                 .brooklynProperties(BrooklynServerConfig.MGMT_BASE_DIR, dataDir)
                 .start();
-        
+
         ManagementContext managementContext = launcher.getServerDetails().getManagementContext();
         String expectedTempDir = Os.mergePaths(Os.home(), dataDirName, "planes", managementContext.getManagementNodeId(), "jetty");
-        
+
         File webappTempDir = launcher.getServerDetails().getWebServer().getWebappTempDir();
         assertEquals(webappTempDir.getAbsolutePath(), expectedTempDir);
     }
-    
+
     // Integration because takes a few seconds to start web-console
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testStartsWebServerWithoutAuthentication() throws Exception {
         launcher = newLauncherForTests(true)
                 .start();
         String uri = launcher.getServerDetails().getWebServerUrl();
-        
+
         HttpToolResponse response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), new HttpGet(uri));
         assertEquals(response.getResponseCode(), 200);
     }
-    
+
     // Integration because takes a few seconds to start web-console
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testStartsWebServerWithCredentials() throws Exception {
         launcher = newLauncherForTests(true)
                 .restServerPort("10000+")
@@ -128,50 +126,50 @@ public class BrooklynLauncherTest {
                 .brooklynProperties(BrooklynWebConfig.PASSWORD_FOR_USER("myname"), "mypassword")
                 .start();
         String uri = launcher.getServerDetails().getWebServerUrl();
-        
+
         HttpToolResponse response = HttpTool.execAndConsume(HttpTool.httpClientBuilder().build(), new HttpGet(uri));
         assertEquals(response.getResponseCode(), 401);
-        
+
         HttpToolResponse response2 = HttpTool.execAndConsume(
                 HttpTool.httpClientBuilder()
                         .uri(uri)
                         .credentials(new UsernamePasswordCredentials("myname", "mypassword"))
-                        .build(), 
+                        .build(),
                 new HttpGet(uri));
         assertEquals(response2.getResponseCode(), 200);
     }
-    
+
     @Test
     public void testCanDisableWebServerStartup() throws Exception {
         launcher = newLauncherForTests(true)
                 .restServer(false)
                 .start();
-        
+
         assertNull(launcher.getServerDetails().getWebServer());
         assertNull(launcher.getServerDetails().getWebServerUrl());
-        Assert.assertTrue( ((ManagementContextInternal)launcher.getServerDetails().getManagementContext()).errors().isEmpty() );
+        Assert.assertTrue(((ManagementContextInternal) launcher.getServerDetails().getManagementContext()).errors().isEmpty());
     }
-    
+
     @Test
     public void testStartsAppInstance() throws Exception {
         launcher = newLauncherForTests(true)
                 .restServer(false)
                 .application(EntitySpec.create(TestApplicationImpl.class))
                 .start();
-        
+
         assertOnlyApp(launcher, TestApplication.class);
     }
-    
+
     @Test
     public void testStartsAppFromSpec() throws Exception {
         launcher = newLauncherForTests(true)
                 .restServer(false)
                 .application(EntitySpec.create(TestApplication.class))
                 .start();
-        
+
         assertOnlyApp(launcher, TestApplication.class);
     }
-    
+
     @Test
     public void testStartsAppFromYAML() throws Exception {
         String yaml = "name: example-app\n" +
@@ -183,12 +181,12 @@ public class BrooklynLauncherTest {
                 .application(yaml)
                 .start();
 
-        assertEquals(launcher.getApplications().size(), 1, "apps="+launcher.getApplications());
+        assertEquals(launcher.getApplications().size(), 1, "apps=" + launcher.getApplications());
         Application app = Iterables.getOnlyElement(launcher.getApplications());
         assertEquals(app.getChildren().size(), 1, "children=" + app.getChildren());
         assertTrue(Iterables.getOnlyElement(app.getChildren()) instanceof TestEntity);
     }
-    
+
     @Test  // may take 2s initializing location if running this test case alone, but noise if running suite 
     public void testStartsAppInSuppliedLocations() throws Exception {
         launcher = newLauncherForTests(true)
@@ -196,11 +194,11 @@ public class BrooklynLauncherTest {
                 .location("localhost")
                 .application(EntitySpec.create(TestApplication.class))
                 .start();
-        
+
         Application app = Iterables.find(launcher.getApplications(), Predicates.instanceOf(TestApplication.class));
         assertOnlyLocation(app, LocalhostMachineProvisioningLocation.class);
     }
-    
+
     @Test
     public void testUsesSuppliedManagementContext() throws Exception {
         LocalManagementContext myManagementContext = LocalManagementContextForTests.newInstance();
@@ -208,10 +206,10 @@ public class BrooklynLauncherTest {
                 .restServer(false)
                 .managementContext(myManagementContext)
                 .start();
-        
+
         assertSame(launcher.getServerDetails().getManagementContext(), myManagementContext);
     }
-    
+
     @Test
     public void testUsesSuppliedBrooklynProperties() throws Exception {
         BrooklynProperties props = LocalManagementContextForTests.builder(true).buildProperties();
@@ -220,7 +218,7 @@ public class BrooklynLauncherTest {
                 .restServer(false)
                 .brooklynProperties(props)
                 .start();
-        
+
         assertEquals(launcher.getServerDetails().getManagementContext().getConfig().getFirst("mykey"), "myval");
     }
 
@@ -230,39 +228,39 @@ public class BrooklynLauncherTest {
                 .restServer(false)
                 .brooklynProperties("mykey", "myval")
                 .start();
-        
+
         assertEquals(launcher.getServerDetails().getManagementContext().getConfig().getFirst("mykey"), "myval");
     }
-    
+
     @Test
     public void testReloadBrooklynPropertiesRestoresProgrammaticProperties() throws Exception {
         launcher = newLauncherForTests(true)
                 .restServer(false)
                 .brooklynProperties("mykey", "myval")
                 .start();
-        LocalManagementContext managementContext = (LocalManagementContext)launcher.getServerDetails().getManagementContext();
+        LocalManagementContext managementContext = (LocalManagementContext) launcher.getServerDetails().getManagementContext();
         assertEquals(managementContext.getConfig().getFirst("mykey"), "myval");
         managementContext.getBrooklynProperties().put("mykey", "newval");
         assertEquals(managementContext.getConfig().getFirst("mykey"), "newval");
         managementContext.reloadBrooklynProperties();
         assertEquals(managementContext.getConfig().getFirst("mykey"), "myval");
     }
-    
+
     @Test
     public void testReloadBrooklynPropertiesFromFile() throws Exception {
         File globalPropertiesFile = File.createTempFile("local-brooklyn-properties-test", ".properties");
         FileUtil.setFilePermissionsTo600(globalPropertiesFile);
         try {
             String property = "mykey=myval";
-            Files.append(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
+            Files.append(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString() + property, globalPropertiesFile, Charsets.UTF_8);
             launcher = newLauncherForTests(false)
                     .restServer(false)
                     .globalBrooklynPropertiesFile(globalPropertiesFile.getAbsolutePath())
                     .start();
-            LocalManagementContext managementContext = (LocalManagementContext)launcher.getServerDetails().getManagementContext();
+            LocalManagementContext managementContext = (LocalManagementContext) launcher.getServerDetails().getManagementContext();
             assertEquals(managementContext.getConfig().getFirst("mykey"), "myval");
             property = "mykey=newval";
-            Files.write(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString()+property, globalPropertiesFile, Charsets.UTF_8);
+            Files.write(BrooklynPropertiesFactoryHelperTest.getMinimalLauncherPropertiesString() + property, globalPropertiesFile, Charsets.UTF_8);
             managementContext.reloadBrooklynProperties();
             assertEquals(managementContext.getConfig().getFirst("mykey"), "newval");
         } finally {
@@ -270,6 +268,24 @@ public class BrooklynLauncherTest {
         }
     }
 
+    @Test
+    public void testLaunchBrooklynWithoutRequiredPersistenceDir() throws Exception {
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newDefault();
+        String persistenceDir = "persistenceDir_" + Strings.makeRandomId(8);
+        brooklynProperties.put(BrooklynServerConfig.PERSISTENCE_DIR, persistenceDir);
+        brooklynProperties.put(BrooklynServerConfig.PERSISTENCE_DIR_MUST_EXIST, true);
+        LocalManagementContext mgmt = LocalManagementContextForTests.newInstance(brooklynProperties);
+        try {
+            newLauncherForTests(false)
+                    .persistMode(PersistMode.AUTO)
+                    .persistPeriod(Duration.millis(10))
+                    .managementContext(mgmt).ignorePersistenceErrors(false)
+                    .start();
+        } catch (FatalRuntimeException fre) {
+            assertTrue(fre.getCause() instanceof IllegalArgumentException);
+            assertTrue(fre.getMessage().contains(persistenceDir + "' must exist"));
+        }
+    }
 
     private BrooklynLauncher newLauncherForTests(boolean minimal) {
         Preconditions.checkArgument(launcher == null, "can only be used if no launcher yet");

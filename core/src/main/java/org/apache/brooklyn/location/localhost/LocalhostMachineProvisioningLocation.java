@@ -369,9 +369,8 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
             throw new IllegalArgumentException("Destination directory must not be a file");
         }
         Boolean persistence_dir_must_exist = getManagementContext().getConfig().getConfig(BrooklynServerConfig.PERSISTENCE_DIR_MUST_EXIST);
-        LOG.info("PERSISTENCE_DIR_MUST_EXIST {}", persistence_dir_must_exist);
         if(persistence_dir_must_exist && !basedir.exists()) {
-            throw new UserFacingException("Destination directory  '" + basedir + "' must exist");
+            throw new IllegalArgumentException("Destination directory  '" + basedir + "' must exist");
         }
         return new FileBasedObjectStore(basedir);
     }
