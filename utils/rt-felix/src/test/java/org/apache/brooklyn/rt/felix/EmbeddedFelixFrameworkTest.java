@@ -28,6 +28,7 @@ import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
+import org.osgi.framework.BundleException;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,10 +72,16 @@ public class EmbeddedFelixFrameworkTest {
         log.info("Bundles and exported packages:");
         MutableSet<String> allPackages = MutableSet.of();
         while (manifests.hasMoreElements()) {
-            ManifestHelper mf = ManifestHelper.forManifestContents(Streams.readFullyStringAndClose(manifests.nextElement().openStream()));
-            List<String> mfPackages = mf.getExportedPackages();
-            log.info("  " + mf.getSymbolicNameVersion() + ": " + mfPackages);
-            allPackages.addAll(mfPackages);
+            String fullNameManifests = Streams.readFullyStringAndClose(manifests.nextElement().openStream());
+            ManifestHelper mf = null;
+            try {
+                mf = ManifestHelper.forManifestContents(fullNameManifests);
+                List<String> mfPackages = mf.getExportedPackages();
+                log.info("  " + mf.getSymbolicNameVersion() + ": " + mfPackages);
+                allPackages.addAll(mfPackages);
+            } catch (BundleException e) {
+                // non valid manifest
+            }
         }
         log.info("Total export package count: " + allPackages.size());
         Assert.assertTrue(allPackages.size() > 20, "did not find enough packages"); // probably much larger
