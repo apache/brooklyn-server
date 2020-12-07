@@ -378,7 +378,12 @@ public class TimeTest {
         assertDatesParseToEqual("1040 +02 2015 12 1", "2015-12-01-1040 +0200");
         assertDatesParseToEqual("10:40:+02 2015 12 1", "2015-12-01-1040 +0200");
     }
-    
+
+    @Test
+    public void testParseDAsDayNotDouble() {
+        Assert.assertEquals(Duration.parse("1d"), Duration.ONE_DAY);
+    }
+        
     @Test
     public void testParseDateToStringWithMillisecond() {
         Date d = new Date();
