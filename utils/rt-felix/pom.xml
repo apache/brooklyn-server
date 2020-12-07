@@ -35,6 +35,7 @@
         <dependency>
             <groupId>org.apache.felix</groupId>
             <artifactId>org.apache.felix.framework</artifactId>
+            <version>${felix.framework.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.brooklyn</groupId>

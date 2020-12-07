@@ -119,7 +119,7 @@
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.10.1</fasterxml.jackson.version>
+        <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
         <cxf.version>3.4.1</cxf.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.12</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
@@ -166,13 +166,14 @@
         <kubernetes-client.version>4.9.0</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.2.8</karaf.version>
+        <karaf.version>4.3.0</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <jetty.version>9.4.35.v20201120</jetty.version>
         <commons-collections.version>3.2.2</commons-collections.version>
-        <pax-web.version>7.2.14</pax-web.version>
-        <jaxb-api.version>2.3.2</jaxb-api.version>
-        <spifly.version>1.2.3</spifly.version> <!-- v1.2.3 from jetty feature; v1.2 from pax-jetty -->
+        <pax-web.version>7.3.9</pax-web.version>
+        <jaxb-api.version>2.3.3</jaxb-api.version>
+        <spifly.version>1.3.2</spifly.version> <!-- v1.3.2 from jetty feature; v1.2.4 from pax-jetty -->
+        <felix.framework.version>6.0.3</felix.framework.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
         <jna.version>4.1.0</jna.version>
@@ -192,7 +193,7 @@
         <okio.version>1.15.0</okio.version>
 
         <!-- Test dependencies -->
-        <testng.version>6.10</testng.version>
+        <testng.version>7.3.0</testng.version>
         <mockito.version>2.7.12</mockito.version>
         <assertj.version>3.11.1</assertj.version>
         <cobertura.plugin.version>2.7</cobertura.plugin.version>
