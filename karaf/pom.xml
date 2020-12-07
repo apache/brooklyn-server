@@ -54,9 +54,6 @@
 
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
-
-    <okhttp.bundle.version>2.2.0_2</okhttp.bundle.version>
-    <okio.bundle.version>1.2.0_1</okio.bundle.version>
   </properties>
 
   <modules>

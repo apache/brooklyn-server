@@ -40,6 +40,8 @@ public class BrooklynMgmtUnitTestSupport {
 
     protected ManagementContextInternal mgmt;
 
+    protected ManagementContextInternal mgmt() { return mgmt; }
+
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         if (mgmt == null) {

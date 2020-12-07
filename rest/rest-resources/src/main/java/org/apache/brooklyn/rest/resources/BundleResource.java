@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -32,10 +33,13 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BrooklynBomBundleCatalogBundleResolver;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.BundleApi;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.domain.ApiError.Builder;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.BundleSummary;
 import org.apache.brooklyn.rest.domain.TypeDetail;
@@ -48,7 +52,9 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,7 +120,23 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         }
         return b;
     }
-    
+
+    public Response download(String symbolicName, String version) {
+        ManagedBundle managedBundle = lookup(symbolicName, version);
+        File bundleFile = ((ManagementContextInternal) mgmt()).getOsgiManager().get().getBundleFile(managedBundle);
+        if (bundleFile == null || !bundleFile.exists()) {
+            throw WebResourceUtils.notFound("Bundle with id '%s:%s' doesn't have a ZIP archive found", symbolicName, version);
+        }
+
+        try {
+            return Response
+                    .ok(FileUtils.readFileToByteArray(bundleFile), "application/zip")
+                    .header("Content-Disposition", "attachment; filename=" + symbolicName + "-" + version + ".zip")
+                    .build();
+        } catch (IOException e) {
+            throw WebResourceUtils.serverError("Cannot read the ZIP archive for bundle '%s:%s'", symbolicName, version);
+        }
+    }
 
     @Override
     public List<TypeSummary> getTypes(String symbolicName, String version) {
@@ -165,42 +187,40 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     }
 
 
-    @Override
+    @Override @Deprecated
     public Response createFromYaml(String yaml, Boolean force) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog items",
-                Entitlements.getEntitlementContext().user());
-        }
-        if (force==null) force = false;
-
-        try {
-            return Response.status(Status.CREATED).entity(
-                    TypeTransformer.bundleInstallationResult(
-                        ((BasicBrooklynCatalog)brooklyn().getCatalog()).addItemsBundleResult(yaml, force), mgmt(), brooklyn(), ui)).build();
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            return badRequest(e);
-        }
+        return create(yaml.getBytes(), BrooklynBomYamlCatalogBundleResolver.FORMAT, force);
     }
     
-    @Override
+    @Override @Deprecated
     public Response createFromArchive(byte[] zipInput, Boolean force) {
+        return create(zipInput, BrooklynBomBundleCatalogBundleResolver.FORMAT, force);
+    }
+
+    @Override @Deprecated
+    public Response create(byte[] contents, String format, Boolean force) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog items",
-                Entitlements.getEntitlementContext().user());
+                    Entitlements.getEntitlementContext().user());
         }
         if (force==null) force = false;
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(null, new ByteArrayInputStream(zipInput), true, true, force);
+                .install(InputStreamSource.of("REST bundle upload", contents), format, force);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
             if (log.isTraceEnabled()) {
                 log.trace("Unable to create from archive, returning 400: "+result.getError().getMessage(), result.getError());
             }
-            return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
-                .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
+            Builder error = ApiError.builder().errorCode(Status.BAD_REQUEST);
+            if (result.getWithoutError()!=null) {
+                error = error.message(result.getWithoutError().getMessage())
+                        .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui));
+            } else {
+                error.message(Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString());
+            }
+            return error.build().asJsonResponse();
         }
 
         BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);

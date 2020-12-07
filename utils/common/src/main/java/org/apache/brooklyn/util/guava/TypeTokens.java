@@ -18,8 +18,14 @@
  */
 package org.apache.brooklyn.util.guava;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import com.google.common.collect.ImmutableMap;
@@ -100,5 +106,12 @@ public class TypeTokens {
             throw new IllegalStateException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
         }
     }
-    
+
+    public static List<TypeToken<?>> getGenericArguments(TypeToken<?> token) {
+        Type t = token.getType();
+        if (t instanceof ParameterizedType) {
+            return Arrays.stream(((ParameterizedType) t).getActualTypeArguments()).map(TypeToken::of).collect(Collectors.toList());
+        }
+        return null;
+    }
 }

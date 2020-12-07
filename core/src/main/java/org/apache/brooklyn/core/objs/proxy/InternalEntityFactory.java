@@ -24,6 +24,7 @@ import static com.google.common.base.Preconditions.checkState;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 
@@ -35,16 +36,13 @@ import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
-import org.apache.brooklyn.core.entity.AbstractApplication;
-import org.apache.brooklyn.core.entity.AbstractEntity;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityDynamicType;
-import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -146,7 +144,7 @@ public class InternalEntityFactory extends InternalFactory {
      * fully initialized ({@link AbstractEntity#init()} invoked) and ready for
      * management -- commonly the caller will next call 
      * {@link Entities#manage(Entity)} (if it's in a managed application)
-     * or {@link Entities#startManagement(org.apache.brooklyn.api.entity.Application, org.apache.brooklyn.api.management.ManagementContext)}
+     * or {@link Entities#startManagement(org.apache.brooklyn.api.entity.Application, org.apache.brooklyn.api.mgmt.ManagementContext)}
      * (if it's an application) */
     public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
         /* Order is important here. Changed Jul 2014 when supporting children in spec.
@@ -238,30 +236,33 @@ public class InternalEntityFactory extends InternalFactory {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec) {
         try {
-            final AbstractEntity theEntity = (AbstractEntity) entity;
-            if (spec.getDisplayName()!=null)
-                theEntity.setDisplayName(spec.getDisplayName());
-            
-            if (spec.getCatalogItemId()!=null) {
-                theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
-            }
-            
-            entity.tags().addTags(spec.getTags());
-            addSpecParameters(spec, theEntity.getMutableEntityType());
-            
-            theEntity.configure(MutableMap.copyOf(spec.getFlags()));
-            for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
-                entity.config().set((ConfigKey)entry.getKey(), entry.getValue());
-            }
-            
-            Entity parent = spec.getParent();
-            if (parent != null) {
-                parent = (parent instanceof AbstractEntity) ? ((AbstractEntity)parent).getProxyIfAvailable() : parent;
-                entity.setParent(parent);
-            }
-            
-            return entity;
-            
+            Task<T> initialize = Tasks.create("initialize", () -> {
+                final AbstractEntity theEntity = (AbstractEntity) entity;
+                if (spec.getDisplayName() != null)
+                    theEntity.setDisplayName(spec.getDisplayName());
+
+                if (spec.getCatalogItemId() != null) {
+                    theEntity.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
+                }
+
+                entity.tags().addTags(spec.getTags());
+                addSpecParameters(spec, theEntity.getMutableEntityType());
+
+                theEntity.configure(MutableMap.copyOf(spec.getFlags()));
+                for (Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
+                    entity.config().set((ConfigKey) entry.getKey(), entry.getValue());
+                }
+
+                Entity parent = spec.getParent();
+                if (parent != null) {
+                    parent = (parent instanceof AbstractEntity) ? ((AbstractEntity) parent).getProxyIfAvailable() : parent;
+                    entity.setParent(parent);
+                }
+                return entity;
+            });
+            BrooklynTaskTags.setTransient(initialize);
+            return ((AbstractEntity) entity).getExecutionContext().get(initialize);
+
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
@@ -363,16 +364,20 @@ public class InternalEntityFactory extends InternalFactory {
                     // they could be done in parallel, but OTOH initializers should be very quick
                     initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId);
                 }
+
+                if (entity instanceof EntityPostInitializable) {
+                    ((EntityPostInitializable)entity).postInit();
+                }
             }
         }).build());
     }
     
     /**
      * Constructs an entity, i.e. instantiate the actual class given a spec,
-     * and sets the entity's proxy. Used by this factory to {@link #createEntity(EntitySpec)}
+     * and sets the entity's proxy. Used by this factory to {@link #createEntity(EntitySpec, Optional<String>)}
      * and also used during rebind.
      * <p> 
-     * If {@link EntitySpec#id(String)} was set then uses that to override the entity's id, 
+     * If the entityId is provided, then uses that to override the entity's id,
      * but that behaviour is deprecated.
      * <p>
      * The new-style no-arg constructor is preferred, and   

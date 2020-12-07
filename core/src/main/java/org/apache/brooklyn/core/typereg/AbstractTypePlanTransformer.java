@@ -18,13 +18,17 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import java.util.function.Supplier;
+import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +85,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     @Override
     public double scoreForType(RegisteredType type, RegisteredTypeLoadingContext context) {
         if (getFormatCode().equals(type.getPlan().getPlanFormat())) return 1;
-        if (type.getPlan().getPlanFormat()==null)
+        if (Strings.isBlank(type.getPlan().getPlanFormat()))
             return scoreForNullFormat(type.getPlan().getPlanData(), type, context);
         else
             return scoreForNonmatchingNonnullFormat(type.getPlan().getPlanFormat(), type.getPlan().getPlanData(), type, context);
@@ -134,7 +138,12 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             if (!(e instanceof UnsupportedTypePlanException)) {
-                log.debug("Could not instantiate "+type+" (rethrowing): "+Exceptions.collapseText(e));
+                Supplier<String> s = () -> "Could not instantiate " + type + " (rethrowing): " + Exceptions.collapseText(e);
+                if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                    log.debug(s.get());
+                } else if (log.isTraceEnabled()) {
+                    log.trace(s.get());
+                }
             }
             throw Exceptions.propagate(e);
         }

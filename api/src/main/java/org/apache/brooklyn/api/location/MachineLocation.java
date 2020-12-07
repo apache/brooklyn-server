@@ -19,6 +19,8 @@
 package org.apache.brooklyn.api.location;
 
 import java.net.InetAddress;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.brooklyn.util.net.HasNetworkAddresses;
 
@@ -44,4 +46,9 @@ public interface MachineLocation extends AddressableLocation, HasNetworkAddresse
      */
     MachineDetails getMachineDetails();
 
+    String getUser();
+
+    int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env);
+
+    int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env);
 }

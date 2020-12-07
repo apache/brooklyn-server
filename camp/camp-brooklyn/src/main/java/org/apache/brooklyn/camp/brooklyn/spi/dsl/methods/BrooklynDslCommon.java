@@ -18,13 +18,14 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import java.util.*;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
@@ -45,12 +46,16 @@ import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
@@ -66,6 +71,9 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -87,6 +95,13 @@ public class BrooklynDslCommon {
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynDslCommon.class);
 
     public static final String PREFIX = "$brooklyn:";
+
+    public static void registerSerializationHooks() {
+        BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
+    }
+    static {
+        registerSerializationHooks();
+    }
     
     // Access specific entities
 
@@ -180,7 +195,7 @@ public class BrooklynDslCommon {
                 .get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             if (obj instanceof Entity) {
                 // Shouldn't worry too much about it since DSL can fetch objects from same app only.
@@ -315,9 +330,13 @@ public class BrooklynDslCommon {
         String mappedTypeName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(typeName);
         Class<?> type;
         try {
+            // local classes get loaded here
             type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
         } catch (ClassNotFoundException e) {
-            LOG.debug("Cannot load class " + typeName + " for DLS object; assuming it is in OSGi bundle; will defer its loading");
+            // this is normal, we just do a deferred load, likely a registered type
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("No local class " + typeName + " for DSL 'object'; assuming it is a registered type; will defer its loading");
+            }
             return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
@@ -336,12 +355,63 @@ public class BrooklynDslCommon {
         }
     }
 
+    @DslAccessible
+    public static Object object(String argumentsMapAsYamlStringOrShorthand) {
+        Object arg = Yamls.parseAll(argumentsMapAsYamlStringOrShorthand).iterator().next();
+        if (arg instanceof Map) return object( (Map<String,Object>)arg );
+        if (arg instanceof Collection) {
+            List argL = MutableList.copyOf((Collection)arg);
+            if (argL.size()>=1) {
+                return object(MutableMap.of("type", argL.remove(0), "constructor.args", argL));
+            }
+        }
+        if (arg instanceof String) {
+            return object(MutableMap.of("type", arg, "constructor.args", Collections.emptyList()));
+        }
+
+        throw new IllegalArgumentException("Argument to object should be a map, or shorthand type name as string, or type name and constructor arguments as list");
+    }
+
     // String manipulation
 
-    /** Return the expression as a literal string without any further parsing. */
+    /** Return a supplier for the given expression as a literal string without any further parsing. */
     @DslAccessible
     public static Object literal(Object expression) {
-        return expression;
+        // since 2020-10 always defer, in case something else might try to parse it
+        return new DslLiteral(expression);
+    }
+
+    protected final static class DslLiteral extends BrooklynDslDeferredSupplier<Object> {
+        final String literalString;
+        final String literalObjectJson;
+
+        private DslLiteral() { this(null); }
+
+        public DslLiteral(Object input) {
+            this.literalString = input instanceof String ? (String)input : null;
+            this.literalObjectJson = input instanceof String ? null : Jsonya.render(input);
+        }
+
+        @Override
+        public Task<Object> newTask() {
+            return Tasks.builder().displayName("DSL literal value")
+                    .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                    .dynamic(false)
+                    .body(() -> getImmediately().get())
+                    .build();
+        }
+
+        @Override @JsonIgnore
+        public Maybe<Object> getImmediately() {
+            return Maybe.ofAllowingNull( literalObjectJson!=null ? Yamls.parseAll(literalObjectJson).iterator().next() : literalString );
+        }
+
+        @Override
+        public String toString() {
+            return "$brooklyn:literal(" +
+                    (literalString!=null ? JavaStringEscapes.wrapJavaString(literalString) : literalObjectJson)
+                    +")";
+        }
     }
 
     /**
@@ -403,7 +473,7 @@ public class BrooklynDslCommon {
             this.arg = arg;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
             return DependentConfiguration.urlEncodeImmediately(arg);
         }
@@ -449,7 +519,7 @@ public class BrooklynDslCommon {
             this.args = args;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<String> getImmediately() {
             return DependentConfiguration.formatStringImmediately(pattern, args);
         }
@@ -493,7 +563,7 @@ public class BrooklynDslCommon {
             this.source = source;
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<String> getImmediately() {
             return DependentConfiguration.regexReplacementImmediately(source, pattern, replacement);
         }
@@ -603,14 +673,17 @@ public class BrooklynDslCommon {
         }
 
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
+            // TODO reconcile with "bean-with-type" usage and constructors;
+            // for now, if it's a registered type we use that to get the java instance but we ignore fields on it
+
             final Class<?> clazz = getOrLoadType();
             final ExecutionContext executionContext = entity().getExecutionContext();
 
             final Function<Object, Object> resolver = new Function<Object, Object>() {
                 @Override public Object apply(Object value) {
-                    Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep(true, true).immediately(true).getMaybe();
+                    Maybe<Object> result = Tasks.resolving(value, Object.class).context(executionContext).deep().immediately(true).getMaybe();
                     if (result.isAbsent()) {
                         throw new ImmediateValueNotAvailableException();
                     } else {
@@ -645,7 +718,7 @@ public class BrooklynDslCommon {
             final Function<Object, Object> resolver = new Function<Object, Object>() {
                 @Override public Object apply(Object value) {
                     try {
-                        return Tasks.resolveDeepValue(value, Object.class, executionContext);
+                        return Tasks.resolveDeepValueWithoutCoercion(value, executionContext);
                     } catch (ExecutionException | InterruptedException e) {
                         throw Exceptions.propagate(e);
                     }
@@ -658,6 +731,8 @@ public class BrooklynDslCommon {
                     .body(new Callable<Object>() {
                         @Override
                         public Object call() throws Exception {
+                            // TODO de-dupe with getImmediately
+
                             Map<String, Object> resolvedFields = MutableMap.copyOf(Maps.transformValues(fields, resolver));
                             Map<String, Object> resolvedConfig = MutableMap.copyOf(Maps.transformValues(config, resolver));
                             List<Object> resolvedConstructorArgs = MutableList.copyOf(Lists.transform(constructorArgs, resolver));
@@ -672,11 +747,26 @@ public class BrooklynDslCommon {
                     .build();
         }
 
+        @JsonIgnore
         protected Class<?> getOrLoadType() {
             Class<?> type = this.type;
+
             if (type == null) {
                 EntityInternal entity = entity();
                 try {
+                    if (entity==null) {
+                        throw new IllegalStateException("Cannot invoke without a Task running the context of an entity");
+                    }
+                    RegisteredType rt = managementContext().getTypeRegistry().get(typeName, RegisteredTypeLoadingContexts.loader(new OsgiBrooklynClassLoadingContext(entity)));
+                    if (rt!=null) {
+                        Object inst = managementContext().getTypeRegistry().create(rt, null, null);
+                        if (inst!=null) {
+                            // we ignore the actually instance for now; see comments at start of this class
+                            return inst.getClass();
+                        }
+                    }
+
+                    // fall back to trying to load as a class
                     type = new ClassLoaderUtils(BrooklynDslCommon.class, entity).loadClass(typeName);
                 } catch (ClassNotFoundException e) {
                     throw Exceptions.propagate(e);
@@ -768,7 +858,7 @@ public class BrooklynDslCommon {
             this.key = key;
         }
 
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             // Note this call to getConfig() is different from entity.getConfig.
             // We expect it to not block waiting for other entities.
@@ -848,7 +938,7 @@ public class BrooklynDslCommon {
                 this.replacement = replacement;
             }
 
-            @Override
+            @Override @JsonIgnore
             public Maybe<Function<String, String>> getImmediately() {
                 return DependentConfiguration.regexReplacementImmediately(pattern, replacement);
             }
@@ -890,7 +980,7 @@ public class BrooklynDslCommon {
                 this.entityId = entityId;
             }
 
-            @Override
+            @Override @JsonIgnore
             public Maybe<Entity> getImmediately() {
                 EntityInternal entity = entity();
                 if (entity == null) {

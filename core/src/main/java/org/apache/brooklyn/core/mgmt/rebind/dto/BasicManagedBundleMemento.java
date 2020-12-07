@@ -41,6 +41,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     public static class Builder extends AbstractMemento.Builder<Builder> {
         protected String symbolicName;
         protected String version;
+        protected String format;
         protected String url;
         protected String checksum;
         
@@ -48,9 +49,14 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
             this.symbolicName = symbolicName;
             return self();
         }
-        
+
         public Builder version(String version) {
             this.version = version;
+            return self();
+        }
+
+        public Builder format(String format) {
+            this.format = format;
             return self();
         }
 
@@ -68,6 +74,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
             super.from(other);
             symbolicName = other.getSymbolicName();
             version = other.getVersion();
+            format = other.getFormat();
             url = other.getUrl();
             checksum = other.getChecksum();
             return self();
@@ -80,6 +87,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
 
     private String symbolicName;
     private String version;
+    private String format;
     private String url;
     private String checksum;
     transient private ByteSource jarContent;
@@ -91,6 +99,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         super(builder);
         this.symbolicName = builder.symbolicName;
         this.version = builder.version;
+        this.format = builder.format;
         this.url = builder.url;
         this.checksum = builder.checksum;
     }
@@ -103,6 +112,11 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     @Override
     public String getVersion() {
         return version;
+    }
+
+    @Override
+    public String getFormat() {
+        return format;
     }
 
     @Override
@@ -143,6 +157,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         return super.newVerboseStringHelper()
                 .add("symbolicName", getSymbolicName())
                 .add("version", getVersion())
+                .add("format", getFormat())
                 .add("url", getUrl())
                 .add("checksum", getChecksum());
     }

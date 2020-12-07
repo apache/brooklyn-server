@@ -40,10 +40,6 @@
             <exclusions>
                 <!-- we use different versions -->
                 <exclusion>
-                    <groupId>com.squareup.okio</groupId>
-                    <artifactId>okio</artifactId>
-                </exclusion>
-                <exclusion>
                     <groupId>org.yaml</groupId>
                     <artifactId>snakeyaml</artifactId>
                 </exclusion>
@@ -51,7 +47,18 @@
                     <groupId>com.google.code.findbugs</groupId>
                     <artifactId>jsr305</artifactId>
                 </exclusion>
+                <!-- okio was here, but now we use the right version -->
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.datatype</groupId>
+                    <artifactId>jackson-datatype-jsr310</artifactId>
+                </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <!-- needed for above, but wanted at the same version of jackson we use elsewhere in brooklyn -->
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${fasterxml.jackson.version}</version>
         </dependency>
 
         <!--
@@ -67,6 +74,10 @@
                     <!-- Conflicts with javax.ws.rs-api -->
                     <groupId>javax.ws.rs</groupId>
                     <artifactId>jsr311-api</artifactId>
+                </exclusion>
+                <exclusion>
+                   <groupId>com.squareup.okio</groupId>
+                   <artifactId>okio</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

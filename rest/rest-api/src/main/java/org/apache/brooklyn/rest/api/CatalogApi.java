@@ -53,38 +53,20 @@ import io.swagger.annotations.ApiResponses;
 @Produces(MediaType.APPLICATION_JSON)
 public interface CatalogApi {
 
-    /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
+    /** @deprecated since 0.11.0 use {@link #createFromYaml(String, boolean)} instead */
     @Deprecated
-    @Consumes("application/json-deprecated")  // prevent this from taking things
+    @Consumes("application/deprecated-yaml-old")  // prevent this from taking things
     @POST
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor (deprecated, use POST of yaml or ZIP/JAR instead)",
-            notes = "Return value is map of ID to CatalogItemSummary.",
-            response = String.class,
-            hidden = true
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given YAML"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
-    })
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response create(String yaml,
             @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
 
+    /** @deprecated since 1.1 use {@link #create(byte[], String, boolean, boolean, boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
-        // see http://stackoverflow.com/questions/332129/yaml-mime-type
-        "text/yaml", "text/x-yaml", "application/yaml"})
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
-            notes = "Return value is map of ID to CatalogItemSummary.",
-            response = String.class,
-            hidden = true
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given YAML"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
-    })
+    @Consumes("application/deprecated-yaml")
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
             @Valid String yaml,
@@ -92,29 +74,11 @@ public interface CatalogApi {
             @QueryParam("forceUpdate") @DefaultValue("false")
             boolean forceUpdate);
 
-    @Beta
-    /* TODO the polymorphic return type dependent on 'detail' is ugly, 
-     * but we're stuck in this API because backwards compatibility expects the types map
-     * whereas typical usage wants more feedback. we should introduce a 
-     * /registry and/or /types and/or /bundles endpoint that always provides details
-     * (and an approach to handling types more aligned with BrooklynTypeRegistry and OSGi bundling).
-     * Not too concerned here as this method is beta and the above switch will probably naturally happen soon. 
-     * The main client who cares about this is the Go CLI. */
+    /** @deprecated since 1.1 use {@link #create(byte[], String, boolean, boolean, boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes({"application/x-zip", "application/x-jar"})
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading a ZIP/JAR archive.",
-            notes = "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
-                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
-                    + "Return value is map of ID to CatalogItemSummary unless detail=true is passed as a parameter in which "
-                    + "case the return value is a BundleInstallationRestResult map containing the types map in types along "
-                    + "with a message, bundle, and code.",
-            response = String.class,
-            hidden = true)
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
-    })
+    @Consumes("application/deprecated-x-zip")
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
@@ -129,26 +93,53 @@ public interface CatalogApi {
             boolean forceUpdate);
 
     @Beta
+    /** @deprecated since 1.1 use {@link #create(byte[], String, boolean, boolean, boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes // anything (if doesn't match other methods with specific content types
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading either YAML or ZIP/JAR archive (format autodetected)",
-            notes = "Specify a content-type header to skip auto-detection and invoke one of the more specific methods. "
-                    + "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
-                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
-                    + "Return value is map of ID to CatalogItemSummary.",
-            response = String.class
-    )
-    @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
-    })
+    @Consumes("application/deprecated-autodetect")
+    @ApiOperation(value = "(deprecated)", hidden = true)
     public Response createFromUpload(
             @ApiParam(
                     name = "item",
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
                     byte[] item,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false")
+                    boolean forceUpdate);
+
+    // the /bundles endpoint is preferred and things (Go client and UI) should be switched to use it exclusively
+    @Beta
+    @POST
+    @Consumes // anything - now autodetect is done for everything unless 'format' is specified
+    // (mime type is ignored; though it could be useful in the "score" function, and probably is available on the thread)
+    @ApiOperation(
+            value = "Add a bundle of types (entities, etc) to the type registry (catalog)",
+            notes = "This will auto-detect the format, with the 'brooklyn-bom-bundle' being common and consisting of "
+                    + "a ZIP/JAR containing a catalog.bom. "
+                    + "Return value is map of ID to CatalogItemSummary unless detail=true is passed as a parameter in which "
+                    + "case the return value is a BundleInstallationRestResult map containing the types map in types along "
+                    + "with a message, bundle, and code.",
+            response = String.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully")
+    })
+    public Response create(
+            @ApiParam(
+                    name = "bundle",
+                    value = "Bundle contents to install, eg for brooklyn-catalog-bundle a ZIP or JAR containing a catalog.bom file",
+                    required = true)
+                    byte[] archive,
+            @ApiParam(name="format", value="Specify the format to indicate a specific resolver for handling this", required=false)
+            @QueryParam("format") @DefaultValue("")
+                    String format,
+            @ApiParam(name="detail", value="Provide a wrapping details map (false for backwards compatibility, but true is recommended for migration to bundle API)", required=false)
+            @QueryParam("detail") @DefaultValue("false")
+                    boolean detail,
+            @ApiParam(name="itemDetails", value="Include legacy item details in the map of types (true for backwards compatibility, but false is recommended for migration to bundle API)", required=false)
+            @QueryParam("itemDetails") @DefaultValue("true")
+                    boolean itemDetails,
             @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false")
                     boolean forceUpdate);

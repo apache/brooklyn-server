@@ -27,6 +27,8 @@ public interface ManagedBundleMemento extends Memento {
     String getSymbolicName();
     String getVersion();
 
+    String getFormat();
+
     String getUrl();
     
     @Nullable

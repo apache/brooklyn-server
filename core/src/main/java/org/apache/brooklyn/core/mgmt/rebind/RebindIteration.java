@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.function.Supplier;
 import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND;
 import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
@@ -84,6 +85,7 @@ import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
@@ -114,6 +116,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -356,8 +359,14 @@ public abstract class RebindIteration {
                 return managedBundle;
             }
 
-            @Override public InputStream getInputStream() throws IOException {
-                return memento.getJarContent().openStream();
+            @Override public Supplier<InputStream> getInputStreamSource() throws IOException {
+                return InputStreamSource.ofRenewableSupplier("JAR for "+memento, () -> {
+                    try {
+                        return memento.getJarContent().openStream();
+                    } catch (IOException e) {
+                        throw Exceptions.propagate(e);
+                    }
+                });
             }
         }
         
@@ -1001,6 +1010,17 @@ public abstract class RebindIteration {
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
                     String fixedSearchItemId = null;
+                    OsgiManager osgi = managementContext.getOsgiManager().orNull();
+                    if (osgi!=null) {
+                        ManagedBundle bundle = osgi.getManagedBundle(VersionedName.fromString(searchItemId));
+                        if (bundle!=null) {
+                            // found as bundle
+                            reboundSearchPath.add(searchItemId);
+                            continue;
+                        }
+                    }
+
+                    // look for as a type now
                     RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);
                     if (t1==null) {
                         String newSearchItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, searchItemId);
@@ -1300,7 +1320,8 @@ public abstract class RebindIteration {
         }
 
         protected ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
-            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(), memento.getChecksum());
+            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(),
+                    memento.getFormat(), null, memento.getChecksum());
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
             return result;
         }

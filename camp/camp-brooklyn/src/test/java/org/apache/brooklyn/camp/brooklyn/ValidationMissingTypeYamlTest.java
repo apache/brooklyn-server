@@ -152,7 +152,9 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
     }
     
     @Test
-    public void testNoEntityTypeInEntitySpecInCatalogEntityIsAllowed() throws Exception {
+    public void testNoEntityTypeInEntitySpecInCatalogEntity() {
+        // using addItems this is allowed; but addTypes validation is stricter
+        Asserts.assertFailsWith(()->
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + Identifiers.makeRandomId(8),
@@ -164,11 +166,12 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "      initialSize: 0",
                     "      memberSpec: ",
                     "        $brooklyn:entitySpec:",
-                    "          foo: " + TestEntityImpl.class.getName());
+                    "          foo: " + TestEntityImpl.class.getName()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "entitySpec"));
     }
 
     @Test
-    public void testNoEntityTypeInEntitySpecInCatalogAppIsAllowed() throws Exception {
+    public void testNoEntityTypeInEntitySpecInTemplateIsAllowed() throws Exception {
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + Identifiers.makeRandomId(8),

@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -29,6 +30,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslToStringHelpers;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -54,7 +56,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         this.args = args;
     }
 
-    @Override
+    @Override @JsonIgnore
     public Maybe<Object> getImmediately() {
         return invokeOnDeferred(object, true);
     }
@@ -83,7 +85,7 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
     }
 
     protected Maybe<Object> invokeOnDeferred(Object obj, boolean immediate) {
-        Maybe<?> resolvedMaybe = resolve(obj, immediate);
+        Maybe<?> resolvedMaybe = resolve(obj, immediate, true);
         if (resolvedMaybe.isPresent()) {
             Object instance = resolvedMaybe.get();
 
@@ -92,7 +94,11 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
                         object + " evaluates to null (wanting to call " + toStringF(fnName, args) + ")");
             }
 
-            return invokeOn(instance);
+            Maybe<Object> tentative = invokeOn(instance);
+            if (tentative.isAbsent()) {
+                return tentative;
+            }
+            return (Maybe) resolve(tentative.get(), immediate, false);
         } else {
             if (immediate) {
                 return Maybe.absent(new ImmediateSupplier.ImmediateValueNotAvailableException("Could not evaluate immediately: " + obj));
@@ -182,13 +188,17 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
         }
     }
     
-    protected Maybe<?> resolve(Object object, boolean immediate) {
-        return Tasks.resolving(object, Object.class)
-            .context(entity().getExecutionContext())
-            .deep(true, true)
-            .immediately(immediate)
-            .iterator()
-            .nextOrLast(DslFunctionSource.class);
+    protected Maybe<?> resolve(Object object, boolean immediate, boolean dslFunctionSource) {
+        ValueResolver<Object> r = Tasks.resolving(object, Object.class)
+                .context(entity().getExecutionContext())
+                .deep()
+                .immediately(immediate);
+        if (dslFunctionSource) {
+            return r.iterator()
+                    .nextOrLast(DslFunctionSource.class);
+        } else {
+            return r.getMaybe();
+        }
     }
 
     private static void checkCallAllowed(Method m) {

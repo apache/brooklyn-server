@@ -164,8 +164,8 @@ public class ResolvingConfigBag extends ConfigBag {
     }
 
     @Override
-    protected synchronized Maybe<Object> getKeyMaybe(ConfigKey<?> key, boolean markUsed) {
-        Maybe<Object> result = super.getKeyMaybe(key, markUsed);
+    protected synchronized Maybe<Object> getKeyMaybeUncoercedIfPresent(ConfigKey<?> key, boolean markUsed) {
+        Maybe<Object> result = super.getKeyMaybeUncoercedIfPresent(key, markUsed);
         return (result.isPresent()) ? Maybe.of(getTransformer().apply(result.get())) : result;
     }
 

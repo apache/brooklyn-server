@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.sensor.function;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
@@ -57,16 +58,17 @@ public final class FunctionSensor<T> extends AbstractAddSensorFeed<T> {
     public FunctionSensor(final ConfigBag params) {
         super(params);
     }
+    protected FunctionSensor() {}
 
     @Override
     public void apply(final EntityLocal entity) {
-        super.apply(entity);
+        AttributeSensor<T> sensor = addSensor(entity);
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Adding HTTP JSON sensor {} to {}", name, entity);
+            LOG.debug("Adding HTTP JSON sensor {} to {}", initParam(SENSOR_NAME), entity);
         }
 
-        final ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+        final ConfigBag allConfig = ConfigBag.newInstanceCopying(initParams());
         
         final Callable<?> function = EntityInitializers.resolve(allConfig, FUNCTION);
         final Boolean suppressDuplicates = EntityInitializers.resolve(allConfig, SUPPRESS_DUPLICATES);
@@ -79,7 +81,7 @@ public final class FunctionSensor<T> extends AbstractAddSensorFeed<T> {
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
                 .logWarningGraceTime(logWarningGraceTime)
-                .period(period);
+                .period(initParam(SENSOR_PERIOD));
 
         FunctionFeed feed = FunctionFeed.builder().entity(entity)
                 .poll(pollConfig)

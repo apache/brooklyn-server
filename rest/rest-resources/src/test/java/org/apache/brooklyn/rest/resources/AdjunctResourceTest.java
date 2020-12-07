@@ -203,26 +203,26 @@ public class AdjunctResourceTest extends BrooklynRestResourceTest {
         assertEquals(highlightTupleNoTask.getTaskId(), null);
     }
 
-    protected AdjunctDetail doTestAddPolicyExpectX(Function<WebClient,WebClient> mutator, Object postBody) throws Exception {
+    protected AdjunctDetail doTestAddPolicyExpect(Function<WebClient,WebClient> mutator, Object postBody, String expectedValue) throws Exception {
         AdjunctDetail result = mutator.apply(
                 client().path(ENDPOINT)
             ).post(postBody, AdjunctDetail.class);
-        Assert.assertEquals(result.getConfig().get(TestPolicy.CONF_FROM_FUNCTION.getName()), "x");
+        Assert.assertEquals(result.getConfig().get(TestPolicy.CONF_FROM_FUNCTION.getName()), expectedValue);
         return result;
     }
         
     @Test
     public void testAddPolicyX() throws Exception {
-        doTestAddPolicyExpectX(x -> x.query("type", TestPolicy.class.getName()), 
+        doTestAddPolicyExpect(x -> x.query("type", TestPolicy.class.getName()),
             toJsonEntity(MutableMap.of(
-                TestPolicy.CONF_FROM_FUNCTION.getName(), "x")));
+                TestPolicy.CONF_FROM_FUNCTION.getName(), "x")), "x");
     }
     
     @Test
     public void testAddPolicyFn() throws Exception {
-        doTestAddPolicyExpectX(x -> x.query("type", TestPolicy.class.getName()), 
+        doTestAddPolicyExpect(x -> x.query("type", TestPolicy.class.getName()),
             toJsonEntity(MutableMap.of(
-                TestPolicy.CONF_FROM_FUNCTION.getName(), "$brooklyn:literal(\"x\")")));
+                TestPolicy.CONF_FROM_FUNCTION.getName(), "$brooklyn:literal(\"x\")")), "$brooklyn:literal(\"x\")");
     }
 
 //    // TODO support YAML posts

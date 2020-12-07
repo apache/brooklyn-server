@@ -33,6 +33,8 @@ import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.DelegateEntity;
 import org.apache.brooklyn.util.concurrent.Locks;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,9 +127,13 @@ public abstract class AbstractGroupImpl extends AbstractEntity implements Abstra
                         Optional<Entity> result = Iterables.tryFind(getChildren(), Predicates.equalTo(member));
                         if (!result.isPresent()) {
                             String nameFormat = Optional.fromNullable(getConfig(MEMBER_DELEGATE_NAME_FORMAT)).or("%s");
-                            DelegateEntity child = addChild(EntitySpec.create(DelegateEntity.class)
+                            // create the child in another thread; could end up with duplicates, but need to prevent deadlock;
+                            // and this is a long-since deprecated approach
+                            DynamicTasks.queueIfPossible(
+                                    Tasks.create("create delegate", () -> addChild(EntitySpec.create(DelegateEntity.class)
                                     .configure(DelegateEntity.DELEGATE_ENTITY, member)
-                                    .displayName(String.format(nameFormat, member.getDisplayName())));
+                                    .displayName(String.format(nameFormat, member.getDisplayName()))))
+                            ).orSubmitAsync(this);
                         }
                     }
     

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.catalog.internal;
 
 import com.google.common.base.Predicate;
+import java.util.Arrays;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -26,6 +27,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 
@@ -92,10 +94,8 @@ class CatalogUpgradeScanner {
             final CatalogUpgrades.Builder catalogUpgradesBuilder,
             final BundleContext bundleContext
     ) {
-        for (Bundle bundle : bundleContext.getBundles()) {
-            final CatalogUpgrades catalogUpgrades = bundleUpgradeParser.apply(bundle, typeSupplier(bundle));
-            catalogUpgradesBuilder.addAll(catalogUpgrades);
-        }
+        Arrays.stream(bundleContext.getBundles()).filter(b -> Strings.isNonBlank(b.getSymbolicName())).forEach(
+            bundle -> catalogUpgradesBuilder.addAll( bundleUpgradeParser.apply(bundle, typeSupplier(bundle)) ));
     }
 
     private RegisteredTypesSupplier typeSupplier(final ManagedBundle managedBundle) {

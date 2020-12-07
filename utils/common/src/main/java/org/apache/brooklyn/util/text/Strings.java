@@ -118,6 +118,22 @@ public class Strings {
         return Maybe.absent();
     }
 
+    public static <T extends CharSequence> T firstNonBlank(T ...s) {
+        if (s==null) return null;
+        for (T si: s) {
+            if (isNonBlank(si)) return si;
+        }
+        return null;
+    }
+
+    public static String firstNonNull(Object ...s) {
+        if (s==null) return null;
+        for (Object si: s) {
+            if (si!=null) return ""+si;
+        }
+        return null;
+    }
+
     /** throws IllegalArgument if string not empty; cf. guava Preconditions.checkXxxx */
     public static void checkNonEmpty(CharSequence s) {
         if (s==null) throw new IllegalArgumentException("String must not be null");
@@ -198,20 +214,20 @@ public class Strings {
      * Removes everything after the marker, optionally also removing the marker.
      * If marker not found the string is unchanged.
      */
-    public static String removeAfter(String string, String marker, boolean includeMarker) {
-        int i = string.indexOf(marker);
-        if (i==-1) return string;
-        return string.substring(0, i + (includeMarker ? marker.length() : 0));
+    public static String removeAfter(String input, String marker, boolean keepMarker) {
+        int i = input.indexOf(marker);
+        if (i==-1) return input;
+        return input.substring(0, i + (keepMarker ? marker.length() : 0));
     }
     
     /**
      * Removes everything before the marker, optionally also removing the marker.
      * If marker not found the string is unchanged.
      */
-    public static String removeBefore(String string, String marker, boolean includeMarker) {
-        int i = string.indexOf(marker);
-        if (i==-1) return string;
-        return string.substring(i + (includeMarker ? 0 : marker.length()));
+    public static String removeBefore(String input, String marker, boolean keepMarker) {
+        int i = input.indexOf(marker);
+        if (i==-1) return input;
+        return input.substring(i + (keepMarker ? 0 : marker.length()));
     }
     
     /** convenience for {@link com.google.common.base.Joiner} */

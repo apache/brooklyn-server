@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -35,7 +36,7 @@ public class ProcessTaskStub {
     
     protected final List<String> commands = new ArrayList<String>();
     /** null for localhost */
-    protected SshMachineLocation machine;
+    protected MachineLocation machine;
     
     // config data
     protected String summary;
@@ -75,7 +76,7 @@ public class ProcessTaskStub {
     }
     
     /** null for localhost */
-    public SshMachineLocation getMachine() {
+    public MachineLocation getMachine() {
         return machine;
     }
     

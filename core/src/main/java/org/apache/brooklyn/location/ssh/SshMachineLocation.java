@@ -514,6 +514,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         return HostAndPort.fromParts(host, port);
     }
 
+    @Override
     public String getUser() {
         if (!groovyTruth(user)) {
             if (config().getLocalRaw(SshTool.PROP_USER).isPresent()) {
@@ -701,13 +702,14 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     public int execCommands(String summaryForLogging, List<String> commands) {
         return execCommands(MutableMap.<String,Object>of(), summaryForLogging, commands, MutableMap.<String,Object>of());
     }
-    public int execCommands(Map<String,?> props, String summaryForLogging, List<String> commands) {
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands) {
         return execCommands(props, summaryForLogging, commands, MutableMap.<String,Object>of());
     }
-    public int execCommands(String summaryForLogging, List<String> commands, Map<String,?> env) {
+    public int execCommands(String summaryForLogging, List<String> commands, Map<String, ?> env) {
         return execCommands(MutableMap.<String,Object>of(), summaryForLogging, commands, env);
     }
-    public int execCommands(Map<String,?> props, String summaryForLogging, List<String> commands, Map<String,?> env) {
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
         return newExecWithLoggingHelpers().execCommands(augmentPropertiesWithSshConfigGivenToProps(props), summaryForLogging, commands, env);
     }
 
@@ -727,6 +729,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     public int execScript(String summaryForLogging, List<String> commands, Map<String,?> env) {
         return execScript(MutableMap.<String,Object>of(), summaryForLogging, commands, env);
     }
+    @Override
     public int execScript(Map<String,?> props, String summaryForLogging, List<String> commands, Map<String,?> env) {
         return newExecWithLoggingHelpers().execScript(augmentPropertiesWithSshConfigGivenToProps(props), summaryForLogging, commands, env);
     }
@@ -869,7 +872,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
             PipedInputStream insO = new PipedInputStream(); OutputStream outO = new PipedOutputStream(insO);
             PipedInputStream insE = new PipedInputStream(); OutputStream outE = new PipedOutputStream(insE);
             StreamGobbler sgsO = new StreamGobbler(insO, null, LOG); sgsO.setLogPrefix("[curl @ "+address+":stdout] ").start();
-            StreamGobbler sgsE = new StreamGobbler(insE, null, LOG); sgsE.setLogPrefix("[curl @ "+address+":stdout] ").start();
+            StreamGobbler sgsE = new StreamGobbler(insE, null, LOG); sgsE.setLogPrefix("[curl @ "+address+":stderr] ").start();
             Map<String, ?> sshProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
             int result = execScript(sshProps, "copying remote resource "+url+" to server",  ImmutableList.of(
                     BashCommands.INSTALL_CURL, // TODO should hold the 'installing' mutex
@@ -947,12 +950,22 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         }
     }
 
+    Duration sshCheckTimeout = null;
+    @Beta
+    public void setSshCheckTimeout(Duration sshCheckTimeout) {
+        this.sshCheckTimeout = sshCheckTimeout;
+    }
+    @Beta
+    public Duration getSshCheckTimeout() {
+        return Maybe.ofDisallowingNull(sshCheckTimeout).or(Duration.millis(SSHABLE_CONNECT_TIMEOUT));
+    }
+
     public boolean isSshable() {
         String cmd = "date";
         try {
             try {
                 Socket s = new Socket();
-                s.connect(new InetSocketAddress(getAddress(), getPort()), SSHABLE_CONNECT_TIMEOUT);
+                s.connect(new InetSocketAddress(getAddress(), getPort()), (int) getSshCheckTimeout().toMilliseconds());
                 s.close();
             } catch (IOException e) {
                 if (LOG.isDebugEnabled()) LOG.debug(""+this+" not [yet] reachable (socket "+getAddress()+":"+getPort()+"): "+e);

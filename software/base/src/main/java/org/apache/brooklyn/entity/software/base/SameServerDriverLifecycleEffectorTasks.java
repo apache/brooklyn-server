@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffectorTasks;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,7 +120,7 @@ public class SameServerDriverLifecycleEffectorTasks extends MachineLifecycleEffe
     // Also see stopProcessesAtMachine in SoftwareProcessDriverLifecycleEffectorTasks.
     // Any fixes made there should probably be applied here too.
     @Override
-    protected String stopProcessesAtMachine() {
+    protected String stopProcessesAtMachine(ConfigBag parameters) {
         TaskAdaptable<?> children = StartableMethods.stoppingChildren(entity());
         DynamicTasks.queue(children);
         Exception childException = null;

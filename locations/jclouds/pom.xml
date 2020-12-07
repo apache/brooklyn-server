@@ -123,6 +123,11 @@
             <groupId>${jclouds.groupId}.driver</groupId>
             <artifactId>jclouds-sshj</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio</artifactId>
+            <version>${okio.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>${jclouds.groupId}</groupId>
@@ -139,6 +144,11 @@
                 <!-- pulls in 1.17 where we want a newer version -->
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
+              </exclusion>
+              <exclusion>
+                <!-- we use 1.15 instead of 1.2, have for a long time and seems to work fine -->
+                <groupId>com.squareup.okio</groupId>
+                <artifactId>okio</artifactId>
               </exclusion>
             </exclusions>
         </dependency>

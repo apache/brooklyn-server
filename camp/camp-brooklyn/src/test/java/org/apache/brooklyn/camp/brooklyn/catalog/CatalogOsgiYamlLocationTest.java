@@ -120,7 +120,7 @@ public class CatalogOsgiYamlLocationTest extends AbstractYamlTest {
     
     private void removeAndAssert(String symbolicName) {
         // Deleting item: should be gone from catalog, and from location registry
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
 
         assertEquals(countCatalogLocations(), 0);
         assertNull(mgmt().getLocationRegistry().getDefinedLocationByName(symbolicName));
@@ -132,7 +132,7 @@ public class CatalogOsgiYamlLocationTest extends AbstractYamlTest {
         addCatalogLocation(symbolicName, SIMPLE_LOCATION_TYPE, getOsgiLibraries());
         runLaunchApplicationReferencingLocation(symbolicName, SIMPLE_LOCATION_TYPE);
         
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
     
     protected void runLaunchApplicationReferencingLocation(String locTypeInYaml, String locType) throws Exception {

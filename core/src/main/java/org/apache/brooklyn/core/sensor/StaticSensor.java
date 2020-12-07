@@ -22,9 +22,11 @@ import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
+import org.apache.brooklyn.core.effector.AddSensorInitializer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.enricher.stock.Propagator;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -46,7 +48,7 @@ import com.google.common.base.Supplier;
  * which can be useful if the supplied value is such a function.
  * However when the source is another sensor,
  * consider using {@link Propagator} which listens for changes instead. */
-public class StaticSensor<T> extends AddSensor<T> {
+public class StaticSensor<T> extends AddSensorInitializer<T> {
 
     private static final Logger log = LoggerFactory.getLogger(StaticSensor.class);
     
@@ -54,34 +56,28 @@ public class StaticSensor<T> extends AddSensor<T> {
     public static final ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(
             Duration.class, "static.timeout", "Duration to wait for the value to resolve", Duration.PRACTICALLY_FOREVER);
 
-    private final Object value;
-    private final Duration timeout;
-
-    public StaticSensor(ConfigBag params) {
-        super(params);
-        value = params.get(STATIC_VALUE);
-        timeout = params.get(TIMEOUT);
-    }
+    public StaticSensor() {}
+    public StaticSensor(ConfigBag params) { super(params); }
 
     @Override
     public void apply(final EntityLocal entity) {
-        super.apply(entity);
+        AttributeSensor<T> sensor = addSensor(entity);
 
         class ResolveValue implements Callable<Maybe<T>> {
             @Override
             public Maybe<T> call() throws Exception {
                 // TODO resolve deep?
-                return Tasks.resolving(value).as(sensor.getTypeToken()).timeout(timeout).getMaybe();
+                return Tasks.resolving(initParam(STATIC_VALUE)).as(sensor.getTypeToken()).timeout(initParam(TIMEOUT)).getMaybe();
             }
         }
-        final Task<Maybe<T>> resolveValue = Tasks.<Maybe<T>>builder().displayName("resolving " + value).body(new ResolveValue()).build();
+        final Task<Maybe<T>> resolveValue = Tasks.<Maybe<T>>builder().displayName("resolving " + initParam(STATIC_VALUE)).body(new ResolveValue()).build();
 
         class SetValue implements Callable<T> {
             @Override
             public T call() throws Exception {
                 Maybe<T> v = resolveValue.get();
                 if (!v.isPresent()) {
-                    log.debug(this+" not setting sensor "+sensor+" on "+entity+"; cannot resolve "+value+" after timeout " + timeout);
+                    log.debug(this+" not setting sensor "+sensor+" on "+entity+"; cannot resolve "+initParam(STATIC_VALUE)+" after timeout " + initParam(TIMEOUT));
                     return null;
                 }
                 log.debug(this+" setting sensor "+sensor+" to "+v.get()+" on "+entity);

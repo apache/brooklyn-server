@@ -33,6 +33,7 @@ import org.apache.brooklyn.entity.software.base.lifecycle.MachineLifecycleEffect
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
@@ -124,7 +125,7 @@ public class DynamicToyMySqlEntityBuilder {
                 return "submitted start";
             }
             @Override
-            protected void postStartCustom() {
+            protected void postStartCustom(ConfigBag parameters) {
                 // if it's still up after 5s assume we are good
                 Time.sleep(Duration.FIVE_SECONDS);
                 if (!DynamicTasks.queue(SshEffectorTasks.isPidFromFileRunning(dir(entity)+"/*/data/*.pid")).get()) {
@@ -150,11 +151,11 @@ public class DynamicToyMySqlEntityBuilder {
                 // Really should set this with a Feed that checks pid periodically.
                 // Should this instead be using SERVICE_NOT_UP_INDICATORS?
                 entity().sensors().set(Attributes.SERVICE_UP, true);
-                super.postStartCustom();
+                super.postStartCustom(parameters);
             }
 
             @Override
-            protected String stopProcessesAtMachine() {
+            protected String stopProcessesAtMachine(ConfigBag parameters) {
                 // TODO Where is best place to set? 
                 // Really should set this with a Feed that checks pid periodically.
                 entity().sensors().set(Attributes.SERVICE_UP, false);

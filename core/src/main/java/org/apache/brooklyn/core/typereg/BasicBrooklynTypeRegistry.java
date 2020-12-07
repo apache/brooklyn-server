@@ -18,13 +18,11 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
@@ -98,17 +96,30 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     private Iterable<RegisteredType> getAllWithoutCatalog(Predicate<? super RegisteredType> filter) {
         // TODO optimisation? make indexes and look up?
         Ordering<RegisteredType> typeOrder = Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE);
-        return Locks.withLock(localRegistryLock.readLock(), 
-            () -> localRegisteredTypesAndContainingBundles.values().stream().
-                flatMap(m -> { return typeOrder.sortedCopy(m.values()).stream(); }).filter(filter::apply).collect(Collectors.toList()) );
+        return withOptionalReadLock(() -> localRegisteredTypesAndContainingBundles.values().stream().
+                flatMap(m -> {
+                    return typeOrder.sortedCopy(m.values()).stream();
+                }).filter(filter::apply).collect(Collectors.toList()));
     }
 
     private Maybe<RegisteredType> getExactWithoutLegacyCatalog(String symbolicName, String version, RegisteredTypeLoadingContext constraint) {
-        RegisteredType item = Locks.withLock(localRegistryLock.readLock(), 
+        RegisteredType item = withOptionalReadLock(
             ()-> getBestValue(localRegisteredTypesAndContainingBundles.get(symbolicName+":"+version)) );
         return RegisteredTypes.tryValidate(item, constraint);
     }
 
+    private <T> T withOptionalReadLock(Callable<T> call) {
+        if (Thread.currentThread().isInterrupted()) {
+            // if we're doing get immediately bypass the lock
+            try {
+                return call.call();
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        } else {
+            return Locks.withLock(localRegistryLock.readLock(), call);
+        }
+    }
     private RegisteredType getBestValue(Map<String, RegisteredType> m) {
         if (m==null) return null;
         if (m.isEmpty()) return null;
@@ -248,16 +259,17 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
             
         } else if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
             if (constraint != null && constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
-                throw new UnsupportedTypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
+                throw new TypePlanException("Cannot create spec from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
                 
             } else {
                 // try just-in-time validation
-                Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint);
+                Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint, false);
                 if (!validationErrors.isEmpty()) {
                     throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
                 }
                 type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
                 if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                    // shouldn't come here
                     throw new ReferencedUnresolvedTypeException(type);
                 }
                 return createSpec(type, constraint, specSuperType);
@@ -343,8 +355,28 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
     public <T> T createBean(RegisteredType type, @Nullable RegisteredTypeLoadingContext constraint, @Nullable Class<T> optionalResultSuperType) {
         Preconditions.checkNotNull(type, "type");
         if (type.getKind()!=RegisteredTypeKind.BEAN) { 
-            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) throw new ReferencedUnresolvedTypeException(type);
-            else throw new UnsupportedTypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
+            if (type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                // attempt to resolve
+                if (constraint != null && constraint.getAlreadyEncounteredTypes().contains(type.getSymbolicName())) {
+                    throw new TypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+"), recursive reference following "+constraint.getAlreadyEncounteredTypes());
+
+                } else {
+                    // try just-in-time validation
+                    Collection<Throwable> validationErrors = mgmt.getCatalog().validateType(type, constraint, false);
+                    if (!validationErrors.isEmpty()) {
+                        throw new ReferencedUnresolvedTypeException(type, true, Exceptions.create(validationErrors));
+                    }
+                    type = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
+                    if (type==null || type.getKind()==RegisteredTypeKind.UNRESOLVED) {
+                        // shouldn't come here
+                        throw new ReferencedUnresolvedTypeException(type);
+                    }
+                    // continue below to do transform
+                }
+
+            } else {
+                throw new UnsupportedTypePlanException("Cannot create bean from type "+type+" (kind "+type.getKind()+")");
+            }
         }
         if (constraint!=null) {
             if (constraint.getExpectedKind()!=null && constraint.getExpectedKind()!=RegisteredTypeKind.SPEC) {
@@ -374,39 +406,25 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         Preconditions.checkNotNull(type, "type");
         return new RegisteredTypeKindVisitor<T>() { 
             @Override protected T visitBean() { return createBean(type, constraint, optionalResultSuperType); }
-            @SuppressWarnings({ "unchecked", "rawtypes" })
+            @SuppressWarnings({ "rawtypes" })
             @Override protected T visitSpec() { return (T) createSpec(type, constraint, (Class)optionalResultSuperType); }
             @Override protected T visitUnresolved() {
-                try {
-                    // don't think there are valid times when this comes here?
-                    // currently should only used for "templates" which are always for specs,
-                    // but callers of that shouldn't be talking to type plan transformers,
-                    // they should be calling to main BBTR methods.
-                    // do it and alert just in case however.
-                    // TODO remove if we don't see any warnings (or when we sort out semantics for template v app v allowed-unresolved better)
-                    log.debug("Request for "+this+" to create UNRESOLVED kind "+type+"; trying as spec");
-                    T result = visitSpec();
-                    log.warn("Request to use "+this+" from UNRESOLVED state succeeded treating is as a spec");
-                    log.debug("Trace for request to use "+this+" in UNRESOLVED state succeeding", new Throwable("Location of request to use "+this+" in UNRESOLVED state"));
-                    return result;
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    throw new IllegalArgumentException("Kind-agnostic create method only intended for used when the registered type declares its kind, which "+type+" does not, "
-                        + "and failed treating it as a spec: "+e, e);
-                }
+                throw new IllegalArgumentException("Registered type "+type+" has unsupported kind "+type.getKind()+" (should be 'bean' or 'spec')");
             }
         }.visit(type.getKind());
     }
 
     @Override
-    public <T> T createFromPlan(Class<T> requiredSuperTypeHint, @Nullable String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint) {
-        if (AbstractBrooklynObjectSpec.class.isAssignableFrom(requiredSuperTypeHint)) {
-            @SuppressWarnings({ "unchecked", "rawtypes" })
-            T result = (T) createSpecFromPlan(planFormat, planData, optionalConstraint, (Class)requiredSuperTypeHint);
+    public <T> T createFromPlan(RegisteredTypeKind kind, @Nullable String planFormat, Object planData, @Nullable RegisteredTypeLoadingContext optionalConstraint, @Nullable Class<T> superTypeHint) {
+        if (kind == RegisteredTypeKind.SPEC) {
+            @SuppressWarnings("rawtypes")
+            T result = (T) createSpecFromPlan(planFormat, planData, optionalConstraint, (Class) superTypeHint);
             return result;
+        } else if (kind == RegisteredTypeKind.BEAN) {
+            return createBeanFromPlan(planFormat, planData, optionalConstraint, superTypeHint);
+        } else {
+            throw new IllegalStateException("Unsupported kind '"+kind+"'");
         }
-        
-        return createBeanFromPlan(planFormat, planData, optionalConstraint, requiredSuperTypeHint);
     }
 
     @Beta // API is stabilising
@@ -442,7 +460,14 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                         }
                         if (canForce) {
                             // may be forcing because of internal type validation, or of course user flag
-                            log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
+                            if (log.isDebugEnabled()) {
+                                if (samePlan(type, existingT)) {
+                                    // suppress debug message if plans are the same
+                                    log.trace("Addition of " + type + " to replace " + existingT + " allowed because force is on and plans are the same");
+                                } else {
+                                    log.debug("Addition of " + type + " to replace " + existingT + " allowed because force is on");
+                                }
+                            }
                             continue;
                         }
                         if (BrooklynVersionSyntax.isSnapshot(type.getVersion())) {
@@ -470,12 +495,17 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                     assertSameEnoughToAllowReplacing(existingT, type, reasonForDetailedCheck);
                 }
             
-                log.debug("Inserting "+type+" into "+this+
-                    (oldContainingBundlesToRemove.isEmpty() ? "" : " (removing entry from "+oldContainingBundlesToRemove+")"));
+                Supplier<String> msg = () -> "Inserting "+type+" ("+type.getKind()+") into "+this+
+                    (oldContainingBundlesToRemove.isEmpty() ? "" : " (removing entry from "+oldContainingBundlesToRemove+")");
                 for (String oldContainingBundle: oldContainingBundlesToRemove) {
                     knownMatchingTypesByBundles.remove(oldContainingBundle);
                 }
-                knownMatchingTypesByBundles.put(type.getContainingBundle(), type);
+                RegisteredType prev = knownMatchingTypesByBundles.put(type.getContainingBundle(), type);
+                if (prev==null || type.getKind()!=RegisteredTypeKind.UNRESOLVED) {
+                    log.debug(msg.get()+(prev!=null ? "; replacing "+prev.getKind()+" "+prev : ""));
+                } else {
+                    log.trace(msg.get());
+                }
             });
     }
 

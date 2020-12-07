@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -702,7 +703,7 @@ public class Reflections {
         }
     }
 
-    public static Maybe<Object> getFieldValueMaybe(Object instance, Field field) {
+    @Nonnull public static Maybe<Object> getFieldValueMaybe(Object instance, Field field) {
         try {
             if (instance==null) return null;
             if (field==null) return null;

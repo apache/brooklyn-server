@@ -24,7 +24,6 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -65,11 +64,11 @@ public class EmbeddedFelixFramework {
     private static final String MANIFEST_PATH = "META-INF/MANIFEST.MF";
     private static final Set<String> SYSTEM_BUNDLES = MutableSet.of();
 
-    private static final Set<URL> BOOT_BUNDLES;
+    private static final Set<URL> CANDIDATE_BOOT_BUNDLES;
     
     static {
         try {
-            BOOT_BUNDLES = MutableSet.copyOf(Collections.list(
+            CANDIDATE_BOOT_BUNDLES = MutableSet.copyOf(Collections.list(
                 EmbeddedFelixFramework.class.getClassLoader().getResources(MANIFEST_PATH))).asUnmodifiable();
         } catch (Exception e) {
             // should never happen; weird classloading problem
@@ -148,7 +147,7 @@ public class EmbeddedFelixFramework {
         Stopwatch timer = Stopwatch.createStarted();
         LOG.debug("Installing OSGi boot bundles from "+EmbeddedFelixFramework.class.getClassLoader()+"...");
         
-        Iterator<URL> resources = BOOT_BUNDLES.iterator();
+        Iterator<URL> resources = CANDIDATE_BOOT_BUNDLES.iterator();
         // previously we evaluated this each time, but lately (discovered in 2019,
         // possibly the case for a long time before) it seems to grow, accessing ad hoc dirs
         // in cache/* made by tests, which get deleted, logging lots of errors.
@@ -160,24 +159,24 @@ public class EmbeddedFelixFramework {
             URL url = resources.next();
             ReferenceWithError<?> installResult = installExtensionBundle(bundleContext, url, installedBundles, OsgiUtils.getVersionedId(framework));
             if (installResult.hasError() && !installResult.masksErrorIfPresent()) {
-                // it's reported as a critical error, so warn here
-                LOG.warn("Unable to install manifest from "+url+": "+installResult.getError(), installResult.getError());
+                // these are just candiate boot bundles used in testing so forgive errors and warnings
+                if (LOG.isTraceEnabled()) LOG.trace("Unable to install manifest from "+url+": "+installResult.getError(), installResult.getError());
             } else {
                 Object result = installResult.getWithoutError();
                 if (result instanceof Bundle) {
                     String v = OsgiUtils.getVersionedId( (Bundle)result );
                     SYSTEM_BUNDLES.add(v);
                     if (installResult.hasError()) {
-                        LOG.debug(installResult.getError().getMessage()+(result!=null ? " ("+result+"/"+v+")" : ""));
+                        if (LOG.isTraceEnabled()) LOG.trace(installResult.getError().getMessage()+(result!=null ? " ("+result+"/"+v+")" : ""));
                     } else {
-                        LOG.debug("Installed "+v+" from "+url);
+                        if (LOG.isTraceEnabled()) LOG.trace("Installed "+v+" from "+url);
                     }
                 } else if (installResult.hasError()) {
-                    LOG.debug(installResult.getError().getMessage());
+                    LOG.trace(installResult.getError().getMessage());
                 }
             }
         }
-        LOG.debug("Installed OSGi boot bundles in "+Time.makeTimeStringRounded(timer)+": "+Arrays.asList(framework.getBundleContext().getBundles()));
+        if (LOG.isTraceEnabled()) LOG.trace("Installed OSGi boot bundles in "+Time.makeTimeStringRounded(timer)+": "+Arrays.asList(framework.getBundleContext().getBundles()));
     }
 
     private static Map<String, Bundle> getInstalledBundlesById(BundleContext bundleContext) {
@@ -203,7 +202,7 @@ public class EmbeddedFelixFramework {
         try {
             Manifest manifest = readManifest(manifestUrl);
             if (!isValidBundle(manifest))
-                return ReferenceWithError.newInstanceMaskingError(null, new IllegalArgumentException("Resource at "+manifestUrl+" is not an OSGi bundle: no valid manifest"));
+                return ReferenceWithError.newInstanceMaskingError(null, new IllegalArgumentException("Resource at "+manifestUrl+" is not an OSGi bundle manifest"));
 
             String versionedId = OsgiUtils.getVersionedId(manifest);
             URL bundleUrl = OsgiUtils.getContainerUrl(manifestUrl, MANIFEST_PATH);
@@ -219,7 +218,7 @@ public class EmbeddedFelixFramework {
             }
 
             byte[] jar = buildExtensionBundle(manifest);
-            LOG.debug("Installing boot bundle " + bundleUrl);
+            if (LOG.isTraceEnabled()) LOG.trace("Installing boot bundle " + bundleUrl);
             //mark the bundle as extension so we can detect it later using the "system:" protocol
             //(since we cannot access BundleImpl.isExtension)
             Bundle newBundle = bundleContext.installBundle(EXTENSION_PROTOCOL + ":" + bundleUrl.toString(), new ByteArrayInputStream(jar));

@@ -564,19 +564,22 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
     @Test
     public void testAddUnreachableItem() {
-        addAddCatalogItemWithInvalidBundleUrl("http://0.0.0.0/can-not-connect");
+        Object err = addAddCatalogItemWithInvalidBundleUrl("http://0.0.0.0/can-not-connect");
+        Asserts.assertStringContainsIgnoreCase(err.toString(), "0.0.0.0/can-not-connect", "connection refused");
     }
 
     @Test
     public void testAddInvalidItem() {
         //equivalent to HTTP response 200 text/html
-        addAddCatalogItemWithInvalidBundleUrl("classpath://not-a-jar-file.txt");
+        Object err = addAddCatalogItemWithInvalidBundleUrl("classpath://not-a-jar-file.txt");
+        Asserts.assertStringContainsIgnoreCase(err.toString(), "classpath://not-a-jar-file.txt", "ZipException");
     }
 
     @Test
     public void testAddMissingItem() {
         //equivalent to HTTP response 404 text/html
-        addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
+        Object err = addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
+        Asserts.assertStringContainsIgnoreCase(err.toString(), "classpath://missing-jar-file.txt", "not found");
     }
 
     @Test
@@ -660,7 +663,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Catalog BOM must define version");
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "BOM", "bundle", "version");
     }
 
     @Test
@@ -923,7 +926,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(entity.getEntityType().getName(), entityType);
     }
 
-    private void addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
+    private Object addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
         String symbolicName = "my.catalog.entity.id";
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
@@ -942,6 +945,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(yaml);
 
         assertEquals(response.getStatus(), HttpStatus.BAD_REQUEST_400);
+        return response.readEntity(Object.class);
     }
 
     private static String ver(String id) {

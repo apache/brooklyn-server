@@ -387,15 +387,20 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createFromYaml(String yaml) {
-        return createFromYaml(yaml, Optional.absent());
+        return createFromYaml(yaml, null, Optional.absent());
     }
-    
+
     @Override
     public Response createFromYamlWithAppId(String yaml, String appId) {
-        return createFromYaml(yaml, Optional.of(appId));
+        return createFromYaml(yaml, null, Optional.of(appId));
     }
-    
-    protected Response createFromYaml(String yaml, Optional<String> appId) {
+
+    @Override
+    public Response createFromYamlWithAppId(String yaml, String format, String appId) {
+        return createFromYaml(yaml, format, Optional.of(appId));
+    }
+
+    protected Response createFromYaml(String yaml, String format, Optional<String> appId) {
         // First of all, see if it's a URL
         Preconditions.checkNotNull(yaml, "Blueprint must not be null");
         URI uri = null;
@@ -422,7 +427,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         EntitySpec<? extends Application> spec;
         try {
-            spec = createEntitySpecForApplication(yaml);
+            spec = createEntitySpecForApplication(yaml, format);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment, could not create spec: "+e);
@@ -499,34 +504,47 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createPoly(byte[] inputToAutodetectType) {
+        return createWithFormat(inputToAutodetectType, null);
+    }
+
+    @Override
+    public Response createFromForm(String contents) {
+        log.debug("Creating app from form");
+        return createPoly(contents.getBytes());
+    }
+
+    @Override
+    public Response createWithFormat(byte[] inputToAutodetectType, String format) {
         log.debug("Creating app from autodetecting input");
 
         boolean looksLikeLegacy = false;
         Exception legacyFormatException = null;
-        // attempt legacy format
-        try {
-            ApplicationSpec appSpec = mapper().readValue(inputToAutodetectType, ApplicationSpec.class);
-            if (appSpec.getType() != null || appSpec.getEntities() != null) {
-                looksLikeLegacy = true;
+        if (Strings.isBlank(format)) {
+            // attempt legacy format
+            try {
+                ApplicationSpec appSpec = mapper().readValue(inputToAutodetectType, ApplicationSpec.class);
+                if (appSpec.getType() != null || appSpec.getEntities() != null) {
+                    looksLikeLegacy = true;
+                }
+                return createFromAppSpec(appSpec);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                legacyFormatException = e;
+                log.debug("Input is not legacy ApplicationSpec JSON (will try others)");
             }
-            return createFromAppSpec(appSpec);
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            legacyFormatException = e;
-            log.debug("Input is not legacy ApplicationSpec JSON (will try others)");
         }
 
         //TODO infer encoding from request
         String potentialYaml = new String(inputToAutodetectType);
         EntitySpec<? extends Application> spec;
         try {
-            spec = createEntitySpecForApplication(potentialYaml);
+            spec = createEntitySpecForApplication(potentialYaml, format);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment, could not create spec (autodetecting): "+e);
-            
+
             // TODO if not yaml/json - try ZIP, etc
-            
+
             throw WebResourceUtils.badRequest(e, "Error in blueprint");
         }
 
@@ -547,12 +565,6 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createFromForm(String contents) {
-        log.debug("Creating app from form");
-        return createPoly(contents.getBytes());
-    }
-
-    @Override
     public Response delete(String application) {
         Application app = brooklyn().getApplication(application);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, Entitlements.EntityAndItem.of(app,
@@ -565,8 +577,8 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         return status(ACCEPTED).entity(ts).build();
     }
 
-    private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml) {
-        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
+    private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml, String format) {
+        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), format, potentialYaml);
     }
     
     private void checkApplicationTypesAreValid(ApplicationSpec applicationSpec) {

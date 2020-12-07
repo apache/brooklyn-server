@@ -112,7 +112,11 @@ public interface OsgiTestResources {
     public static final String BROOKLYN_TEST_MORE_ENTITIES_V1_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V1_PATH;
     public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_PATH;
     public static final String BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL = "classpath:"+BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_PATH;
-    
+
+    public static final String BROOKLYN_TEST_OSGI_BEANS_SYMBOLIC_NAME_FINAL_PART = "brooklyn-test-osgi-bean";
+    public static final String BROOKLYN_TEST_OSGI_BEANS_PATH = "/brooklyn/osgi/brooklyn-test-osgi-beans.jar";
+    public static final String BROOKLYN_TEST_OSGI_BEANS_URL = "classpath:"+OsgiTestResources.BROOKLYN_TEST_OSGI_BEANS_PATH;
+
     public static final String TEST_VERSION = "0.1.0";
 
 }

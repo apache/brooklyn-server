@@ -35,12 +35,17 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.policy.failover.ElectPrimaryConfig.SelectionMode;
+import org.apache.brooklyn.policy.failover.ElectPrimaryConfig.TargetMode;
+import org.apache.brooklyn.policy.failover.ElectPrimaryEffector.PrimaryTransition;
+import org.apache.brooklyn.policy.failover.ElectPrimaryEffector.ResultCode;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -68,7 +73,7 @@ behaviour can be configured with `primary.selection.mode`.
 @return a map containing a message, newPrimary, oldPrimary, and a {@link ResultCode} code.
 */
 @Beta
-public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConfig {
+public class ElectPrimaryEffector extends InitializerPatternWithConfigKeys implements EntityInitializer, ElectPrimaryConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ElectPrimaryEffector.class);
     
@@ -91,21 +96,17 @@ public class ElectPrimaryEffector implements EntityInitializer, ElectPrimaryConf
         PrimaryTransition.class, "primary.transition", 
         "Indicates primary is transitioning, cleared when completed");
     
-    private final ConfigBag paramsCreationTime;
-    
-    public ElectPrimaryEffector(ConfigBag params) {
-        this.paramsCreationTime = params;
-    }
-    
+    private ElectPrimaryEffector() {}
+    public ElectPrimaryEffector(ConfigBag params) { super(params); }
     public ElectPrimaryEffector(Map<String,String> params) {
         this(ConfigBag.newInstance(params));
     }
-    
+
     // wire up the entity to call the task factory to create the task on invocation
     
     @Override
     public void apply(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
-        ((EntityInternal)entity).getMutableEntityType().addEffector(makeEffector(paramsCreationTime));
+        ((EntityInternal)entity).getMutableEntityType().addEffector(makeEffector(initParams()));
     }
     
     public static Effector<Object> makeEffector(ConfigBag params) {

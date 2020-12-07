@@ -39,6 +39,7 @@ public interface KubernetesLocationConfig extends CloudLocationConfig {
     ConfigKey<String> KUBECONFIG = ConfigKeys.builder(String.class)
             .name("kubeconfig")
             .description("Kubernetes .kubeconfig file to use for Location configuration keys")
+            .defaultValue(System.getProperty("user.home") + "/.kube/config")
             .constraint(file -> Files.isReadable(Paths.get(file)))
             .build();
 

@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -77,22 +78,17 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
 
-    // Fields are kept for deserialization purposes; however will rely on the values being
-    // re-computed from the config map, rather than being restored from persistence.
-    @SuppressWarnings("unused")
-    private String command;
-    @SuppressWarnings("unused")
-    private String executionDir;
-    @SuppressWarnings("unused")
-    private Map<String,Object> sensorEnv;
-    
-    public SshCommandSensor(final ConfigBag params) {
+    protected SshCommandSensor() {}
+    public SshCommandSensor(ConfigBag params) {
         super(params);
     }
 
     @Override
     public void apply(final EntityLocal entity) {
-        super.apply(entity);
+        AttributeSensor<T> sensor = addSensor(entity);
+
+        ConfigBag params = initParams();
+        String name = initParam(SENSOR_NAME);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding SSH sensor {} to {}", name, entity);
@@ -107,7 +103,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
         Supplier<String> commandSupplier = new CommandSupplier(entity, params);
 
         CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
-                .period(period)
+                .period(initParam(SENSOR_PERIOD))
                 .env(envSupplier)
                 .command(commandSupplier)
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
@@ -137,12 +133,12 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
                 // Add the shell environment entries from our configuration
-                Map<String,Object> sensorEnv = params.get(SENSOR_SHELL_ENVIRONMENT);
+                Map<String,Object> sensorEnv = initParams().get(SENSOR_SHELL_ENVIRONMENT);
                 if (sensorEnv != null) env.putAll(sensorEnv);
 
                 // Try to resolve the configuration in the env Map
                 try {
-                    env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+                    env = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, ((EntityInternal) entity).getExecutionContext());
                 } catch (InterruptedException | ExecutionException e) {
                     Exceptions.propagateIfFatal(e);
                 }
@@ -160,8 +156,8 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 // Note that entity may be null during rebind (e.g. if this SshFeed is orphaned, with no associated entity):
                 // See https://issues.apache.org/jira/browse/BROOKLYN-568.
                 // We therefore guard against null in makeCommandExecutingInDirectory.
-                String command = Preconditions.checkNotNull(EntityInitializers.resolve(params, SENSOR_COMMAND));
-                String dir = EntityInitializers.resolve(params, SENSOR_EXECUTION_DIR);
+                String command = Preconditions.checkNotNull(EntityInitializers.resolve(initParams(), SENSOR_COMMAND));
+                String dir = EntityInitializers.resolve(initParams(), SENSOR_EXECUTION_DIR);
                 return makeCommandExecutingInDirectory(command, dir, entity);
             }
         };
@@ -220,7 +216,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
             // Try to resolve the configuration in the env Map
             try {
-                env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+                env = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, ((EntityInternal) entity).getExecutionContext());
             } catch (InterruptedException | ExecutionException e) {
                 Exceptions.propagateIfFatal(e);
             }
@@ -259,4 +255,23 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             return makeCommandExecutingInDirectory(command, dir, entity);
         }
     }
+
+    private String command;
+    private String executionDir;
+    private Map<String,Object> sensorEnv;
+    // introduced in 1.1 for legacy compatibility
+    protected Object readResolve() {
+        super.readResolve();
+        initFromConfigBag(ConfigBag.newInstance()
+                .putIfAbsentAndNotNull(SENSOR_COMMAND, command)
+                .putIfAbsentAndNotNull(SENSOR_EXECUTION_DIR, executionDir)
+                .putIfAbsentAndNotNull(SENSOR_SHELL_ENVIRONMENT, sensorEnv)
+        );
+        command = null;
+        executionDir = null;
+        sensorEnv = null;
+
+        return this;
+    }
+
 }

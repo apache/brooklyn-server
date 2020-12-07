@@ -58,6 +58,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;
 import org.osgi.framework.Constants;
@@ -250,7 +251,7 @@ public abstract class AbstractYamlTest {
     }
 
     protected void addCatalogItems(String catalogYaml) {
-        mgmt().getCatalog().addItems(catalogYaml, true, forceUpdate);
+        mgmt().getCatalog().addTypesAndValidateAllowInconsistent(catalogYaml, null, forceUpdate);
     }
 
     /*
@@ -268,8 +269,8 @@ public abstract class AbstractYamlTest {
             File bf = bundleMaker.createTempZip("test", MutableMap.of(
                 new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), new ByteArrayInputStream(catalogYaml.getBytes())));
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(
-                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null, null), 
-                new FileInputStream(bf),
+                new BasicManagedBundle(bundleName.getSymbolicName(), bundleName.getVersionString(), null, null, null, null),
+                InputStreamSource.of("tests:"+bundleName+":"+bf, bf),
                 false);
             
             // bundle not started (no need, and can break), and BOM not installed nor validated above; 
@@ -301,7 +302,7 @@ public abstract class AbstractYamlTest {
                     Constants.BUNDLE_VERSION, bundleName.getOsgiVersion().toString()));
             }
             ReferenceWithError<OsgiBundleInstallationResult> b = ((ManagementContextInternal)mgmt).getOsgiManager().get().install(
-                new FileInputStream(bf) );
+                    InputStreamSource.of("tests:"+bundleName+":"+bf, bf) );
 
             b.checkNoError();
             
@@ -309,12 +310,21 @@ public abstract class AbstractYamlTest {
             throw Exceptions.propagate(e);
         }
     }
-    
-    protected void deleteCatalogEntity(String catalogItemSymbolicName) {
-        deleteCatalogEntity(catalogItemSymbolicName, TEST_VERSION);
+
+    protected void deleteCatalogRegisteredType(String regTypeSymbolicName) {
+        deleteCatalogRegisteredType(regTypeSymbolicName, TEST_VERSION);
     }
+    protected void deleteCatalogRegisteredType(String regTypeSymbolicName, String version) {
+        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(regTypeSymbolicName, version));
+    }
+
+    @Deprecated /** @deprecated use {@link #deleteCatalogEntity(String)} */
+    protected void deleteCatalogEntity(String catalogItemSymbolicName) {
+        deleteCatalogRegisteredType(catalogItemSymbolicName);
+    }
+    @Deprecated /** @deprecated use {@link #deleteCatalogEntity(String)} */
     protected void deleteCatalogEntity(String catalogItemSymbolicName, String version) {
-        ((BasicBrooklynTypeRegistry) mgmt().getTypeRegistry()).delete(new VersionedName(catalogItemSymbolicName, version));
+        deleteCatalogRegisteredType(catalogItemSymbolicName, version);
     }
 
     protected Logger getLogger() {

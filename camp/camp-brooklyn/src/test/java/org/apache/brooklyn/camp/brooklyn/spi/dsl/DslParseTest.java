@@ -18,6 +18,17 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Optional;
+import com.google.common.reflect.TypeToken;
+import java.util.Map;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -73,6 +84,5 @@ public class DslParseTest {
         assertEquals( ((FunctionWithArgs)fx2).getFunction(), "g" );
         assertTrue( ((FunctionWithArgs)fx2).getArgs().isEmpty() );
     }
-    
 
 }

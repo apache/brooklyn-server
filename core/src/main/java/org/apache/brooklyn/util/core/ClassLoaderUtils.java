@@ -287,8 +287,14 @@ public class ClassLoaderUtils {
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
                     BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
-                    loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
-                        item.getCatalogItemIdSearchPath()));
+                    try {
+                        loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
+                                item.getCatalogItemIdSearchPath()));
+                    } catch (UnsupportedOperationException e) {
+                        // normal if item comes from the type; could suppress load attempt
+                    } catch (Exception e) {
+                        log.warn("Error accessing looking up "+className+" relative to "+catalogItemId+" (ignoring, will try loading other ways but may fail): "+e, e);
+                    }
                     cls = dispatcher.tryLoadFrom(loader, className);
                     if (cls.isPresent()) {
                         return cls;

@@ -78,12 +78,7 @@ public class DslUtils {
                 value = Iterables.getOnlyElement( Yamls.parseAll((String)value) );
             }
             
-            // The 'dsl' key is arbitrary, but the interpreter requires a map
-            ImmutableMap<String, Object> inputToPdpParse = ImmutableMap.of("dsl", value);
-            Map<String, Object> resolvedConfigMap = BrooklynCampPlatform.findPlatform(mgmt)
-                    .pdp()
-                    .applyInterpreters(inputToPdpParse);
-            value = resolvedConfigMap.get("dsl");
+            value = parseBrooklynDsl(mgmt, value);
             // TODO if it fails log a warning -- eg entitySpec with root.war that doesn't exist
 
             if (specForCatalogItemIdContext!=null) {
@@ -91,7 +86,7 @@ public class DslUtils {
             }
         }
         
-        if (requireType && value instanceof DeferredSupplier) {
+        if (!requireType && value instanceof DeferredSupplier) {
             // Don't cast - let Brooklyn evaluate it later (the value is a resolved DSL expression).
             return Optional.of(value);
         }
@@ -105,8 +100,22 @@ public class DslUtils {
         }
     }
 
-    /** Resolve an object which might be (or contain in a map or list) a $brooklyn DSL string expression,
-     * attempting to coerce if a type is supplied (unless it is a {@link DeferredSupplier}) */
+    /** Parses a Brooklyn DSL expression, returning a Brooklyn DSL deferred supplier if appropriate; otherwise the value is unchanged. Will walk maps/lists.  */
+    // our code uses CAMP PDP to evaluate this, which is probably unnecessary, but it means the mgmt context is required and CAMP should be installed
+    public static Object parseBrooklynDsl(ManagementContext mgmt, Object value) {
+        // The 'dsl' key is arbitrary, but the interpreter requires a map
+        ImmutableMap<String, Object> inputToPdpParse = ImmutableMap.of("dsl", value);
+        Map<String, Object> resolvedConfigMap = BrooklynCampPlatform.findPlatform(mgmt)
+                .pdp()
+                .applyInterpreters(inputToPdpParse);
+        value = resolvedConfigMap.get("dsl");
+        return value;
+    }
+
+    /** Resolve an object which might be (or contain in a map or list or inside a json string) a $brooklyn DSL string expression,
+     * and if a type is supplied, attempting to resolve/evaluate/coerce (unless requested type is itself a {@link DeferredSupplier}).
+     * If type is not supplied acts similar to {@link #parseBrooklynDsl(ManagementContext, Object)} but with more support for
+     * looking within json strings of maps/lists. */
     public static Optional<Object> resolveBrooklynDslValue(Object originalValue, @Nullable TypeToken<?> desiredType, @Nullable ManagementContext mgmt, @Nullable AbstractBrooklynObjectSpec<?,?> specForCatalogItemIdContext) {
         return resolveBrooklynDslValueInternal(originalValue, desiredType, mgmt, specForCatalogItemIdContext, false);
         

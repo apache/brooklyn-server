@@ -20,16 +20,14 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -60,6 +58,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -78,7 +77,6 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -210,6 +208,8 @@ public class BrooklynComponentTemplateResolver {
         return overrides;
     }
 
+
+
     @SuppressWarnings("unchecked")
     private <T extends Entity> void populateSpec(EntitySpec<T> spec, Set<String> encounteredRegisteredTypeIds) {
         String name, source=null, templateId=null, planId=null;
@@ -223,6 +223,14 @@ public class BrooklynComponentTemplateResolver {
         planId = (String)attrs.getStringKey("id");
         if (planId==null)
             planId = (String) attrs.getStringKey(BrooklynCampConstants.PLAN_ID_FLAG);
+
+        Stack<RegisteredType> itemBeingResolved = CampResolver.currentlyCreatingSpec.get();
+        if (itemBeingResolved!=null && itemBeingResolved.peek()!=null) {
+            MutableList<String> searchPath = MutableList.<String>of()
+                    .appendIfNotNull(itemBeingResolved.peek().getContainingBundle())
+                    .appendAll(itemBeingResolved.peek().getLibraries().stream().map(bundle -> bundle.getVersionedName().toString()).collect(Collectors.toList()));
+            spec.addSearchPathAtStart(searchPath);
+        }
 
         Object childrenObj = attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_CHILDREN);
         if (childrenObj != null) {
@@ -304,12 +312,12 @@ public class BrooklynComponentTemplateResolver {
         for (FlagConfigKeyAndValueRecord r: records) {
             // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
 
-            Function<Maybe<Object>, Maybe<Object>> rawConvFn = Functions.identity();
+            BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn = this::convertConfig;
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
-                final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                if (key==null) ConfigKeys.newConfigKey(Object.class, flag);
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final ConfigKey<Object> key = Maybe.ofDisallowingNull((ConfigKey<Object>) r.getConfigKey()).or(() -> ConfigKeys.newConfigKey(Object.class, flag));
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
@@ -330,7 +338,8 @@ public class BrooklynComponentTemplateResolver {
 
             if (r.getConfigKeyMaybeValue().isPresent()) {
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
                 Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
                     @Override
@@ -372,9 +381,19 @@ public class BrooklynComponentTemplateResolver {
             // (that's why we check whether it is used)
             if (!keyNamesUsed.contains(key)) {
                 Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(key));
+                transformed = convertConfig(Maybe.of(transformed), TypeToken.of(Object.class)).get();
                 spec.configure(ConfigKeys.newConfigKey(Object.class, key.toString()), transformed);
             }
         }
+    }
+
+    private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
+        // no longer do conversion on set; do it on read instead
+//        if (BeanWithTypeUtils.isConversionPlausible(input, type) && BeanWithTypeUtils.isJsonOrDeferredSupplier(input.orNull())) {
+//            // attempt bean-with-type conversion if we're given a map when a map is not explicitly wanted
+//            return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
+//        }
+        return (Maybe<T>)input;
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {
@@ -568,7 +587,7 @@ public class BrooklynComponentTemplateResolver {
                         throw Exceptions.propagateAnnotated(errorMessage, exceptionToInclude);
                     }
                 }
-                cached = EntityManagementUtils.unwrapEntity(entitySpec);
+                cached = EntityManagementUtils.unwrapEntity(entitySpec, true);
                 return cached;
             }
         }

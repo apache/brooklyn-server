@@ -20,6 +20,10 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import java.util.Map;
 
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithFieldsFromConfigKeys;
 import org.testng.Assert;
 
 import com.google.common.base.Preconditions;
@@ -34,17 +38,18 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 
-public class TestSensorAndEffectorInitializer implements EntityInitializer {
+public interface TestSensorAndEffectorInitializerBase extends EntityInitializer {
 
     public static final String EFFECTOR_SAY_HELLO = "sayHello";
     public static final String SENSOR_LAST_HELLO = "lastHello";
     public static final String SENSOR_HELLO_DEFINED = "sensorHelloDefined";
     public static final String SENSOR_HELLO_DEFINED_EMITTED = "sensorHelloDefinedEmitted";
+    public static final ConfigKey<String> CONFIG_HELLO_WORD = ConfigKeys.newStringConfigKey("helloWord", "--", "Hello");
 
-    protected String helloWord() { return "Hello"; }
-    
+    public abstract String helloWord();
+
     @Override
-    public void apply(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
+    public default void apply(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         Effector<String> eff = Effectors.effector(String.class, EFFECTOR_SAY_HELLO).parameter(String.class, "name").impl(
             new EffectorBody<String>() {
                 @Override
@@ -63,22 +68,56 @@ public class TestSensorAndEffectorInitializer implements EntityInitializer {
         entity.sensors().set(emitted, "1");
     }
 
-    public static class TestConfigurableInitializer extends TestSensorAndEffectorInitializer {
-        public static final String HELLO_WORD = "helloWord";
-        final String helloWord;
-        public TestConfigurableInitializer(Map<String,String> params) {
-            Preconditions.checkNotNull(params);
-            if (params.containsKey(HELLO_WORD)) {
-                helloWord = params.get(HELLO_WORD);
-                Assert.assertEquals(params.size(), 1);
-            } else {
-                helloWord = "Hello";
-                Assert.assertEquals(params.size(), 0);
-            }
+    public static class TestConfigurableInitializerStatic implements TestSensorAndEffectorInitializerBase {
+        public String helloWord() {
+            return CONFIG_HELLO_WORD.getDefaultValue();
         }
-        
+    }
+    public static class TestConfigurableInitializerSimpleField implements TestSensorAndEffectorInitializerBase {
+        String helloWord = CONFIG_HELLO_WORD.getDefaultValue();
+
         @Override
-        protected String helloWord() {
+        public String helloWord() { return helloWord; }
+    }
+
+    public static class TestConfigurableInitializerOld implements TestSensorAndEffectorInitializerBase {
+        final String helloWord;
+        public TestConfigurableInitializerOld(Map<String,String> params) {
+            helloWord = ConfigBag.newInstance(params).get(CONFIG_HELLO_WORD);
+        }
+        @Override
+        public String helloWord() {
+            return helloWord;
+        }
+    }
+
+    public static class TestConfigurableInitializerConfigBag extends InitializerPatternWithConfigKeys implements TestSensorAndEffectorInitializerBase {
+        public static final ConfigKey<String> HELLO_WORD = CONFIG_HELLO_WORD;
+        private TestConfigurableInitializerConfigBag() {}
+        public TestConfigurableInitializerConfigBag(ConfigBag params) { super(params); }
+
+        @Override
+        public String helloWord() {
+            return initParam(HELLO_WORD);
+        }
+    }
+
+    public static class TestConfigurableInitializerFieldsWithConfigKeys extends InitializerPatternWithFieldsFromConfigKeys implements TestSensorAndEffectorInitializerBase {
+        public static final ConfigKey<String> HELLO_WORD = CONFIG_HELLO_WORD;
+        String helloWord;
+        {
+            addInitConfigMapping(HELLO_WORD, v -> helloWord = v);
+        }
+        private TestConfigurableInitializerFieldsWithConfigKeys() {
+            super();
+        }
+        public TestConfigurableInitializerFieldsWithConfigKeys(ConfigBag params) {
+            super(params);
+        }
+
+        @Override
+        public String helloWord() {
+            initParamsFailIfAnyUnused();
             return helloWord;
         }
     }

@@ -103,7 +103,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
     
     private void removeAndAssert(String symbolicName) {
         // Deleting item: should be gone from catalog, and from location registry
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
 
         assertEquals(countCatalogLocations(), 0);
         assertNull(mgmt().getLocationRegistry().getDefinedLocationByName(symbolicName));
@@ -115,7 +115,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogLocation(symbolicName, LOCALHOST_LOCATION_TYPE, null);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -124,7 +124,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogLocation(symbolicName, LOCALHOST_LOCATION_SPEC, null);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -133,7 +133,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_TYPE);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -142,7 +142,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         addCatalogLocationLegacySyntax(symbolicName, LOCALHOST_LOCATION_SPEC);
         runLaunchApplicationReferencingLocation(symbolicName, LOCALHOST_LOCATION_TYPE);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     // See https://issues.apache.org/jira/browse/BROOKLYN-248
@@ -394,7 +394,7 @@ public class CatalogYamlLocationTest extends AbstractYamlTest {
         assertCatalogCount(1);
         assertLocationManagerInstancesCount(0);
 
-        deleteCatalogEntity("lh1");
+        deleteCatalogRegisteredType("lh1");
         
         assertLocationRegistryCount(0);
         assertCatalogCount(0);

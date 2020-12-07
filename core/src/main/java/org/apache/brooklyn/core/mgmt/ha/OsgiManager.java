@@ -18,25 +18,21 @@
  */
 package org.apache.brooklyn.core.mgmt.ha;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
+import java.io.*;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
-
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -46,11 +42,12 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleLoader;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.typereg.*;
+import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
-import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -75,14 +72,6 @@ import org.osgi.framework.Constants;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
 
 public class OsgiManager {
 
@@ -352,7 +341,7 @@ public class OsgiManager {
         }
     }
     
-    ManagementContext getManagementContext() {
+    public ManagementContext getManagementContext() {
         return mgmt;
     }
     
@@ -386,35 +375,41 @@ public class OsgiManager {
         return managedBundlesRecord.getManagedBundleFromUrl(url);
     }
     
-    /** See {@link OsgiArchiveInstaller#install()}, using default values */
-    public ReferenceWithError<OsgiBundleInstallationResult> install(InputStream zipIn) {
-        return new OsgiArchiveInstaller(this, null, zipIn).install();
+    /** See {@link BrooklynCatalogBundleResolvers} */
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> zipIn) {
+        return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, null);
     }
 
-    /** See {@link OsgiArchiveInstaller#install()}, but deferring the start and catalog load */
+    /** See {@link BrooklynCatalogBundleResolvers} */
     public ReferenceWithError<OsgiBundleInstallationResult> installDeferredStart(
-            @Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn, boolean validateTypes) {
-        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
-        installer.setDeferredStart(true);
-        installer.setValidateTypes(validateTypes);
-        
-        return installer.install();
+            @Nullable ManagedBundle knownBundleMetadata, @Nullable Supplier<InputStream> zipIn, boolean validateTypes) {
+        BundleInstallationOptions options = new BundleInstallationOptions();
+        options.setDeferredStart(true);
+        options.setFormat(knownBundleMetadata.getFormat());
+        options.setValidateTypes(validateTypes);
+        options.setKnownBundleMetadata(knownBundleMetadata);
+        return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, options);
     }
-    
-    /** See {@link OsgiArchiveInstaller#install()} - this exposes custom options */
+
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, String format, boolean force) {
+        BundleInstallationOptions options = new BundleInstallationOptions();
+        options.setFormat(format);
+        options.setForceUpdateOfNonSnapshots(force);
+        return BrooklynCatalogBundleResolvers.install(getManagementContext(), input, options);
+    }
+
+    /** See {@link BrooklynBomBundleCatalogBundleResolver}; primarily this is a convenience for tests to bypass format-lookup installation
+     * with extra arguments */
     @Beta
-    public ReferenceWithError<OsgiBundleInstallationResult> install(
-            @Nullable ManagedBundle knownBundleMetadata, @Nullable InputStream zipIn,
+    public ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBomBundle(
+            @Nullable ManagedBundle knownBundleMetadata, Supplier<InputStream> input,
             boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
-        
-        log.debug("Installing bundle from stream - known details: "+knownBundleMetadata);
-        
-        OsgiArchiveInstaller installer = new OsgiArchiveInstaller(this, knownBundleMetadata, zipIn);
-        installer.setStart(start);
-        installer.setLoadCatalogBom(loadCatalogBom);
-        installer.setForce(forceUpdateOfNonSnapshots);
-        
-        return installer.install();
+        BundleInstallationOptions options = new BundleInstallationOptions();
+        options.setKnownBundleMetadata(knownBundleMetadata);
+        options.setStart(start);
+        options.setLoadCatalogBom(loadCatalogBom);
+        options.setForceUpdateOfNonSnapshots(forceUpdateOfNonSnapshots);
+        return BrooklynCatalogBundleResolvers.install(getManagementContext(), input, options);
     }
     
     /** Convenience for {@link #uninstallUploadedBundle(ManagedBundle, boolean)} without forcing, and throwing on error */
@@ -527,7 +522,7 @@ public class OsgiManager {
         return mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(vn));
     }
     
-    /** @deprecated since 0.12.0 use {@link #install(ManagedBundle, InputStream, boolean, boolean, boolean)} */
+    /** @deprecated since 0.12.0 use {@link #install(Supplier, String, boolean)} */
     @Deprecated
     public synchronized Bundle registerBundle(CatalogBundle bundleMetadata) {
         try {
@@ -550,22 +545,23 @@ public class OsgiManager {
      * non-persisted but done on rebind for each persisted bundle
      * 
      * @param bundle
+     * @param bomText optional override/extension in brooklyn catalog.bom format to be applied against the given bundle
      * @param force
      * @param validate
      * @param result optional parameter collecting all results, with new type as key, and any type it replaces as value
      * 
      * @since 0.12.0
      */
-    // returns map of new items pointing at any replaced item (for reference / rollback)
     @Beta
-    public void loadCatalogBom(Bundle bundle, boolean force, boolean validate, Map<RegisteredType,RegisteredType> result) {
+    // returns map of new items pointing at any replaced item (for reference / rollback)
+    public void loadBrooklynBundleWithCatalogBom(Bundle bundle, @Nullable String bomText, boolean force, boolean validate, Map<RegisteredType,RegisteredType> result) {
         try {
-            new CatalogBundleLoader(mgmt).scanForCatalog(bundle, force, validate, result);
+            new CatalogBundleLoader(mgmt).scanForCatalog(bundle, bomText, force, validate, result);
             
         } catch (RuntimeException ex) {
             // as of May 2017 we no longer uninstall the bundle here if install of catalog items fails;
             // the OsgiManager routines which call this method will do this 
-            throw new IllegalArgumentException("Error installing catalog items", ex);
+            throw new IllegalArgumentException("Error installing catalog items from BOM in "+bundle+(Strings.isNonBlank(bomText) ? " (with specified BOM text)" : ""), ex);
         }
     }
     
@@ -662,7 +658,7 @@ public class OsgiManager {
                 bundleProblems.put(osgiBundle, e);
 
                 Throwable cause = e.getCause();
-                if (cause != null && cause.getMessage().contains("Unresolved constraint in bundle")) {
+                if (cause != null && cause.getMessage()!=null && cause.getMessage().contains("Unresolved constraint in bundle")) {
                     if (BrooklynVersion.INSTANCE.getVersionFromOsgiManifest()==null) {
                         extraMessages.add("No brooklyn-core OSGi manifest available. OSGi will not work.");
                     }

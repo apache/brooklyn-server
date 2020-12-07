@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Map;
@@ -80,7 +81,7 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
     public void testRebindAppIncludingBundleAllWorksAndPreservesChecksum() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_V1_PATH);
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL) );
+                new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V1_URL) );
         
         RegisteredType item = mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         Assert.assertNotNull(item);
@@ -235,11 +236,11 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         
         // install dependency
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) );
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) );
 
         // now the v2 bundle
         OsgiBundleInstallationResult b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
 
         Assert.assertEquals(b.getVersionedName().toString(), BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.2.0");
         
@@ -277,6 +278,10 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
             Asserts.shouldHaveFailedPreviously("Expected deployment to fail rebind; instead got "+app2);
         } catch (Exception e) {
             // should fail to rebind this entity
+            if (e instanceof CompoundRuntimeException) {
+                // bit brittle but good enough for now to find the exception with our message
+                e = (Exception) ((CompoundRuntimeException)e).getAllCauses().get(2);
+            }
             Asserts.expectedFailureContainsIgnoreCase(e, more.getId(), "class", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "not found");
         }
     }
@@ -287,11 +292,11 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         
         // install dependency
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
 
         // now the v2 bundle
         OsgiBundleInstallationResult b2a = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
 
         Assert.assertEquals(b2a.getVersionedName().toString(), BROOKLYN_TEST_MORE_ENTITIES_SYMBOLIC_NAME_FULL+":"+"0.2.0");
         Assert.assertEquals(b2a.getCode(), OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE);
@@ -308,14 +313,14 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         
         // unforced upgrade should report already installed
         ReferenceWithError<OsgiBundleInstallationResult> installEvilTwin = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install(
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL) );
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL) );
         Assert.assertTrue(installEvilTwin.hasError());
         Assert.assertEquals(installEvilTwin.getWithoutError().getCode(),
             OsgiBundleInstallationResult.ResultCode.ERROR_PREPARING_BUNDLE);
         
         // force upgrade
-        OsgiBundleInstallationResult b2b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().install(b2a.getMetadata(), 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL), true, true, true).get();
+        OsgiBundleInstallationResult b2b = ((ManagementContextInternal)mgmt()).getOsgiManager().get().installBrooklynBomBundle(b2a.getMetadata(),
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_EVIL_TWIN_URL), true, true, true).get();
         Assert.assertEquals(b2a.getBundle(), b2b.getBundle());
         Assert.assertEquals(b2b.getCode(), OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE);
 
@@ -348,9 +353,9 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
 
         // install dependencies
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
         
         RegisteredType ci = Preconditions.checkNotNull( mgmt().getTypeRegistry().get(BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY) );
         EntitySpec<DynamicCluster> clusterSpec = EntitySpec.create(DynamicCluster.class)
@@ -369,9 +374,9 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), BROOKLYN_TEST_MORE_ENTITIES_V2_PATH);
 
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_OSGI_ENTITIES_URL) ).checkNoError();
         ((ManagementContextInternal)mgmt()).getOsgiManager().get().install( 
-            new ResourceUtils(getClass()).getResourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
+            new ResourceUtils(getClass()).getResourceInputStreamSourceFromUrl(BROOKLYN_TEST_MORE_ENTITIES_V2_URL) ).get();
         addCatalogItems(
             "brooklyn.catalog:",
             "  id: wrapped-more-entity",

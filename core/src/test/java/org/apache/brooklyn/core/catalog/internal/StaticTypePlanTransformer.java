@@ -78,18 +78,6 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // not supported
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // not supported
-        return null;
-    }
-
-    @Override
     protected double scoreForNullFormat(Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
         if (REGISTERED_SPECS.containsKey(type.getId())) return 1;
         if (REGISTERED_SPECS.containsKey(planData)) return 1;

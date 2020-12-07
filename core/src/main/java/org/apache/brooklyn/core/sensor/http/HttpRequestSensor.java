@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Map;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -52,7 +53,7 @@ import net.minidev.json.JSONObject;
 
 /**
  * Configurable {@link org.apache.brooklyn.api.entity.EntityInitializer} which adds an HTTP sensor feed to retrieve the
- * {@link JSONObject} from a JSON response in order to populate the sensor with the data at the {@code jsonPath}.
+ * {@link net.minidev.json.JSONObject} from a JSON response in order to populate the sensor with the data at the {@code jsonPath}.
  *
  * @see SshCommandSensor
  */
@@ -72,19 +73,22 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
             "Whether to pre-emptively including a basic-auth header of the username:password (rather than waiting for a challenge)",
             Boolean.FALSE);
 
+    protected HttpRequestSensor() {}
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
     }
 
     @Override
     public void apply(final EntityLocal entity) {
-        super.apply(entity);
+        AttributeSensor<T> sensor = addSensor(entity);
+
+        String name = initParam(SENSOR_NAME);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding HTTP JSON sensor {} to {}", name, entity);
         }
 
-        final ConfigBag allConfig = ConfigBag.newInstanceCopying(this.params).putAll(params);
+        final ConfigBag allConfig = ConfigBag.newInstanceCopying(initParams());
         
         // TODO Keeping anonymous inner class for backwards compatibility with persisted state
         new Supplier<URI>() {
@@ -133,7 +137,7 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
                 .logWarningGraceTime(logWarningGraceTime)
-                .period(period);
+                .period(initParam(SENSOR_PERIOD));
 
         HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)
                 .baseUri(uri)

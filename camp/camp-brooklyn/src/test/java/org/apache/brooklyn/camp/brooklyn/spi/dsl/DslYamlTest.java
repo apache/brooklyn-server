@@ -768,6 +768,9 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
+    // TODO this and the next method used to work with DslTestCallableAlsoSupplier; but now if it is a supplier we get it when resolving,
+    // otherwise we don't get the values we want in certain cases; things should be DslFunctionSource or DeferredSupplier but not both.
+    // that might however cause problems when we try to evaluate $brooklyn:component("xxx").attributeWhenReady() if we get the entity from the first one
     @Test
     public void testDeferredDslChainingWithCustomCallable() throws Exception {
         final Entity app = createAndStartApplication(
@@ -779,7 +782,6 @@ public class DslYamlTest extends AbstractYamlTest {
         app.config().set(customCallableWrapperKey, new DslTestSupplierWrapper(new DslTestCallable()));
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
-
     @Test
     public void testDeferredDslChainingWithNestedEvaluation() throws Exception {
         final Entity app = createAndStartApplication(
