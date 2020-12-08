@@ -119,14 +119,7 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
                 // if sensor type was not set (default string) but the type is not a string/primitive, 
                 // then convert it to a json string (otherwise it just makes an error).
                 // (TODO perhaps the default type shouldn't be string for this initializer?!)
-                successFunction = (Function) Functionals.chain(successFunction, 
-                    x -> {
-                        try {
-                            return x instanceof Map || x instanceof Collection ? new ObjectMapper().writeValueAsString(x) : x;
-                        } catch (JsonProcessingException e) {
-                            throw Exceptions.propagate(e);
-                        }
-                    } );
+                successFunction = (Function) Functionals.chain(successFunction, new ToJsonStringForCollections());
             }
         }
         
@@ -151,6 +144,18 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
         
         HttpFeed feed = httpRequestBuilder.build();
         entity.addFeed(feed);
+    }
+
+    // lambda becomes null after persistence (odd); say introduce a proper class
+    static class ToJsonStringForCollections implements Function<Object,Object> {
+        @Override
+        public Object apply(Object x) {
+            try {
+                return x instanceof Map || x instanceof Collection ? new ObjectMapper().writeValueAsString(x) : x;
+            } catch (JsonProcessingException e) {
+                throw Exceptions.propagate(e);
+            }
+        }
     }
 
     // TODO this will cause `allConfig` to be persisted inside the UriSupplier, which is not ideal.

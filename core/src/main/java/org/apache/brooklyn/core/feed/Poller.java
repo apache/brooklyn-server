@@ -72,17 +72,17 @@ public class Poller<V> {
                 public void run() {
                     try {
                         V val = job.call();
-                        loggedPreviousException = false;
                         if (handler.checkSuccess(val)) {
                             handler.onSuccess(val);
                         } else {
                             handler.onFailure(val);
                         }
+                        loggedPreviousException = false;
                     } catch (Exception e) {
                         if (loggedPreviousException) {
-                            if (log.isTraceEnabled()) log.trace("PollJob for {}, repeated consecutive failures, handling {} using {}", new Object[] {job, e, handler});
+                            if (log.isTraceEnabled()) log.trace("PollJob for {}, repeated consecutive failures, handling {} using {}", job, e, handler);
                         } else {
-                            if (log.isDebugEnabled()) log.debug("PollJob for {} handling {} using {}", new Object[] {job, e, handler}, e);
+                            if (log.isDebugEnabled()) log.debug("PollJob for {}, repeated consecutive failures, handling {} using {}", job, e, handler);
                             loggedPreviousException = true;
                         }
                         handler.onException(e);
