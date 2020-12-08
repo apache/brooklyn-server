@@ -70,7 +70,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     @Test
     public void testDefaultAverageWhenEmpty() {
         average = averager.getAverage(0, 0);
-        assertEquals(average.value, 0d);
+        assertEquals(average.value, (Double) 0d);
         assertEquals(average.confidence, 0.0d);
     }
     
@@ -78,7 +78,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
     public void testNoRecentValuesAverage() {
         averager.onEvent(intSensor.newEvent(producer, 10), 0L);
         average = averager.getAverage(timePeriod+1000, 0);
-        assertEquals(average.value, 10d);
+        assertEquals(average.value, (Double) 10d);
         assertEquals(average.confidence, 0d);
     }
     
@@ -87,7 +87,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 10), 0L);
         averager.onEvent(intSensor.newEvent(producer, 20), 10L);
         average = averager.getAverage(timePeriod+1000, 0);
-        assertEquals(average.value, 20d);
+        assertEquals(average.value, (Double) 20d);
         assertEquals(average.confidence, 0d);
     }
     
@@ -103,7 +103,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 10), 1000);
         averager.onEvent(intSensor.newEvent(producer, 10), 2000);
         average = averager.getAverage(2000, 0);
-        assertEquals(average.value, 10 /1d);
+        assertEquals(average.value, (Double) (10 /1d));
         assertEquals(average.confidence, 1d);
     }
     
@@ -115,7 +115,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 40), 1750);
         averager.onEvent(intSensor.newEvent(producer, 50), 2000);
         average = averager.getAverage(2000, 0);
-        assertEquals(average.value, (20+30+40+50)/4d);
+        assertEquals(average.value, (Double) ((20+30+40+50)/4d));
         assertEquals(average.confidence, 1d);
     }
     
@@ -127,7 +127,7 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 40), 1600);
         averager.onEvent(intSensor.newEvent(producer, 50), 2000);
         average = averager.getAverage(2000, 0);
-        assertEquals(average.value, (20*0.1d)+(30*0.2d)+(40*0.3d)+(50*0.4d));
+        assertEquals(average.value, (Double) ((20*0.1d)+(30*0.2d)+(40*0.3d)+(50*0.4d)));
         assertEquals(average.confidence, 1d);
     }
     
@@ -140,16 +140,16 @@ public class RollingTimeWindowMeanEnricherTest extends BrooklynAppUnitTestSuppor
         averager.onEvent(intSensor.newEvent(producer, 50), 2000);
         
         average = averager.getAverage(2250, 0);
-        assertEquals(average.value, (30+40+50)/3d);
+        assertEquals(average.value, (Double) ((30+40+50)/3d));
         assertEquals(average.confidence, 0.75d);
         average = averager.getAverage(2500, 0);
-        assertEquals(average.value, (40+50)/2d);
+        assertEquals(average.value, (Double) ((40+50)/2d));
         assertEquals(average.confidence, 0.5d);
         average = averager.getAverage(2750, 0);
-        assertEquals(average.value, 50d);
+        assertEquals(average.value, (Double) 50d);
         assertEquals(average.confidence, 0.25d);
         average = averager.getAverage(3000, 0);
-        assertEquals(average.value, 50d);
+        assertEquals(average.value, (Double) 50d);
         assertEquals(average.confidence, 0d);
     }
 }
