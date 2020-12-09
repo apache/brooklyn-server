@@ -268,7 +268,7 @@ public class BrooklynLauncherTest {
         }
     }
 
-    @Test
+    @Test(groups = "Integration") // PERSISTENCE_DIR_MUST_EXIST =  true can show hidden IOException in some environments
     public void testLaunchBrooklynWithoutRequiredPersistenceDir() throws Exception {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newDefault();
         String persistenceDir = "persistenceDir_" + Strings.makeRandomId(8);
