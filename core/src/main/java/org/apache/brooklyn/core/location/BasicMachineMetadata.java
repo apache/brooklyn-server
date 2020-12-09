@@ -22,19 +22,33 @@ import org.apache.brooklyn.api.location.MachineManagementMixins;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
+import org.apache.brooklyn.core.location.MachineLifecycleUtils.GivesMachineStatus;
+import org.apache.brooklyn.core.location.MachineLifecycleUtils.MachineStatus;
 
-public class BasicMachineMetadata implements MachineManagementMixins.MachineMetadata {
+public class BasicMachineMetadata implements MachineManagementMixins.MachineMetadata, GivesMachineStatus {
 
     final String id, name, primaryIp;
     final Boolean isRunning;
+    final MachineStatus status;
     final Object originalMetadata;
-    
+
+    public BasicMachineMetadata(String id, String name, String primaryIp, MachineStatus status, Object originalMetadata) {
+        super();
+        this.id = id;
+        this.name = name;
+        this.primaryIp = primaryIp;
+        this.status = status;
+        this.isRunning = MachineStatus.RUNNING.equals(status);
+        this.originalMetadata = originalMetadata;
+    }
+    @Deprecated /** @deprecated since 1.1, use other constructor */
     public BasicMachineMetadata(String id, String name, String primaryIp, Boolean isRunning, Object originalMetadata) {
         super();
         this.id = id;
         this.name = name;
         this.primaryIp = primaryIp;
         this.isRunning = isRunning;
+        this.status = Boolean.TRUE.equals(isRunning) ? MachineStatus.RUNNING : MachineStatus.UNKNOWN;
         this.originalMetadata = originalMetadata;
     }
 
@@ -56,6 +70,13 @@ public class BasicMachineMetadata implements MachineManagementMixins.MachineMeta
     @Override
     public Boolean isRunning() {
         return isRunning;
+    }
+
+    @Override
+    public MachineStatus getStatus() {
+        if (status!=null) return status;
+        if (isRunning()) return MachineStatus.RUNNING;
+        return MachineStatus.UNKNOWN;
     }
 
     @Override

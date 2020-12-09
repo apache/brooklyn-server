@@ -350,7 +350,7 @@ public class RegisteredTypes {
     public static String getImplementationDataStringForSpec(RegisteredType item) {
         if (item==null || item.getPlan()==null) return null;
         Object data = item.getPlan().getPlanData();
-        if (data==null) throw new IllegalStateException("No plan data for "+item);
+        if (data==null) return null;
         if (!(data instanceof String)) throw new IllegalStateException("Expected plan data for "+item+" to be a string");
         return (String)data;
     }

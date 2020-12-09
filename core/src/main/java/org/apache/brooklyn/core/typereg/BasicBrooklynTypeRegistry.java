@@ -22,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
@@ -459,7 +460,14 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                         }
                         if (canForce) {
                             // may be forcing because of internal type validation, or of course user flag
-                            log.debug("Addition of "+type+" to replace "+existingT+" allowed because force is on");
+                            if (log.isDebugEnabled()) {
+                                if (samePlan(type, existingT)) {
+                                    // suppress debug message if plans are the same
+                                    log.trace("Addition of " + type + " to replace " + existingT + " allowed because force is on and plans are the same");
+                                } else {
+                                    log.debug("Addition of " + type + " to replace " + existingT + " allowed because force is on");
+                                }
+                            }
                             continue;
                         }
                         if (BrooklynVersionSyntax.isSnapshot(type.getVersion())) {
@@ -487,12 +495,17 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
                     assertSameEnoughToAllowReplacing(existingT, type, reasonForDetailedCheck);
                 }
             
-                log.debug("Inserting "+type+" into "+this+
-                    (oldContainingBundlesToRemove.isEmpty() ? "" : " (removing entry from "+oldContainingBundlesToRemove+")"));
+                Supplier<String> msg = () -> "Inserting "+type+" ("+type.getKind()+") into "+this+
+                    (oldContainingBundlesToRemove.isEmpty() ? "" : " (removing entry from "+oldContainingBundlesToRemove+")");
                 for (String oldContainingBundle: oldContainingBundlesToRemove) {
                     knownMatchingTypesByBundles.remove(oldContainingBundle);
                 }
-                knownMatchingTypesByBundles.put(type.getContainingBundle(), type);
+                RegisteredType prev = knownMatchingTypesByBundles.put(type.getContainingBundle(), type);
+                if (prev==null || type.getKind()!=RegisteredTypeKind.UNRESOLVED) {
+                    log.debug(msg.get()+(prev!=null ? "; replacing "+prev.getKind()+" "+prev : ""));
+                } else {
+                    log.trace(msg.get());
+                }
             });
     }
 

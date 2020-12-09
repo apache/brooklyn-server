@@ -28,6 +28,7 @@ import javax.annotation.Nonnull;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.slf4j.Logger;
@@ -112,7 +113,9 @@ public class DelegatingEntitySpecResolver extends AbstractEntitySpecResolver {
         }
         if (!otherProblemsFromResolvers.isEmpty()) {
             // at least one thought he could do it
-            log.debug("Type " + localType + " could not be resolved; failure will be propagated (other transformers tried = "+resolversWhoDontSupport+"): "+otherProblemsFromResolvers);
+            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                log.debug("Type " + localType + " could not be resolved; failure will be propagated (other transformers tried = " + resolversWhoDontSupport + "): " + otherProblemsFromResolvers);
+            }
             throw otherProblemsFromResolvers.size()==1 ? Exceptions.create(null, otherProblemsFromResolvers) :
                 Exceptions.create("ServiceSpecResolvers all failed", otherProblemsFromResolvers);
         }

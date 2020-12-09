@@ -76,20 +76,34 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
 
     private class PreRestartTask implements Runnable {
+        protected final ConfigBag parameters;
+
+        public PreRestartTask() { this(null); }
+        public PreRestartTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public void run() {
-            preRestartCustom();
+            preRestartCustom(parameters);
         }
     }
 
     private class PostRestartTask implements Runnable {
+        protected final ConfigBag parameters;
+
+        public PostRestartTask() { this(null); }
+        public PostRestartTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public void run() {
             try {
                 // There's no preStartCustom call in the restart effector to get the latch value
                 // so nothing to release here - pass the nop value.
-                postStartCustom();
-                postRestartCustom();
+                postStartCustom(parameters);
+                postRestartCustom(parameters);
             } finally {
                 ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
             }
@@ -122,13 +136,13 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
      
     @Override
-    protected void preStartCustom(MachineLocation machine) {
+    protected void preStartCustom(MachineLocation machine, ConfigBag parameters) {
         entity().initDriver(machine);
 
         // Note: must only apply config-sensors after adding to locations and creating driver; 
         // otherwise can't do things like acquire free port from location
         // or allowing driver to set up ports; but must be careful in init not to block on these!
-        super.preStartCustom(machine);
+        super.preStartCustom(machine, parameters);
         
         entity().preStart();
     }
@@ -174,7 +188,7 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
 
     @Override
-    protected void postStartCustom() {
+    protected void postStartCustom(ConfigBag parameters) {
         entity().postDriverStart();
         if (entity().connectedSensors) {
             // many impls aren't idempotent - though they should be!
@@ -185,39 +199,39 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
         }
         entity().waitForServiceUp();
         entity().postStart();
-        super.postStartCustom();
+        super.postStartCustom(parameters);
     }
     
-    @Override
-    protected void preStopConfirmCustom() {
-        super.preStopConfirmCustom();
+    @Override @Deprecated
+    protected void preStopConfirmCustom(ConfigBag parameters) {
+        super.preStopConfirmCustom(parameters);
         
         entity().preStopConfirmCustom();
     }
     
     @Override
-    protected void preStopCustom() {
-        super.preStopCustom();
+    protected void preStopCustom(ConfigBag parameters) {
+        super.preStopCustom(parameters);
         
         entity().preStop();
     }
 
     @Override
-    protected void preRestartCustom() {
-        super.preRestartCustom();
+    protected void preRestartCustom(ConfigBag parameters) {
+        super.preRestartCustom(parameters);
         
         entity().preRestart();
     }
 
     @Override
-    protected void postRestartCustom() {
-        super.postRestartCustom();
+    protected void postRestartCustom(ConfigBag parameters) {
+        super.postRestartCustom(parameters);
         
         entity().postRestart();
     }
 
     @Override
-    protected String stopProcessesAtMachine() {
+    protected String stopProcessesAtMachine(ConfigBag parameters) {
         String result;
         
         ChildStartableMode mode = getChildrenStartableModeEffective();
@@ -261,9 +275,9 @@ public class SoftwareProcessDriverLifecycleEffectorTasks extends MachineLifecycl
     }
     
     @Override
-    protected void postStopCustom() {
+    protected void postStopCustom(ConfigBag parameters) {
         entity().postStop();
-        super.postStopCustom();
+        super.postStopCustom(parameters);
     }
 
     @Override

@@ -90,6 +90,16 @@ public interface BundleApi {
         @PathParam("version")
         String version);
 
+    @Path("/{symbolicName}/{version}/download")
+    @GET
+    @ApiOperation(value = "Download a ZIP archive of a specific bundle given its symbolic name and version")
+    public Response download(
+        @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
+        @PathParam("symbolicName")
+        String symbolicName,
+        @ApiParam(name = "version", value = "Version to query", required = true)
+        @PathParam("version")
+        String version);
 
     @Path("/{symbolicName}/{version}/types")
     @GET

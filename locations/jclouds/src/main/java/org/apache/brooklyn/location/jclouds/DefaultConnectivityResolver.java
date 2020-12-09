@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
@@ -172,6 +173,9 @@ public class DefaultConnectivityResolver extends InitializerPatternForConfigurab
         final Stopwatch timer = Stopwatch.createStarted();
         // Should only be null in tests.
         final Entity contextEntity = getContextEntity(config);
+        if (contextEntity==null && !BrooklynVersion.isDevelopmentEnvironment()) {
+            LOG.debug("No context entity found in config or current task when resolving "+location);
+        }
         if (shouldPublishNetworks() && !options.isRebinding() && contextEntity != null) {
             publishNetworks(node, contextEntity);
         }
@@ -468,7 +472,6 @@ public class DefaultConnectivityResolver extends InitializerPatternForConfigurab
                 return taskContext;
             }
         }
-        LOG.warn("No context entity found in config or current task");
         return null;
     }
 

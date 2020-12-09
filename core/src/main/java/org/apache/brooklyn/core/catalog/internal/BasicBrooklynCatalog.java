@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
+import com.google.common.base.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -89,11 +90,6 @@ import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -735,12 +731,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         String format = getFirstAs(catalogMetadata, String.class, "format").orNull();
         if ("auto".equalsIgnoreCase(format)) format = null;
 
-        if ((Strings.isNonBlank(id) || Strings.isNonBlank(symbolicName)) && 
+        if ((Strings.isNonBlank(id) || Strings.isNonBlank(symbolicName)) &&
                 Strings.isNonBlank(displayName) &&
                 Strings.isNonBlank(name) && !name.equals(displayName)) {
             log.warn("Name property will be ignored due to the existence of displayName and at least one of id, symbolicName");
         }
 
+        CharSequence loggedId = Strings.firstNonBlank(id, symbolicName, displayName, "<unidentified>");
+        log.debug("Analyzing item " + loggedId + " for addition to catalog");
         PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format,
                 (containingBundle instanceof CatalogBundle ? ((CatalogBundle)containingBundle) : null), libraryBundles,
                 null, resultLegacyFormat).resolve();
@@ -964,6 +962,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             RegisteredTypes.notePlanEquivalentToThis(type, new BasicTypeImplementationPlan(format, sourceYaml));
             
             RegisteredType replacedInstance = mgmt.getTypeRegistry().get(type.getSymbolicName(), type.getVersion());
+
+            log.debug("Analyzed " + loggedId + " as " + type + " (" + Strings.firstNonNull(planInterpreter.catalogItemType, "unresolved") + "), adding to type registry " +
+                    (planInterpreter.catalogItemType==null ? "(despite errors at this stage, "+planInterpreter.getErrors().stream().findFirst().orElse(null)+"; may be resolved later once other items are added, or may fail later)"
+                        : "(will re-resolve as registered type later)"));
+
             ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, force);
             updateResultNewFormat(resultNewFormat, replacedInstance, type);
             
@@ -978,6 +981,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 .build();
     
             dto.setManagementContext((ManagementContextInternal) mgmt);
+            log.debug("Analyzed " + loggedId + " as " + dto + " (" + planInterpreter.catalogItemType + "), adding to legacy catalog");
+
             resultLegacyFormat.add(dto);
         }
     }
@@ -1271,48 +1276,54 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         public PlanInterpreterInferringType resolve() {
-            Maybe<Object> transformedResult = attemptPlanTranformer();
-            boolean onlyNewStyleTransformer = format != null || catalogItemType == CatalogItemType.BEAN;
-            if (transformedResult.isPresent() || onlyNewStyleTransformer) {
-                planYaml = itemYaml;
-                if (catalogItemType!=CatalogItemType.BEAN && catalogItemType!=CatalogItemType.TEMPLATE && !"bean-with-type".equals(format)) {
-                    // for spec types, _also_ run the legacy resolution because it is better at spotting some types of errors (recursive ones);
-                    // note this code will also run if there was an error when format was specified (other than bean-with-type) and we couldn't determine it was a bean
-                    resolved = false;
-                    attemptLegacySpecTransformersForVariousSpecTypes();
-                } else {
-                    resolved = transformedResult.isPresent() || catalogItemType == CatalogItemType.TEMPLATE;
-                    if (!resolved) {
-                        errors.add(Maybe.Absent.getException(transformedResult));
-                    }
-                }
-                return this;
-            }
+            try {
+                currentlyResolvingType.set(Strings.isBlank(itemId) ? itemYaml : itemId);
 
-            // for now, these are the lowest-priority errors (reported after the others)
-            transformerErrors.add( ((Maybe.Absent) transformedResult).getException() );
-
-            if (catalogItemType==CatalogItemType.TEMPLATE) {
-                // template *must* be explicitly specified as item type, and if so, the "various" methods below don't apply,
-                // and we always mark it as resolved.  (probably not necessary to do any of the transformers!)
-                attemptLegacySpecTransformersForType(null, CatalogItemType.TEMPLATE);
-                if (!resolved) {
-                    // anything goes, for an explicit template, because we can't easily recurse into the types
+                Maybe<Object> transformedResult = attemptPlanTranformer();
+                boolean onlyNewStyleTransformer = format != null || catalogItemType == CatalogItemType.BEAN;
+                if (transformedResult.isPresent() || onlyNewStyleTransformer) {
                     planYaml = itemYaml;
-                    resolved = true;
+                    if (catalogItemType != CatalogItemType.BEAN && catalogItemType != CatalogItemType.TEMPLATE && !"bean-with-type".equals(format)) {
+                        // for spec types, _also_ run the legacy resolution because it is better at spotting some types of errors (recursive ones);
+                        // note this code will also run if there was an error when format was specified (other than bean-with-type) and we couldn't determine it was a bean
+                        resolved = false;
+                        attemptLegacySpecTransformersForVariousSpecTypes();
+                    } else {
+                        resolved = transformedResult.isPresent() || catalogItemType == CatalogItemType.TEMPLATE;
+                        if (!resolved) {
+                            errors.add(Maybe.Absent.getException(transformedResult));
+                        }
+                    }
+                    return this;
                 }
+
+                // for now, these are the lowest-priority errors (reported after the others)
+                transformerErrors.add(((Maybe.Absent) transformedResult).getException());
+
+                if (catalogItemType == CatalogItemType.TEMPLATE) {
+                    // template *must* be explicitly specified as item type, and if so, the "various" methods below don't apply,
+                    // and we always mark it as resolved.  (probably not necessary to do any of the transformers!)
+                    attemptLegacySpecTransformersForType(null, CatalogItemType.TEMPLATE);
+                    if (!resolved) {
+                        // anything goes, for an explicit template, because we can't easily recurse into the types
+                        planYaml = itemYaml;
+                        resolved = true;
+                    }
+                    return this;
+                }
+
+                // couldn't resolve it with the plan transformers; retry with legacy "spec" transformers.
+                // TODO this legacy path is still needed where an entity is declared with nice abbreviated 'type: xxx' syntax, not the full-camp 'services: [ { type: xxx } ]' syntax.
+                // would be nice to move that logic internally to CAMP and see if we can remove this altogether.
+                // (see org.apache.brooklyn.camp.brooklyn.spi.creation.CampResolver.createEntitySpecFromServicesBlock )
+                if (format == null) {
+                    attemptLegacySpecTransformersForVariousSpecTypes();
+                }
+
                 return this;
+            } finally {
+                currentlyResolvingType.remove();
             }
-
-            // couldn't resolve it with the plan transformers; retry with legacy "spec" transformers.
-            // TODO this legacy path is still needed where an entity is declared with nice abbreviated 'type: xxx' syntax, not the full-camp 'services: [ { type: xxx } ]' syntax.
-            // would be nice to move that logic internally to CAMP and see if we can remove this altogether.
-            // (see org.apache.brooklyn.camp.brooklyn.spi.creation.CampResolver.createEntitySpecFromServicesBlock )
-            if (format==null) {
-                attemptLegacySpecTransformersForVariousSpecTypes();
-            }
-
-            return this;
         }
 
         private void attemptLegacySpecTransformersForVariousSpecTypes() {
@@ -1455,38 +1466,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         }
                     }
                 }
-//                {
-//                    // legacy routine; should be the same as above code added in 0.12 because:
-//                    // if type is symbolic_name, the type will match above, and version will be null so any version allowed to match
-//                    // if type is symbolic_name:version, the id will match, and the version will also have to match
-//                    // SHOULD NEVER NEED THIS - remove during or after 0.13
-//                    String typeWithId = type;
-//                    String version = null;
-//                    if (CatalogUtils.looksLikeVersionedId(type)) {
-//                        version = CatalogUtils.getVersionFromVersionedId(type);
-//                        type = CatalogUtils.getSymbolicNameFromVersionedId(type);
-//                    }
-//                    if (type!=null && key!=null) {
-//                        for (CatalogItemDtoAbstract<?,?> candidate: itemsDefinedSoFar) {
-//                            if (candidateCiType == candidate.getCatalogItemType() &&
-//                                    (type.equals(candidate.getSymbolicName()) || type.equals(candidate.getId()))) {
-//                                if (version==null || version.equals(candidate.getVersion())) {
-//                                    log.error("Lookup of '"+type+"' version '"+version+"' only worked using legacy routines; please advise Brooklyn community so they understand why");
-//                                    // matched - exit
-//                                    catalogItemType = candidateCiType;
-//                                    planYaml = candidateYaml;
-//                                    resolved = true;
-//                                    return true;
-//                                }
-//                            }
-//                        }
-//                    }
-//
-//                    type = typeWithId;
-//                    // above line is a change to behaviour; previously we proceeded below with the version dropped in code above;
-//                    // but that seems like a bug as the code below will have ignored version.
-//                    // likely this means we are now stricter about loading things that reference new versions, but correctly so.
-//                }
             }
             
             // then try parsing plan - this will use loader
@@ -1565,7 +1544,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             return this;
         }
     }
-    
+
+    /** records the type this catalog is currently trying to resolve items being added to the catalog, if it is trying to resolve.
+     * primarily used to downgrade log messages when trying to resolve with different strategies.
+     * can also be used to say which item is being currently resolved.
+     */
+    public static ThreadLocal<String> currentlyResolvingType = new ThreadLocal<String>();
+
     private String makeAsIndentedList(String yaml) {
         String[] lines = yaml.split("\n");
         lines[0] = "- "+lines[0];
@@ -1690,7 +1675,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     @Override @Beta
     // mainly needed for tests which expect errors about item addition, which could be masked by errors on version clashes
     public Collection<RegisteredType> addTypesAndValidateAllowInconsistent(String catalogYaml, @Nullable Map<RegisteredType, RegisteredType> result, boolean forceUpdate) {
-        log.debug("Catalog load, adding registered types to "+mgmt+": "+catalogYaml);
         checkNotNull(catalogYaml, "catalogYaml");
 
         Maybe<OsgiManager> osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager();
@@ -1701,10 +1685,11 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         // often in tests we don't have osgi and so it acts as follows
+        log.debug("Catalog load, adding registered types to "+mgmt+": "+catalogYaml);
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot("unbundled catalog definition", catalogYaml, null, null, result, false, MutableMap.of(), 0, forceUpdate, true);
 
-        Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet());
+        Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet(), true);
         if (Iterables.concat(validation.values()).iterator().hasNext()) {
             throw new IllegalStateException("Could not validate one or more items: "+validation);
         }
@@ -1713,20 +1698,33 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     @Override @Beta
     public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate) {
+        return validateTypes(typesToValidate, false);
+    }
+
+    @Override @Beta
+    public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate, boolean skipIfValidated) {
         List<RegisteredType> typesRemainingToValidate = MutableList.copyOf(typesToValidate);
+        if (typesRemainingToValidate.isEmpty()) {
+            return MutableMap.of();
+        }
+        log.debug("Starting validation, "+typesRemainingToValidate.size()+" to validate");
         while (true) {
-            log.debug("Catalog load, starting validation cycle, "+typesRemainingToValidate.size()+" to validate");
             Map<RegisteredType,Collection<Throwable>> result = MutableMap.of();
             for (RegisteredType t: typesRemainingToValidate) {
+                if (skipIfValidated && t.getKind() != null && t.getKind() != RegisteredTypeKind.UNRESOLVED) {
+                    continue;  // probably validated as part of resolving another type
+                }
                 Collection<Throwable> tr = validateType(t, null, true);
                 if (!tr.isEmpty()) {
                     result.put(t, tr);
                 }
             }
-            log.debug("Catalog load, finished validation cycle, "+typesRemainingToValidate.size()+" unvalidated");
+            String msg = (typesRemainingToValidate.size()-result.size())+" validated, "+result.size()+" unvalidated";
             if (result.isEmpty() || result.size()==typesRemainingToValidate.size()) {
+                log.debug("Finished validation, "+msg);
                 return result;
             }
+            log.debug("Finished validation cycle, "+msg+"; will re-run");
             // recurse wherever there were problems so long as we are reducing the number of problem types
             // (this lets us solve complex reference problems without needing a complex dependency tree,
             // in max O(N^2) time)
@@ -2225,7 +2223,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     private Object uninstallingEmptyLock = new Object();
     public void uninstallEmptyWrapperBundles() {
-        log.debug("uninstalling empty wrapper bundles");
+        log.debug("Uninstalling empty wrapper bundles");
         synchronized (uninstallingEmptyLock) {
             Maybe<OsgiManager> osgi = ((ManagementContextInternal)mgmt).getOsgiManager();
             if (osgi.isAbsent()) return;
@@ -2233,7 +2231,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (isNoBundleOrSimpleWrappingBundle(mgmt, b)) {
                     Iterable<RegisteredType> typesInBundle = osgi.get().getTypesFromBundle(b.getVersionedName());
                     if (Iterables.isEmpty(typesInBundle)) {
-                        log.info("Uninstalling now-empty BOM wrapper bundle "+b.getVersionedName()+" ("+b.getOsgiUniqueUrl()+")");
+                        log.debug("Uninstalling now-empty BOM wrapper bundle "+b.getVersionedName()+" ("+b.getOsgiUniqueUrl()+")");
                         osgi.get().uninstallUploadedBundle(b);
                     }
                 }

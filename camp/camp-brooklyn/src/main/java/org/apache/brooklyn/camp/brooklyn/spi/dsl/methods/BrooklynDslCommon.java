@@ -330,9 +330,13 @@ public class BrooklynDslCommon {
         String mappedTypeName = DeserializingClassRenamesProvider.INSTANCE.findMappedName(typeName);
         Class<?> type;
         try {
+            // local classes get loaded here
             type = new ClassLoaderUtils(BrooklynDslCommon.class).loadClass(mappedTypeName);
         } catch (ClassNotFoundException e) {
-            LOG.debug("Cannot load class " + typeName + " for DSL 'object'; assuming it is in OSGi bundle; will defer its loading");
+            // this is normal, we just do a deferred load, likely a registered type
+            if (LOG.isTraceEnabled()) {
+                LOG.trace("No local class " + typeName + " for DSL 'object'; assuming it is a registered type; will defer its loading");
+            }
             return new DslObject(mappedTypeName, constructorArgs, objectFields, brooklynConfig);
         }
 
