@@ -37,14 +37,16 @@
     </parent>
 
     <dependencies>
-<!--        <dependency>
+        <dependency>
             <groupId>org.apache.servicemix.specs</groupId>
             <artifactId>org.apache.servicemix.specs.jaxb-api-2.2</artifactId>
+            <version>${jaxb-api-2.2.servicemix.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.servicemix.specs</groupId>
             <artifactId>org.apache.servicemix.specs.activator</artifactId>
-        </dependency>-->
+            <version>${activator.servicemix.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.brooklyn.camp</groupId>
             <artifactId>camp-base</artifactId>
