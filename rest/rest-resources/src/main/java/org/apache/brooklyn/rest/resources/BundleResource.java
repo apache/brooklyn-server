@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -53,6 +54,7 @@ import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -118,7 +120,23 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         }
         return b;
     }
-    
+
+    public Response download(String symbolicName, String version) {
+        ManagedBundle managedBundle = lookup(symbolicName, version);
+        File bundleFile = ((ManagementContextInternal) mgmt()).getOsgiManager().get().getBundleFile(managedBundle);
+        if (bundleFile == null || !bundleFile.exists()) {
+            throw WebResourceUtils.notFound("Bundle with id '%s:%s' doesn't have a ZIP archive found", symbolicName, version);
+        }
+
+        try {
+            return Response
+                    .ok(FileUtils.readFileToByteArray(bundleFile), "application/zip")
+                    .header("Content-Disposition", "attachment; filename=" + symbolicName + "-" + version + ".zip")
+                    .build();
+        } catch (IOException e) {
+            throw WebResourceUtils.serverError("Cannot read the ZIP archive for bundle '%s:%s'", symbolicName, version);
+        }
+    }
 
     @Override
     public List<TypeSummary> getTypes(String symbolicName, String version) {

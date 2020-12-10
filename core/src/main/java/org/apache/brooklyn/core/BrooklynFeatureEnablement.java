@@ -131,6 +131,11 @@ public class BrooklynFeatureEnablement {
     public static final String FEATURE_SSH_ASYNC_EXEC = FEATURE_PROPERTY_PREFIX+".ssh.asyncExec";
 
     public static final String FEATURE_VALIDATE_LOCATION_SSH_KEYS = "brooklyn.validate.locationSshKeys";
+    
+    /**
+     * In previous versions, reparenting was not allowed. This feature restores that behaviour.
+     */
+    public static final String FEATURE_DISALLOW_REPARENTING = "brooklyn.disallowReparenting";
 
     /**
      * Values explicitly set by Java calls.

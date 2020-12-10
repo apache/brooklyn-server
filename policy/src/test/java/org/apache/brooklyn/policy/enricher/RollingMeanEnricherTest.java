@@ -83,7 +83,7 @@ public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testSingleValueAverage() {
         averager.onEvent(intSensor.newEvent(producer, 10));
-        assertEquals(averager.getAverage(), 10d);
+        assertEquals(averager.getAverage(), (Double) 10d);
     }
     
     @Test
@@ -92,7 +92,7 @@ public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
         averager.onEvent(intSensor.newEvent(producer, 20));
         averager.onEvent(intSensor.newEvent(producer, 30));
         averager.onEvent(intSensor.newEvent(producer, 40));
-        assertEquals(averager.getAverage(), (10+20+30+40)/4d);
+        assertEquals(averager.getAverage(), (Double) ((10+20+30+40)/4d));
     }
     
     @Test
@@ -103,6 +103,6 @@ public class RollingMeanEnricherTest extends BrooklynAppUnitTestSupport {
         averager.onEvent(intSensor.newEvent(producer, 40));
         averager.onEvent(intSensor.newEvent(producer, 50));
         averager.onEvent(intSensor.newEvent(producer, 60));
-        assertEquals(averager.getAverage(), (30+40+50+60)/4d);
+        assertEquals(averager.getAverage(), (Double) ((30+40+50+60)/4d));
     }
 }

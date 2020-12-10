@@ -33,10 +33,12 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.camp.BasicCampPlatform;
 import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
@@ -126,7 +128,9 @@ class CampResolver {
             } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
                 spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, false);
             } else {
-                throw new IllegalStateException("Not a spec or cannot detect spec type from " + item.getSuperTypes() + " for " + item + "\n" + planYaml);
+                String msg = (item.getSuperTypes()==null || item.getSuperTypes().isEmpty()) ? "no supertypes declared" : "incompatible supertypes "+item.getSuperTypes();
+                String itemName = Strings.firstNonBlank(item.getSymbolicName(), BasicBrooklynCatalog.currentlyResolvingType.get(), "<unidentified>");
+                throw new IllegalStateException("Cannot create "+itemName+" as spec because "+msg+" ("+currentlyCreatingSpec.get()+")");
             }
             if (expectedType != null && !expectedType.isAssignableFrom(spec.getType())) {
                 throw new IllegalStateException("Creating spec from " + item + ", got " + spec.getType() + " which is incompatible with expected " + expectedType);

@@ -950,12 +950,22 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         }
     }
 
+    Duration sshCheckTimeout = null;
+    @Beta
+    public void setSshCheckTimeout(Duration sshCheckTimeout) {
+        this.sshCheckTimeout = sshCheckTimeout;
+    }
+    @Beta
+    public Duration getSshCheckTimeout() {
+        return Maybe.ofDisallowingNull(sshCheckTimeout).or(Duration.millis(SSHABLE_CONNECT_TIMEOUT));
+    }
+
     public boolean isSshable() {
         String cmd = "date";
         try {
             try {
                 Socket s = new Socket();
-                s.connect(new InetSocketAddress(getAddress(), getPort()), SSHABLE_CONNECT_TIMEOUT);
+                s.connect(new InetSocketAddress(getAddress(), getPort()), (int) getSshCheckTimeout().toMilliseconds());
                 s.close();
             } catch (IOException e) {
                 if (LOG.isDebugEnabled()) LOG.debug(""+this+" not [yet] reachable (socket "+getAddress()+":"+getPort()+"): "+e);

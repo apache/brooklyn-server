@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.server;
 
+import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 import java.net.URI;
@@ -64,6 +65,12 @@ public class BrooklynServerConfig {
     public static final ConfigKey<String> PERSISTENCE_DIR = newStringConfigKey(
         "brooklyn.persistence.dir", 
         "Directory or container name for writing persisted state");
+
+    public static final ConfigKey<Boolean> PERSISTENCE_DIR_MUST_EXIST = newBooleanConfigKey(
+            "brooklyn.persistence.dir.required",
+            "Whether the persistence directory should before starting AMP;"
+                    + "if true, it will fail if it can't find the directory;"
+                    + "if false, the persistence directory will be created in case it didn't exist in advance;", false);
 
     public static final ConfigKey<String> PERSISTENCE_LOCATION_SPEC = newStringConfigKey(
         "brooklyn.persistence.location.spec", 
