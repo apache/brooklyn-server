@@ -880,7 +880,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 Map<Integer, Integer> portMappings = JcloudsUtil.dockerPortMappingsFor(this, node.getId());
                 for(Integer containerPort : portMappings.keySet()) {
                     Integer hostPort = portMappings.get(containerPort);
-                    String dockerHost = ((JcloudsSshMachineLocation)machineLocation).getSshHostAndPort().getHostText();
+                    String dockerHost = ((JcloudsSshMachineLocation)machineLocation).getSshHostAndPort().getHost();
                     portForwardManager.associate(node.getId(), HostAndPort.fromParts(dockerHost, hostPort), machineLocation, containerPort);
                 }
             }
@@ -1705,7 +1705,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Map<String,Object> sshProps = Maps.newLinkedHashMap(config.getAllConfig());
         sshProps.put("user", initialUser);
-        sshProps.put("address", hostAndPort.getHostText());
+        sshProps.put("address", hostAndPort.getHost());
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
@@ -1737,7 +1737,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Map<String,Object> winrmProps = Maps.newLinkedHashMap(config.getAllConfig());
         winrmProps.put("user", initialUser);
-        winrmProps.put("address", hostAndPort.getHostText());
+        winrmProps.put("address", hostAndPort.getHost());
         winrmProps.put("port", hostAndPort.getPort());
         winrmProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         winrmProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
@@ -2031,7 +2031,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     });
         }
 
-        String address = managementHostAndPort.getHostText();
+        String address = managementHostAndPort.getHost();
         int port = managementHostAndPort.hasPort() ? managementHostAndPort.getPort() : node.getLoginPort();
         
         // The display name will be one of the IPs of the VM (preferring public if there are any).
@@ -2122,7 +2122,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             nodeRegion = extractProvider(setup, node);
         }
         
-        String address = winrmHostAndPort.getHostText();
+        String address = winrmHostAndPort.getHost();
         String displayName = getPublicHostnameGeneric(node, setup, Optional.of(address));
 
         final Object password = winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) != null
@@ -2904,7 +2904,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (result.isPresent()) return result.get();
         }
 
-        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
+        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHost()) : Optional.<String>absent();
         return getPublicHostnameGeneric(node, setup, preferredAddress);
     }
 
@@ -2940,7 +2940,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (result.isPresent()) return result.get();
         }
 
-        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
+        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHost()) : Optional.<String>absent();
         return getPrivateHostnameGeneric(node, setup, preferredAddress);
     }
 

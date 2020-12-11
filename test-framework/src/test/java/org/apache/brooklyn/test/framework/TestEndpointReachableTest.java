@@ -107,7 +107,7 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testSensorUriStringReachable() throws Exception {
-        String sensorVal = "http://"+serverSocketHostAndPort.getHostText()+":"+serverSocketHostAndPort.getPort();
+        String sensorVal = "http://"+serverSocketHostAndPort.getHost()+":"+serverSocketHostAndPort.getPort();
         AttributeSensor<String> sensor = Sensors.newStringSensor("test.reachable.endpoint");
         app.createAndManageChild(EntitySpec.create(TestEndpointReachable.class)
                 .configure(TestEndpointReachable.TARGET_ENTITY, app)
@@ -118,7 +118,7 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testSensorUriReachable() throws Exception {
-        URI sensorVal = URI.create("http://"+serverSocketHostAndPort.getHostText()+":"+serverSocketHostAndPort.getPort());
+        URI sensorVal = URI.create("http://"+serverSocketHostAndPort.getHost()+":"+serverSocketHostAndPort.getPort());
         AttributeSensor<URI> sensor = Sensors.newSensor(URI.class, "test.reachable.endpoint");
         app.createAndManageChild(EntitySpec.create(TestEndpointReachable.class)
                 .configure(TestEndpointReachable.TARGET_ENTITY, app)
@@ -129,7 +129,7 @@ public class TestEndpointReachableTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testSensorUrlReachable() throws Exception {
-        URL sensorVal = new URL("http://"+serverSocketHostAndPort.getHostText()+":"+serverSocketHostAndPort.getPort());
+        URL sensorVal = new URL("http://"+serverSocketHostAndPort.getHost()+":"+serverSocketHostAndPort.getPort());
         AttributeSensor<URL> sensor = Sensors.newSensor(URL.class, "test.reachable.endpoint");
         app.createAndManageChild(EntitySpec.create(TestEndpointReachable.class)
                 .configure(TestEndpointReachable.TARGET_ENTITY, app)

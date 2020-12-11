@@ -188,7 +188,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
                 if (!publicEndpoint.hasPort()) {
                     throw new IllegalArgumentException("Invalid portMapping ('"+entry.getValue()+"') for port "+targetPort+" in machine "+this);
                 }
-                pfm.associate(publicEndpoint.getHostText(), publicEndpoint, this, targetPort);
+                pfm.associate(publicEndpoint.getHost(), publicEndpoint, this, targetPort);
             }
         }
     }

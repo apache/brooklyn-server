@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.cli;
 
+import com.google.common.base.MoreObjects;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Cli;
 import io.airlift.airline.Cli.CliBuilder;
@@ -52,7 +53,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects.ToStringHelper;
 
 /**
  * This class is the primary CLI for brooklyn.
@@ -118,7 +119,7 @@ public abstract class AbstractMain {
         protected InputStream stdin = System.in;
 
         public ToStringHelper string() {
-            return Objects.toStringHelper(getClass())
+            return MoreObjects.toStringHelper(getClass())
                     .add("verbose", verbose)
                     .add("quiet", quiet);
         }

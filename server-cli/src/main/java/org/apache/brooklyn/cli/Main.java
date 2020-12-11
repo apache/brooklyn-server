@@ -80,7 +80,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 
 import groovy.lang.GroovyClassLoader;
@@ -822,7 +822,7 @@ public class Main extends AbstractMain {
     }
 
     @Command(name = "copy-state", description = "Retrieves persisted state")
-    public static class CopyStateCommand extends BrooklynCommandCollectingArgs {
+    public static class CopyStateCommand extends BrooklynCommandCollectingArgs {TestEndpointReachableTes
 
         @Option(name = { "--localBrooklynProperties" }, title = "local brooklyn.properties file",
                 description = "local brooklyn.properties file, specific to this launch (appending to and overriding global properties)")

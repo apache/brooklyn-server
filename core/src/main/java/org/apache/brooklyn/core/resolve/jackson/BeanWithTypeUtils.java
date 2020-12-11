@@ -167,7 +167,7 @@ public class BeanWithTypeUtils {
 
         Object o = inputMap.get();
         if (!(o instanceof Map) && !(o instanceof List)) {
-            if (type.getTypeToken().isAssignableFrom(o.getClass())) {
+            if (type.getTypeToken().isSupertypeOf(o.getClass())) {
                 return (Maybe<T>)inputMap;
             }  else {
                 return Maybe.absent(() -> new RuntimeException("BeanWithType cannot convert from "+o.getClass()+" to "+type));
@@ -175,13 +175,13 @@ public class BeanWithTypeUtils {
         }
 
         Maybe<T> fallback = null;
-        if (type.getTypeToken().isAssignableFrom(Object.class)) {
+        if (type.getTypeToken().isSupertypeOf(Object.class)) {
             // the input is already valid, so use it as the fallback result
             fallback = (Maybe<T>)inputMap;
 
             // there isn't a 'type' key so little obvious point in converting .. might make a difference _inside_ a map or list, but we've not got any generics so it won't
             if (!(o instanceof Map) || !((Map<?, ?>) o).containsKey("type")) return fallback;
-        } else if (type.getTypeToken().isAssignableFrom(Map.class)) {
+        } else if (type.getTypeToken().isSupertypeOf(Map.class)) {
             // skip conversion for a map if it isn't an object
             return (Maybe<T>)inputMap;
         }

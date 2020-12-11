@@ -846,9 +846,9 @@ public class Enrichers {
         public ComputingNumber(Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> typeToken) {
             this.defaultValueForUnreportedSensors = defaultValueForUnreportedSensors;
             this.valueToReportIfNoSensors = valueToReportIfNoSensors;
-            if (typeToken!=null && TypeToken.of(Number.class).isAssignableFrom(typeToken.getType())) {
+            if (typeToken!=null && TypeToken.of(Number.class).isSupertypeOf(typeToken.getType())) {
                 this.typeToken = typeToken;
-            } else if (typeToken==null || typeToken.isAssignableFrom(Number.class)) {
+            } else if (typeToken==null || typeToken.isSupertypeOf(Number.class)) {
                 // use double if e.g. Object is supplied
                 this.typeToken = (TypeToken)TypeToken.of(Double.class);
             } else {
@@ -948,9 +948,9 @@ public class Enrichers {
             this.quorumCheck = quorumCheck;
             this.totalSize = totalSize;
 
-            if (typeToken!=null && TypeToken.of(Boolean.class).isAssignableFrom(typeToken.getType())) {
+            if (typeToken!=null && TypeToken.of(Boolean.class).isSupertypeOf(typeToken.getType())) {
                 this.typeToken = typeToken;
-            } else if (typeToken==null || typeToken.isAssignableFrom(Boolean.class)) {
+            } else if (typeToken==null || typeToken.isSupertypeOf(Boolean.class)) {
                 this.typeToken = (TypeToken)TypeToken.of(Boolean.class);
             } else {
                 throw new IllegalArgumentException("Type " + typeToken + " is not valid for " + this + " -- expected " + TypeToken.of(Boolean.class));

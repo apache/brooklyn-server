@@ -76,7 +76,7 @@ public class UserAndHostAndPort implements Serializable {
     
     @Override
     public String toString() {
-        return user + "@" + hostAndPort.getHostText() + (hostAndPort.hasPort() ? ":" + hostAndPort.getPort() : "");
+        return user + "@" + hostAndPort.getHost() + (hostAndPort.hasPort() ? ":" + hostAndPort.getPort() : "");
     }
     
     @Override
