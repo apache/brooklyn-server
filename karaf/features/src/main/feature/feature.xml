@@ -130,7 +130,7 @@
     </feature>
 
     <feature name="brooklyn-core" version="${project.version}" description="Brooklyn Core">
-        <feature>jetty</feature>
+        <feature>pax-jetty</feature>
         <feature>brooklyn-api</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
