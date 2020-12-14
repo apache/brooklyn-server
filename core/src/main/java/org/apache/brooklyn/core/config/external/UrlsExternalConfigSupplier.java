@@ -35,7 +35,7 @@ import com.google.common.collect.Maps;
  * 
  * Example configuration could be:
  * <pre>
- * brooklyn.external.foo = brooklyn.management.config.external.FilesExternalConfigSupplier
+ * brooklyn.external.foo = org.apache.brooklyn.core.config.external.UrlsExternalConfigSupplier
  * brooklyn.external.foo.authorized_keys = classpath://authorized_keys
  * brooklyn.external.foo.privateSshKey = /path/to/privateKey
  * brooklyn.external.foo.initScript = https://brooklyn.example.com/config/initScript.sh
