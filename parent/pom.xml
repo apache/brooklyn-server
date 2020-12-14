@@ -62,7 +62,7 @@
                 <scope>import</scope>
             </dependency>
             <!-- BEGIN karaf version overrides -->
-            <dependency>cd 
+            <dependency>
                 <groupId>net.java.dev.jna</groupId>
                 <artifactId>jna</artifactId>
                 <version>${jna.version}</version>
@@ -154,6 +154,14 @@
                       <!-- ensure the later cxf version is pulled in instead -->
                       <groupId>javax.annotation</groupId>
                       <artifactId>javax.annotation-api</artifactId>
+                  </exclusion>
+                  <exclusion>
+                      <groupId>org.ops4j.base</groupId>
+                      <artifactId>ops4j-base-lang</artifactId>
+                  </exclusion>
+                  <exclusion>
+                      <groupId>org.ops4j.base</groupId>
+                      <artifactId>ops4j-base-util-property</artifactId>
                   </exclusion>
               </exclusions>
             </dependency>
