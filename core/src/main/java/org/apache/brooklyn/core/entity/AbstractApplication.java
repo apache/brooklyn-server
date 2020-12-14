@@ -196,7 +196,8 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         logApplicationLifecycle("Started");
     }
 
-    protected void logApplicationLifecycle(String message) {
+    @Override
+    public void logApplicationLifecycle(String message) {
         log.info(message+" application " + this);
     }
     
@@ -285,7 +286,8 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         }
     }
 
-    protected void setExpectedStateAndRecordLifecycleEvent(Lifecycle state) {
+    @Override
+    public void setExpectedStateAndRecordLifecycleEvent(Lifecycle state) {
         ServiceStateLogic.setExpectedState(this, state);
         recordApplicationEvent(state);
     }

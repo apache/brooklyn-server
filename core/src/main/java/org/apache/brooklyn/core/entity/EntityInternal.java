@@ -139,6 +139,9 @@ public interface EntityInternal extends BrooklynObjectInternal, EntityLocal, Reb
     @Override
     EnricherSupportInternal enrichers();
 
+    /** allows subclasses or mixing to set the default display name to use if none is provided */
+    void setDefaultDisplayName(String displayNameIfDefault);
+
     @Override
     GroupSupportInternal groups();
 
