@@ -876,56 +876,56 @@
             <bundle>mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
         </feature>
 
-<!-- BROOKLYN: omitting this
-        <feature name="jclouds-services" description="OSGi Service Factories for jclouds" version="${jclouds.version}">
-            <configfile finalname="${karaf.etc}/org.apache.jclouds.credentials.cfg">mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/cfg/credentials</configfile>
-            <feature>aries-blueprint</feature>
-            <feature version='${jclouds.version}'>jclouds-compute</feature>
-            <feature version='${jclouds.version}'>jclouds-blobstore</feature>
-            <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch/${jsch.bundle.version}</bundle>
-            <bundle dependency='true'>mvn:org.apache.jclouds.karaf.bundles/jsch-agentproxy-jsch/${jclouds.version}</bundle>
-            <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.connector-factory/${jsch.agentproxy.version}</bundle>
-            <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.usocket-nc/${jsch.agentproxy.version}</bundle>
-            <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.sshagent/${jsch.agentproxy.version}</bundle>
-            <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.bundle.version}</bundle>
-            <bundle dependency='true'>mvn:org.bouncycastle/bcprov-ext-jdk15on/${bcprov.version}</bundle>
-            <bundle dependency='true'>mvn:org.apache.jclouds.driver/jclouds-bouncycastle/${jclouds.version}</bundle>
-            <bundle dependency='true'>mvn:org.apache.jclouds.driver/jclouds-slf4j/${jclouds.version}</bundle>
-            <bundle dependency='true'>mvn:org.apache.jclouds.common/googlecloud/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.driver/jclouds-jsch/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.driver/jclouds-log4j/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/core/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/cache/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/recipe/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/services/${jclouds.version}</bundle>
-        </feature>
+    <!-- BROOKLYN: omitting this
+         <feature name="jclouds-services" description="OSGi Service Factories for jclouds" version="${jclouds.version}">
+             <configfile finalname="${karaf.etc}/org.apache.jclouds.credentials.cfg">mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/cfg/credentials</configfile>
+             <feature>aries-blueprint</feature>
+             <feature version='${jclouds.version}'>jclouds-compute</feature>
+             <feature version='${jclouds.version}'>jclouds-blobstore</feature>
+             <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch/${jsch.bundle.version}</bundle>
+             <bundle dependency='true'>mvn:org.apache.jclouds.karaf.bundles/jsch-agentproxy-jsch/${jclouds.version}</bundle>
+             <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.connector-factory/${jsch.agentproxy.version}</bundle>
+             <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.usocket-nc/${jsch.agentproxy.version}</bundle>
+             <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.sshagent/${jsch.agentproxy.version}</bundle>
+             <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.bundle.version}</bundle>
+             <bundle dependency='true'>mvn:org.bouncycastle/bcprov-ext-jdk15on/${bcprov.version}</bundle>
+             <bundle dependency='true'>mvn:org.apache.jclouds.driver/jclouds-bouncycastle/${jclouds.version}</bundle>
+             <bundle dependency='true'>mvn:org.apache.jclouds.driver/jclouds-slf4j/${jclouds.version}</bundle>
+             <bundle dependency='true'>mvn:org.apache.jclouds.common/googlecloud/${jclouds.version}</bundle>
+             <bundle>mvn:org.apache.jclouds.driver/jclouds-jsch/${jclouds.version}</bundle>
+             <bundle>mvn:org.apache.jclouds.driver/jclouds-log4j/${jclouds.version}</bundle>
+             <bundle>mvn:org.apache.jclouds.karaf/core/${jclouds.version}</bundle>
+             <bundle>mvn:org.apache.jclouds.karaf/cache/${jclouds.version}</bundle>
+             <bundle>mvn:org.apache.jclouds.karaf/recipe/${jclouds.version}</bundle>
+             <bundle>mvn:org.apache.jclouds.karaf/services/${jclouds.version}</bundle>
+         </feature>
 
-        <feature name="jclouds-commands" description="Karaf Commands for jclouds" version="${jclouds.version}">
-            <configfile finalname="/etc/org.apache.jclouds.shell.cfg">mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/cfg/shell</configfile>
-            <feature>shell-compat</feature>
-            <feature version='${jclouds.version}'>jclouds-services</feature>
-            <bundle dependency="true">mvn:org.codehaus.groovy/groovy/${groovy.version}</bundle>
-            <bundle dependency="true">mvn:org.codehaus.groovy/groovy-jsr223/${groovy.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/core/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/recipe/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf/commands/${jclouds.version}</bundle>
-        </feature>
+             <feature name="jclouds-commands" description="Karaf Commands for jclouds" version="${jclouds.version}">
+                 <configfile finalname="/etc/org.apache.jclouds.shell.cfg">mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/cfg/shell</configfile>
+                 <feature>shell-compat</feature>
+                 <feature version='${jclouds.version}'>jclouds-services</feature>
+                 <bundle dependency="true">mvn:org.codehaus.groovy/groovy/${groovy.version}</bundle>
+                 <bundle dependency="true">mvn:org.codehaus.groovy/groovy-jsr223/${groovy.version}</bundle>
+                 <bundle>mvn:org.apache.jclouds.karaf/core/${jclouds.version}</bundle>
+                 <bundle>mvn:org.apache.jclouds.karaf/recipe/${jclouds.version}</bundle>
+                 <bundle>mvn:org.apache.jclouds.karaf/commands/${jclouds.version}</bundle>
+             </feature>
 
-        <feature name="jclouds-chef" description="jclouds Chef Services and Commands" version="${jclouds.version}">
-            <feature version='${jclouds.version}'>jclouds-api-chef</feature>
-            <feature version='${jclouds.version}'>jclouds-commands</feature>
-            <bundle dependency='true'>mvn:org.apache.jclouds.driver/jclouds-slf4j/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf.chef/cache/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf.chef/services/${jclouds.version}</bundle>
-            <bundle>mvn:org.apache.jclouds.karaf.chef/commands/${jclouds.version}</bundle>
-        </feature>
+             <feature name="jclouds-chef" description="jclouds Chef Services and Commands" version="${jclouds.version}">
+                 <feature version='${jclouds.version}'>jclouds-api-chef</feature>
+                 <feature version='${jclouds.version}'>jclouds-commands</feature>
+                 <bundle dependency='true'>mvn:org.apache.jclouds.driver/jclouds-slf4j/${jclouds.version}</bundle>
+                 <bundle>mvn:org.apache.jclouds.karaf.chef/cache/${jclouds.version}</bundle>
+                 <bundle>mvn:org.apache.jclouds.karaf.chef/services/${jclouds.version}</bundle>
+                 <bundle>mvn:org.apache.jclouds.karaf.chef/commands/${jclouds.version}</bundle>
+             </feature>
 
-        <feature name="jclouds-url-handler" description="Url Handler for jclouds Blobs" version="${jclouds.version}">
-            <feature>aries-blueprint</feature>
-            <feature version='${jclouds.version}'>jclouds-services</feature>
-            <bundle>mvn:org.apache.jclouds.karaf/urlhandler/${jclouds.version}</bundle>
-        </feature>
--->
+             <feature name="jclouds-url-handler" description="Url Handler for jclouds Blobs" version="${jclouds.version}">
+                 <feature>aries-blueprint</feature>
+                 <feature version='${jclouds.version}'>jclouds-services</feature>
+                 <bundle>mvn:org.apache.jclouds.karaf/urlhandler/${jclouds.version}</bundle>
+             </feature>
+     -->
 
     <!-- BROOKLYN: changing this! -->
         <feature name="jclouds-services-for-brooklyn" description="OSGi Service Factories for jclouds" version="${jclouds.version}">
