@@ -822,7 +822,7 @@ public class Main extends AbstractMain {
     }
 
     @Command(name = "copy-state", description = "Retrieves persisted state")
-    public static class CopyStateCommand extends BrooklynCommandCollectingArgs {TestEndpointReachableTes
+    public static class CopyStateCommand extends BrooklynCommandCollectingArgs {
 
         @Option(name = { "--localBrooklynProperties" }, title = "local brooklyn.properties file",
                 description = "local brooklyn.properties file, specific to this launch (appending to and overriding global properties)")
