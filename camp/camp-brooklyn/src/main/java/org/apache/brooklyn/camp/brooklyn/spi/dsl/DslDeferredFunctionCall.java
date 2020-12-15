@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -239,6 +240,9 @@ public class DslDeferredFunctionCall extends BrooklynDslDeferredSupplier<Object>
 
     @Override
     public String toString() {
+        // prefer the dsl set on us, if set
+        if (dsl instanceof String && Strings.isNonBlank((String)dsl)) return (String)dsl;
+
         return DslToStringHelpers.fn(DslToStringHelpers.internal(object) + "." + fnName, args);
     }
 
