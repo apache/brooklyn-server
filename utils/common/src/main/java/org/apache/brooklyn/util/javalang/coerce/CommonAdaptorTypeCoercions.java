@@ -23,12 +23,7 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -48,6 +43,7 @@ import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.apache.brooklyn.util.yaml.Yamls;
 
 import com.google.common.base.Function;
@@ -257,6 +253,18 @@ public class CommonAdaptorTypeCoercions {
             @Override
             public Date apply(final String input) {
                 return Time.parseDate(input);
+            }
+        });
+        registerAdapter(String.class, Timestamp.class, new Function<String,Timestamp>() {
+            @Override
+            public Timestamp apply(final String input) {
+                return new Timestamp(input);
+            }
+        });
+        registerAdapter(Date.class, Timestamp.class, new Function<Date,Timestamp>() {
+            @Override
+            public Timestamp apply(final Date input) {
+                return new Timestamp(input);
             }
         });
         registerAdapter(String.class, QuorumCheck.class, new Function<String,QuorumCheck>() {
