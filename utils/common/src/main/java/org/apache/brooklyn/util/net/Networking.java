@@ -602,7 +602,7 @@ public class Networking {
             if (timeout>0) {
                 s.setSoTimeout(timeout);
             }
-            s.connect(new InetSocketAddress(endpoint.getHostText(), endpoint.getPort()), timeout);
+            s.connect(new InetSocketAddress(endpoint.getHost(), endpoint.getPort()), timeout);
             closeQuietly(s);
             return true;
         } catch (Exception e) {

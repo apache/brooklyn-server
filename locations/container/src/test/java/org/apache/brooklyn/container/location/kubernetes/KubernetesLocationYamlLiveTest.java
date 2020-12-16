@@ -285,7 +285,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertReachableEventually(publicPort);
-        assertHttpStatusCodeEventuallyEquals("http://" + publicPort.getHostText() + ":" + publicPort.getPort(), 200);
+        assertHttpStatusCodeEventuallyEquals("http://" + publicPort.getHost() + ":" + publicPort.getPort(), 200);
 
         return entity;
     }
@@ -462,7 +462,7 @@ public class KubernetesLocationYamlLiveTest extends AbstractYamlTest {
         HostAndPort publicPort = HostAndPort.fromString(publicMapped);
 
         assertReachableEventually(publicPort);
-        assertHttpStatusCodeEventuallyEquals("http://" + publicPort.getHostText() + ":" + publicPort.getPort(), 200);
+        assertHttpStatusCodeEventuallyEquals("http://" + publicPort.getHost() + ":" + publicPort.getPort(), 200);
     }
 
     @Test(groups = {"Live"})

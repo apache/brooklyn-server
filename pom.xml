@@ -101,11 +101,11 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>2.1.2</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <jclouds.version>2.2.0</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.2.3</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
-        <guava.version>18.0</guava.version>
+        <guava.version>24.1.1-jre</guava.version>
         <!--
             This can be different from above and should be used only by Swagger related code.
             Note that some bundles used by Brooklyn will try to bind to the latest version available.
@@ -231,6 +231,16 @@
         <dockerfile-maven-plugin.version>1.4.3</dockerfile-maven-plugin.version>
 
         <geronimo-ws-metadata_2.0_spec.version>1.1.3</geronimo-ws-metadata_2.0_spec.version>
+
+        <!-- to be used on karaf/features/src/main/feature/feature.xml as part of the copy of the non-released
+        jclouds-karaf 2.2.0 -->
+        <jzlib.bundle.version>1.0.7_1</jzlib.bundle.version>
+        <jsch.bundle.version>0.1.54_1</jsch.bundle.version>
+        <bcprov.version>1.51</bcprov.version>
+        <jsch.agentproxy.version>0.0.9</jsch.agentproxy.version>
+        <jersey.bundle.version>1.11_1</jersey.bundle.version>
+        <net.oauth.bundle.version>20100527_1</net.oauth.bundle.version>
+        <javax.ws.rs.api.version>${jax-rs-api.version}</javax.ws.rs.api.version>
     </properties>
 
     <modules>

@@ -83,7 +83,7 @@ public abstract class AbstractInvokeEffectorPolicy extends AbstractPolicy {
         }
         Task<T> task = entity.invoke(effector, parameters);
         if (isBusySensorEnabled()) {
-            task.addListener(new EffectorListener(), MoreExecutors.sameThreadExecutor());
+            task.addListener(new EffectorListener(), MoreExecutors.directExecutor());
         }
         return task;
     }

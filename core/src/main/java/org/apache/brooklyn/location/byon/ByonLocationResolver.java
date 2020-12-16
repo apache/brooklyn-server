@@ -176,9 +176,9 @@ public class ByonLocationResolver extends AbstractLocationResolver {
                 throw new IllegalArgumentException("Invalid portMapping ('"+override+"') for port "+port+" in "+specForErrMsg);
             }
             port = hostAndPortOverride.getPort();
-            host = hostAndPortOverride.getHostText().trim();
+            host = hostAndPortOverride.getHost().trim();
         } else {
-            host = userAndHostAndPort.getHostAndPort().getHostText().trim();
+            host = userAndHostAndPort.getHostAndPort().getHost().trim();
         }
         
         machineConfig.put("address", host);
@@ -225,7 +225,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
         
         UserAndHostAndPort userAndHostAndPort = parseUserAndHostAndPort(val);
         
-        String host = userAndHostAndPort.getHostAndPort().getHostText().trim();
+        String host = userAndHostAndPort.getHostAndPort().getHost().trim();
         machineConfig.put("address", host);
         try {
             InetAddress.getByName(host.trim());
@@ -261,7 +261,7 @@ public class ByonLocationResolver extends AbstractLocationResolver {
     private UserAndHostAndPort parseUserAndHostAndPort(String val, int defaultPort) {
         UserAndHostAndPort result = parseUserAndHostAndPort(val);
         if (!result.getHostAndPort().hasPort()) {
-            result = UserAndHostAndPort.fromParts(result.getUser(), result.getHostAndPort().getHostText(), defaultPort);
+            result = UserAndHostAndPort.fromParts(result.getUser(), result.getHostAndPort().getHost(), defaultPort);
         }
         return result;
     }

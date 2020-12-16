@@ -34,7 +34,7 @@ import io.airlift.airline.ParseException;
 
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 
-import com.google.common.base.Objects.ToStringHelper;
+import com.google.common.base.MoreObjects.ToStringHelper;
 
 /**
  * Makes use of {@link CloudExplorerSupport} to provide cloud explorer commands at Brooklyn server command line.
