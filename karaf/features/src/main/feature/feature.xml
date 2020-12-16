@@ -322,6 +322,7 @@
         <bundle>mvn:io.fabric8/kubernetes-client/${kubernetes-client.version}/jar/bundle</bundle>
         <bundle>mvn:io.fabric8/openshift-client/${kubernetes-client.version}/jar/bundle</bundle>
 
+        <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-container/${project.version}</bundle>
     </feature>
 
