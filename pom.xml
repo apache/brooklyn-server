@@ -240,7 +240,12 @@
         <jsch.agentproxy.version>0.0.9</jsch.agentproxy.version>
         <jersey.bundle.version>1.11_1</jersey.bundle.version>
         <net.oauth.bundle.version>20100527_1</net.oauth.bundle.version>
-        <javax.ws.rs.api.version>${jax-rs-api.version}</javax.ws.rs.api.version>
+        <javax.inject.bundle.version>1_1</javax.inject.bundle.version>
+        <aopalliance.bundle.version>1.0_5</aopalliance.bundle.version>
+        <javax.ws.rs.api.version>2.0.1</javax.ws.rs.api.version>
+        <okhttp.bundle.version>2.2.0_1</okhttp.bundle.version>
+        <java-xmlbuilder.bundle.version>1.1_1</java-xmlbuilder.bundle.version>
+        <okio.bundle.version>1.2.0_1</okio.bundle.version>
     </properties>
 
     <modules>

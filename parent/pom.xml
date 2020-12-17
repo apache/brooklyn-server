@@ -151,6 +151,17 @@
                 <version>${felix-osgi-compendium.version}</version>
             </dependency>
             <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.apache.felix.framework</artifactId>
+                <version>${felix.framework.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>animal-sniffer-annotations</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
               <groupId>org.apache.karaf.features</groupId>
               <artifactId>framework</artifactId>
               <type>kar</type>
