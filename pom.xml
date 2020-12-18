@@ -105,7 +105,7 @@
         <logback.version>1.2.3</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
-        <guava.version>24.1.1-jre</guava.version>
+        <guava.version>23.6.1-jre</guava.version>
         <!--
             This can be different from above and should be used only by Swagger related code.
             Note that some bundles used by Brooklyn will try to bind to the latest version available.
@@ -120,6 +120,7 @@
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <jaxb-api-2.2.servicemix.version>2.9.0</jaxb-api-2.2.servicemix.version>
         <activator.servicemix.version>2.9.0</activator.servicemix.version>
+        <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
         <cxf.version>3.4.1</cxf.version>
