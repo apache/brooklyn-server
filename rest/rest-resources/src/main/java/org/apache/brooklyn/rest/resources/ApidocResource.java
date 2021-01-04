@@ -28,7 +28,7 @@ import io.swagger.jaxrs.listing.ApiListingResource;
  * @author Ciprian Ciubotariu <cheepeero@gmx.net>
  */
 @Api("API Documentation")
-@Path("/apidoc")
+@Path("/apidoc/swagger.{type:json|yaml}")
 public class ApidocResource extends ApiListingResource {
 
 }
