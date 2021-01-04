@@ -101,7 +101,7 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>2.2.0</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <jclouds.version>2.1.2</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.2.3</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
@@ -111,7 +111,8 @@
             Note that some bundles used by Brooklyn will try to bind to the latest version available.
             For example jclouds and jackson-datatype-guava both depend on guava [16,20).
         -->
-        <guava-swagger.version>18.0</guava-swagger.version>
+        <guava-swagger.version>27.0.1-jre</guava-swagger.version>
+        <failureaccess.version>1.0.1</failureaccess.version>
 
         <!-- xstream -->
         <xstream.version>1.4.15</xstream.version>
@@ -120,6 +121,7 @@
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <jaxb-api-2.2.servicemix.version>2.9.0</jaxb-api-2.2.servicemix.version>
         <activator.servicemix.version>2.9.0</activator.servicemix.version>
+        <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
         <cxf.version>3.3.9</cxf.version>
@@ -133,7 +135,7 @@
         <!-- JClouds 2.2.0 imports snakeyaml 1.17 -->
         <snakeyaml.version>1.27</snakeyaml.version> <!-- 1.27 matches cxf-jackson 3.3.9 -->
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
-        <swagger.version>1.5.6</swagger.version>
+        <swagger.version>1.6.2</swagger.version>
         <gson.version>2.5</gson.version>
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.67</bouncycastle.version>
