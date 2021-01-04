@@ -123,6 +123,11 @@
             <artifactId>cxf-rt-rs-security-cors</artifactId>
             <version>${cxf.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>failureaccess</artifactId>
+            <version>${failureaccess.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.brooklyn</groupId>

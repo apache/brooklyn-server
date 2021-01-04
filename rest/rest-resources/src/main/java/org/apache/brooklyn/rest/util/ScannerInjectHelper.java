@@ -15,6 +15,8 @@
  */
 package org.apache.brooklyn.rest.util;
 
+import io.swagger.jaxrs.config.SwaggerContextService;
+import io.swagger.jaxrs.config.SwaggerScannerLocator;
 import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 
@@ -22,6 +24,9 @@ import io.swagger.config.ScannerFactory;
 
 public class ScannerInjectHelper {
     public void setServer(JAXRSServerFactoryBean server) {
-        RestApiResourceScanner.install(server.getResourceClasses());
+        RestApiResourceScanner scanner = new RestApiResourceScanner(server.getResourceClasses());
+        ScannerFactory.setScanner(scanner);
+        // Above method broken in Swagger 1.6.2
+        SwaggerScannerLocator.getInstance().putScanner(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);
     }
 }
