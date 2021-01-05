@@ -952,7 +952,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             
             BasicTypeImplementationPlan plan = new BasicTypeImplementationPlan(format, sourcePlanYaml);
             BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
-                RegisteredTypeKind.UNRESOLVED,
+                    BrooklynObjectType.of(planInterpreter.catalogItemType).getSpecType()!=null ? RegisteredTypeKind.SPEC
+                            : planInterpreter.catalogItemType==CatalogItemType.BEAN ? RegisteredTypeKind.BEAN
+                            : RegisteredTypeKind.UNRESOLVED,
                 symbolicName, version, plan,
                 superTypes, aliases, tags, containingBundle==null ? null : containingBundle.getVersionedName().toString(), 
                 MutableList.<OsgiBundleWithUrl>copyOf(libraryBundles), 
@@ -1689,7 +1691,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot("unbundled catalog definition", catalogYaml, null, null, result, false, MutableMap.of(), 0, forceUpdate, true);
 
-        Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet(), true);
+        Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet());
         if (Iterables.concat(validation.values()).iterator().hasNext()) {
             throw new IllegalStateException("Could not validate one or more items: "+validation);
         }
@@ -1849,7 +1851,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (boType==null) {
                     // guesser inferred a type
                     boType = BrooklynObjectType.of(ciType);
-                    if (boType!=null) {
+                    if (boType!=null && boType.getSpecType()!=null) {
                         supers = MutableSet.copyOf(supers);
                         supers.add(boType.getInterfaceType());
                         // didn't know type before, retry now that we know the type

@@ -118,7 +118,7 @@ public class CatalogBundleLoader {
                             "installer gave "+result+" (of "+result.mapOfNewToReplaced.keySet().size()+" total installed), "+
                             "but registry search gave "+matches+" (from "+matches.size()+" total found for this bundle)");
                     }
-                    Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( matches, true );
+                    Map<RegisteredType, Collection<Throwable>> validationErrors = this.managementContext.getCatalog().validateTypes( matches );
                     if (!validationErrors.isEmpty()) {
                         throw Exceptions.propagate("Failed to install "+mb.getVersionedName()+", types "+validationErrors.keySet()+" gave errors",
                             Iterables.concat(validationErrors.values()));
