@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.core.xstream;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.thoughtworks.xstream.XStream;
@@ -41,11 +42,12 @@ import java.util.Map;
  * to support pre-Guava-18 serialized objects we just continue to use the old logic.
  * To test, note that this is testable with the RebingTest.testSshFeed_2018_...
  */
-public class HashMultimapConverter extends MapConverter {
+public class HashMultimapConverter implements Converter {
 
+    private final Mapper mapper;
 
     public HashMultimapConverter(Mapper mapper) {
-        super(mapper);
+        this.mapper = mapper;
     }
 
     // TODO how do we convert this from ObjectOutputStream to XStream mapper ?
@@ -56,7 +58,7 @@ public class HashMultimapConverter extends MapConverter {
     public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
         HashMultimap hashMultimap = (HashMultimap) source;
 
-        writeCompleteItem(source, context,writer);
+//        writeCompleteItem(source, context,writer);
         XStream xstream = new XStream();
         try {
             ObjectOutputStream stream = xstream.createObjectOutputStream(writer);
@@ -71,11 +73,20 @@ public class HashMultimapConverter extends MapConverter {
 
     @Override
     public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
+        reader.moveDown();
+        String value = reader.getValue();
+        String value2 = reader.getValue();
+        String value4 = reader.getValue();
+        String value3 = reader.getValue();
+        String value5 = reader.getValue();
+        String value6 = reader.getValue();
+        String value7 = reader.getValue();
+        int distinctKeys = Integer.parseInt(value);
         HashMultimap<Object, Object> objectObjectHashMultimap = HashMultimap.create();
+
         XStream xstream = new XStream();
         try (ObjectInputStream objectInputStream = xstream.createObjectInputStream(reader)) {
-//            objectInputStream.defaultReadObject();
-            int distinctKeys = objectInputStream.readInt();
+            objectInputStream.defaultReadObject();
             populateMultimap(objectObjectHashMultimap, objectInputStream, distinctKeys);
         } catch (IOException e) {
             e.printStackTrace();
@@ -93,13 +104,8 @@ public class HashMultimapConverter extends MapConverter {
     }
 
     @Override
-    protected Object createCollection(Class type) {
-        return HashMultimap.create();
-    }
-
-    @Override
     public boolean canConvert(Class type) {
-        return type.isAssignableFrom(HashMultimap.class);
+            return HashMultimap.class.isAssignableFrom(type);
     }
 
 
