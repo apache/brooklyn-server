@@ -92,8 +92,6 @@ public class XmlSerializer<T> {
         xstream.registerConverter(new ImmutableSetConverter(xstream.getMapper()));
         xstream.registerConverter(new ImmutableMapConverter(xstream.getMapper()));
 
-        xstream.registerConverter(new HashMultimapConverter(xstream.getMapper()));
-
         xstream.registerConverter(new EnumCaseForgivingConverter());
         xstream.registerConverter(new Inet4AddressConverter());
         
