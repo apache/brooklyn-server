@@ -27,6 +27,7 @@ import com.thoughtworks.xstream.converters.Converter;
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.SingleValueConverter;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
+import com.thoughtworks.xstream.converters.collections.CollectionConverter;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import com.thoughtworks.xstream.mapper.Mapper;
@@ -42,11 +43,12 @@ import java.util.Map;
  * to support pre-Guava-18 serialized objects we just continue to use the old logic.
  * To test, note that this is testable with the RebingTest.testSshFeed_2018_...
  */
-public class HashMultimapConverter implements Converter {
+public class HashMultimapConverter extends CollectionConverter{
 
     private final Mapper mapper;
 
     public HashMultimapConverter(Mapper mapper) {
+        super(mapper);
         this.mapper = mapper;
     }
 
@@ -57,14 +59,13 @@ public class HashMultimapConverter implements Converter {
     @Override
     public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
         HashMultimap hashMultimap = (HashMultimap) source;
-
 //        writeCompleteItem(source, context,writer);
         XStream xstream = new XStream();
         try {
             ObjectOutputStream stream = xstream.createObjectOutputStream(writer);
 //            stream.writeObject(hashMultimap);
             stream.writeInt(2);
-            writeMultimap(hashMultimap, stream);
+            writeMultimap(hashMultimap, writer);
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -74,20 +75,26 @@ public class HashMultimapConverter implements Converter {
     @Override
     public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
         reader.moveDown();
+        if(reader.getNodeName().equals("unserializable-parents")){
+            reader.moveUp();
+            reader.moveDown();
+        }
+        if(reader.getNodeName().equals("com.google.guava:com.google.common.collect.HashMultimap")){
+            reader.moveDown();
+        }
+        if(reader.getNodeName().equals("default")){
+            reader.moveUp();
+            reader.moveDown();
+        }
         String value = reader.getValue();
-        String value2 = reader.getValue();
-        String value4 = reader.getValue();
-        String value3 = reader.getValue();
-        String value5 = reader.getValue();
-        String value6 = reader.getValue();
-        String value7 = reader.getValue();
+
         int distinctKeys = Integer.parseInt(value);
         HashMultimap<Object, Object> objectObjectHashMultimap = HashMultimap.create();
 
         XStream xstream = new XStream();
         try (ObjectInputStream objectInputStream = xstream.createObjectInputStream(reader)) {
-            objectInputStream.defaultReadObject();
-            populateMultimap(objectObjectHashMultimap, objectInputStream, distinctKeys);
+//            objectInputStream.defaultReadObject();
+            populateMultimap(objectObjectHashMultimap, reader, distinctKeys, context);
         } catch (IOException e) {
             e.printStackTrace();
         } catch (ClassNotFoundException e) {
@@ -105,7 +112,7 @@ public class HashMultimapConverter implements Converter {
 
     @Override
     public boolean canConvert(Class type) {
-            return HashMultimap.class.isAssignableFrom(type);
+        return HashMultimap.class.isAssignableFrom(type);
     }
 
 
@@ -117,8 +124,9 @@ public class HashMultimapConverter implements Converter {
      * <p>The serialized output consists of the number of distinct keys, and then for each distinct
      * key: the key, the number of values for that key, and the key's values.
      */
-    static <K, V> void writeMultimap(Multimap<K, V> multimap, ObjectOutputStream stream)
+    static <K, V> void writeMultimap(Multimap<K, V> multimap, HierarchicalStreamWriter stream)
             throws IOException {
+/*        stream.defaultWriteObject();
         stream.writeInt(multimap.asMap().size());
         for (Map.Entry<K, Collection<V>> entry : multimap.asMap().entrySet()) {
             stream.writeObject(entry.getKey());
@@ -126,27 +134,35 @@ public class HashMultimapConverter implements Converter {
             for (V value : entry.getValue()) {
                 stream.writeObject(value);
             }
-        }
+        }*/
     }
 
-    /**
-     * Populates a multimap by reading an input stream, as part of deserialization. See {@link
-     * #writeMultimap} for the data format. The number of distinct keys is determined by a prior call
-     * to {@link #readCount}.
-     */
-    static <K, V> void populateMultimap(
-            Multimap<K, V> multimap, ObjectInputStream stream, int distinctKeys)
+
+    <K, V> void populateMultimap(
+            HashMultimap<Object, Object> multimap, HierarchicalStreamReader stream, int distinctKeys, UnmarshallingContext context)
             throws IOException, ClassNotFoundException {
         for (int i = 0; i < distinctKeys; i++) {
+            stream.moveUp();
+            stream.moveDown();
+
+            stream.moveUp();
+            stream.moveDown();
+            int valueCount = stream.getAttributeCount();
+            K key = (K) stream.getNodeName();
             @SuppressWarnings("unchecked") // reading data stored by writeMultimap
-            K key = (K) stream.readObject();
-            Collection<V> values = multimap.get(key);
-            int valueCount = stream.readInt();
-            for (int j = 0; j < valueCount; j++) {
-                @SuppressWarnings("unchecked") // reading data stored by writeMultimap
-                V value = (V) stream.readObject();
-                values.add(value);
+            Collection<V> values = (Collection<V>) multimap.get(key);
+//            populateCollection(stream, context, values );
+
+            while(stream.hasMoreChildren()){
+                stream.moveDown();
+//                @SuppressWarnings("unchecked") // reading data stored by writeMultimap
+                Object bareItem = readBareItem(stream, context, values);
+                values.add((V) bareItem);
+//                V value = (V) stream.getValue();
+//                values.add(value);
+                stream.moveUp();
             }
+
         }
     }
 }
