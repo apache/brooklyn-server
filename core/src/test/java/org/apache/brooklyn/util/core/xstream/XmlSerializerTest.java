@@ -22,9 +22,6 @@ import static org.testng.Assert.assertEquals;
 
 import java.util.Arrays;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Objects;
@@ -33,17 +30,8 @@ import com.thoughtworks.xstream.annotations.XStreamConverter;
 import com.thoughtworks.xstream.converters.basic.BooleanConverter;
 import com.thoughtworks.xstream.converters.extended.ToAttributedValueConverter;
 
-public class XmlSerializerTest {
+public class XmlSerializerTest extends XmlSerializerTestFixture {
 
-    private static final Logger LOG = LoggerFactory.getLogger(XmlSerializerTest.class);
-
-    protected XmlSerializer<Object> serializer;
-    
-    @BeforeMethod(alwaysRun=true)
-    private void setUp() {
-        serializer = new XmlSerializer<Object>();
-    }
-    
     @Test
     public void testSimple() throws Exception {
         assertSerializeAndDeserialize("abc");
@@ -97,13 +85,6 @@ public class XmlSerializerTest {
         assertEquals(val.charAt(8), 0); // expect that to give us unicode character 0
         assertSerializeAndDeserialize(val);
         assertSerializeAndDeserialize(new StringHolder(val));
-    }
-
-    protected void assertSerializeAndDeserialize(Object val) throws Exception {
-        String xml = serializer.toString(val);
-        Object result = serializer.fromString(xml);
-        LOG.debug("val="+val+"'; xml="+xml+"; result="+result);
-        assertEquals(result, val);
     }
 
     public static class StringHolder {
