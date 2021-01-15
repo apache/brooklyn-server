@@ -55,6 +55,8 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
     protected final Gson gson;
     protected final String endpoint;
     protected final String path;
+    protected final String mountPoint;
+    protected final int version;
     protected final String token;
     protected final ImmutableMap<String, String> headersWithToken;
 
@@ -70,6 +72,18 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         if (Strings.isBlank(endpoint)) errors.add("missing configuration 'endpoint'");
         path = config.get("path");
         if (Strings.isBlank(path)) errors.add("missing configuration 'path'");
+        String version = config.get("kv-api-version");
+        if (Strings.isBlank(version) || "1".equals(version)) {
+            this.version = 1;
+        } else if ("2".equals(version)) {
+            this.version = 2;
+        } else {
+            this.version = -1; // satisfy the static analysis :)
+            errors.add("'kv-api-version' must be either 1 or 2");
+        }
+        mountPoint = config.get("mountPoint");
+        if (Strings.isBlank(mountPoint) && this.version == 2) errors.add("missing configuration 'mountPoint'");
+        if (!Strings.isBlank(mountPoint) && this.version == 1) errors.add("'mountPoint' is only applicable when kv-api-version=2");
         if (!errors.isEmpty()) {
             String message = String.format("Problem configuration Vault external config supplier '%s': %s",
                     name, Joiner.on(System.lineSeparator()).join(errors));
@@ -87,8 +101,15 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
 
     @Override
     public String get(String key) {
-        JsonObject response = apiGet(Urls.mergePaths("v1", path), headersWithToken);
-        return response.getAsJsonObject("data").get(key).getAsString();
+        String urlPath = (version == 1)
+            ? Urls.mergePaths("v1", path)
+            : Urls.mergePaths("v1", mountPoint, "data", path);
+        JsonObject response = apiGet(urlPath, headersWithToken);
+        JsonElement jsonElement = (version == 1)
+            ? response.getAsJsonObject("data").get(key)
+            : response.getAsJsonObject("data").getAsJsonObject("data").get(key);
+        String asString = jsonElement.getAsString();
+        return asString;
     }
 
     /**
