@@ -159,7 +159,7 @@ public interface ApplicationApi {
     @Beta
     @PUT
     @Path("/{application}")
-    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML, with the given id",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
@@ -206,7 +206,7 @@ public interface ApplicationApi {
 
     @Beta
     @POST
-    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
