@@ -216,7 +216,7 @@ public interface ApplicationApi {
     })
     public Response createWithFormat(
             @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
-            @FormParam("plan") byte[] plan,
+            @FormParam("plan") String plan,
             @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
             @FormParam("format") String format);
 

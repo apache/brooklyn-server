@@ -26,6 +26,7 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriB
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -504,7 +505,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createPoly(byte[] inputToAutodetectType) {
-        return createWithFormat(inputToAutodetectType, null);
+        return createWithFormat(Arrays.toString(inputToAutodetectType), null);
     }
 
     @Override
@@ -514,7 +515,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createWithFormat(byte[] inputToAutodetectType, String format) {
+    public Response createWithFormat(String inputToAutodetectType, String format) {
         log.debug("Creating app from autodetecting input");
 
         boolean looksLikeLegacy = false;
