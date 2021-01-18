@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -58,8 +59,14 @@ public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Override
+    public double scoreForType(RegisteredType type, RegisteredTypeLoadingContext context) {
+        if (RegisteredTypeKind.SPEC.equals(type.getKind())) return 0;
+        return super.scoreForType(type, context);
+    }
+
+    @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType registeredType, RegisteredTypeLoadingContext registeredTypeLoadingContext) throws Exception {
-        throw new IllegalStateException("spec not supported by this transformer");
+        throw new UnsupportedTypePlanException("spec not supported by this bean transformer");
     }
 
     @Override

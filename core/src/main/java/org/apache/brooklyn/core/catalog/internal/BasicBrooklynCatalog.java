@@ -1285,16 +1285,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 boolean onlyNewStyleTransformer = format != null || catalogItemType == CatalogItemType.BEAN;
                 if (transformedResult.isPresent() || onlyNewStyleTransformer) {
                     planYaml = itemYaml;
-                    if (catalogItemType != CatalogItemType.BEAN && catalogItemType != CatalogItemType.TEMPLATE && !"bean-with-type".equals(format)) {
+                    resolved = transformedResult.isPresent() || catalogItemType == CatalogItemType.TEMPLATE;
+                    if (!resolved) {
+                        errors.add(Maybe.Absent.getException(transformedResult));
+                    }
+                    if (resolved && catalogItemType != CatalogItemType.BEAN && catalogItemType != CatalogItemType.TEMPLATE &&
+                            (format==null || !"brooklyn-camp".equals(format))) {
                         // for spec types, _also_ run the legacy resolution because it is better at spotting some types of errors (recursive ones);
                         // note this code will also run if there was an error when format was specified (other than bean-with-type) and we couldn't determine it was a bean
                         resolved = false;
                         attemptLegacySpecTransformersForVariousSpecTypes();
-                    } else {
-                        resolved = transformedResult.isPresent() || catalogItemType == CatalogItemType.TEMPLATE;
-                        if (!resolved) {
-                            errors.add(Maybe.Absent.getException(transformedResult));
-                        }
                     }
                     return this;
                 }
@@ -1416,7 +1416,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         }
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        exceptions.add(e);
+                        if (!exceptions.isEmpty()
+                                && Exceptions.getFirstThrowableOfType(exceptions.iterator().next(), UnsupportedTypePlanException.class)!=null
+                                && Exceptions.getFirstThrowableOfType(e, UnsupportedTypePlanException.class)==null) {
+                            // put it first if spec is unsupported but bean is supported
+                            MutableSet<Throwable> e2 = MutableSet.<Throwable>of(e).putAll(exceptions);
+                            exceptions.clear();
+                            exceptions.addAll(e2);
+                        } else {
+                            exceptions.add(e);
+                        }
                     }
                 }
 
