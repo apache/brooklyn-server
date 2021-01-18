@@ -25,8 +25,9 @@ public class PrettyXmlWriter extends Writer {
     private Writer wrappedWriter;
     private boolean tagClosed = Boolean.FALSE;
     private int indentLevel = 0;
-    private boolean newLine = true;
+    private boolean newLine = Boolean.TRUE;
     private char lastChar = '\n';
+    private boolean isComment = Boolean.FALSE;
 
     public PrettyXmlWriter(Writer writer) {
         super(writer);
@@ -37,34 +38,46 @@ public class PrettyXmlWriter extends Writer {
     public void write(char[] cbuf, int off, int len) throws IOException {
         for (int i = off; i < off + len; i++) {
             char c = cbuf[i];
-            if (c == '<') {
-                lastChar = '<';
-                if(!newLine) {
-                    indentLevel--;
-                } else if (i + 1 < off + len && cbuf[i + 1] == '/') {
-                    indentLevel--;
-                    printIndent();
-                    indentLevel--;
+            if (isComment) {
+                if (c == '\n') {
+                    isComment = false;
+                    writeNewLine();
                 } else {
-                    printIndent();
+                    writeChar(c);
                 }
-            }
-            writeChar(c);
-            if ('>' == c || tagClosed) {
-                if (i + 1 < off + len) {
-                    if (cbuf[i + 1] == '<') {
-                        writeNewLine();
-                        if (lastChar != '/') {
-                            indentLevel++;
+            } else if (newLine && c == '#') {
+                isComment = true;
+                writeChar(c);
+            } else {
+                if (c == '<') {
+                    lastChar = '<';
+                    if (!newLine) {
+                        indentLevel--;
+                    } else if (i + 1 < off + len && cbuf[i + 1] == '/') {
+                        indentLevel--;
+                        printIndent();
+                        indentLevel--;
+                    } else {
+                        printIndent();
+                    }
+                }
+                writeChar(c);
+                if ('>' == c || tagClosed) {
+                    if (i + 1 < off + len) {
+                        if (cbuf[i + 1] == '<') {
+                            writeNewLine();
+                            if (lastChar != '/') {
+                                indentLevel++;
+                            }
                         }
+                    } else {
+                        tagClosed = true;
                     }
                 } else {
-                    tagClosed = true;
+                    tagClosed = false;
                 }
-            } else {
-                tagClosed = false;
+                lastChar = c;
             }
-            lastChar = c;
         }
     }
 
