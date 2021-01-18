@@ -183,6 +183,13 @@ public class BrooklynTypeNameResolution {
         public <T> TypeToken<T> getTypeToken(String typeName) {
             return (TypeToken<T>) parseTypeToken(typeName, bs -> findBaseClassInternal(bs).get());
         }
+        public <T> Maybe<TypeToken<T>> findTypeToken(String typeName) {
+            try {
+                return Maybe.of((TypeToken<T>) parseTypeToken(typeName, bs -> findBaseClassInternal(bs).get()));
+            } catch (Exception e) {
+                return Maybe.absent(e);
+            }
+        }
     }
 
     static GenericsRecord parseTypeGenerics(String s) { return parseTypeGenerics(s, (String t, List<GenericsRecord> tt) -> new GenericsRecord(t, tt)); }

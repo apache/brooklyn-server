@@ -35,6 +35,8 @@ import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -45,6 +47,28 @@ import org.slf4j.LoggerFactory;
 public class BrooklynJacksonSerializationUtils {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynJacksonSerializationUtils.class);
+
+    public static <T> TypeReference<T> asTypeReference(ManagementContext mgmt, String rtName) {
+        return new TypeReference<T>() {
+            @Override
+            public Type getType() {
+                RegisteredType rt = mgmt.getTypeRegistry().get(rtName);
+                if (rt==null) {
+                    throw new IllegalStateException("Unknown type '"+rtName+"'");
+                }
+                return new BrooklynJacksonType(mgmt, rt);
+            }
+        };
+    }
+
+    public static <T> TypeReference<T> asTypeReference(ManagementContext mgmt, RegisteredType rt) {
+        return new TypeReference<T>() {
+            @Override
+            public Type getType() {
+                return new BrooklynJacksonType(mgmt, rt);
+            }
+        };
+    }
 
     public static <T> TypeReference<T> asTypeReference(TypeToken<T> typeToken) {
         return new TypeReference<T>() {

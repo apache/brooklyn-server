@@ -22,6 +22,7 @@ import com.google.common.base.*;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.reflect.TypeToken;
 import java.io.*;
 import java.util.Arrays;
 import java.util.Collection;
@@ -1359,10 +1360,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     // attempt to detect whether it is a bean
                     Object type = item.get("type");
                     if (type!=null && type instanceof String) {
-                        Class<?> clz = new BrooklynTypeNameResolver((String)type, loader, true, true)
-                                .findBaseClass((String) type).orNull();
+                        TypeToken<?> clz = new BrooklynTypeNameResolver((String)type, loader, false, true)
+                                .findTypeToken((String) type).orNull();
                         if (clz!=null) {
-                            if (!BrooklynObject.class.isAssignableFrom(clz)) {
+                            if (!BrooklynObject.class.isAssignableFrom(clz.getRawType())) {
                                 suspicionOfABean = true;
                             }
                         }
