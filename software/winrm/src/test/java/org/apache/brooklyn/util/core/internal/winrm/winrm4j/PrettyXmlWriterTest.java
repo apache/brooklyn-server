@@ -75,8 +75,7 @@ public class PrettyXmlWriterTest {
         prettyXmlWriter.write(xmlPart1, 0, xmlPart1.length());
         prettyXmlWriter.write(xmlPart2, 0, xmlPart2.length());
 
-        int newLines = countNewLines();
-        assertEquals(newLines,3);
+        assertEquals(recordingWriter.out.toString(), "<t1>\n\t<t2>fdskljfds</t2>\n\t<t3>djskdsjk</t3>\n</t1>");
     }
 
     @Test

@@ -22,12 +22,12 @@ import java.io.IOException;
 import java.io.Writer;
 
 public class PrettyXmlWriter extends Writer {
-    private Writer wrappedWriter;
-    private boolean tagClosed = Boolean.FALSE;
+    private final Writer wrappedWriter;
+    private boolean tagClosed = false;
     private int indentLevel = 0;
-    private boolean newLine = Boolean.TRUE;
+    private boolean newLine = false;
     private char lastChar = '\n';
-    private boolean isComment = Boolean.FALSE;
+    private boolean isComment = false;
 
     public PrettyXmlWriter(Writer writer) {
         super(writer);
@@ -39,6 +39,7 @@ public class PrettyXmlWriter extends Writer {
         for (int i = off; i < off + len; i++) {
             char c = cbuf[i];
             if (isComment) {
+                // Currently in a comment (weird MS comment not xml comment)
                 if (c == '\n') {
                     isComment = false;
                     writeNewLine();
@@ -46,38 +47,56 @@ public class PrettyXmlWriter extends Writer {
                     writeChar(c);
                 }
             } else if (newLine && c == '#') {
+                // MS CLI XML uses this to start a comment
                 isComment = true;
                 writeChar(c);
             } else {
-                if (c == '<') {
-                    lastChar = '<';
-                    if (!newLine) {
-                        indentLevel--;
-                    } else if (i + 1 < off + len && cbuf[i + 1] == '/') {
-                        indentLevel--;
-                        printIndent();
-                        indentLevel--;
-                    } else {
-                        printIndent();
-                    }
-                }
-                writeChar(c);
-                if ('>' == c || tagClosed) {
-                    if (i + 1 < off + len) {
-                        if (cbuf[i + 1] == '<') {
-                            writeNewLine();
-                            if (lastChar != '/') {
-                                indentLevel++;
-                            }
-                        }
-                    } else {
-                        tagClosed = true;
-                    }
-                } else {
-                    tagClosed = false;
-                }
-                lastChar = c;
+                //Not a comment - treat as XML
+                handleMeaningfulChar(cbuf, i, c, off + len - 1);
             }
+        }
+    }
+
+    private void handleMeaningfulChar(char[] cbuf, int i, char c, int end) throws IOException {
+        if (tagClosed) {
+            // Tag was closed on last call to write so need a new line
+            writeNewLine();
+            tagClosed = false;
+        }
+        if (c == '<') {
+            // Start if a tag
+            if (!newLine) {
+                // Assume closing tag following text - e.g. <t>some text</t>
+                indentLevel--;
+            } else if (i < end && cbuf[i + 1] == '/') {
+                // Closing tag
+                indentLevel--;
+                printIndent();
+                indentLevel--;
+            } else {
+                //
+                printIndent();
+            }
+        }
+        writeChar(c);
+        if ('>' == c ) {
+            if (i < end) {
+                if (cbuf[i + 1] == '<') {
+                    writeNewLine();
+                    increaseIndentIfNotSelfClosingTag();
+                }
+            } else {
+                // We've closed a tag but don't know what the next character is
+                tagClosed = true;
+                increaseIndentIfNotSelfClosingTag();
+            }
+        }
+        lastChar = c;
+    }
+
+    private void increaseIndentIfNotSelfClosingTag() {
+        if (lastChar != '/') {
+            indentLevel++;
         }
     }
 
