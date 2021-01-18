@@ -26,7 +26,7 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriB
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -397,7 +397,12 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createFromYamlWithAppId(String yaml, String format, String appId) {
+    public Response createFromYamlAndAppId(String yaml, String appId) {
+        return createFromYamlAndFormatAndAppId(yaml, null, appId);
+    }
+
+    @Override
+    public Response createFromYamlAndFormatAndAppId(String yaml, String format, String appId) {
         return createFromYaml(yaml, format, Optional.of(appId));
     }
 
@@ -505,13 +510,18 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createPoly(byte[] inputToAutodetectType) {
-        return createWithFormat(Arrays.toString(inputToAutodetectType), null);
+        return createWithFormat(new String(inputToAutodetectType, StandardCharsets.UTF_8), null);
     }
 
     @Override
     public Response createFromForm(String contents) {
         log.debug("Creating app from form");
         return createPoly(contents.getBytes());
+    }
+
+    @Override
+    public Response createFromBytes(byte[] plan) {
+        return createPoly(plan);
     }
 
     @Override
