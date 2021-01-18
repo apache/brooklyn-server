@@ -75,6 +75,7 @@ public class HashMultimapConverter extends CollectionConverter{
 
     @Override
     public Object unmarshal(HierarchicalStreamReader reader, UnmarshallingContext context) {
+        int extraDowns=0;
         reader.moveDown();
         if (reader.getNodeName().equals("unserializable-parents")) {
             reader.moveUp();
@@ -82,6 +83,7 @@ public class HashMultimapConverter extends CollectionConverter{
         }
         if (reader.getNodeName().equals("com.google.common.collect.HashMultimap") || reader.getNodeName().equals("com.google.guava:com.google.common.collect.HashMultimap")) {
             reader.moveDown();
+            extraDowns++;
         }
 
         if (reader.getNodeName().equals("default")) {
@@ -105,7 +107,9 @@ public class HashMultimapConverter extends CollectionConverter{
                 objectObjectHashMultimap.put(key, child);
             }
         }
-
+        while (extraDowns-- > 0){
+            reader.moveUp();
+        }
         return objectObjectHashMultimap;
     }
 
