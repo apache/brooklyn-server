@@ -30,14 +30,11 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.javalang.Threads;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -119,7 +116,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
             OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
             OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
             Writer out = outputStream != null ? new BufferedWriter(new OutputStreamWriter(outputStream)): new StringWriter();
-            Writer err = errorStream != null ? new BufferedWriter(new OutputStreamWriter(errorStream)): new StringWriter();
+            Writer err = errorStream != null ? new BufferedWriter(new PrettyXmlWriter(new OutputStreamWriter(errorStream))): new StringWriter();
             return tool.executeCommand(commands, out, err);
         });
     }
@@ -136,7 +133,7 @@ public class Winrm4jTool implements org.apache.brooklyn.util.core.internal.winrm
             OutputStream outputStream = bag.get(ShellTool.PROP_OUT_STREAM);
             OutputStream errorStream = bag.get(ShellTool.PROP_ERR_STREAM);
             Writer out = outputStream != null ? new BufferedWriter(new OutputStreamWriter(outputStream)): new StringWriter();
-            Writer err = errorStream != null ? new BufferedWriter(new OutputStreamWriter(errorStream)): new StringWriter();
+            Writer err = errorStream != null ? new BufferedWriter(new PrettyXmlWriter(new OutputStreamWriter(errorStream))): new StringWriter();
             return tool.executePs(commands, out, err);
         });
     }
