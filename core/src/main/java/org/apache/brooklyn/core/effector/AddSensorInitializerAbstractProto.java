@@ -46,6 +46,6 @@ public interface AddSensorInitializerAbstractProto<T> extends EntityInitializer 
 
     @SuppressWarnings("unchecked")
     static <T> TypeToken<T> getType(Entity entity, String className, String name) {
-        return new BrooklynTypeNameResolver("sensor "+name+" on "+entity, new OsgiBrooklynClassLoadingContext(entity), true, true).getTypeToken(className);
+        return (TypeToken<T>)(TypeToken) new BrooklynTypeNameResolver("sensor "+name+" on "+entity, new OsgiBrooklynClassLoadingContext(entity), true, true).getTypeToken(className);
     }
 }

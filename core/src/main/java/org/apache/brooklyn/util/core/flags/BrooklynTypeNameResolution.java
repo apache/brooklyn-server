@@ -20,18 +20,22 @@ package org.apache.brooklyn.util.core.flags;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -41,6 +45,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -114,7 +119,7 @@ public class BrooklynTypeNameResolution {
         final BrooklynClassLoadingContext loader;
         final boolean allowJavaType;
         final boolean allowRegisteredTypes;
-        final Map<String,Function<String,Maybe<Class<?>>>> rules = MutableMap.of();
+        final Map<String,Function<String,Maybe<TypeToken<?>>>> rules = MutableMap.of();
 
         /** resolver supporting only built-ins */
         public BrooklynTypeNameResolver(String context) {
@@ -137,76 +142,153 @@ public class BrooklynTypeNameResolution {
             this.allowRegisteredTypes = allowRegisteredTypes;
 
             rules.put("simple types ("+Strings.join(BrooklynTypeNameResolution.standardTypesMap().keySet(), ", ")+")",
-                    BrooklynTypeNameResolution::getClassForBuiltInTypeName);
+                    BrooklynTypeNameResolution::getTypeTokenForBuiltInTypeName);
 
             if (allowJavaType) {
-                rules.put("Java types visible to bundles", loader::tryLoadClass);
-                rules.put("Java types", JavaBrooklynClassLoadingContext.create(mgmt)::tryLoadClass);
+                rules.put("Java types visible to bundles", s -> loader.tryLoadClass(s).map(TypeToken::of));
+                rules.put("Java types", s -> JavaBrooklynClassLoadingContext.create(mgmt).tryLoadClass(s).map(TypeToken::of));
             }
 
             if (allowRegisteredTypes) {
-                rules.put("Brooklyn registered types", s -> {
-                    Maybe<RegisteredType> t = mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader));
-                    if (t.isPresent()) {
-                        Optional<Object> st1 = t.get().getSuperTypes().stream().filter(st -> st instanceof Class).findFirst();
-                        if (st1.isPresent()) {
-                            return Maybe.of( (Class<?>) st1.get() );
-                        }
-                        // tests may not set supertypes which could cause odd behaviour; real OSGi addition should set supertypes so this shouldn't normally happen outside of test/pojo
-                        Supplier<String> msg = () -> "Attempt to use registered type '"+s+"' as a type but no associated Java type is yet recorded; returning as Object";
-                        if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
-                            LOG.warn(msg.get());
-                        } else {
-                            // normal when resolving
-                            LOG.trace(msg.get());
-                        }
-                        return Maybe.of(Object.class);
-                    }
-                    return Maybe.absent();
-                });
+                rules.put("Brooklyn registered types",
+                        s -> mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader)).map(RegisteredTypeToken::of));
             }
         }
 
         // more efficient method if s has already been sliced
-        Maybe<Class<?>> findBaseClassInternal(String s) {
-            for (Function<String, Maybe<Class<?>>> r : rules.values()) {
-                Maybe<Class<?>> candidate = r.apply(s);
+        Maybe<TypeToken<?>> findTypeTokenOfBaseNameInternal(String s) {
+            for (Function<String, Maybe<TypeToken<?>>> r : rules.values()) {
+                Maybe<TypeToken<?>> candidate = r.apply(s);
                 if (candidate.isPresent()) return candidate;
             }
             return Maybe.absent(() -> new IllegalArgumentException("Invalid type for "+context+": '"+s+"' not found in "+rules.keySet()));
         }
 
-        public Maybe<Class<?>> findBaseClass(String typeName) {
+        public Maybe<TypeToken<?>> findBaseTypeToken(String typeName) {
             typeName = Strings.removeAfter(typeName, "<", true).trim();
-            return findBaseClassInternal(typeName);
+            return findTypeTokenOfBaseNameInternal(typeName);
         }
-        public <T> TypeToken<T> getTypeToken(String typeName) {
-            return (TypeToken<T>) parseTypeToken(typeName, bs -> findBaseClassInternal(bs).get());
+        public TypeToken<?> getTypeToken(String typeName) {
+            return parseTypeToken(typeName, bs -> findTypeTokenOfBaseNameInternal(bs)).get();
         }
-        public <T> Maybe<TypeToken<T>> findTypeToken(String typeName) {
+        public Maybe<TypeToken<?>> findTypeToken(String typeName) {
             try {
-                return Maybe.of((TypeToken<T>) parseTypeToken(typeName, bs -> findBaseClassInternal(bs).get()));
+                return parseTypeToken(typeName, bs -> findTypeToken(bs));
             } catch (Exception e) {
                 return Maybe.absent(e);
             }
         }
     }
 
-    static GenericsRecord parseTypeGenerics(String s) { return parseTypeGenerics(s, (String t, List<GenericsRecord> tt) -> new GenericsRecord(t, tt)); }
-    static TypeToken<?> parseTypeToken(String s, Function<String,Type> typeLookup) {
-        return TypeToken.of(parseTypeGenerics(s, (String t, List<Type> tt) -> {
-            Type c = typeLookup.apply(t);
-            if (tt.isEmpty()) {
-                return c;
-            }
-            if (c instanceof Class) {
-                return TypeUtils.parameterize((Class<?>)c, tt.toArray(new Type[0]));
-            }
-            throw new IllegalStateException("Cannot make generic type with base '"+t+"' and generic parameters "+tt);
-        }));
+    static Maybe<GenericsRecord> parseTypeGenerics(String s) { return parseTypeGenerics(s, (String t, List<GenericsRecord> tt) -> Maybe.of(new GenericsRecord(t, tt))); }
+    static Maybe<TypeToken<?>> parseTypeToken(String s, Function<String,Maybe<TypeToken<?>>> typeLookup) {
+        return parseTypeGenerics(s, (String t, List<TypeToken<?>> tt) -> {
+            Maybe<TypeToken<?>> c = typeLookup.apply(t);
+            if (c.isAbsent()) return c;
+            if (tt.isEmpty()) return c;
+            return Maybe.of(TypeToken.of(parameterizedType(c.get().getRawType(), tt.stream()
+                    .map(BrooklynJacksonSerializationUtils::asType).collect(Collectors.toList()) )));
+        });
     }
 
-    static <T> T parseTypeGenerics(String s, BiFunction<String,List<T>,T> baseTypeConverter) {
+    static ParameterizedType parameterizedType(Class<?> raw, List<Type> types) {
+        return new BetterToStringParameterizedTypeImpl(raw, null, types.toArray(new Type[0]));
+    }
+
+    private static final class BetterToStringParameterizedTypeImpl implements ParameterizedType {
+        // because Apache Commons ParameterizedTypeImpl toString is too rigid
+
+        private final Class<?> raw;
+        private final Type useOwner;
+        private final Type[] typeArguments;
+
+        /**
+         * Constructor
+         * @param raw type
+         * @param useOwner owner type to use, if any
+         * @param typeArguments formal type arguments
+         */
+        private BetterToStringParameterizedTypeImpl(Class<?> raw, Type useOwner, Type[] typeArguments) {
+            this.raw = raw;
+            this.useOwner = useOwner;
+            this.typeArguments = typeArguments;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Type getRawType() {
+            return raw;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Type getOwnerType() {
+            return useOwner;
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public Type[] getActualTypeArguments() {
+            return typeArguments.clone();
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            sb.append(getRawType().getTypeName());
+            sb.append("<");
+            Type[] args = getActualTypeArguments();
+            if (args.length > 0) {
+                sb.append(toString(args[0]));
+                for (int i=1; i<args.length; i++) {
+                    sb.append(",");
+                    sb.append(toString(args[i]));
+                }
+            }
+            sb.append(">");
+            return sb.toString();
+        }
+
+        private static String toString(Type t) {
+            if (t instanceof BetterToStringParameterizedTypeImpl) return t.toString();
+            if (t instanceof BrooklynJacksonType) return t.getTypeName();
+            return TypeUtils.toString(t);
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public boolean equals(Object obj) {
+            return obj == this || obj instanceof ParameterizedType && TypeUtils.equals(this, ((ParameterizedType) obj));
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @SuppressWarnings( "deprecation" )  // ObjectUtils.hashCode(Object) has been deprecated in 3.2
+        @Override
+        public int hashCode() {
+            int result = 71 << 4;
+            result |= raw.hashCode();
+            result <<= 4;
+            result |= ObjectUtils.hashCode(useOwner);
+            result <<= 8;
+            result |= Arrays.hashCode(typeArguments);
+            return result;
+        }
+    }
+
+    static <T> Maybe<T> parseTypeGenerics(String s, BiFunction<String,List<T>,Maybe<T>> baseTypeConverter) {
         GenericsRecord.Parser<T> p = new GenericsRecord.Parser<T>();
         p.s = s;
         p.baseTypeConverter = baseTypeConverter;
@@ -229,7 +311,7 @@ public class BrooklynTypeNameResolution {
 
         static class Parser<T> {
             String s;
-            BiFunction<String,List<T>,T> baseTypeConverter;
+            BiFunction<String,List<T>,Maybe<T>> baseTypeConverter;
 
             private void skipWhitespace() {
                 while (index<s.length() && Character.isWhitespace(s.charAt(index))) index++;
@@ -237,7 +319,7 @@ public class BrooklynTypeNameResolution {
 
             int index = 0;
 
-            T parse(int depth) {
+            Maybe<T> parse(int depth) {
                 int baseNameStart = index;
                 MutableList<T> params = MutableList.of();
                 int baseNameEnd = -1;
@@ -247,14 +329,16 @@ public class BrooklynTypeNameResolution {
                         baseNameEnd = index;
                         index++;
                         do {
-                            params.add(parse(depth+1));
+                            Maybe<T> pd = parse(depth + 1);
+                            if (pd.isAbsent()) return pd;
+                            params.add(pd.get());
                             c = s.charAt(index);
                             index++;
                             skipWhitespace();
                         } while (c==',');
                         if (c!='>') {
                             // shouldn't happen
-                            throw new IllegalArgumentException("Invalid type '"+s+"': unexpected character preceeding position "+index);
+                            return Maybe.absent(() -> new IllegalArgumentException("Invalid type '"+s+"': unexpected character preceeding position "+index));
                         }
                         // skip spaces
                         break;
@@ -269,18 +353,18 @@ public class BrooklynTypeNameResolution {
                 }
                 if (depth==0) {
                     if (index < s.length()) {
-                        throw new IllegalArgumentException("Invalid type '"+s+"': characters not permitted after generics at position "+index);
+                        return Maybe.absent(() -> new IllegalArgumentException("Invalid type '"+s+"': characters not permitted after generics at position "+index));
                     }
                     if (baseNameEnd<0) {
                         baseNameEnd = s.length();
                     }
                 } else {
                     if (index >= s.length()) {
-                        throw new IllegalArgumentException("Invalid type '"+s+"': unterminated generics for argument starting at position "+baseNameStart);
+                        return Maybe.absent(() -> new IllegalArgumentException("Invalid type '"+s+"': unterminated generics for argument starting at position "+baseNameStart));
                     }
                 }
                 String baseName = s.substring(baseNameStart, baseNameEnd).trim();
-                if (baseName.isEmpty()) throw new IllegalArgumentException("Invalid type '"+s+"': missing base type name at position "+baseNameStart);
+                if (baseName.isEmpty()) return Maybe.absent(() -> new IllegalArgumentException("Invalid type '"+s+"': missing base type name at position "+baseNameStart));
                 return baseTypeConverter.apply(baseName, params.asUnmodifiable());
             }
         }

@@ -25,6 +25,7 @@ import java.util.List;
 
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
@@ -62,7 +63,7 @@ public class CommonAdaptorTryCoercions {
         @Override
         @SuppressWarnings("unchecked")
         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetType) {
-            Class<? super T> rawTargetType = targetType.getRawType();
+            Class<? super T> rawTargetType = TypeTokens.getRawType(targetType, null);
             
             List<ClassCoercionException> exceptions = Lists.newArrayList();
             //now look for static TargetType.fromType(Type t) where value instanceof Type  
@@ -94,7 +95,7 @@ public class CommonAdaptorTryCoercions {
         @Override
         @SuppressWarnings("unchecked")
         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetType) {
-            Class<? super T> rawTargetType = targetType.getRawType();
+            Class<? super T> rawTargetType = TypeTokens.getRawType(targetType, null);
             
             //for enums call valueOf with the string representation of the value
             if (rawTargetType.isEnum()) {
@@ -127,7 +128,7 @@ public class CommonAdaptorTryCoercions {
                 return null;
             }
             
-            Object result = Array.newInstance(targetComponentType.getRawType(), Iterables.size(castInput));
+            Object result = Array.newInstance(TypeTokens.getRawType(targetComponentType, null), Iterables.size(castInput));
             int index = 0;
             for (Object member : castInput) {
                 Maybe<?> coercedMember = coercer.tryCoerce(member, targetComponentType);
@@ -144,7 +145,7 @@ public class CommonAdaptorTryCoercions {
     protected static class TryCoercerForPrimitivesAndStrings implements TryCoercer {
         @Override
         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetType) {
-            return PrimitiveStringTypeCoercions.tryCoerce(input, targetType.getRawType());
+            return PrimitiveStringTypeCoercions.tryCoerce(input, TypeTokens.getRawType(targetType, null));
         }
     }
 }

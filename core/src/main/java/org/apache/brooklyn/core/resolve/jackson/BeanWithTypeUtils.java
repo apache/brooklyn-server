@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
+import java.lang.reflect.Field;
 import java.util.*;
 import java.util.Map.Entry;
 import org.apache.brooklyn.api.entity.Entity;
@@ -38,13 +39,19 @@ import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtil
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 
 import java.util.function.Predicate;
+import org.apache.brooklyn.util.javalang.Reflections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BeanWithTypeUtils {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BeanWithTypeUtils.class);
 
     public static final String FORMAT = "bean-with-type";
 
@@ -94,6 +101,11 @@ public class BeanWithTypeUtils {
         return isJsonAndOthers(o, oo -> oo instanceof DeferredSupplier);
     }
 
+    /** A Guava {@link TypeToken} that represents a Brooklyn RegisteredType.
+     * See also {@link BrooklynJacksonType} which does the same thing on the Jackson Type hierarchy,
+     * and note that the latter can be used as generic parameterized arguments to the former
+     * (e.g. if we need to handle a "list<custom-registered-type>" which cannot be done with pure TypeToken)
+     */
     @Beta
     public static class RegisteredTypeToken<T> extends TypeToken<T> {
         private RegisteredType registeredType = null;
@@ -101,6 +113,18 @@ public class BeanWithTypeUtils {
         protected RegisteredTypeToken(RegisteredType type) {
             super( (Class<?>) type.getSuperTypes().stream().filter(i -> i instanceof Class).findAny().orElse(Object.class) );
             this.registeredType = type;
+
+            // horrible to have to do this, but super(Class) uses ancestors' `final capture()` which gets Object usually,
+            // and super(Type) is private, so we have no other way to override the runtimeType
+            try {
+                Field f = Reflections.findField(TypeToken.class, "runtimeType");
+                f.setAccessible(true);
+                f.set(this, (Class<?>) type.getSuperTypes().stream().filter(i -> i instanceof Class).findAny().orElse(Object.class));
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                LOG.error("Unable to access 'runtimeType' on TypeToken; some type information may be unavailable and coercion not work as expected", e);
+                // ignore, just proceed using Object
+            }
         }
 
         public static <T> boolean isRegisteredType(TypeToken<T> type) {
@@ -133,43 +157,6 @@ public class BeanWithTypeUtils {
         }
     }
 
-//    @Beta
-//    public static class RegisteredTypeOrTypeToken<T> {
-//        private final TypeToken<T> tt;
-//        private final RegisteredType rt;
-//        private RegisteredTypeOrTypeToken(TypeToken<T> tt, RegisteredType rt) {
-//            this.tt = tt;
-//            this.rt = rt;
-//        }
-//
-//        public Class<T> getRawClass() {
-//            if (rt!=null) {
-//                return (Class<T>) rt.getSuperTypes().stream().filter(i -> i instanceof Class).findAny().orElse(Object.class);
-//            }
-//            return (Class<T>) tt.getRawType();
-//        }
-//        public TypeToken<T> getTypeToken() {
-//            if (tt!=null) return tt;
-//            return TypeToken.of(getRawClass());
-//        }
-//
-//        public Optional<RegisteredType> getRegisteredType() {
-//            return Optional.ofNullable(rt);
-//        }
-//
-//        public static <T> RegisteredTypeOrTypeToken<T> of(Class<T> t) {
-//            return of(TypeToken.of(t));
-//        }
-//
-//        public static <T> RegisteredTypeOrTypeToken<T> of(TypeToken<T> t) {
-//            return new RegisteredTypeOrTypeToken(t, null);
-//        }
-//
-//        public static <T> RegisteredTypeOrTypeToken<T> of(RegisteredType t) {
-//            return new RegisteredTypeOrTypeToken(null, t);
-//        }
-//    }
-
     /* a lot of consideration over where bean-with-type conversion should take place.
      * it is especially handy for config and for initializers, and sometimes for values _within_ those items.
      * currently these are done:
@@ -185,11 +172,7 @@ public class BeanWithTypeUtils {
     public static <T> T convert(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
         ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
         String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
-        if (RegisteredTypeToken.isRegisteredType(type)) {
-            return m.readValue(serialization, new BrooklynJacksonType(mgmt, ((RegisteredTypeToken<?>)type).getRegisteredType().get()));
-        } else {
-            return m.readValue(serialization, m.constructType(type.getType()));
-        }
+        return m.readValue(serialization, BrooklynJacksonSerializationUtils.asJavaType(m, type));
     }
 
     public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, TypeToken<T> type) {

@@ -50,9 +50,17 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.location.PortRanges;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -1450,25 +1458,76 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         });
     }
 
-    // TODO
-//    @Test
-//    public void testMapGenericsRegisteredType() throws Exception {
-//        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(
-//                RegisteredTypes.addSuperType(
-//                    RegisteredTypes.bean("my-bean", "1",
-//                        new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
-//                                "type: "+ SampleBean.class.getName()
-//                        )),
-//                    SampleBean.class), false);
-//
-//        // cf tests in CustomTypeConfigYamlTest
-//        fixtureForTestingType("map <string, my-bean>", "{ a: {x:1} }", (cfg,entity) -> {
-//            assertEquals(cfg.getType(), Map.class);
-//            assertEquals(cfg.getTypeToken(), new TypeToken<Map<String,SampleBean>>() {});
-//            Map<?,?> l = (Map<?,?>) entity.getConfig(cfg);
-//            SampleBean b = (SampleBean) l.get("a");
-//            Assert.assertEquals(b.x, "1");
-//        });
-//    }
+    public static class MyRt {
+        int x;
+        String y;
+        MyRt o;
+    }
+
+    @Test
+    public void testRegisteredType() throws Exception {
+        addRegisteredTypes(
+                "brooklyn.catalog:",
+                "  itemType: bean",
+                "  items:",
+                "  - id: my-rt",
+                "    item:",
+                "      type: " + MyRt.class.getName(),
+                "      x: 3");
+
+        fixtureForTestingType("my-rt", "{ y: hi, o: { x: 5 } }", (cfg,entity) -> {
+            assertEquals(cfg.getType(), MyRt.class);
+
+            assertEquals(cfg.getTypeToken().getRawType(), MyRt.class);
+            assertTrue(RegisteredTypeToken.isRegisteredType(cfg.getTypeToken()));
+
+            MyRt rt = (MyRt) entity.getConfig(cfg);
+            assertEquals(rt.y, "hi");
+            assertEquals(rt.x, 3);
+            assertEquals(rt.o.x, 5);
+            assertEquals(rt.o.y, null);
+        });
+    }
+
+    @Test
+    public void testRegisteredTypeString() throws Exception {
+        addRegisteredTypes(
+                "brooklyn.catalog:",
+                "  itemType: bean",
+                "  items:",
+                "  - id: my-str",
+                "    item:",
+                "      type: string");
+
+        fixtureForTestingType("my-str", "foo-bar", (cfg,entity) -> {
+            assertEquals(cfg.getType(), String.class);
+
+            assertEquals(cfg.getTypeToken().getRawType(), String.class);
+            assertTrue(RegisteredTypeToken.isRegisteredType(cfg.getTypeToken()));
+
+            Assert.assertEquals(entity.getConfig(cfg), "foo-bar");
+        });
+    }
+
+    @Test(groups="Broken")  // RegisteredTypeToken doesn't respect deep RTTs because TypeToken doesn't take TypeTokens as generic args?; ignores the object data
+    public void testMapGenericsRegisteredType() throws Exception {
+        addRegisteredTypes(
+                "brooklyn.catalog:",
+                "  itemType: bean",
+                "  items:",
+                "  - id: my-bean",
+                "    item:",
+                "      type: "+SampleBean.class.getName());
+
+        // cf tests in CustomTypeConfigYamlTest
+        fixtureForTestingType("map <string, my-bean>", "{ a: {x:1} }", (cfg,entity) -> {
+            assertEquals(cfg.getType(), Map.class);
+            assertEquals(cfg.getTypeToken(), new TypeToken<Map<String,SampleBean>>() {});
+            assertEquals(BrooklynJacksonSerializationUtils.asType(cfg.getTypeToken()).toString(), "java.util.Map<java.lang.String,sample-bean>");
+            Map<?,?> l = (Map<?,?>) entity.getConfig(cfg);
+            SampleBean b = (SampleBean) l.get("a");
+            Assert.assertEquals(b.x, "1");
+        });
+    }
 
 }

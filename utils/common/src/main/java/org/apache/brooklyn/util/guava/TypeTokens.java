@@ -21,13 +21,13 @@ package org.apache.brooklyn.util.guava;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
@@ -69,7 +69,12 @@ public class TypeTokens {
     @SuppressWarnings("unchecked")
     public static <T,U extends T> Class<T> getRawType(TypeToken<U> token, Class<T> raw) {
         if (raw!=null) return raw;
-        if (token!=null) return (Class<T>) token.getRawType();
+        if (token!=null) {
+            if (token.getType() instanceof JavaType) {
+                return (Class<T>) ((JavaType)token.getType()).getRawClass();
+            }
+            return (Class<T>) token.getRawType();
+        }
         throw new IllegalStateException("Both indicators of type are null");
     }
     
@@ -90,7 +95,7 @@ public class TypeTokens {
      * with generics but this sloppily but handily gives you Class<T> which is usually what you have anyway */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static <T> Class<T> getRawRawType(TypeToken<T> token) {
-        return (Class)token.getRawType();
+        return (Class) getRawType(token, null);
     }
 
     /** Checks that if both type and token are supplied, either exactly one is null, or 

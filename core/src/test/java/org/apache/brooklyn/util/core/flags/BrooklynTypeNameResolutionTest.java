@@ -20,9 +20,17 @@ package org.apache.brooklyn.util.core.flags;
 
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
+import java.lang.reflect.ParameterizedType;
 import java.util.List;
 import java.util.function.Function;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
+import org.apache.brooklyn.core.typereg.BasicRegisteredType;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import static org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.parseTypeGenerics;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -34,22 +42,35 @@ public class BrooklynTypeNameResolutionTest {
 
     @Test
     public void testParse() throws NoSuchFieldException {
-        Assert.assertEquals(parseTypeGenerics("t1").toString(), "t1");
-        Assert.assertEquals(parseTypeGenerics(" t1 ").toString(), "t1");
+        Assert.assertEquals(parseTypeGenerics("t1").get().toString(), "t1");
+        Assert.assertEquals(parseTypeGenerics(" t1 ").get().toString(), "t1");
 
-        Assert.assertEquals(parseTypeGenerics(" t1 < a >").toString(), "t1<a>");
-        Assert.assertEquals(parseTypeGenerics(" t1 < a >").baseName.toString(), "t1");
-        Assert.assertEquals(Iterables.getOnlyElement(parseTypeGenerics(" t1 < a >").params).toString(), "a");
+        Assert.assertEquals(parseTypeGenerics(" t1 < a >").get().toString(), "t1<a>");
+        Assert.assertEquals(parseTypeGenerics(" t1 < a >").get().baseName.toString(), "t1");
+        Assert.assertEquals(Iterables.getOnlyElement(parseTypeGenerics(" t1 < a >").get().params).toString(), "a");
 
-        Assert.assertEquals(parseTypeGenerics(" t1 < t2<t3>, t4,t5< t6 > >").toString(), "t1<t2<t3>,t4,t5<t6>>");
+        Assert.assertEquals(parseTypeGenerics(" t1 < t2<t3>, t4,t5< t6 > >").get().toString(), "t1<t2<t3>,t4,t5<t6>>");
     }
 
     @Test
     public void testMakeTypeToken() throws NoSuchFieldException {
-        Function<String,TypeToken<?>> parse = s1 -> BrooklynTypeNameResolution.parseTypeToken(s1, s2 -> BrooklynTypeNameResolution.getClassForBuiltInTypeName(s2).get());
+        Function<String,TypeToken<?>> parse = s1 -> BrooklynTypeNameResolution.parseTypeToken(s1, s2 -> BrooklynTypeNameResolution.getTypeTokenForBuiltInTypeName(s2)).get();
 
         Assert.assertEquals(parse.apply("string"), TypeToken.of(String.class));
         Assert.assertEquals(parse.apply("list<string>"), new TypeToken<List<String>>() {});
+    }
+
+    @Test
+    public void testMakeTypeTokenFromRegisteredType() throws NoSuchFieldException {
+        Function<String,TypeToken<?>> parse = s1 -> BrooklynTypeNameResolution.parseTypeToken(s1, s2 -> {
+            if ("foo".equals(s2)) return Maybe.of( (TypeToken<?>) RegisteredTypeToken.of(RegisteredTypes.bean("foo", "1", new BasicTypeImplementationPlan("x", null))) );
+            return BrooklynTypeNameResolution.getTypeTokenForBuiltInTypeName(s2);
+        }).get();
+
+        TypeToken<?> tt = parse.apply("list<foo>");
+        Assert.assertEquals(((ParameterizedType) tt.getType()).getActualTypeArguments()[0].getTypeName(), "foo:1");
+        // make sure toString works -- by default it doesn't!
+        log.info("List of foo is: "+tt);
     }
 
 }

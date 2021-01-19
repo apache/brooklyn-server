@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.reflect.TypeToken;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
@@ -36,11 +37,13 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -56,16 +59,16 @@ public class BrooklynJacksonSerializationUtils {
                 if (rt==null) {
                     throw new IllegalStateException("Unknown type '"+rtName+"'");
                 }
-                return new BrooklynJacksonType(mgmt, rt);
+                return new BrooklynJacksonType(rt);
             }
         };
     }
 
-    public static <T> TypeReference<T> asTypeReference(ManagementContext mgmt, RegisteredType rt) {
+    public static <T> TypeReference<T> asTypeReference(RegisteredType rt) {
         return new TypeReference<T>() {
             @Override
             public Type getType() {
-                return new BrooklynJacksonType(mgmt, rt);
+                return new BrooklynJacksonType(rt);
             }
         };
     }
@@ -74,9 +77,23 @@ public class BrooklynJacksonSerializationUtils {
         return new TypeReference<T>() {
             @Override
             public Type getType() {
-                return typeToken.getType();
+                return asType(typeToken);
             }
         };
+    }
+
+    public static <T> Type asType(TypeToken<T> typeToken) {
+        if (typeToken instanceof RegisteredTypeToken) {
+            return BrooklynJacksonType.of((RegisteredTypeToken) typeToken);
+        }
+        return typeToken.getType();
+    }
+
+    public static <T> JavaType asJavaType(ObjectMapper m, TypeToken<T> typeToken) {
+        if (typeToken instanceof RegisteredTypeToken) {
+            return BrooklynJacksonType.of((RegisteredTypeToken) typeToken);
+        }
+        return m.constructType(typeToken.getType());
     }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
@@ -192,6 +209,15 @@ public class BrooklynJacksonSerializationUtils {
                 return result;
             } catch (Exception e) {
                 // if it fails, get the raw object and attempt a coercion?; currently just for strings
+                if ((String.class.equals(_valueClass) || Boxing.isPrimitiveOrBoxedClass(_valueClass)) && v==null && jp.getCurrentToken()==JsonToken.END_OBJECT) {
+                    // primitives declaring just their type are allowed
+                    try {
+                        return _valueClass.getDeclaredConstructor().newInstance();
+                    } catch (Exception e2) {
+                        Exceptions.propagateIfFatal(e2);
+                        // ignore; use e instead
+                    }
+                }
                 if (v!=null && handledType()!=null) {
                     // attempt type coercion
                     Maybe<?> coercion = TypeCoercions.tryCoerce(v, handledType());
