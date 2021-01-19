@@ -25,7 +25,7 @@ public class PrettyXmlWriter extends Writer {
     private final Writer wrappedWriter;
     private boolean tagClosed = false;
     private int indentLevel = 0;
-    private boolean newLine = false;
+    private boolean newLine = true;
     private char lastChar = '\n';
     private boolean isComment = false;
 
