@@ -116,9 +116,9 @@ public class CommonAdaptorTryCoercions {
         @Override
         @SuppressWarnings("unchecked")
         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetType) {
-            if (!targetType.isArray()) return null;
+            if (!TypeTokens.isArray(targetType)) return null;
             
-            TypeToken<?> targetComponentType = targetType.getComponentType();
+            TypeToken<?> targetComponentType = TypeTokens.getComponentType(targetType);
             Iterable<?> castInput;
             if (input.getClass().isArray()) {
                 castInput = Reflections.arrayToList(input);

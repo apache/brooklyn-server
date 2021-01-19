@@ -53,6 +53,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -268,7 +269,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     .runtimeInheritance(runtimeInheritance)
                     .typeInheritance(typeInheritance);
 
-            if (PortRange.class.equals(typeToken.getRawType())) {
+            if (TypeTokens.equalsRaw(PortRange.class, typeToken)) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
                 configType = ((HasConfigKey)sensorType).getConfigKey();
             } else {
@@ -281,7 +282,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
 
         private static Object tryToImmutable(Object val, TypeToken<?> type) {
             Object result;
-            if (Set.class.isAssignableFrom(type.getRawType()) && val instanceof Iterable) {
+            if (TypeTokens.isAssignableFromRaw(Set.class, type) && val instanceof Iterable) {
                 result = Collections.unmodifiableSet(MutableSet.copyOf((Iterable<?>)val));
             } else if (val instanceof Iterable) {
                 result = Collections.unmodifiableList(MutableList.copyOf((Iterable<?>)val));

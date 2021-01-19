@@ -72,6 +72,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.LoadedClassLoader;
@@ -1363,7 +1364,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         TypeToken<?> clz = new BrooklynTypeNameResolver((String)type, loader, false, true)
                                 .findTypeToken((String) type).orNull();
                         if (clz!=null) {
-                            if (!BrooklynObject.class.isAssignableFrom(clz.getRawType())) {
+                            if (!BrooklynObject.class.isAssignableFrom(TypeTokens.getRawRawType(clz))) {
                                 suspicionOfABean = true;
                             }
                         }

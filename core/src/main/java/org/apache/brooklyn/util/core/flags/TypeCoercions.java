@@ -35,7 +35,6 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -43,6 +42,7 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
@@ -322,7 +322,7 @@ public class TypeCoercions {
                             if (!(input instanceof WrappedValue)) {
                                 return null;
                             }
-                            if (WrappedValue.class.isAssignableFrom(type.getRawType())) {
+                            if (TypeTokens.isAssignableFromRaw(WrappedValue.class, type)) {
                                 // don't unwrap if a wrapped value is wanted (won't come here anyway)
                                 return null;
                             }
@@ -337,7 +337,7 @@ public class TypeCoercions {
             registerAdapter("99-wrap-to-wrapped-value", new TryCoercer() {
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
-                    if (!WrappedValue.class.equals(type.getRawType())) {
+                    if (!TypeTokens.equalsRaw(WrappedValue.class, type)) {
                         // only applies if a WrappedValue is wanted
                         return null;
                     }

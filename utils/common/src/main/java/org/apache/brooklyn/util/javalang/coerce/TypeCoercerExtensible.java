@@ -253,7 +253,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
 
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceMap(Object value, TypeToken<T> targetTypeToken) {
-        if (!(value instanceof Map) || !(Map.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
+        if (!(value instanceof Map) || !(TypeTokens.isAssignableFromRaw(Map.class, targetTypeToken))) return null;
         Type[] arguments = ((ParameterizedType) targetTypeToken.getType()).getActualTypeArguments();
         if (arguments.length != 2) {
             throw new IllegalStateException("Unexpected number of parameters in map type: " + arguments);
@@ -290,7 +290,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
      * or {@link Maybe.Absent} with a good exception if it should have applied but couldn't */
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceIterable(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
-        if (!(value instanceof Iterable) || !(Iterable.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
+        if (!(value instanceof Iterable) || !(TypeTokens.isAssignableFromRaw(Iterable.class, targetTypeToken))) return null;
         Type[] arguments = ((ParameterizedType) targetTypeToken.getType()).getActualTypeArguments();
         if (arguments.length != 1) {
             return Maybe.absent(new IllegalStateException("Unexpected number of parameters in iterable type: " + arguments));

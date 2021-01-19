@@ -26,6 +26,7 @@ import java.util.function.Function;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonTypeTest;
 import org.apache.brooklyn.core.typereg.BasicRegisteredType;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -54,20 +55,13 @@ public class BrooklynTypeNameResolutionTest {
 
     @Test
     public void testMakeTypeToken() throws NoSuchFieldException {
-        Function<String,TypeToken<?>> parse = s1 -> BrooklynTypeNameResolution.parseTypeToken(s1, s2 -> BrooklynTypeNameResolution.getTypeTokenForBuiltInTypeName(s2)).get();
-
-        Assert.assertEquals(parse.apply("string"), TypeToken.of(String.class));
-        Assert.assertEquals(parse.apply("list<string>"), new TypeToken<List<String>>() {});
+        Assert.assertEquals(BrooklynJacksonTypeTest.parseTestTypes("string"), TypeToken.of(String.class));
+        Assert.assertEquals(BrooklynJacksonTypeTest.parseTestTypes("list<string>"), new TypeToken<List<String>>() {});
     }
 
     @Test
     public void testMakeTypeTokenFromRegisteredType() throws NoSuchFieldException {
-        Function<String,TypeToken<?>> parse = s1 -> BrooklynTypeNameResolution.parseTypeToken(s1, s2 -> {
-            if ("foo".equals(s2)) return Maybe.of( (TypeToken<?>) RegisteredTypeToken.of(RegisteredTypes.bean("foo", "1", new BasicTypeImplementationPlan("x", null))) );
-            return BrooklynTypeNameResolution.getTypeTokenForBuiltInTypeName(s2);
-        }).get();
-
-        TypeToken<?> tt = parse.apply("list<foo>");
+        TypeToken<?> tt = BrooklynJacksonTypeTest.parseTestTypes("list<foo>");
         Assert.assertEquals(((ParameterizedType) tt.getType()).getActualTypeArguments()[0].getTypeName(), "foo:1");
         // make sure toString works -- by default it doesn't!
         log.info("List of foo is: "+tt);

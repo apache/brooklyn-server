@@ -89,11 +89,15 @@ public class BrooklynJacksonSerializationUtils {
         return typeToken.getType();
     }
 
-    public static <T> JavaType asJavaType(ObjectMapper m, TypeToken<T> typeToken) {
-        if (typeToken instanceof RegisteredTypeToken) {
-            return BrooklynJacksonType.of((RegisteredTypeToken) typeToken);
+    public static <T> JavaType asJavaType(ObjectMapper m, TypeToken<T> tt) {
+        if (tt instanceof RegisteredTypeToken) {
+            return BrooklynJacksonType.of((RegisteredTypeToken) tt);
         }
-        return m.constructType(typeToken.getType());
+        Type type = tt.getType();
+        if (type instanceof BrooklynJacksonType) {
+            return (BrooklynJacksonType) type;
+        }
+        return m.constructType(tt.getType());
     }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {

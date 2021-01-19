@@ -34,6 +34,11 @@ import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.type.SimpleType;
 import com.google.common.reflect.TypeToken;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.GenericDeclaration;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -52,7 +57,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 public class BrooklynRegisteredTypeJacksonSerialization {
 
     // TODO make public, top-level ?
-    public static class BrooklynJacksonType extends SimpleType {
+    public static class BrooklynJacksonType extends SimpleType implements TypeVariable<GenericDeclaration> {
         private final RegisteredType type;
         public BrooklynJacksonType(RegisteredType type) {
             super(pickSuperType(type));
@@ -83,6 +88,67 @@ public class BrooklynRegisteredTypeJacksonSerialization {
 
         public static JavaType of(RegisteredTypeToken<?> tt) {
             return new BrooklynJacksonType(tt.getRegisteredType().get());
+        }
+
+        @Override
+        public Type[] getBounds() {
+            return new Type[0];
+        }
+
+        @Override
+        public GenericDeclaration getGenericDeclaration() {
+            return new GenericDeclaration() {
+                @Override
+                public TypeVariable<?>[] getTypeParameters() {
+                    return new TypeVariable[0];
+                }
+
+                @Override
+                public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
+                    return null;
+                }
+
+                @Override
+                public Annotation[] getAnnotations() {
+                    return new Annotation[0];
+                }
+
+                @Override
+                public Annotation[] getDeclaredAnnotations() {
+                    return new Annotation[0];
+                }
+
+                @Override
+                public boolean equals(Object obj) {
+                    // allow it to equal anything so that resolution prefers this
+                    return true;
+                }
+            };
+        }
+
+        @Override
+        public String getName() {
+            return null;
+        }
+
+        @Override
+        public AnnotatedType[] getAnnotatedBounds() {
+            return new AnnotatedType[0];
+        }
+
+        @Override
+        public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
+            return null;
+        }
+
+        @Override
+        public Annotation[] getAnnotations() {
+            return new Annotation[0];
+        }
+
+        @Override
+        public Annotation[] getDeclaredAnnotations() {
+            return new Annotation[0];
         }
     }
 

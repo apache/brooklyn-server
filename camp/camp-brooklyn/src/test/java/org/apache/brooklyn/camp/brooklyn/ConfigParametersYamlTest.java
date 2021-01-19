@@ -72,6 +72,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
 import org.slf4j.Logger;
@@ -1478,7 +1479,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         fixtureForTestingType("my-rt", "{ y: hi, o: { x: 5 } }", (cfg,entity) -> {
             assertEquals(cfg.getType(), MyRt.class);
 
-            assertEquals(cfg.getTypeToken().getRawType(), MyRt.class);
+            assertEquals(TypeTokens.getRawRawType(cfg.getTypeToken()), MyRt.class);
             assertTrue(RegisteredTypeToken.isRegisteredType(cfg.getTypeToken()));
 
             MyRt rt = (MyRt) entity.getConfig(cfg);
@@ -1502,14 +1503,14 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         fixtureForTestingType("my-str", "foo-bar", (cfg,entity) -> {
             assertEquals(cfg.getType(), String.class);
 
-            assertEquals(cfg.getTypeToken().getRawType(), String.class);
+            assertEquals(TypeTokens.getRawRawType(cfg.getTypeToken()), String.class);
             assertTrue(RegisteredTypeToken.isRegisteredType(cfg.getTypeToken()));
 
             Assert.assertEquals(entity.getConfig(cfg), "foo-bar");
         });
     }
 
-    @Test(groups="Broken")  // RegisteredTypeToken doesn't respect deep RTTs because TypeToken doesn't take TypeTokens as generic args?; ignores the object data
+    @Test
     public void testMapGenericsRegisteredType() throws Exception {
         addRegisteredTypes(
                 "brooklyn.catalog:",
@@ -1520,10 +1521,9 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "      type: "+SampleBean.class.getName());
 
         // cf tests in CustomTypeConfigYamlTest
-        fixtureForTestingType("map <string, my-bean>", "{ a: {x:1} }", (cfg,entity) -> {
+        fixtureForTestingType("map <string, my-bean>", "{ a: {x: 1} }", (cfg,entity) -> {
             assertEquals(cfg.getType(), Map.class);
-            assertEquals(cfg.getTypeToken(), new TypeToken<Map<String,SampleBean>>() {});
-            assertEquals(BrooklynJacksonSerializationUtils.asType(cfg.getTypeToken()).toString(), "java.util.Map<java.lang.String,sample-bean>");
+            assertEquals(BrooklynJacksonSerializationUtils.asType(cfg.getTypeToken()).toString(), "java.util.Map<java.lang.String,my-bean:0.0.0-SNAPSHOT>");
             Map<?,?> l = (Map<?,?>) entity.getConfig(cfg);
             SampleBean b = (SampleBean) l.get("a");
             Assert.assertEquals(b.x, "1");

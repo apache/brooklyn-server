@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.Reflections;
 
@@ -91,7 +92,7 @@ public class MethodCoercions {
                 Maybe<?> coercedArgumentM = TypeCoercions.tryCoerce(argument, TypeToken.of(paramType));
                 RuntimeException exception = Maybe.getException(coercedArgumentM);
                 if (coercedArgumentM.isPresent() && coercedArgumentM.get()!=null) {
-                    if (!Boxing.boxedTypeToken(paramType).getRawType().isAssignableFrom(coercedArgumentM.get().getClass())) {
+                    if (!TypeTokens.isAssignableFromRaw(Boxing.boxedTypeToken(paramType), coercedArgumentM.get().getClass())) {
                         exception = new IllegalArgumentException("Type mismatch after coercion; "+coercedArgumentM.get()+" is not a "+TypeToken.of(paramType));
                     }
                 }
@@ -190,7 +191,7 @@ public class MethodCoercions {
                     Maybe<?> coercedArgumentM = TypeCoercions.tryCoerce(argument, TypeToken.of(paramType));
                     RuntimeException exception = Maybe.getException(coercedArgumentM);
                     if (coercedArgumentM.isPresent() && coercedArgumentM.get()!=null) {
-                        if (!Boxing.boxedTypeToken(paramType).getRawType().isAssignableFrom(coercedArgumentM.get().getClass())) {
+                        if (!TypeTokens.isAssignableFromRaw(Boxing.boxedTypeToken(paramType), coercedArgumentM.get().getClass())) {
                             exception = new IllegalArgumentException("Type mismatch after coercion; "+coercedArgumentM.get()+" is not a "+TypeToken.of(paramType));
                         }
                     }

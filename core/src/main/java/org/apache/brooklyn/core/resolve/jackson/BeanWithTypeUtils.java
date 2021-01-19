@@ -25,6 +25,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.util.*;
 import java.util.Map.Entry;
 import org.apache.brooklyn.api.entity.Entity;
@@ -110,6 +111,8 @@ public class BeanWithTypeUtils {
     public static class RegisteredTypeToken<T> extends TypeToken<T> {
         private RegisteredType registeredType = null;
 
+        // TODO remove this class, instead use TypeToken.of(BrooklynJacksonType.of(registeredType))
+
         protected RegisteredTypeToken(RegisteredType type) {
             super( (Class<?>) type.getSuperTypes().stream().filter(i -> i instanceof Class).findAny().orElse(Object.class) );
             this.registeredType = type;
@@ -127,12 +130,15 @@ public class BeanWithTypeUtils {
             }
         }
 
-        public static <T> boolean isRegisteredType(TypeToken<T> type) {
-            if (type instanceof RegisteredTypeToken && ((RegisteredTypeToken<?>)type).getRegisteredType().isPresent()) {
+        public static <T> boolean isRegisteredType(TypeToken<T> tt) {
+            if (tt instanceof RegisteredTypeToken && ((RegisteredTypeToken<?>)tt).getRegisteredType().isPresent()) {
                 return true;
-            } else {
-                return false;
             }
+            Type type = tt.getType();
+            if (type instanceof BrooklynJacksonType && ((BrooklynJacksonType)type).getRegisteredType()!=null) {
+                return true;
+            }
+            return false;
         }
 
         public Maybe<RegisteredType> getRegisteredType() {
@@ -140,7 +146,17 @@ public class BeanWithTypeUtils {
         }
 
         public static <T> TypeToken<T> of(Class<T> type) { return TypeToken.of(type); }
-        public static <T> RegisteredTypeToken<T> of(RegisteredType type) { return new RegisteredTypeToken<T>(type); }
+        public static <T> TypeToken<T> of(RegisteredType type) {
+            //return new RegisteredTypeToken<T>(type);
+            return (TypeToken) TypeToken.of(new BrooklynJacksonType(type));
+        }
+
+        @Override
+        public String toString() {
+            return "RegisteredTypeToken{" +
+                    registeredType + "/" + getType() +
+                    '}';
+        }
 
         @Override
         public boolean equals(Object o) {
@@ -235,13 +251,13 @@ public class BeanWithTypeUtils {
         if (t==null) {
             return 0;
         }
-        if (Boxing.isPrimitiveOrBoxedClass(type.getRawType()) || String.class.equals(type.getRawType())) {
-            return t.getClass().equals(type.getRawType()) ? 0 : -1;
+        if (Boxing.isPrimitiveOrBoxedClass(TypeTokens.getRawRawType(type)) || TypeTokens.equalsRaw(String.class, type)) {
+            return TypeTokens.equalsRaw(t.getClass(), type) ? 0 : -1;
         }
         // if we want an object, then no need for conversion nor any problem with conversion
-        if (Object.class.equals(type.getRawType())) return 0;
+        if (TypeTokens.equalsRaw(Object.class, type)) return 0;
 
-        if (Map.class.isAssignableFrom(type.getRawType())) {
+        if (TypeTokens.isAssignableFromRaw(Map.class, type)) {
             // if map is wanting, superficially we don't want to convert; but if there are generics we need to recurse
             if (t instanceof Map) {
                 List<TypeToken<?>> generics = TypeTokens.getGenericArguments(type);
@@ -260,7 +276,7 @@ public class BeanWithTypeUtils {
             }
         }
 
-        if (Collection.class.isAssignableFrom(type.getRawType())) {
+        if (TypeTokens.isAssignableFromRaw(Collection.class, type)) {
             if (t instanceof Collection) {
                 List<TypeToken<?>> generics = TypeTokens.getGenericArguments(type);
                 if (generics!=null) {

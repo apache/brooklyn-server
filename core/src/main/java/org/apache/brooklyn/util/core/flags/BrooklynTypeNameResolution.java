@@ -18,14 +18,12 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -42,6 +40,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
@@ -181,12 +180,13 @@ public class BrooklynTypeNameResolution {
     }
 
     static Maybe<GenericsRecord> parseTypeGenerics(String s) { return parseTypeGenerics(s, (String t, List<GenericsRecord> tt) -> Maybe.of(new GenericsRecord(t, tt))); }
-    static Maybe<TypeToken<?>> parseTypeToken(String s, Function<String,Maybe<TypeToken<?>>> typeLookup) {
+    @VisibleForTesting
+    public static Maybe<TypeToken<?>> parseTypeToken(String s, Function<String,Maybe<TypeToken<?>>> typeLookup) {
         return parseTypeGenerics(s, (String t, List<TypeToken<?>> tt) -> {
             Maybe<TypeToken<?>> c = typeLookup.apply(t);
             if (c.isAbsent()) return c;
             if (tt.isEmpty()) return c;
-            return Maybe.of(TypeToken.of(parameterizedType(c.get().getRawType(), tt.stream()
+            return Maybe.of(TypeToken.of(parameterizedType(TypeTokens.getRawRawType(c.get()), tt.stream()
                     .map(BrooklynJacksonSerializationUtils::asType).collect(Collectors.toList()) )));
         });
     }
@@ -268,8 +268,15 @@ public class BrooklynTypeNameResolution {
          * {@inheritDoc}
          */
         @Override
-        public boolean equals(Object obj) {
-            return obj == this || obj instanceof ParameterizedType && TypeUtils.equals(this, ((ParameterizedType) obj));
+        public boolean equals(Object t) {
+            // from TypeEquals.equals(ParameterizedType, Object) -- because TypeEquals.equals(Object,Object) calls back to this method
+            if (t instanceof ParameterizedType) {
+                final ParameterizedType other = (ParameterizedType) t;
+                if (Objects.equals(getRawType(), other.getRawType()) && Objects.equals(getOwnerType(), other.getOwnerType())) {
+                    return Objects.deepEquals(getActualTypeArguments(), other.getActualTypeArguments());
+                }
+            }
+            return false;
         }
 
         /**
