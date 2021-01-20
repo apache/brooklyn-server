@@ -952,7 +952,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             
             BasicTypeImplementationPlan plan = new BasicTypeImplementationPlan(format, sourcePlanYaml);
             BasicRegisteredType type = (BasicRegisteredType) RegisteredTypes.newInstance(
-                RegisteredTypeKind.UNRESOLVED,
+                    BrooklynObjectType.of(planInterpreter.catalogItemType).getSpecType()!=null ? RegisteredTypeKind.SPEC
+                            : planInterpreter.catalogItemType==CatalogItemType.BEAN ? RegisteredTypeKind.BEAN
+                            : RegisteredTypeKind.UNRESOLVED,
                 symbolicName, version, plan,
                 superTypes, aliases, tags, containingBundle==null ? null : containingBundle.getVersionedName().toString(), 
                 MutableList.<OsgiBundleWithUrl>copyOf(libraryBundles), 
@@ -1346,7 +1348,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         boolean suspicionOfABean = false;
 
         private Maybe<Object> attemptPlanTranformer() {
-            Exception errorInBean = null;
+            MutableSet<Throwable> exceptions = MutableSet.<Throwable>of();
             try {
                 suspicionOfABean = false;
 
@@ -1375,43 +1377,68 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
 
                 Object t = null;
+                boolean triedBean = false;
+                // try as bean first if signs are auspicious
                 if (catalogItemType == CatalogItemType.BEAN || suspicionOfABean) {
                     try {
+                        triedBean = true;
                         t = mgmt.getTypeRegistry().createBeanFromPlan(format, itemYaml, constraint, null);
                         catalogItemType = CatalogItemType.BEAN;
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
-                        // if we were speculatively trying bean then retry as plan
-                        errorInBean = e;
+                        exceptions.add(e);
                     }
                 }
 
+                // then try as spec unless known to be a bean
                 if (catalogItemType != CatalogItemType.BEAN && t==null) {
-                    t = mgmt.getTypeRegistry().createSpecFromPlan(format, itemYaml, constraint,
-                            BrooklynObjectType.of(catalogItemType).getSpecType());
-                    if (catalogItemType == null) {
-                        catalogItemType = CatalogItemType.ofSpecClass(BrooklynObjectType.of(t.getClass()).getSpecType());
+                    try {
+                        t = mgmt.getTypeRegistry().createSpecFromPlan(format, itemYaml, constraint,
+                                BrooklynObjectType.of(catalogItemType).getSpecType());
+                        if (catalogItemType == null) {
+                            catalogItemType = CatalogItemType.ofSpecClass(BrooklynObjectType.of(t.getClass()).getSpecType());
+                        }
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        exceptions.add(e);
                     }
                 }
 
-                if (t==null) {
-                    if (errorInBean!=null) throw errorInBean;
-                    throw new IllegalStateException("Type registry creation returned null");
+                // lastly try as bean if we haven't already and it is not known to be a spec (ie if item type is unknown)
+                if (catalogItemType==null && t==null && !triedBean) {
+                    try {
+                        triedBean = true;
+                        t = mgmt.getTypeRegistry().createBeanFromPlan(format, itemYaml, constraint, null);
+                        if (format==null && (t instanceof Map || t instanceof Collection)) {
+                            // doesn't look like a bean
+                        } else {
+                            catalogItemType = CatalogItemType.BEAN;
+                        }
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        exceptions.add(e);
+                    }
                 }
 
-                resolved = true;
-                return Maybe.of(t);
+                if (t!=null) {
+                    resolved = true;
+                    return Maybe.of(t);
+                }
+
 
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
-                MutableList<Throwable> exceptions = MutableList.<Throwable>of().appendIfNotNull(errorInBean, e);
-                return Maybe.absent(
-                        () ->
-                            Exceptions.create("Unable to transform definition of "+
-                                (itemId!=null ? itemId : "plan:\n"+itemYaml+"\n"),
-                                exceptions)
-                );
+                exceptions.add(e);
             }
+
+            if (exceptions.isEmpty()) exceptions.add(new IllegalStateException("Type registry creation returned null"));
+
+            return Maybe.absent(
+                    () ->
+                        Exceptions.create("Unable to transform definition of "+
+                            (itemId!=null ? itemId : "plan:\n"+itemYaml+"\n"),
+                            exceptions)
+            );
         }
 
         public boolean isResolved() { return resolved; }
@@ -1689,7 +1716,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot("unbundled catalog definition", catalogYaml, null, null, result, false, MutableMap.of(), 0, forceUpdate, true);
 
-        Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet(), true);
+        Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet());
         if (Iterables.concat(validation.values()).iterator().hasNext()) {
             throw new IllegalStateException("Could not validate one or more items: "+validation);
         }
@@ -1849,7 +1876,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (boType==null) {
                     // guesser inferred a type
                     boType = BrooklynObjectType.of(ciType);
-                    if (boType!=null) {
+                    if (boType!=null && boType.getSpecType()!=null) {
                         supers = MutableSet.copyOf(supers);
                         supers.add(boType.getInterfaceType());
                         // didn't know type before, retry now that we know the type

@@ -18,11 +18,13 @@
  */
 package org.apache.brooklyn.core.mgmt;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
 
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -42,6 +44,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -327,22 +330,37 @@ public class EntityManagementUtils {
      * see {@link #canUnwrapApplication(EntitySpec)} if that is required).
      * <p>
      * Note callers will normally use one of {@link #unwrapEntity(EntitySpec)} or {@link #unwrapApplication(EntitySpec)}.
-     * 
-     * @see #WRAPPER_APP_MARKER for an overview */
+     *
+     * @see #WRAPPER_APP_MARKER  */
     public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec, boolean allowUnwrappingApplicationsWithoutWrapperAppMarker) {
         return ((allowUnwrappingApplicationsWithoutWrapperAppMarker && Application.class.isAssignableFrom(spec.getType())) 
-                || isWrapperApp(spec)) && 
-            hasSingleChild(spec) &&
-            // these "brooklyn.*" items on the app rather than the child absolutely prevent unwrapping
-            // as their semantics could well be different whether they are on the parent or the child
-            spec.getEnricherSpecs().isEmpty() &&
-            spec.getInitializers().isEmpty() &&
-            spec.getPolicySpecs().isEmpty() &&
-            // prevent merge only if a location is defined at both levels
-            ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) || 
-                (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())
-            // parameters are collapsed on merge so don't need to be considered here
-            ;
+                || isWrapperApp(spec)) &&
+            hasMergeableSingleChild(spec);
+    }
+
+    private static boolean hasMergeableSingleChild(EntitySpec<? extends Entity> spec) {
+        if (!hasSingleChild(spec)) return false;
+        // these "brooklyn.*" items on the app rather than the child absolutely prevent unwrapping
+        // as their semantics could well be different whether they are on the parent or the child
+        EntitySpec<? extends Entity> child = Iterables.getOnlyElement(spec.getChildren());
+        if (!allParentSubsetOfChild(spec, child, EntitySpec::getEnricherSpecs, EntitySpec::getInitializers, EntitySpec::getPolicySpecs)) return false;
+
+        // prevent merge only if a location is defined at both levels
+        if (! ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) ||
+                (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())) {
+            return false;
+        }
+
+        // parameters are collapsed on merge so don't need to be considered here
+
+        return true;
+    }
+
+    private static boolean allParentSubsetOfChild(EntitySpec<? extends Entity> spec, EntitySpec<? extends Entity> child, Function<EntitySpec<? extends Entity>, Collection<?>> ...getters) {
+        for (Function<EntitySpec<? extends Entity>, Collection<?>> getter: getters) {
+            if (! (MutableSet.copyOf( getter.apply(child) ).containsAll( getter.apply(spec) )) ) return false;
+        }
+        return true;
     }
 
     public static boolean isWrapperApp(EntitySpec<?> spec) {

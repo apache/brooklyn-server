@@ -73,6 +73,7 @@ import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.apache.commons.beanutils.BeanUtils;
 import org.slf4j.Logger;
@@ -835,7 +836,14 @@ public class BrooklynDslCommon {
 
         @Override
         public String toString() {
-            return DslToStringHelpers.fn("object", type != null ? type.getName() : typeName);
+            // prefer the dsl set on us, if set
+            if (dsl instanceof String && Strings.isNonBlank((String)dsl)) return (String)dsl;
+
+            Object arg = type != null ? type.getName() : typeName;
+            if (!constructorArgs.isEmpty()) {
+                arg = MutableList.of(arg).appendAll(constructorArgs).toString();
+            }
+            return DslToStringHelpers.fn("object", arg);
         }
     }
 

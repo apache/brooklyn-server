@@ -18,30 +18,18 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.base.Joiner;
 import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
+import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import org.apache.brooklyn.core.effector.AddChildrenEffector;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.util.collections.MutableMap;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
-
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -68,27 +56,25 @@ import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 
 public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
 	
@@ -812,8 +798,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 .put("String", String.class)
                 .put("duration", Duration.class)
                 .put("Duration", Duration.class)
-                .put("timestamp", Date.class)
-                .put("Timestamp", Date.class)
+                .put("timestamp", Timestamp.class)
+                .put("Timestamp", Timestamp.class)
                 .put("port", PortRange.class)
                 .put("Port", PortRange.class)
                 .build();

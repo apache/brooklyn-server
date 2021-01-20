@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -87,6 +88,7 @@ import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.cxf.jaxrs.client.WebClient;
+import org.apache.cxf.jaxrs.ext.multipart.Attachment;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
@@ -240,6 +242,25 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         URI appUri = response.getLocation();
         waitForApplicationToBeRunning(response.getLocation());
         assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "simple-app-yaml");
+    }
+
+    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    public void testDeployApplicationYamlWithFormat() throws Exception {
+        String yaml = "{ name: deploy-format-app-yaml, location: localhost, services: [ { serviceType: "+BasicApplication.class.getCanonicalName()+" } ] }";
+
+        List<Attachment> body = new LinkedList<Attachment>();
+        body.add(new Attachment("plan", "text/plain", yaml));
+        body.add(new Attachment("format", "text/plain", "brooklyn-camp"));
+
+        Response response = client().path("/applications")
+                .header(HttpHeaders.CONTENT_TYPE, ContentType.MULTIPART_FORM_DATA)
+                .post(body);
+        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+
+        // Expect app to be running
+        URI appUri = response.getLocation();
+        waitForApplicationToBeRunning(response.getLocation());
+        assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "deploy-format-app-yaml");
     }
 
     @Test

@@ -80,7 +80,7 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
     // xstream deserialization should use the toString, and skips transients;
     // jackson deserialization includes this, and relies on it if reading an Object,
     // but if reading to a Supplier it will correctly instantiate based on the type field.
-    private transient Object dsl = null;
+    protected transient Object dsl = null;
 
     public BrooklynDslDeferredSupplier() {
         PlanInterpretationNode sourceNode = BrooklynDslInterpreter.currentNode();

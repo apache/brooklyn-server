@@ -25,6 +25,7 @@ import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -134,7 +135,7 @@ public interface ApplicationApi {
                     required = true)
             @PathParam("application") String application);
 
-    /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
+    /** @deprecated since 1.1 use {@link #createWithFormat(String, String)} instead */
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
@@ -146,7 +147,8 @@ public interface ApplicationApi {
                     required = true)
             String yaml);
 
-    /** @deprecated since 1.1 use {@link #createFromYamlWithAppId(String, String, String)}  instead */
+    /** @deprecated since 1.1 use {@link #createFromYamlAndAppId(String, String)}
+     * or {@link #createFromYamlAndFormatAndAppId(String, String, String)} instead */
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
@@ -168,10 +170,29 @@ public interface ApplicationApi {
             @ApiResponse(code = 404, message = "Undefined entity or location"),
             @ApiResponse(code = 409, message = "Application already registered")
     })
-    public Response createFromYamlWithAppId(
+    public Response createFromYamlAndAppId(
             @ApiParam(name = "plan", value = "Plan", required = true) String yaml,
-            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false) String format,
             @ApiParam(name = "application", value = "Application id", required = true) @PathParam("application") String appId);
+
+    @Beta
+    @PUT
+    @Path("/{application}")
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML and format with the given id",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered")
+    })
+    public Response createFromYamlAndFormatAndAppId(
+            @ApiParam(name = "plan", value = "Plan", required = true)
+            @FormParam("plan") String yaml,
+            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
+            @FormParam("format") String format,
+            @ApiParam(name = "application", value = "Application id", required = true)
+            @PathParam("application") String appId);
 
     /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
     @Deprecated
@@ -201,7 +222,6 @@ public interface ApplicationApi {
                     required = true)
             @Valid String contents);
 
-    @Beta
     @POST
     @Consumes
     @ApiOperation(
@@ -211,9 +231,24 @@ public interface ApplicationApi {
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Undefined entity or location")
     })
+    public Response createFromBytes(
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true) byte[] plan);
+
+    @Beta
+    @POST
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location")
+    })
     public Response createWithFormat(
-            @ApiParam(name = "plan", value = "Application plan to deploy", required = true) byte[] plan,
-            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false) String format);
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
+            @FormParam("plan") String plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
+            @FormParam("format") String format);
 
 
     @DELETE

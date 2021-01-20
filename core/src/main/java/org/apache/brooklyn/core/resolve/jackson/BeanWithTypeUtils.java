@@ -51,6 +51,7 @@ public class BeanWithTypeUtils {
 
     public static final String FORMAT = "bean-with-type";
 
+    /** also see {@link org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper#newMapper(ManagementContext)} */
     public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
         JsonMapper mapper = newSimpleMapper();
 

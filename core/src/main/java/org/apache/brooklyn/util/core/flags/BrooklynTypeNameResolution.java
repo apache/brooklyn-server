@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +71,7 @@ public class BrooklynTypeNameResolution {
             .put("wrappedvalue", WrappedValue.class)
 
             .put("duration", Duration.class)
-            .put("timestamp", Date.class)
+            .put("timestamp", Timestamp.class)
             .put("port", PortRange.class)
             .build();
 
