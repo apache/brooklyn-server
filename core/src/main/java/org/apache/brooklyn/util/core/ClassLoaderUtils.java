@@ -47,9 +47,10 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.felix.framework.BundleWiringImpl.BundleClassLoader;
+import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleReference;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
@@ -332,25 +333,44 @@ public class ClassLoaderUtils {
                                              String name) {
         Framework framework = getFramework();
         if (framework != null) {
-            Maybe<Bundle> bundle = Osgis.bundleFinder(framework)
-                .symbolicName(symbolicName)
-                .version(version)
-                .find();
-            if (bundle.isAbsent()) {
+
+            if (Strings.isBlank(version)) {
+                try {
+                    // if the class can be loaded using the default classloader, and it comes from a bundle matching symbolic name, and version not specified,read
+                    // then use that version of the bundle, rather than the latest version
+                    ClassLoader cl = classLoader.loadClass(name).getClassLoader();
+                    if (cl instanceof BundleReference){
+//                    if (cl instanceof BundleClassLoader) {
+                        Bundle b = ((BundleReference) cl).getBundle();
+                        if (Objects.equal(symbolicName, b.getSymbolicName())) {
+                            version = b.getVersion().toString();
+                        }
+                    }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.trace("Error deducing class - not unusual", e);
+                }
+            }
+
+            Bundle bundle = Osgis.bundleFinder(framework)
+                    .symbolicName(symbolicName)
+                    .version(version)
+                    .findAll().stream().max((v1, v2) -> VersionComparator.INSTANCE.compare(v1.getVersion().toString(), v2.getVersion().toString())).orElse(null);
+            if (bundle == null) {
                 String requestedV = symbolicName+":"+(Strings.isBlank(version) ? BrooklynCatalog.DEFAULT_VERSION : version);
                 String upgradedV = CatalogUpgrades.getBundleUpgradedIfNecessary(mgmt, requestedV);
                 if (!Objects.equal(upgradedV, requestedV)) {
                     log.debug("Upgraded access to bundle "+requestedV+" for loading "+name+" to use bundle "+upgradedV);
                     bundle = Osgis.bundleFinder(framework)
-                        .id(upgradedV)
-                        .find();
+                            .id(upgradedV)
+                            .findAll().stream().max((v1, v2) -> VersionComparator.INSTANCE.compare(v1.getVersion().toString(), v2.getVersion().toString())).orElse(null);
                 }
-                if (bundle.isAbsent()) {
+                if (bundle == null) {
                     throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
-                        + " not found to load " + name);
+                            + " not found to load " + name);
                 }
             }
-            return dispatcher.tryLoadFrom(bundle.get(), name);
+            return dispatcher.tryLoadFrom(bundle, name);
         } else {
             Maybe<T> result = dispatcher.tryLoadFrom(classLoader, name);
             if (result.isAbsent()) {
