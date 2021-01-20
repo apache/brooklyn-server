@@ -50,17 +50,11 @@ import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.location.PortRanges;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -1480,7 +1474,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             assertEquals(cfg.getType(), MyRt.class);
 
             assertEquals(TypeTokens.getRawRawType(cfg.getTypeToken()), MyRt.class);
-            assertTrue(RegisteredTypeToken.isRegisteredType(cfg.getTypeToken()));
+            assertTrue(BrooklynJacksonType.isRegisteredType(cfg.getTypeToken()));
 
             MyRt rt = (MyRt) entity.getConfig(cfg);
             assertEquals(rt.y, "hi");
@@ -1504,7 +1498,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             assertEquals(cfg.getType(), String.class);
 
             assertEquals(TypeTokens.getRawRawType(cfg.getTypeToken()), String.class);
-            assertTrue(RegisteredTypeToken.isRegisteredType(cfg.getTypeToken()));
+            assertTrue(BrooklynJacksonType.isRegisteredType(cfg.getTypeToken()));
 
             Assert.assertEquals(entity.getConfig(cfg), "foo-bar");
         });
@@ -1523,7 +1517,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         // cf tests in CustomTypeConfigYamlTest
         fixtureForTestingType("map <string, my-bean>", "{ a: {x: 1} }", (cfg,entity) -> {
             assertEquals(cfg.getType(), Map.class);
-            assertEquals(BrooklynJacksonSerializationUtils.asType(cfg.getTypeToken()).toString(), "java.util.Map<java.lang.String,my-bean:0.0.0-SNAPSHOT>");
+            assertEquals(cfg.getTypeToken().toString(), "java.util.Map<java.lang.String,my-bean:0.0.0-SNAPSHOT>");
             Map<?,?> l = (Map<?,?>) entity.getConfig(cfg);
             SampleBean b = (SampleBean) l.get("a");
             Assert.assertEquals(b.x, "1");

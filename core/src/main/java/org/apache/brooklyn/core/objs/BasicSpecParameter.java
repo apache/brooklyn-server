@@ -292,7 +292,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                 return val;
             }
             
-            if (type != null && !type.isAssignableFrom(result.getClass())) {
+            if (type != null && !TypeTokens.isInstanceRaw(type, result)) {
                 log.warn("Unable to convert parameter default value (type "+type+") to immutable");
                 return val;
             } else {

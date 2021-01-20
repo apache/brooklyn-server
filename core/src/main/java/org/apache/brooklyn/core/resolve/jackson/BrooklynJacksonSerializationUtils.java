@@ -23,22 +23,16 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
-import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
-import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.reflect.TypeToken;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -50,55 +44,6 @@ import org.slf4j.LoggerFactory;
 public class BrooklynJacksonSerializationUtils {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynJacksonSerializationUtils.class);
-
-    public static <T> TypeReference<T> asTypeReference(ManagementContext mgmt, String rtName) {
-        return new TypeReference<T>() {
-            @Override
-            public Type getType() {
-                RegisteredType rt = mgmt.getTypeRegistry().get(rtName);
-                if (rt==null) {
-                    throw new IllegalStateException("Unknown type '"+rtName+"'");
-                }
-                return new BrooklynJacksonType(rt);
-            }
-        };
-    }
-
-    public static <T> TypeReference<T> asTypeReference(RegisteredType rt) {
-        return new TypeReference<T>() {
-            @Override
-            public Type getType() {
-                return new BrooklynJacksonType(rt);
-            }
-        };
-    }
-
-    public static <T> TypeReference<T> asTypeReference(TypeToken<T> typeToken) {
-        return new TypeReference<T>() {
-            @Override
-            public Type getType() {
-                return asType(typeToken);
-            }
-        };
-    }
-
-    public static <T> Type asType(TypeToken<T> typeToken) {
-        if (typeToken instanceof RegisteredTypeToken) {
-            return BrooklynJacksonType.of((RegisteredTypeToken) typeToken);
-        }
-        return typeToken.getType();
-    }
-
-    public static <T> JavaType asJavaType(ObjectMapper m, TypeToken<T> tt) {
-        if (tt instanceof RegisteredTypeToken) {
-            return BrooklynJacksonType.of((RegisteredTypeToken) tt);
-        }
-        Type type = tt.getType();
-        if (type instanceof BrooklynJacksonType) {
-            return (BrooklynJacksonType) type;
-        }
-        return m.constructType(tt.getType());
-    }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
         List<Function<JsonDeserializer<?>,JsonDeserializer<?>>> deserializerWrappers = MutableList.of();

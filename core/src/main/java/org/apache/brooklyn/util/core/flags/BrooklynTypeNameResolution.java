@@ -31,9 +31,8 @@ import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -150,7 +149,7 @@ public class BrooklynTypeNameResolution {
 
             if (allowRegisteredTypes) {
                 rules.put("Brooklyn registered types",
-                        s -> mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader)).map(RegisteredTypeToken::of));
+                        s -> mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader)).map(BrooklynJacksonType::asTypeToken));
             }
         }
 
@@ -172,7 +171,7 @@ public class BrooklynTypeNameResolution {
         }
         public Maybe<TypeToken<?>> findTypeToken(String typeName) {
             try {
-                return parseTypeToken(typeName, bs -> findTypeToken(bs));
+                return parseTypeToken(typeName, bs -> findTypeTokenOfBaseNameInternal(bs));
             } catch (Exception e) {
                 return Maybe.absent(e);
             }
@@ -187,7 +186,7 @@ public class BrooklynTypeNameResolution {
             if (c.isAbsent()) return c;
             if (tt.isEmpty()) return c;
             return Maybe.of(TypeToken.of(parameterizedType(TypeTokens.getRawRawType(c.get()), tt.stream()
-                    .map(BrooklynJacksonSerializationUtils::asType).collect(Collectors.toList()) )));
+                    .map(TypeToken::getType).collect(Collectors.toList()) )));
         });
     }
 

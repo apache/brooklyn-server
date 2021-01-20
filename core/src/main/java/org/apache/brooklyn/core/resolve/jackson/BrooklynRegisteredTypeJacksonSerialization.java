@@ -32,21 +32,12 @@ import com.fasterxml.jackson.databind.jsontype.impl.ClassNameIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.type.SimpleType;
-import com.google.common.reflect.TypeToken;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedType;
-import java.lang.reflect.GenericDeclaration;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyIfAmbiguousTypeSerializer;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseType;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeToken;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerialization.BrooklynJacksonType;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
@@ -55,102 +46,6 @@ import java.util.*;
 import org.apache.brooklyn.util.guava.Maybe;
 
 public class BrooklynRegisteredTypeJacksonSerialization {
-
-    // TODO make public, top-level ?
-    public static class BrooklynJacksonType extends SimpleType implements TypeVariable<GenericDeclaration> {
-        private final RegisteredType type;
-        public BrooklynJacksonType(RegisteredType type) {
-            super(pickSuperType(type));
-            this.type = type;
-        }
-
-        // TODO quite useful
-        private static Class<?> pickSuperType(RegisteredType t) {
-            for (Object x : t.getSuperTypes()) {
-                if (x instanceof Class) return (Class<?>) x;
-            }
-            return Object.class;
-        }
-
-        public RegisteredType getRegisteredType() {
-            return type;
-        }
-
-        @Override
-        public String getTypeName() {
-            return type.getId();
-        }
-
-        @Override
-        public String toString() {
-            return "BrooklynJacksonType{" + type.getId() + '/' + _class + "}";
-        }
-
-        public static JavaType of(RegisteredTypeToken<?> tt) {
-            return new BrooklynJacksonType(tt.getRegisteredType().get());
-        }
-
-        @Override
-        public Type[] getBounds() {
-            return new Type[0];
-        }
-
-        @Override
-        public GenericDeclaration getGenericDeclaration() {
-            return new GenericDeclaration() {
-                @Override
-                public TypeVariable<?>[] getTypeParameters() {
-                    return new TypeVariable[0];
-                }
-
-                @Override
-                public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
-                    return null;
-                }
-
-                @Override
-                public Annotation[] getAnnotations() {
-                    return new Annotation[0];
-                }
-
-                @Override
-                public Annotation[] getDeclaredAnnotations() {
-                    return new Annotation[0];
-                }
-
-                @Override
-                public boolean equals(Object obj) {
-                    // allow it to equal anything so that resolution prefers this
-                    return true;
-                }
-            };
-        }
-
-        @Override
-        public String getName() {
-            return null;
-        }
-
-        @Override
-        public AnnotatedType[] getAnnotatedBounds() {
-            return new AnnotatedType[0];
-        }
-
-        @Override
-        public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
-            return null;
-        }
-
-        @Override
-        public Annotation[] getAnnotations() {
-            return new Annotation[0];
-        }
-
-        @Override
-        public Annotation[] getDeclaredAnnotations() {
-            return new Annotation[0];
-        }
-    }
 
     static class RegisteredTypeDeserializer<T> extends JsonDeserializer<T> {
         private final BrooklynJacksonType type;
@@ -164,7 +59,7 @@ public class BrooklynRegisteredTypeJacksonSerialization {
         @Override
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
             try {
-                Object target = mgmt.getTypeRegistry().createBean(type.type, null, null);
+                Object target = mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
                 JsonDeserializer<Object> delegate = ctxt.findContextualValueDeserializer(ctxt.constructType(target.getClass()), null);
                 delegate.deserialize(p, ctxt, target);
                 return (T)target;
