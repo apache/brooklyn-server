@@ -29,12 +29,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.Configurable;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -730,6 +734,55 @@ public class ObjectsYamlTest extends AbstractYamlTest {
         assertEquals(val2, "myval");
         assertEquals(CallRecorder.getCalls(), ImmutableList.of("myval", "myval"));
     }
+
+    @Test
+    public void testBrooklynObjectGuavaCompose() throws Exception {
+        AttributeSensor<String> originalSensor = Sensors.newStringSensor("staticSensor");
+        AttributeSensor<String> transformedSensorFormatString = Sensors.newStringSensor("staticSensor.transformed.format");
+        AttributeSensor<String> transformedSensorComposeMethod = Sensors.newStringSensor("staticSensor.transformed.compose");
+        CallRecorder.clear();
+
+        final Entity entity = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: org.apache.brooklyn.core.sensor.StaticSensor",
+                "    brooklyn.config:",
+                "      name: staticSensor",
+                "      static.value: \"{parent:{child:myValue}}\"",
+                "  brooklyn.enrichers:",
+                "  - type: org.apache.brooklyn.enricher.stock.Transformer",
+                "    brooklyn.config:",
+                "      enricher.sourceSensor: " + originalSensor.getName(),
+                "      enricher.targetSensor: " + transformedSensorComposeMethod.getName(),
+                "      enricher.transformation:",
+                "        $brooklyn:object:",
+                "          type: \"com.google.guava:com.google.common.base.Functions\"",
+                "          factoryMethod.name: \"compose\"",
+                "          factoryMethod.args:",
+                "            - $brooklyn:object:",
+                "                type: \"org.apache.brooklyn.feed.http.JsonFunctions\"",
+                "                factoryMethod.name: \"getPath\"",
+                "                factoryMethod.args:",
+                "                  - \"$.parent.child\"",
+                "            - $brooklyn:object:",
+                "                type: \"org.apache.brooklyn.feed.http.JsonFunctions\"",
+                "                factoryMethod.name: \"asJson\"",
+                "  - type: org.apache.brooklyn.enricher.stock.Transformer",
+                "    brooklyn.config:",
+                "      enricher.sourceSensor: "+ originalSensor.getName(),
+                "      enricher.targetSensor: " + transformedSensorFormatString.getName(),
+                "      enricher.targetValue:",
+                "        $brooklyn:formatString:",
+                "          - \"JSON: %s\"",
+                "          - $brooklyn:attributeWhenReady(\"staticSensor\")"
+        );
+
+        EntityAsserts.assertAttributeEqualsEventually(entity, originalSensor, "{parent:{child:myValue}}");
+        EntityAsserts.assertAttributeEqualsEventually(entity, transformedSensorFormatString, "JSON: {parent:{child:myValue}}");
+        EntityAsserts.assertAttributeEqualsEventually(entity, transformedSensorComposeMethod, "myValue");
+    }
+
 
     public static class CallRecorder {
         private static final List<String> calls = Collections.synchronizedList(Lists.<String>newArrayList());
