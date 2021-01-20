@@ -159,7 +159,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
         for (TryCoercer coercer : genericCoercers) {
             result = coercer.tryCoerce(value, targetTypeToken);
             
-            if (result!=null && result.isPresent()) {
+            if (result!=null && result.isPresentAndNonNull()) {
                 // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
                 // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
                 // First check that value has changed, to avoid stack overflow!

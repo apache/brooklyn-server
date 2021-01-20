@@ -217,12 +217,11 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     }
 
     // Test fails because config keys that are not on an object's interfaces cannot be checked automatically.
-    @Test(enabled = false)
+    @Test
     public void testExceptionWhenPolicyHasNullForeignConfig() {
-        Policy p = mgmt.getEntityManager().createPolicy(PolicySpec.create(TestPolicy.class)
-                .configure(EntityWithNonNullConstraint.NON_NULL_CONFIG, (Object) null));
         try {
-            ConfigConstraints.assertValid(p);
+            Policy p = mgmt.getEntityManager().createPolicy(PolicySpec.create(TestPolicy.class)
+                    .configure(EntityWithNonNullConstraint.NON_NULL_CONFIG, (Object) null));
             Asserts.shouldHaveFailedPreviously("Expected exception when validating policy with missing config");
         } catch (Exception e) {
             Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
