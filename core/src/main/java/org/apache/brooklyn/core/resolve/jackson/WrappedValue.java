@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.google.common.base.Preconditions;
 import java.util.Objects;
 import java.util.function.Supplier;
+import org.apache.brooklyn.core.validation.BrooklynValidation;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 
 /**
@@ -95,7 +96,7 @@ public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supp
     public static <T> WrappedValue<T> ofNull() { return (WrappedValue<T>)NULL_WRAPPED_VALUE; }
 
     public T get() {
-        return supplier != null ? supplier.get() : value;
+        return BrooklynValidation.getInstance().ensureValid(supplier != null ? supplier.get() : value);
     }
 
     public Supplier<T> getSupplier() {

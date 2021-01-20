@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -38,7 +39,10 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
 import org.apache.brooklyn.core.objs.ConstraintSerialization;
+import org.apache.brooklyn.core.validation.BrooklynValidation;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
@@ -99,7 +103,12 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     private static <T> void assertValid(ConfigConstraints<?> constrants, Object context, ConfigKey<T> key, T value) {
         ReferenceWithError<Predicate<?>> validity = constrants.validateValue(key, value);
         if (validity.hasError()) {
-            throw new ConstraintViolationException("Invalid value for " + key + " on " + context + " (" + value + "); it should satisfy "+validity.getWithoutError());
+            String msg = "Invalid value for " + key + " on " + context + " (" + value + ")";
+            if (validity.getWithoutError()!=null) {
+                throw new ConstraintViolationException(msg + "; it should satisfy " + validity.getWithoutError());
+            } else {
+                throw new ConstraintViolationException(msg, validity.getError());
+            }
         }
     }
 
@@ -173,8 +182,9 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     /** returns reference to null without error if valid; otherwise returns reference to predicate and a good error message */
     @SuppressWarnings("unchecked")
     <V> ReferenceWithError<Predicate<?>> validateValue(ConfigKey<V> configKey, V value) {
+        Predicate<? super V> po = null;
         try {
-            Predicate<? super V> po = configKey.getConstraint();
+            po = configKey.getConstraint();
             boolean valid;
             if (po instanceof BrooklynObjectPredicate) {
                 valid = BrooklynObjectPredicate.class.cast(po).apply(value, brooklynObject);
@@ -182,10 +192,23 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
                 valid = po.apply(value);
             }
             if (!valid) {
-                return ReferenceWithError.newInstanceThrowingError(po, new IllegalStateException("Invalid value for " + configKey.getName() + ": " + value));
+                return ReferenceWithError.newInstanceThrowingError(po, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value));
             }
         } catch (Exception e) {
-            LOG.debug("Error checking constraint on " + configKey.getName(), e);
+            Exceptions.propagateIfFatal(e);
+            // previously we ignored it if validation threw an error; now only if the error is on a future/deferred
+            if (value instanceof Future || value instanceof DeferredSupplier) {
+                LOG.trace("Ignoring validation error when value is not yet resolved", e);
+            } else {
+                return ReferenceWithError.newInstanceThrowingError(po, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value, e));
+            }
+        }
+
+        try {
+            BrooklynValidation.getInstance().validateIfPresent(value);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value, e));
         }
         return ReferenceWithError.newInstanceWithoutError(null);
     }

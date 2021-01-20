@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.core.validation.BrooklynValidation;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.AnyExceptionSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -124,6 +125,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
     
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceInternal(Object value, TypeToken<T> targetTypeToken, Class<T> targetType) {
+        return tryCoerceInternal2(value, targetTypeToken, targetType).map(BrooklynValidation.getInstance()::ensureValid);
+    }
+
+    protected <T> Maybe<T> tryCoerceInternal2(Object value, TypeToken<T> targetTypeToken, Class<T> targetType) {
         if (value==null) return Maybe.of((T)null);
         Maybe<T> result = null;
         Maybe<T> firstError = null;
