@@ -256,7 +256,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 // try to coerce on input, to detect errors sooner
                 return TypeCoercions.coerce(v, key.getTypeToken());
             } catch (Exception e) {
-                throw new IllegalArgumentException("Cannot coerce or set "+v+" to "+key, e);
+                throw Exceptions.propagateAnnotated("Cannot coerce or set "+v+" to "+key, e);
                 // if can't coerce, we could just log as below and *throw* the error when we retrieve the config
                 // but for now, fail fast (above), because we haven't encountered strong use cases
                 // where we want to do coercion on retrieval, except for the exceptions above

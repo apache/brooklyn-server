@@ -18,22 +18,23 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
+import groovy.lang.Closure;
+import groovy.time.TimeDuration;
 import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.Map;
-
 import javax.annotation.Nullable;
-
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils.RegisteredTypeOrTypeToken;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -41,27 +42,13 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTryCoercions;
-import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.EnumTypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.PrimitiveStringTypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
+import org.apache.brooklyn.util.javalang.coerce.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
-
-import groovy.lang.Closure;
-import groovy.time.TimeDuration;
 
 /** Static class providing a shared {@link TypeCoercer} for all of Brooklyn */
 public class TypeCoercions {
@@ -335,7 +322,7 @@ public class TypeCoercions {
                             if (!(input instanceof WrappedValue)) {
                                 return null;
                             }
-                            if (WrappedValue.class.isAssignableFrom(type.getRawType())) {
+                            if (TypeTokens.isAssignableFromRaw(WrappedValue.class, type)) {
                                 // don't unwrap if a wrapped value is wanted (won't come here anyway)
                                 return null;
                             }
@@ -350,7 +337,7 @@ public class TypeCoercions {
             registerAdapter("99-wrap-to-wrapped-value", new TryCoercer() {
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
-                    if (!WrappedValue.class.equals(type.getRawType())) {
+                    if (!TypeTokens.equalsRaw(WrappedValue.class, type)) {
                         // only applies if a WrappedValue is wanted
                         return null;
                     }
@@ -369,11 +356,11 @@ public class TypeCoercions {
             registerAdapter("80-bean-with-type", new TryCoercer() {
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
-                    if (!(input instanceof Map || input instanceof Collection)) {
+                    if (!(input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrBoxedObject(input))) {
                         return null;
                     }
                     if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {
-                        return BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), RegisteredTypeOrTypeToken.of(type));
+                        return BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), type);
                     }
                     return null;
                 }

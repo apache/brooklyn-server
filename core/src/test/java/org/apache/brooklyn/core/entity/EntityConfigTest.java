@@ -682,11 +682,16 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    @Test(expectedExceptions=IllegalArgumentException.class)
+    @Test
     public void testFailFastOnInvalidConfigKeyCoercion() throws Exception {
         MyOtherEntity entity = app.addChild(EntitySpec.create(MyOtherEntity.class));
         ConfigKey<Integer> key = MyOtherEntity.INT_KEY;
-        entity.config().set((ConfigKey)key, "thisisnotanint");
+        Asserts.assertFailsWith(() -> {
+            entity.config().set((ConfigKey) key, "thisisnotanint");
+        }, e -> {
+            Asserts.assertStringContainsIgnoreCase(e.toString(), "thisisnotanint", "integer", "intkey");
+            return true;
+        });
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })

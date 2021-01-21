@@ -18,16 +18,19 @@
  */
 package org.apache.brooklyn.util.guava;
 
+import com.fasterxml.jackson.databind.type.ArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.databind.JavaType;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 
@@ -48,7 +51,7 @@ public class TypeTokens {
      * for instance to make serialized output nicer */
     @Nullable
     public static <T> Class<? super T> getRawTypeIfRaw(@Nullable TypeToken<T> type) {
-        if (type==null || !type.equals(TypeToken.of(type.getRawType()))) {
+        if (type==null || !TypeTokens.isRaw(type)) {
             return null;
         } else {
             return type.getRawType();
@@ -58,7 +61,7 @@ public class TypeTokens {
     /** returns null if it's raw, else the type token */
     @Nullable
     public static <T> TypeToken<T> getTypeTokenIfNotRaw(@Nullable TypeToken<T> type) {
-        if (type==null || type.equals(TypeToken.of(type.getRawType()))) {
+        if (type==null || isRaw(type)) {
             return null;
         } else {
             return type;
@@ -69,7 +72,12 @@ public class TypeTokens {
     @SuppressWarnings("unchecked")
     public static <T,U extends T> Class<T> getRawType(TypeToken<U> token, Class<T> raw) {
         if (raw!=null) return raw;
-        if (token!=null) return (Class<T>) token.getRawType();
+        if (token!=null) {
+            if (token.getType() instanceof JavaType) {
+                return (Class<T>) ((JavaType)token.getType()).getRawClass();
+            }
+            return (Class<T>) token.getRawType();
+        }
         throw new IllegalStateException("Both indicators of type are null");
     }
     
@@ -90,7 +98,7 @@ public class TypeTokens {
      * with generics but this sloppily but handily gives you Class<T> which is usually what you have anyway */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public static <T> Class<T> getRawRawType(TypeToken<T> token) {
-        return (Class)token.getRawType();
+        return (Class) getRawType(token, null);
     }
 
     /** Checks that if both type and token are supplied, either exactly one is null, or 
@@ -102,8 +110,8 @@ public class TypeTokens {
         if (type==null && typeToken==null) {
             throw new NullPointerException("Type not set (neither class or type token)");
         }
-        if (!type.equals(typeToken.getRawType())) {
-            throw new IllegalStateException("Invalid types, token is "+typeToken+" (raw "+typeToken.getRawType()+") but class is "+type);
+        if (!equalsRaw(type, typeToken)) {
+            throw new IllegalStateException("Invalid types, token is "+typeToken+" (raw "+getRawRawType(typeToken)+") but class is "+type);
         }
     }
 
@@ -114,4 +122,67 @@ public class TypeTokens {
         }
         return null;
     }
+
+    public static <T> TypeToken<?> getComponentType(TypeToken<T> tt) {
+        if (tt.getType() instanceof JavaType) {
+            return TypeToken.of( ((JavaType)tt.getType()).getContentType() );
+        }
+        return tt.getComponentType();
+    }
+
+    public static <T> boolean isArray(TypeToken<T> tt) {
+        if (tt.getType() instanceof JavaType) {
+            return (tt.getType() instanceof ArrayType);
+        }
+        return tt.isArray();
+    }
+
+    public static <T> boolean isRaw(TypeToken<T> type) {
+        return type.equals(TypeToken.of(getRawRawType(type)));
+    }
+
+    public static boolean equalsRaw(Class<?> clazz, TypeToken<?> tt) {
+        return clazz.equals(getRawRawType(tt));
+    }
+
+    public static boolean isAssignableFromRaw(Class<?> clazz, TypeToken<?> tt) {
+        return clazz.isAssignableFrom(getRawRawType(tt));
+    }
+
+    public static boolean isAssignableFromRaw(TypeToken<?> tt, Class<?> clazz) {
+        return getRawRawType(tt).isAssignableFrom(clazz);
+    }
+
+    public static <T> boolean isInstanceRaw(TypeToken<T> typeT, Object v) {
+        return getRawRawType(typeT).isInstance(v);
+    }
+
+    public static TypeToken<?> resolveType(TypeToken<?> tt, Type t) {
+        if (tt.getType() instanceof JavaType) {
+            return TypeToken.of( getRawRawType(tt) ).resolveType(t);
+        }
+
+        return tt.resolveType(t);
+    }
+
+    /** given Map<String,Integer> returns [ String, Integer ] */
+    public static TypeToken<?>[] getGenericParameterTypeTokens(TypeToken<?> t) {
+        Class<?> rawType = TypeTokens.getRawRawType(t);
+        TypeVariable<?>[] pT = rawType.getTypeParameters();
+        TypeToken<?> pTT[] = new TypeToken<?>[pT.length];
+        for (int i=0; i<pT.length; i++) {
+            pTT[i] = TypeTokens.resolveType(t, pT[i]);
+        }
+        return pTT;
+    }
+
+    public static <T> TypeToken<?>[] getGenericParameterTypeTokensWhenUpcastToClass(TypeToken<T> t, Class<? super T> clazz) {
+        if (!clazz.isAssignableFrom(getRawRawType(t))) return new TypeToken<?>[0];
+        return getGenericParameterTypeTokens(t.getSupertype(clazz));
+    }
+
+    public static <T> TypeToken<?>[] getGenericParameterTypeTokensWhenUpcastToClassRaw(TypeToken<?> t, Class<?> clazz) {
+        return getGenericParameterTypeTokensWhenUpcastToClass(t, (Class)clazz);
+    }
+
 }

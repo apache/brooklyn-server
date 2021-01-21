@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import org.apache.brooklyn.util.guava.TypeTokens;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -73,7 +74,7 @@ public class SpecParameterParsingOsgiTest extends AbstractYamlTest {
         assertEquals(firstInput.getLabel(), "simple");
         assertTrue(firstInput.isPinned());
         assertEquals(firstInput.getConfigKey().getName(), "simple");
-        assertEquals(firstInput.getConfigKey().getTypeToken().getRawType().getName(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
+        assertEquals(TypeTokens.getRawRawType(firstInput.getConfigKey().getTypeToken()).getName(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY);
     }
 
     @Test

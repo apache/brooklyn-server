@@ -93,7 +93,7 @@ public class DslUtils {
         
         if (desiredType!=null) {
             // coerce to _raw_ type as per other config-setting coercion; config _retrieval_ does type correctness
-            return Optional.of(TypeCoercions.coerce(value, desiredType.getRawType()));
+            return Optional.of(TypeCoercions.coerce(value, desiredType));
 
         } else {
             return Optional.of(value);

@@ -27,10 +27,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
-import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -99,6 +96,12 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Override
+    public double scoreForType(RegisteredType type, RegisteredTypeLoadingContext context) {
+        if (RegisteredTypeKind.BEAN.equals(type.getKind())) return 0;
+        return super.scoreForType(type, context);
+    }
+
+    @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
             return new CampResolver(mgmt, type, context).createSpec();
@@ -130,7 +133,7 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         // beans not supported by this?
-        throw new IllegalStateException("beans not supported here");
+        throw new UnsupportedTypePlanException("beans not supported here");
     }
 
     public static class CampTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {

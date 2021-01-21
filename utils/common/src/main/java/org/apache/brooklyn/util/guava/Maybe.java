@@ -41,9 +41,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Like Guava Optional but permitting null and permitting errors to be thrown. */
 public abstract class Maybe<T> implements Serializable, Supplier<T> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(Maybe.class);
 
     private static final long serialVersionUID = -6372099069863179019L;
 
@@ -524,6 +528,13 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         }
         public static <T> Maybe<T> changeExceptionSupplier(Maybe<T> original, Function<AnyExceptionSupplier<?>,Supplier<? extends RuntimeException>> transform) {
             if (original==null || original.isPresent()) return original;
+
+            while (original instanceof MaybeTransforming) original = ((MaybeTransforming)original).input;
+            if (!(original instanceof Maybe.Absent)) {
+                LOG.debug("Cannot replace exception supplier for "+original.getClass()+" "+original+"; ignoring");
+                LOG.trace("Cannot replace exception supplier for "+original.getClass()+" "+original+"; trace supplied", new Throwable("trace for irreplaceable exception supplier"));
+                return original;
+            }
             
             final Supplier<? extends RuntimeException> supplier = ((Maybe.Absent<?>)original).getExceptionSupplier();
             if (!(supplier instanceof AnyExceptionSupplier)) return original;

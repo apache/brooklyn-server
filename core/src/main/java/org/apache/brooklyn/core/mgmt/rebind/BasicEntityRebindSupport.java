@@ -104,7 +104,8 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
                         // In what cases key.getType() will be null?
                 Class<?> type = (key.getType() != null) ? key.getType() : rebindContext.loadClass(key.getTypeName());
                 entity.config().set((ConfigKey<Object>)key, value);
-            } catch (ClassNotFoundException|IllegalArgumentException e) {
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
                 rebindContext.getExceptionHandler().onAddConfigFailed(memento, key, e);
             }
         }
