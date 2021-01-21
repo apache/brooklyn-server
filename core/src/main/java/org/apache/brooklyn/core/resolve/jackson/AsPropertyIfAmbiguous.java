@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.WritableTypeId;
+import com.fasterxml.jackson.core.util.JsonParserSequence;
 import com.fasterxml.jackson.databind.BeanProperty;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
@@ -32,7 +33,9 @@ import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
+import java.util.function.Supplier;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseType;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Reflections;
 
 import java.io.IOException;
@@ -131,7 +134,6 @@ public class AsPropertyIfAmbiguous {
                     return delegate.deserializeTypedFromObject(p, ctxt);
                 }
             }
-
             return super.deserializeTypedFromObject(p, ctxt);
         }
 
@@ -141,6 +143,7 @@ public class AsPropertyIfAmbiguous {
         }
 
         // deserialize list-like things
+        @Override
         protected Object _deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
             if (p.isExpectedStartArrayToken()) {
                 // when we suppress types for collections, the deserializer
@@ -150,11 +153,55 @@ public class AsPropertyIfAmbiguous {
                 JsonDeserializer<Object> deser = _findDeserializer(ctxt, typeId);
 
                 if (p.currentToken() == JsonToken.END_ARRAY) {
-                    return deser.getNullValue(ctxt);
+                    return deser.getEmptyValue(ctxt);
                 }
                 return deser.deserialize(p, ctxt);
             } else {
                 return super._deserialize(p, ctxt);
+            }
+        }
+
+        @Override
+        protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt,
+                                                TokenBuffer tb) throws IOException
+        {
+            // first part copied from parent
+
+            String typeId = p.getText();
+            JsonDeserializer<Object> deser = _findDeserializer(ctxt, typeId);
+            if (_typeIdVisible) { // need to merge id back in JSON input?
+                if (tb == null) {
+                    tb = new TokenBuffer(p, ctxt);
+                }
+                tb.writeFieldName(p.getCurrentName());
+                tb.writeString(typeId);
+            }
+            if (tb != null) { // need to put back skipped properties?
+                // 02-Jul-2016, tatu: Depending on for JsonParserSequence is initialized it may
+                //   try to access current token; ensure there isn't one
+                p.clearCurrentToken();
+                p = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
+            }
+            // Must point to the next value; tb had no current, jp pointed to VALUE_STRING:
+            p.nextToken(); // to skip past String value
+            // deserializer should take care of closing END_OBJECT as well
+
+            boolean wasEndToken = (p.currentToken() == JsonToken.END_OBJECT);
+            try {
+                return deser.deserialize(p, ctxt);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                if (wasEndToken) {
+                    // new -- we allow e.g. `{ type: list-extended }` to mean it is a list;
+                    // however the only way to set values for it in the same object would be to define a custom deserializer for it;
+                    // normal use case is that context implies e.g. list-extended, then collection deserializer does the right thing when it is used.
+                    // but if we got an empty map somehow, e.g. user supplied, don't use it.
+                    Object candidate = deser.getEmptyValue(ctxt);
+                    if (candidate!=null) {
+                        return candidate;
+                    }
+                }
+                throw e;
             }
         }
 

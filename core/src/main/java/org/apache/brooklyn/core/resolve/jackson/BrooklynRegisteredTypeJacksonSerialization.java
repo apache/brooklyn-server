@@ -59,13 +59,18 @@ public class BrooklynRegisteredTypeJacksonSerialization {
         @Override
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
             try {
-                Object target = mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
+                Object target = getEmptyValue(ctxt);
                 JsonDeserializer<Object> delegate = ctxt.findContextualValueDeserializer(ctxt.constructType(target.getClass()), null);
                 delegate.deserialize(p, ctxt, target);
                 return (T)target;
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
+        }
+
+        public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
+            // empty for us is the underlying definition, not null
+            return mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
         }
     }
 

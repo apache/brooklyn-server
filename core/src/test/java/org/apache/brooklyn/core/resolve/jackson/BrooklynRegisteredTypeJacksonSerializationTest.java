@@ -26,6 +26,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -90,6 +91,32 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         Asserts.assertEquals(((SampleBean)impl).x, "hello");
         Asserts.assertEquals(((SampleBean)impl).y, "yo");
         Asserts.assertEquals(((SampleBean)impl).z, "zzz");
+    }
+
+    static class ListExtended extends MutableList<String> {
+    }
+
+    @Test
+    public void testExtendedListBeanRegisteredType() throws Exception {
+        RegisteredType rt = RegisteredTypes.bean("list-extended", "1",
+                new BasicTypeImplementationPlan(BeanWithTypeUtils.FORMAT,
+                        "type: " + ListExtended.class.getName()
+                ));
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
+
+        Object impl = mgmt().getTypeRegistry().create(rt, null, null);
+        Asserts.assertInstanceOf(impl, ListExtended.class);
+
+        impl = mgmt().getTypeRegistry().createBeanFromPlan(BeanWithTypePlanTransformer.FORMAT,
+                "type: list-extended"
+                , null, null);
+        Assert.assertTrue( ((ListExtended)impl).isEmpty() );
+
+        Object impl2 = deser("[]", rt);
+        Assert.assertTrue( ((ListExtended)impl2).isEmpty() );
+
+        Object impl3 = deser("[3]", rt);
+        Assert.assertEquals( ((ListExtended)impl3).size(), 1 );
     }
 
 }
