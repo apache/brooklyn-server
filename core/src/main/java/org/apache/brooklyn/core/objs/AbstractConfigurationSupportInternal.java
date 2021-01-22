@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -161,23 +163,27 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         return getConfigsInternal().getConfig(key);
     }
 
-    @SuppressWarnings("unchecked")
+    @Deprecated
     protected <T> T setConfigInternal(ConfigKey<T> key, Object val) {
+        return setConfigInternal(key, val, null);
+    }
+
+    @SuppressWarnings("unchecked")
+    protected <T> T setConfigInternal(ConfigKey<T> key, Object val, @Nullable Consumer<T> validate) {
         onConfigChanging(key, val);
-        T result = (T) getConfigsInternal().setConfig(key, val);
-        onConfigChanged(key, val);
-        return result;
+        Pair<Object, Object> set = getConfigsInternal().setConfigReturnOldAndNew(key, val, validate);
+        onConfigChanged(key, set.getRight());
+        return (T) set.getLeft();
     }
 
     @Override
     public <T> T set(ConfigKey<T> key, T val) {
-        assertValid(key, val);
-        return setConfigInternal(key, val);
+        return setConfigInternal(key, val, v -> assertValid(key, v));
     }
 
     @Override
     public <T> T set(ConfigKey<T> key, Task<T> val) {
-        return setConfigInternal(key, val);
+        return setConfigInternal(key, val, null);
     }
 
     @Override

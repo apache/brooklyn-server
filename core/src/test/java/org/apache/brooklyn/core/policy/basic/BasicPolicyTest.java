@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.policy.basic;
 
+import org.apache.brooklyn.core.entity.EntityConfigTest.MyEntityWithDuration;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.DurationPredicates;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -54,7 +57,7 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         public static final ConfigKey<String> RECONFIGURABLE_KEY = ConfigKeys.builder(String.class, "reconfigurableKey")
                 .reconfigurable(true)
                 .build();
-        
+
         MyPolicy(Map<?,?> flags) {
             super(flags);
         }
@@ -125,4 +128,47 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
         assertEquals(1, highlights.size());
         assertEquals(highlight, highlights.get("testHighlightName"));
     }
+
+    public static class MyPolicyWithDuration extends MyPolicy {
+        public static final ConfigKey<Duration> DURATION_POSITIVE = MyEntityWithDuration.DURATION_POSITIVE;
+    }
+
+    @Test
+    public void testDurationConstraintValidAddInstance() throws Exception {
+        MyPolicyWithDuration policy = new MyPolicyWithDuration();
+        policy.config().set(MyPolicyWithDuration.DURATION_POSITIVE, Duration.ONE_MINUTE);
+
+        app.policies().add(policy);
+        assertTrue(Iterables.tryFind(app.policies(), Predicates.equalTo(policy)).isPresent());
+
+        assertEquals(policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+    }
+
+    @Test
+    public void testDurationConstraintValidAddSpec() throws Exception {
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicyWithDuration.class)
+                .configure(MyPolicyWithDuration.DURATION_POSITIVE, Duration.ONE_MINUTE));
+
+        assertEquals(policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+    }
+
+    @Test
+    public void testDurationConstraintInvalidAddInstance() throws Exception {
+        MyPolicyWithDuration policy = new MyPolicyWithDuration();
+        policy.config().set(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-1));
+
+        app.policies().add(policy);
+        assertTrue(Iterables.tryFind(app.policies(), Predicates.equalTo(policy)).isPresent());
+
+        assertEquals(policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+    }
+
+    @Test
+    public void testDurationConstraintInvalidAddSpec() throws Exception {
+        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicyWithDuration.class)
+                .configure(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-1)));
+
+        assertEquals(policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+    }
+
 }

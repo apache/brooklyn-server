@@ -22,6 +22,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
+import java.util.function.Consumer;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -50,6 +51,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,18 +161,25 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return result.seal();
     }
 
-    /** As {@link #getLocalConfigRaw()} but in a {@link ConfigBag} for convenience */
+    /** As {@link #getAllConfigLocalRaw()} } but in a {@link ConfigBag} for convenience */
     public ConfigBag getLocalConfigBag() {
         return putAllOwnConfigIntoSafely(ConfigBag.newInstance()).seal();
     }
 
     public Object setConfig(final ConfigKey<?> key, Object v) {
+        return setConfigReturnOldAndNew(key, v, null).getLeft();
+    }
+
+    public <T> Pair<Object,Object> setConfigReturnOldAndNew(final ConfigKey<T> key, Object v, @Nullable Consumer<T> validate) {
         // Use our own key for writing, (e.g. in-case it should (or should not) be a structured key like MapConfigKey).
         // This is same logic as for getConfig, except we only have to look at our own container.
         ConfigKey<?> ownKey = getKeyAtContainer(getContainer(), key);
         if (ownKey==null) ownKey = key;
 
         Object val = coerceConfigVal(ownKey, v);
+        if (validate!=null) {
+            validate.accept((T)val);
+        }
         Object oldVal;
         if (ownKey instanceof StructuredConfigKey) {
             oldVal = ((StructuredConfigKey)ownKey).applyValueToMap(val, ownConfig);
@@ -177,7 +187,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             oldVal = ownConfig.put(ownKey, val);
         }
         postSetConfig();
-        return oldVal;
+        return ImmutablePair.of(oldVal, val);
     }
 
     protected abstract void postSetConfig();

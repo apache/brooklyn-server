@@ -19,6 +19,15 @@
 package org.apache.brooklyn.core.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.core.policy.basic.BasicPolicyTest.MyPolicy;
+import org.apache.brooklyn.core.policy.basic.BasicPolicyTest.MyPolicyWithDuration;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.DurationPredicates;
+import org.apache.brooklyn.util.time.Time;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -877,5 +886,111 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         Assert.assertEquals(e2.config().get(MyBaseEntity.SUPER_KEY_1), MyBaseEntity.SUPER_KEY_1.getDefaultValue());
         Assert.assertEquals(e2.config().get(ConfigKeys.newStringConfigKey(MyBaseEntity.SUPER_KEY_1.getName())), MyBaseEntity.SUPER_KEY_1.getDefaultValue());
     }
-    
+
+    @ImplementedBy(MyEntityWithDurationImpl.class)
+    public interface MyEntityWithDuration extends EntityInternal {
+        public static final ConfigKey<Duration> DURATION_POSITIVE = ConfigKeys.builder(Duration.class, "duration").constraint(DurationPredicates.positive()).build();
+    }
+
+    public static class MyEntityWithDurationImpl extends AbstractEntity implements MyEntityWithDuration {
+    }
+
+    @Test
+    public void testDurationConstraintValidAddSpec() throws Exception {
+        MyEntityWithDuration child = app.addChild(EntitySpec.create(MyEntityWithDuration.class)
+                .configure(MyEntityWithDuration.DURATION_POSITIVE, Duration.ONE_MINUTE));
+
+        assertEquals(child.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+    }
+
+    @Test
+    public void testDurationConstraintInvalidAddSpec() throws Exception {
+        EntitySpec<MyEntityWithDuration> spec = EntitySpec.create(MyEntityWithDuration.class)
+                .configure(MyEntityWithDuration.DURATION_POSITIVE, Duration.minutes(-42));
+
+        Asserts.assertFailsWith(() -> app.addChild(spec),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidCreation() throws Exception {
+        EntitySpec<TestApplication> app2 = EntitySpec.create(TestApplication.class)
+                .child(EntitySpec.create(MyEntityWithDuration.class)
+                        .configure(MyEntityWithDuration.DURATION_POSITIVE, Duration.minutes(-42)));
+
+        Asserts.assertFailsWith(() -> mgmt.getEntityManager().createEntity(app2),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidAddSpecByName() throws Exception {
+        EntitySpec<MyEntityWithDuration> spec = EntitySpec.create(MyEntityWithDuration.class)
+                .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), Duration.minutes(-42));
+
+        Asserts.assertFailsWith(() -> app.addChild(spec),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidCreationByName() throws Exception {
+        EntitySpec<TestApplication> app2 = EntitySpec.create(TestApplication.class)
+                .child(EntitySpec.create(MyEntityWithDuration.class)
+                        .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), Duration.minutes(-42)));
+
+        Asserts.assertFailsWith(() -> mgmt.getEntityManager().createEntity(app2),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+
+    @Test
+    public void testDurationConstraintValidAddSpecByNameFromStringCoerced() throws Exception {
+        MyEntityWithDuration child = app.addChild(EntitySpec.create(MyEntityWithDuration.class)
+                .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "1m"));
+
+        assertEquals(child.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+    }
+
+    @Test
+    public void testDurationConstraintInvalidAddSpecByNameFromStringCoerced() throws Exception {
+        EntitySpec<MyEntityWithDuration> spec = EntitySpec.create(MyEntityWithDuration.class)
+                .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "-42m");
+
+        // TODO below should fail because we should do the validation _after_ coercion
+        Asserts.assertFailsWith(() -> app.addChild(spec),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidCreationFromStringCoerced() throws Exception {
+        EntitySpec<TestApplication> app2 = EntitySpec.create(TestApplication.class)
+                .child(EntitySpec.create(MyEntityWithDuration.class)
+                        .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "-42m"));
+
+        // TODO below should fail because we should do the validation _after_ coercion
+        Asserts.assertFailsWith(() -> mgmt.getEntityManager().createEntity(app2),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintDeferredSupplier() throws Exception {
+        AtomicInteger invocationCount = new AtomicInteger(0);
+        MyEntityWithDuration child = app.addChild(EntitySpec.create(MyEntityWithDuration.class)
+                .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), new DeferredSupplier<Duration>() {
+                    @Override
+                    public Duration get() {
+                        Time.sleep(Duration.millis(10));
+                        invocationCount.incrementAndGet();
+                        return Duration.minutes(-42);
+                    }
+                }));
+        // shouldn't be accessible on setup due to get immediate semantics
+        Assert.assertEquals(invocationCount.get(), 0);
+
+        // TODO should fail because we should validate on the _get_ if the value is/was deferred
+        Asserts.assertFailsWith(() -> child.getConfig(MyPolicyWithDuration.DURATION_POSITIVE),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+
+        Asserts.assertThat(invocationCount.get(), t -> t>0, "invocation should have happened at least once");
+    }
+
 }

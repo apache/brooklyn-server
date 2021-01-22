@@ -1280,7 +1280,7 @@ public class Asserts {
     
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
-     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
+     * @return as per {@link #expectedFailureOfType(Throwable, Class, Class...)} */
     public static boolean expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
@@ -1304,7 +1304,7 @@ public class Asserts {
 
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
-     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
+     * @return as per {@link #expectedFailureOfType(Throwable, Class, Class...)} */
     public static boolean expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
@@ -1315,7 +1315,7 @@ public class Asserts {
         return true;
     }
     
-    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class...)} and others,
+    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class, Class...)} and others,
      * to log interesting earlier errors but to suppress those which are internal or redundant. */
     private static void rethrowPreferredException(Throwable earlierPreferredIfFatalElseLogged, Throwable laterPreferredOtherwise) throws AssertionError {
         if (!(earlierPreferredIfFatalElseLogged instanceof AssertionError)) {
