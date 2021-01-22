@@ -470,6 +470,7 @@ public class Time {
             String s = Strings.getLastWord(timeString).toLowerCase();
             timeString = timeString.substring(0, timeString.length()-s.length()).trim();
             int i=0;
+            if (s.startsWith("-")) i++;  //allow negative marker at start
             while (s.length()>i) {
                 char c = s.charAt(i);
                 if (c=='.' || Character.isDigit(c)) i++;

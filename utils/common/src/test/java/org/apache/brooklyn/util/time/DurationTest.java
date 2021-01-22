@@ -52,6 +52,15 @@ public class DurationTest {
                 Duration.of("4h 3m 30s").toMilliseconds());
     }
 
+    public void testParseNegative() {
+        Assert.assertEquals(Duration.of("-42 m"), Duration.minutes(-42));
+        Assert.assertEquals(Duration.of("-42m"), Duration.minutes(-42));
+        // TODO currently these are backwards (ie -1m 1s = 59 seconds -- confusing!)
+//        Assert.assertEquals(Duration.of("-1 m 1 s"), Duration.seconds(-61));
+//        Assert.assertEquals(Duration.of("- 1m 1s"), Duration.seconds(-61));
+//        Assert.assertEquals(Duration.of("-1m -1s"), Duration.seconds(-59));
+    }
+
     public void testConvesion() {
         Assert.assertEquals(1, Duration.nanos(1).toNanoseconds());
         Assert.assertEquals(1, Duration.nanos(1.1).toNanoseconds());
@@ -103,6 +112,10 @@ public class DurationTest {
         
         Assert.assertTrue(Duration.seconds(1).isLongerThan(Duration.ZERO));
         Assert.assertFalse(Duration.seconds(-1).isLongerThan(Duration.ZERO));
+    }
+
+    public void testIsPositive() {
+        Assert.assertTrue(Duration.minutes(1).isPositive());
     }
 
 }
