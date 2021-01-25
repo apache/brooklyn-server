@@ -219,22 +219,17 @@ public abstract class ConfigConstraints<T> {
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             // previously we ignored it if validation threw an error; now we skip the check altogether if the type is wrong (future, or coercible)
-            return ReferenceWithError.newInstanceThrowingError(po, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value, e));
+            return ReferenceWithError.newInstanceThrowingError(po, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value + "; " + Exceptions.collapseText(e), e));
         }
 
         try {
             BrooklynValidation.getInstance().validateIfPresent(value);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value, e));
+            return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value + "; " + Exceptions.collapseText(e), e));
         }
         return ReferenceWithError.newInstanceWithoutError(null);
     }
-
-    // TODO
-//    private BrooklynObjectInternal.ConfigurationSupportInternal getConfigurationSupportInternal() {
-//        return ((BrooklynObjectInternal) brooklynObject).config();
-//    }
 
     protected T getSource() {
         return source;
