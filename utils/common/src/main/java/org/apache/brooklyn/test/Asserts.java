@@ -1104,11 +1104,16 @@ public class Asserts {
             c.call();
         } catch (Throwable e) {
             failed = true;
-            if (!exceptionChecker.apply(e)) {
-                log.debug("Test threw invalid exception (failing)", e);
-                fail("Test threw invalid exception: "+e);
+            try {
+                if (!exceptionChecker.apply(e)) {
+                    log.warn("Test threw invalid exception (failing)", e);
+                    fail("Test threw invalid exception: " + e);
+                }
+                log.debug("Test for exception successful (" + e + ")");
+            } catch (Exception e2) {
+                log.warn("Test threw invalid exception (failing)", e);
+                throw Exceptions.propagate(e2);
             }
-            log.debug("Test for exception successful ("+e+")");
         }
         if (!failed) fail("Test code should have thrown exception but did not");
     }
