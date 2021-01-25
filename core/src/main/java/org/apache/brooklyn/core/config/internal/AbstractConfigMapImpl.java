@@ -166,20 +166,18 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return putAllOwnConfigIntoSafely(ConfigBag.newInstance()).seal();
     }
 
+    /** used in putAll, does coercion but bypasses validation; also used in AbstractEntity#setConfigEvenIfOwned */
     public Object setConfig(final ConfigKey<?> key, Object v) {
-        return setConfigReturnOldAndNew(key, v, null).getLeft();
+        return setConfigCoercingAndValidating(key, v, null).getLeft();
     }
 
-    public <T> Pair<Object,Object> setConfigReturnOldAndNew(final ConfigKey<T> key, Object v, @Nullable Consumer<T> validate) {
+    public <T> Pair<Object,Object> setConfigCoercingAndValidating(final ConfigKey<T> key, Object v, @Nullable Consumer<T> validate) {
         // Use our own key for writing, (e.g. in-case it should (or should not) be a structured key like MapConfigKey).
         // This is same logic as for getConfig, except we only have to look at our own container.
-        ConfigKey<?> ownKey = getKeyAtContainer(getContainer(), key);
+        ConfigKey<T> ownKey = getKeyAtContainer(getContainer(), key);
         if (ownKey==null) ownKey = key;
 
-        Object val = coerceConfigVal(ownKey, v);
-        if (validate!=null) {
-            validate.accept((T)val);
-        }
+        Object val = coerceConfigValAndValidate(ownKey, v, validate);
         Object oldVal;
         if (ownKey instanceof StructuredConfigKey) {
             oldVal = ((StructuredConfigKey)ownKey).applyValueToMap(val, ownConfig);
@@ -251,6 +249,11 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     }
 
     protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
+        return coerceConfigValAndValidate(key, v, null);
+    }
+
+    /** see also {@link #resolveAndCoerce(BrooklynObject, String, Object, TypeToken)} */
+    protected <T> Object coerceConfigValAndValidate(ConfigKey<T> key, Object v, @Nullable Consumer<T> validate) {
         if ((v instanceof Future) || (v instanceof DeferredSupplier) || (v instanceof TaskFactory)) {
             // no coercion for these (coerce on exit)
             return v;
@@ -262,18 +265,22 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             // because that will force resolution deeply
             return v;
         } else {
+            T result;
             try {
                 // try to coerce on input, to detect errors sooner
-                return TypeCoercions.coerce(v, key.getTypeToken());
+                result = (T) TypeCoercions.coerce(v, key.getTypeToken());
             } catch (Exception e) {
                 throw Exceptions.propagateAnnotated("Cannot coerce or set "+v+" to "+key, e);
-                // if can't coerce, we could just log as below and *throw* the error when we retrieve the config
-                // but for now, fail fast (above), because we haven't encountered strong use cases
-                // where we want to do coercion on retrieval, except for the exceptions above
-                //                Exceptions.propagateIfFatal(e);
-                //                LOG.warn("Cannot coerce or set "+v+" to "+key+" (ignoring): "+e, e);
-                //                val = v;
+                // in early days (<2017?) we would warn on setting, only throw on retrieval;
+                // but now throw on setting if it is coercible
             }
+            // previously validation was only done in a few paths, and before coercion, and cast exceptions were ignored.
+            // now (2021) validation is done after coercion, on more paths but not all; but not for futures etc.
+            // now we are also validating on retrieval, for all types.
+            if (validate!=null) {
+                validate.accept(result);
+            }
+            return result;
         }
     }
 
@@ -365,8 +372,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         }
     }
 
+    /** see also {@link #coerceConfigVal(ConfigKey, Object)} */
     @SuppressWarnings("unchecked")
-    protected <T> T coerceConfigValue(TContainer container, String name, Object value, TypeToken<T> type) {
+    protected <T> T resolveAndCoerce(TContainer container, String name, Object value, TypeToken<T> type) {
         if (type==null || value==null) return (T) value;
         ExecutionContext exec = getExecutionContext(container);
         try {
@@ -413,7 +421,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
                 // use lambda to defer execution if default value not needed.
                 // this coercion should never be persisted so this is safe.
-                return new MaybeSupplier<T>(() -> (coerceConfigValue(getContainer(), ownKey.getName(), input.get(), type)));
+                return new MaybeSupplier<T>(() -> (resolveAndCoerce(getContainer(), ownKey.getName(), input.get(), type)));
             }
         };
         // prefer default and type of ownKey

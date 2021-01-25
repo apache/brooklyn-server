@@ -163,15 +163,10 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
         return getConfigsInternal().getConfig(key);
     }
 
-    @Deprecated
-    protected <T> T setConfigInternal(ConfigKey<T> key, Object val) {
-        return setConfigInternal(key, val, null);
-    }
-
     @SuppressWarnings("unchecked")
     protected <T> T setConfigInternal(ConfigKey<T> key, Object val, @Nullable Consumer<T> validate) {
         onConfigChanging(key, val);
-        Pair<Object, Object> set = getConfigsInternal().setConfigReturnOldAndNew(key, val, validate);
+        Pair<Object, Object> set = getConfigsInternal().setConfigCoercingAndValidating(key, val, validate);
         onConfigChanged(key, set.getRight());
         return (T) set.getLeft();
     }
@@ -183,7 +178,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
 
     @Override
     public <T> T set(ConfigKey<T> key, Task<T> val) {
-        return setConfigInternal(key, val, null);
+        return setConfigInternal(key, val, null /* validation not done on set for tasks/futures; but is done on retrieval */);
     }
 
     @Override
