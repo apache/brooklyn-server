@@ -986,16 +986,10 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                         .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "1m"));
         Entity ent = Iterables.getOnlyElement( mgmt.getEntityManager().createEntity(app2).getChildren() );
 
-        // currently untyped invalid reconfiguration is allowed, but get will fail, whether typed or not
-        // (this could be tightened in future)
         ConfigKey<Object> objKey = ConfigKeys.newConfigKey(Object.class, MyEntityWithDuration.DURATION_POSITIVE.getName());
-        ent.config().set(objKey, "-42m");
 
-        Asserts.assertFailsWith(() -> ent.config().get(MyEntityWithDuration.DURATION_POSITIVE),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
-
-        // 2021-01 untyped access also now does validation (in addition to type coercion)
-        Asserts.assertFailsWith(() -> ent.config().get(objKey),
+        // 2021-01 validation done even for untyped set config
+        Asserts.assertFailsWith(() -> ent.config().set(objKey, "-42m"),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
     }
 
@@ -1016,6 +1010,10 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         Assert.assertEquals(invocationCount.get(), 0);
 
         Asserts.assertFailsWith(() -> child.getConfig(MyPolicyWithDuration.DURATION_POSITIVE),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+
+        ConfigKey<Object> objKey = ConfigKeys.newConfigKey(Object.class, MyEntityWithDuration.DURATION_POSITIVE.getName());
+        Asserts.assertFailsWith(() -> child.config().get(objKey),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
 
         Asserts.assertThat(invocationCount.get(), t -> t>0, "invocation should have happened at least once");

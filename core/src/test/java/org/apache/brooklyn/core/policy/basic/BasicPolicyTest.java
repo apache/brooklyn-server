@@ -178,16 +178,9 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
     public void testDurationConstraintInvalidSetLiveByNameCoerced() throws Exception {
         MyPolicyWithDuration policy = new MyPolicyWithDuration();
 
-        // currently untyped invalid reconfiguration is allowed, but get will fail, whether typed or not
-        // (this could be tightened in future)
+        // 2021-01 validation done even for untyped set config
         ConfigKey<Object> objKey = ConfigKeys.newConfigKey(Object.class, MyEntityWithDuration.DURATION_POSITIVE.getName());
-        policy.config().set(objKey, "-42m");
-
-        Asserts.assertFailsWith(() -> policy.config().get(MyEntityWithDuration.DURATION_POSITIVE),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
-
-        // 2021-01 untyped access also now does validation (in addition to type coercion)
-        Asserts.assertFailsWith(() -> policy.config().get(objKey),
+        Asserts.assertFailsWith(() -> policy.config().set(objKey, "-42m"),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
     }
 

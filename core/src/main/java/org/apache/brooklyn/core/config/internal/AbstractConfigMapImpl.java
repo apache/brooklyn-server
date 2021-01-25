@@ -256,6 +256,17 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
     /** see also {@link #resolveAndCoerce(BrooklynObject, String, Object, TypeToken, ConfigKey, ConfigKey)} */
     protected <T> Object coerceConfigValAndValidate(ConfigKey<T> key, Object v, boolean validate) {
+        Object result = coerceConfigValPreValidate(key, v);
+        // previously validation was only done in a few paths, and before coercion, and cast exceptions were ignored.
+        // now (2021) validation is done after coercion, on more paths but not all; but not for futures etc.
+        // now we are also validating on retrieval, for all types.
+        if (validate) {
+            assertValid(key, (T)result);
+        }
+        return result;
+    }
+
+    protected <T> Object coerceConfigValPreValidate(ConfigKey<T> key, Object v) {
         if ((v instanceof Future) || (v instanceof DeferredSupplier) || (v instanceof TaskFactory)) {
             // no coercion for these (coerce on exit)
             return v;
@@ -275,12 +286,6 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 throw Exceptions.propagateAnnotated("Cannot coerce or set "+v+" to "+key, e);
                 // in early days (<2017?) we would warn on setting, only throw on retrieval;
                 // but now throw on setting if it is coercible
-            }
-            // previously validation was only done in a few paths, and before coercion, and cast exceptions were ignored.
-            // now (2021) validation is done after coercion, on more paths but not all; but not for futures etc.
-            // now we are also validating on retrieval, for all types.
-            if (validate) {
-                assertValid(key, (T)v);
             }
             return result;
         }
