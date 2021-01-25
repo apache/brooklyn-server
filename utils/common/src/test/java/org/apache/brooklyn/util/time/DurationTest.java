@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.time;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -41,8 +42,8 @@ public class DurationTest {
 
     public void testStatics() {
         Assert.assertEquals((((4*60+3)*60)+30)*1000, 
-            Duration.ONE_MINUTE.times(3).
-                add(Duration.ONE_HOUR.times(4)).
+            Duration.ONE_MINUTE.multiply(3).
+                add(Duration.ONE_HOUR.multiply(4)).
                 add(Duration.THIRTY_SECONDS).
             toMilliseconds());
     }
@@ -50,6 +51,18 @@ public class DurationTest {
     public void testParse() {
         Assert.assertEquals((((4*60+3)*60)+30)*1000, 
                 Duration.of("4h 3m 30s").toMilliseconds());
+    }
+
+    public void testParseNegative() {
+        Assert.assertEquals(Duration.of("- 1 m 1 s"), Duration.seconds(-61));
+
+        Assert.assertEquals(Duration.of("-42 m"), Duration.minutes(-42));
+        Assert.assertEquals(Duration.of("-42m"), Duration.minutes(-42));
+        Assert.assertEquals(Duration.of("- 1 m 1 s"), Duration.seconds(-61));
+        Asserts.assertFailsWith(() -> Duration.of("-1m 1s"), e -> Asserts.expectedFailureContainsIgnoreCase(e, "negati", "space"));
+        Asserts.assertFailsWith(() -> Duration.of("1m -1s"), e -> Asserts.expectedFailureContainsIgnoreCase(e, "negati", "individual time unit"));
+        Asserts.assertFailsWith(() -> Duration.of("1m -1 s"), e -> Asserts.expectedFailureContainsIgnoreCase(e, "negati", "individual time unit"));
+        Asserts.assertFailsWith(() -> Duration.of("- 1m - 1s"), e -> Asserts.expectedFailureContainsIgnoreCase(e, "negati", "individual time unit"));
     }
 
     public void testConvesion() {
@@ -103,6 +116,10 @@ public class DurationTest {
         
         Assert.assertTrue(Duration.seconds(1).isLongerThan(Duration.ZERO));
         Assert.assertFalse(Duration.seconds(-1).isLongerThan(Duration.ZERO));
+    }
+
+    public void testIsPositive() {
+        Assert.assertTrue(Duration.minutes(1).isPositive());
     }
 
 }

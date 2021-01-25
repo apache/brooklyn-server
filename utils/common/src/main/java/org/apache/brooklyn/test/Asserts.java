@@ -1104,11 +1104,16 @@ public class Asserts {
             c.call();
         } catch (Throwable e) {
             failed = true;
-            if (!exceptionChecker.apply(e)) {
-                log.debug("Test threw invalid exception (failing)", e);
-                fail("Test threw invalid exception: "+e);
+            try {
+                if (!exceptionChecker.apply(e)) {
+                    log.warn("Test threw invalid exception (failing)", e);
+                    fail("Test threw invalid exception: " + e);
+                }
+                log.debug("Test for exception successful (" + e + ")");
+            } catch (Exception e2) {
+                log.warn("Test threw invalid exception (failing)", e);
+                throw Exceptions.propagate(e2);
             }
-            log.debug("Test for exception successful ("+e+")");
         }
         if (!failed) fail("Test code should have thrown exception but did not");
     }
@@ -1280,7 +1285,7 @@ public class Asserts {
     
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
-     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
+     * @return as per {@link #expectedFailureOfType(Throwable, Class, Class...)} */
     public static boolean expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
@@ -1304,7 +1309,7 @@ public class Asserts {
 
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
-     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
+     * @return as per {@link #expectedFailureOfType(Throwable, Class, Class...)} */
     public static boolean expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
@@ -1315,7 +1320,7 @@ public class Asserts {
         return true;
     }
     
-    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class...)} and others,
+    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class, Class...)} and others,
      * to log interesting earlier errors but to suppress those which are internal or redundant. */
     private static void rethrowPreferredException(Throwable earlierPreferredIfFatalElseLogged, Throwable laterPreferredOtherwise) throws AssertionError {
         if (!(earlierPreferredIfFatalElseLogged instanceof AssertionError)) {

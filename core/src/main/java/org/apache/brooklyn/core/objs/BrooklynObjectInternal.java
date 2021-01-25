@@ -148,15 +148,20 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
          * This will include catching {@link ImmediateUnsupportedException} 
          * and returning it as an absence, thus making the semantics here slightly
          * "safer" than that of {@link ImmediateSupplier#getImmediately()}.
+         * <p>
+         * By default does not validate.  Use {@link #getNonBlocking(ConfigKey, boolean)} to invoke validation.
          */
         @Beta
         <T> Maybe<T> getNonBlocking(ConfigKey<T> key);
+
+        <T> Maybe<T> getNonBlocking(ConfigKey<T> key, boolean validate);
 
         /**
          * @see {@link #getNonBlocking(ConfigKey)}
          */
         @Beta
         <T> Maybe<T> getNonBlocking(HasConfigKey<T> key);
+        <T> Maybe<T> getNonBlocking(HasConfigKey<T> key, boolean validate);
 
         /** Adds keys or strings, making anonymous keys from strings; throws on other keys */
         @Beta

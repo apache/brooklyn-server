@@ -357,11 +357,6 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         // (now gives us inheritance correctly -- for free!)
 
         @Override
-        protected <T> void assertValid(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(AbstractLocation.this, key, val);
-        }
-
-        @Override
         protected <T> void onConfigChanging(ConfigKey<T> key, Object val) {
         }
         

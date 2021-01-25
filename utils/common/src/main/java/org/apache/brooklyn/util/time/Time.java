@@ -446,52 +446,79 @@ public class Time {
      * Parses a string eg '5s' or '20m 22.123ms', returning the number of milliseconds it represents; 
      * -1 on blank or never or off or false.
      * Assumes unit is millisections if no unit is specified.
-     * 
+     * <p>
+     * Negation is permitted if there is just one unit or if it is at the start with a space.
+     * Negative values are not permitted elsewhere.  So the following are allowed:
+     *
+     * * -1m is clear (-60 seconds) -- initial negation with just one unit
+     * * - 1m 1s = -61 seconds -- ie initial negation _with space_ applies to entire line
+     *
+     * But these are not:
+     *
+     * * -1m 1s
+     * * -1m -1s
+     * * - 1m -1s
+     * * 1m -1s
+     *
      * @throws NullPointerException if arg is null
      * @throws NumberFormatException if cannot be parsed
      */
-    public static double parseElapsedTimeAsDouble(final String timeStringOrig) {
-        String timeString = timeStringOrig;
+    public static double parseElapsedTimeAsDouble(final String timeString) {
+        return parseElapsedTimeAsDouble(timeString, timeString, true, true);
+    }
+
+    private static double parseElapsedTimeAsDouble(final String timeStringOrig, String timeString, boolean allowNonUnit, boolean allowNegative) {
         if (timeString==null)
             throw new NullPointerException("GeneralHelper.parseTimeString cannot parse a null string");
         try {
-            if (timeString.trim().matches(".*[A-Za-z]$")) {
-                // disable parsing eg 1d as a double
-            } else {
-                double d = Double.parseDouble(timeString);
-                return d;
+            if (allowNonUnit) {
+                if (timeString.trim().matches(".*[A-Za-z]$")) {
+                    // disable parsing eg 1d as a double
+                } else {
+                    double d = Double.parseDouble(timeString);
+                    return d;
+                }
             }
         } catch (NumberFormatException e) {
             log.trace("Unable to parse '%s' as pure number. Trying smart parse.", timeStringOrig, e);
         }
+        boolean isNegative = false;
+        String multipleUnitsDisallowedBecause = null;
         try {
             //look for a type marker
             timeString = timeString.trim();
-            String s = Strings.getLastWord(timeString).toLowerCase();
-            timeString = timeString.substring(0, timeString.length()-s.length()).trim();
             int i=0;
-            while (s.length()>i) {
-                char c = s.charAt(i);
+            if (timeString.startsWith("-")) {
+                if (allowNegative) {
+                    isNegative = true;
+                } else {
+                    throw new NumberFormatException("Negation is not permitted on an individual time unit in a duration");
+                }
+                timeString = timeString.substring(1);
+                if (!timeString.startsWith(" ")) {
+                    multipleUnitsDisallowedBecause = "Negation must have a space after it to apply to mulitple units";
+                } else while (timeString.startsWith(" ")) {
+                    timeString = timeString.substring(1);
+                }
+            }
+            while (i < timeString.length()) {
+                char c = timeString.charAt(i);
                 if (c=='.' || Character.isDigit(c)) i++;
                 else break;
             }
-            String num = s.substring(0, i);
-            if (i==0) {
-                if (Strings.isNonBlank(timeString)) {
-                    num = Strings.getLastWord(timeString).toLowerCase();
-                    timeString = timeString.substring(0, timeString.length()-num.length()).trim();
-                }
-            } else {
-                s = s.substring(i);
-            }
+            String num = timeString.substring(0, i);
+            timeString = timeString.substring(i).trim();
             long multiplier = 0;
-            if (num.length()==0) {
+            if (num.isEmpty()) {
                 //must be never or something
                 // TODO does 'never' work?
-                if (s.equalsIgnoreCase("never") || s.equalsIgnoreCase("off") || s.equalsIgnoreCase("false"))
+                if (allowNegative && !isNegative && (timeString.equalsIgnoreCase("never") || timeString.equalsIgnoreCase("off") || timeString.equalsIgnoreCase("false"))) {
                     return -1;
-                throw new NumberFormatException("unrecognised word  '"+s+"' in time string");
+                }
+                throw new NumberFormatException("Invalid duration string '"+timeStringOrig+"'");
             }
+            String s = Strings.getFirstWord(timeString);
+            timeString = timeString.substring(s.length()).trim();
             if (s.equalsIgnoreCase("ms") || s.equalsIgnoreCase("milli") || s.equalsIgnoreCase("millis")
                 || s.equalsIgnoreCase("millisec") || s.equalsIgnoreCase("millisecs")
                 || s.equalsIgnoreCase("millisecond") || s.equalsIgnoreCase("milliseconds"))
@@ -509,15 +536,19 @@ public class Time {
                 multiplier = 24*60*60*1000;
             else
                 throw new NumberFormatException("Unknown unit '"+s+"' in time string '"+timeStringOrig+"'");
+
             double d = Double.parseDouble(num);
             double dd = 0;
             if (timeString.length()>0) {
-                dd = parseElapsedTimeAsDouble(timeString);
+                if (multipleUnitsDisallowedBecause!=null) {
+                    throw new NumberFormatException(multipleUnitsDisallowedBecause);
+                }
+                dd = parseElapsedTimeAsDouble(timeStringOrig, timeString, false, false);
                 if (dd==-1) {
                     throw new NumberFormatException("Cannot combine '"+timeString+"' with '"+num+" "+s+"'");
                 }
             }
-            return d*multiplier + dd;
+            return (d*multiplier + dd) * (isNegative ? -1 : 1);
         } catch (Exception ex) {
             if (ex instanceof NumberFormatException) throw (NumberFormatException)ex;
             log.trace("Details of parse failure:", ex);
