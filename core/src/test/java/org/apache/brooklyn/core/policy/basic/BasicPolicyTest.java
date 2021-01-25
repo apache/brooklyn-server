@@ -18,9 +18,15 @@
  */
 package org.apache.brooklyn.core.policy.basic;
 
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.entity.EntityConfigTest.MyEntityWithDuration;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.DurationPredicates;
+import org.apache.brooklyn.util.time.Time;
+import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -153,22 +159,70 @@ public class BasicPolicyTest extends BrooklynAppUnitTestSupport {
     }
 
     @Test
-    public void testDurationConstraintInvalidAddInstance() throws Exception {
+    public void testDurationConstraintInvalidSetLive() throws Exception {
         MyPolicyWithDuration policy = new MyPolicyWithDuration();
-        policy.config().set(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-1));
-
-        app.policies().add(policy);
-        assertTrue(Iterables.tryFind(app.policies(), Predicates.equalTo(policy)).isPresent());
-
-        assertEquals(policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+        Asserts.assertFailsWith(() -> policy.config().set(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-42)),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
     }
 
     @Test
     public void testDurationConstraintInvalidAddSpec() throws Exception {
-        MyPolicy policy = app.policies().add(PolicySpec.create(MyPolicyWithDuration.class)
-                .configure(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-1)));
+        PolicySpec<MyPolicyWithDuration> spec = PolicySpec.create(MyPolicyWithDuration.class)
+                .configure(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-42));
 
-        assertEquals(policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE), Duration.ONE_MINUTE);
+        Asserts.assertFailsWith(() -> app.policies().add(spec),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidSetLiveByNameCoerced() throws Exception {
+        MyPolicyWithDuration policy = new MyPolicyWithDuration();
+
+        // currently untyped invalid reconfiguration is allowed, but get will fail, whether typed or not
+        // (this could be tightened in future)
+        ConfigKey<Object> objKey = ConfigKeys.newConfigKey(Object.class, MyEntityWithDuration.DURATION_POSITIVE.getName());
+        policy.config().set(objKey, "-42m");
+
+        Asserts.assertFailsWith(() -> policy.config().get(MyEntityWithDuration.DURATION_POSITIVE),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+
+        // TODO untyped access causes typing but not validation
+        Assert.assertEquals(policy.config().get(objKey), Duration.minutes(-42));
+//        Asserts.assertFailsWith(() -> ent.config().get(objKey),
+//                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+
+    }
+
+    @Test
+    public void testDurationConstraintInvalidAddSpecByNameCoerced() throws Exception {
+        PolicySpec<MyPolicyWithDuration> spec = PolicySpec.create(MyPolicyWithDuration.class)
+                .configure(MyPolicyWithDuration.DURATION_POSITIVE.getName(), "-42m");
+
+        Asserts.assertFailsWith(() -> app.policies().add(spec),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidDeferredSupplier() throws Exception {
+        AtomicInteger invocationCount = new AtomicInteger(0);
+        DeferredSupplier<Duration> deferred = new DeferredSupplier<Duration>() {
+            @Override
+            public Duration get() {
+                Time.sleep(Duration.millis(10));
+                invocationCount.incrementAndGet();
+                return Duration.minutes(-42);
+            }
+        };
+        PolicySpec<MyPolicyWithDuration> spec = PolicySpec.create(MyPolicyWithDuration.class)
+                .configure(MyPolicyWithDuration.DURATION_POSITIVE.getName(), deferred);
+        MyPolicyWithDuration policy = app.policies().add(spec);
+        // shouldn't be accessible on setup due to get immediate semantics
+        Assert.assertEquals(invocationCount.get(), 0);
+
+        Asserts.assertFailsWith(() -> policy.getConfig(MyPolicyWithDuration.DURATION_POSITIVE),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+
+        Asserts.assertThat(invocationCount.get(), t -> t>0, "invocation should have happened at least once");
     }
 
 }

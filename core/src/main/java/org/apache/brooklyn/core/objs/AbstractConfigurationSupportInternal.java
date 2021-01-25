@@ -83,7 +83,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
             if (key instanceof StructuredConfigKey || key instanceof SubElementConfigKey) {
                 return getNonBlockingResolvingStructuredKey(key);
             } else {
-                return getNonBlockingResolvingSimple(key);
+                return getNonBlockingResolvingSimple(key).transform(v -> ensureValid(key, v));
             }
         } catch (ImmediateValueNotAvailableException e) {
             return Maybe.absent(e);
@@ -154,13 +154,17 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
 
     protected abstract AbstractConfigMapImpl<? extends BrooklynObject> getConfigsInternal();
     protected abstract <T> void assertValid(ConfigKey<T> key, T val);
+    protected <T> T ensureValid(ConfigKey<T> key, T val) {
+        assertValid(key, val);
+        return val;
+    }
     protected abstract BrooklynObject getContainer();
     protected abstract <T> void onConfigChanging(ConfigKey<T> key, Object val);
     protected abstract <T> void onConfigChanged(ConfigKey<T> key, Object val);
 
     @Override
     public <T> T get(ConfigKey<T> key) {
-        return getConfigsInternal().getConfig(key);
+        return ensureValid( key, (T) getConfigsInternal().getConfig(key) );
     }
 
     @SuppressWarnings("unchecked")

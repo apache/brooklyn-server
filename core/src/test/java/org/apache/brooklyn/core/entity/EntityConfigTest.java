@@ -557,7 +557,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         }
     }
     
-    @Test(groups="Integration") // still takes 1s+ -- because we don't want to interrupt the task, we have to run it in BG
+    @Test
     public void testGetTaskNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingTask().runGetConfigNonBlockingInKey(); 
     }
@@ -588,7 +588,7 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
     public void testGetInterruptingImmediateSupplierNonBlockingKey() throws Exception {
         new ConfigNonBlockingFixture().usingInterruptingImmediateSupplier().runGetConfigNonBlockingInKey(); 
     }
-    @Test(groups="Integration") // because takes 1s+
+    @Test
     public void testGetInterruptingImmediateSupplierNonBlockingMap() throws Exception {
         new ConfigNonBlockingFixture().usingInterruptingImmediateSupplier().runGetConfigNonBlockingInMap(); 
     }
@@ -955,7 +955,6 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         EntitySpec<MyEntityWithDuration> spec = EntitySpec.create(MyEntityWithDuration.class)
                 .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "-42m");
 
-        // TODO below should fail because we should do the validation _after_ coercion
         Asserts.assertFailsWith(() -> app.addChild(spec),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
     }
@@ -966,27 +965,57 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 .child(EntitySpec.create(MyEntityWithDuration.class)
                         .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "-42m"));
 
-        // TODO below should fail because we should do the validation _after_ coercion
         Asserts.assertFailsWith(() -> mgmt.getEntityManager().createEntity(app2),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
     }
 
     @Test
+    public void testDurationConstraintInvalidSetLiveTyped() throws Exception {
+        EntitySpec<TestApplication> app2 = EntitySpec.create(TestApplication.class)
+                .child(EntitySpec.create(MyEntityWithDuration.class)
+                        .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "1m"));
+        TestApplication ent = mgmt.getEntityManager().createEntity(app2);
+        Asserts.assertFailsWith(() -> ent.config().set(MyPolicyWithDuration.DURATION_POSITIVE, Duration.minutes(-42)),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
+    public void testDurationConstraintInvalidSetLiveFromStringCoerced() throws Exception {
+        EntitySpec<TestApplication> app2 = EntitySpec.create(TestApplication.class)
+                .child(EntitySpec.create(MyEntityWithDuration.class)
+                        .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), "1m"));
+        Entity ent = Iterables.getOnlyElement( mgmt.getEntityManager().createEntity(app2).getChildren() );
+
+        // currently untyped invalid reconfiguration is allowed, but get will fail, whether typed or not
+        // (this could be tightened in future)
+        ConfigKey<Object> objKey = ConfigKeys.newConfigKey(Object.class, MyEntityWithDuration.DURATION_POSITIVE.getName());
+        ent.config().set(objKey, "-42m");
+
+        Asserts.assertFailsWith(() -> ent.config().get(MyEntityWithDuration.DURATION_POSITIVE),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+
+        // TODO untyped access causes typing but not validation
+        Assert.assertEquals(ent.config().get(objKey), Duration.minutes(-42));
+//        Asserts.assertFailsWith(() -> ent.config().get(objKey),
+//                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+    }
+
+    @Test
     public void testDurationConstraintDeferredSupplier() throws Exception {
         AtomicInteger invocationCount = new AtomicInteger(0);
+        DeferredSupplier<Duration> deferred = new DeferredSupplier<Duration>() {
+            @Override
+            public Duration get() {
+                Time.sleep(Duration.millis(10));
+                invocationCount.incrementAndGet();
+                return Duration.minutes(-42);
+            }
+        };
         MyEntityWithDuration child = app.addChild(EntitySpec.create(MyEntityWithDuration.class)
-                .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), new DeferredSupplier<Duration>() {
-                    @Override
-                    public Duration get() {
-                        Time.sleep(Duration.millis(10));
-                        invocationCount.incrementAndGet();
-                        return Duration.minutes(-42);
-                    }
-                }));
+                .configure(MyEntityWithDuration.DURATION_POSITIVE.getName(), deferred));
         // shouldn't be accessible on setup due to get immediate semantics
         Assert.assertEquals(invocationCount.get(), 0);
 
-        // TODO should fail because we should validate on the _get_ if the value is/was deferred
         Asserts.assertFailsWith(() -> child.getConfig(MyPolicyWithDuration.DURATION_POSITIVE),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
 
