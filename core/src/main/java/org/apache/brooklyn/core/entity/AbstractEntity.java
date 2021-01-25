@@ -1101,11 +1101,6 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     public class BasicConfigurationSupport extends AbstractConfigurationSupportInternal {
 
         @Override
-        protected <T> void assertValid(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(AbstractEntity.this, key, val);
-        }
-        
-        @Override
         protected AbstractConfigMapImpl<?> getConfigsInternal() {
             return configsInternal;
         }

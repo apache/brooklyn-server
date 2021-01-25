@@ -91,6 +91,10 @@ public abstract class ConfigConstraints<T> {
         assertValid(new EntityConfigConstraints(entity), entity, key, value);
     }
 
+    public static <T> void assertValid(EntityAdjunct adj, ConfigKey<T> key, T value) {
+        assertValid(new EntityAdjunctConstraints(adj), adj, key, value);
+    }
+
     public static <T> void assertValid(Location location, ConfigKey<T> key, T value) {
         assertValid(new LocationConfigConstraints(location), location, key, value);
     }
@@ -261,7 +265,7 @@ public abstract class ConfigConstraints<T> {
         @Override
         public Maybe<?> getValue(ConfigKey<?> configKey) {
             // getNonBlocking method coerces the value to the config key's type.
-            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey);
+            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey, false);
         }
 
         @Nullable
@@ -290,7 +294,7 @@ public abstract class ConfigConstraints<T> {
         @Override
         public Maybe<?> getValue(ConfigKey<?> configKey) {
             // getNonBlocking method coerces the value to the config key's type.
-            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey);
+            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey, false);
         }
 
         @Nullable
@@ -318,13 +322,13 @@ public abstract class ConfigConstraints<T> {
         @Override
         public Maybe<?> getValue(ConfigKey<?> configKey) {
             // getNonBlocking method coerces the value to the config key's type.
-            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey);
+            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey, false);
         }
 
         @Nullable
         @Override
         public ExecutionContext getExecutionContext() {
-            return getSource() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getSource()).getExecutionContext() : null;
+            return null;
         }
     }
 
@@ -400,7 +404,7 @@ public abstract class ConfigConstraints<T> {
                 ConfigKey<Object> otherKey = ConfigKeys.newConfigKey(Object.class, otherKeyName);
                 BrooklynObjectInternal.ConfigurationSupportInternal configInternal = ((BrooklynObjectInternal) context).config();
                 
-                Maybe<?> maybeValue = configInternal.getNonBlocking(otherKey);
+                Maybe<?> maybeValue = configInternal.getNonBlocking(otherKey, false);
                 if (maybeValue.isPresent()) {
                     vals.add(maybeValue.get());
                 } else {

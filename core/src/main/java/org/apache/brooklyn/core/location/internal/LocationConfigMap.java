@@ -29,7 +29,9 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -71,6 +73,11 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
             if (mgmt==null) return null;
             return mgmt.getServerExecutionContext();
         }
+    }
+
+    @Override
+    public <T> void assertValid(ConfigKey<T> key, T val) {
+        ConfigConstraints.assertValid((Location) getContainer(), key, val);
     }
 
     @Override

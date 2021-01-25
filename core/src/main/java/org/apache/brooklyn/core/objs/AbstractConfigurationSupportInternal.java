@@ -76,14 +76,24 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     public <T> Maybe<T> getNonBlocking(HasConfigKey<T> key) {
         return getNonBlocking(key.getConfigKey());
     }
+    public <T> Maybe<T> getNonBlocking(HasConfigKey<T> key, boolean validate) {
+        return getNonBlocking(key.getConfigKey(), validate);
+    }
 
     @Override
     public <T> Maybe<T> getNonBlocking(final ConfigKey<T> key) {
+        return getNonBlocking(key, false);
+    }
+
+    @Override
+    public <T> Maybe<T> getNonBlocking(final ConfigKey<T> key, boolean validate) {
         try {
             if (key instanceof StructuredConfigKey || key instanceof SubElementConfigKey) {
                 return getNonBlockingResolvingStructuredKey(key);
             } else {
-                return getNonBlockingResolvingSimple(key).transform(v -> ensureValid(key, v));
+                Maybe<T> result = getNonBlockingResolvingSimple(key);
+                if (validate) result = result.transform(v -> ensureValid(key, v));
+                return result;
             }
         } catch (ImmediateValueNotAvailableException e) {
             return Maybe.absent(e);
@@ -153,7 +163,9 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     protected abstract AbstractConfigMapImpl<? extends BrooklynObject> getConfigsInternal();
-    protected abstract <T> void assertValid(ConfigKey<T> key, T val);
+    protected final <T> void assertValid(ConfigKey<T> key, T val) {
+        getConfigsInternal().assertValid(key, val);
+    }
     protected <T> T ensureValid(ConfigKey<T> key, T val) {
         assertValid(key, val);
         return val;
@@ -168,7 +180,7 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> T setConfigInternal(ConfigKey<T> key, Object val, @Nullable Consumer<T> validate) {
+    protected <T> T setConfigInternal(ConfigKey<T> key, Object val, boolean validate) {
         onConfigChanging(key, val);
         Pair<Object, Object> set = getConfigsInternal().setConfigCoercingAndValidating(key, val, validate);
         onConfigChanged(key, set.getRight());
@@ -177,12 +189,12 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
 
     @Override
     public <T> T set(ConfigKey<T> key, T val) {
-        return setConfigInternal(key, val, v -> assertValid(key, v));
+        return setConfigInternal(key, val, true);
     }
 
     @Override
     public <T> T set(ConfigKey<T> key, Task<T> val) {
-        return setConfigInternal(key, val, null /* validation not done on set for tasks/futures; but is done on retrieval */);
+        return setConfigInternal(key, val, false /* validation not done on set for tasks/futures; but is done on retrieval */);
     }
 
     @Override

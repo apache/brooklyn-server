@@ -994,10 +994,9 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
         Asserts.assertFailsWith(() -> ent.config().get(MyEntityWithDuration.DURATION_POSITIVE),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
 
-        // TODO untyped access causes typing but not validation
-        Assert.assertEquals(ent.config().get(objKey), Duration.minutes(-42));
-//        Asserts.assertFailsWith(() -> ent.config().get(objKey),
-//                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
+        // 2021-01 untyped access also now does validation (in addition to type coercion)
+        Asserts.assertFailsWith(() -> ent.config().get(objKey),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "-42m", "positive"));
     }
 
     @Test

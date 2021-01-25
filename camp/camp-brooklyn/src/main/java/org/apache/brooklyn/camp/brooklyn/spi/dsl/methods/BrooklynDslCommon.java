@@ -205,7 +205,7 @@ public class BrooklynDslCommon {
             }
             String keyNameS = resolveKeyName(true);
             ConfigKey<Object> key = ConfigKeys.newConfigKey(Object.class, keyNameS);
-            Maybe<? extends Object> result = ((AbstractConfigurationSupportInternal)obj.config()).getNonBlocking(key);
+            Maybe<? extends Object> result = ((AbstractConfigurationSupportInternal)obj.config()).getNonBlocking(key, true);
             return Maybe.<Object>cast(result);
         }
 
