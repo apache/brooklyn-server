@@ -163,20 +163,22 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     protected abstract AbstractConfigMapImpl<? extends BrooklynObject> getConfigsInternal();
-    protected final <T> void assertValid(ConfigKey<T> key, T val) {
-        getConfigsInternal().assertValid(key, val);
-    }
+
     protected <T> T ensureValid(ConfigKey<T> key, T val) {
-        assertValid(key, val);
+        if (key!=null) {
+            getConfigsInternal().assertValid(key, val);
+        }
         return val;
     }
+
     protected abstract BrooklynObject getContainer();
     protected abstract <T> void onConfigChanging(ConfigKey<T> key, Object val);
     protected abstract <T> void onConfigChanged(ConfigKey<T> key, Object val);
 
     @Override
     public <T> T get(ConfigKey<T> key) {
-        return ensureValid( key, (T) getConfigsInternal().getConfig(key) );
+        // validation done by getConfig call below
+        return (T) getConfigsInternal().getConfig(key);
     }
 
     @SuppressWarnings("unchecked")

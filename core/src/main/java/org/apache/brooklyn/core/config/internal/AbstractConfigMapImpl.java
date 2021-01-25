@@ -254,7 +254,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return coerceConfigValAndValidate(key, v, false);
     }
 
-    /** see also {@link #resolveAndCoerce(BrooklynObject, String, Object, TypeToken, ConfigKey, ConfigKey)} */
+    /** see also {@link #resolveCoerceAndValidate(BrooklynObject, String, Object, TypeToken, ConfigKey, ConfigKey)} */
     protected <T> Object coerceConfigValAndValidate(ConfigKey<T> key, Object v, boolean validate) {
         Object result = coerceConfigValPreValidate(key, v);
         // previously validation was only done in a few paths, and before coercion, and cast exceptions were ignored.
@@ -381,7 +381,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
 
     /** see also {@link #coerceConfigVal(ConfigKey, Object)} */
     @SuppressWarnings("unchecked")
-    protected <T> T resolveAndCoerce(TContainer container, String name, Object value, TypeToken<T> type, ConfigKey<?> key1, ConfigKey<?> key2) {
+    protected <T> T resolveCoerceAndValidate(TContainer container, String name, Object value, TypeToken<T> type, ConfigKey<?> key1, ConfigKey<?> key2) {
         if (type==null || value==null) return (T) value;
         ExecutionContext exec = getExecutionContext(container);
         try {
@@ -430,7 +430,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
                 // use lambda to defer execution if default value not needed.
                 // this coercion should never be persisted so this is safe.
-                return new MaybeSupplier<T>(() -> (resolveAndCoerce(getContainer(), ownKey.getName(), input.get(), type, ownKey, queryKey)));
+                return new MaybeSupplier<T>(() -> (resolveCoerceAndValidate(getContainer(), ownKey.getName(), input.get(), type, ownKey, queryKey)));
             }
         };
         // prefer default and type of ownKey
