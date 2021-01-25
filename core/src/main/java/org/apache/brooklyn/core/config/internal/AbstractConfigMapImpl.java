@@ -250,7 +250,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return getParentInternal().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
     }
 
-    protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
+    protected final Object coerceConfigVal(ConfigKey<?> key, Object v) {
         return coerceConfigValAndValidate(key, v, false);
     }
 
