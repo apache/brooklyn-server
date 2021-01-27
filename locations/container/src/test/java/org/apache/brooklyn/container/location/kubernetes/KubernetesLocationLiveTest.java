@@ -194,12 +194,12 @@ public class KubernetesLocationLiveTest extends BrooklynAppLiveTestSupport {
                 .build());
         assertTrue(machine.isSshable());
 
-        String publicHostText = machine.getSshHostAndPort().getHost();
+        String publicHostText = machine.getSshHostAndPort().getHostText();
         PortForwardManager pfm = (PortForwardManager) mgmt.getLocationRegistry().getLocationManaged(PortForwardManagerLocationResolver.PFM_GLOBAL_SPEC);
         for (int targetPort : inboundPorts) {
             HostAndPort mappedPort = pfm.lookup(machine, targetPort);
             assertNotNull(mappedPort, "no mapping for targetPort " + targetPort);
-            assertEquals(mappedPort.getHost(), publicHostText);
+            assertEquals(mappedPort.getHostText(), publicHostText);
             assertTrue(mappedPort.hasPort(), "no port-part in " + mappedPort + " for targetPort " + targetPort);
         }
     }

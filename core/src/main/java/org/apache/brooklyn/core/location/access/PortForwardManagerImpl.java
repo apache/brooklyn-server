@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.google.common.base.MoreObjects.ToStringHelper;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.rebind.RebindContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
@@ -41,6 +40,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
@@ -175,7 +175,7 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
 
     protected void associateImpl(String publicIpId, HostAndPort publicEndpoint, Location l, int privatePort) {
         synchronized (mutex) {
-            String publicIp = publicEndpoint.getHost();
+            String publicIp = publicEndpoint.getHostText();
             int publicPort = publicEndpoint.getPort();
             recordPublicIpHostname(publicIpId, publicIp);
             PortMapping mapping = new PortMapping(publicIpId, publicEndpoint, l, privatePort);
@@ -328,7 +328,7 @@ public class PortForwardManagerImpl extends AbstractLocation implements PortForw
     }
 
     private AssociationMetadata associationMetadataFromPortMapping(PortMapping portMapping) {
-        String publicIpId = portMapping.getPublicEndpoint().getHost();
+        String publicIpId = portMapping.getPublicEndpoint().getHostText();
         HostAndPort publicEndpoint = portMapping.getPublicEndpoint();
         Location location = portMapping.getTarget();
         int privatePort = portMapping.getPrivatePort();

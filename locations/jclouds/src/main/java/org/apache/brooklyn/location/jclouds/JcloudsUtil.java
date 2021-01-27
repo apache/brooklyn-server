@@ -79,7 +79,7 @@ public class JcloudsUtil {
         Iterable<HostAndPort> addresses = getReachableAddresses(node, timeout, socketTester);
         HostAndPort address = Iterables.getFirst(addresses, null);
         if (address != null) {
-            return address.getHost();
+            return address.getHostText();
         } else {
             throw new IllegalStateException("No reachable IPs for " + node + "; check whether the node is " +
                     "reachable and whether it meets the requirements of the HostAndPort tester: " + socketTester);

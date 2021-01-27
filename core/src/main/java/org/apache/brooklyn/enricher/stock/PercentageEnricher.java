@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.enricher.stock;
 
-import com.google.common.base.MoreObjects;
 import org.apache.brooklyn.api.catalog.Catalog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,7 +87,7 @@ public class PercentageEnricher extends AbstractEnricher implements SensorEventL
         sourceCurrentSensor = Preconditions.checkNotNull(config().get(SOURCE_CURRENT_SENSOR), "Can't add percentage enricher to entity %s as it has no %s", entity, SOURCE_CURRENT_SENSOR.getName());
         sourceTotalSensor = Preconditions.checkNotNull(config().get(SOURCE_TOTAL_SENSOR), "Can't add percentage enricher to entity %s as it has no %s", entity, SOURCE_TOTAL_SENSOR.getName());
         targetSensor = Preconditions.checkNotNull(config().get(TARGET_SENSOR), "Can't add percentage enricher to entity %s as it has no %s", entity, TARGET_SENSOR.getName());
-        producer = MoreObjects.firstNonNull(config().get(PRODUCER), entity);
+        producer = Objects.firstNonNull(config().get(PRODUCER), entity);
 
         if (targetSensor.equals(sourceCurrentSensor) && entity.equals(producer)) {
             throw new IllegalArgumentException("Can't add percentage enricher to entity " + entity + " as cycle detected with " + SOURCE_CURRENT_SENSOR.getName());

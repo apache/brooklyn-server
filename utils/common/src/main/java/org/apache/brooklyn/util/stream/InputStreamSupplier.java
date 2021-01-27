@@ -22,11 +22,12 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import com.google.common.io.ByteSource;
+import com.google.common.io.InputSupplier;
 
 /** @deprecated since 0.10.0; underlying guava deprecated; 
  * guava says to use a {@link ByteSource}; and in many cases there's also a better way */
 @Deprecated
-public class InputStreamSupplier extends ByteSource {
+public class InputStreamSupplier implements InputSupplier<InputStream> {
 
     private final InputStream target;
 
@@ -34,9 +35,9 @@ public class InputStreamSupplier extends ByteSource {
         this.target = target;
     }
 
-    @Deprecated
+    @Override
     public InputStream getInput() throws IOException {
-        return openStream();
+        return target;
     }
 
     public static InputStreamSupplier of(InputStream target) {
@@ -47,8 +48,4 @@ public class InputStreamSupplier extends ByteSource {
         return new InputStreamSupplier(Streams.newInputStreamWithContents(input));
     }
 
-    @Override
-    public InputStream openStream() throws IOException {
-        return target;
-    }
 }

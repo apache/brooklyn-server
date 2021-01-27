@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import com.google.common.base.MoreObjects;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
@@ -74,6 +73,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
+import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -609,8 +609,8 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
     }
 
     /** override this, adding to the returned value, to supply additional fields to include in the toString */
-    protected MoreObjects.ToStringHelper string() {
-        return MoreObjects.toStringHelper(getClass()).add("id", getId()).add("name", name);
+    protected ToStringHelper string() {
+        return Objects.toStringHelper(getClass()).add("id", getId()).add("name", name);
     }
     
     @Override

@@ -184,7 +184,7 @@ public class SoftwareProcessEntityHttpFeedRebindTest extends RebindTestFixtureWi
             HostAndPort accessible = BrooklynAccessUtils.getBrooklynAccessibleAddress(this, port);
             if (accessible!=null) {
                 try {
-                    URI result = new URI(mockUrl.getScheme(), mockUrl.getUserInfo(), accessible.getHost(), accessible.getPort(), mockUrl.getPath(), mockUrl.getQuery(), mockUrl.getFragment());
+                    URI result = new URI(mockUrl.getScheme(), mockUrl.getUserInfo(), accessible.getHostText(), accessible.getPort(), mockUrl.getPath(), mockUrl.getQuery(), mockUrl.getFragment());
                     return result.toString();
                 } catch (URISyntaxException e) {
                     throw Exceptions.propagate(e);

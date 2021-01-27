@@ -28,8 +28,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
 
-import com.google.common.base.MoreObjects;
-import com.google.common.base.MoreObjects.ToStringHelper;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -110,6 +108,7 @@ import org.slf4j.LoggerFactory;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1301,7 +1300,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
      * Cannot be used in combination with overriding the deprecated toStringFieldsToInclude.
      */
     protected ToStringHelper toStringHelper() {
-        return MoreObjects.toStringHelper(this).omitNullValues().add("id", getId());
+        return Objects.toStringHelper(this).omitNullValues().add("id", getId());
     }
     
     // -------- INITIALIZATION --------------

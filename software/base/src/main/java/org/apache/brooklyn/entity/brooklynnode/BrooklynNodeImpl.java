@@ -458,11 +458,11 @@ public class BrooklynNodeImpl extends SoftwareProcessImpl implements BrooklynNod
         if (isHttpProtocolEnabled("http")) {
             int port = getConfig(PORT_MAPPER).apply(getAttribute(HTTP_PORT));
             HostAndPort accessible = BrooklynAccessUtils.getBrooklynAccessibleAddress(this, port);
-            webConsoleUri = URI.create(String.format("http://%s:%s", accessible.getHost(), accessible.getPort()));
+            webConsoleUri = URI.create(String.format("http://%s:%s", accessible.getHostText(), accessible.getPort()));
         } else if (isHttpProtocolEnabled("https")) {
             int port = getConfig(PORT_MAPPER).apply(getAttribute(HTTPS_PORT));
             HostAndPort accessible = BrooklynAccessUtils.getBrooklynAccessibleAddress(this, port);
-            webConsoleUri = URI.create(String.format("https://%s:%s", accessible.getHost(), accessible.getPort()));
+            webConsoleUri = URI.create(String.format("https://%s:%s", accessible.getHostText(), accessible.getPort()));
         } else {
             // web-console is not enabled
             webConsoleUri = null;

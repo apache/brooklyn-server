@@ -589,7 +589,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     protected void registerPortMappings(KubernetesSshMachineLocation machine, Entity entity, Service service) {
         PortForwardManager portForwardManager = getPortForwardManager();
         List<ServicePort> ports = service.getSpec().getPorts();
-        String publicHostText = machine.getSshHostAndPort().getHost();
+        String publicHostText = machine.getSshHostAndPort().getHostText();
         LOG.debug("Recording port-mappings for container {} of {}: {}", machine, this, ports);
 
         for (ServicePort port : ports) {
@@ -1059,7 +1059,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
     }
 
     public boolean implementsInterface(Entity entity, Class<?> type) {
-        return Iterables.tryFind(Arrays.asList(entity.getClass().getInterfaces()), Predicates.subtypeOf(type)).isPresent();
+        return Iterables.tryFind(Arrays.asList(entity.getClass().getInterfaces()), Predicates.assignableFrom(type)).isPresent();
     }
 
     @Override

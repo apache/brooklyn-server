@@ -450,11 +450,11 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         
         TypeToken<?> ownType = ownKey.getTypeToken();
         TypeToken<?> queryType = queryKey.getTypeToken();
-        if (ownType.isSubtypeOf(queryType)) {
+        if (queryType.isAssignableFrom(ownType)) {
             // own type is same or more specific, normal path
             return ownType;
         }
-        if (queryType.isSubtypeOf(ownType)) {
+        if (ownType.isAssignableFrom(queryType)) {
             // query type is more specific than type defined; unusual but workable
             LOG.debug("Query for "+queryKey+" wants more specific type than key "+ownKey+" declared on "+context+" (unusual but clear what to do)");
             // previously (to 2017-11) we used the less specific type, only issue noticed was if an anonymous key is persisted

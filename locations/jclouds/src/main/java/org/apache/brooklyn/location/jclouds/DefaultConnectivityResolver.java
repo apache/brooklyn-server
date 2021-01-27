@@ -229,7 +229,7 @@ public class DefaultConnectivityResolver extends InitializerPatternForConfigurab
         }
 
         if (contextEntity != null) {
-            contextEntity.sensors().set(Attributes.ADDRESS, hapChoice.getHost());
+            contextEntity.sensors().set(Attributes.ADDRESS, hapChoice.getHostText());
         }
 
         // Treat AWS as a special case because the DNS fully qualified hostname in AWS is
@@ -292,7 +292,7 @@ public class DefaultConnectivityResolver extends InitializerPatternForConfigurab
             int port = portForwardSshOverride.get().hasPort()
                        ? portForwardSshOverride.get().getPort()
                        : options.defaultLoginPort();
-            final HostAndPort override = HostAndPort.fromParts(portForwardSshOverride.get().getHost(), port);
+            final HostAndPort override = HostAndPort.fromParts(portForwardSshOverride.get().getHostText(), port);
             switch (getNetworkMode()) {
             case ONLY_PRIVATE:
                 LOG.info("Ignoring mode {} in favour of port forwarding override for management candidates of {}: {}",
