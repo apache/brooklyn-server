@@ -124,7 +124,7 @@
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
-        <cxf.version>3.4.1</cxf.version>
+        <cxf.version>3.3.9</cxf.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.13</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
         <!-- @deprecated since 0.11 -->
@@ -138,7 +138,7 @@
         <swagger.version>1.6.2</swagger.version>
         <gson.version>2.5</gson.version>
         <mx4j.version>3.0.1</mx4j.version>
-        <bouncycastle.version>1.66</bouncycastle.version>
+        <bouncycastle.version>1.67</bouncycastle.version>
         <!-- JClouds 2.2.0 imports eddsa 0.1.0 -->
         <eddsa.version>0.2.0</eddsa.version>
         <!-- JClouds 2.2.0 imports ssjj 0.20.0 -->
