@@ -25,6 +25,7 @@ import com.thoughtworks.xstream.XStream;
 import junit.framework.TestCase;
 import org.assertj.core.util.Strings;
 import org.testng.Assert;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.net.Inet4Address;
@@ -39,7 +40,9 @@ public class HashMultimapConverterTest extends ConverterTestFixture {
         xstream.registerConverter(new Inet4AddressConverter());
     }
 
-    @Test
+//    Those tests will be validate HashMultimap deserialization in Guava > 23
+
+    @Test(groups="WIP", enabled = false)
     public void testHashMultimapEmpty() throws UnknownHostException {
         String fmr = Strings.concat(
                 "<com.google.common.collect.HashMultimap serialization=\"custom\">\n",
@@ -53,7 +56,7 @@ public class HashMultimapConverterTest extends ConverterTestFixture {
         assertX(HashMultimap.create(), fmr);
     }
 
-    @Test
+    @Test(groups="WIP", enabled = false)
     public void testHashMultimapBasic() throws UnknownHostException {
         String fmr = Strings.concat(
                 "<com.google.common.collect.HashMultimap serialization=\"custom\">\n",
@@ -72,7 +75,7 @@ public class HashMultimapConverterTest extends ConverterTestFixture {
         assertX(hashMultimap, fmr);
     }
 
-    @Test
+    @Test(groups="WIP", enabled = false)
     public void testHashMultimapMultikey() throws UnknownHostException {
         String fmr = Joiner.on("\n").join(
                         "<com.google.common.collect.HashMultimap serialization=\"custom\">",
@@ -102,7 +105,7 @@ public class HashMultimapConverterTest extends ConverterTestFixture {
         assertX(hashMultimap, fmr);
     }
 
-    @Test
+    @Test(groups="WIP", enabled = false)
     public void testLegacyHashMultimap() throws UnknownHostException {
         HashMultimap<Object, Object> obj = HashMultimap.create();
         obj.put("myInet4Address", Inet4Address.getByName("1.1.1.1"));

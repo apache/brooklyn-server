@@ -101,15 +101,11 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>2.1.2</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <jclouds.version>2.2.0</jclouds.version> <!-- JCLOUDS_VERSION -->
         <logback.version>1.2.3</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
-<<<<<<< HEAD
-        <guava.version>23.6.1-jre</guava.version>
-=======
         <guava.version>18.0</guava.version>
->>>>>>> parent of 1c1f16aadd... WIP, jclouds-karaf:xml:features:2.2.0 not found
         <!--
             This can be different from above and should be used only by Swagger related code.
             Note that some bundles used by Brooklyn will try to bind to the latest version available.
