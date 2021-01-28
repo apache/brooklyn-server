@@ -612,7 +612,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
                     if (key==null) key = ConfigKeys.newConfigKey(Object.class, keyNameS);
                     if (immediate) {
-                        return ((EntityInternal)targetEntity).config().getNonBlocking(key);
+                        return ((EntityInternal)targetEntity).config().getNonBlocking(key, true);
                     } else {
                         return targetEntity.getConfig(key);
                     }

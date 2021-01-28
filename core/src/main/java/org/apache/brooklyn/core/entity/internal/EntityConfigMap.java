@@ -28,7 +28,9 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
+import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -66,6 +68,11 @@ public class EntityConfigMap extends AbstractConfigMapImpl<Entity> {
             entity = null;
         }
         return (EntityInternal) super.getBrooklynObject();
+    }
+
+    @Override
+    public <T> void assertValid(ConfigKey<T> key, T val) {
+        ConfigConstraints.assertValid((Entity) getContainer(), key, val);
     }
 
     protected EntityInternal getEntity() {

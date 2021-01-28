@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,14 +76,24 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     public <T> Maybe<T> getNonBlocking(HasConfigKey<T> key) {
         return getNonBlocking(key.getConfigKey());
     }
+    public <T> Maybe<T> getNonBlocking(HasConfigKey<T> key, boolean validate) {
+        return getNonBlocking(key.getConfigKey(), validate);
+    }
 
     @Override
     public <T> Maybe<T> getNonBlocking(final ConfigKey<T> key) {
+        return getNonBlocking(key, false);
+    }
+
+    @Override
+    public <T> Maybe<T> getNonBlocking(final ConfigKey<T> key, boolean validate) {
         try {
             if (key instanceof StructuredConfigKey || key instanceof SubElementConfigKey) {
                 return getNonBlockingResolvingStructuredKey(key);
             } else {
-                return getNonBlockingResolvingSimple(key);
+                Maybe<T> result = getNonBlockingResolvingSimple(key);
+                if (validate) result = result.transform(v -> ensureValid(key, v));
+                return result;
             }
         } catch (ImmediateValueNotAvailableException e) {
             return Maybe.absent(e);
@@ -151,33 +163,40 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     protected abstract AbstractConfigMapImpl<? extends BrooklynObject> getConfigsInternal();
-    protected abstract <T> void assertValid(ConfigKey<T> key, T val);
+
+    protected <T> T ensureValid(ConfigKey<T> key, T val) {
+        if (key!=null) {
+            getConfigsInternal().assertValid(key, val);
+        }
+        return val;
+    }
+
     protected abstract BrooklynObject getContainer();
     protected abstract <T> void onConfigChanging(ConfigKey<T> key, Object val);
     protected abstract <T> void onConfigChanged(ConfigKey<T> key, Object val);
 
     @Override
     public <T> T get(ConfigKey<T> key) {
-        return getConfigsInternal().getConfig(key);
+        // validation done by getConfig call below
+        return (T) getConfigsInternal().getConfig(key);
     }
 
     @SuppressWarnings("unchecked")
-    protected <T> T setConfigInternal(ConfigKey<T> key, Object val) {
+    protected <T> T setConfigInternal(ConfigKey<T> key, Object val, boolean validate) {
         onConfigChanging(key, val);
-        T result = (T) getConfigsInternal().setConfig(key, val);
-        onConfigChanged(key, val);
-        return result;
+        Pair<Object, Object> set = getConfigsInternal().setConfigCoercingAndValidating(key, val, validate);
+        onConfigChanged(key, set.getRight());
+        return (T) set.getLeft();
     }
 
     @Override
     public <T> T set(ConfigKey<T> key, T val) {
-        assertValid(key, val);
-        return setConfigInternal(key, val);
+        return setConfigInternal(key, val, true);
     }
 
     @Override
     public <T> T set(ConfigKey<T> key, Task<T> val) {
-        return setConfigInternal(key, val);
+        return setConfigInternal(key, val, false /* validation not done on set for tasks/futures; but is done on retrieval */);
     }
 
     @Override

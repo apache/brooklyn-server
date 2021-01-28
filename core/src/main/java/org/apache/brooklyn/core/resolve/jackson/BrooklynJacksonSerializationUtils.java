@@ -23,37 +23,27 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
-import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
-import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.reflect.TypeToken;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class BrooklynJacksonSerializationUtils {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynJacksonSerializationUtils.class);
-
-    public static <T> TypeReference<T> asTypeReference(TypeToken<T> typeToken) {
-        return new TypeReference<T>() {
-            @Override
-            public Type getType() {
-                return typeToken.getType();
-            }
-        };
-    }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
         List<Function<JsonDeserializer<?>,JsonDeserializer<?>>> deserializerWrappers = MutableList.of();
@@ -168,6 +158,15 @@ public class BrooklynJacksonSerializationUtils {
                 return result;
             } catch (Exception e) {
                 // if it fails, get the raw object and attempt a coercion?; currently just for strings
+                if ((String.class.equals(_valueClass) || Boxing.isPrimitiveOrBoxedClass(_valueClass)) && v==null && jp.getCurrentToken()==JsonToken.END_OBJECT) {
+                    // primitives declaring just their type are allowed
+                    try {
+                        return _valueClass.getDeclaredConstructor().newInstance();
+                    } catch (Exception e2) {
+                        Exceptions.propagateIfFatal(e2);
+                        // ignore; use e instead
+                    }
+                }
                 if (v!=null && handledType()!=null) {
                     // attempt type coercion
                     Maybe<?> coercion = TypeCoercions.tryCoerce(v, handledType());

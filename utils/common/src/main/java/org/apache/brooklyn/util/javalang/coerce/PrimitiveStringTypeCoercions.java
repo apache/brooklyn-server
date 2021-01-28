@@ -212,7 +212,7 @@ public class PrimitiveStringTypeCoercions {
         try {
             return Maybe.of((T) wrappedType.getMethod("valueOf", String.class).invoke(null, value));
         } catch (Exception e) {
-            ClassCoercionException tothrow = new ClassCoercionException("Cannot coerce "+JavaStringEscapes.wrapJavaString(value)+" to "+targetType.getCanonicalName()+" ("+value+"): adapting failed");
+            ClassCoercionException tothrow = new ClassCoercionException("Cannot coerce "+value.getClass().getSimpleName()+" "+JavaStringEscapes.wrapJavaString(value)+" to "+targetType.getCanonicalName()+": adapting failed");
             tothrow.initCause(e);
             return Maybe.absent(tothrow);
         }

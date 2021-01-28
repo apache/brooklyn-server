@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupported
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateValueNotAvailableException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -216,7 +217,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         result.copyNonFinalFields(this);
 
         if (returnDefaultOnGet) {
-            if (!superType.getRawType().isInstance(defaultValue)) {
+            if (!TypeTokens.isInstanceRaw(superType, defaultValue)) {
                 throw new IllegalStateException("Existing default value " + defaultValue + " not compatible with new type " + superType);
             }
         }
@@ -407,7 +408,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
             exec = BasicExecutionContext.getCurrentExecutionContext();
         }
 
-        if (!recursive && typeT.getRawType() != Object.class) {
+        if (!recursive && !TypeTokens.equalsRaw(Object.class, typeT)) {
             throw new IllegalStateException("When non-recursive resolver requested the return type must be Object " +
                     "as the immediately resolved value could be a number of (deferred) types.");
         }
@@ -425,7 +426,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         //if the expected type is what we have, we're done (or if it's null);
         //but not allowed to return a future or DeferredSupplier as the resolved value,
         //and not if generics signatures might be different
-        if (v==null || (!forceDeep && TypeToken.of(typeT.getRawType()).equals(typeT) && typeT.getRawType().isInstance(v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
+        if (v==null || (!forceDeep && TypeTokens.isRaw(typeT) && TypeTokens.isInstanceRaw(typeT, v) && !Future.class.isInstance(v) && !DeferredSupplier.class.isInstance(v) && !TaskFactory.class.isInstance(v)))
             return Maybe.of((T) v);
 
         try {
@@ -591,7 +592,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                             keyT = typeT;
                             valT = typeT;
                         } else {
-                            TypeToken<?>[] innerTypes = Reflections.getGenericParameterTypeTokens( typeT.resolveType(Map.class) ); // innerTypes = Reflections.getGenericParameterTypeTokens( typeT );
+                            TypeToken<?>[] innerTypes = TypeTokens.getGenericParameterTypeTokensWhenUpcastToClassRaw(typeT, Map.class); // innerTypes = Reflections.getGenericParameterTypeTokens( typeT );
                             if (innerTypes.length==2) {
                                 keyT = innerTypes[0];
                                 valT = innerTypes[1];
@@ -619,7 +620,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         if (applyThisTypeToContents) {
                             entryT = typeT;
                         } else {
-                            TypeToken<?>[] innerTypes = Reflections.getGenericParameterTypeTokens( typeT.resolveType(Iterable.class) );
+                            TypeToken<?>[] innerTypes = TypeTokens.getGenericParameterTypeTokensWhenUpcastToClassRaw(typeT, Iterable.class);
                             if (innerTypes.length==1) {
                                 entryT = innerTypes[0];
                             } else {
@@ -691,8 +692,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     @Beta
     public static boolean typeAllowsDeepResolution(@Nullable TypeToken<?> type) {
         if (type==null) return true;
-        Class<?> clz = type.getRawType();
-        return Map.class.isAssignableFrom(clz) || Iterable.class.isAssignableFrom(clz) || Object.class.equals(clz);
+        return TypeTokens.isAssignableFromRaw(Map.class, type) || TypeTokens.isAssignableFromRaw(Iterable.class, type) || TypeTokens.isAssignableFromRaw(Object.class, type);
     }
 
     protected String getDescription() {

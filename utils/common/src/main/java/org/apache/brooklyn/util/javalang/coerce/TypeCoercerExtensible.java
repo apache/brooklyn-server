@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.brooklyn.core.validation.BrooklynValidation;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.AnyExceptionSupplier;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -124,6 +125,10 @@ public class TypeCoercerExtensible implements TypeCoercer {
     
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceInternal(Object value, TypeToken<T> targetTypeToken, Class<T> targetType) {
+        return tryCoerceInternal2(value, targetTypeToken, targetType).map(BrooklynValidation.getInstance()::ensureValid);
+    }
+
+    protected <T> Maybe<T> tryCoerceInternal2(Object value, TypeToken<T> targetTypeToken, Class<T> targetType) {
         if (value==null) return Maybe.of((T)null);
         Maybe<T> result = null;
         Maybe<T> firstError = null;
@@ -154,7 +159,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
         for (TryCoercer coercer : genericCoercers) {
             result = coercer.tryCoerce(value, targetTypeToken);
             
-            if (result!=null && result.isPresent()) {
+            if (result!=null && result.isPresentAndNonNull()) {
                 // Check if need to unwrap again (e.g. if want List<Integer> and are given a String "1,2,3"
                 // then we'll have so far converted to List.of("1", "2", "3"). Call recursively.
                 // First check that value has changed, to avoid stack overflow!
@@ -253,7 +258,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
 
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceMap(Object value, TypeToken<T> targetTypeToken) {
-        if (!(value instanceof Map) || !(Map.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
+        if (!(value instanceof Map) || !(TypeTokens.isAssignableFromRaw(Map.class, targetTypeToken))) return null;
         Type[] arguments = ((ParameterizedType) targetTypeToken.getType()).getActualTypeArguments();
         if (arguments.length != 2) {
             throw new IllegalStateException("Unexpected number of parameters in map type: " + arguments);
@@ -290,7 +295,7 @@ public class TypeCoercerExtensible implements TypeCoercer {
      * or {@link Maybe.Absent} with a good exception if it should have applied but couldn't */
     @SuppressWarnings("unchecked")
     protected <T> Maybe<T> tryCoerceIterable(Object value, TypeToken<T> targetTypeToken, Class<? super T> targetType) {
-        if (!(value instanceof Iterable) || !(Iterable.class.isAssignableFrom(targetTypeToken.getRawType()))) return null;
+        if (!(value instanceof Iterable) || !(TypeTokens.isAssignableFromRaw(Iterable.class, targetTypeToken))) return null;
         Type[] arguments = ((ParameterizedType) targetTypeToken.getType()).getActualTypeArguments();
         if (arguments.length != 1) {
             return Maybe.absent(new IllegalStateException("Unexpected number of parameters in iterable type: " + arguments));

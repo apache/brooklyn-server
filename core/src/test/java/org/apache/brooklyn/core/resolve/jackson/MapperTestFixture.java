@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -48,6 +49,14 @@ public interface MapperTestFixture {
     default <T> T deser(String v, Class<T> type) {
         try {
             return mapper().readValue(v, type);
+        } catch (JsonProcessingException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
+    default <T> T deser(String v, RegisteredType type) {
+        try {
+            return mapper().readValue(v, BrooklynJacksonType.of(type));
         } catch (JsonProcessingException e) {
             throw Exceptions.propagate(e);
         }

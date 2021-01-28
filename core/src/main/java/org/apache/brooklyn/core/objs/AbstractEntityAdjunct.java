@@ -345,11 +345,6 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
 
         @Override
-        protected <T> void assertValid(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(entity, key, val);
-        }
-
-        @Override
         protected BrooklynObject getContainer() {
             return AbstractEntityAdjunct.this;
         }

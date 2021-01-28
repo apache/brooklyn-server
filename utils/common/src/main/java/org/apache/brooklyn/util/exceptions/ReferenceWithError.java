@@ -61,7 +61,7 @@ public class ReferenceWithError<T> implements Supplier<T> {
         return maskError;
     }
 
-    /** returns the underlying value, throwing if there is an error which is not masked (ie {@link #throwsErrorOnAccess()} is set) */
+    /** returns the underlying value, throwing if there is an error which is not masked (ie {@link #hasError()} is true and {@link #masksErrorIfPresent()} false) */
     @Override
     public T get() {
         if (masksErrorIfPresent()) {

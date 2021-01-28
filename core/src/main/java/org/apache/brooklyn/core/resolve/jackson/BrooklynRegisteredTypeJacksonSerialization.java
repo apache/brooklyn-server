@@ -32,7 +32,6 @@ import com.fasterxml.jackson.databind.jsontype.impl.ClassNameIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.type.SimpleType;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -48,42 +47,19 @@ import org.apache.brooklyn.util.guava.Maybe;
 
 public class BrooklynRegisteredTypeJacksonSerialization {
 
-    static class BrooklynJacksonType extends SimpleType {
-        private final ManagementContext mgmt;
-        private final RegisteredType type;
-        public BrooklynJacksonType(ManagementContext mgmt, RegisteredType type) {
-            super(pickSuperType(type));
-            this.mgmt = mgmt;
-            this.type = type;
-        }
-        private static Class<?> pickSuperType(RegisteredType t) {
-            for (Object x : t.getSuperTypes()) {
-                if (x instanceof Class) return (Class<?>) x;
-            }
-            return Object.class;
-        }
-
-        public RegisteredType getRegisteredType() {
-            return type;
-        }
-
-        @Override
-        public String toString() {
-            return "BrooklynJacksonType{" + type.getId() + '/' + _class + "}";
-        }
-    }
-
     static class RegisteredTypeDeserializer<T> extends JsonDeserializer<T> {
         private final BrooklynJacksonType type;
+        private final ManagementContext mgmt;
 
-        public RegisteredTypeDeserializer(BrooklynJacksonType type) {
+        public RegisteredTypeDeserializer(ManagementContext mgmt, BrooklynJacksonType type) {
+            this.mgmt = mgmt;
             this.type = type;
         }
 
         @Override
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
             try {
-                Object target = type.mgmt.getTypeRegistry().createBean(type.type, null, null);
+                Object target = getEmptyValue(ctxt);
                 JsonDeserializer<Object> delegate = ctxt.findContextualValueDeserializer(ctxt.constructType(target.getClass()), null);
                 delegate.deserialize(p, ctxt, target);
                 return (T)target;
@@ -91,13 +67,22 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                 throw Exceptions.propagate(e);
             }
         }
+
+        public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
+            // empty for us is the underlying definition, not null
+            return mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
+        }
     }
 
     static class RegisteredTypeDeserializers extends SimpleDeserializers {
+        private final ManagementContext mgmt;
+        public RegisteredTypeDeserializers(ManagementContext mgmt) {
+            this.mgmt = mgmt;
+        }
         @Override
         public JsonDeserializer<?> findBeanDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) throws JsonMappingException {
             if (type instanceof BrooklynJacksonType) {
-                return new RegisteredTypeDeserializer<>((BrooklynJacksonType)type);
+                return new RegisteredTypeDeserializer<>(mgmt, (BrooklynJacksonType)type);
             }
             return super.findBeanDeserializer(type, config, beanDesc);
         }
@@ -128,7 +113,7 @@ public class BrooklynRegisteredTypeJacksonSerialization {
             if (allowRegisteredTypes && mgmt!=null) {
                 RegisteredType rt = mgmt.getTypeRegistry().get(id);
                 if (rt != null) {
-                    return new BrooklynJacksonType(mgmt, rt);
+                    return new BrooklynJacksonType(rt);
                 }
             }
             if (loader!=null) {
@@ -239,7 +224,7 @@ public class BrooklynRegisteredTypeJacksonSerialization {
 
         SimpleModule module = new SimpleModule();
         if (allowRegisteredTypes) {
-            module.setDeserializers(new RegisteredTypeDeserializers());
+            module.setDeserializers(new RegisteredTypeDeserializers(mgmt));
         }
 
         // the module defines how to deserialize the registered type id

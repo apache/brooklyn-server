@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.javalang.coerce;
 
+import org.apache.brooklyn.util.guava.TypeTokens;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Objects;
@@ -46,7 +47,7 @@ public class TypeCoercerExtensibleTest {
             @Override
             @SuppressWarnings("unchecked")
             public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
-                if (input instanceof String && type.getRawType() == MyClazz.class) {
+                if (input instanceof String && TypeTokens.equalsRaw(MyClazz.class, type)) {
                     return (Maybe<T>) Maybe.of(new MyClazz("myprefix"+input));
                 } else {
                     return null;

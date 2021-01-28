@@ -51,6 +51,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -1137,20 +1138,17 @@ public class Reflections {
      * <p>
      * It will log.warn once per method signature for which we fail to set it accessible. It will
      * also log.warn if it succeeds (once per method signature) as this is discouraged!
-     * 
+     *
      * @return True if setAccessible succeeded; false otherwise
      */
     public static boolean trySetAccessible(Method method) {
         return MethodAccessibleReflections.trySetAccessible(method);
     }
 
+    /** given Map<String,Integer> returns [ String, Integer ];
+     * @deprecated since 1.0 use {@link TypeTokens#getGenericParameterTypeTokens(TypeToken)} and see other variants which upcast */
     public static TypeToken<?>[] getGenericParameterTypeTokens(TypeToken<?> t) {
-        Class<?> rawType = t.getRawType();
-        TypeVariable<?>[] pT = rawType.getTypeParameters();
-        TypeToken<?> pTT[] = new TypeToken<?>[pT.length];
-        for (int i=0; i<pT.length; i++) {
-            pTT[i] = t.resolveType(pT[i]);
-        }
-        return pTT;
+        return TypeTokens.getGenericParameterTypeTokens(t);
     }
+
 }

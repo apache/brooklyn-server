@@ -268,9 +268,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
 
         deployWithTestingCustomTypeObjectConfigAndAssert(true, false, false, "custom-type", CONF1_ANONYMOUS,
                 "foo",
-                // NOTE: 'bar' is not available here -- all we preserve from a declared parameter/key type is the java type
-                // in order to support this, we actually have to record the _registered type_ on the config key
-                null);
+                // bar now available because the registered type is known on the config key
+                "bar");
     }
 
     @Test

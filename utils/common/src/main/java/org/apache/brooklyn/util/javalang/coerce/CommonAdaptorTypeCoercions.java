@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
@@ -394,13 +395,13 @@ public class CommonAdaptorTypeCoercions {
             if (!(input instanceof String)) return null;
             String inputS = (String)input;
             
-            Class<? super T> rawType = type.getRawType();
-            
+            Class<? super T> rawType = TypeTokens.getRawRawType(type);
+
             if (Collection.class.isAssignableFrom(rawType)) {
-                TypeToken<?> parameters[] = Reflections.getGenericParameterTypeTokens(type);
+                TypeToken<?> parameters[] = TypeTokens.getGenericParameterTypeTokensWhenUpcastToClassRaw(type, Collection.class);
                 Maybe<?> resultM = null;
                 Collection<?> result = null;
-                if (parameters.length==1 && CharSequence.class.isAssignableFrom(parameters[0].getRawType())) {
+                if (parameters.length==1 && TypeTokens.isAssignableFromRaw(CharSequence.class, parameters[0])) {
                     // for list of strings, use special parse
                     result = JavaStringEscapes.unwrapJsonishListStringIfPossible(inputS);
                 } else {
