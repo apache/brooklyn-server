@@ -19,13 +19,24 @@
 package org.apache.brooklyn.location.winrm;
 
 import com.google.common.base.Function;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStreamWriter;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.core.internal.winrm.winrm4j.ErrorXmlWriter;
+import org.apache.brooklyn.util.core.internal.winrm.winrm4j.PrettyXmlWriter;
+import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 
 import java.util.List;
+import org.apache.commons.io.output.TeeOutputStream;
+import org.apache.commons.io.output.WriterOutputStream;
+import org.apache.commons.lang3.tuple.Pair;
 
 public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
+
+    public static final String STREAM_XML = "xml";
 
     /** constructor where machine will be added later */
     public PlainWinRmExecTaskFactory(String ...commands) {
@@ -67,6 +78,36 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
     public PlainWinRmExecTaskFactory<String> requiringZeroAndReturningStdout() {
         return (PlainWinRmExecTaskFactory<String>) super.requiringZeroAndReturningStdout();
     }
+
+    /** In WinRM we sometimes get huge XML output from powershell, in the stream powershell says is `stderr`.
+     * This seems to contravene the docs which say only Write-Error should come back in that stream.
+     * But when that does happen, stderr is sometimes unusable. So we make a new stream for the big XML,
+     * and we filter the error output into stderr.
+     * <p>
+     * Note this does some simple auto-detection so if the stream seems not to be xml we write the same data to both.
+     * */
+    @Override
+    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<Object> tb) {
+        Std2x2StreamProvider r = new Std2x2StreamProvider();
+
+        r.stdoutForWriting = r.stdoutForReading = new ByteArrayOutputStream();
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, r.stdoutForReading));
+
+        ByteArrayOutputStream prettyXmlOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream errorXmlOut = new ByteArrayOutputStream();
+        TeeOutputStream rawxml = new TeeOutputStream(
+                new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(prettyXmlOut))),
+                new WriterOutputStream(new ErrorXmlWriter(new OutputStreamWriter(errorXmlOut))) );
+
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, errorXmlOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(STREAM_XML, prettyXmlOut));
+
+        r.stderrForReading = errorXmlOut;
+        r.stderrForWriting = rawxml;
+
+        return r;
+    }
+
 }
 
 

@@ -18,11 +18,14 @@
  */
 package org.apache.brooklyn.util.core.task.ssh.internal;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import org.apache.brooklyn.api.location.MachineLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.internal.AbstractProcessTaskFactory;
@@ -45,6 +48,8 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
     public ProcessTaskWrapper<RET> newTask() {
         dirty = false;
         return new ProcessTaskWrapper<RET>(this) {
+            protected Std2x2StreamProvider richStreamProvider = null;
+
             @Override
             protected void run(ConfigBag config) {
                 Preconditions.checkNotNull(getMachine(), "machine");
@@ -56,6 +61,51 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
             }
             @Override
             protected String taskTypeShortName() { return "SSH"; }
+
+            @Override
+            protected void initStreams(TaskBuilder<Object> tb) {
+                richStreamProvider = getRichStreamProvider(tb);
+                if (richStreamProvider==null) {
+                    super.initStreams(tb);
+                }
+            }
+
+            @Override
+            protected ByteArrayOutputStream stderrForReading() {
+                if (richStreamProvider!=null) return richStreamProvider.stderrForReading;
+                return super.stderrForReading();
+            }
+
+            @Override
+            protected OutputStream stderrForWriting() {
+                if (richStreamProvider!=null) return richStreamProvider.stderrForWriting;
+                return super.stderrForWriting();
+            }
+
+            @Override
+            protected ByteArrayOutputStream stdoutForReading() {
+                if (richStreamProvider!=null) return richStreamProvider.stdoutForReading;
+                return super.stdoutForReading();
+            }
+
+            @Override
+            protected OutputStream stdoutForWriting() {
+                if (richStreamProvider!=null) return richStreamProvider.stdoutForWriting;
+                return super.stdoutForWriting();
+            }
         };
     }
+
+    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<Object> tb) {
+        return null;
+    }
+
+    @Beta
+    public static class Std2x2StreamProvider {
+        public ByteArrayOutputStream stdoutForReading;
+        public ByteArrayOutputStream stderrForReading;
+        public OutputStream stdoutForWriting;
+        public OutputStream stderrForWriting;
+    }
+
 }
