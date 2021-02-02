@@ -23,12 +23,16 @@ import com.google.common.base.Preconditions;
 
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.internal.AbstractProcessTaskFactory;
+import org.apache.commons.io.output.TeeOutputStream;
+import org.apache.commons.io.output.WriterOutputStream;
 
 // cannot be (cleanly) instantiated due to nested generic self-referential type; however trivial subclasses do allow it 
 public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFactory<T,RET>,RET> extends AbstractProcessTaskFactory<T,RET> implements ProcessTaskFactory<RET> {
@@ -96,7 +100,7 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
         };
     }
 
-    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<Object> tb) {
+    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<?> tb) {
         return null;
     }
 
@@ -106,6 +110,16 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
         public ByteArrayOutputStream stderrForReading;
         public OutputStream stdoutForWriting;
         public OutputStream stderrForWriting;
+
+        // also see WinRm XML variant which returns this class - newStreamProviderForWindowsXml
+        public static Std2x2StreamProvider newDefault(TaskBuilder<?> tb) {
+            Std2x2StreamProvider r = new Std2x2StreamProvider();
+            r.stdoutForWriting = r.stdoutForReading = new ByteArrayOutputStream();
+            r.stderrForWriting = r.stderrForReading = new ByteArrayOutputStream();
+            tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, r.stdoutForReading));
+            tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, r.stderrForReading));
+            return r;
+        }
     }
 
 }

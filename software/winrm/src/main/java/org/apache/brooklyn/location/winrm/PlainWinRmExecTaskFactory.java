@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.location.winrm;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
@@ -36,7 +37,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
 
-    public static final String STREAM_XML = "xml";
+    public static final String STREAM_XML_OUT = "xmlout";
 
     /** constructor where machine will be added later */
     public PlainWinRmExecTaskFactory(String ...commands) {
@@ -87,22 +88,26 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
      * Note this does some simple auto-detection so if the stream seems not to be xml we write the same data to both.
      * */
     @Override
-    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<Object> tb) {
-        Std2x2StreamProvider r = new Std2x2StreamProvider();
+    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<?> tb) {
+        return newStreamProviderForWindowsXml(tb);
+    }
 
+    @Beta
+    public static Std2x2StreamProvider newStreamProviderForWindowsXml(TaskBuilder<?> tb) {
+        Std2x2StreamProvider r = new Std2x2StreamProvider();
         r.stdoutForWriting = r.stdoutForReading = new ByteArrayOutputStream();
         tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, r.stdoutForReading));
 
         ByteArrayOutputStream prettyXmlOut = new ByteArrayOutputStream();
-        ByteArrayOutputStream errorXmlOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream errorFilteredOut = new ByteArrayOutputStream();
         TeeOutputStream rawxml = new TeeOutputStream(
                 new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(prettyXmlOut))),
-                new WriterOutputStream(new ErrorXmlWriter(new OutputStreamWriter(errorXmlOut))) );
+                new WriterOutputStream(new ErrorXmlWriter(new OutputStreamWriter(errorFilteredOut))) );
 
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, errorXmlOut));
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(STREAM_XML, prettyXmlOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, errorFilteredOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(STREAM_XML_OUT, prettyXmlOut));
 
-        r.stderrForReading = errorXmlOut;
+        r.stderrForReading = errorFilteredOut;
         r.stderrForWriting = rawxml;
 
         return r;

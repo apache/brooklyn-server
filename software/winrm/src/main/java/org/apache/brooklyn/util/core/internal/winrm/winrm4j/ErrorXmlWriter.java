@@ -28,7 +28,7 @@ import org.slf4j.LoggerFactory;
 /** Filters XML output for any S tag with an S attribute of "error" and extracts the text, one per line.
  * Or if any error or not XML, switches to pass through.
  *
- * Accepts # comment lines.
+ * Supports streaming, so viewers get output as quickly as possible. Accepts # comment lines.
  * But otherwise very rough-and-ready! */
 public class ErrorXmlWriter extends Writer {
 
@@ -60,6 +60,7 @@ public class ErrorXmlWriter extends Writer {
 
     private boolean isLastCharBackslashEscaped;
     private boolean isLastCharLineStart;
+    private boolean cacheLastCharLineStart;
 
     public ErrorXmlWriter(Writer writer) {
         super(writer);
@@ -68,10 +69,12 @@ public class ErrorXmlWriter extends Writer {
 
     @Override
     public void write(char[] cbuf, int off, int len) throws IOException {
-        char c = '\n';
+        char c;
+        cacheLastCharLineStart = true;
         for (int i = off; i < off + len; i++) {
-            isLastCharLineStart = (c=='\n');
+            isLastCharLineStart = cacheLastCharLineStart;
             c = cbuf[i];
+            cacheLastCharLineStart = (c=='\n');
 
             if (passThrough) {
                 writeChar(c);
@@ -259,7 +262,28 @@ public class ErrorXmlWriter extends Writer {
         inTag = false;
     }
 
+    String buffered = null;
     private void writeChar(char c) throws IOException {
+        if (buffered !=null) {
+            buffered += c;
+            if (c=='_') {
+                if ("_x000A_".equalsIgnoreCase(buffered)) {
+                    wrappedWriter.write('\n');
+                    cacheLastCharLineStart = true;
+                } else if ("_x000D_".equalsIgnoreCase(buffered)) {
+                    // suppress
+                } else {
+                    wrappedWriter.write(buffered);
+                }
+                buffered = null;
+            }
+            return;
+        }
+        if (c=='_') {
+            buffered = ""+c;
+            return;
+        }
+
         wrappedWriter.write(c);
     }
 

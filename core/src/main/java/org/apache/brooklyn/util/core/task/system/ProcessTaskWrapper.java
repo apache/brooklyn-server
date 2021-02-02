@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory.Std2x2StreamProvider;
 import org.apache.brooklyn.util.core.task.system.internal.AbstractProcessTaskFactory;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
@@ -61,10 +62,9 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
     }
 
     protected void initStreams(TaskBuilder<Object> tb) {
-        stdout = new ByteArrayOutputStream();
-        stderr = new ByteArrayOutputStream();
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, stdout));
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, stderr));
+        Std2x2StreamProvider r = Std2x2StreamProvider.newDefault(tb);
+        stdout = r.stdoutForReading;
+        stderr = r.stdoutForReading;
     }
 
     protected ByteArrayOutputStream stdoutForReading() { return stdout; }

@@ -32,11 +32,13 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.location.winrm.PlainWinRmExecTaskFactory;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory.Std2x2StreamProvider;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +67,16 @@ public class WinRmExecuteHelper {
     protected final Map flags = new LinkedHashMap();
     protected Predicate<? super Integer> resultCodeCheck = Predicates.alwaysTrue();
     protected ByteArrayOutputStream stdout, stderr, stdin;
+    protected Std2x2StreamProvider outStreams = null;
+
+    protected Std2x2StreamProvider outStreams() {
+        if (outStreams==null) {
+            outStreams = new Std2x2StreamProvider();
+            outStreams.stdoutForWriting = outStreams.stdoutForReading = stdout;
+            outStreams.stderrForWriting = outStreams.stderrForReading = stderr;
+        }
+        return outStreams;
+    }
 
     protected Runnable mutexAcquire = new Runnable() {
         @Override
@@ -138,6 +150,7 @@ public class WinRmExecuteHelper {
     /** creates a task which will execute this script; note this can only be run once per instance of this class */
     public synchronized Task<Integer> newTask() {
         if (task!=null) throw new IllegalStateException("task can only be generated once");
+
         TaskBuilder<Integer> tb = Tasks.<Integer>builder().displayName("winrm: "+summary).body(
                 new Callable<Integer>() {
                     @Override
@@ -168,10 +181,9 @@ public class WinRmExecuteHelper {
         }
 
         if (gatherOutput) {
-            stdout = new ByteArrayOutputStream();
-            tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, stdout));
-            stderr = new ByteArrayOutputStream();
-            tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, stderr));
+            outStreams =
+                    // Std2x2StreamProvider.newDefault(tb);
+                    PlainWinRmExecTaskFactory.newStreamProviderForWindowsXml(tb);
         }
         task = tb.build();
         return task;
@@ -190,10 +202,14 @@ public class WinRmExecuteHelper {
         mutexAcquire.run();
         try {
             if (gatherOutput) {
-                if (stdout==null) stdout = new ByteArrayOutputStream();
-                if (stderr==null) stderr = new ByteArrayOutputStream();
-                flags.put("out", stdout);
-                flags.put("err", stderr);
+                if (outStreams().stdoutForWriting==null) {
+                    outStreams().stdoutForWriting = outStreams().stdoutForReading = new ByteArrayOutputStream();
+                }
+                if (outStreams().stderrForWriting==null) {
+                    outStreams().stderrForWriting = outStreams().stderrForReading = new ByteArrayOutputStream();
+                }
+                flags.put("out", outStreams().stdoutForWriting);
+                flags.put("err", outStreams().stderrForWriting);
             }
             flags.put(WinRmTool.COMPUTER_NAME, domain);
             if (env!=null) flags.put(WinRmTool.ENVIRONMENT, env);
@@ -252,8 +268,8 @@ public class WinRmExecuteHelper {
         LOG.warn(message + " (throwing)");
         int maxLength = 1024;
         LOG.warn(message + " (throwing)");
-        Streams.logStreamTail(LOG, "STDERR of problem in "+Tasks.current(), stderr, maxLength);
-        Streams.logStreamTail(LOG, "STDOUT of problem in "+Tasks.current(), stdout, maxLength);
+        Streams.logStreamTail(LOG, "STDERR of problem in "+Tasks.current(), outStreams().stderrForReading, maxLength);
+        Streams.logStreamTail(LOG, "STDOUT of problem in "+Tasks.current(), outStreams().stdoutForReading, maxLength);
         Streams.logStreamTail(LOG, "STDIN of problem in "+Tasks.current(), Streams.byteArrayOfString(command != null ? command : psCommand), 4096);
         if (optionalCause!=null) throw new IllegalStateException(message, optionalCause);
         throw new IllegalStateException(message);
@@ -265,11 +281,11 @@ public class WinRmExecuteHelper {
     }
 
     public String getResultStdout() {
-        if (stdout==null) throw new IllegalStateException("output not available on "+this+"; ensure gatherOutput(true) is set");
-        return stdout.toString();
+        if (outStreams().stdoutForReading==null) throw new IllegalStateException("output not available on "+this+"; ensure gatherOutput(true) is set");
+        return outStreams().stdoutForReading.toString();
     }
     public String getResultStderr() {
-        if (stderr==null) throw new IllegalStateException("output not available on "+this+"; ensure gatherOutput(true) is set");
-        return stderr.toString();
+        if (outStreams().stderrForReading==null) throw new IllegalStateException("output not available on "+this+"; ensure gatherOutput(true) is set");
+        return outStreams().stderrForReading.toString();
     }
 }
