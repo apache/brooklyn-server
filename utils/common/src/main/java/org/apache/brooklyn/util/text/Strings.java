@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -1025,6 +1026,28 @@ public class Strings {
             }
         }
         return result;
+    }
+
+    public static int countOccurrences(String phrase, String target) {
+        if (phrase == null || isEmpty(target)) return 0;
+        int count = 0;
+        while (true) {
+            int index = phrase.indexOf(target);
+            if (index<0) return count;
+            count++;
+            phrase = phrase.substring(index+1);
+        }
+    }
+
+    /** indents every line in `body` by the given count of spaces */
+    public static String indent(int count, String body) {
+        return prefixAddedToEachLine(Strings.makePaddedString("", count, " ", ""), body);
+    }
+
+    /** prefixes every line in `body` (second argument) by the given string (first argument) */
+    public static String prefixAddedToEachLine(String prefix, String body) {
+        if (body==null) return null;
+        return Arrays.stream(body.split("\n")).map(s -> prefix + s).collect(Collectors.joining("\n"));
     }
 
 }

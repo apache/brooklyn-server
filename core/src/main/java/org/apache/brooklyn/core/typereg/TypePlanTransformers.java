@@ -126,7 +126,9 @@ public class TypePlanTransformers {
                                 t.getFormatCode() + " plan creation error in " + type.getId() :
                                 t.getFormatCode() + " plan creation error") + ": " +
                                 Exceptions.collapseText(e), e);
-                if (Exceptions.getFirstThrowableOfType(e, TypePlanException.class)!=null) {
+                if (Exceptions.getFirstThrowableOfType(e, TypePlanException.class)!=null &&
+                        (type.getPlan().getPlanFormat()==null || Objects.equals(type.getPlan().getPlanFormat(), t.getFormatCode()))) {
+                    // prefer this type of exception unless format is specified and we are opportunistically trying a different converter
                     failuresFromTransformers.add(0, e1);
                 } else {
                     failuresFromTransformers.add(e1);
