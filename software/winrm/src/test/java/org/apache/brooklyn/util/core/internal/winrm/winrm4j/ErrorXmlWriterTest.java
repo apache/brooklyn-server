@@ -19,8 +19,6 @@
 package org.apache.brooklyn.util.core.internal.winrm.winrm4j;
 
 import java.io.IOException;
-import java.io.Writer;
-import java.util.Arrays;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.PrettyXmlWriterTest.RecordingWriter;
 import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
@@ -73,12 +71,12 @@ public class ErrorXmlWriterTest {
             "\t<S S=\"error\">Found\n\n</S>";
 
     private RecordingWriter recordingWriter;
-    private ErrorXmlWriter xmlWriter;
+    private FilteringXmlWriter xmlWriter;
 
     @BeforeMethod
     public void setUp() {
         recordingWriter = new RecordingWriter();
-        xmlWriter = new ErrorXmlWriter(recordingWriter);
+        xmlWriter = new FilteringXmlWriter.SelectedStreamsFilteringXmlWriter("error", recordingWriter);
     }
 
     @Test

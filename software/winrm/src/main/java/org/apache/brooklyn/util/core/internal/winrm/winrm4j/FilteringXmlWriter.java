@@ -18,21 +18,56 @@
  */
 package org.apache.brooklyn.util.core.internal.winrm.winrm4j;
 
-import java.io.IOException;
-import java.io.Writer;
+import com.google.common.collect.ImmutableSet;
+import java.io.*;
+import java.util.Set;
+import java.util.function.Predicate;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Filters XML output for any S tag with an S attribute of "error" and extracts the text, one per line.
+/** Filters XML output in a configurable way, such as subclasses
+ *  ErrorFiltering for any S tag with an S attribute of "error" and extracts the text, one per line.
  * Or if any error or not XML, switches to pass through.
  *
  * Supports streaming, so viewers get output as quickly as possible. Accepts # comment lines.
  * But otherwise very rough-and-ready! */
-public class ErrorXmlWriter extends Writer {
+public class FilteringXmlWriter extends Writer {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ErrorXmlWriter.class);
+    private static final Logger LOG = LoggerFactory.getLogger(FilteringXmlWriter.class);
+
+    public static class SelectedStreamsFilteringXmlWriter extends FilteringXmlWriter {
+        public final Predicate<String> allowStreams;
+        public SelectedStreamsFilteringXmlWriter(Predicate<String> allowStreams, Writer writer) {
+            super(writer);
+            this.allowStreams = allowStreams;
+        }
+        public SelectedStreamsFilteringXmlWriter(String stream, Writer writer) {
+            this(ImmutableSet.of(stream), writer);
+        }
+        public SelectedStreamsFilteringXmlWriter(Set<String> streams, Writer writer) {
+            this(s -> streams.contains(s), writer);
+        }
+
+        public SelectedStreamsFilteringXmlWriter(String stream, OutputStream out) {
+            this(stream, new OutputStreamWriter(out));
+        }
+        public SelectedStreamsFilteringXmlWriter(Predicate<String> allowStreams, OutputStream out) {
+            this(allowStreams, new OutputStreamWriter(out));
+        }
+
+        protected void processAttributeValue(String attribute, String value, String tag) {
+            if ("S".equalsIgnoreCase(tag) && "S".equalsIgnoreCase(attribute)
+                && allowStreams.test(
+                        StringEscapes.BashStringEscapes.unwrapBashQuotesAndEscapes(value.trim()).toLowerCase())
+            ) {
+                allowTextHere();
+            }
+        }
+    }
 
     private final Writer wrappedWriter;
 
@@ -62,7 +97,7 @@ public class ErrorXmlWriter extends Writer {
     private boolean isLastCharLineStart;
     private boolean cacheLastCharLineStart;
 
-    public ErrorXmlWriter(Writer writer) {
+    public FilteringXmlWriter(Writer writer) {
         super(writer);
         wrappedWriter = writer;
     }
@@ -233,7 +268,7 @@ public class ErrorXmlWriter extends Writer {
         }
     }
 
-    private void endTextAllowed() throws IOException {
+    protected void endTextAllowed() throws IOException {
         if (textAllowedHere && !isLastCharLineStart) {
             writeChar('\n');
         }
@@ -241,21 +276,22 @@ public class ErrorXmlWriter extends Writer {
         textAllowedHere = false;
     }
 
-    private void onTagBegin(String tag) {
+    protected void onTagBegin(String tag) {
         // might be start or end tag, we don't track that.  we don't need this at all actually currently but maybe one day
 //        LOG.info(tag+":");
         inTagName = false;
     }
 
-    private void processAttributeValue(String attribute, String value, String tag) {
+    protected void processAttributeValue(String attribute, String value, String tag) {
 //        LOG.info(tag+" @"+attribute+ " = "+value);
-        if ("S".equalsIgnoreCase(attribute) && "\"error\"".equalsIgnoreCase(value.trim())) {
-            textAllowedHere = true;
-            textWrittenHere = "";
-        }
     }
 
-    private void processTagFinished(String tag) {
+    protected void allowTextHere() {
+        textAllowedHere = true;
+        textWrittenHere = "";
+    }
+
+    protected void processTagFinished(String tag) {
 //        if (thisTagIsAnEndTag) LOG.info("/"+tag);
 //        else if (thisTagIsSelfClosing) LOG.info("  "+tag+"/");
 //        else LOG.info("  .");
@@ -263,7 +299,7 @@ public class ErrorXmlWriter extends Writer {
     }
 
     String buffered = null;
-    private void writeChar(char c) throws IOException {
+    protected void writeChar(char c) throws IOException {
         if (buffered !=null) {
             buffered += c;
             if (c=='_') {

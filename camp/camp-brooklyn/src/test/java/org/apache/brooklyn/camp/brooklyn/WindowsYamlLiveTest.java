@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import com.sun.net.httpserver.Authenticator.Success;
-import java.util.Locale;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.location.winrm.PlainWinRmExecTaskFactory;
 import static org.testng.Assert.fail;
@@ -42,7 +40,6 @@ import org.apache.brooklyn.entity.software.base.test.location.WindowsTestFixture
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
-import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
@@ -359,9 +356,9 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
         
         Entity win = Iterables.getOnlyElement(app.getChildren());
         String out = "Address: "+win.sensors().get(SoftwareProcess.ADDRESS);
-        assertPhaseStreamEquals(win, "install", "stdout", Predicates.equalTo(in));
-        assertPhaseStreamEquals(win, "customize", "stdout", Predicates.equalTo(out));
-        assertPhaseStreamEquals(win, "launch", "stdout", Predicates.equalTo(out));
+        assertPhaseStreamSatisfies(win, "install", "stdout", Predicates.equalTo(in));
+        assertPhaseStreamSatisfies(win, "customize", "stdout", Predicates.equalTo(out));
+        assertPhaseStreamSatisfies(win, "launch", "stdout", Predicates.equalTo(out));
     }
 
     @Test(groups="Live")
@@ -371,16 +368,19 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
         String hostMsg = "Log in Host Stream";
         String outputMsg = "Log in Success Stream";
         String errMsg = "Log in Error Stream";
+        String warningMsg = "Log in Warning Stream";
+        String verboseMsg = "Log in Verbose Stream";
+        String debugMsg = "Log in Debug Stream";
         String cmd =
                 "$DebugPreference = \"Continue\"\n" +
                 "$VerbosePreference = \"Continue\"\n" +
                 "\n" +
                 "Write-Host \""+hostMsg+"\"\n" +
                 "Write-Output \""+outputMsg+"\"\n" +
-                        "Write-Error \"" + errMsg + "\" \n" +
-                "Write-Warning \"Log in Warning Stream\"\n" +
-                "Write-Verbose \"Log in Verbose Stream\"\n" +
-                "Write-Debug \"Log in Debug Stream\" \n" +
+                "Write-Error \"" + errMsg + "\" \n" +
+                "Write-Warning \"" + warningMsg + "\"\n" +
+                "Write-Verbose \"" + verboseMsg + "\"\n" +
+                "Write-Debug \"" + debugMsg + "\" \n" +
 
                         // not always supported:
 //                "Write-Information \"Log in Information Stream\" \n" +
@@ -402,22 +402,99 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
 
 
         Entity win = Iterables.getOnlyElement(app.getChildren());
-        assertPhaseStreamEquals(win, "install", "stdout", s -> s.trim().equalsIgnoreCase(hostMsg+"\n"+outputMsg));
-        assertPhaseStreamEquals(win, "install", "stderr",
-                // if stdin is included, bump up counts by 1
-                s -> Strings.countOccurrences(s, errMsg) == 1+(s.contains("Write-Error \"Log") ? 1 : 0) &&
-                        Strings.countOccurrences(s, hostMsg) == (s.contains("Write-Host") ? 1 : 0) &&
-                        s.indexOf("_")<0);
-        assertPhaseStreamEquals(win, "install", PlainWinRmExecTaskFactory.STREAM_XML_OUT, s ->
-                s.toLowerCase().contains("s s=\"verbose\"") && s.contains(hostMsg) && s.contains(outputMsg) && s.contains(errMsg));
+        WrappedStream stderr = getWrappedStream(win, "install", "stderr");
+        boolean errStreamContainsStdin = stderr.streamContents.get().contains("Write-Host");
+
+        assertPhaseStreamSatisfies(win, "install", "stdout", s -> s.trim().equalsIgnoreCase(hostMsg+"\n"+outputMsg));
+
+        // would be nice if we could get host and output in xml out -- but we don't
+        int hostCount = 0+(errStreamContainsStdin ? 1 : 0);
+        assertPhaseStreamSatisfies(win, "install", "stderr", s ->
+                // all but stdout streams included here
+                Strings.countOccurrences(s, errMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, warningMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, verboseMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, debugMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                // not these
+                Strings.countOccurrences(s, hostMsg) == hostCount &&
+                Strings.countOccurrences(s, outputMsg) == hostCount &&
+                // but no xml or escaped newlines
+                !s.toLowerCase().contains("<s") &&
+                s.indexOf("_")<0);
+        assertPhaseStreamSatisfies(win, "install", PlainWinRmExecTaskFactory.WINRM_STREAM_XML_STDERR, s ->
+                // sas above
+                Strings.countOccurrences(s, errMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, warningMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, verboseMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, debugMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                // but actually host and output aren't included ?
+                Strings.countOccurrences(s, hostMsg) == hostCount &&
+                Strings.countOccurrences(s, outputMsg) == hostCount &&
+                // but YES it has XML (and usually escaped new lines but don't test that)
+//                s.indexOf("_")>=0 &&
+                s.toLowerCase().contains("<s s=\"verbose\""));
+
+        assertPhaseStreamSatisfies(win, "install", PlainWinRmExecTaskFactory.WINRM_STREAM_ERROR, s ->
+                // should contain just errors
+                Strings.countOccurrences(s, errMsg) == 1+(errStreamContainsStdin ? 1 : 0) &&
+                // not these
+                Strings.countOccurrences(s, warningMsg) == 0+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, verboseMsg) == 0+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, debugMsg) == 0+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, hostMsg) == 0+(errStreamContainsStdin ? 1 : 0) &&
+                Strings.countOccurrences(s, outputMsg) == 0+(errStreamContainsStdin ? 1 : 0) &&
+                // no xml or escaped newlines
+                !s.toLowerCase().contains("<s") &&
+                s.indexOf("_")<0);
+        assertPhaseStreamSatisfies(win, "install", PlainWinRmExecTaskFactory.WINRM_STREAM_WARNING, s ->
+                // should contain just warning
+                Strings.countOccurrences(s, warningMsg) == 1 &&
+                // not these
+                Strings.countOccurrences(s, errMsg) == 0 &&
+                Strings.countOccurrences(s, verboseMsg) == 0 &&
+                Strings.countOccurrences(s, debugMsg) == 0 &&
+                Strings.countOccurrences(s, hostMsg) == 0 &&
+                Strings.countOccurrences(s, outputMsg) == 0 &&
+                // no xml or escaped newlines
+                !s.toLowerCase().contains("<s") &&
+                s.indexOf("_")<0);
+        assertPhaseStreamSatisfies(win, "install", PlainWinRmExecTaskFactory.WINRM_STREAM_DEBUG, s ->
+                // should contain just warning
+                Strings.countOccurrences(s, debugMsg) == 1 &&
+                // not these
+                Strings.countOccurrences(s, errMsg) == 0 &&
+                Strings.countOccurrences(s, verboseMsg) == 0 &&
+                Strings.countOccurrences(s, warningMsg) == 0 &&
+                Strings.countOccurrences(s, hostMsg) == 0 &&
+                Strings.countOccurrences(s, outputMsg) == 0 &&
+                // no xml or escaped newlines
+                !s.toLowerCase().contains("<s") &&
+                s.indexOf("_")<0);
+        assertPhaseStreamSatisfies(win, "install", PlainWinRmExecTaskFactory.WINRM_STREAM_VERBOSE, s ->
+                // should contain just warning
+                Strings.countOccurrences(s, verboseMsg) == 1 &&
+                // not these
+                Strings.countOccurrences(s, errMsg) == 0 &&
+                Strings.countOccurrences(s, warningMsg) == 0 &&
+                Strings.countOccurrences(s, debugMsg) == 0 &&
+                Strings.countOccurrences(s, hostMsg) == 0 &&
+                Strings.countOccurrences(s, outputMsg) == 0 &&
+                // no xml or escaped newlines
+                !s.toLowerCase().contains("<s") &&
+                s.indexOf("_")<0);
     }
     
-    private void assertPhaseStreamEquals(Entity entity, String phase, String stream, Predicate<String> check) {
-        Optional<Task<?>> t = findTaskOrSubTask(entity, TaskPredicates.displayNameSatisfies(StringPredicates.startsWith("winrm: "+phase)));
-        Asserts.assertTrue(t.isPresent(), "phase "+phase+" not found in tasks");
-        WrappedStream streamV = BrooklynTaskTags.stream(t.get(), stream);
+    private void assertPhaseStreamSatisfies(Entity entity, String phase, String stream, Predicate<String> check) {
+        WrappedStream streamV = getWrappedStream(entity, phase, stream);
         Asserts.assertNotNull(streamV, "phase "+phase+" stream "+stream+" not found");
         Asserts.assertThat(streamV.streamContents.get().trim(), check, "phase "+phase+" stream "+stream+" not as expected: '"+streamV.streamContents.get().trim()+"'");
+    }
+
+    private WrappedStream getWrappedStream(Entity entity, String phase, String stream) {
+        Optional<Task<?>> t = findTaskOrSubTask(entity, TaskPredicates.displayNameSatisfies(StringPredicates.startsWith("winrm: "+ phase)));
+        Asserts.assertTrue(t.isPresent(), "phase "+ phase +" not found in tasks");
+        WrappedStream streamV = BrooklynTaskTags.stream(t.get(), stream);
+        return streamV;
     }
 
     @Override
