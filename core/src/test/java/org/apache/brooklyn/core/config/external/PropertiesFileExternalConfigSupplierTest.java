@@ -68,11 +68,6 @@ public class PropertiesFileExternalConfigSupplierTest {
         doTestFromProperties(f -> f.toURI().toString());
     }
 
-    @Test
-    public void testFromPropertiesTwoSlashAndPathUrl() throws Exception {
-        doTestFromProperties(f -> "file://"+f.getAbsolutePath());
-    }
-
     public void doTestFromProperties(Function<File,String> url) throws Exception {
         String contents =
                 "mykey=myval"+"\n"+
