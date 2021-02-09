@@ -71,12 +71,14 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
                 richStreamProvider = getRichStreamProvider(tb);
                 if (richStreamProvider==null) {
                     super.initStreams(tb);
+                } else {
+                    super.initStreams(richStreamProvider);
                 }
             }
 
             @Override
             protected ByteArrayOutputStream stderrForReading() {
-                if (richStreamProvider!=null) return richStreamProvider.stderrForReading;
+            if (richStreamProvider!=null) return richStreamProvider.stderrForReading;
                 return super.stderrForReading();
             }
 
