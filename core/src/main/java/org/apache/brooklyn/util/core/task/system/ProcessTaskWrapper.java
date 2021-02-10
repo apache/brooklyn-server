@@ -24,7 +24,6 @@ import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskWrapper;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
@@ -33,7 +32,6 @@ import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactor
 import org.apache.brooklyn.util.core.task.system.internal.AbstractProcessTaskFactory;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,10 +47,9 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
     private final Task<RET> task;
 
     // execution details
-    private ByteArrayOutputStream stdout;
-    private ByteArrayOutputStream stderr;
     protected Integer exitCode = null;
-    
+    private Std2x2StreamProvider streamProvider;
+
     @SuppressWarnings("unchecked")
     protected ProcessTaskWrapper(AbstractProcessTaskFactory<?,RET> constructor) {
         super(constructor);
@@ -62,16 +59,18 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
     }
 
     protected void initStreams(TaskBuilder<Object> tb) {
-        Std2x2StreamProvider r = Std2x2StreamProvider.newDefault(tb);
-        stdout = r.stdoutForReading;
-        stderr = r.stdoutForReading;
+        streamProvider = Std2x2StreamProvider.newDefault(tb);
     }
 
-    protected ByteArrayOutputStream stdoutForReading() { return stdout; }
-    protected OutputStream stdoutForWriting() { return stdout; }
+    protected void initStreams(Std2x2StreamProvider r) {
+        streamProvider = r;
+    }
 
-    protected ByteArrayOutputStream stderrForReading() { return stderr; }
-    protected OutputStream stderrForWriting() { return stderr; }
+    protected ByteArrayOutputStream stdoutForReading() { return streamProvider.stdoutForReading; }
+    protected OutputStream stdoutForWriting() { return streamProvider.stdoutForWriting; }
+
+    protected ByteArrayOutputStream stderrForReading() { return streamProvider.stderrForReading; }
+    protected OutputStream stderrForWriting() { return streamProvider.stderrForWriting; }
 
     @Override
     public Task<RET> asTask() {
@@ -106,6 +105,7 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
         if (stderrForReading()==null) return null;
         return stderrForReading().toString();
     }
+
 
     protected class ProcessTaskInternalJob implements Callable<Object> {
         @Override
