@@ -57,7 +57,7 @@ public interface CatalogApi {
     @Deprecated
     @Consumes("application/deprecated-yaml-old")  // prevent this from taking things
     @POST
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     public Response create(String yaml,
             @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
@@ -66,7 +66,7 @@ public interface CatalogApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml")
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
             @Valid String yaml,
@@ -78,7 +78,7 @@ public interface CatalogApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-x-zip")
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
@@ -97,7 +97,7 @@ public interface CatalogApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-autodetect")
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     public Response createFromUpload(
             @ApiParam(
                     name = "item",
