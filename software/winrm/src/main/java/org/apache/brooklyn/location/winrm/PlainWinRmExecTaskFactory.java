@@ -18,14 +18,32 @@
  */
 package org.apache.brooklyn.location.winrm;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.util.List;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.internal.winrm.winrm4j.FilteringXmlWriter.SelectedStreamsFilteringXmlWriter;
+import org.apache.brooklyn.util.core.internal.winrm.winrm4j.PrettyXmlWriter;
+import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
-
-import java.util.List;
+import org.apache.commons.io.output.TeeOutputStream;
+import org.apache.commons.io.output.WriterOutputStream;
 
 public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
+
+    public static final String WINRM_STREAM_XML_STDERR = "winrm_xml_stderr";
+
+    public static final String WINRM_STREAM_ERROR = "winrm_error";
+    public static final String WINRM_STREAM_WARNING = "winrm_warning";
+    public static final String WINRM_STREAM_DEBUG = "winrm_debug";
+    public static final String WINRM_STREAM_VERBOSE = "winrm_verbose";
 
     /** constructor where machine will be added later */
     public PlainWinRmExecTaskFactory(String ...commands) {
@@ -66,6 +84,59 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
     @Override
     public PlainWinRmExecTaskFactory<String> requiringZeroAndReturningStdout() {
         return (PlainWinRmExecTaskFactory<String>) super.requiringZeroAndReturningStdout();
+    }
+
+    /** In WinRM we sometimes get huge XML output from powershell, in the stream powershell says is `stderr`.
+     * This seems to contravene the docs which say only Write-Error should come back in that stream.
+     * But when that does happen, stderr is sometimes unusable. So we make a new stream for the big XML,
+     * and we filter the error output into stderr.
+     * <p>
+     * Note this does some simple auto-detection so if the stream seems not to be xml we write the same data to both.
+     * */
+    @Override
+    protected Std2x2StreamProvider getRichStreamProvider(TaskBuilder<?> tb) {
+        return newStreamProviderForWindowsXml(tb);
+    }
+
+    @Beta
+    public static Std2x2StreamProvider newStreamProviderForWindowsXml(TaskBuilder<?> tb) {
+        Std2x2StreamProvider r = new Std2x2StreamProvider();
+        r.stdoutForWriting = r.stdoutForReading = new ByteArrayOutputStream();
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, r.stdoutForReading));
+
+        ByteArrayOutputStream stderrXmlPrettyOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderrNonXmlFilteredOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream verboseFilteredOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream debugFilteredOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream warningFilteredOut = new ByteArrayOutputStream();
+        ByteArrayOutputStream errorFilteredOut = new ByteArrayOutputStream();
+
+        OutputStream rawxml = tee(MutableList.of(
+                new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(stderrXmlPrettyOut))),
+                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter(s -> true, stderrNonXmlFilteredOut)),
+                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("verbose", verboseFilteredOut)),
+                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("debug", debugFilteredOut)),
+                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("warning", warningFilteredOut)),
+                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("error", errorFilteredOut)) ));
+
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, stderrNonXmlFilteredOut));
+
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_XML_STDERR, stderrXmlPrettyOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_VERBOSE, verboseFilteredOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_DEBUG, debugFilteredOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_WARNING, warningFilteredOut));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_ERROR, errorFilteredOut));
+
+        r.stderrForReading = stderrNonXmlFilteredOut;
+        r.stderrForWriting = rawxml;
+
+        return r;
+    }
+
+    private static OutputStream tee(List<OutputStream> streams) {
+        if (streams==null || streams.isEmpty()) throw new IllegalStateException("stream required");
+        if (streams.size()==1) return Iterables.getOnlyElement(streams);
+        return new TeeOutputStream(streams.get(0), tee(streams.subList(1, streams.size())));
     }
 }
 

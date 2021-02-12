@@ -44,8 +44,9 @@ public class WindowsTestFixture {
     
     @SuppressWarnings("unchecked")
     public static MachineProvisioningLocation<WinRmMachineLocation> setUpWindowsLocation(ManagementContext mgmt, Map<String, ?> props) throws Exception {
-        // Commented out / unused code included here to make it easy to supply a 
-        // pre-existing Windows VM for use in a bunch of different tests.
+        // option to set a pre-existing Windows VM for use in a bunch of different tests.
+        // or leave blank, run once, interrupt and retrieve the user:pass@host for use subsequently
+        // (but if you do that don't forget to delete it!)
         String userPassAtHost = System.getenv(EXISTING_WINDOWS_TEST_USER_PASS_HOST_ENV_VAR);
         if (Strings.isBlank(userPassAtHost)) {
             return (MachineProvisioningLocation<WinRmMachineLocation>) newJcloudsLocation((ManagementContextInternal) mgmt, props);

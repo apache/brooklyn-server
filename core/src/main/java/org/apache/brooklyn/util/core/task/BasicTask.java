@@ -87,6 +87,8 @@ public class BasicTask<T> implements TaskInternal<T> {
     public final String displayName;
     public final String description;
 
+    // TODO would be nice to make this linked to preserve order, as well as concurrent;
+    // but need to take care to support deserialization
     protected final Set<Object> tags = Sets.newConcurrentHashSet();
     // for debugging, to record where tasks were created
 //    { tags.add(new Throwable("Creation stack trace")); }
