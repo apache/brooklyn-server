@@ -22,6 +22,6 @@ import io.swagger.config.ScannerFactory;
 
 public class ScannerInjectHelper {
     public void setServer(JAXRSServerFactoryBean server) {
-        ScannerFactory.setScanner(new RestApiResourceScanner(server.getResourceClasses()));
+        RestApiResourceScanner.install(server.getResourceClasses());
     }
 }

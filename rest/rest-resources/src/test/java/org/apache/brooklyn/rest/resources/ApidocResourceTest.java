@@ -56,7 +56,7 @@ public class ApidocResourceTest extends BrooklynRestResourceTest {
 
     @Override
     protected void addBrooklynResources() {
-        ScannerFactory.setScanner(new RestApiResourceScanner());
+        RestApiResourceScanner.install(null);
 
         for (Object o : BrooklynRestApi.getApidocResources()) {
             addResource(o);
