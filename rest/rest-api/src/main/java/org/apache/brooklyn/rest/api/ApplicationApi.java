@@ -139,7 +139,7 @@ public interface ApplicationApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = org.apache.brooklyn.rest.domain.TaskSummary.class)
     public Response createFromYaml(
             @ApiParam(
                     name = "applicationSpec",
@@ -198,7 +198,7 @@ public interface ApplicationApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = org.apache.brooklyn.rest.domain.TaskSummary.class)
     public Response createPoly(
             @ApiParam(
                     name = "applicationSpec",
