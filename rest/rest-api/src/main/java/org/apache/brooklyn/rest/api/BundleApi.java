@@ -165,7 +165,7 @@ public interface BundleApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml")
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = BundleInstallationRestResult.class)
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "BOM YAML declaring the types to be installed", required = true)
             @Valid String yaml,
@@ -177,7 +177,7 @@ public interface BundleApi {
     @Deprecated
     @POST
     @Consumes({"application/deprecated-zip"})
-    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiOperation(value = "(deprecated)", hidden = true, response = BundleInstallationRestResult.class)
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
