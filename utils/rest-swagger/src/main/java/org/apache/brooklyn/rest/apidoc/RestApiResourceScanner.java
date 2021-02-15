@@ -16,10 +16,9 @@
 package org.apache.brooklyn.rest.apidoc;
 
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import io.swagger.config.Scanner;
+import io.swagger.config.ScannerFactory;
+import java.util.*;
 
 import javax.servlet.ServletConfig;
 import javax.ws.rs.core.Application;
@@ -32,54 +31,74 @@ import io.swagger.models.Swagger;
 
 
 /**
+ * Scans resources for Swagger API resources. Makes them available to the Swagger scanner.
  * Much like DefaultJaxrsScanner, but looks at annotations of ancestors as well.
  *
  * For instance, if a resource implementation exposes an annotated interface,
  * that interface will be added as well.
  *
+ * Unfortunately the Swagger scanner is a static so this {@link #install(Collection)} expects static scope;
+ * it works out okay as we want all the resources from different bundles to be available in the API doc page.
+ * But it is a bit ugly.
+ *
+ * Swagger also caches things so, also unfortunately, we need to hack in to the ApiListing calls and
+ * {@link #rescanIfNeeded(Runnable)}.
  */
 public class RestApiResourceScanner extends AbstractScanner implements JaxrsScanner, SwaggerConfig {
 
-    private Set<Class<?>> apiClasses = null;
+    private boolean scannerDirty = true;
+
+    private final Set<Class<?>> globalClasses = new HashSet<>();
+
+    private final Map<Application,Set<Class<?>>> appCache = new WeakHashMap<>();
 
     public RestApiResourceScanner() {}
 
     public RestApiResourceScanner(Collection<Class<?>> resourceClasses) {
-        this.apiClasses = new HashSet<>();
-        addAnnotatedClasses(apiClasses, resourceClasses);
+        addAnnotatedClasses(globalClasses, resourceClasses);
+    }
+
+    private void addAnnotatedClasses(Collection<Class<?>> classes) {
+        addAnnotatedClasses(globalClasses, classes);
     }
 
     private void addAnnotatedClasses(Set<Class<?>> output, Collection<Class<?>> classes) {
-        for (Class<?> clz : classes) {
-            if (clz.getAnnotation(Api.class) != null) {
-                output.add(clz);
+        if (classes!=null) {
+            for (Class<?> clz : classes) {
+                if (clz.getAnnotation(Api.class) != null) {
+                    output.add(clz);
+                }
+                addAnnotatedClasses(output, Arrays.asList(clz.getInterfaces()));
             }
-            addAnnotatedClasses(output, Arrays.asList(clz.getInterfaces()));
         }
     }
 
-    private synchronized void buildApiClasses(Application app) {
-        if (apiClasses == null) {
-            apiClasses = new HashSet<>();
+    private synchronized Set<Class<?>> buildApiClasses(Application app) {
+        Set<Class<?>> cached = appCache.get(app);
+        if (cached == null) {
+            cached = new HashSet<>();
             if (app != null) {
                 Set<Class<?>> classes = app.getClasses();
                 if (classes != null) {
-                    addAnnotatedClasses(apiClasses, classes);
+                    addAnnotatedClasses(cached, classes);
                 }
                 Set<Object> singletons = app.getSingletons();
                 if (singletons != null) {
                     for (Object o : singletons) {
-                        addAnnotatedClasses(apiClasses, Arrays.<Class<?>>asList(o.getClass()));
+                        addAnnotatedClasses(cached, Arrays.<Class<?>>asList(o.getClass()));
                     }
                 }
             }
+            appCache.put(app, cached);
         }
+        return cached;
     }
 
     @Override
     public Set<Class<?>> classesFromContext(Application app, ServletConfig sc) {
-        buildApiClasses(app);
-        return apiClasses;
+        HashSet<Class<?>> all = new HashSet<>(globalClasses);
+        all.addAll(buildApiClasses(app));
+        return all;
     }
 
     @Override
@@ -96,6 +115,25 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     @Override
     public String getFilterClass() {
         return null;
+    }
+
+    /** install this as the scanner which Swagger will use, with the given class also installed */
+    public static void install(Collection<Class<?>> resourceClasses) {
+        Scanner scanner = ScannerFactory.getScanner();
+        if (scanner instanceof RestApiResourceScanner) {
+            ((RestApiResourceScanner)scanner).addAnnotatedClasses(resourceClasses);
+        } else {
+            scanner = new RestApiResourceScanner(resourceClasses);
+        }
+        ScannerFactory.setScanner(scanner);
+        ((RestApiResourceScanner)ScannerFactory.getScanner()).scannerDirty = true;
+    }
+
+    public static void rescanIfNeeded(Runnable r) {
+        if (ScannerFactory.getScanner() instanceof RestApiResourceScanner && ((RestApiResourceScanner)ScannerFactory.getScanner()).scannerDirty) {
+            r.run();
+            ((RestApiResourceScanner)ScannerFactory.getScanner()).scannerDirty = false;
+        }
     }
 
 }
