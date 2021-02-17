@@ -20,10 +20,12 @@ import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoa
 
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
@@ -31,7 +33,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynVersion;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
@@ -45,7 +46,6 @@ import org.apache.brooklyn.util.core.LoaderDispatcher.ResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
@@ -75,6 +75,9 @@ public class ClassLoaderUtils {
     static final String CLASS_NAME_DELIMITER = ":";
     private static final String WHITE_LIST_DEFAULT =
         "org\\.apache\\.brooklyn\\..*:" + BrooklynVersion.getOsgiVersion();
+
+    // Contains the bundle symbolic names replaced in new versions mapped to the new name
+    private Map<String,String> UPDATED_SYMBOLICS_NAMES = ImmutableMap.of("org.apache.commons.codec", "org.apache.commons.commons-codec");
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
@@ -329,9 +332,14 @@ public class ClassLoaderUtils {
         return Maybe.absentNull();
     }
 
-    protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String symbolicName, String version,
+    protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String originalSymbolicName, String version,
                                              String name) {
         Framework framework = getFramework();
+        String symbolicName = originalSymbolicName;
+        if(UPDATED_SYMBOLICS_NAMES.containsKey(symbolicName)){
+            log.debug("Using {} as symbolicName instead of {} as it is in UPDATED_SYMBOLICS_NAMES list", symbolicName, originalSymbolicName);
+            symbolicName = UPDATED_SYMBOLICS_NAMES.get(symbolicName);
+        }
         if (framework != null) {
 
             if (Strings.isBlank(version)) {
@@ -367,7 +375,7 @@ public class ClassLoaderUtils {
                 }
                 if (bundle == null) {
                     throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
-                            + " not found to load " + name);
+                            + " not found to load " + name + (originalSymbolicName.equals(symbolicName)?"":". Original symbolic name: "+originalSymbolicName));
                 }
             }
             return dispatcher.tryLoadFrom(bundle, name);
@@ -377,11 +385,15 @@ public class ClassLoaderUtils {
                 if (name==null || name.startsWith("//") || symbolicName==null || "classpath".equals(symbolicName) || "http".equals(symbolicName) || "https".equals(symbolicName) || "file".equals(symbolicName)) {
                     // this is called speculatively by BasicBrooklynCatalog.PlanInterpreterGuessingType so can log a lot of warnings where URLs are passed
                     if (log.isTraceEnabled()) {
-                        log.trace("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                        log.trace("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "") +
+                                (originalSymbolicName.equals(symbolicName)?"":". Original symbolic name: "+originalSymbolicName) +
+                                "was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
                     }
                 } else {
                     // TODO not sure warning is appropriate, but won't hide that in all cases yet
-                    log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                    log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "") +
+                            (originalSymbolicName.equals(symbolicName)?"":". Original symbolic name: "+originalSymbolicName) +
+                            "was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
                 }
             }
             return result;
