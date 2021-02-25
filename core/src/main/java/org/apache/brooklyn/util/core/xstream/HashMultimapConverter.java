@@ -41,7 +41,7 @@ public class HashMultimapConverter extends CollectionConverter{
     }
 
     // TODO how do we convert this from ObjectOutputStream to XStream mapper ?
-    // (code below copied from HashMultimap.readObject / writeObject)
+
     @Override
     public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
         HashMultimap hashMultimap = (HashMultimap) source;
