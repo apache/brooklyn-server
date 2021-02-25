@@ -16,7 +16,6 @@
 package org.apache.brooklyn.launcher.osgi;
 
 import com.google.common.base.Stopwatch;
-//import com.sun.xml.bind.v2.TODO;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
