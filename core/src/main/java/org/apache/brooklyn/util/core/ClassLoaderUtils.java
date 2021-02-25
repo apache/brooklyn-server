@@ -348,7 +348,6 @@ public class ClassLoaderUtils {
                     // then use that version of the bundle, rather than the latest version
                     ClassLoader cl = classLoader.loadClass(name).getClassLoader();
                     if (cl instanceof BundleReference){
-//                    if (cl instanceof BundleClassLoader) {
                         Bundle b = ((BundleReference) cl).getBundle();
                         if (Objects.equal(symbolicName, b.getSymbolicName())) {
                             version = b.getVersion().toString();
