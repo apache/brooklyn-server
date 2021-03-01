@@ -26,7 +26,7 @@ public class ByteSize extends AbstractUnit implements Comparable<ByteSize> {
     /** json constructor */
     private ByteSize() {}
 
-    public ByteSize(String s) { super(ByteSizeStrings.parse(s, null, ByteSizeStrings.metric())); }
+    public ByteSize(String s) { super(ByteSizeStrings.parse(s)); }
 
     public static ByteSize fromString(String s) { return new ByteSize(s); }
 
