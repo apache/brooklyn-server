@@ -26,7 +26,10 @@ public class ScannerInjectHelper {
     public void setServer(JAXRSServerFactoryBean server) {
         RestApiResourceScanner scanner = new RestApiResourceScanner(server.getResourceClasses());
         ScannerFactory.setScanner(scanner);
-        // Above method broken in Swagger 1.6.2
+        // Above method broken in Swagger 1.6.2:
+        // In Swagger 1.6.2 the method SwaggerContextService.getScanner calls to ScannerFactory.getScanner() only
+        // when SwaggerScannerLocator.getInstance().getScanner(scannerIdKey) == null, but seeing its implementations,
+        // it's impossible to get a null value, so we need to use SwaggerScannerLocator instead.
         SwaggerScannerLocator.getInstance().putScanner(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);
     }
 }
