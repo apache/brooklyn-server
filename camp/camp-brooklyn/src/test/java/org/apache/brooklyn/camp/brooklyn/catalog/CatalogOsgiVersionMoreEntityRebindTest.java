@@ -279,10 +279,10 @@ public class CatalogOsgiVersionMoreEntityRebindTest extends AbstractYamlRebindTe
         } catch (Exception e) {
             // should fail to rebind this entity
             if (e instanceof CompoundRuntimeException) {
-                // bit brittle but good enough for now to find the exception with our message
-                e = (Exception) ((CompoundRuntimeException)e).getAllCauses().get(2);
+                Asserts.expectedCompoundExceptionContainsIgnoreCase((CompoundRuntimeException)e, more.getId(), "class", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "not found");
+            } else {
+                Asserts.expectedFailureContainsIgnoreCase(e, more.getId(), "class", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "not found");
             }
-            Asserts.expectedFailureContainsIgnoreCase(e, more.getId(), "class", BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY, "not found");
         }
     }
     

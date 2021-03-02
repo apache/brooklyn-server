@@ -47,7 +47,6 @@ import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleReference;
@@ -77,7 +76,9 @@ public class ClassLoaderUtils {
         "org\\.apache\\.brooklyn\\..*:" + BrooklynVersion.getOsgiVersion();
 
     // Contains the bundle symbolic names replaced in new versions mapped to the new name
-    private Map<String,String> UPDATED_SYMBOLICS_NAMES = ImmutableMap.of("org.apache.commons.codec", "org.apache.commons.commons-codec");
+    private Map<String,String> SYMBOLIC_NAME_UPDATES = ImmutableMap.<String, String>builder()
+        .put("org.apache.commons.codec", "org.apache.commons.commons-codec")
+        .build();
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
@@ -336,9 +337,9 @@ public class ClassLoaderUtils {
                                              String name) {
         Framework framework = getFramework();
         String symbolicName = originalSymbolicName;
-        if(UPDATED_SYMBOLICS_NAMES.containsKey(symbolicName)){
+        if(isSymbolicNameChanged(symbolicName)){
             log.debug("Using {} as symbolicName instead of {} as it is in UPDATED_SYMBOLICS_NAMES list", symbolicName, originalSymbolicName);
-            symbolicName = UPDATED_SYMBOLICS_NAMES.get(symbolicName);
+            symbolicName = findUpdatedSymbolicName(symbolicName);
         }
         if (framework != null) {
 
@@ -359,25 +360,28 @@ public class ClassLoaderUtils {
                 }
             }
 
-            Bundle bundle = Osgis.bundleFinder(framework)
+            Maybe<Bundle> bundle = Maybe.of(Osgis.bundleFinder(framework)
                     .symbolicName(symbolicName)
                     .version(version)
-                    .findAll().stream().max((v1, v2) -> VersionComparator.INSTANCE.compare(v1.getVersion().toString(), v2.getVersion().toString())).orElse(null);
-            if (bundle == null) {
+                    .findAll()
+                    .stream()
+                    .reduce((v1, v2) -> v2));
+            if (bundle.isAbsent()) {
                 String requestedV = symbolicName+":"+(Strings.isBlank(version) ? BrooklynCatalog.DEFAULT_VERSION : version);
                 String upgradedV = CatalogUpgrades.getBundleUpgradedIfNecessary(mgmt, requestedV);
                 if (!Objects.equal(upgradedV, requestedV)) {
                     log.debug("Upgraded access to bundle "+requestedV+" for loading "+name+" to use bundle "+upgradedV);
-                    bundle = Osgis.bundleFinder(framework)
+                    bundle = Maybe.of(Osgis.bundleFinder(framework)
                             .id(upgradedV)
-                            .findAll().stream().max((v1, v2) -> VersionComparator.INSTANCE.compare(v1.getVersion().toString(), v2.getVersion().toString())).orElse(null);
+                            .findAll()
+                            .stream()
+                            .reduce((v1, v2) -> v2));
                 }
-                if (bundle == null) {
-                    throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
-                            + " not found to load " + name + (originalSymbolicName.equals(symbolicName)?"":". Original symbolic name: "+originalSymbolicName));
+                if (bundle.isAbsent()) {
+                    throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)+ " not found to load.");
                 }
             }
-            return dispatcher.tryLoadFrom(bundle, name);
+            return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
             Maybe<T> result = dispatcher.tryLoadFrom(classLoader, name);
             if (result.isAbsent()) {
@@ -478,7 +482,9 @@ public class ClassLoaderUtils {
     }
 
     private String toBundleString(String symbolicName, String version) {
-        return symbolicName + ":" + (version != null ? version : "any");
+        return symbolicName + ":" + (version != null ? version : "any") +
+                (isSymbolicNameChanged(symbolicName) ? " (originally " + SYMBOLIC_NAME_UPDATES.get(symbolicName) +
+                ")" : "");
     }
 
     /**
@@ -506,6 +512,18 @@ public class ClassLoaderUtils {
             arr[last] = arr[last].substring(1);
         }
         return Joiner.on(":").join(arr);
+    }
+
+    private boolean isSymbolicNameChanged(String symbolicName) {
+        return SYMBOLIC_NAME_UPDATES.containsKey(symbolicName);
+    }
+
+    private String findUpdatedSymbolicName(String orignalSymbolicName) {
+        String result = orignalSymbolicName;
+        while (isSymbolicNameChanged(result)) {
+            result = SYMBOLIC_NAME_UPDATES.get(result);
+        }
+        return result;
     }
     
     @Override
