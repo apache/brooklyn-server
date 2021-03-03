@@ -89,6 +89,7 @@
         <dependency>
             <groupId>org.apache.felix</groupId>
             <artifactId>org.apache.felix.framework</artifactId>
+            <version>${felix.framework.version}</version>
         </dependency>
         <dependency>
             <groupId>javax.servlet</groupId>

@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -1305,6 +1306,18 @@ public class Asserts {
             rethrowPreferredException(e, ee);
         }
         return true;
+    }
+
+    /** As {@link #expectedFailureContains(Throwable, String, String...)} but case insensitive */
+    public static boolean expectedCompoundExceptionContainsIgnoreCase(CompoundRuntimeException e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+        for (Throwable t : e.getAllCauses()) {
+            if (t instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)t;
+            try {
+                expectedFailureContainsIgnoreCase(t, phrase1ToContain, optionalOtherPhrasesToContain);
+                return true;
+            } catch (AssertionError ee) {}
+        }
+        throw new CompoundRuntimeException("Expected literals not found: " + phrase1ToContain + ", " + optionalOtherPhrasesToContain, e);
     }
 
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>

@@ -20,41 +20,43 @@ package org.apache.brooklyn.rest.resources;
 
 
 import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
 import javax.ws.rs.Path;
 
 import io.swagger.annotations.Api;
 import io.swagger.jaxrs.listing.ApiListingResource;
-import javax.ws.rs.core.Application;
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriInfo;
+
+import javax.ws.rs.core.*;
+
 import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
 
 /**
  * @author Ciprian Ciubotariu <cheepeero@gmx.net>
  */
 @Api("API Documentation")
-@Path("/apidoc")
+@Path("/apidoc/swagger.{type:json|yaml}")
 public class ApidocResource extends ApiListingResource {
 
-    private void preprocess(Application app, ServletConfig sc) {
-        RestApiResourceScanner.rescanIfNeeded(() -> scan(app, sc));
+    @Context
+    ServletContext servletContext;
+
+    private void preprocess(Application app, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo) {
+        RestApiResourceScanner.rescanIfNeeded(() -> process(app, servletContext, servletConfig, headers, uriInfo));
     }
 
     @Override
-    public Response getListing(Application app, ServletConfig sc, HttpHeaders headers, UriInfo uriInfo, String type) {
-        preprocess(app, sc);
-        return super.getListing(app, sc, headers, uriInfo, type);
+    public Response getListing(Application app, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo, String type) {
+        preprocess(app, servletConfig, headers, uriInfo);
+        return super.getListing(app, servletConfig, headers, uriInfo, type);
     }
 
     @Override
-    public Response getListingJson(Application app, ServletConfig sc, HttpHeaders headers, UriInfo uriInfo) {
-        return super.getListingJson(app, sc, headers, uriInfo);
+    public Response getListingJsonResponse(Application app, ServletContext servletContext, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo) {
+        return super.getListingJsonResponse(app, servletContext, servletConfig, headers, uriInfo);
     }
 
     @Override
-    public Response getListingYaml(Application app, ServletConfig sc, HttpHeaders headers, UriInfo uriInfo) {
-        return super.getListingYaml(app, sc, headers, uriInfo);
+    public Response getListingYamlResponse(Application app, ServletContext servletContext, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo) {
+        return super.getListingYamlResponse(app, servletContext, servletConfig, headers, uriInfo);
     }
-
 }

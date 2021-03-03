@@ -379,8 +379,8 @@ public class LoadBalancingPolicyTest extends AbstractLoadBalancingPolicyTest {
             public void run() {
                 assertEquals(model.getPoolSize(), 2);
                 assertEquals(model.getPoolContents(), ImmutableSet.of(containerA, containerB));
-                assertEquals(model.getItemWorkrate(item1), 12d);
-                assertEquals(model.getItemWorkrate(item2), 13d);
+                assertEquals(model.getItemWorkrate(item1), (Double) 12d);
+                assertEquals(model.getItemWorkrate(item2), (Double) 13d);
                 
                 assertEquals(model.getParentContainer(item1), containerA);
                 assertEquals(model.getParentContainer(item2), containerB);

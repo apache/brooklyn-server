@@ -147,6 +147,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
                 .accept(MediaType.APPLICATION_JSON)
                 .post("{\"duration\": \"5m\"}");
         Duration runDuration = Duration.of(stopwatch);
+        response.bufferEntity();
         assertEquals(response.getStatus(), 202);
         
         String responseBody = response.readEntity(String.class);
