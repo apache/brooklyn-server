@@ -35,6 +35,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslS
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.custom.UserSuppliedPackageType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -859,6 +860,30 @@ public class DslYamlTest extends AbstractYamlTest {
                 "    test.sourceTemplate: ${config['test.sourceDsl']}",
                 "    dest: $brooklyn:template($brooklyn:config(\"test.sourceTemplate\"))");
         assertEquals(getConfigEventually(app, DEST), "hello world");
+    }
+
+    @Test
+    public void testDslSelectorFromList() throws Exception {
+        final Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + BasicApplication.class.getName(),
+            "  brooklyn.config:",
+            "    key1: [a,b,c]",
+            "    key2: $brooklyn:config(\"key1\")[1]");
+        Dumper.dumpInfo(app);
+        assertEquals(getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")), "b");
+    }
+
+    @Test
+    public void testDslSelectorFromMap() throws Exception {
+        final Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + BasicApplication.class.getName(),
+            "  brooklyn.config:",
+            "    key1: {a: 3}",
+            "    key2: $brooklyn:config(\"key1\")[\"a\"]");
+        Dumper.dumpInfo(app);
+        assertEquals(getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")), "3");
     }
 
     @Test

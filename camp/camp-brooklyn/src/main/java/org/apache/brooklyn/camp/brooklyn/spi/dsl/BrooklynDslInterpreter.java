@@ -24,9 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.FunctionWithArgs;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.QuotedString;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.*;
 import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter;
 import org.apache.brooklyn.camp.spi.resolve.PlanInterpreter.PlanInterpreterAdapter;
 import org.apache.brooklyn.camp.spi.resolve.interpret.PlanInterpretationNode;
@@ -140,7 +138,11 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         if (f instanceof List) {
             Object o = BrooklynDslCommon.class;
             for (Object i: (List<?>)f) {
-                o = evaluateOn( o, (FunctionWithArgs)i, deepEvaluation );
+                if (i instanceof FunctionWithArgs) {
+                    o = evaluateOn(o, (FunctionWithArgs) i, deepEvaluation);
+                } else if(i instanceof PropertyAccess) {
+                    o = evaluateOn(o, (PropertyAccess) i);
+                }
             }
             return o;
         }
@@ -185,4 +187,19 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
         }
     }
 
+    public Object evaluateOn(Object o, PropertyAccess propAccess) {
+        if(propAccess.getSelector() == null) {
+            throw new IllegalStateException("Invalid property-selector expression!");
+        }
+        try {
+            Object index = propAccess.getSelector();
+            if (index instanceof QuotedString) {
+                index = ((QuotedString)index).unwrapped();
+            }
+            return new DslDeferredPropertyAccess((BrooklynDslDeferredSupplier) o, index);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            throw Exceptions.propagate(new InvocationTargetException(e, "Error accessing property " + propAccess.getSelector() + " on " + o));
+        }
+    }
 }

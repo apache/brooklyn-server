@@ -171,4 +171,12 @@ public class DslParseComponentsTest extends AbstractYamlTest {
         Assert.assertEquals(z2.toString(), "2-1");
     }
 
+    @Test
+    public void testEntityWithNewDslSyntax() throws Exception{
+        BasicApplication app = (BasicApplication) createAndStartApplication(loadYaml("test-app-with-custom-type-attribute.yaml"));
+
+
+        app.stop();
+    }
+
 }
