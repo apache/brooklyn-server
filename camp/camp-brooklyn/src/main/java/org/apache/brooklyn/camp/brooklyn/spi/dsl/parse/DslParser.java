@@ -26,101 +26,102 @@ import org.apache.brooklyn.util.collections.MutableList;
 public class DslParser {
     private final String expression;
     int index = -1;
-    
+
     public DslParser(String expression) {
         this.expression = expression;
     }
-    
+
     public synchronized Object parse() {
         if (index>=0)
             throw new IllegalStateException("Parser can only be used once");
-        
+
         index++;
         Object result = next();
-        
+
         if (index < expression.length())
             throw new IllegalStateException("Unexpected character at position "+index+" in "+expression);
-        
+
         return result;
     }
-    
+
     @SuppressWarnings("unchecked")
     public Object next() {
         int start = index;
-        
-        skipWhitespace();
-        if (index >= expression.length())
-            throw new IllegalStateException("Unexpected end of expression to parse, looking for content since position "+start);
+
         boolean isProperty = index > 0 && expression.charAt(index -1) == '[';
-        if (expression.charAt(index)=='"' || isProperty) {
-            // assume a string
-            int stringStart = index;
-            if (!isProperty || expression.charAt(index)=='"') { index++; }
-            do {
-                if (index >= expression.length())
-                    throw new IllegalStateException("Unexpected end of expression to parse, looking for close quote since position "+stringStart);
-                char c = expression.charAt(index);
-                if (c=='"' || c==']') break;
-                if (c=='\\') index++;
+        if (!isProperty) {
+            skipWhitespace();
+            if (index >= expression.length())
+                throw new IllegalStateException("Unexpected end of expression to parse, looking for content since position " + start);
+
+            if (expression.charAt(index) == '"') {
+                // assume a string
+                int stringStart = index;
                 index++;
-            } while (true);
-            if (!isProperty) {
+                do {
+                    if (index >= expression.length())
+                        throw new IllegalStateException("Unexpected end of expression to parse, looking for close quote since position " + stringStart);
+                    char c = expression.charAt(index);
+                    if (c == '"') break;
+                    if (c == '\\') index++;
+                    index++;
+                } while (true);
                 index++;
                 return new QuotedString(expression.substring(stringStart, index));
-            } else {
-                return expression.substring(stringStart, index);
             }
         }
-
         // not a string, must be a function (or chain thereof)
         List<Object> result = new MutableList<Object>();
 
         int fnStart = index;
+        // we re-use this property
         isProperty =  expression.charAt(fnStart) == '[';
         if(!isProperty) {
-            do {
-                if (index >= expression.length())
-                    break;
-                char c = expression.charAt(index);
-                if (Character.isJavaIdentifierPart(c)) ;
-                    // these chars also permitted
-                else if (".:".indexOf(c) >= 0) ;
-                    // other things e.g. whitespace, parentheses, etc, skip
-                else break;
-                index++;
-            } while (true);
+        do {
+            if (index >= expression.length())
+                break;
+            char c = expression.charAt(index);
+            if (Character.isJavaIdentifierPart(c)) ;
+                // these chars also permitted
+            else if (".:".indexOf(c)>=0) ;
+                // other things e.g. whitespace, parentheses, etc, skip
+            else break;
+            index++;
+        } while (true);
         }
         String fn = isProperty ? "" : expression.substring(fnStart, index);
         if (fn.length()==0 && !isProperty)
             throw new IllegalStateException("Expected a function name or double-quoted string at position "+start);
         skipWhitespace();
-        
-        if (index < expression.length() && (expression.charAt(index)=='(' || expression.charAt(index)=='[')) {
+
+        if (index < expression.length() && ( expression.charAt(index)=='(' || expression.charAt(index)=='[')) {
             // collect arguments
             int parenStart = index;
-            List<Object> args = new MutableList<>();
+            List<Object> args = new MutableList<Object>();
             index ++;
             do {
                 skipWhitespace();
                 if (index >= expression.length())
                     throw new IllegalStateException("Unexpected end of arguments to function '"+fn+"', no close parenthesis matching character at position "+parenStart);
                 char c = expression.charAt(index);
-                if (c==')' || c == ']') break;
+                if (c==')'|| c == ']') break;
                 if (c==',') {
                     if (args.isEmpty())
                         throw new IllegalStateException("Invalid character at position"+index);
                     index++;
                 } else {
-                    if (!args.isEmpty() && isProperty)
+                    if (!args.isEmpty())
                         throw new IllegalStateException("Expected , before position"+index);
                 }
                 args.add(next());
             } while (true);
+
             if (fn.isEmpty()) {
                 result.add(new PropertyAccess(args.get(0)));
             } else {
                 result.add(new FunctionWithArgs(fn, args));
             }
+
             index++;
             skipWhitespace();
             if (index >= expression.length())
@@ -161,5 +162,5 @@ public class DslParser {
         while (index<expression.length() && Character.isWhitespace(expression.charAt(index)))
             index++;
     }
-    
+
 }

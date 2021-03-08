@@ -17,6 +17,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import static org.testng.Assert.assertEquals;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.custom.UserSuppliedPack
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -46,6 +48,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
 
@@ -871,7 +874,11 @@ public class DslYamlTest extends AbstractYamlTest {
             "    key1: [a,b,c]",
             "    key2: $brooklyn:config(\"key1\")[1]");
         Dumper.dumpInfo(app);
-        assertEquals(getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")), "b");
+
+        Object result =   ((EntityInternal)app).getExecutionContext().get(Tasks.builder().body(
+            () -> getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2"))).build());
+
+        assertEquals(result, "b");
     }
 
     @Test
@@ -883,7 +890,9 @@ public class DslYamlTest extends AbstractYamlTest {
             "    key1: {a: 3}",
             "    key2: $brooklyn:config(\"key1\")[\"a\"]");
         Dumper.dumpInfo(app);
-        assertEquals(getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")), "3");
+        assertEquals(
+            getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
+            "3");
     }
 
     @Test
