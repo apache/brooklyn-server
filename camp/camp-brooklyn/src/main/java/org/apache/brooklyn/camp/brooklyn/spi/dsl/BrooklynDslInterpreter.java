@@ -99,7 +99,7 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
                     throw new IllegalStateException("Invalid map key function "+f.getFunction()+"; should not have arguments if taking arguments from map");
 
                 // means evaluation acts on values
-                List<Object> args = new ArrayList<Object>();
+                List<Object> args = new ArrayList<>();
                 if (value.getNewValue() instanceof Iterable<?>) {
                     for (Object vi: (Iterable<?>)value.getNewValue())
                         args.add(vi);

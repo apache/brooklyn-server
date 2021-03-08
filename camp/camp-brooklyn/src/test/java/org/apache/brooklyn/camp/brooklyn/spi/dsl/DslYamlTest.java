@@ -890,8 +890,23 @@ public class DslYamlTest extends AbstractYamlTest {
         Dumper.dumpInfo(app);
         assertEquals(
             getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
-            "3");
+            3);
     }
+
+    @Test
+    public void testDslSelectorFromMapOfLists() throws Exception {
+        final Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + BasicApplication.class.getName(),
+            "  brooklyn.config:",
+            "    key1: {a: [1,2,3], b: [4,5,6] }",
+            "    key2: $brooklyn:config(\"key1\")[\"b\"][2]");
+        Dumper.dumpInfo(app);
+        assertEquals(
+            getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
+            6);
+    }
+
 
     @Test
     public void testDslRecursiveFails() throws Exception {

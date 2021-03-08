@@ -48,14 +48,15 @@ public class DslParser {
     public Object next() {
         int start = index;
 
-        boolean isProperty = index > 0 && expression.charAt(index -1) == '[';
+        boolean isProperty = (index > 0 && (expression.charAt(index -1) == '[' )) || // for [x] syntax - indexes in lists
+            (index > 1 && (expression.charAt(index -1) == '"' && expression.charAt(index -2) == '[')) ;  // for ["x"] syntax - string properties and map keys
         if (!isProperty) {
             skipWhitespace();
             if (index >= expression.length())
                 throw new IllegalStateException("Unexpected end of expression to parse, looking for content since position " + start);
 
             if (expression.charAt(index) == '"') {
-                // assume a string
+                // assume a string, that is why for property syntax using [x] or ["x"], we skip this part
                 int stringStart = index;
                 index++;
                 do {
@@ -74,20 +75,19 @@ public class DslParser {
         List<Object> result = new MutableList<Object>();
 
         int fnStart = index;
-        // we re-use this property
         isProperty =  expression.charAt(fnStart) == '[';
         if(!isProperty) {
-        do {
-            if (index >= expression.length())
-                break;
-            char c = expression.charAt(index);
-            if (Character.isJavaIdentifierPart(c)) ;
-                // these chars also permitted
-            else if (".:".indexOf(c)>=0) ;
-                // other things e.g. whitespace, parentheses, etc, skip
-            else break;
-            index++;
-        } while (true);
+            do {
+                if (index >= expression.length())
+                    break;
+                char c = expression.charAt(index);
+                if (Character.isJavaIdentifierPart(c)) ;
+                    // these chars also permitted
+                else if (".:".indexOf(c)>=0) ;
+                    // other things e.g. whitespace, parentheses, etc, skip
+                else break;
+                index++;
+            } while (true);
         }
         String fn = isProperty ? "" : expression.substring(fnStart, index);
         if (fn.length()==0 && !isProperty)
@@ -97,27 +97,39 @@ public class DslParser {
         if (index < expression.length() && ( expression.charAt(index)=='(' || expression.charAt(index)=='[')) {
             // collect arguments
             int parenStart = index;
-            List<Object> args = new MutableList<Object>();
+            List<Object> args = new MutableList<>();
+            if (expression.charAt(index)=='[' && expression.charAt(index +1)=='"') { index ++;} // for ["x"] syntax needs to be increased to extract the name of the property correctly
             index ++;
             do {
                 skipWhitespace();
                 if (index >= expression.length())
                     throw new IllegalStateException("Unexpected end of arguments to function '"+fn+"', no close parenthesis matching character at position "+parenStart);
                 char c = expression.charAt(index);
+                if(isProperty && c =='"') { index++; break; } // increasing the index for ["x"] syntax to account for the presence of the '"'
                 if (c==')'|| c == ']') break;
                 if (c==',') {
                     if (args.isEmpty())
                         throw new IllegalStateException("Invalid character at position"+index);
                     index++;
                 } else {
-                    if (!args.isEmpty())
+                    if (!args.isEmpty() && !isProperty)
                         throw new IllegalStateException("Expected , before position"+index);
                 }
-                args.add(next());
+                args.add(next()); // call with first letter of the property
             } while (true);
 
             if (fn.isEmpty()) {
-                result.add(new PropertyAccess(args.get(0)));
+                Object arg = args.get(0);
+                if (arg instanceof FunctionWithArgs) {
+                    FunctionWithArgs holder = (FunctionWithArgs) arg;
+                    if(holder.getArgs() == null || holder.getArgs().isEmpty()) {
+                        result.add(new PropertyAccess(holder.getFunction()));
+                    } else {
+                        throw new IllegalStateException("Expected empty FunctionWithArgs - arguments present!");
+                    }
+                } else {
+                    result.add(new PropertyAccess(arg));
+                }
             } else {
                 result.add(new FunctionWithArgs(fn, args));
             }
@@ -139,7 +151,6 @@ public class DslParser {
                     throw new IllegalStateException("Expected functions following position"+chainStart);
                 }
             } else if (c=='[') {
-                // TODO <- create PropertyAccess objects
                 int selectorsStart = index;
                 Object next = next();
                 if (next instanceof List) {
@@ -153,7 +164,7 @@ public class DslParser {
                 return result;
             }
         } else {
-            // it is just a word; return it with args as null
+            // it is just a word; return it with args as null;
             return new FunctionWithArgs(fn, null);
         }
     }
