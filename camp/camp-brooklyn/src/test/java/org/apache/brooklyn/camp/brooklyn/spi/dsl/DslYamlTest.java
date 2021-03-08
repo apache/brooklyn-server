@@ -875,10 +875,8 @@ public class DslYamlTest extends AbstractYamlTest {
             "    key2: $brooklyn:config(\"key1\")[1]");
         Dumper.dumpInfo(app);
 
-        Object result =   ((EntityInternal)app).getExecutionContext().get(Tasks.builder().body(
-            () -> getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2"))).build());
-
-        assertEquals(result, "b");
+        assertEquals(getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
+            "b");
     }
 
     @Test
@@ -955,19 +953,11 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     private static <T> T getConfigEventually(final Entity entity, final ConfigKey<T> configKey) throws Exception {
-        // Use an executor, in case config().get() blocks forever, waiting for the config value.
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        try {
-            Future<T> future = executor.submit(new Callable<T>() {
-                public T call() {
-                    T blockingValue = entity.config().get(configKey);
-                    Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
-                    assertEquals(immediateValue.get(), blockingValue);
-                    return blockingValue;
-                }});
-            return future.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
-        } finally {
-            executor.shutdownNow();
-        }
+        return (T) Entities.submit(entity, Tasks.builder().body(() -> {
+            T blockingValue = entity.config().get(configKey);
+            Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
+            assertEquals(immediateValue.get(), blockingValue);
+            return blockingValue;
+        }).build()).get();
     }
 }
