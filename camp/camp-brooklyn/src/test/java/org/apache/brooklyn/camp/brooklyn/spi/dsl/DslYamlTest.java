@@ -907,7 +907,6 @@ public class DslYamlTest extends AbstractYamlTest {
             6);
     }
 
-
     @Test
     public void testDslRecursiveFails() throws Exception {
         final Entity app = createAndStartApplication(
