@@ -204,7 +204,7 @@ public class BrooklynVersion implements BrooklynVersionService {
                     }
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    log.warn("Error reading OSGi manifest from " + u + " when determining version properties: " + e, e);
+                    log.debug("Skipping unsupported OSGi manifest in " + u + " when determining Brooklyn version properties: " + e);
                 } finally {
                     Streams.closeQuietly(us);
                 }
