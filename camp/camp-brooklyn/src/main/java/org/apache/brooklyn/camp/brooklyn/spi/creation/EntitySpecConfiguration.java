@@ -41,7 +41,7 @@ public class EntitySpecConfiguration {
     private Map<String, Object> specConfiguration;
 
     public EntitySpecConfiguration(Map<String, ?> specConfiguration) {
-        this.specConfiguration = Maps.newHashMap(checkNotNull(specConfiguration, "specConfiguration"));
+        this.specConfiguration = Maps.newLinkedHashMap(checkNotNull(specConfiguration, "specConfiguration"));
     }
 
     public Map<String, Object> getSpecConfiguration() {
