@@ -18,31 +18,20 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Optional;
-import com.google.common.reflect.TypeToken;
-import java.util.Map;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.testng.Assert;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-
-import java.util.Arrays;
-import java.util.List;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.FunctionWithArgs;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.PropertyAccess;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.QuotedString;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class DslParseTest {
@@ -83,6 +72,66 @@ public class DslParseTest {
         assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"x\"")) );
         assertEquals( ((FunctionWithArgs)fx2).getFunction(), "g" );
         assertTrue( ((FunctionWithArgs)fx2).getArgs().isEmpty() );
+    }
+
+    public void testParseAttributeProperty() {
+        Object fx = new DslParser("$brooklyn:attributeWhenReady(\"input_credential\")[\"user\"]").parse();
+        assertEquals(((List<?>) fx).size(), 2, "" + fx);
+
+        Object fx1 = ((List<?>)fx).get(0);
+        assertEquals( ((FunctionWithArgs)fx1).getFunction(), "$brooklyn:attributeWhenReady" );
+        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"input_credential\"")) );
+
+        Object fx2 = ((List<?>)fx).get(1);
+        assertEquals( ((PropertyAccess)fx2).getSelector(), "user" );
+    }
+
+    public void testParseAttributePropertyOnComponent() {
+        Object fx = new DslParser("$brooklyn:component(\"credential-node\").attributeWhenReady(\"input_credential\")[\"token\"]").parse();
+        assertEquals(((List<?>) fx).size(), 3, "" + fx);
+
+        Object fx1 = ((List<?>)fx).get(0);
+        assertEquals( ((FunctionWithArgs)fx1).getFunction(), "$brooklyn:component" );
+        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"credential-node\"")) );
+
+        Object fx2 = ((List<?>)fx).get(1);
+        assertEquals( ((FunctionWithArgs)fx2).getFunction(), "attributeWhenReady" );
+        assertEquals( ((FunctionWithArgs)fx2).getArgs(), ImmutableList.of(new QuotedString("\"input_credential\"")) );
+
+        Object fx3 = ((List<?>)fx).get(2);
+        assertEquals( ((PropertyAccess)fx3).getSelector(), "token" );
+    }
+
+    public void testParseConfigProperty() {
+        Object fx = new DslParser("$brooklyn:config(\"user_credentials\")[\"user\"]").parse();
+        assertEquals(((List<?>) fx).size(), 2, "" + fx);
+
+        Object fx1 = ((List<?>)fx).get(0);
+        assertEquals( ((FunctionWithArgs)fx1).getFunction(), "$brooklyn:config" );
+        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"user_credentials\"")) );
+
+        Object fx2 = ((List<?>)fx).get(1);
+        assertEquals( ((PropertyAccess)fx2).getSelector(), "user" );
+    }
+
+    @Test(groups = "WIP")
+    public void testParseObjectProperty() {
+        Object fx = new DslParser("$brooklyn:object(\"[brooklyn.tosca.ToscaEntityFinder,host]\").config(\"ips_container\")[\"ips\"][0]").parse();
+        assertEquals(((List<?>) fx).size(), 2, "" + fx);
+
+        Object fx1 = ((List<?>)fx).get(0);
+        assertEquals( ((FunctionWithArgs)fx1).getFunction(), "$brooklyn:object" );
+        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("[brooklyn.tosca.ToscaEntityFinder,host]")) );
+
+        Object fx2 = ((List<?>)fx).get(1);
+        assertEquals( ((FunctionWithArgs)fx2).getFunction(), "$brooklyn:config" );
+        assertEquals( ((FunctionWithArgs)fx2).getArgs(), ImmutableList.of(new QuotedString("\"ips_container\"")) );
+
+        Object fx3 = ((List<?>)fx).get(2);
+        assertEquals( ((PropertyAccess)fx3).getSelector(), "ips" );
+
+        Object fx4 = ((List<?>)fx).get(3);
+        assertEquals( ((PropertyAccess)fx4).getSelector(), 0 );
     }
 
 }
