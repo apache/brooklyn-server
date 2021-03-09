@@ -183,6 +183,14 @@ public class BrooklynDslCommon {
             this.keyName = keyName;
         }
 
+        public BrooklynObjectInternal getObj() {
+            return obj;
+        }
+
+        public Object getKeyName() {
+            return keyName;
+        }
+
         protected String resolveKeyName(boolean immediately) {
             if (keyName instanceof String) {
                 return (String)keyName;
@@ -393,6 +401,14 @@ public class BrooklynDslCommon {
             this.literalObjectJson = input instanceof String ? null : Jsonya.render(input);
         }
 
+        public String getLiteralObjectJson() {
+            return literalObjectJson;
+        }
+
+        public String getLiteralString() {
+            return literalString;
+        }
+
         @Override
         public Task<Object> newTask() {
             return Tasks.builder().displayName("DSL literal value")
@@ -508,7 +524,7 @@ public class BrooklynDslCommon {
      *
      * @see DependentConfiguration#formatString(Object, Object...)
      */
-    protected static class DslFormatString extends BrooklynDslDeferredSupplier<String> {
+    public static class DslFormatString extends BrooklynDslDeferredSupplier<String> {
 
         private static final long serialVersionUID = -4849297712650560863L;
 
@@ -518,6 +534,14 @@ public class BrooklynDslCommon {
         public DslFormatString(Object pattern, Object ...args) {
             this.pattern = pattern;
             this.args = args;
+        }
+
+        public Object getPattern() {
+            return pattern;
+        }
+
+        public Object[] getArgs() {
+            return args;
         }
 
         @Override @JsonIgnore
@@ -550,7 +574,7 @@ public class BrooklynDslCommon {
         }
     }
 
-    protected static class DslRegexReplacement extends BrooklynDslDeferredSupplier<String> {
+    public static class DslRegexReplacement extends BrooklynDslDeferredSupplier<String> {
 
         private static final long serialVersionUID = 737189899361183341L;
 
@@ -562,6 +586,18 @@ public class BrooklynDslCommon {
             this.pattern = pattern;
             this.replacement = replacement;
             this.source = source;
+        }
+
+        public Object getSource() {
+            return source;
+        }
+
+        public Object getPattern() {
+            return pattern;
+        }
+
+        public Object getReplacement() {
+            return replacement;
         }
 
         @Override @JsonIgnore
@@ -605,7 +641,7 @@ public class BrooklynDslCommon {
     }
 
     /** Deferred execution of Object creation. */
-    protected static class DslObject extends BrooklynDslDeferredSupplier<Object> {
+    public static class DslObject extends BrooklynDslDeferredSupplier<Object> {
 
         private static final long serialVersionUID = 8878388748085419L;
 
@@ -856,7 +892,7 @@ public class BrooklynDslCommon {
     public static DslExternal external(final String providerName, final String key) {
         return new DslExternal(providerName, key);
     }
-    protected final static class DslExternal extends BrooklynDslDeferredSupplier<Object> {
+    public final static class DslExternal extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = -3860334240490397057L;
         private final String providerName;
         private final String key;
@@ -864,6 +900,14 @@ public class BrooklynDslCommon {
         public DslExternal(String providerName, String key) {
             this.providerName = providerName;
             this.key = key;
+        }
+
+        public String getProviderName() {
+            return providerName;
+        }
+
+        public String getKey() {
+            return key;
         }
 
         @Override @JsonIgnore
