@@ -114,24 +114,24 @@ public class DslParseTest {
         assertEquals( ((PropertyAccess)fx2).getSelector(), "user" );
     }
 
-    @Test(groups = "WIP")
+    @Test
     public void testParseObjectProperty() {
-        Object fx = new DslParser("$brooklyn:object(\"[brooklyn.tosca.ToscaEntityFinder,host]\").config(\"ips_container\")[\"ips\"][0]").parse();
-        assertEquals(((List<?>) fx).size(), 2, "" + fx);
+        Object fx = new DslParser("$brooklyn:object(\"[brooklyn.obj.TestObject,host]\").config(\"ips_container\")[\"ips\"][0]").parse();
+        assertEquals(((List<?>) fx).size(), 4, "" + fx);
 
         Object fx1 = ((List<?>)fx).get(0);
         assertEquals( ((FunctionWithArgs)fx1).getFunction(), "$brooklyn:object" );
-        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("[brooklyn.tosca.ToscaEntityFinder,host]")) );
+        assertEquals( ((FunctionWithArgs)fx1).getArgs(), ImmutableList.of(new QuotedString("\"[brooklyn.obj.TestObject,host]\"")) );
 
         Object fx2 = ((List<?>)fx).get(1);
-        assertEquals( ((FunctionWithArgs)fx2).getFunction(), "$brooklyn:config" );
+        assertEquals( ((FunctionWithArgs)fx2).getFunction(), "config" );
         assertEquals( ((FunctionWithArgs)fx2).getArgs(), ImmutableList.of(new QuotedString("\"ips_container\"")) );
 
         Object fx3 = ((List<?>)fx).get(2);
         assertEquals( ((PropertyAccess)fx3).getSelector(), "ips" );
 
         Object fx4 = ((List<?>)fx).get(3);
-        assertEquals( ((PropertyAccess)fx4).getSelector(), 0 );
+        assertEquals( ((PropertyAccess)fx4).getSelector(), "0" );
     }
 
 }
