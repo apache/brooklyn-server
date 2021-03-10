@@ -546,10 +546,8 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     @SuppressWarnings("deprecation")
     protected Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter, KeyFindingMode mode) {
         MutableSet<ConfigKey<?>> result = MutableSet.of();
-        if (mode==KeyFindingMode.DECLARED_OR_PRESENT) {
-            result.addAll( Iterables.filter(getKeysAtContainer(getContainer()), filter) );
-        }
 
+        // always put present ones first, in the order they were specified
         for (ConfigKey<?> k: Iterables.filter(ownConfig.keySet(), filter)) {
             if (result.contains(k)) continue;
             if (mode!=KeyFindingMode.PRESENT_NOT_RESOLVED) {
@@ -557,6 +555,11 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (k2!=null) k = k2;
             }
             result.add(k);
+        }
+
+        // then add any additional ones declared on the type
+        if (mode==KeyFindingMode.DECLARED_OR_PRESENT) {
+            result.addAll( Iterables.filter(getKeysAtContainer(getContainer()), filter) );
         }
 
         // due to set semantics local should be added first, it prevents equal items from parent from being added on top
