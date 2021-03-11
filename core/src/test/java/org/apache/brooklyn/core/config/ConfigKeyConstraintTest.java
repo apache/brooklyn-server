@@ -21,13 +21,16 @@ package org.apache.brooklyn.core.config;
 
 import static org.testng.Assert.assertFalse;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.Policy;
@@ -44,6 +47,7 @@ import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -60,6 +64,8 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
+
+import javax.annotation.Nonnull;
 
 public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
 
@@ -462,4 +468,32 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
             }
         }
     }
+
+    @Test
+    public void testCatchViolations() {
+        final EntitySpec<EntityWithNonNullConstraint> spec = EntitySpec.create(EntityWithNonNullConstraint.class);
+        spec.parent(app);
+
+        List<ConstraintViolationException> failedConstraints = MutableList.of();
+
+        EntityWithNonNullConstraint entity = mgmt().getEntityManager().createEntity(spec, new EntityManager.EntityCreationOptions() {
+            @Override
+            public <T extends Throwable> void onException(T e, @Nonnull Consumer<? super T> suggestedHandler) {
+                if (e instanceof ConstraintViolationException) failedConstraints.add( (ConstraintViolationException)e );
+                else suggestedHandler.accept(e);
+            }
+        });
+
+        Asserts.assertFalse(failedConstraints.isEmpty());
+        Asserts.assertStringContainsIgnoreCase(failedConstraints.toString(), entity.getDisplayName(), EntityWithNonNullConstraint.NON_NULL_CONFIG.getName(), "null");
+
+        // validation not subsequently done on access
+        entity.getConfig(EntityWithNonNullConstraint.NON_NULL_CONFIG);
+
+        // though it could be:
+//        Asserts.assertFailsWith(() -> entity.getConfig(EntityWithNonNullConstraint.NON_NULL_CONFIG),
+//                e -> Asserts.expectedFailureContainsIgnoreCase(e, "null") );
+    }
+
+
 }

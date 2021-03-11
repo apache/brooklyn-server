@@ -63,7 +63,7 @@ public class InternalEntityFactoryTest {
     @Test
     public void testCreatesEntity() throws Exception {
         EntitySpec<TestApplication> spec = EntitySpec.create(TestApplication.class);
-        TestApplicationImpl app = (TestApplicationImpl) factory.createEntity(spec, Optional.absent());
+        TestApplicationImpl app = (TestApplicationImpl) factory.createEntity(spec);
         
         Entity proxy = app.getProxy();
         assertTrue(proxy instanceof Application, "proxy="+app);
@@ -76,7 +76,7 @@ public class InternalEntityFactoryTest {
     @Test
     public void testCreatesProxy() throws Exception {
         EntitySpec<Application> spec = EntitySpec.create(Application.class).impl(TestApplicationImpl.class);
-        Application app = factory.createEntity(spec, Optional.absent());
+        Application app = factory.createEntity(spec);
         Application proxy = factory.createEntityProxy(spec, app);
         TestApplicationImpl deproxied = (TestApplicationImpl) Entities.deproxy(proxy);
         
@@ -93,7 +93,7 @@ public class InternalEntityFactoryTest {
     @Test
     public void testSetsEntityId() throws Exception {
         EntitySpec<TestApplication> spec = EntitySpec.create(TestApplication.class);
-        TestApplication app = factory.createEntity(spec, Optional.of("myentityid"));
+        TestApplication app = factory.createEntity(spec, "myentityid");
         assertEquals(app.getId(), "myentityid");
     }
     
@@ -102,14 +102,14 @@ public class InternalEntityFactoryTest {
         TestEntity legacy = new TestEntityImpl();
         assertTrue(legacy.isLegacyConstruction());
         
-        TestEntity entity = factory.createEntity(EntitySpec.create(TestEntity.class), Optional.absent());
+        TestEntity entity = factory.createEntity(EntitySpec.create(TestEntity.class));
         assertFalse(entity.isLegacyConstruction());
     }
     
     @Test
     public void testCreatesProxyImplementingAdditionalInterfaces() throws Exception {
         EntitySpec<Application> spec = EntitySpec.create(Application.class).impl(MyApplicationImpl.class).additionalInterfaces(MyInterface.class);
-        Application app = factory.createEntity(spec, Optional.absent());
+        Application app = factory.createEntity(spec);
         Application proxy = factory.createEntityProxy(spec, app);
         
         assertFalse(proxy instanceof MyApplicationImpl, "proxy="+proxy);

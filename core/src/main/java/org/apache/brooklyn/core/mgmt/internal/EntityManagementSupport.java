@@ -277,26 +277,28 @@ public class EntityManagementSupport {
     }
     
     @SuppressWarnings("deprecation")
-    public void onManagementStopping(ManagementTransitionInfo info) {
+    public void onManagementStopping(ManagementTransitionInfo info, boolean wasDryRun) {
         synchronized (this) {
-            if (managementContext != info.getManagementContext()) {
-                throw new IllegalStateException("onManagementStopping encountered different management context for "+entity+
-                    (!wasDeployed() ? " (wasn't deployed)" : !isDeployed() ? " (no longer deployed)" : "")+
-                    ": "+managementContext+"; expected "+info.getManagementContext()+" (may be a pre-registered entity which was never properly managed)");
-            }
-            Stopwatch startTime = Stopwatch.createStarted();
-            while (!managementFailed.get() && nonDeploymentManagementContext!=null && 
-                    nonDeploymentManagementContext.getMode()==NonDeploymentManagementContextMode.MANAGEMENT_STARTING) {
-                // still becoming managed
-                try {
-                    if (startTime.elapsed(TimeUnit.SECONDS) > 30) {
-                        // emergency fix, 30s timeout for management starting
-                        log.error("Management stopping event "+info+" in "+this+" timed out waiting for start; proceeding to stopping");
-                        break;
+            if (!wasDryRun) {
+                if (managementContext != info.getManagementContext()) {
+                    throw new IllegalStateException("onManagementStopping encountered different management context for " + entity +
+                            (!wasDeployed() ? " (wasn't deployed)" : !isDeployed() ? " (no longer deployed)" : "") +
+                            ": " + managementContext + "; expected " + info.getManagementContext() + " (may be a pre-registered entity which was never properly managed)");
+                }
+                Stopwatch startTime = Stopwatch.createStarted();
+                while (!managementFailed.get() && nonDeploymentManagementContext != null &&
+                        nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.MANAGEMENT_STARTING) {
+                    // still becoming managed
+                    try {
+                        if (startTime.elapsed(TimeUnit.SECONDS) > 30) {
+                            // emergency fix, 30s timeout for management starting
+                            log.error("Management stopping event " + info + " in " + this + " timed out waiting for start; proceeding to stopping");
+                            break;
+                        }
+                        wait(100);
+                    } catch (InterruptedException e) {
+                        Exceptions.propagate(e);
                     }
-                    wait(100);
-                } catch (InterruptedException e) {
-                    Exceptions.propagate(e);
                 }
             }
             if (nonDeploymentManagementContext==null) {
@@ -307,7 +309,7 @@ public class EntityManagementSupport {
             }
         }
         
-        if (!isReadOnly() && info.getMode().isDestroying()) {
+        if (wasDryRun || (!isReadOnly() && info.getMode().isDestroying())) {
             // ensure adjuncts get a destroy callback
             // note they don't get any alert if the entity is being locally unmanaged to run somewhere else.
             // framework should introduce a call for that ideally, but in interim if needed they
@@ -324,7 +326,7 @@ public class EntityManagementSupport {
         // new publications will be queued / not allowed
         nonDeploymentManagementContext.getSubscriptionManager().stopDelegatingForPublishing();
         
-        if (!isReadOnly()) {
+        if (!wasDryRun && !isReadOnly()) {
             entity.onManagementNoLongerMaster();
             entity.onManagementStopped();
         }
@@ -342,13 +344,15 @@ public class EntityManagementSupport {
         }
     }
     
-    public void onManagementStopped(ManagementTransitionInfo info) {
+    public void onManagementStopped(ManagementTransitionInfo info, boolean wasDryRun) {
         synchronized (this) {
-            if (managementContext == null && nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.MANAGEMENT_STOPPED) {
-                return;
-            }
-            if (managementContext != info.getManagementContext()) {
-                throw new IllegalStateException("Has different management context: "+managementContext+"; expected "+info.getManagementContext());
+            if (!wasDryRun) {
+                if (managementContext == null && nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.MANAGEMENT_STOPPED) {
+                    return;
+                }
+                if (managementContext != info.getManagementContext()) {
+                    throw new IllegalStateException("Has different management context: " + managementContext + "; expected " + info.getManagementContext());
+                }
             }
             getSubscriptionContext().unsubscribeAll();
             entityChangeListener = EntityChangeListener.NOOP;

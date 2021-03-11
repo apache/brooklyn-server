@@ -232,6 +232,8 @@ public class BrooklynGarbageCollector {
     }
 
     public void logUsage(String prefix) {
+        LOG.info(prefix+" - using "+getUsageString());
+
         if (LOG.isDebugEnabled())
             LOG.debug(prefix+" - using "+getUsageString());
     }
@@ -327,7 +329,7 @@ public class BrooklynGarbageCollector {
 
     /**
      * Deletes old tasks. The age/number of tasks to keep is controlled by fields like 
-     * {@link #maxTasksPerTag} and {@link #maxTaskAge}.
+     * {@link #MAX_TASKS_PER_TAG} and {@link #MAX_TASKS_PER_TAG}.
      */
     protected synchronized int gcTasks() {
         // NB: be careful with memory usage here: have seen OOME if we get crazy lots of tasks.
