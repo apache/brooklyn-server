@@ -121,7 +121,7 @@ public class ConstraintViolationException extends UserFacingException {
         output.add("Invalid value");
 
         if (key!=null && !Strings.containsLiteralAsWord(supplied, key.getName())) {
-            output.add(" for key "+key.getName());
+            output.add(" for key '"+key.getName()+"'");
         }
 
         if (context!=null && !Strings.containsLiteralAsWord(supplied, ""+context)) {
@@ -129,7 +129,7 @@ public class ConstraintViolationException extends UserFacingException {
         }
 
         if (key!=null && !Strings.containsLiteralAsWord(supplied, ""+value)) {
-            output.add(" " + (value==null ? " (null)" : ": '"+value+"'"));
+            output.add(" " + (value==null ? "(value is null)" : ": '"+value+"'"));
         }
 
         if (supplied!=null) {
