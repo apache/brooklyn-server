@@ -21,14 +21,7 @@ package org.apache.brooklyn.core.mgmt.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.lang.reflect.Proxy;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 
@@ -72,7 +65,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -157,28 +149,31 @@ public class LocalEntityManager implements EntityManagerInternal {
     }
 
     @Override
-    public <T extends Entity> T createEntity(EntitySpec<T> spec) {
-        return createEntity(spec, Optional.absent());
-    }
-    
-    @Beta
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
-        if (entityId.isPresent()) {
-            if (!ENTITY_ID_PATTERN.matcher(entityId.get()).matches()) {
-                throw new IllegalArgumentException("Invalid entity id '"+entityId.get()+"'");
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, EntityCreationOptions options) {
+        String entityId = options.getRequiredUniqueId();
+
+        if (entityId!=null) {
+            if (!ENTITY_ID_PATTERN.matcher(entityId).matches()) {
+                throw new IllegalArgumentException("Invalid entity id '"+entityId+"'");
             }
         }
         
         try {
-            T entity = entityFactory.createEntity(spec, entityId);
-            Entity proxy = ((AbstractEntity)entity).getProxy();
-            checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
-            
-            manage(entity);
-            
-            return (T) proxy;
+            T entity = entityFactory.createEntity(spec, options);
+
+            if (options.isDryRun()) {
+                unmanageDryRun(entity);
+                // also need to do this to remove tasks etc
+                managementContext.getGarbageCollector().onUnmanaged(entity);
+                return entity;
+
+            } else {
+                Entity proxy = ((AbstractEntity)entity).getProxy();
+                checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
+                manage(entity);
+                return (T) proxy;
+            }
+
         } catch (Throwable e) {
             log.warn("Failed to create entity using spec "+spec+" (rethrowing)", e);
             throw Exceptions.propagate(e);
@@ -504,6 +499,16 @@ public class LocalEntityManager implements EntityManagerInternal {
         }
     }
 
+    private void unmanageDryRun(final Entity e) {
+        final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext,
+                ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.NONEXISTENT, BrooklynObjectManagementMode.NONEXISTENT));
+        discardPremanaged(e);
+
+        ((EntityInternal)e).getManagementSupport().onManagementStopping(info, true);
+        stopTasks(e);
+        ((EntityInternal)e).getManagementSupport().onManagementStopped(info, true);
+    }
+
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
         if (shouldSkipUnmanagement(e)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
@@ -519,19 +524,19 @@ public class LocalEntityManager implements EntityManagerInternal {
                     log.warn("Unexpected mode "+mode+" for unmanage-replace "+e+" (applying anyway)");
                 }
                 // migrating away or in-place active partial rebind:
-                ((EntityInternal)e).getManagementSupport().onManagementStopping(info);
+                ((EntityInternal)e).getManagementSupport().onManagementStopping(info, false);
                 stopTasks(e);
-                ((EntityInternal)e).getManagementSupport().onManagementStopped(info);
+                ((EntityInternal)e).getManagementSupport().onManagementStopped(info, false);
             }
             // do not remove from maps below, bail out now
             return;
             
         } else if (mode.wasReadOnly() && mode.isNoLongerLoaded()) {
             // we are unmanaging an instance (secondary); either stopping here or primary destroyed elsewhere
-            ((EntityInternal)e).getManagementSupport().onManagementStopping(info);
+            ((EntityInternal)e).getManagementSupport().onManagementStopping(info, false);
             unmanageNonRecursive(e);
             stopTasks(e);
-            ((EntityInternal)e).getManagementSupport().onManagementStopped(info);
+            ((EntityInternal)e).getManagementSupport().onManagementStopped(info, false);
             managementContext.getRebindManager().getChangeListener().onUnmanaged(e);
             if (managementContext.getGarbageCollector() != null) managementContext.getGarbageCollector().onUnmanaged(e);
             
@@ -551,7 +556,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             recursively(e, new Predicate<EntityInternal>() { @Override public boolean apply(EntityInternal it) {
                 if (shouldSkipUnmanagement(it)) return false;
                 allEntities.add(it);
-                it.getManagementSupport().onManagementStopping(info);
+                it.getManagementSupport().onManagementStopping(info, false);
                 return true;
             } });
 
@@ -561,7 +566,7 @@ public class LocalEntityManager implements EntityManagerInternal {
                 stopTasks(it);
             }
             for (EntityInternal it : allEntities) {
-                it.getManagementSupport().onManagementStopped(info);
+                it.getManagementSupport().onManagementStopped(info, false);
                 managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
                 if (managementContext.getGarbageCollector() != null) managementContext.getGarbageCollector().onUnmanaged(e);
             }

@@ -35,9 +35,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
-import org.apache.brooklyn.core.mgmt.internal.IdAlreadyExistsException;
-import org.apache.brooklyn.core.mgmt.internal.LocalEntityManager;
+import org.apache.brooklyn.core.mgmt.internal.*;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -78,12 +76,46 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
     public void testCreateEntityUsingSpec() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         TestEntity child = entity.addChild(EntitySpec.create(TestEntity.class).displayName("mychildname"));
+
+        assertTrue(entity instanceof EntityProxy, "entity="+entity);
+        assertFalse(entity instanceof TestEntityImpl, "entity="+entity);
+
         assertTrue(child instanceof EntityProxy, "child="+child);
         assertFalse(child instanceof TestEntityImpl, "child="+child);
         assertTrue(entity.getChildren().contains(child), "child="+child+"; children="+entity.getChildren());
         assertEquals(child.getDisplayName(), "mychildname");
+
+        assertTrue(Entities.isManaged(entity));
+        assertTrue(Entities.isManaged(child));
+
+        Asserts.assertNotNull(entity.getId());
+        Asserts.assertNotNull(mgmt.getEntityManager().getEntity(entity.getId()));
+        Asserts.assertNotNull(mgmt.getEntityManager().getEntity(child.getId()));
     }
-    
+
+    @Test
+    public void testCreateEntityUsingSpecDryRun() {
+        TestEntity entity = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME, "foo"), new EntityManager.EntityCreationOptions() {
+            @Override
+            public boolean isDryRun() {
+                return true;
+            }
+        });
+
+        assertFalse(entity instanceof EntityProxy, "entity="+entity);
+        assertTrue(entity instanceof TestEntityImpl, "entity="+entity);
+
+        Asserts.assertNotNull(entity.getId());
+
+        assertFalse(Entities.isManaged(entity));
+        Asserts.assertNull(mgmt.getEntityManager().getEntity(entity.getId()));
+
+        Asserts.assertEquals(entity.config().getRaw(TestEntity.CONF_NAME).orNull(), "foo");
+
+        Asserts.assertFailsWith(() -> entity.getConfig(TestEntity.CONF_NAME),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "manage"));
+    }
+
     @Test
     public void testCreateEntityUsingMapAndType() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
@@ -251,6 +283,41 @@ public class EntityManagerTest extends BrooklynAppUnitTestSupport {
             Futures.allAsList(futures).get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
         } finally {
             executor.shutdownNow();
+        }
+    }
+
+    @Test(groups="Integration")  // soak test really
+    public void testCreateEntityDryRunNoMemoryLeak() {
+        Runnable task = () -> {
+            mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME,
+                    Identifiers.makeRandomId(100*1000)), new EntityManager.EntityCreationOptions() {
+                @Override
+                public boolean isDryRun() {
+                    return true;
+                }
+            });
+        };
+        // twice to seed the memory
+        task.run();
+        task.run();
+
+        mgmt.getBrooklynProperties().put(BrooklynGarbageCollector.DO_SYSTEM_GC, true);
+        Asserts.MemoryAssertions memory = Asserts.startMemoryAssertions("entity creation dry-run mode");
+        memory.setExtraTaskOnNoteMemory(() -> {
+            ((AbstractManagementContext)mgmt).getGarbageCollector().gcIteration();
+        });
+
+        // at 100k per entity, 20 x 50 should make 100 MB
+        // in practice this stays stable at 11 MB, if we force GC iterations
+        // (it fails if we don't)
+
+        for (int i=1; i<=20; i++) {
+            LOG.info("Starting batch "+i);
+            for (int j=0; j<50; j++) {
+                task.run();
+            }
+            LOG.info("Finished batch "+i);
+            memory.assertUsedMemoryMaxDelta("after batch "+i, 50, false);
         }
     }
 }

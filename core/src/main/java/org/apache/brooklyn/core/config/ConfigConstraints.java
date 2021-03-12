@@ -19,11 +19,7 @@
 
 package org.apache.brooklyn.core.config;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
@@ -41,6 +37,7 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
 import org.apache.brooklyn.core.objs.ConstraintSerialization;
 import org.apache.brooklyn.core.validation.BrooklynValidation;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -100,33 +97,22 @@ public abstract class ConfigConstraints<T> {
     }
     
     private static <T> void assertValid(ConfigConstraints<?> constrants, Object context, ConfigKey<T> key, T value) {
-        // TODO validation API should be better, tell us if it's returning a nice message or just failing
-        ReferenceWithError<Predicate<?>> validity = constrants.validateValue(key, value);
-        if (validity.hasError()) {
-            String msg = "Invalid value for " + key + " on " + context + " (" + value + ")";
-            if (validity.getWithoutError()!=null) {
-                throw new ConstraintViolationException(Exceptions.collapseText(validity.getError())+": " + msg + "; it should satisfy " + validity.getWithoutError());
-            } else {
-                throw new ConstraintViolationException(msg, validity.getError());
+        try {
+            ReferenceWithError<?> validity = constrants.validateValue(key, value);
+            if (validity.hasError()) {
+                // messages now handled by the CVE class
+//                String msg = "Invalid value for " + key + " on " + context + " (" + value + ")";
+//                if (validity.getWithoutError() != null) {
+//                    throw new ConstraintViolationException(Exceptions.collapseText(validity.getError()) + ": " + msg + "; it should satisfy " + validity.getWithoutError());
+//                } else {
+//                    throw new ConstraintViolationException(msg, validity.getError());
+//                }
+                throw validity.getError();
             }
+        } catch (Throwable e) {
+            Exceptions.propagateIfFatal(e);
+            throw ConstraintViolationException.of(e, context, key, value);
         }
-    }
-
-    private static String errorMessage(String displayName, Iterable<ConfigKey<?>> violations) {
-        StringBuilder message = new StringBuilder("Error configuring ")
-                .append(displayName)
-                .append(": [");
-        Iterator<ConfigKey<?>> it = violations.iterator();
-        while (it.hasNext()) {
-            ConfigKey<?> config = it.next();
-            message.append(config.getName())
-                    .append(":")
-                    .append(config.getConstraint());
-            if (it.hasNext()) {
-                message.append(", ");
-            }
-        }
-        return message.append("]").toString();
     }
 
     public ConfigConstraints(T source) {
@@ -134,9 +120,9 @@ public abstract class ConfigConstraints<T> {
     }
 
     public void assertValid() {
-        Iterable<ConfigKey<?>> violations = getViolations();
-        if (!Iterables.isEmpty(violations)) {
-            throw new ConstraintViolationException(errorMessage(getDisplayName(), violations));
+        Map<ConfigKey<?>, Throwable> violations = getViolationsDetails();
+        if (!violations.isEmpty()) {
+            throw ConstraintViolationException.CompoundConstraintViolationException.of(getDisplayName(), violations);
         }
     }
 
@@ -148,11 +134,18 @@ public abstract class ConfigConstraints<T> {
 
     public abstract @Nullable ExecutionContext getExecutionContext();
 
+    /** @deprecated since 1.1.0 use {@link #getViolationsDetails()} */
+    @Deprecated  // not used
     public Iterable<ConfigKey<?>> getViolations() {
+        return getViolationsDetails().keySet();
+    }
+
+    /** runs blocking in task on context entity if possible, else runs in caller's thread */
+    public Map<ConfigKey<?>,Throwable> getViolationsDetails() {
         ExecutionContext exec = getExecutionContext();
         if (exec!=null) {
             return exec.get(
-                Tasks.<Iterable<ConfigKey<?>>>builder().dynamic(false).displayName("Validating config").body(
+                Tasks.<Map<ConfigKey<?>,Throwable>>builder().dynamic(false).displayName("Validating config").body(
                     () -> validateAll() ).build() );
         } else {
             return validateAll();
@@ -160,18 +153,18 @@ public abstract class ConfigConstraints<T> {
     }
 
     @SuppressWarnings("unchecked")
-    protected Iterable<ConfigKey<?>> validateAll() {
-        List<ConfigKey<?>> violating = Lists.newLinkedList();
+    protected Map<ConfigKey<?>, Throwable> validateAll() {
+        Map<ConfigKey<?>,Throwable> violating = MutableMap.of();
         Iterable<ConfigKey<?>> configKeys = getConfigKeys();
         LOG.trace("Checking config keys on {}: {}", getSource(), configKeys);
         for (ConfigKey<?> configKey : configKeys) {
             Maybe<?> maybeValue = getValue(configKey);
             if (maybeValue.isPresent()) {
                 // Cast is safe because the author of the constraint on the config key had to
-                // keep its type to Predicte<? super T>, where T is ConfigKey<T>.
-                ConfigKey<Object> ck = (ConfigKey<Object>) configKey;
-                if (!isValueValid(ck, maybeValue.get())) {
-                    violating.add(configKey);
+                // keep its type to Predicate<? super T>, where T is ConfigKey<T>.
+                ReferenceWithError<?> validation = validateValue((ConfigKey<Object>) configKey, maybeValue.get());
+                if (validation.hasError()) {
+                    violating.put(configKey, validation.getError());
                 }
             } else {
                 // absent means did not resolve in time or not coercible;
@@ -187,12 +180,29 @@ public abstract class ConfigConstraints<T> {
         return !validateValue(configKey, value).hasError();
     }
     
-    /** returns reference to null without error if valid; otherwise returns reference to predicate and a good error message.
+    /** returns reference to null without error if valid; otherwise should
+     * contain an error whose message can be displayed at least one, and ideally a value whose toString is suitable for describing the requirement (eg the predicate).
      * <p>
-     * if value is of the wrong type this does not attempt to check validity, assuming the caller will coerce it before attempting validation.
+     * this does not return the value, i.e. this is not suitable for use in a fluent api.
+     * </p>
+     * <p>
+     * this is for running constraints only.
+     * if value supplied to this method is not of the type declared by the config key, this returns no error.
+     * thus predicates can assume they will only see instances of the type declared by the config key.
+     * <p>
+     * in particular if it is a {@link DeferredSupplier} or {@link Future} no validation is done.
+     * the caller of this method is responsible for ensuring it is coerced and reporting failures if it is not of the right type.
+     * (those are not considered "constraint" violations so not part of this method -- they are a different class of violation.)
+     * <p>
+     * used to validate single constraints and multiple constraints.
+     * </p>
      */
     @SuppressWarnings("unchecked")
-    <V> ReferenceWithError<Predicate<?>> validateValue(ConfigKey<V> configKey, V value) {
+    <V> ReferenceWithError<?> validateValue(ConfigKey<V> configKey, V value) {
+
+        // previously we ignored problems if validation threw an error; now we skip the check altogether if the type is wrong (future, or coercible),
+        // but report an error if the predicate throws one
+
         Predicate<? super V> po = null;
         if (value!=null) {
             if (configKey.getType()==Object.class) {
@@ -214,12 +224,11 @@ public abstract class ConfigConstraints<T> {
                 valid = po.apply(value);
             }
             if (!valid) {
-                return ReferenceWithError.newInstanceThrowingError(po, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value));
+                throw new IllegalArgumentException("Constraint '"+po+"' not satisfied");
             }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            // previously we ignored it if validation threw an error; now we skip the check altogether if the type is wrong (future, or coercible)
-            return ReferenceWithError.newInstanceThrowingError(po, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value + "; " + Exceptions.collapseText(e), e));
+            return ReferenceWithError.newInstanceThrowingError(po, ConstraintViolationException.of(e, getSource(), configKey, value));
         }
 
         try {
