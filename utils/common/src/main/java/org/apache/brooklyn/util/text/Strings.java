@@ -1050,4 +1050,21 @@ public class Strings {
         return Arrays.stream(body.split("\n")).map(s -> prefix + s).collect(Collectors.joining("\n"));
     }
 
+    public static boolean containsLiteralAsWord(String context, String word) {
+        if (context==null || word==null) return false;
+
+        int i=-1;
+        while ((i = context.indexOf(word, i+1)) > -1) {
+            if (i==0 || !isAlphaOrDigit(context.charAt(i-1))) {
+                if (i+word.length()==context.length() || !isAlphaOrDigit(context.charAt(i+word.length()))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isAlphaOrDigit(char c) {
+        return Character.isDigit(c) || Character.isAlphabetic(c);
+    }
 }
