@@ -195,8 +195,13 @@
         <commons-logging.version>1.2</commons-logging.version>
         <jsonSmart.version>2.3</jsonSmart.version>
         <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
-        <ow2.asm.version>5.2</ow2.asm.version> <!-- require
-         5.x from json-path -> json-smart -> accessors-smart; pax-web-core brings in 7.x -->
+        <ow2.asm.version>5.2</ow2.asm.version> 
+          <!-- json-path needs this objectweb.asm version (<6.0.0); 
+               in addition currently pax-web-core brings in 8.0.1 and aries-proxy 9.0;
+               the addition of 5.2 triggers a refresh of the wiring of proxy because asm is an optional dependency
+               (even though it's a lower version and it shouldn't);
+               and in some weird cases that can cause aries to fail to install blueprints possibly due to too-recent javac byte markers;
+               but compiling with reasonable versions should make it all okay -->
         <commons-beanutils.version>1.9.4</commons-beanutils.version>
         <javax.mail.version>1.4.7</javax.mail.version> <!-- version should align with 'jetty' feature -->
         <jakarta.annotation-api.version>1.3.5</jakarta.annotation-api.version>
