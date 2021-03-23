@@ -111,6 +111,23 @@ public class DslSerializationTest extends AbstractYamlTest implements MapperTest
     }
 
     @Test
+    public void testSerializeDslPropertyAccessInWrappedValueWorksWithoutBrooklynLiteralMarker() throws Exception {
+        BrooklynDslDeferredSupplier<?> awr =  new DslDeferredPropertyAccess(
+            new DslComponent(Scope.GLOBAL, "entity_id")
+            .config("my_config"), "foo");
+        WrappedValue<Object> stuff = WrappedValue.of(awr);
+        ObjectMapper mapper = newMapper();
+
+        String out = mapper.writeValueAsString(stuff);
+        Assert.assertTrue(out.contains("\"index\":\"foo\""));
+        Assert.assertFalse(out.toLowerCase().contains("literal"), "serialization had wrong text: "+out);
+        Assert.assertFalse(out.toLowerCase().contains("absent"), "serialization had wrong text: "+out);
+
+        WrappedValue<?> stuff2 = mapper.readValue(out, WrappedValue.class);
+        Asserts.assertInstanceOf(stuff2.getSupplier(), Supplier.class);
+    }
+
+    @Test
     public void testSerializeDslConfigSupplierInWrappedValueWorksWithBrooklynLiteralMarker() throws Exception {
         BrooklynDslDeferredSupplier<?> awr =
                 (BrooklynDslDeferredSupplier<?>) DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:component(\"entity_id\").config(\"my_config\")");
