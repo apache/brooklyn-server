@@ -168,7 +168,7 @@ public class ConstraintViolationException extends UserFacingException {
                 Set<ConfigKey<?>> keys = MutableSet.copyOf(getConfigKeys(cves)).putAll(violations.keySet());
 
                 if (keys.size() > 1) {
-                    message.append("Invalid values for " + keys.stream().map(ConfigKey::getName) + ": ");
+                    message.append("Invalid values for " + keys.stream().map(ConfigKey::getName).collect(Collectors.toSet()) + ": ");
                 }
                 if (!violations.isEmpty()) {
                     message.append(violations.values().stream().map(Throwable::toString).collect(Collectors.toSet()));

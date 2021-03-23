@@ -158,19 +158,24 @@ public abstract class ConfigConstraints<T> {
         Iterable<ConfigKey<?>> configKeys = getConfigKeys();
         LOG.trace("Checking config keys on {}: {}", getSource(), configKeys);
         for (ConfigKey<?> configKey : configKeys) {
-            Maybe<?> maybeValue = getValue(configKey);
-            if (maybeValue.isPresent()) {
-                // Cast is safe because the author of the constraint on the config key had to
-                // keep its type to Predicate<? super T>, where T is ConfigKey<T>.
-                ReferenceWithError<?> validation = validateValue((ConfigKey<Object>) configKey, maybeValue.get());
-                if (validation.hasError()) {
-                    violating.put(configKey, validation.getError());
+            try {
+                Maybe<?> maybeValue = getValue(configKey);
+                if (maybeValue.isPresent()) {
+                    // Cast is safe because the author of the constraint on the config key had to
+                    // keep its type to Predicate<? super T>, where T is ConfigKey<T>.
+                    ReferenceWithError<?> validation = validateValue((ConfigKey<Object>) configKey, maybeValue.get());
+                    if (validation.hasError()) {
+                        violating.put(configKey, validation.getError());
+                    }
+                } else {
+                    // absent means did not resolve in time or not coercible;
+                    // code will return `Maybe.of(null)` if it is unset,
+                    // and coercion errors are handled when the value is _set_ or _needed_
+                    // (this allows us to deal with edge cases where we can't *immediately* coerce)
                 }
-            } else {
-                // absent means did not resolve in time or not coercible;
-                // code will return `Maybe.of(null)` if it is unset,
-                // and coercion errors are handled when the value is _set_ or _needed_
-                // (this allows us to deal with edge cases where we can't *immediately* coerce)
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                violating.put(configKey, e);
             }
         }
         return violating;
