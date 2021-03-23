@@ -149,7 +149,7 @@
         <reflections.version>0.9.10</reflections.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
-        <freemarker.version>2.3.25-incubating</freemarker.version>
+        <freemarker.version>2.3.31</freemarker.version>
         <commons-io.version>2.4</commons-io.version>
         <jsonPath.version>2.4.0</jsonPath.version>
         <commons-compress.version>1.20</commons-compress.version>
