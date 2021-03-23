@@ -26,8 +26,10 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -67,34 +69,52 @@ public class DslDeferredPropertyAccess extends BrooklynDslDeferredSupplier {
 
     protected Object getIndexOnTarget(Object targetEvaluated) {
         Object targetResult = target.get();
-        if(targetResult instanceof List) {
-            return ((List<?>)targetResult).get(Integer.parseInt(index.toString()));
-        } else if(targetResult instanceof Map) {  // maybe add configurable here
-            return ((Map<?, ?>) targetResult).get(index);
-        } else if(index instanceof String) {
-            final String propName = (String) index;
-            if(targetResult instanceof Configurable) {
-                return ((Configurable)targetResult).getConfig(ConfigKeys.newConfigKey(Object.class, propName));
-            }
-            try {
-                Field field = targetResult.getClass().getDeclaredField(propName);
-                field.setAccessible(true); // should I access private props?
-                return field.get(targetResult);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                LOG.warn("Field " + propName + " not found on type " + targetResult.getClass(), e);
-            }
-
-            final String getter = "get" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
-            try {
-                Method method = targetResult.getClass().getDeclaredMethod(getter);
-                method.setAccessible(true); // should I access private methods?
-                return method.invoke(targetResult);
-            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                LOG.warn("Problem invoking method " + getter + " on type " + targetResult.getClass(), e);
-            }
-
+        if (targetResult==null) {
+            throw new IllegalStateException("Source was null when evaluating property '"+index+"' in "+this);
         }
-        return  null;  // Is this ok or should I throw an exception ?
+
+        Exception failure = null;
+        try {
+            if (targetResult instanceof List) {
+                return ((List<?>) targetResult).get(Integer.parseInt(index.toString()));
+            } else if (targetResult instanceof Map) {  // maybe add configurable here
+                return ((Map<?, ?>) targetResult).get(index);
+            } else if (index instanceof String) {
+                final String propName = (String) index;
+                if (targetResult instanceof Configurable) {
+                    return ((Configurable) targetResult).getConfig(ConfigKeys.newConfigKey(Object.class, propName));
+                }
+                try {
+                    Field field = targetResult.getClass().getDeclaredField(propName);
+                    // field.setAccessible(true); // private not allowed, for security
+                    return field.get(targetResult);
+                } catch (NoSuchFieldException | IllegalAccessException e) {
+                    Exceptions.propagateIfFatal(e);
+
+                    if (LOG.isTraceEnabled())
+                        LOG.trace("Field " + propName + " not found on type " + targetResult.getClass(), e);
+                }
+
+                final String getter = "get" + propName.substring(0, 1).toUpperCase() + propName.substring(1);
+                try {
+                    Method method = targetResult.getClass().getDeclaredMethod(getter);
+                    // method.setAccessible(true); // private not allowed, for security
+                    return method.invoke(targetResult);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+
+                    if (LOG.isTraceEnabled())
+                        LOG.trace("Problem invoking method " + getter + " on type " + targetResult.getClass(), e);
+                }
+
+                throw new IllegalStateException("Neither field and using getter)");
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            failure = e;
+        }
+
+        throw new IllegalStateException("Unable to access property '"+index+"' on '"+targetResult+"' in "+this, failure);
     }
 
     @Override
@@ -110,11 +130,14 @@ public class DslDeferredPropertyAccess extends BrooklynDslDeferredSupplier {
 
     @Override  @JsonIgnore
     public Maybe getImmediately() {
-        return target.getImmediately().map(this::getIndexOnTarget);
+        return target.getImmediately().transformNow(this::getIndexOnTarget);
     }
 
     @Override
     public String toString() {
+        // prefer the dsl set on us, if set
+        if (dsl instanceof String && Strings.isNonBlank((String)dsl)) return (String)dsl;
+
         return target + "[" +
                 (index instanceof Integer ? index : StringEscapes.JavaStringEscapes.wrapJavaString("" + index)) + "]";
     }

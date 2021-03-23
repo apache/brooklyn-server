@@ -148,7 +148,7 @@ public class DslParser {
                     result.addAll((Collection<? extends FunctionWithArgs>) next);
                     return result;
                 } else {
-                    throw new IllegalStateException("Expected functions following position"+chainStart);
+                    throw new IllegalStateException("Expected functions following position "+chainStart);
                 }
             } else if (c=='[') {
                 int selectorsStart = index;
@@ -157,7 +157,7 @@ public class DslParser {
                     result.addAll((Collection<? extends PropertyAccess>) next);
                     return result;
                 } else {
-                    throw new IllegalStateException("Expected property selectors following position"+selectorsStart);
+                    throw new IllegalStateException("Expected property selectors following position "+selectorsStart);
                 }
             } else {
                 // following word not something handled at this level; assume parent will handle (or throw) - e.g. a , or extra )

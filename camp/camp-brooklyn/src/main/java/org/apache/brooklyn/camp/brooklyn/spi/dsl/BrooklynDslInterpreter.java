@@ -140,9 +140,9 @@ public class BrooklynDslInterpreter extends PlanInterpreterAdapter {
             for (Object i: (List<?>)f) {
                 if (i instanceof FunctionWithArgs) {
                     o = evaluateOn(o, (FunctionWithArgs) i, deepEvaluation);
-                } else if(i instanceof PropertyAccess) {
+                } else if (i instanceof PropertyAccess) {
                     o = evaluateOn(o, (PropertyAccess) i);
-                }
+                } else throw new IllegalArgumentException("Unexpected element in parse tree: '"+i+"' (type "+(i!=null ? i.getClass() : null)+")");
             }
             return o;
         }
