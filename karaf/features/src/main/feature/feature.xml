@@ -99,6 +99,7 @@
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
     </feature>
 
+<!--
     <feature name="brooklyn-rest-client" version="${project.version}" description="Brooklyn REST Client">
         <feature>brooklyn-rest-api</feature>
         <feature>swagger</feature>
@@ -123,7 +124,7 @@
         <bundle dependency="true">mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.datatype/jackson-datatype-guava/${fasterxml.jackson.version}</bundle>
     </feature>
-
+-->
 
     <feature name="brooklyn-api"  version="${project.version}" description="Brooklyn API">
         <feature>brooklyn-utils-common</feature>
@@ -188,6 +189,7 @@
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
     </feature>
 
+<!--
     <feature name="brooklyn-camp-server" version="${project.version}" description="Brooklyn CAMP Server">
         <bundle>mvn:org.apache.brooklyn.camp/camp-server/${project.version}</bundle>
 
@@ -195,6 +197,7 @@
         <feature>brooklyn-utils-rest-swagger</feature>
         <feature>pax-jetty</feature>
     </feature>
+-->
 
     <feature name="brooklyn-rest-resources-prereqs" version="${project.version}" description="Brooklyn REST Resources Prerequisites">
         <feature>brooklyn-core</feature>
