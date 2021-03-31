@@ -204,7 +204,7 @@ public class MultiSessionAttributeAdapter {
             List<String> invalidatedSessions = new ArrayList<>();
             if (handlers!=null) {
                 for (Handler h: handlers) {
-                    Session session = ((SessionHandler)h).getSession(preferredSession.getId());
+                    Session session = getSessionSafely(h, preferredSession.getId());
                     if (session!=null) {
                         invalidatedSessions.add(session.getId());
                         session.invalidate();
@@ -225,7 +225,7 @@ public class MultiSessionAttributeAdapter {
                     String extendedId= localSession.getId();
                     SessionIdManager idManager = preferredHandler.getSessionIdManager();
                     String id = idManager.getId(extendedId);
-                    preferredSession = preferredHandler.getSession(id);
+                    preferredSession = getSessionSafely(preferredHandler, id);
                     if (preferredSession != null && !((Session)preferredSession).getExtendedId().equals(extendedId))
                         ((Session)preferredSession).setIdChanged(true);
                 }
@@ -272,7 +272,7 @@ public class MultiSessionAttributeAdapter {
                 // does the server have a globally preferred handler
                 SessionHandler preferredServerGlobalSessionHandler = getServerGlobalPreferredHandler(server);
                 if (preferredServerGlobalSessionHandler!=null) {
-                    sessionAtServerGlobalPreferredHandler = preferredServerGlobalSessionHandler.getSession(localSession.getId());
+                    sessionAtServerGlobalPreferredHandler = getSessionSafely(preferredServerGlobalSessionHandler, localSession.getId());
                     if (sessionAtServerGlobalPreferredHandler!=null && Boolean.TRUE.equals( sessionAtServerGlobalPreferredHandler.getAttribute(KEY_IS_PREFERRED)) ) {
                         return preferredServerGlobalSessionHandler;
                     }
@@ -359,7 +359,7 @@ public class MultiSessionAttributeAdapter {
             if (handlers != null) {
                 for (Handler h: handlers) {
                     SessionHandler sh = (SessionHandler)h;
-                    Session sessionHere = sh.getSession(localSessionId);
+                    Session sessionHere = getSessionSafely(sh, localSessionId);
                     if (sessionHere!=null) {
                         if (Boolean.TRUE.equals(sessionHere.getAttribute(KEY_IS_PREFERRED))) {
                             if (preferredHandler!=null) {
@@ -550,7 +550,7 @@ public class MultiSessionAttributeAdapter {
             Handler[] hh = getSessionHandlers();
             if (hh!=null) {
                 for (Handler h: hh) {
-                    Session ss = ((SessionHandler)h).getSession(localSession.getId());
+                    Session ss = getSessionSafely(h, localSession.getId());
                     if (ss!=null) {
                         ss.setAttribute(name, value);
                     }
@@ -574,7 +574,7 @@ public class MultiSessionAttributeAdapter {
             Handler[] hh = getSessionHandlers();
             if (hh!=null) {
                 for (Handler h: hh) {
-                    Session ss = ((SessionHandler)h).getSession(localSession.getId());
+                    Session ss = getSessionSafely(h, localSession.getId());
                     if (ss!=null) {
                         ss.removeAttribute(name);
                     }
@@ -638,12 +638,26 @@ public class MultiSessionAttributeAdapter {
         Handler[] hh = getSessionHandlers();
         if (hh!=null) {
             for (Handler h: hh) {
-                Session ss = ((SessionHandler)h).getSession(getId());
-                if (ss!=null) {
+                Session ss = getSessionSafely(h, getId());
+                if (ss != null) {
                     ss.setMaxInactiveInterval(maxInativeInterval);
                 }
             }
         }
         return this;
+    }
+
+    private static Session getSessionSafely(Handler h, String id) {
+        if (!(h instanceof SessionHandler)) {
+            log.warn("Unexpected Handler type "+h+" / "+(h==null ? "null" : h.getClass())+"; ignoring session lookup for "+id);
+            return null;
+        }
+        if (((SessionHandler)h).getSessionCache()==null) {
+            // suppress the log warning that the call to getSession can trigger, if racing during startup
+            log.debug("Skipping session lookup for "+id+" on "+h+" because session cache not initialized (yet)");
+            return null;
+        }
+        
+        return ((SessionHandler) h).getSession(id);
     }
 }
