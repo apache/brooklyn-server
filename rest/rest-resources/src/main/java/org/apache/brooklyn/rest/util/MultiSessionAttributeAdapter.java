@@ -648,12 +648,16 @@ public class MultiSessionAttributeAdapter {
     }
 
     private static Session getSessionSafely(Handler h, String id) {
+        if (!(h instanceof SessionHandler)) {
+            log.warn("Unexpected Handler type "+h+" / "+(h==null ? "null" : h.getClass())+"; ignoring session lookup for "+id);
+            return null;
+        }
         if (((SessionHandler)h).getSessionCache()==null) {
             // suppress the log warning that the call to getSession can trigger, if racing during startup
-            log.debug("Skipping session reset expiration for "+id+" on "+h+" because session cache not initialized (yet)");
+            log.debug("Skipping session lookup for "+id+" on "+h+" because session cache not initialized (yet)");
             return null;
-        } else {
-            return ((SessionHandler) h).getSession(id);
         }
+        
+        return ((SessionHandler) h).getSession(id);
     }
 }
