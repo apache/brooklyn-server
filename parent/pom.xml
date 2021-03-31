@@ -132,7 +132,8 @@
             <dependency>
                 <groupId>org.ow2.asm</groupId>
                 <artifactId>asm</artifactId>
-                <version>${ow2.asm.version}</version>
+                <!-- this oldest one has to be present for jsonpath; if we need to use a later one we might need to replace jsonpath -->
+                <version>${ow2.asm.version.jsonpath}</version>
             </dependency>
             <dependency>
                 <groupId>jline</groupId> <!-- when removing this, replace uses with org.jline -->
