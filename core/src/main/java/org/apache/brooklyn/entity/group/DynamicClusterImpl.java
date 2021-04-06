@@ -587,8 +587,12 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
             ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(e);
         } finally {
-            if (clusterOneAndAllMembersUp != null) clusterOneAndAllMembersUp.stop();
+            stopClusterAndMembersFeed();
         }
+    }
+
+    protected void stopClusterAndMembersFeed(){
+        if (clusterOneAndAllMembersUp != null) clusterOneAndAllMembersUp.stop();
     }
 
     @Override
