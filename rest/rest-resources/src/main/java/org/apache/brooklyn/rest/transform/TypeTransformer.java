@@ -225,7 +225,15 @@ public class TypeTransformer {
     }
     private static String tidyIconLink(BrooklynRestResourceUtils b, RegisteredType item, String iconUrl, UriBuilder ub) {
         if (b.isUrlServerSideAndSafe(iconUrl)) {
-            return serviceUriBuilder(ub, TypeApi.class, "icon").build(item.getSymbolicName(), item.getVersion()).toString();
+            Maybe<VersionedName> bundleM = VersionedName.parseMaybe(item.getContainingBundle(), true);
+            if (bundleM.isAbsent()) {
+                return serviceUriBuilder(ub, BundleApi.class, "getTypeExplicitVersionIcon").build(
+                        bundleM.get().getSymbolicName(), bundleM.get().getVersionString(),
+                        item.getSymbolicName(), item.getVersion()).toString();
+            } else {
+                return serviceUriBuilder(ub, TypeApi.class, "icon").build(
+                        item.getSymbolicName(), item.getVersion()).toString();
+            }
         }
         return iconUrl;
     }
