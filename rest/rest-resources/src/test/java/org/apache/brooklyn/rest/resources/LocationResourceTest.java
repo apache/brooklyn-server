@@ -18,11 +18,11 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+import java.io.InputStream;
 import java.net.URI;
 import java.util.Map;
 import java.util.Set;
@@ -42,6 +42,9 @@ import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.LocationSummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.http.HttpHeaders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -97,6 +100,47 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         Assert.assertEquals(l.getIdentity(), "bob");
         Assert.assertEquals(l.getCredential(), "CR3dential");
     }
+
+    @Test
+    public void testAddNewLocationWithBundleIcon() {
+        ResourceUtils utils = ResourceUtils.create(this, "mycontext");
+        InputStream stream = utils.getResourceFromUrl("classpath://localhost.default.location.zip");
+
+        Response response = client().path("/catalog")
+            .header(HttpHeaders.CONTENT_TYPE, "application/x-zip")
+            .post(Streams.readFully(stream));
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        RegisteredType pt = getManagementContext().getTypeRegistry().get("localhost.default.location");
+        Asserts.assertNotNull(pt);
+        Assert.assertEquals("classpath://location-localhost.png", pt.getIconUrl());
+    }
+
+
+    @Test
+    public void testAddNewLocationWithWebIcon() {
+        String yaml = Joiner.on("\n").join(ImmutableList.of(
+            "brooklyn.catalog:",
+                "  id: " + locationName,
+                "  version: " + locationVersion,
+                "  items:",
+                "  - id: " + locationName ,
+                "    itemType: location",
+                "    item:",
+                "      type: localhost",
+                "      iconUrl: https://i.imgur.com/F9yZbgS.png"
+        ));
+        Response response = client().path("/catalog")
+            .post(yaml);
+
+        assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
+
+        RegisteredType pt = getManagementContext().getTypeRegistry().get(locationName);
+        Asserts.assertNotNull(pt);
+        Assert.assertEquals("https://i.imgur.com/F9yZbgS.png", pt.getIconUrl());
+    }
+
 
     @SuppressWarnings("deprecation")
     @Test
