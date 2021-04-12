@@ -27,6 +27,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.annotations.Test;
 
@@ -185,7 +186,31 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
 
         deleteCatalogRegisteredType(symbolicName);
     }
-    
+
+    @Test
+    public void testAddCatalogItemWithNewLinesInTagAndDescription() throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  description: \"new-\\nline\"",
+                "  tags:",
+                "  - description.md: |",
+                "       Line 1",
+                "       Line **2**",
+                "  itemType: entity",
+                "  item: " + BasicEntity.class.getName());
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        Asserts.assertEquals(item.getDescription(), "new-\nline");
+        Object docTag = item.getTags().stream().filter(x -> x instanceof Map && ((Map) x).containsKey("description.md")).findFirst().orElse(null);
+        Asserts.assertEquals(((Map) docTag).get("description.md"), "Line 1\nLine **2**\n");
+
+        deleteCatalogRegisteredType(symbolicName);
+    }
+
+
     // also runs many other tests from super, here using the osgi/type-registry appraoch
 
     @Test
