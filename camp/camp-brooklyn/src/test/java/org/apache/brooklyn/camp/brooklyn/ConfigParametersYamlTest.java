@@ -1021,6 +1021,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         Entity app = createStartWaitAndLogApplication(yamlWithVal);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertKeyEquals(entity, "testRequired", null, String.class, null, "myval");
+        Dumper.dumpInfo(app);
 
         // Rebind, and then check again that the config key is listed
         Entity newApp = rebind();

@@ -117,7 +117,6 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
         Assert.assertEquals("classpath://location-localhost.png", pt.getIconUrl());
     }
 
-
     @Test
     public void testAddNewLocationWithWebIcon() {
         final String webIconLocation = "webIconLocation";
