@@ -129,7 +129,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
                 "    itemType: location",
                 "    item:",
                 "      type: localhost",
-                "      iconUrl: https://i.imgur.com/F9yZbgS.png"
+                "      iconUrl: https://brooklyn.apache.org/style/img/apache-brooklyn-logo-244px-wide.png"
         ));
         Response response = client().path("/catalog")
             .post(yaml);
@@ -138,7 +138,7 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
 
         RegisteredType pt = getManagementContext().getTypeRegistry().get(locationName);
         Asserts.assertNotNull(pt);
-        Assert.assertEquals("https://i.imgur.com/F9yZbgS.png", pt.getIconUrl());
+        Assert.assertEquals("https://brooklyn.apache.org/style/img/apache-brooklyn-logo-244px-wide.png", pt.getIconUrl());
     }
 
 
