@@ -120,27 +120,28 @@ public class LocationResourceTest extends BrooklynRestResourceTest {
 
     @Test
     public void testAddNewLocationWithWebIcon() {
+        final String webIconLocation = "webIconLocation";
+        final String webIconUrl = "https://brooklyn.apache.org/style/img/apache-brooklyn-logo-244px-wide.png";
         String yaml = Joiner.on("\n").join(ImmutableList.of(
             "brooklyn.catalog:",
-                "  id: " + locationName,
-                "  version: " + locationVersion,
-                "  items:",
-                "  - id: " + locationName ,
-                "    itemType: location",
-                "    item:",
-                "      type: localhost",
-                "      iconUrl: https://i.imgur.com/F9yZbgS.png"
+            "  id: " + webIconLocation,
+            "  version: " + locationVersion,
+            "  items:",
+            "  - id: " + webIconLocation ,
+            "    itemType: location",
+            "    item:",
+            "      type: localhost",
+            "      iconUrl: " + webIconUrl
         ));
         Response response = client().path("/catalog")
             .post(yaml);
 
         assertEquals(response.getStatus(), Response.Status.CREATED.getStatusCode());
 
-        RegisteredType pt = getManagementContext().getTypeRegistry().get(locationName);
+        RegisteredType pt = getManagementContext().getTypeRegistry().get(webIconLocation);
         Asserts.assertNotNull(pt);
-        Assert.assertEquals("https://i.imgur.com/F9yZbgS.png", pt.getIconUrl());
+        Assert.assertEquals(webIconUrl, pt.getIconUrl());
     }
-
 
     @SuppressWarnings("deprecation")
     @Test
