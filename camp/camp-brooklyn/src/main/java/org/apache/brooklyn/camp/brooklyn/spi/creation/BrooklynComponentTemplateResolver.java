@@ -464,6 +464,11 @@ public class BrooklynComponentTemplateResolver {
         for (Class<?> iface : spec.getAdditionalInterfaces()) {
             allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, iface, bagFlags));
         }
+        if (!allKeys.isEmpty() && allKeys.stream().filter(k -> "id".equals(k.getFlagName())).findAny().isPresent()) {
+            // remove the 'id' flag, e.g. if a spec class is not an interface and picks up AbstractBrooklynObject.id
+            // because the 'id' flag should have been treated specially (this logic could go elsewhere, but this seems as good a place as any)
+            allKeys = MutableList.copyOf( allKeys.stream().filter(k -> !"id".equals(k.getFlagName())).iterator() );
+        }
 
         return allKeys;
     }
