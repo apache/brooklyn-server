@@ -151,26 +151,36 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
 
     @Override
     public TypeDetail getTypeExplicitVersion(String symbolicName, String version, String typeSymbolicName, String typeVersion) {
+        RegisteredType item = getRegisteredType(symbolicName, version, typeSymbolicName, typeVersion);
+        return TypeTransformer.detail(brooklyn(), item, ui.getBaseUriBuilder());
+    }
+
+    private RegisteredType getRegisteredType(String symbolicName, String version, String typeSymbolicName, String typeVersion) {
         ManagedBundle b = lookup(symbolicName, version);
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, typeSymbolicName+":"+typeVersion)) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_CATALOG_ITEM, typeSymbolicName + ":" + typeVersion)) {
             // TODO best to default to "not found" - unless maybe they have permission to "see null"
             throw WebResourceUtils.forbidden("User '%s' not permitted to see info on this type (including whether or not installed)",
-                Entitlements.getEntitlementContext().user());
+                    Entitlements.getEntitlementContext().user());
         }
-        
+
         Predicate<RegisteredType> pred = RegisteredTypePredicates.nameOrAlias(typeSymbolicName);
         pred = Predicates.and(pred, RegisteredTypePredicates.containingBundle(b.getVersionedName()));
         if (!LATEST.equalsIgnoreCase(typeVersion)) {
             pred = Predicates.and(pred, RegisteredTypePredicates.version(typeVersion));
         }
         Iterable<RegisteredType> items = mgmt().getTypeRegistry().getMatching(pred);
-        
+
         if (Iterables.isEmpty(items)) {
             throw WebResourceUtils.notFound("Entity with id '%s:%s' not found", typeSymbolicName, typeVersion);
         }
-        
-        RegisteredType item = RegisteredTypes.getBestVersion(items);
-        return TypeTransformer.detail(brooklyn(), item, ui.getBaseUriBuilder());
+
+        return RegisteredTypes.getBestVersion(items);
+    }
+
+    @Override
+    public Response getTypeExplicitVersionIcon(String symbolicName, String version, String typeSymbolicName, String typeVersion) {
+        RegisteredType item = getRegisteredType(symbolicName, version, typeSymbolicName, typeVersion);
+        return TypeResource.produceIcon(mgmt(), brooklyn(), item);
     }
 
     @Override
