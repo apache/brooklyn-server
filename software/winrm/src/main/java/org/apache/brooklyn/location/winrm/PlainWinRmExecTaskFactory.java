@@ -33,14 +33,7 @@ import org.apache.commons.io.output.WriterOutputStream;
 public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
 
     /** The XML-formatted Windows diagnostic stream ID, includes error, warning, debug and verbose messages */
-    private static final String WINRM_STREAM = "winrm";
-
-    // TODO: ORIGINAL STREAMS, constants used in tests
-    public static final String WINRM_STREAM_XML_STDERR = "winrm_xml_stderr";
-    public static final String WINRM_STREAM_ERROR = "winrm_error";
-    public static final String WINRM_STREAM_WARNING = "winrm_warning";
-    public static final String WINRM_STREAM_DEBUG = "winrm_debug";
-    public static final String WINRM_STREAM_VERBOSE = "winrm_verbose";
+    public static final String WINRM_STREAM = "winrm";
 
     /** Constructor where machine will be added later */
     public PlainWinRmExecTaskFactory(String ...commands) {
@@ -93,7 +86,7 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
         tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, std2x2StreamProvider.stdoutForReading));
 
         ByteArrayOutputStream stderrXmlPrettyOut = new ByteArrayOutputStream();
-        std2x2StreamProvider.stderrForWriting = std2x2StreamProvider.stdoutForWriting =new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(stderrXmlPrettyOut)));
+        std2x2StreamProvider.stderrForWriting = new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(stderrXmlPrettyOut)));
 
         tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM, stderrXmlPrettyOut));
 
