@@ -23,6 +23,7 @@ import java.io.Writer;
 
 public class PrettyXmlWriter extends Writer {
     private final Writer wrappedWriter;
+    private boolean selfClosingTag = false;
     private boolean tagClosed = false;
     private int indentLevel = 0;
     private boolean newLine = true;
@@ -52,17 +53,36 @@ public class PrettyXmlWriter extends Writer {
                 writeChar(c);
             } else {
                 //Not a comment - treat as XML
-                handleMeaningfulChar(cbuf, i, c, off + len - 1);
+                handleMeaningfulChar(cbuf, i, c, off, len);
             }
         }
     }
 
-    private void handleMeaningfulChar(char[] cbuf, int i, char c, int end) throws IOException {
-        if (tagClosed) {
-            // Tag was closed on last call to write so need a new line
-            writeNewLine();
-            tagClosed = false;
+    private void handleMeaningfulChar(char[] cbuf, int i, char c, int off, int len) throws IOException {
+        int end = off + len - 1;
+
+        if (c == '>' && lastChar == '/') {
+            selfClosingTag = true;
         }
+
+        if ('>' == lastChar) {
+            if (c == '<') {
+                writeNewLine();
+                if (!selfClosingTag) {
+                    indentLevel++;
+                }
+            }
+            if (i == end) {
+                // We've closed a tag but don't know what the next character is.
+                tagClosed = true;
+            }
+            if (tagClosed && i == off && c == '<') {
+                // Tag was closed on last call to write so need a new line.
+                writeNewLine();
+                tagClosed = false;
+            }
+        }
+
         if (c == '<') {
             // Start if a tag
             if (!newLine) {
@@ -73,31 +93,14 @@ public class PrettyXmlWriter extends Writer {
                 indentLevel--;
                 printIndent();
                 indentLevel--;
+                selfClosingTag = false;
             } else {
-                //
                 printIndent();
             }
         }
-        writeChar(c);
-        if ('>' == c ) {
-            if (i < end) {
-                if (cbuf[i + 1] == '<') {
-                    writeNewLine();
-                    increaseIndentIfNotSelfClosingTag();
-                }
-            } else {
-                // We've closed a tag but don't know what the next character is
-                tagClosed = true;
-                increaseIndentIfNotSelfClosingTag();
-            }
-        }
-        lastChar = c;
-    }
 
-    private void increaseIndentIfNotSelfClosingTag() {
-        if (lastChar != '/') {
-            indentLevel++;
-        }
+        // Write a character.
+        writeChar(c);
     }
 
     private void writeNewLine() throws IOException {
@@ -108,6 +111,7 @@ public class PrettyXmlWriter extends Writer {
     private void writeChar(char c) throws IOException {
         wrappedWriter.write(c);
         newLine = false;
+        lastChar = c;
     }
 
     private void printIndent() throws IOException {
