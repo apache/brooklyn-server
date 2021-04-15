@@ -137,8 +137,12 @@ public class ResourceUtils {
         return new ResourceUtils(contextObject);
     }
 
-    public static final ResourceUtils create(RegisteredType type, ManagementContext mgmt) {
-        return create(new OsgiBrooklynClassLoadingContext(mgmt, type.getId(), type.getLibraries()));
+    public static final ResourceUtils create(RegisteredType type, ManagementContext mgmt, boolean includeThreadAndJavaClassLoader) {
+        if (includeThreadAndJavaClassLoader) {
+            return create(CatalogUtils.newClassLoadingContext(mgmt, type), type.getId());
+        } else {
+            return create(new OsgiBrooklynClassLoadingContext(mgmt, type.getId(), type.getLibraries()), type.getId());
+        }
     }
 
     /**

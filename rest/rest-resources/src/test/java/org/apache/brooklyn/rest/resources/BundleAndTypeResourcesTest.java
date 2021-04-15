@@ -808,7 +808,7 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         Assert.assertNull(lib.getUrl());
 
         // check we can find it with ResourceUtils
-        ResourceUtils.create(item, getManagementContext()).checkUrlExists("classpath://"+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH);
+        ResourceUtils.create(item, getManagementContext(), false).checkUrlExists("classpath://"+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH);
 
         assertEquals(lib.getSymbolicName(), symbolicName);
         assertEquals(lib.getSuppliedVersionString(), version);
