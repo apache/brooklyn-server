@@ -19,6 +19,8 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static groovy.ui.Console.ICON_PATH;
+import static org.apache.brooklyn.util.osgi.OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -762,7 +764,7 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         final String version = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION;
         final String bundleUrl = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL;
         final String entityType = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY;
-        final String iconPath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
+        final String iconPath = BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
         BundleMaker bm = new BundleMaker(manager);
         File f = Os.newTempFile("osgi", "jar");
         Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
@@ -805,6 +807,9 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
         Assert.assertNull(lib.getUrl());
 
+        // check we can find it with ResourceUtils
+        ResourceUtils.create(item, getManagementContext()).checkUrlExists("classpath://"+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH);
+
         assertEquals(lib.getSymbolicName(), symbolicName);
         assertEquals(lib.getSuppliedVersionString(), version);
 
@@ -824,6 +829,9 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         }
     
         byte[] iconData = client().path("/catalog/types/" + symbolicName + "/" + version + "/icon").get(byte[].class);
+        assertEquals(iconData.length, 43);
+
+        iconData = client().path("/catalog/bundles/"+symbolicName+"/"+version + "/types/"+symbolicName+"/"+version + "/icon").get(byte[].class);
         assertEquals(iconData.length, 43);
 
         // Check that the catalog item is useable (i.e. can deploy the entity)

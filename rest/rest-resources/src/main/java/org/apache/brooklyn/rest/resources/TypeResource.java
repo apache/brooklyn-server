@@ -181,7 +181,7 @@ public class TypeResource extends AbstractBrooklynRestResource implements TypeAp
             
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
             try {
-                Object content = ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt, result)).getResourceFromUrl(url);
+                Object content = ResourceUtils.create(result, mgmt).getResourceFromUrl(url);
                 return Response.ok(content, mime).build();
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);

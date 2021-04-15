@@ -38,10 +38,12 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
@@ -133,6 +135,10 @@ public class ResourceUtils {
      */
     public static final ResourceUtils create(Object contextObject) {
         return new ResourceUtils(contextObject);
+    }
+
+    public static final ResourceUtils create(RegisteredType type, ManagementContext mgmt) {
+        return create(new OsgiBrooklynClassLoadingContext(mgmt, type.getId(), type.getLibraries()));
     }
 
     /**
