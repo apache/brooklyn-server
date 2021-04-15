@@ -23,12 +23,12 @@ import java.io.Writer;
 
 public class PrettyXmlWriter extends Writer {
     private final Writer wrappedWriter;
-    private boolean selfClosingTag = false;
-    private boolean tagClosed = false;
+    private boolean selfClosingTag = false; // ends with '/>'
     private int indentLevel = 0;
     private boolean newLine = true;
     private char lastChar = '\n';
     private boolean isComment = false;
+    private boolean newTagToProcess = false; // new tag '<'
 
     public PrettyXmlWriter(Writer writer) {
         super(writer);
@@ -37,6 +37,14 @@ public class PrettyXmlWriter extends Writer {
 
     @Override
     public void write(char[] cbuf, int off, int len) throws IOException {
+
+        // Process new tag '<' from previous call if any.
+        if (newTagToProcess) {
+            handleMeaningfulChar(cbuf, off, '<', off, len);
+            newTagToProcess = false;
+        }
+
+        // Process new data.
         for (int i = off; i < off + len; i++) {
             char c = cbuf[i];
             if (isComment) {
@@ -60,41 +68,47 @@ public class PrettyXmlWriter extends Writer {
 
     private void handleMeaningfulChar(char[] cbuf, int i, char c, int off, int len) throws IOException {
         int end = off + len - 1;
+        boolean endOfChunk = end == i;
 
-        if (c == '>' && lastChar == '/') {
+        // Reduce indentation level after closing a tag, starts with '</'
+        if (lastChar == '<' && c == '/' || newTagToProcess && cbuf[i] == '/') {
+            indentLevel--;
+        }
+
+        // Mark self-closing tag, ends with '/>'
+        if (lastChar == '/' && c == '>') {
             selfClosingTag = true;
         }
 
-        if ('>' == lastChar) {
-            if (c == '<') {
-                writeNewLine();
-                if (!selfClosingTag) {
-                    indentLevel++;
-                }
-            }
-            if (i == end) {
-                // We've closed a tag but don't know what the next character is.
-                tagClosed = true;
-            }
-            if (tagClosed && i == off && c == '<') {
-                // Tag was closed on last call to write so need a new line.
-                writeNewLine();
-                tagClosed = false;
-            }
-        }
-
+        // Process a new tag, starts with '<'
         if (c == '<') {
-            // Start if a tag
-            if (!newLine) {
-                // Assume closing tag following text - e.g. <t>some text</t>
-                indentLevel--;
-            } else if (i < end && cbuf[i + 1] == '/') {
-                // Closing tag
-                indentLevel--;
-                printIndent();
-                indentLevel--;
-                selfClosingTag = false;
-            } else {
+
+            // Process adjacent tags (any), '><'
+            if ('>' == lastChar) {
+
+                // Process remaining new tag '<' in the next call, if we hit the end of current chunk.
+                if (endOfChunk) {
+                    newTagToProcess = true;
+                    return;
+                }
+
+                // Write new line between adjacent tags '>\n<'
+                writeNewLine();
+
+                // Increase indentation level, assume nested content
+                indentLevel++;
+
+                if (i < end && cbuf[i + 1] == '/') {
+                    indentLevel--;
+                }
+
+                // Reduce indentation level for self-closing tag '/>'
+                if (selfClosingTag) {
+                    indentLevel--;
+                    selfClosingTag = false;
+                }
+
+                // Write indentation at a calculated level
                 printIndent();
             }
         }

@@ -136,9 +136,8 @@ public class PrettyXmlWriterTest {
 
     @Test
     public void testWriteInChunks() throws IOException {
-        String xml = "<t1><t2>A</t2></t1>";
+        String xml = "<t1><t3/><t2>A</t2><t2>A</t2></t1>";
         for (int breakAt = 0; breakAt < xml.length(); breakAt++) {
-            if (breakAt == 15) continue;
             recordingWriter = new RecordingWriter();
             prettyXmlWriter = new PrettyXmlWriter(recordingWriter);
             System.out.print(xml.substring(0, breakAt) + " ");
@@ -147,7 +146,7 @@ public class PrettyXmlWriterTest {
             System.out.println(xml.substring(breakAt));
             prettyXmlWriter.write(xml, breakAt ,xml.length() - breakAt);
             prettyXmlWriter.flush();
-            assertEquals(recordingWriter.out.toString(), "<t1>\n\t<t2>A</t2>\n</t1>",
+            assertEquals(recordingWriter.out.toString(), "<t1>\n\t<t3/>\n\t<t2>A</t2>\n\t<t2>A</t2>\n</t1>",
                     "Failed to format chunks split at position " + breakAt);
         }
     }
