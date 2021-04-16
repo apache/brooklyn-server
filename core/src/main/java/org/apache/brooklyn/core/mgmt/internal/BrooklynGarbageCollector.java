@@ -278,6 +278,7 @@ public class BrooklynGarbageCollector {
     
     public void deleteTasksForEntity(Entity entity) {
         // remove all references to this entity from tasks
+        // (note that cancellation for most tasks will have been done by LocalEntityManager.stopTasks)
         executionManager.deleteTag(entity);
         executionManager.deleteTag(BrooklynTaskTags.tagForContextEntity(entity));
         executionManager.deleteTag(BrooklynTaskTags.tagForCallerEntity(entity));
