@@ -67,7 +67,7 @@ public abstract class AbstractWindowsYamlTest extends AbstractYamlTest {
 
             String stdin = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDIN);
             String stdout = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDOUT);
-            String stderr = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDERR);
+            String stderr = getStream(subTask, BrooklynTaskTags.STREAM_STDERR);
             String env = getStream(subTask, BrooklynTaskTags.STREAM_ENV);
             String msg = "stdin="+stdin+"; stdout="+stdout+"; stderr="+stderr+"; env="+env;
 

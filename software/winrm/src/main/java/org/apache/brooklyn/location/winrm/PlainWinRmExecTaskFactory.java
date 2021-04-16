@@ -20,50 +20,30 @@ package org.apache.brooklyn.location.winrm;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
 import java.io.ByteArrayOutputStream;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.util.List;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.core.internal.winrm.winrm4j.FilteringXmlWriter.SelectedStreamsFilteringXmlWriter;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.PrettyXmlWriter;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
-import org.apache.commons.io.output.TeeOutputStream;
 import org.apache.commons.io.output.WriterOutputStream;
 
 public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {
 
-    public static final String WINRM_STREAM_XML_STDERR = "winrm_xml_stderr";
+    /** The XML-formatted Windows diagnostic stream ID, includes error, warning, debug and verbose messages */
+    public static final String WINRM_STREAM = "winrm";
 
-    public static final String WINRM_STREAM_ERROR = "winrm_error";
-    public static final String WINRM_STREAM_WARNING = "winrm_warning";
-    public static final String WINRM_STREAM_DEBUG = "winrm_debug";
-    public static final String WINRM_STREAM_VERBOSE = "winrm_verbose";
-
-    /** constructor where machine will be added later */
+    /** Constructor where machine will be added later */
     public PlainWinRmExecTaskFactory(String ...commands) {
         super(commands);
     }
 
-    /** convenience constructor to supply machine immediately */
+    /** Constructor to supply machine immediately */
     public PlainWinRmExecTaskFactory(WinRmMachineLocation machine, String ...commands) {
         this(commands);
         machine(machine);
-    }
-
-    /** Constructor where machine will be added later */
-    public PlainWinRmExecTaskFactory(List<String> commands) {
-        this(commands.toArray(new String[commands.size()]));
-    }
-
-    /** Convenience constructor to supply machine immediately */
-    public PlainWinRmExecTaskFactory(WinRmMachineLocation machine, List<String> commands) {
-        this(machine, commands.toArray(new String[commands.size()]));
     }
 
     @Override
@@ -100,43 +80,17 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
 
     @Beta
     public static Std2x2StreamProvider newStreamProviderForWindowsXml(TaskBuilder<?> tb) {
-        Std2x2StreamProvider r = new Std2x2StreamProvider();
-        r.stdoutForWriting = r.stdoutForReading = new ByteArrayOutputStream();
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, r.stdoutForReading));
+        Std2x2StreamProvider std2x2StreamProvider = new Std2x2StreamProvider();
+        std2x2StreamProvider.stdoutForWriting = std2x2StreamProvider.stdoutForReading = new ByteArrayOutputStream();
+
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, std2x2StreamProvider.stdoutForReading));
 
         ByteArrayOutputStream stderrXmlPrettyOut = new ByteArrayOutputStream();
-        ByteArrayOutputStream stderrNonXmlFilteredOut = new ByteArrayOutputStream();
-        ByteArrayOutputStream verboseFilteredOut = new ByteArrayOutputStream();
-        ByteArrayOutputStream debugFilteredOut = new ByteArrayOutputStream();
-        ByteArrayOutputStream warningFilteredOut = new ByteArrayOutputStream();
-        ByteArrayOutputStream errorFilteredOut = new ByteArrayOutputStream();
+        std2x2StreamProvider.stderrForWriting = new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(stderrXmlPrettyOut)));
 
-        OutputStream rawxml = tee(MutableList.of(
-                new WriterOutputStream(new PrettyXmlWriter(new OutputStreamWriter(stderrXmlPrettyOut))),
-                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter(s -> true, stderrNonXmlFilteredOut)),
-                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("verbose", verboseFilteredOut)),
-                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("debug", debugFilteredOut)),
-                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("warning", warningFilteredOut)),
-                new WriterOutputStream(new SelectedStreamsFilteringXmlWriter("error", errorFilteredOut)) ));
+        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM, stderrXmlPrettyOut));
 
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, stderrNonXmlFilteredOut));
-
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_XML_STDERR, stderrXmlPrettyOut));
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_VERBOSE, verboseFilteredOut));
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_DEBUG, debugFilteredOut));
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_WARNING, warningFilteredOut));
-        tb.tag(BrooklynTaskTags.tagForStreamSoft(WINRM_STREAM_ERROR, errorFilteredOut));
-
-        r.stderrForReading = stderrNonXmlFilteredOut;
-        r.stderrForWriting = rawxml;
-
-        return r;
-    }
-
-    private static OutputStream tee(List<OutputStream> streams) {
-        if (streams==null || streams.isEmpty()) throw new IllegalStateException("stream required");
-        if (streams.size()==1) return Iterables.getOnlyElement(streams);
-        return new TeeOutputStream(streams.get(0), tee(streams.subList(1, streams.size())));
+        return std2x2StreamProvider;
     }
 }
 
