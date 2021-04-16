@@ -594,13 +594,25 @@ public class LocalEntityManager implements EntityManagerInternal {
         // try forcibly interrupting tasks on managed entities
         Collection<Exception> exceptions = MutableSet.of();
         try {
+            boolean inTaskForThisEntity = entity.equals(BrooklynTaskTags.getContextEntity(Tasks.current()));
+            Task rootTask = null;
             Set<Task<?>> tasksCancelled = MutableSet.of();
             for (Task<?> t: managementContext.getExecutionContext(entity).getTasks()) {
-                if (entity.equals(BrooklynTaskTags.getContextEntity(Tasks.current())) && hasTaskAsAncestor(t, Tasks.current())) {
-                    // don't cancel if we are running inside a task on the target entity and
-                    // the task being considered is one we have submitted -- e.g. on "stop" don't cancel ourselves!
-                    // but if our current task is from another entity we probably do want to cancel them (we are probably invoking unmanage)
-                    continue;
+                if (inTaskForThisEntity) {
+                    if (rootTask==null) {
+                        rootTask = getRootTask(Tasks.current());
+                    }
+                    if (Objects.equals(rootTask, getRootTask(t))) {
+                        // don't cancel the task if:
+                        // - the current task is against this entity, and
+                        // - the current task and target task are part of the same root true
+                        // e.g. on "stop" don't cancel ourselves, don't cancel things our ancestors have submitted
+                        // (direct ancestry check is not good enough, because we might be in a subtask of a deletion which has a DST manager,
+                        // and cancelling the DST manager is almost as bad as cancelling ourselves);
+                        // however if our current task is from another entity we maybe do want to cancel other things running at this node
+                        // (although maybe not; we could remote the "inTaskForThisEntity" check)
+                        continue;
+                    }
                 }
                 
                 if (!t.isDone()) {
@@ -648,6 +660,15 @@ public class LocalEntityManager implements EntityManagerInternal {
         if (t==null || potentialAncestor==null) return false;
         if (t.equals(potentialAncestor)) return true;
         return hasTaskAsAncestor(t.getSubmittedByTask(), potentialAncestor);
+    }
+
+    private Task<?> getRootTask(Task<?> t) {
+        Task<?> result = t;
+        while (t!=null) {
+            result = t;
+            t = t.getSubmittedByTask();
+        }
+        return result;
     }
 
     /**
