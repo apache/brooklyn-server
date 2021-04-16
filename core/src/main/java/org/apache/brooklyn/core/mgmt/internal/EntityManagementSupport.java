@@ -268,6 +268,28 @@ public class EntityManagementSupport {
             }
             
             synchronized (this) {
+                if (nonDeploymentManagementContext!=null && nonDeploymentManagementContext.getMode()!=null) {
+                    switch (nonDeploymentManagementContext.getMode()) {
+                        case MANAGEMENT_STARTED:
+                            // normal
+                            break;
+                        case PRE_MANAGEMENT:
+                        case MANAGEMENT_REBINDING:
+                        case MANAGEMENT_STARTING:
+                            // odd, but not a problem
+                            log.warn("Management started invoked on "+entity+" when in unexpected state "+nonDeploymentManagementContext.getMode());
+                            break;
+                        case MANAGEMENT_STOPPING:
+                        case MANAGEMENT_STOPPED:
+                            // problematic
+                            throw new IllegalStateException("Cannot start management of "+entity+" at this time; its management has been told to be "+
+                                    nonDeploymentManagementContext.getMode());
+                    }
+                } else {
+                    // odd - already started
+                    log.warn("Management started invoked on "+entity+" when non-deployment context already cleared");
+                }
+
                 nonDeploymentManagementContext = null;
             }
         } catch (Throwable t) {
