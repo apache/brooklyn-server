@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.location.dynamic.clocker;
+package org.apache.brooklyn.core.location.dynamic.onthefly;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -45,9 +45,9 @@ import com.google.common.collect.Iterables;
 /**
  * See explanation of what we're testing in {@link StubInfrastructure}.
  */
-public class ClockerDynamicLocationPatternTest extends BrooklynAppUnitTestSupport {
+public class OnTheFlyDynamicLocationPatternTest extends BrooklynAppUnitTestSupport {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ClockerDynamicLocationPatternTest.class);
+    private static final Logger LOG = LoggerFactory.getLogger(OnTheFlyDynamicLocationPatternTest.class);
 
     private LocalhostMachineProvisioningLocation loc;
 

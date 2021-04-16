@@ -16,18 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.location.dynamic.clocker;
+package org.apache.brooklyn.core.location.dynamic.onthefly;
 
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.location.dynamic.LocationOwner;
 import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
-import org.apache.brooklyn.entity.stock.BasicStartable;
+import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.entity.group.DynamicCluster;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 
-@ImplementedBy(StubContainerImpl.class)
-public interface StubContainer extends BasicStartable, LocationOwner<StubContainerLocation, StubContainer> {
+@ImplementedBy(StubHostImpl.class)
+public interface StubHost extends EmptySoftwareProcess, LocationOwner<StubHostLocation, StubHost> {
     AttributeSensorAndConfigKey<StubInfrastructure, StubInfrastructure> DOCKER_INFRASTRUCTURE = StubAttributes.DOCKER_INFRASTRUCTURE;
-    AttributeSensorAndConfigKey<StubHost, StubHost> DOCKER_HOST = StubAttributes.DOCKER_HOST;
     
+    AttributeSensor<DynamicCluster> DOCKER_CONTAINER_CLUSTER = Sensors.newSensor(DynamicCluster.class,
+            "docker.container.cluster", "The cluster of Docker containers");
+
     StubInfrastructure getInfrastructure();
-    StubHost getDockerHost();
+    DynamicCluster getDockerContainerCluster();
 }

@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.location.dynamic.clocker;
+package org.apache.brooklyn.core.location.dynamic.onthefly;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -44,9 +44,11 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 
 /**
- * See explanation of what we're testing in {@link StubInfrastructure}.
+ * Allow creation of a location as part of entities then use of it -- useful for Clocker, and other places too.
+ *
+ * See fuller explanation of what we're testing in {@link StubInfrastructure}.
  */
-public class ClockerDynamicLocationPatternRebindTest extends RebindTestFixtureWithApp {
+public class OnTheFlyDynamicLocationPatternRebindTest extends RebindTestFixtureWithApp {
 
     @Override
     protected LocalManagementContext createOrigManagementContext() {
