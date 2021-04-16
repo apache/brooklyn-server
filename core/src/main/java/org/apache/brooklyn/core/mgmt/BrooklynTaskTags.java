@@ -20,7 +20,9 @@ package org.apache.brooklyn.core.mgmt;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -36,6 +38,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
@@ -345,14 +348,24 @@ public class BrooklynTaskTags extends TaskTags {
         return new WrappedStream(streamType, contents, size);
     }
     
-    /** creates a tag suitable for attaching a snapshot of an environment var map as a "stream" on a task;
-     * mainly for use with STREAM_ENV */ 
+    /**
+     * Creates a tag suitable for attaching a snapshot of an environment var map as a "stream" on a task; mainly for use
+     * with STREAM_ENV. Sensitive data like passwords is always masked, see {@link Sanitizer#IS_SECRET_PREDICATE}.
+     *
+     * @param streamEnv Never used
+     * @param env The {@link Map} with environment variables
+     * @return The {@link WrappedStream}
+     * */
     public static WrappedStream tagForEnvStream(String streamEnv, Map<?, ?> env) {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<?,?> kv: env.entrySet()) {
-            Object val = kv.getValue();
-            sb.append(kv.getKey()+"=" +
-                (val!=null ? BashStringEscapes.wrapBash(val.toString()) : "") + "\n");
+            String stringValue = kv.getValue() != null ? BashStringEscapes.wrapBash(kv.getValue().toString()) : "";
+            Sanitizer.IS_SECRET_PREDICATE.apply(stringValue);
+            if (!stringValue.isEmpty() && Sanitizer.IS_SECRET_PREDICATE.apply(kv.getKey())) {
+                String md5Checksum = Streams.getMd5Checksum(new ByteArrayInputStream(stringValue.getBytes()));
+                stringValue = "<suppressed> (MD5 hash: " + md5Checksum + ")" ;
+            }
+            sb.append(kv.getKey()).append("=").append(stringValue).append("\n");
         }
         // TODO also make soft - this is often larger than the streams themselves
         return BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_ENV, Streams.byteArrayOfString(sb.toString()));
