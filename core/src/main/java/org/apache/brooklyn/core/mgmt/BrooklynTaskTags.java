@@ -359,11 +359,13 @@ public class BrooklynTaskTags extends TaskTags {
     public static WrappedStream tagForEnvStream(String streamEnv, Map<?, ?> env) {
         StringBuilder sb = new StringBuilder();
         for (Map.Entry<?,?> kv: env.entrySet()) {
-            String stringValue = kv.getValue() != null ? BashStringEscapes.wrapBash(kv.getValue().toString()) : "";
-            Sanitizer.IS_SECRET_PREDICATE.apply(stringValue);
-            if (!stringValue.isEmpty() && Sanitizer.IS_SECRET_PREDICATE.apply(kv.getKey())) {
-                String md5Checksum = Streams.getMd5Checksum(new ByteArrayInputStream(stringValue.getBytes()));
-                stringValue = "<suppressed> (MD5 hash: " + md5Checksum + ")" ;
+            String stringValue = kv.getValue() != null ? kv.getValue().toString() : "";
+            if (!stringValue.isEmpty()) {
+                if (Sanitizer.IS_SECRET_PREDICATE.apply(kv.getKey())) {
+                    String md5Checksum = Streams.getMd5Checksum(new ByteArrayInputStream(stringValue.getBytes()));
+                    stringValue = "<suppressed> (MD5 hash: " + md5Checksum + ")";
+                }
+                stringValue = BashStringEscapes.wrapBash(stringValue);
             }
             sb.append(kv.getKey()).append("=").append(stringValue).append("\n");
         }
