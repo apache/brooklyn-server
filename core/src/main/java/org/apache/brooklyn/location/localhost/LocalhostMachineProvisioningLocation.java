@@ -78,6 +78,8 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     public static final ConfigKey<Boolean> SKIP_ON_BOX_BASE_DIR_RESOLUTION = ConfigKeys.newConfigKeyWithDefault(
             BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, 
             true);
+
+    public static final ConfigKey<Boolean> KEEP_MACHINES = ConfigKeys.newBooleanConfigKey("keep_machines", "Whether by default to keep localhost machine instances available for re-use or to unmanage them", false);
     
     @SetFromFlag("count")
     int initialCount;
@@ -256,6 +258,12 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         
         for (int p: portsObtained)
             releasePort(null, p);
+
+        // prior to 2021-04 we kept the released machines in the queue
+        // this is now governed by a flag; tests that care should set this flag!
+        if (!config().get(KEEP_MACHINES)) {
+            this.removeChild(machine);
+        }
     }
     
     public static class LocalhostMachine extends SshMachineLocation implements HasSubnetHostname {
