@@ -82,7 +82,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
         return Optional.<Task<?>>absent();
     }
 
-    protected <T extends SoftwareProcess> void assertStreams(T softwareProcessEntity) {
+    protected <T extends SoftwareProcess> void assertStdStreams(T softwareProcessEntity) {
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
 
         for (Map.Entry<String, String> entry : getCommands().entrySet()) {
@@ -94,11 +94,27 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
             String stdin = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDIN);
             String stdout = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDOUT);
             String stderr = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDERR);
-//            String env = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
             String msg = "taskName='" + taskNameRegex + "'; expected=" + echoed + "; actual=" + stdout + "\nstdin="+stdin+"\nstdout="+stdout+"\nstderr="+stderr; //+"; env="+env;
 
             assertTrue(stdin.contains("echo "+echoed), msg);
             assertTrue(stdout.contains(echoed), msg);
+        }
+    }
+
+    protected <T extends SoftwareProcess> void assertEnvStream(final T softwareProcessEntity, final Map<String, String> expectedEnv) {
+        Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
+
+        for (Map.Entry<String, String> entry : getCommands().entrySet()) {
+            String taskNameRegex = entry.getKey();
+
+            Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameSatisfies(StringPredicates.matchesRegex(taskNameRegex))).get();
+
+            String env = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
+
+            expectedEnv.forEach((key, value) -> {
+                String expectedLine = key + "=\"" + value + "\"";
+                assertTrue(env.contains(expectedLine), "line '" + expectedLine + "' is expected in env stream:\n" + env);
+            });
         }
     }
 }

@@ -98,7 +98,7 @@ public class VanillaWindowsProcessWinrmStreamsLiveTest extends AbstractSoftwareP
                 .configure(VanillaSoftwareProcess.POST_LAUNCH_COMMAND, "echo " + getCommands().get("winrm: post-launch-command.*"))
                 .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "echo true"));
         app.start(ImmutableList.of(machine));
-        assertStreams(entity);
+        assertStdStreams(entity);
     }
 
     @Test(groups = "Live")
@@ -114,7 +114,7 @@ public class VanillaWindowsProcessWinrmStreamsLiveTest extends AbstractSoftwareP
                 .configure(VanillaWindowsProcess.POST_LAUNCH_POWERSHELL_COMMAND, "echo " + getCommands().get("winrm: post-launch-command.*"))
                 .configure(VanillaWindowsProcess.CHECK_RUNNING_POWERSHELL_COMMAND, "echo true"));
         app.start(ImmutableList.of(machine));
-        assertStreams(entity);
+        assertStdStreams(entity);
     }
 
     @Override
