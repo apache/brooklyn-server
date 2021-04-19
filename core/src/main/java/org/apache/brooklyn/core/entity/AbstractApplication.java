@@ -198,7 +198,11 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
 
     @Override
     public void logApplicationLifecycle(String message) {
-        log.info(message+" application " + this);
+        if (getParent()==null) {
+            log.info(message + " application " + this);
+        } else {
+            log.debug(message + " nested application " + this);
+        }
     }
     
     protected void doStart(Collection<? extends Location> locations) {
