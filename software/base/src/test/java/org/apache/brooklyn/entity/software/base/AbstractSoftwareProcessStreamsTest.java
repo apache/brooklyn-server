@@ -82,7 +82,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
         return Optional.<Task<?>>absent();
     }
 
-    protected <T extends SoftwareProcess> void assertStreams(T softwareProcessEntity) {
+    protected <T extends SoftwareProcess> void assertStdStreams(T softwareProcessEntity) {
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
 
         for (Map.Entry<String, String> entry : getCommands().entrySet()) {

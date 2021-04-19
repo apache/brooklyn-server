@@ -59,7 +59,7 @@ public class VanillaSoftwareProcessStreamsIntegrationTest extends AbstractSoftwa
                 .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "true"));
         app.start(ImmutableList.of(localhost));
 
-        assertStreams(entity);
+        assertStdStreams(entity);
     }
 
     @Override
