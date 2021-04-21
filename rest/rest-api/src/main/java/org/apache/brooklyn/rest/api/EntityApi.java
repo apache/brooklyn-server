@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.api;
 
 import io.swagger.annotations.Api;
+import org.apache.brooklyn.rest.domain.RelationSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.LocationSummary;
 import org.apache.brooklyn.rest.domain.TaskSummary;
@@ -73,6 +74,14 @@ public interface EntityApi {
     public List<EntitySummary> getChildren(
             @PathParam("application") final String application,
             @PathParam("entity") final String entity);
+
+    @GET
+    @ApiOperation(value = "Fetch the list of relations of an entity",
+            response = RelationSummary.class)
+    @Path("/{entity}/relations")
+    List<RelationSummary> getRelations(
+            @PathParam("application") final String applicationId,
+            @PathParam("entity") final String entityId);
 
     @POST
     @ApiOperation(value = "Add a child or children to this entity given a YAML spec",
