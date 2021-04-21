@@ -143,6 +143,7 @@
         <eddsa.version>0.2.0</eddsa.version>
         <!-- JClouds 2.2.0 imports ssjj 0.20.0 -->
         <sshj.version>0.31.0</sshj.version>
+        <asn1.version>0.5.0</asn1.version>  <!-- used by sshj -->
         <!-- jzlib osgi version is 1.1.3.2, but bundle is 1.1.3_2 ; JClouds 2.2.0 pulls in 1.0.7_1 but is happy with 1.1.3.2 -->
         <jzlib.version>1.1.3_2</jzlib.version>
         <jzlib.osgi.version>1.1.3.2</jzlib.osgi.version>
