@@ -24,10 +24,7 @@ import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -40,8 +37,6 @@ import com.google.common.collect.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.api.relations.RelationshipType;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -57,6 +52,7 @@ import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer.LocationDetailLevel;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
+import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -107,24 +103,11 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
 
     @Override
     public List<RelationSummary> getRelations(final String applicationId, final String entityId) {
-        List<RelationSummary> entityRelations = Lists.newLinkedList();
-
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         if (entity != null) {
-            for (RelationshipType<?,? extends BrooklynObject> relationship: entity.relations().getRelationshipTypes()) {
-                @SuppressWarnings({ "unchecked", "rawtypes" })
-                Set relations = entity.relations().getRelations((RelationshipType) relationship);
-                Set<String> relationIds = Sets.newLinkedHashSet();
-                for (Object r: relations) {
-                    relationIds.add(((BrooklynObject) r).getId());
-                }
-                RelationType relationType = new RelationType(relationship.getRelationshipTypeName(), relationship.getTargetName(), relationship.getSourceName());
-                RelationSummary relationSummary = new RelationSummary(relationType, relationIds);
-                entityRelations.add(relationSummary);
-            }
+            return EntityRelationUtils.getRelations(entity);
         }
-
-        return entityRelations;
+        return Collections.emptyList();
     }
 
     @Override
