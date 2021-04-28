@@ -466,6 +466,9 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
                 Maybe<T> result = null;
                 try {
+                    if (exec==null) {
+                        return Maybe.absent("Immediate resolution requested for '"+getDescription()+"' but no execution context available");
+                    }
                     result = exec.getImmediately(v);
 
                     return (result.isPresent())

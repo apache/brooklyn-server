@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.util.Set;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Collection;
@@ -50,6 +51,7 @@ import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
@@ -219,7 +221,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         protected final Scope scope;
         protected final String componentId;
         protected final DeferredSupplier<?> componentIdSupplier;
-        
+
         public EntityInScopeFinder(DslComponent scopeComponent, Scope scope, String componentId, DeferredSupplier<?> componentIdSupplier) {
             this.scopeComponent = scopeComponent;
             this.scope = scope;
@@ -278,8 +280,28 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 case PARENT:
                     return Maybe.<Entity>of(entity.getParent());
                 case GLOBAL:
-                    entitiesToSearch = ((EntityManagerInternal)entity.getManagementContext().getEntityManager())
-                        .getAllEntitiesInApplication( entity().getApplication() );
+                    if (Entities.isManaged(entity())) {
+                        // use management context if entity is managed (usual case, more efficient)
+                        entitiesToSearch = ((EntityManagerInternal) entity.getManagementContext().getEntityManager())
+                                .getAllEntitiesInApplication(entity().getApplication());
+                    } else {
+                        // otherwise traverse the application
+                        if (entity()!=null && entity().getApplication()!=null) {
+                            Set<Entity> toVisit = MutableSet.of(entity().getApplication()), visited = MutableSet.of(entity().getApplication());
+                            while (!toVisit.isEmpty()) {
+                                Set<Entity> visiting = MutableSet.copyOf(toVisit);
+                                toVisit.clear();
+                                visiting.forEach(e -> {
+                                    e.getChildren().forEach(ec -> {
+                                        if (visited.add(ec)) toVisit.add(ec);
+                                    });
+                                });
+                            }
+                            entitiesToSearch = visited;
+                        } else {
+                            // nothing to do
+                        }
+                    }
                     break;
                 case ROOT:
                     return Maybe.<Entity>of(entity.getApplication());
