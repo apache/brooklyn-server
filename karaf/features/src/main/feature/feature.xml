@@ -158,7 +158,6 @@
         <bundle dependency="true">mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
         <bundle dependency="true">mvn:org.freemarker/freemarker/${freemarker.version}</bundle>
         <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>
-        <bundle dependency="true">wrap:mvn:com.hierynomus/asn-one/${asn1.version}</bundle>
         <bundle dependency="true">mvn:net.i2p.crypto/eddsa/${eddsa.version}</bundle><!-- from com.hierynomous/sshj -->
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
         <bundle dependency="true">mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
