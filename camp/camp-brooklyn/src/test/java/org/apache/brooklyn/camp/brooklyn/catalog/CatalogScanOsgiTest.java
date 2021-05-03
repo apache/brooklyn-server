@@ -26,8 +26,12 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -46,6 +50,7 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.tools.ant.taskdefs.Zip;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -146,10 +151,65 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
 
     static String bomAnonymous() {
         return Strings.lines("brooklyn.catalog:",
+                "    items:",
+                "    - item:",
+                "        id: sample",
+                "        type: "+BasicEntity.class.getName());
+    }
+
+    @Test
+    public void testAddSnapshotBom() throws IOException {
+        installBom(bomSnapshot("aaa"));
+        checkInstalled("aaa");
+
+        installBom(bomSnapshot("aaa"));
+        checkInstalled("aaa");
+
+        installBom(bomSnapshot("bbb"));
+        checkInstalled("bbb");
+
+        installBom(bomSnapshot("ccc"));
+        checkInstalled("ccc");
+
+        installBom(bomSnapshot("ddd"));
+        checkInstalled("ddd");
+
+        installBom(bomSnapshot("bbb"));
+        checkInstalled("bbb");
+
+        installBom(bomSnapshot("aaa"));
+        checkInstalled("aaa");
+    }
+
+    public void installBom(String bom) throws IOException {
+        File f = Os.newTempFile(this.getClass(), "zip");
+        ZipOutputStream out = new ZipOutputStream(new FileOutputStream(f));
+        out.putNextEntry(new ZipEntry("catalog.bom"));
+        Streams.copy(new ByteArrayInputStream(bom.getBytes(StandardCharsets.UTF_8)), out);
+        out.closeEntry();
+        Streams.closeQuietly(out);
+
+        ((ManagementContextInternal) mgmt()).getOsgiManager().get().install(InputStreamSource.of("test:"+f, f)).checkNoError();
+    }
+
+    public void checkInstalled(String name) throws IOException {
+        RegisteredType snapshot;
+        snapshot = mgmt().getTypeRegistry().get("snapshot");
+        Asserts.assertNotNull(snapshot);
+        Asserts.assertEquals(snapshot.getDisplayName(), name);
+    }
+
+    static String bomSnapshot(String name) {
+        return Strings.lines("brooklyn.catalog:",
+            "    version: 2.0-SNAPSHOT",
+            "    bundle: snappy",
             "    items:",
             "    - item:",
-            "        id: sample",
+            "        id: snapshot",
+            "        name: "+name,
+            "        displayName: "+name,
             "        type: "+BasicEntity.class.getName());
     }
+
     
 }
