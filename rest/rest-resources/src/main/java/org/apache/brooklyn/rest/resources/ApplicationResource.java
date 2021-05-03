@@ -80,6 +80,7 @@ import org.apache.brooklyn.rest.transform.ApplicationTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -185,7 +186,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         result.setExtraField("creationTimeUtc", entity.getCreationTime());
         addSensorsByGlobs(result, entity, extraSensorGlobs);
         addConfigByGlobs(result, entity, extraConfigGlobs);
-        
+
+        result.setExtraField("relations", EntityRelationUtils.getRelations(entity));
+
         return result;
     }
 

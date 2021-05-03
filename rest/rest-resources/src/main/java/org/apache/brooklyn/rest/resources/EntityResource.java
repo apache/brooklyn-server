@@ -24,9 +24,7 @@ import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -35,6 +33,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import com.google.common.collect.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -47,14 +46,13 @@ import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.domain.EntitySummary;
-import org.apache.brooklyn.rest.domain.LocationSummary;
-import org.apache.brooklyn.rest.domain.TaskSummary;
+import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer.LocationDetailLevel;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
+import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -64,9 +62,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 @HaHotStateRequired
@@ -104,6 +99,15 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
                 .filter(EntitlementPredicates.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY))
                 .transform(EntityTransformer.fromEntity(ui.getBaseUriBuilder()))
                 .toList();
+    }
+
+    @Override
+    public List<RelationSummary> getRelations(final String applicationId, final String entityId) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        if (entity != null) {
+            return EntityRelationUtils.getRelations(entity);
+        }
+        return Collections.emptyList();
     }
 
     @Override
