@@ -29,6 +29,7 @@ import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.EnumerationUtils;
 import org.eclipse.jetty.http.HttpHeader;
 import org.eclipse.jetty.server.Handler;
+import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.SessionIdManager;
 import org.eclipse.jetty.server.handler.ContextHandler;
@@ -141,11 +142,22 @@ public class MultiSessionAttributeAdapter {
     public static MultiSessionAttributeAdapter of(HttpServletRequest r) {
         return of(r, true);
     }
-    /** May return null iff create is false */
+    /** Will find an adapter for an ID if one is known, without creating a session unnecessarily unless create is true.
+     * May return null if create is false and no valid session is known anywhere for a session ID in the request or if the request doesn't give a session ID;
+     * otherwise will find or create the session and the adapter. */
     public static MultiSessionAttributeAdapter of(HttpServletRequest r, boolean create) {
         HttpSession session = r.getSession(create);
-        if (session==null) return null;
-        return new MultiSessionAttributeAdapter(FACTORY.findPreferredSession(r), session, r);
+        if (session==null) {
+            session = FACTORY.findValidPreferredSession(null, r);
+        }
+        if (session==null && create) {
+            session = FACTORY.findPreferredSession(r);
+        }
+        if (session==null) {
+            return null;
+        } else {
+            return new MultiSessionAttributeAdapter(session, session, r);
+        }
     }
     
     /** Where the request isn't available, and the preferred session is expected to exist.
@@ -216,49 +228,61 @@ public class MultiSessionAttributeAdapter {
             }
         }
 
-        private HttpSession findValidPreferredSession(HttpSession localSession, HttpServletRequest optionalRequest) {
-            if (localSession instanceof Session) {
-                SessionHandler preferredHandler = getPreferredJettyHandler((Session)localSession, true, true);
+        /** looks up a preferred session matching ID in either */
+        private HttpSession findValidPreferredSession(HttpSession optionalLocalSession, HttpServletRequest optionalRequest) {
+            SessionHandler preferredHandler = null;
+            HttpSession preferredSession = null;
 
-                HttpSession preferredSession = null;
-                if (preferredHandler != null) {
-                    String extendedId= localSession.getId();
-                    SessionIdManager idManager = preferredHandler.getSessionIdManager();
-                    String id = idManager.getId(extendedId);
-                    preferredSession = getSessionSafely(preferredHandler, id);
-                    if (preferredSession != null && !((Session)preferredSession).getExtendedId().equals(extendedId))
-                        ((Session)preferredSession).setIdChanged(true);
+            if (optionalLocalSession instanceof Session) {
+                preferredHandler = getPreferredJettyHandler((Session) optionalLocalSession, true, true);
+            }
+            if (preferredHandler==null && optionalRequest instanceof Request) {
+                SessionHandler someHandler = ((Request)optionalLocalSession).getSessionHandler();
+                if (someHandler!=null) {
+                    preferredHandler = getServerGlobalPreferredHandler(someHandler.getServer());
                 }
+            }
 
-                if (log.isTraceEnabled()) {
-                    log.trace("Preferred session for "+info(optionalRequest, localSession)+": "+
-                        (preferredSession!=null ? info(preferredSession) : "none, willl make new session in "+info(preferredHandler)));
-                }
-                if (preferredSession!=null) {
-                    return preferredSession;
-                }
+            if (preferredHandler != null) {
+                String extendedId= optionalLocalSession!=null ? optionalLocalSession.getId() : optionalRequest!=null ? optionalRequest.getRequestedSessionId() : null;
+                SessionIdManager idManager = preferredHandler.getSessionIdManager();
+                String id = idManager.getId(extendedId);
+                preferredSession = getSessionSafely(preferredHandler, id);
+                if (preferredSession != null && !((Session)preferredSession).getExtendedId().equals(extendedId))
+                    ((Session)preferredSession).setIdChanged(true);
+            }
+
+            if (log.isTraceEnabled()) {
+                log.trace("Preferred session for "+info(optionalRequest, optionalLocalSession)+": "+
+                    (preferredSession!=null ? info(preferredSession) : "none, willl make new session in "+info(preferredHandler)));
+            }
+            if (preferredSession!=null) {
+                return preferredSession;
+            }
+
+            if (optionalLocalSession instanceof Session) {
                 if (preferredHandler!=null) {
                     if (optionalRequest!=null) { 
                         HttpSession result = preferredHandler.newHttpSession(optionalRequest);
                         // bigger than HouseKeeper.sessionScavengeInterval: 3600
                         // https://www.eclipse.org/jetty/documentation/9.4.x/session-configuration-housekeeper.html
                         if (log.isTraceEnabled()) {
-                            log.trace("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, localSession));
+                            log.trace("Creating new session "+info(result)+" to be preferred for " + info(optionalRequest, optionalLocalSession));
                         }
                         return result;
                     }
                     // the server has a preferred handler, but no session yet; fall back to marking on the session 
-                    log.warn("No request so cannot create preferred session at preferred handler "+info(preferredHandler)+" for "+info(optionalRequest, localSession)+"; will exceptionally mark the calling session as the preferred one");
-                    markSessionAsPreferred(localSession, " (request came in for "+info(optionalRequest, localSession)+")");
-                    return localSession;
+                    log.warn("No request so cannot create preferred session at preferred handler "+info(preferredHandler)+" for "+info(optionalRequest, optionalLocalSession)+"; will exceptionally mark the calling session as the preferred one");
+                    markSessionAsPreferred(optionalLocalSession, " (request came in for "+info(optionalRequest, optionalLocalSession)+")");
+                    return optionalLocalSession;
                 } else {
                     // shouldn't come here; at minimum it should have returned the local session's handler
-                    log.warn("Unexpected failure to find a handler for "+info(optionalRequest, localSession));
+                    log.warn("Unexpected failure to find a handler for "+info(optionalRequest, optionalLocalSession));
                 }
             } else {
-                log.warn("Unsupported session impl in "+info(optionalRequest, localSession));
+                log.warn("Unsupported session impl in "+info(optionalRequest, optionalLocalSession));
             }
-            return localSession;
+            return optionalLocalSession;
         }
         
         private SessionHandler getPreferredJettyHandler(Session localSession, boolean allowHandlerThatDoesntHaveSession, boolean markAndReturnThisIfNoneFound) {
