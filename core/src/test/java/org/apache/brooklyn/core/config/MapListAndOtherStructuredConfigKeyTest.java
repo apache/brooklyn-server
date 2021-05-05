@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.config;
 
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.guava.Maybe;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -87,7 +89,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval","bkey","bval"));
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING.subKey("akey")), "aval");
     }
-    
+
     @Test
     public void testMapConfigKeyCanStoreAndRetrieveFutureValsPutByKeys() throws Exception {
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
@@ -101,6 +103,20 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         bval.set("bval");
         
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval","bkey","bval"));
+    }
+
+    @Test
+    public void testMapConfigKeyGetRaw() throws Exception {
+        final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
+        entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), DependentConfiguration.whenDone(Callables.returning("aval")));
+        app.start(locs);
+
+        Maybe<Object> rawMM = entity.config().getLocalRaw(TestEntity.CONF_MAP_THING);
+        Assert.assertTrue(rawMM.isPresent());
+        Map rawM = (Map) rawMM.get();
+        assertEquals(rawM.size(), 1);
+        assertEquals(rawM.keySet(), ImmutableSet.of("akey"));
+        Asserts.assertInstanceOf(rawM.get("akey"), Task.class);
     }
 
     @Test
