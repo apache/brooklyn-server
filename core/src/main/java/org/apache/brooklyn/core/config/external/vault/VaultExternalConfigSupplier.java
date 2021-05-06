@@ -28,11 +28,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.http.client.HttpClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,6 +59,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
     protected final String path;
     protected final String mountPoint;
     protected final int version;
+    protected final int recoverTryCount;
     protected final String token;
     protected final ImmutableMap<String, String> headersWithToken;
 
@@ -81,6 +84,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
             this.version = -1; // satisfy the static analysis :)
             errors.add("'kv-api-version' must be either 1 or 2");
         }
+        recoverTryCount = NumberUtils.toInt(config.get("recoverTryCount"),10);
         mountPoint = config.get("mountPoint");
         if (Strings.isBlank(mountPoint) && this.version == 2) errors.add("missing configuration 'mountPoint'");
         if (!Strings.isBlank(mountPoint) && this.version == 1) errors.add("'mountPoint' is only applicable when kv-api-version=2");
@@ -104,7 +108,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         String urlPath = (version == 1)
             ? Urls.mergePaths("v1", path)
             : Urls.mergePaths("v1", mountPoint, "data", path);
-        JsonObject response = apiGet(urlPath, headersWithToken);
+        JsonObject response = apiGetRetryable(urlPath, headersWithToken, recoverTryCount);
         JsonElement jsonElement = (version == 1)
             ? response.getAsJsonObject("data").get(key)
             : response.getAsJsonObject("data").getAsJsonObject("data").get(key);
@@ -116,13 +120,35 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
      * Obtains data stored in <code>path</code>.
      */
     public Map<String, String> getDataAsStringMap() {
-        JsonObject response = apiGet(Urls.mergePaths("v1", path), headersWithToken);
+        JsonObject response = apiGetRetryable(Urls.mergePaths("v1", path), headersWithToken, recoverTryCount);
         Map<String, JsonElement> dataMap = response.getAsJsonObject("data").entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         return Maps.transformValues(dataMap, jsonElement -> jsonElement.getAsString());
     }
 
-    protected JsonObject apiGet(String path, ImmutableMap<String, String> headers) {
+    protected JsonObject apiGetRetryable(String path, Map<String, String> headers, int recoverTryCount) {
+        try {
+            if (Strings.isBlank(headers.get("X-Vault-Token"))){
+                String currentToken = initAndLogIn(config);
+                if (Strings.isBlank(currentToken)){
+                    throw new IllegalStateException("Vault sealed or unavailable. Retries remaining: " + recoverTryCount);
+                }
+                headers = MutableMap.copyOf(headers).add("X-Vault-Token",currentToken);
+            }
+            return apiGet(path, headers);
+        }
+        catch (Exception e){
+            if (recoverTryCount > 0){
+                // sleep
+                String currentToken = initAndLogIn(config);
+                headers = MutableMap.copyOf(headers).add("X-Vault-Token",currentToken);
+                return apiGetRetryable(path, headers, --recoverTryCount);
+            }
+            throw Exceptions.propagate(e);
+        }
+    }
+
+    protected JsonObject apiGet(String path, Map<String, String> headers) {
         try {
             String uri = Urls.mergePaths(endpoint, path);
             LOG.trace("Vault request - GET: {}", uri);
@@ -150,10 +176,11 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
             if (HttpTool.isStatusCodeHealthy(response.getResponseCode())) {
                 return gson.fromJson(responseBody, JsonObject.class);
             } else {
-                throw new IllegalStateException("HTTP request returned error");
+                throw new IllegalStateException("HTTP request returned code: " + response.getResponseCode() + " - " + responseBody);
             }
         } catch (UnsupportedEncodingException e) {
             throw Exceptions.propagate(e);
         }
+        // TODO Catch vault unavailable to log meaningful error
     }
 }

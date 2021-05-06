@@ -22,14 +22,20 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.gson.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class VaultUserPassExternalConfigSupplier extends VaultExternalConfigSupplier {
+    private static final Logger LOG = LoggerFactory.getLogger(VaultUserPassExternalConfigSupplier.class);
+
+
     public VaultUserPassExternalConfigSupplier(ManagementContext managementContext, String name, Map<String, String> config) {
         super(managementContext, name, config);
     }
@@ -50,7 +56,15 @@ public class VaultUserPassExternalConfigSupplier extends VaultExternalConfigSupp
         String path = "v1/auth/userpass/login/" + username;
         ImmutableMap<String, String> requestData = ImmutableMap.of("password", password);
         ImmutableMap<String, String> headers = MINIMAL_HEADERS;
-        JsonObject response = apiPost(path, headers, requestData);
-        return response.getAsJsonObject("auth").get("client_token").getAsString();
+        try{
+            JsonObject response = apiPost(path, headers, requestData);
+            return response.getAsJsonObject("auth").get("client_token").getAsString();
+        }
+        catch (Throwable e){
+            Exceptions.propagateIfFatal(e);
+            LOG.warn("Error encountered when retrieving vault token. Startup will continue but vault might not be available. Recover attempt will be made on next vault access.");
+            LOG.trace("Error details:", e);
+            return "";
+        }
     }
 }
