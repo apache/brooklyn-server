@@ -232,7 +232,7 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
      * Adds the given {@link ConfigKey} to this entity.
      */
     public void addConfigKey(ConfigKey<?> newKey) {
-        configKeys.put(newKey.getName(), new FieldAndValue<ConfigKey<?>>(null, newKey));
+        withLock(configKeysRW.writeLock(), () -> configKeysNCC.put(newKey.getName(), new FieldAndValue<ConfigKey<?>>(null, newKey)));
         invalidateSnapshot();
         instance.sensors().emit(AbstractEntity.CONFIG_KEY_ADDED, newKey);
     }
@@ -250,7 +250,7 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
      * Removes the named {@link ConfigKey} from this entity.
      */
     public boolean removeConfigKey(ConfigKey<?> key) {
-        FieldAndValue<ConfigKey<?>> result = configKeys.remove(key.getName());
+        FieldAndValue<ConfigKey<?>> result = withLock(configKeysRW.writeLock(), () -> configKeysNCC.remove(key.getName()));
         if (result != null) {
             invalidateSnapshot();
             ConfigKey<?> removedKey = result.value;
@@ -262,8 +262,12 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
     }
     
     public void clearConfigKeys() {
-        Map<String, FieldAndValue<ConfigKey<?>>> oldKeys = MutableMap.copyOf(configKeys);
-        configKeys.clear();
+        Map<String, FieldAndValue<ConfigKey<?>>> oldKeys = MutableMap.of();
+        withLock(configKeysRW.writeLock(), () -> {
+            oldKeys.putAll(configKeysNCC);
+            configKeysNCC.clear();
+            return null;
+        });
         invalidateSnapshot();
         for (FieldAndValue<ConfigKey<?>> k: oldKeys.values()) {
             instance.sensors().emit(AbstractEntity.CONFIG_KEY_REMOVED, k.value);
@@ -274,7 +278,7 @@ public class EntityDynamicType extends BrooklynDynamicType<Entity, AbstractEntit
     
     @Override
     protected EntityTypeSnapshot newSnapshot() {
-        return new EntityTypeSnapshot(name, value(configKeys), sensors, effectors.values());
+        return new EntityTypeSnapshot(name, getConfigKeysModifiableCopy(), sensors, effectors.values());
     }
     
     /**
