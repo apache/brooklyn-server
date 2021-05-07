@@ -285,7 +285,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         } else if (key instanceof StructuredConfigKey) {
             // no coercion for these structures (they decide what to do)
             return v;
-        } else if ((v instanceof Map || v instanceof Iterable) && key.getType().isInstance(v)) {
+        } else if ((v instanceof Map || v instanceof Iterable) && isStructurallyCompatible(key, v)) {
             // don't do coercion on put for these, if the key type is compatible, 
             // because that will force resolution deeply
             return v;
@@ -301,6 +301,16 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             }
             return result;
         }
+    }
+
+    private <T> boolean isStructurallyCompatible(ConfigKey<T> key, Object v) {
+        if (key.getType().isInstance(v)) return true;
+        if (Collection.class.isAssignableFrom(key.getType())) {
+            if (v instanceof Iterable) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
