@@ -95,6 +95,9 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         }
 
         token = initAndLogIn(config);
+        if (Strings.isBlank(token)){
+            LOG.warn("Vault token blank. Startup will continue but vault might not be available. Recover attempt will be made on next vault access.");
+        }
         headersWithToken = ImmutableMap.<String, String>builder()
                 .putAll(MINIMAL_HEADERS)
                 .put("X-Vault-Token", token)
@@ -131,15 +134,22 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
             if (Strings.isBlank(headers.get("X-Vault-Token"))){
                 String currentToken = initAndLogIn(config);
                 if (Strings.isBlank(currentToken)){
-                    throw new IllegalStateException("Vault sealed or unavailable. Retries remaining: " + recoverTryCount);
+                    throw new IllegalStateException("Vault sealed or unavailable.");
                 }
                 headers = MutableMap.copyOf(headers).add("X-Vault-Token",currentToken);
             }
             return apiGet(path, headers);
         }
         catch (Exception e){
-            if (recoverTryCount > 0){
-                // sleep
+            Exceptions.propagateIfFatal(e);
+            if (recoverTryCount > 0) {
+                LOG.warn("Vault sealed or unavailable. Retries remaining: " + recoverTryCount);
+                try{
+                    Thread.sleep(1000);
+                }
+                catch (InterruptedException sleepEx) {
+                    throw Exceptions.propagate(sleepEx);
+                }
                 String currentToken = initAndLogIn(config);
                 headers = MutableMap.copyOf(headers).add("X-Vault-Token",currentToken);
                 return apiGetRetryable(path, headers, --recoverTryCount);
@@ -158,7 +168,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
             if (HttpTool.isStatusCodeHealthy(response.getResponseCode())) {
                 return gson.fromJson(responseBody, JsonObject.class);
             } else {
-                throw new IllegalStateException("HTTP request returned error");
+                throw new IllegalStateException("HTTP request returned code: " + response.getResponseCode() + " - " + responseBody);
             }
         } catch (UnsupportedEncodingException e) {
             throw Exceptions.propagate(e);
@@ -181,6 +191,5 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         } catch (UnsupportedEncodingException e) {
             throw Exceptions.propagate(e);
         }
-        // TODO Catch vault unavailable to log meaningful error
     }
 }

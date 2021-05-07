@@ -62,8 +62,7 @@ public class VaultUserPassExternalConfigSupplier extends VaultExternalConfigSupp
         }
         catch (Throwable e){
             Exceptions.propagateIfFatal(e);
-            LOG.warn("Error encountered when retrieving vault token. Startup will continue but vault might not be available. Recover attempt will be made on next vault access.");
-            LOG.trace("Error details:", e);
+            LOG.warn("Error encountered when retrieving vault token: " + e + ".");
             return "";
         }
     }
