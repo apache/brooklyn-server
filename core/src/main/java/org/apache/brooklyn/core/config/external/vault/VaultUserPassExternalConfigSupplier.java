@@ -56,11 +56,10 @@ public class VaultUserPassExternalConfigSupplier extends VaultExternalConfigSupp
         String path = "v1/auth/userpass/login/" + username;
         ImmutableMap<String, String> requestData = ImmutableMap.of("password", password);
         ImmutableMap<String, String> headers = MINIMAL_HEADERS;
-        try{
+        try {
             JsonObject response = apiPost(path, headers, requestData);
             return response.getAsJsonObject("auth").get("client_token").getAsString();
-        }
-        catch (Throwable e){
+        } catch (Throwable e) {
             Exceptions.propagateIfFatal(e);
             LOG.warn("Error encountered when retrieving vault token: " + e + ".");
             return "";

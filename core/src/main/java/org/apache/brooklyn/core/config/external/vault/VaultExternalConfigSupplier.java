@@ -34,6 +34,8 @@ import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.http.client.HttpClient;
 import org.slf4j.Logger;
@@ -84,10 +86,11 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
             this.version = -1; // satisfy the static analysis :)
             errors.add("'kv-api-version' must be either 1 or 2");
         }
-        recoverTryCount = NumberUtils.toInt(config.get("recoverTryCount"),10);
+        recoverTryCount = NumberUtils.toInt(config.get("recoverTryCount"), 10);
         mountPoint = config.get("mountPoint");
         if (Strings.isBlank(mountPoint) && this.version == 2) errors.add("missing configuration 'mountPoint'");
-        if (!Strings.isBlank(mountPoint) && this.version == 1) errors.add("'mountPoint' is only applicable when kv-api-version=2");
+        if (!Strings.isBlank(mountPoint) && this.version == 1)
+            errors.add("'mountPoint' is only applicable when kv-api-version=2");
         if (!errors.isEmpty()) {
             String message = String.format("Problem configuration Vault external config supplier '%s': %s",
                     name, Joiner.on(System.lineSeparator()).join(errors));
@@ -95,7 +98,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         }
 
         token = initAndLogIn(config);
-        if (Strings.isBlank(token)){
+        if (Strings.isBlank(token)) {
             LOG.warn("Vault token blank. Startup will continue but vault might not be available. Recover attempt will be made on next vault access.");
         }
         headersWithToken = ImmutableMap.<String, String>builder()
@@ -109,12 +112,12 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
     @Override
     public String get(String key) {
         String urlPath = (version == 1)
-            ? Urls.mergePaths("v1", path)
-            : Urls.mergePaths("v1", mountPoint, "data", path);
+                ? Urls.mergePaths("v1", path)
+                : Urls.mergePaths("v1", mountPoint, "data", path);
         JsonObject response = apiGetRetryable(urlPath, headersWithToken, recoverTryCount);
         JsonElement jsonElement = (version == 1)
-            ? response.getAsJsonObject("data").get(key)
-            : response.getAsJsonObject("data").getAsJsonObject("data").get(key);
+                ? response.getAsJsonObject("data").get(key)
+                : response.getAsJsonObject("data").getAsJsonObject("data").get(key);
         String asString = jsonElement.getAsString();
         return asString;
     }
@@ -131,27 +134,21 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
 
     protected JsonObject apiGetRetryable(String path, Map<String, String> headers, int recoverTryCount) {
         try {
-            if (Strings.isBlank(headers.get("X-Vault-Token"))){
+            if (Strings.isBlank(headers.get("X-Vault-Token"))) {
                 String currentToken = initAndLogIn(config);
-                if (Strings.isBlank(currentToken)){
+                if (Strings.isBlank(currentToken)) {
                     throw new IllegalStateException("Vault sealed or unavailable.");
                 }
-                headers = MutableMap.copyOf(headers).add("X-Vault-Token",currentToken);
+                headers = MutableMap.copyOf(headers).add("X-Vault-Token", currentToken);
             }
             return apiGet(path, headers);
-        }
-        catch (Exception e){
+        } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             if (recoverTryCount > 0) {
                 LOG.warn("Vault sealed or unavailable. Retries remaining: " + recoverTryCount);
-                try{
-                    Thread.sleep(1000);
-                }
-                catch (InterruptedException sleepEx) {
-                    throw Exceptions.propagate(sleepEx);
-                }
+                Time.sleep(Duration.ONE_SECOND);
                 String currentToken = initAndLogIn(config);
-                headers = MutableMap.copyOf(headers).add("X-Vault-Token",currentToken);
+                headers = MutableMap.copyOf(headers).add("X-Vault-Token", currentToken);
                 return apiGetRetryable(path, headers, --recoverTryCount);
             }
             throw Exceptions.propagate(e);
