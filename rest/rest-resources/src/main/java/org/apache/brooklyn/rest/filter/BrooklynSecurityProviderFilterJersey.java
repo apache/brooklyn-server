@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.filter;
 
 import java.io.IOException;
+import java.net.URI;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;

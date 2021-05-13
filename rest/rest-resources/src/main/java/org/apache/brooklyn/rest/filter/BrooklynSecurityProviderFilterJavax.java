@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.filter;
 
 import java.io.IOException;
+import java.net.URI;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -32,9 +33,13 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.util.text.Strings;
+import org.eclipse.jetty.http.HttpHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +49,10 @@ import com.google.common.base.Preconditions;
 public class BrooklynSecurityProviderFilterJavax implements Filter {
     
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJavax.class);
-    
+
+    private static final ConfigKey<String> LOGIN_FORM =
+            ConfigKeys.newStringConfigKey(BrooklynWebConfig.BASE_NAME_SECURITY + ".login.form",
+                    "Login form location otherwise use browser popup", "");
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
         // no init needed
@@ -54,10 +62,12 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain)
             throws IOException, ServletException {
-
+        String loginPage = "";
         try {
             log.trace("BrooklynSecurityProviderFilterJavax.doFilter {}", request);
             ManagementContext mgmt = new ManagementContextProvider(request.getServletContext()).getManagementContext();
+            loginPage =  mgmt.getConfig().getConfig(LOGIN_FORM);
+
             Preconditions.checkNotNull(mgmt, "Brooklyn management context not available; cannot authenticate");
             new BrooklynSecurityProviderFilterHelper().run((HttpServletRequest)request, mgmt);
 
@@ -68,7 +78,16 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
             HttpServletResponse rout = ((HttpServletResponse)response);
             Response rin = e.getResponse();
             if (rin==null) rin = Response.status(Status.UNAUTHORIZED).build();
-     
+
+            if (rin.getStatus()==Status.UNAUTHORIZED.getStatusCode() && Strings.isNonBlank(loginPage)) {
+
+                // Use the available login form instead
+
+                rin = Response.status(Status.FOUND)
+                .header(HttpHeader.CACHE_CONTROL.asString(), "no-cache, no-store")
+                .location(URI.create("/" + loginPage)).build();
+            }
+
             rout.setStatus(rin.getStatus());
 
             // note content-type is explicitly set in some Response objects, but this should set it 
