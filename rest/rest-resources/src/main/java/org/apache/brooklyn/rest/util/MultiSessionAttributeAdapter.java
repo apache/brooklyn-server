@@ -146,17 +146,20 @@ public class MultiSessionAttributeAdapter {
      * May return null if create is false and no valid session is known anywhere for a session ID in the request or if the request doesn't give a session ID;
      * otherwise will find or create the session and the adapter. */
     public static MultiSessionAttributeAdapter of(HttpServletRequest r, boolean create) {
-        HttpSession session = r.getSession(create);
-        if (session==null) {
-            session = FACTORY.findValidPreferredSession(null, r);
+        HttpSession localSession = r.getSession(create);
+        HttpSession preferredSession = null;
+        if (localSession==null) {
+            preferredSession = FACTORY.findValidPreferredSession(null, r);
+            if(preferredSession!=null) {
+                localSession = r.getSession();
+            }
+        } else {
+            preferredSession = FACTORY.findPreferredSession(r);
         }
-        if (session==null && create) {
-            session = FACTORY.findPreferredSession(r);
-        }
-        if (session==null) {
+        if (preferredSession==null) {
             return null;
         } else {
-            return new MultiSessionAttributeAdapter(session, session, r);
+            return new MultiSessionAttributeAdapter(preferredSession, localSession, r);
         }
     }
     
@@ -236,20 +239,23 @@ public class MultiSessionAttributeAdapter {
             if (optionalLocalSession instanceof Session) {
                 preferredHandler = getPreferredJettyHandler((Session) optionalLocalSession, true, true);
             }
+
             if (preferredHandler==null && optionalRequest instanceof Request) {
-                SessionHandler someHandler = ((Request)optionalLocalSession).getSessionHandler();
+                SessionHandler someHandler = ((Request)optionalRequest).getSessionHandler();
                 if (someHandler!=null) {
                     preferredHandler = getServerGlobalPreferredHandler(someHandler.getServer());
                 }
             }
 
-            if (preferredHandler != null) {
+            if (preferredHandler != null ) {
                 String extendedId= optionalLocalSession!=null ? optionalLocalSession.getId() : optionalRequest!=null ? optionalRequest.getRequestedSessionId() : null;
-                SessionIdManager idManager = preferredHandler.getSessionIdManager();
-                String id = idManager.getId(extendedId);
-                preferredSession = getSessionSafely(preferredHandler, id);
-                if (preferredSession != null && !((Session)preferredSession).getExtendedId().equals(extendedId))
-                    ((Session)preferredSession).setIdChanged(true);
+                if (Strings.isNonBlank(extendedId)) {
+                    SessionIdManager idManager = preferredHandler.getSessionIdManager();
+                    String id = idManager.getId(extendedId);
+                    preferredSession = getSessionSafely(preferredHandler, id);
+                    if (preferredSession != null && !((Session) preferredSession).getExtendedId().equals(extendedId))
+                        ((Session) preferredSession).setIdChanged(true);
+                }
             }
 
             if (log.isTraceEnabled()) {
