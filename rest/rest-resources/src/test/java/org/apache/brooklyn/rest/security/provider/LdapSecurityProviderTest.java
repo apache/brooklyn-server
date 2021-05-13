@@ -70,9 +70,4 @@ public class LdapSecurityProviderTest {
         ldapSecurityProvider.getUserDN("OtherDomain\\Me");
     }
 
-    // TODO Test only one of regex or default - do both - 2 tests
-
-    // TODO Test no allowed regex
-
-    // TODO Test neither - other constructor should fail
 }
