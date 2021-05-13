@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
@@ -33,15 +34,20 @@ import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
+import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.function.Supplier;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseType;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.brooklyn.util.text.Strings;
 
 public class AsPropertyIfAmbiguous {
     public interface HasBaseType {
@@ -122,12 +128,15 @@ public class AsPropertyIfAmbiguous {
         @Override
         public Object deserializeTypedFromObject(JsonParser p, DeserializationContext ctxt) throws IOException {
             if (_idResolver instanceof HasBaseType) {
-                if (Reflections.findFieldMaybe(((HasBaseType)_idResolver).getBaseType().getRawClass(), _typePropertyName).isPresent()) {
+                if (// object has field with same name as the type property - don't treat the type property supplied here as the type
+                        presentAndNotJsonIgnored(Reflections.findFieldMaybe(((HasBaseType)_idResolver).getBaseType().getRawClass(), _typePropertyName))
+                        || // or object has getter with same name as the type property
+                        presentAndNotJsonIgnored(Reflections.findMethodMaybe(((HasBaseType)_idResolver).getBaseType().getRawClass(), "get"+ Strings.toInitialCapOnly(_typePropertyName)))
+                ) {
                     // don't read type id, just deserialize
                     JsonDeserializer<Object> deser = ctxt.findContextualValueDeserializer(((HasBaseType)_idResolver).getBaseType(), _property);
                     return deser.deserialize(p, ctxt);
                 }
-
                 // TODO MapperFeature.USE_BASE_TYPE_AS_DEFAULT_IMPL should do this
                 if (!Objects.equals(_defaultImpl, ((HasBaseType) _idResolver).getBaseType())) {
                     AsPropertyButNotIfFieldConflictTypeDeserializer delegate = new AsPropertyButNotIfFieldConflictTypeDeserializer(_baseType, _idResolver, _typePropertyName, _typeIdVisible, ((HasBaseType) _idResolver).getBaseType(), _inclusion);
@@ -135,6 +144,14 @@ public class AsPropertyIfAmbiguous {
                 }
             }
             return super.deserializeTypedFromObject(p, ctxt);
+        }
+
+        private boolean presentAndNotJsonIgnored(Maybe<? extends AccessibleObject> fm) {
+            if (!fm.isPresent()) return false;
+            AccessibleObject f = fm.get();
+            JsonIgnore ignored = f.getAnnotation(JsonIgnore.class);
+            if (ignored!=null) return false;
+            return true;
         }
 
         @Override

@@ -258,7 +258,8 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 () -> (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
                         .configure( (MapConfigKey) TestEntity.CONF_MAP_THING, "{mysub: {sub2: 4}}")));
 
-        assertTrue(entity.config().getLocalRaw(TestEntity.CONF_MAP_THING).isAbsent());
+        assertEquals(entity.config().getLocalRaw(TestEntity.CONF_MAP_THING).get(), ImmutableMap.of("mysub", ImmutableMap.of("sub2", 4)));
+
         assertEquals(entity.config().getLocalRaw(TestEntity.CONF_MAP_THING.subKey("mysub")).get(), ImmutableMap.of("sub2", 4));        // legacy code
         Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ALLOW_LEGACY, () ->
                 assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", ImmutableMap.of("sub2", 4))));
@@ -280,7 +281,8 @@ public class EntityConfigTest extends BrooklynAppUnitTestSupport {
                 () -> (TestEntity) mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class)
                         .configure( TestEntity.CONF_MAP_THING.getName(), "{mysub: {sub2: 4}}")));
 
-        assertTrue(entity.config().getLocalRaw(TestEntity.CONF_MAP_THING).isAbsent());
+        assertEquals(entity.config().getLocalRaw(TestEntity.CONF_MAP_THING).get(), ImmutableMap.of("mysub", ImmutableMap.of("sub2", 4)));
+
         assertEquals(entity.config().getLocalRaw(TestEntity.CONF_MAP_THING.subKey("mysub")).get(), ImmutableMap.of("sub2", 4));        // legacy code
         Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ALLOW_LEGACY, () ->
                 assertEquals(entity.config().get(TestEntity.CONF_MAP_THING), ImmutableMap.of("mysub", ImmutableMap.of("sub2", 4))));

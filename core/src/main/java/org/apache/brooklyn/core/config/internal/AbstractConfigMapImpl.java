@@ -230,9 +230,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return (BrooklynObjectInternal) getParent();
     }
 
-    @Override @Deprecated
+    @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        // does not currently respect inheritance modes
+        // NB: does not respect inheritance modes; see methods in ConfigMap.ConfigInheritance
         if (ownConfig.containsKey(key)) {
             return Maybe.of(ownConfig.get(key));
         }
@@ -245,6 +245,18 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 LOG.warn("Retrieving value with deprecated config key name '"+deprecatedName+"' for key "+key);
                 return Maybe.of(ownConfig.get(deprecatedKey));
             }
+        }
+        if (key instanceof AbstractStructuredConfigKey) {
+            // for structured keys, compute the raw value
+            Object result = ((AbstractStructuredConfigKey) key).rawValue(ownConfig);
+            if (result instanceof Iterable) {
+                if (!((Iterable)result).iterator().hasNext()) return Maybe.absent("No value for structured collection key "+key);
+            } else if (result instanceof Map) {
+                if (((Map)result).isEmpty()) return Maybe.absent("No value for structured map key "+key);
+            } else {
+                LOG.warn("Unsupported structured config key "+key+"; may return default empty value if unset");
+            }
+            return Maybe.ofDisallowingNull(result);
         }
         if (!includeInherited || getParent()==null) return Maybe.absent();
         return getParentInternal().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
@@ -273,7 +285,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         } else if (key instanceof StructuredConfigKey) {
             // no coercion for these structures (they decide what to do)
             return v;
-        } else if ((v instanceof Map || v instanceof Iterable) && key.getType().isInstance(v)) {
+        } else if ((v instanceof Map || v instanceof Iterable) && isStructurallyCompatible(key, v)) {
             // don't do coercion on put for these, if the key type is compatible, 
             // because that will force resolution deeply
             return v;
@@ -289,6 +301,16 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             }
             return result;
         }
+    }
+
+    private <T> boolean isStructurallyCompatible(ConfigKey<T> key, Object v) {
+        if (key.getType().isInstance(v)) return true;
+        if (Collection.class.isAssignableFrom(key.getType())) {
+            if (v instanceof Iterable) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
