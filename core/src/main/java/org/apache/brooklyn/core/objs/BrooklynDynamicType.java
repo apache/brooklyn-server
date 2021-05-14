@@ -160,6 +160,9 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
      */
     protected static void buildConfigKeys(Class<? extends BrooklynObject> clazz, AbstractBrooklynObject optionalInstance, 
             Map<String, FieldAndValue<ConfigKey<?>>> configKeys) {
+
+        // TODO remove or document overlap with ConfigUtilsInternal.findConfigKeys
+
         ListMultimap<String,FieldAndValue<ConfigKey<?>>> configKeysAll = 
                 ArrayListMultimap.<String, FieldAndValue<ConfigKey<?>>>create();
         
