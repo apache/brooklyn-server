@@ -93,9 +93,9 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         if (REGISTERED_SPECS.containsKey(type.getSymbolicName()))
-            return get(type.getSymbolicName());
+            return decorateWithHierarchySpecTag(get(type.getSymbolicName()), type, FORMAT);
         if (type.getPlan().getPlanData()!=null && REGISTERED_SPECS.containsKey(type.getPlan().getPlanData()))
-            return get((String)type.getPlan().getPlanData());
+            return decorateWithHierarchySpecTag(get((String)type.getPlan().getPlanData()), type, FORMAT);
         return null;
     }
 
@@ -108,6 +108,4 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     public static AbstractBrooklynObjectSpec<?, ?> get(String typeName) {
         return REGISTERED_SPECS.get(typeName);
     }
-
-
 }

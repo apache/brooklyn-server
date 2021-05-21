@@ -22,7 +22,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Throwables;
 import java.util.Collection;
 import java.util.Set;
+
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.util.collections.MutableSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -260,6 +263,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
+
+        // tests that the plan tag was set
+        assertTrue(entity.tags().getTags().stream().anyMatch(tag -> tag instanceof BrooklynTags.SpecTag));
 
         deleteCatalogRegisteredType(referencedSymbolicName);
         deleteCatalogRegisteredType(referrerSymbolicName);
