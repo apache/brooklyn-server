@@ -395,6 +395,13 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
         return immediately || BrooklynTaskTags.hasTag(Tasks.current(), BrooklynTaskTags.IMMEDIATE_TASK_TAG);
     }
 
+    public static boolean isDeferredOrTaskInternal(Object o) {
+        if (o instanceof TaskAdaptable || o instanceof DeferredSupplier || o instanceof Future) {
+            return true;
+        }
+        return false;
+    }
+
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected Maybe<T> getMaybeInternal() {
         if (started.getAndSet(true))
