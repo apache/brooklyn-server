@@ -21,7 +21,9 @@ package org.apache.brooklyn.core.mgmt;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
+import com.google.common.base.MoreObjects;
 import org.apache.brooklyn.util.collections.MutableList;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -30,12 +32,14 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
+import org.apache.brooklyn.util.collections.MutableMap;
 
 /** @since 0.7.0 some strongly typed tags for reference; note these may migrate elsewhere! */
 @Beta
 public class BrooklynTags {
 
     public static final String YAML_SPEC_KIND = "yaml_spec";
+    public static final String YAML_SPEC_HIERARCHY = "yaml_spec_hierarchy";
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
     public static final String ICON_URL = "icon_url";
@@ -77,6 +81,88 @@ public class BrooklynTags {
         @Override
         public int hashCode() {
             return Objects.hashCode(kind, contents);
+        }
+    }
+
+    public static class SpecTag implements Serializable {
+        private static final long serialVersionUID = 3805124696862755492L;
+
+        @JsonProperty
+        final String kind;
+
+        @JsonProperty
+        final List<Object> specList;
+
+        public SpecTag(@JsonProperty("kind")String kind, @JsonProperty("specList")List<Object> specList) {
+            this.kind = kind;
+            this.specList = specList;
+        }
+
+        @Override
+        public String toString() {
+            return MoreObjects.toStringHelper(this)
+                    .omitNullValues()
+                    .add("kind", kind)
+                    .add("specList", specList)
+                    .toString();
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SpecTag specTag = (SpecTag) o;
+            return Objects.equal(kind, specTag.kind) && Objects.equal(specList, specTag.specList) ;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hashCode(kind, specList);
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public List<Object> getSpecList() {
+            return specList;
+        }
+
+        public void push(SpecTag currentSpecTag) {
+            // usually the list has a single element here, if
+            currentSpecTag.getSpecList().forEach(e -> specList.add(0, e));
+        }
+    }
+
+    public static class HierarchySpecTagBuilder {
+        private String format;
+        private String summary;
+        private Object contents;
+
+        public HierarchySpecTagBuilder format(final String format) {
+            this.format = format;
+            return this;
+        }
+
+        public HierarchySpecTagBuilder summary(final String summary) {
+            this.summary = summary;
+            return this;
+        }
+
+        public HierarchySpecTagBuilder contents(final Object contents) {
+            this.contents = contents;
+            return this;
+        }
+
+
+        public SpecTag build() {
+            return new SpecTag(BrooklynTags.YAML_SPEC_HIERARCHY, MutableList.of(
+                    MutableMap.of(
+                            "format", format,
+                            "summary", summary,
+                            "contents", contents
+                    )
+            ));
         }
     }
 

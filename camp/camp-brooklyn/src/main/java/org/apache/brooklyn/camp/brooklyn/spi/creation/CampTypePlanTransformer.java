@@ -20,6 +20,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiFunction;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -104,7 +106,7 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
-            return new CampResolver(mgmt, type, context).createSpec();
+            return decorateWithHierarchySpecTag(new CampResolver(mgmt, type, context).createSpec(), type, FORMAT);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             String message = null;
