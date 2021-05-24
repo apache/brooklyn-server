@@ -164,7 +164,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     protected AbstractBrooklynObjectSpec<?,?> decorateWithHierarchySpecTag(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type, final String format) {
         BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
                 .format(format)
-                .summary(format + " plan for " + type.getDisplayName())
+                .summary(format + " plan for " + (Strings.isNonBlank(type.getDisplayName())? type.getDisplayName() : spec.getDisplayName()))
                 .contents(type.getPlan().getPlanData())
                 .build();
 
