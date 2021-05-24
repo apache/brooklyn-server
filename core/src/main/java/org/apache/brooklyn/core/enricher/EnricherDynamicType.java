@@ -39,6 +39,6 @@ public class EnricherDynamicType extends BrooklynDynamicType<Enricher, AbstractE
 
     @Override
     protected EnricherTypeSnapshot newSnapshot() {
-        return new EnricherTypeSnapshot(name, value(configKeys));
+        return new EnricherTypeSnapshot(name, getConfigKeysModifiableCopy());
     }
 }

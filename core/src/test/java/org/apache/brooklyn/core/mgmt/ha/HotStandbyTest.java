@@ -336,37 +336,30 @@ public class HotStandbyTest {
         doTestHotStandbySeesStructuralChangesIncludingRemoval(true);
     }
 
-    Deque<Long> usedMemory = new ArrayDeque<Long>();
-    protected long noteUsedMemory(String message) {
-        Time.sleep(Duration.millis(200));
-        for (HaMgmtNode n: nodes) {
-            ((AbstractManagementContext)n.mgmt).getGarbageCollector().gcIteration();
-        }
-        System.gc(); System.gc();
-        Time.sleep(Duration.millis(50));
-        System.gc(); System.gc();
-        long mem = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-        usedMemory.addLast(mem);
-        log.info("Memory used - "+message+": "+ByteSizeStrings.java().apply(mem));
-        return mem;
-    }
-    public void assertUsedMemoryLessThan(String event, long max) {
-        noteUsedMemory(event);
-        long nowUsed = usedMemory.peekLast();
-        if (nowUsed > max) {
-            // aggressively try to force GC
-            Time.sleep(Duration.ONE_SECOND);
-            usedMemory.removeLast();
-            noteUsedMemory(event+" (extra GC)");
-            nowUsed = usedMemory.peekLast();
-            if (nowUsed > max) {
-                Assert.fail("Too much memory used - "+ByteSizeStrings.java().apply(nowUsed)+" > max "+ByteSizeStrings.java().apply(max));
+    Asserts.MemoryAssertions memoryAssertions = new Asserts.MemoryAssertions();
+    {
+        memoryAssertions.setExtraTaskOnNoteMemory(() -> {
+            for (HaMgmtNode n: nodes) {
+                ((AbstractManagementContext)n.mgmt).getGarbageCollector().gcIteration();
             }
-        }
+        });
+    }
+
+    protected long noteUsedMemory(String message) {
+        return memoryAssertions.pushUsedMemory(message);
+    }
+
+    public void assertUsedMemoryLessThan(String event, long maxBytes) {
+        memoryAssertions.assertUsedMemoryLessThan(event, maxBytes, true);
     }
     public void assertUsedMemoryMaxDelta(String event, long deltaMegabytes) {
-        assertUsedMemoryLessThan(event, usedMemory.peekLast() + deltaMegabytes*1024*1024);
+        memoryAssertions.assertUsedMemoryMaxDelta(event, deltaMegabytes, true);
     }
+
+    protected long popUsedMemory() {
+        return memoryAssertions.popUsedMemory();
+    }
+
 
     @Test(groups="Integration")
     public void testHotStandbyDoesNotLeakLotsOfRebinds() throws Exception {
@@ -393,7 +386,7 @@ public class HotStandbyTest {
         for (int i=0; i<1000; i++) {
             if ((i+1)%100==0) {
                 noteUsedMemory("iteration "+(i+1));
-                usedMemory.removeLast();
+                popUsedMemory();
             }
             forcePersistNow(n1);
             forceRebindNow(n2);
@@ -430,7 +423,7 @@ public class HotStandbyTest {
         HaMgmtNode n1 = createMaster(Duration.PRACTICALLY_FOREVER);
         TestApplication app = createFirstAppAndPersist(n1);        
         noteUsedMemory("Finished seeding");
-        Long initialUsed = usedMemory.peekLast();
+        Long initialUsed = memoryAssertions.peekLastUsedMemory();
         app.config().set(TestEntity.CONF_OBJECT, new BigObject(SIZE*1000*1000));
         assertUsedMemoryMaxDelta("Set a big config object", SIZE_UP_BOUND);
         forcePersistNow(n1);
@@ -490,7 +483,7 @@ public class HotStandbyTest {
         for (int i=0; i<1000; i++) {
             if (i==9 || (i+1)%100==0) {
                 noteUsedMemory("iteration "+(i+1));
-                usedMemory.removeLast();
+                popUsedMemory();
             }
             TestEntity newChild = app.addChild(EntitySpec.create(TestEntity.class).configure(TestEntity.CONF_NAME, "first-child"));
             Entities.unmanage(lastChild);

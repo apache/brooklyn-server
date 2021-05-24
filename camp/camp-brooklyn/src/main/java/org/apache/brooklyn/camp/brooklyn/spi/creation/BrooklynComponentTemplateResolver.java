@@ -58,7 +58,6 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -72,6 +71,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -306,9 +306,9 @@ public class BrooklynComponentTemplateResolver {
 
         // now set configuration for all the items in the bag
         Map<String, ConfigKey<?>> entityConfigKeys = findAllConfigKeys(spec);
-
         Collection<FlagConfigKeyAndValueRecord> records = findAllFlagsAndConfigKeyValues(spec, bag);
-        Set<String> keyNamesUsed = new LinkedHashSet<String>();
+
+        Map<String, Pair<Object,Object>> configLookup = MutableMap.of();
         for (FlagConfigKeyAndValueRecord r: records) {
             // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
 
@@ -319,21 +319,15 @@ public class BrooklynComponentTemplateResolver {
                 final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
                 final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
-                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
-                    @Override
-                    public Maybe<Object> apply(EntitySpec<?> input) {
-                        return spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
-                    }
-                };
+                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = input -> spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
-                        new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
+                        new LazyContainerAndKeyValue<>(key, null, rawEvalFn, rawConvFn));
 
                 ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = ConfigInheritances.resolveInheriting(
                         null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
                         ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
 
-                spec.configure(flag, combinedVal.get());
-                keyNamesUsed.add(flag);
+                configLookup.put(flag, Pair.of(flag, combinedVal.get()));
             }
 
             if (r.getConfigKeyMaybeValue().isPresent()) {
@@ -341,12 +335,7 @@ public class BrooklynComponentTemplateResolver {
                 final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
                 final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
-                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
-                    @Override
-                    public Maybe<Object> apply(EntitySpec<?> input) {
-                        return spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
-                    }
-                };
+                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = input -> spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
                         new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
 
@@ -354,10 +343,46 @@ public class BrooklynComponentTemplateResolver {
                         null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
                         ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
 
-                spec.configure(key, combinedVal.get());
-                keyNamesUsed.add(key.getName());
+                configLookup.put(key.getName(), Pair.of(key, combinedVal.get()));
             }
         }
+
+        Set<String> keyNamesUsed = MutableSet.copyOf(configLookup.keySet());
+        Set<String> unusedBagNames = MutableSet.copyOf(bag.getUnusedConfig().keySet());
+
+        // preserve the order
+        bag.forEach((k,v) -> {
+            Pair<Object,Object> toSet = configLookup.remove(k);
+            if (toSet!=null) {
+                if (toSet.getLeft() instanceof String)
+                    spec.configure((String)toSet.getLeft(), toSet.getRight());
+                else if (toSet.getLeft() instanceof ConfigKey)
+                    spec.configure((ConfigKey)toSet.getLeft(), toSet.getRight());
+                else
+                    // shouldn't come here
+                    throw new IllegalStateException();
+            } else if (unusedBagNames.remove(k)) {
+                // anonymous keys -- insert into the right order
+                Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(k));
+                transformed = convertConfig(Maybe.of(transformed), TypeToken.of(Object.class)).get();
+                spec.configure(ConfigKeys.newConfigKey(Object.class, k), transformed);
+                keyNamesUsed.add(k);
+            } else {
+                // a deprecated key name (or alias) was supplied; ignore this entry in the bag,
+                // it's okay that it gets inserted later on
+            }
+        });
+
+        // now pick up any config keys we missed (due to aliases?)
+        configLookup.values().forEach(toSet -> {
+            if (toSet.getLeft() instanceof String)
+                spec.configure((String) toSet.getLeft(), toSet.getRight());
+            else if (toSet.getLeft() instanceof ConfigKey)
+                spec.configure((ConfigKey) toSet.getLeft(), toSet.getRight());
+            else
+                // shouldn't come here
+                throw new IllegalStateException();
+        });
 
         // For anything that should not be inherited, clear it from the spec (if not set above)
         // (very few things follow this, esp not on the spec; things like camp.id do;
@@ -370,19 +395,6 @@ public class BrooklynComponentTemplateResolver {
             if (!ConfigInheritances.isKeyReinheritable(key, InheritanceContext.TYPE_DEFINITION)) {
                 spec.removeConfig(key);
                 spec.removeFlag(key.getName());
-            }
-        }
-
-        // set unused keys as anonymous config keys -
-        // they aren't flags or known config keys, so must be passed as config keys in order for
-        // EntitySpec to know what to do with them (as they are passed to the spec as flags)
-        for (String key: MutableSet.copyOf(bag.getUnusedConfig().keySet())) {
-            // we don't let a flag with the same name as a config key override the config key
-            // (that's why we check whether it is used)
-            if (!keyNamesUsed.contains(key)) {
-                Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(key));
-                transformed = convertConfig(Maybe.of(transformed), TypeToken.of(Object.class)).get();
-                spec.configure(ConfigKeys.newConfigKey(Object.class, key.toString()), transformed);
             }
         }
     }
@@ -439,6 +451,10 @@ public class BrooklynComponentTemplateResolver {
 
         // need to de-dupe? (can't use Set bc FCKAVR doesn't impl equals/hashcode)
         // TODO merge *bagFlags* with existing spec params, merge yaml w yaml parent params elsewhere
+
+        // optimization:
+        if (bagFlags.isEmpty()) return Collections.emptyList();
+
         List<FlagConfigKeyAndValueRecord> allKeys = MutableList.of();
         allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         if (spec.getImplementation() != null) {
@@ -448,6 +464,12 @@ public class BrooklynComponentTemplateResolver {
         for (Class<?> iface : spec.getAdditionalInterfaces()) {
             allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, iface, bagFlags));
         }
+        if (!allKeys.isEmpty() && allKeys.stream().filter(k -> "id".equals(k.getFlagName())).findAny().isPresent()) {
+            // remove the 'id' flag, e.g. if a spec class is not an interface and picks up AbstractBrooklynObject.id
+            // because the 'id' flag should have been treated specially (this logic could go elsewhere, but this seems as good a place as any)
+            allKeys = MutableList.copyOf( allKeys.stream().filter(k -> !"id".equals(k.getFlagName())).iterator() );
+        }
+
         return allKeys;
     }
 

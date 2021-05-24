@@ -293,7 +293,11 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             }
             
             if (type != null && !TypeTokens.isInstanceRaw(type, result)) {
-                log.warn("Unable to convert parameter default value (type "+type+") to immutable");
+                // a Map is not the desired type, but val is a Map that will likely be coerced to the type later
+                // in case val is a special subtype of map, do not return unmodifiableMap but preffer the actual defined instance
+                // there is a chance a developer might change val because it is not mutable
+                // however there are plenty of valid paths to get here
+                log.trace("Unable to convert parameter default value (type "+type+") to immutable");
                 return val;
             } else {
                 return result;

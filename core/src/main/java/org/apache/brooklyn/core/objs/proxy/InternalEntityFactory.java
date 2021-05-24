@@ -18,30 +18,22 @@
  */
 package org.apache.brooklyn.core.objs.proxy;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
-
-import java.lang.reflect.InvocationTargetException;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Queue;
-import java.util.Set;
-
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityInitializer;
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.entity.EntityTypeRegistry;
-import org.apache.brooklyn.api.entity.Group;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import org.apache.brooklyn.api.entity.*;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
+import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
@@ -60,12 +52,16 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Optional;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
+import javax.annotation.Nonnull;
+import java.lang.reflect.InvocationTargetException;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Queue;
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 /**
  * Creates entities (and proxies) of required types, given the 
@@ -140,13 +136,26 @@ public class InternalEntityFactory extends InternalFactory {
                 new EntityProxyImpl(entity));
     }
 
+    public <T extends Entity> T createEntity(EntitySpec<T> spec) {
+        return createEntity(spec, new EntityManager.EntityCreationOptions() {});
+    }
+
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, String entityId) {
+        return createEntity(spec, new EntityManager.EntityCreationOptions() {
+            @Override
+            public String getRequiredUniqueId() {
+                return entityId;
+            }
+        });
+    }
+
     /** creates a new entity instance from a spec, with all children, policies, etc,
      * fully initialized ({@link AbstractEntity#init()} invoked) and ready for
      * management -- commonly the caller will next call 
      * {@link Entities#manage(Entity)} (if it's in a managed application)
      * or {@link Entities#startManagement(org.apache.brooklyn.api.entity.Application, org.apache.brooklyn.api.mgmt.ManagementContext)}
      * (if it's an application) */
-    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, EntityManager.EntityCreationOptions options) {
         /* Order is important here. Changed Jul 2014 when supporting children in spec.
          * (Previously was much simpler, and parent was set right after running initializers; and there were no children.)
          * <p>
@@ -157,42 +166,49 @@ public class InternalEntityFactory extends InternalFactory {
          * Initialization is done in parent-first order with depth-first children traversal.
          */
 
+        if (options==null) options = new EntityManager.EntityCreationOptions() {};
+
         // (maps needed because we need the spec, and we need to keep the AbstractEntity to call init, not a proxy)
         Map<String,Entity> entitiesByEntityId = MutableMap.of();
         Map<String,EntitySpec<?>> specsByEntityId = MutableMap.of();
         
-        T entity = createEntityAndDescendantsUninitialized(spec, entityId, entitiesByEntityId, specsByEntityId);
+        T entity = createEntityAndDescendantsUninitialized(0, spec, options, entitiesByEntityId, specsByEntityId);
         try {
-            initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId);
-        } catch (RuntimeException e) {
-            Exceptions.propagateIfFatal(e);
-            log.info("Failed to initialise entity "+entity+" and its descendants - unmanaging and propagating original exception: "+Exceptions.collapseText(e));
-            try {
-                ((EntityManagerInternal)managementContext.getEntityManager()).discardPremanaged(entity);
-            } catch (Exception e2) {
-                Exceptions.propagateIfFatal(e2);
-                log.info("Failed to unmanage entity "+entity+" and its descendants, after failure to initialise (rethrowing original exception)", e2);
-            }
-            throw e;
+            initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId, options);
+        } catch (RuntimeException ex) {
+            options.onException(ex, (e) -> {
+                Exceptions.propagateIfFatal(e);
+                log.info("Failed to initialise entity " + entity + " and its descendants - unmanaging and propagating original exception: " + Exceptions.collapseText(e));
+                try {
+                    ((EntityManagerInternal) managementContext.getEntityManager()).discardPremanaged(entity);
+                } catch (Exception e2) {
+                    Exceptions.propagateIfFatal(e2);
+                    log.info("Failed to unmanage entity " + entity + " and its descendants, after failure to initialise (rethrowing original exception)", e2);
+                }
+                throw e;
+            });
         }
         return entity;
     }
     
-    private <T extends Entity> T createEntityAndDescendantsUninitialized(EntitySpec<T> spec, Optional<String> entityId, 
+    private <T extends Entity> T createEntityAndDescendantsUninitialized(int depth, EntitySpec<T> spec, EntityManager.EntityCreationOptions options,
             Map<String,Entity> entitiesByEntityId, Map<String,EntitySpec<?>> specsByEntityId) {
-        if (spec.getFlags().containsKey("parent") || spec.getFlags().containsKey("owner")) {
-            throw new IllegalArgumentException("Spec's flags must not contain parent or owner; use spec.parent() instead for "+spec);
-        }
-        if (spec.getFlags().containsKey("id")) {
-            throw new IllegalArgumentException("Spec's flags must not contain id; use spec.id() instead for "+spec);
-        }
-        
+
+        T entity = null;
+
         try {
+            if (spec.getFlags().containsKey("parent") || spec.getFlags().containsKey("owner")) {
+                throw new IllegalArgumentException("Spec's flags must not contain parent or owner; use spec.parent() instead for "+spec);
+            }
+            if (spec.getFlags().containsKey("id")) {
+                throw new IllegalArgumentException("Spec's flags must not contain id; use spec.id() instead for "+spec);
+            }
+
             Class<? extends T> clazz = getImplementedBy(spec);
             
-            T entity = constructEntity(clazz, spec, entityId);
+            entity = constructEntity(clazz, spec, depth==0 ? options.getRequiredUniqueId() : null);
             
-            loadUnitializedEntity(entity, spec);
+            loadUnitializedEntity(entity, spec, options);
             
             List<NamedStringTag> upgradedFrom = BrooklynTags.findAll(BrooklynTags.UPGRADED_FROM, spec.getTags());
             if (!upgradedFrom.isEmpty()) {
@@ -211,7 +227,7 @@ public class InternalEntityFactory extends InternalFactory {
                     log.warn("Child spec "+childSpec+" is already set with parent "+entity+"; how did this happen?!");
                 }
                 childSpec.parent(entity);
-                Entity child = createEntityAndDescendantsUninitialized(childSpec, Optional.absent(), entitiesByEntityId, specsByEntityId);
+                Entity child = createEntityAndDescendantsUninitialized(depth+1, childSpec, options, entitiesByEntityId, specsByEntityId);
                 entity.addChild(child);
             }
             
@@ -228,13 +244,14 @@ public class InternalEntityFactory extends InternalFactory {
 
             return entity;
             
-        } catch (Exception e) {
-            throw Exceptions.propagate(e);
+        } catch (Exception ex) {
+            options.onException(ex, Exceptions::propagate);
+            return entity;
         }
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec) {
+    protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec, EntityManager.EntityCreationOptions options) {
         try {
             Task<T> initialize = Tasks.create("initialize", () -> {
                 final AbstractEntity theEntity = (AbstractEntity) entity;
@@ -264,7 +281,8 @@ public class InternalEntityFactory extends InternalFactory {
             return ((AbstractEntity) entity).getExecutionContext().get(initialize);
 
         } catch (Exception e) {
-            throw Exceptions.propagate(e);
+            options.onException(e, Exceptions::propagate);
+            return entity;
         }
     }
 
@@ -290,17 +308,21 @@ public class InternalEntityFactory extends InternalFactory {
      * Calls {@link ConfigConstraints#assertValid(Entity)} on the given entity and all of
      * its descendants.
      */
-    private void validateDescendantConfig(Entity e) {
+    private void validateDescendantConfig(Entity e, EntityManager.EntityCreationOptions options) {
         Queue<Entity> queue = Lists.newLinkedList();
         queue.add(e);
         while (!queue.isEmpty()) {
             Entity e1 = queue.poll();
-            ConfigConstraints.assertValid(e1);
+            try {
+                ConfigConstraints.assertValid(e1);
+            } catch (ConstraintViolationException ex) {
+                options.onException(ex, Exceptions::propagate);
+            }
             queue.addAll(e1.getChildren());
         }
     }
     
-    protected <T extends Entity> void initEntityAndDescendants(String entityId, final Map<String,Entity> entitiesByEntityId, final Map<String,EntitySpec<?>> specsByEntityId) {
+    protected <T extends Entity> void initEntityAndDescendants(String entityId, final Map<String,Entity> entitiesByEntityId, final Map<String,EntitySpec<?>> specsByEntityId, EntityManager.EntityCreationOptions options) {
         final Entity entity = entitiesByEntityId.get(entityId);
         final EntitySpec<?> spec = specsByEntityId.get(entityId);
         
@@ -313,7 +335,7 @@ public class InternalEntityFactory extends InternalFactory {
 
         // Validate all config before attempting to manage any entity. Do this here rather
         // than in manageRecursive so that rebind is unaffected.
-        validateDescendantConfig(entity);
+        validateDescendantConfig(entity, options);
 
         /* Marked transient so that the task is not needlessly kept around at the highest level.
          * Note that the task is not normally visible in the GUI, because 
@@ -362,7 +384,7 @@ public class InternalEntityFactory extends InternalFactory {
                 for (Entity child: entity.getChildren()) {
                     // right now descendants are initialized depth-first (see the getUnchecked() call below)
                     // they could be done in parallel, but OTOH initializers should be very quick
-                    initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId);
+                    initEntityAndDescendants(child.getId(), entitiesByEntityId, specsByEntityId, options);
                 }
 
                 if (entity instanceof EntityPostInitializable) {
@@ -374,7 +396,7 @@ public class InternalEntityFactory extends InternalFactory {
     
     /**
      * Constructs an entity, i.e. instantiate the actual class given a spec,
-     * and sets the entity's proxy. Used by this factory to {@link #createEntity(EntitySpec, Optional<String>)}
+     * and sets the entity's proxy. Used by this factory to {@link #createEntity(EntitySpec, org.apache.brooklyn.api.mgmt.EntityManager.EntityCreationOptions)}
      * and also used during rebind.
      * <p> 
      * If the entityId is provided, then uses that to override the entity's id,
@@ -385,7 +407,7 @@ public class InternalEntityFactory extends InternalFactory {
      * although for old-style entities flags from the spec are passed to the constructor.
      * <p>
      */
-    private <T extends Entity> T constructEntity(Class<? extends T> clazz, EntitySpec<T> spec, Optional<String> entityId) {
+    private <T extends Entity> T constructEntity(Class<? extends T> clazz, EntitySpec<T> spec, String entityId) {
         T entity = constructEntityImpl(clazz, spec, null, entityId);
         if (((AbstractEntity)entity).getProxy() == null) ((AbstractEntity)entity).setProxy(createEntityProxy(spec, entity));
         return entity;
@@ -405,7 +427,7 @@ public class InternalEntityFactory extends InternalFactory {
         checkNotNull(entityId, "entityId");
         checkState(interfaces != null && !Iterables.isEmpty(interfaces), "must have at least one interface for entity %s:%s", clazz, entityId);
         
-        T entity = constructEntityImpl(clazz, null, null, Optional.of(entityId));
+        T entity = constructEntityImpl(clazz, null, null, entityId);
         if (((AbstractEntity)entity).getProxy() == null) {
             Entity proxy = managementContext.getEntityManager().getEntity(entity.getId());
             if (proxy==null) {
@@ -421,11 +443,11 @@ public class InternalEntityFactory extends InternalFactory {
     }
 
     private <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, EntitySpec<?> optionalSpec, 
-            Map<String, ?> optionalConstructorFlags, Optional<String> entityId) {
+            Map<String, ?> optionalConstructorFlags, String entityId) {
         T entity = construct(clazz, optionalSpec, optionalConstructorFlags);
         
-        if (entityId.isPresent()) {
-            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", entityId.get()), entity);
+        if (entityId!=null) {
+            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", entityId), entity);
         }
         if (entity instanceof AbstractApplication) {
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("mgmt", managementContext), entity);

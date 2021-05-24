@@ -175,7 +175,7 @@ public class BrooklynEntityMatcher implements PdpMatcher {
             if (items instanceof Map) {
                 Map<?, ?> itemMap = (Map<?, ?>) items;
                 if (!itemMap.isEmpty()) {
-                    builder.customAttribute(key, Maps.newHashMap(itemMap));
+                    builder.customAttribute(key, MutableMap.copyOf(itemMap));
                 }
             } else {
                 throw new IllegalArgumentException(key + " must be a map, is: " + items.getClass().getName());

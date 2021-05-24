@@ -31,10 +31,10 @@ import com.google.common.base.Predicate;
 
 public interface ConfigMap {
     
-    /** @see #getConfig(ConfigKey, Object), with default value as per the key, or null */
+    /** returns the config, resolved and inheritance rules applied, with default value as per the key, or null */
     public <T> T getConfig(ConfigKey<T> key);
     
-    /** @see #getConfig(ConfigKey, Object), with default value as per the key, or null */
+    /** @see #getConfig(ConfigKey), with default value as per the key, or null */
     public <T> T getConfig(HasConfigKey<T> key);
 
     /** returns the value stored against the given key, 
@@ -49,7 +49,7 @@ public interface ConfigMap {
      *         
      * @deprecated since 0.10.0 in favour of {@link ConfigMapWithInheritance} methods
      */
-    @Deprecated  // and confirmed no uses
+    @Deprecated  // and confirmed no uses of this method on the interface (implementations still use this method)
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited);
 
     /** returns the value stored against the given key, 
@@ -93,12 +93,14 @@ public interface ConfigMap {
      * if the map is associated with a container or type context where reference keys are defined,
      * those keys are included in the result whether or not present in the map (unlike {@link #findKeysPresent(Predicate)}) */
     // TODO should be findKeysDeclaredOrPresent - if you want just the declared ones, look up the type
+    // TODO should ignore sub element config keys, but for now the caller can do that
     public Set<ConfigKey<?>> findKeysDeclared(Predicate<? super ConfigKey<?>> filter);
 
     /** as {@link #findKeysDeclared(Predicate)} but restricted to keys actually present in the map
      * <p>
      * if there is a container or type context defining reference keys, those key definitions will be
      * preferred over any config keys used as keys in this map. */
+    // TODO should include structured config keys if they have a sub element config present
     public Set<ConfigKey<?>> findKeysPresent(Predicate<? super ConfigKey<?>> filter);
 
     /** returns a read-only map view which has string keys (corresponding to the config key names);

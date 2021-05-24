@@ -99,6 +99,7 @@
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
     </feature>
 
+<!--
     <feature name="brooklyn-rest-client" version="${project.version}" description="Brooklyn REST Client">
         <feature>brooklyn-rest-api</feature>
         <feature>swagger</feature>
@@ -123,7 +124,7 @@
         <bundle dependency="true">mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency="true">mvn:com.fasterxml.jackson.datatype/jackson-datatype-guava/${fasterxml.jackson.version}</bundle>
     </feature>
-
+-->
 
     <feature name="brooklyn-api"  version="${project.version}" description="Brooklyn API">
         <feature>brooklyn-utils-common</feature>
@@ -145,11 +146,13 @@
 
         <bundle dependency="true">mvn:net.minidev/json-smart/${jsonSmart.version}</bundle>
         <bundle dependency="true">mvn:net.minidev/accessors-smart/${minidev.accessors-smart.version}</bundle>
-        <bundle dependency="true">mvn:org.ow2.asm/asm/${ow2.asm.version}</bundle>
-        <bundle dependency="true">mvn:org.ow2.asm/asm-commons/${ow2.asm.version}</bundle>
-        <bundle dependency="true">mvn:org.ow2.asm/asm-tree/${ow2.asm.version}</bundle>
-        <bundle dependency="true">mvn:org.ow2.asm/asm-analysis/${ow2.asm.version}</bundle>
-        <bundle dependency="true">mvn:org.ow2.asm/asm-util/${ow2.asm.version}</bundle>
+        <!-- we need a really old one for json-path; later ones are wanted by pax and aries -->
+        <bundle dependency="true">mvn:org.ow2.asm/asm/${ow2.asm.version.jsonpath}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-commons/${ow2.asm.version.jsonpath}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-tree/${ow2.asm.version.jsonpath}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-analysis/${ow2.asm.version.jsonpath}</bundle>
+        <bundle dependency="true">mvn:org.ow2.asm/asm-util/${ow2.asm.version.jsonpath}</bundle>
+
         <bundle dependency="true">mvn:org.ops4j.pax.web/pax-web-spi/${pax-web.version}</bundle>
         <bundle dependency="true">mvn:org.apache.geronimo.specs/geronimo-ws-metadata_2.0_spec/${geronimo-ws-metadata_2.0_spec.version}</bundle>
         <bundle dependency="true">mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
@@ -188,6 +191,7 @@
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
     </feature>
 
+<!--
     <feature name="brooklyn-camp-server" version="${project.version}" description="Brooklyn CAMP Server">
         <bundle>mvn:org.apache.brooklyn.camp/camp-server/${project.version}</bundle>
 
@@ -195,6 +199,7 @@
         <feature>brooklyn-utils-rest-swagger</feature>
         <feature>pax-jetty</feature>
     </feature>
+-->
 
     <feature name="brooklyn-rest-resources-prereqs" version="${project.version}" description="Brooklyn REST Resources Prerequisites">
         <feature>brooklyn-core</feature>

@@ -18,13 +18,16 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
+import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.reflect.TypeToken;
+import java.io.Closeable;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.List;
@@ -38,6 +41,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -136,6 +140,23 @@ public class BrooklynJacksonSerializationUtils {
         public JsonDeserializerForCommonBrooklynThings(ManagementContext mgmt, JsonDeserializer<?> delagatee) {
             super(delagatee, d -> new JsonDeserializerForCommonBrooklynThings(mgmt, d));
             this.mgmt = mgmt;
+        }
+
+        @Override
+        public void resolve(DeserializationContext ctxt) throws JsonMappingException {
+            try {
+                super.resolve(ctxt);
+            } catch (JsonMappingException e) {
+                // supplying process or cause causes location to appear multiple times in message,
+                // so clumsy way to maintain a good message and the JsonMappingException type
+                // (though not sure we need to maintain that exception; we already lose subtypes
+                // eg InvalidDefinitionException, but nothing seems to mind)
+                throw (JsonMappingException) new JsonMappingException(
+                        null,
+                        (Strings.isBlank(e.getMessage()) ? e.toString() : e.getMessage()) +
+                        (handledType()!=null ? ", processing "+handledType() : ""),
+                        (JsonLocation)null).initCause(e);
+            }
         }
 
         @Override

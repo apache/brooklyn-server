@@ -72,15 +72,15 @@ Runtime dependencies:
     Developed by: QOS.ch (http://www.qos.ch)
     License name: Eclipse Public License, version 1.0
   
-  com.fasterxml.jackson:2.10.1: 
+  com.fasterxml.jackson:2.11.3: 
     Project:      Jackson FasterXML
-    Version:      2.10.1
+    Version:      2.11.3
     Available at: 
       - http://github.com/FasterXML/jackson
-      - http://wiki.fasterxml.com/JacksonModuleJoda
       - https://github.com/FasterXML/jackson-core
       - https://github.com/FasterXML/jackson-dataformat-xml
       - https://github.com/FasterXML/jackson-dataformats-text
+      - https://github.com/FasterXML/jackson-datatype-joda
       - https://github.com/FasterXML/jackson-modules-base
     Developed by: FasterXML (http://fasterxml.com/)
     License name: Apache License, version 2.0
@@ -109,6 +109,12 @@ Runtime dependencies:
     Project:      error-prone annotations
     Version:      2.1.0
     Available at: http://nexus.sonatype.org/oss-repository-hosting.html
+    License name: Apache License, version 2.0
+  
+  com.google.guava.failureaccess:1.0.1: 
+    Project:      Guava InternalFutureFailureAccess and InternalFutures
+    Version:      1.0.1
+    Available at: https://github.com/google/guava
     License name: Apache License, version 2.0
   
   com.google.guava:18.0: 
@@ -186,30 +192,16 @@ Runtime dependencies:
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Square, Inc.
   
-  com.squareup.okio:1.2.0: 
+  com.squareup.okio:1.15.0: 
     Project:      Okio
-    Version:      1.2.0
+    Version:      1.15.0
     Available at: https://github.com/square/okio
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Square, Inc.
   
-  com.sun.istack.istack-commons-runtime:3.0.10: 
-    Project:      istack common utility code runtime
-    Version:      3.0.10
-    Available at: https://projects.eclipse.org/projects/ee4j
-    Developed by: Eclipse Foundation (https://www.eclipse.org)
-    License name: Eclipse Distribution License, version 1.0
-  
-  com.sun.xml.fastinfoset.FastInfoset:1.2.16: 
-    Project:      fastinfoset
-    Version:      1.2.16
-    Available at: https://projects.eclipse.org/projects/ee4j.jaxb-impl
-    Developed by: Eclipse Foundation (https://www.eclipse.org)
-    License name: Apache License, version 2.0
-  
-  com.thoughtworks.xstream:1.4.11.1: 
+  com.thoughtworks.xstream:1.4.15: 
     Project:      XStream Core
-    Version:      1.4.11.1
+    Version:      1.4.15
     Available at: http://x-stream.github.io/
     Developed by: XStream (http://x-stream.github.io)
     License name: BSD 3-Clause (New BSD) License
@@ -221,10 +213,10 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
-  commons-codec:1.11: 
+  commons-codec:1.15: 
     Project:      Apache Commons Codec
-    Version:      1.11
-    Available at: http://commons.apache.org/proper/commons-codec/
+    Version:      1.15
+    Available at: https://commons.apache.org/proper/commons-codec/
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
@@ -262,30 +254,23 @@ Runtime dependencies:
     Available at: https://github.com/airlift/airline
     License name: Apache License, version 2.0
   
-  io.cloudsoft.windows:0.9.0: 
+  io.cloudsoft.windows:0.11.0: 
     Project: 
       - Java WinRM library
       - WinRM Client
-    Version:      0.9.0
+    Version:      0.11.0
     Available at: http://github.com/cloudsoft/winrm4j
     License name: Apache License, version 2.0
   
-  io.swagger:1.5.6: 
+  io.swagger:1.6.2: 
     Project: 
       - swagger-annotations
       - swagger-core
       - swagger-jaxrs
       - swagger-models
-    Version:      1.5.6
+    Version:      1.6.2
     Available at: https://github.com/swagger-api/swagger-core
     License name: Apache License, version 2.0
-  
-  jakarta.activation.jakarta.activation-api:1.2.1: 
-    Project:      JavaBeans Activation Framework API jar
-    Version:      1.2.1
-    Available at: https://github.com/eclipse-ee4j/jaf
-    Developed by: Eclipse Foundation (https://www.eclipse.org)
-    License name: Eclipse Distribution License, version 1.0
   
   jakarta.ws.rs.jakarta.ws.rs-api:2.1.5: 
     Project:      javax.ws.rs-api
@@ -293,13 +278,6 @@ Runtime dependencies:
     Available at: https://github.com/eclipse-ee4j/jaxrs-api
     Developed by: Eclipse Foundation (https://www.eclipse.org/org/foundation/)
     License name: Eclipse Public License, version 2.0
-  
-  jakarta.xml.bind.jakarta.xml.bind-api:2.3.2: 
-    Project:      jakarta.xml.bind-api
-    Version:      2.3.2
-    Available at: https://github.com/eclipse-ee4j/jaxb-api
-    Developed by: Eclipse Foundation (https://www.eclipse.org)
-    License name: Eclipse Distribution License, version 1.0
   
   javax.annotation.javax.annotation-api:1.3.2: 
     Project:      javax.annotation API
@@ -395,18 +373,18 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.cxf:3.3.5: 
+  org.apache.cxf:3.3.9: 
     Project:      Apache CXF
-    Version:      3.3.5
+    Version:      3.3.9
     Available at: https://cxf.apache.org
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.felix.org.apache.felix.framework:5.6.12: 
+  org.apache.felix.org.apache.felix.framework:6.0.3: 
     Project:      Apache Felix Framework
-    Version:      5.6.12
+    Version:      6.0.3
     Available at: http://felix.apache.org/
-    Developed by: The Apache Software Foundation (http://www.apache.org/)
+    Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
   org.apache.geronimo.specs.geronimo-activation_1.1_spec:1.1: 
@@ -437,18 +415,23 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.httpcomponents.httpclient:4.5.10: 
+  org.apache.httpcomponents.httpclient:4.5.13: 
     Project:      Apache HttpClient
-    Version:      4.5.10
+    Version:      4.5.13
     Available at: http://hc.apache.org/httpcomponents-client-ga
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.apache.httpcomponents:4.4.12: 
-    Project: 
-      - Apache HttpCore
-      - Apache HttpCore NIO
+  org.apache.httpcomponents.httpcore-nio:4.4.12: 
+    Project:      Apache HttpCore NIO
     Version:      4.4.12
+    Available at: http://hc.apache.org/httpcomponents-core-ga
+    Developed by: The Apache Software Foundation (http://www.apache.org/)
+    License name: Apache License, version 2.0
+  
+  org.apache.httpcomponents.httpcore:4.4.14: 
+    Project:      Apache HttpCore
+    Version:      4.4.14
     Available at: http://hc.apache.org/httpcomponents-core-ga
     Developed by: The Apache Software Foundation (http://www.apache.org/)
     License name: Apache License, version 2.0
@@ -485,11 +468,11 @@ Runtime dependencies:
     Developed by: The Apache Software Foundation (https://www.apache.org/)
     License name: Apache License, version 2.0
   
-  org.bouncycastle:1.61: 
+  org.bouncycastle:1.67: 
     Project: 
       - Bouncy Castle PKIX, CMS, EAC, TSP, PKCS, OCSP, CMP, and CRMF APIs
       - Bouncy Castle Provider
-    Version:      1.61
+    Version:      1.67
     Available at: 
       - http://www.bouncycastle.org/java.html
       - https://www.bouncycastle.org/java.html
@@ -503,6 +486,13 @@ Runtime dependencies:
     Developed by: Apache Software Foundation (http://groovy-lang.org)
     License name: Apache License, version 2.0
   
+  org.codehaus.mojo.animal-sniffer-annotations:1.9: 
+    Project:      Animal Sniffer Annotations
+    Version:      1.9
+    Available at: http://mojo.codehaus.org/animal-sniffer
+    Developed by: Codehaus (http://codehaus.org)
+    License name: MIT License
+  
   org.codehaus.woodstox.stax2-api:3.1.4: 
     Project:      Stax2 API
     Version:      3.1.4
@@ -510,7 +500,7 @@ Runtime dependencies:
     Developed by: fasterxml.com (http://fasterxml.com)
     License name: BSD 2-Clause (Simplified or FreeBSD) License
   
-  org.eclipse.jetty:9.4.22.v20191022: 
+  org.eclipse.jetty:9.4.35.v20201120: 
     Project: 
       - "Jetty :: Http Utility"
       - "Jetty :: IO Utility"
@@ -518,10 +508,11 @@ Runtime dependencies:
       - "Jetty :: Server Core"
       - "Jetty :: Servlet Handling"
       - "Jetty :: Utilities"
+      - "Jetty :: Utilities :: Ajax(JSON)"
       - "Jetty :: Webapp Application Support"
       - "Jetty :: XML utilities"
-    Version:      9.4.22.v20191022
-    Available at: http://www.eclipse.org/jetty
+    Version:      9.4.35.v20201120
+    Available at: https://eclipse.org/jetty
     Developed by: Webtide (https://webtide.com)
     License name: Apache License, version 2.0
   
@@ -538,15 +529,6 @@ Runtime dependencies:
     Available at: https://opendmk.java.net/
     License name: Common Development and Distribution License, version 1.1
   
-  org.glassfish.jaxb:2.3.2: 
-    Project: 
-      - JAXB Runtime
-      - TXW2 Runtime
-    Version:      2.3.2
-    Available at: https://javaee.github.io/jaxb-v2/
-    Developed by: Oracle Corporation (http://www.oracle.com/)
-    License name: Eclipse Distribution License, version 1.0
-  
   org.hamcrest.hamcrest-core:1.3: 
     Project:      Hamcrest Core
     Version:      1.3
@@ -560,18 +542,11 @@ Runtime dependencies:
     License name: Apache License, version 2.0
     Notice:       Copyright (c) Shigeru Chiba
   
-  org.jvnet.staxex.stax-ex:1.8.1: 
-    Project:      Extended StAX API
-    Version:      1.8.1
-    Available at: https://projects.eclipse.org/projects/ee4j
-    Developed by: Eclipse Foundation (https://www.eclipse.org)
-    License name: Eclipse Distribution License, version 1.0
-  
-  org.osgi.org.osgi.core:6.0.0: 
-    Project:      org.osgi.core
-    Version:      6.0.0
-    Available at: http://www.osgi.org
-    Developed by: OSGi Alliance (http://www.osgi.org)
+  org.osgi.osgi.core:7.0.0: 
+    Project:      org.osgi:osgi.core
+    Version:      7.0.0
+    Available at: https://www.osgi.org/
+    Developed by: OSGi Alliance (https://www.osgi.org/)
     License name: Apache License, version 2.0
   
   org.ow2.asm:5.2: 
@@ -604,9 +579,9 @@ Runtime dependencies:
     Developed by: XMLUnit (http://www.xmlunit.org/)
     License name: Apache License, version 2.0
   
-  org.yaml.snakeyaml:1.25: 
+  org.yaml.snakeyaml:1.27: 
     Project:      SnakeYAML
-    Version:      1.25
+    Version:      1.27
     Available at: http://www.snakeyaml.org
     License name: Apache License, version 2.0
   
@@ -1493,37 +1468,6 @@ Dependency licenses:
     be bound by any additional provisions that may appear in any communication from
     You. This License may not be modified without the mutual written agreement of
     the Licensor and You.
-
-  Eclipse Distribution License, version 1.0: |
-    Eclipse Distribution License - v 1.0
-    Copyright (c) 2007, Eclipse Foundation, Inc. and its licensors.
-    
-    All rights reserved.
-    
-    Redistribution and use in source and binary forms, with or without modification, 
-    are permitted provided that the following conditions are met:
-    
-    Redistributions of source code must retain the above copyright notice, this list 
-    of conditions and the following disclaimer.
-    
-    Redistributions in binary form must reproduce the above copyright notice, this 
-    list of conditions and the following disclaimer in the documentation and/or other 
-    materials provided with the distribution.
-    
-    Neither the name of the Eclipse Foundation, Inc. nor the names of its contributors 
-    may be used to endorse or promote products derived from this software without 
-    specific prior written permission.
-    
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
-    ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED 
-    WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. 
-    IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, 
-    INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, 
-    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, 
-    DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY 
-    OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING 
-    NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN 
-    IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
   Eclipse Public License, version 1.0: |
     Eclipse Public License - v 1.0

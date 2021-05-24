@@ -878,8 +878,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         description = setFromItemIfUnset(description, itemAsMap, "description");
 
         // icon.url is discouraged (using '.'), but kept for legacy compatibility; should deprecate this
-        String catalogIconUrl = getFirstAs(catalogMetadata, String.class, "iconUrl", "icon_url", "icon.url").orNull();
+        // 2021-04: better semantics, look at this level, then in the item, then in inherited values
+        // this should probably be done elsewhere, and also note setFromItemIfUnset should maybe call to getFirstAs...
+        String catalogIconUrl = null;
+        catalogIconUrl = setFromItemIfUnset(catalogIconUrl, itemMetadata, "iconUrl", "icon_url", "icon.url");
         catalogIconUrl = setFromItemIfUnset(catalogIconUrl, itemAsMap, "iconUrl", "icon_url", "icon.url");
+        catalogIconUrl = setFromItemIfUnset(catalogIconUrl, catalogMetadata, "iconUrl", "icon_url", "icon.url");
 
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
         final Boolean catalogDeprecated = Boolean.valueOf(setFromItemIfUnset(deprecated, itemAsMap, "deprecated"));

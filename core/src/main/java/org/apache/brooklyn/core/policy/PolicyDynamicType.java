@@ -39,6 +39,6 @@ public class PolicyDynamicType extends BrooklynDynamicType<Policy, AbstractPolic
 
     @Override
     protected PolicyTypeSnapshot newSnapshot() {
-        return new PolicyTypeSnapshot(name, value(configKeys));
+        return new PolicyTypeSnapshot(name, getConfigKeysModifiableCopy());
     }
 }

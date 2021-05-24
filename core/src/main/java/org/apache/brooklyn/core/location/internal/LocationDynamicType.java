@@ -36,6 +36,6 @@ public class LocationDynamicType extends BrooklynDynamicType<Location, AbstractL
 
     @Override
     protected LocationTypeSnapshot newSnapshot() {
-        return new LocationTypeSnapshot(name, value(configKeys));
+        return new LocationTypeSnapshot(name, getConfigKeysModifiableCopy());
     }
 }

@@ -19,13 +19,7 @@
 package org.apache.brooklyn.test;
 
 import java.lang.reflect.Array;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -38,10 +32,12 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.text.ByteSizeStrings;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1408,7 +1404,7 @@ public class Asserts {
         throw Exceptions.propagate(t);
     }
 
-    /** As {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration, boolean)} with default timeout. */
+    /** As {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration)} with default timeout. */
     public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, Predicate<T> predicate) {
         eventuallyOnNotify(notifyTarget, supplier, predicate, null);
     }
@@ -1443,7 +1439,7 @@ public class Asserts {
             ")");
     }
 
-    /** Convenience for {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration, boolean)} 
+    /** Convenience for {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration)}
      * when the notify target and the value under test are the same. */
     public static <T> void eventuallyOnNotify(T object, Predicate<T> predicate, Duration timeout) {
         eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, timeout);
@@ -1489,4 +1485,61 @@ public class Asserts {
         fail("Expected absent value; instead got: "+candidate.get());
     }
 
+    public static MemoryAssertions startMemoryAssertions(String message) {
+        MemoryAssertions result = new MemoryAssertions();
+        result.pushUsedMemory(message);
+        return result;
+    }
+
+    public static class MemoryAssertions {
+        public MemoryAssertions() {
+        }
+
+        Runnable extraTaskOnNoteMemory;
+        Deque<Long> usedMemoryQueue = new ArrayDeque<Long>();
+
+        public void setExtraTaskOnNoteMemory(Runnable extraTaskOnNoteMemory) {
+            this.extraTaskOnNoteMemory = extraTaskOnNoteMemory;
+        }
+
+        public long pushUsedMemory(String message) {
+            Time.sleep(Duration.millis(200));
+            if (extraTaskOnNoteMemory!=null) {
+                extraTaskOnNoteMemory.run();
+            }
+            System.gc(); System.gc();
+            Time.sleep(Duration.millis(50));
+            System.gc(); System.gc();
+            long mem = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+            usedMemoryQueue.addLast(mem);
+            log.info("Memory used - "+message+": "+ByteSizeStrings.java().apply(mem));
+            return mem;
+        }
+
+        public long popUsedMemory() {
+            return usedMemoryQueue.removeLast();
+        }
+
+        public long peekLastUsedMemory() {
+            return usedMemoryQueue.peekLast();
+        }
+
+        public void assertUsedMemoryLessThan(String event, long max, boolean push) {
+            long nowUsed = pushUsedMemory(event);
+            if (nowUsed > max) {
+                // aggressively try to force GC
+                Time.sleep(Duration.ONE_SECOND);
+                popUsedMemory();
+                nowUsed = pushUsedMemory(event+" (extra GC)");
+                if (nowUsed > max) {
+                    fail("Too much memory used - "+ ByteSizeStrings.java().apply(nowUsed)+" > max "+ByteSizeStrings.java().apply(max));
+                }
+            }
+            if (!push) popUsedMemory();
+        }
+        public void assertUsedMemoryMaxDelta(String event, long deltaMegabytes, boolean push) {
+            final long last = peekLastUsedMemory();
+            assertUsedMemoryLessThan(event, last + deltaMegabytes*1024*1024, push);
+        }
+    }
 }

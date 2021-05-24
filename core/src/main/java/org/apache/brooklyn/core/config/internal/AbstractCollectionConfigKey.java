@@ -28,6 +28,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.SubElementConfigKey;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +86,7 @@ public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Obj
     protected Object applyValueToMap(Object value, Map target, boolean isInCollection) {
         if (value instanceof StructuredModification) {
             return ((StructuredModification)value).applyToKeyInMap(this, target);
+
         } else if ((value instanceof Iterable) && (!isInCollection)) {
             // collections set _here_ (not in subkeys) get added
             boolean isSet = isSet(target);
@@ -104,22 +106,25 @@ public abstract class AbstractCollectionConfigKey<T, RawT extends Collection<Obj
                 target.put(this, MutableSet.of());
             }
             return null;
-        } else if (value instanceof TaskAdaptable) {
+        }
+
+        if (ValueResolver.isDeferredOrTaskInternal(value)) {
             boolean isSet = isSet(target);
             if (isSet) {
-                String warning = "Discouraged undecorated setting of a task to in-use StructuredConfigKey "+this+": use SetModification.{set,add}. " +
-                    "Defaulting to 'add'. Look at debug logging for call stack.";
+                String warning = "Discouraged undecorated setting of a task/deferred to in-use StructuredConfigKey "+this+": use SetModification.{set,add}. " +
+                    "Defaulting to replacing root. Look at debug logging for call stack.";
                 log.warn(warning);
                 if (log.isDebugEnabled())
                     log.debug("Trace for: "+warning, new Throwable("Trace for: "+warning));
             }
+        }
+        if (isInCollection) {
             // just add to set, using anonymous key
             target.put(subKey(), value);
             return null;
         } else {
-            // just add to set, using anonymous key
-            target.put(subKey(), value);
-            return null;
+            // just put here as the set - prior to 2021-05 we put things under an anonymous subkey
+            return target.put(this, value);
         }
     }
     

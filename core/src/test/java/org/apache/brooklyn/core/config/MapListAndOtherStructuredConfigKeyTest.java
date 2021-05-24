@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.config;
 
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.guava.Maybe;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -87,7 +90,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval","bkey","bval"));
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING.subKey("akey")), "aval");
     }
-    
+
     @Test
     public void testMapConfigKeyCanStoreAndRetrieveFutureValsPutByKeys() throws Exception {
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
@@ -104,6 +107,20 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     }
 
     @Test
+    public void testMapConfigKeyGetRaw() throws Exception {
+        final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
+        entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), DependentConfiguration.whenDone(Callables.returning("aval")));
+        app.start(locs);
+
+        Maybe<Object> rawMM = entity.config().getLocalRaw(TestEntity.CONF_MAP_THING);
+        Assert.assertTrue(rawMM.isPresent());
+        Map rawM = (Map) rawMM.get();
+        assertEquals(rawM.size(), 1);
+        assertEquals(rawM.keySet(), ImmutableSet.of("akey"));
+        Asserts.assertInstanceOf(rawM.get("akey"), Task.class);
+    }
+
+    @Test
     public void testMapConfigKeyCanStoreAndRetrieveFutureValsPutAsMap() throws Exception {
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
         entity.config().set(TestEntity.CONF_MAP_THING, (Map) MutableMap.of(
@@ -117,6 +134,14 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         bval.set("bval");
         
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval","bkey","bval"));
+    }
+
+    @Test
+    public void testMapConfigKeyCanStoreAndRetrieveFutureAtRoot() throws Exception {
+        entity.config().set(TestEntity.CONF_MAP_THING, DependentConfiguration.whenDone(Callables.returning(MutableMap.of("akey", "aval"))));
+        app.start(locs);
+
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval"));
     }
 
     @Test
@@ -217,6 +242,14 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), DependentConfiguration.whenDone(Callables.returning("bval")));
         app.start(locs);
         
+        assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval","bval"));
+    }
+
+    @Test
+    public void testSetConfigKeyCanStoreAndRetrieveFutureAtRoot() throws Exception {
+        entity.config().set(TestEntity.CONF_SET_THING, DependentConfiguration.whenDone(Callables.returning(MutableSet.of("aval", "bval"))));
+        app.start(locs);
+
         assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval","bval"));
     }
 

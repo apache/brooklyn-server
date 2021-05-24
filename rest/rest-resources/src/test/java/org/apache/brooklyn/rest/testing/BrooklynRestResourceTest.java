@@ -34,6 +34,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
@@ -234,4 +235,14 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
         return WebClient.create(getEndpointAddress(), clientProviders);
     }
 
+    // Convenience for finding a Map within a collection, based on the value of one of its keys
+    protected static Predicate<? super Map<?,?>> withValueForKey(final Object key, final Object value) {
+        return new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                if (!(input instanceof Map)) return false;
+                return value.equals(((Map<?, ?>) input).get(key));
+            }
+        };
+    }
 }

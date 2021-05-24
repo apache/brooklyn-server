@@ -145,7 +145,25 @@ public interface BundleApi {
         @ApiParam(name = "typeVersion", value = "Version to query (if different to bundle version)", required = true)
         @PathParam("typeVersion")
         String typeVersion);
-    
+
+    @Path("/{symbolicName}/{version}/types/{typeSymbolicName}/{typeVersion}/icon")
+    @GET
+    @ApiOperation(value = "Returns the icon image registered for this type")
+    @Produces("application/image")
+    public Response getTypeExplicitVersionIcon(
+            @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
+            @PathParam("symbolicName")
+                    String symbolicName,
+            @ApiParam(name = "version", value = "Bundle version to query", required = true)
+            @PathParam("version")
+                    String version,
+            @ApiParam(name = "typeSymbolicName", value = "Type name to query", required = true)
+            @PathParam("typeSymbolicName")
+                    String typeSymbolicName,
+            @ApiParam(name = "typeVersion", value = "Version to query (if different to bundle version, or * or empty)", required = true)
+            @PathParam("typeVersion")
+                    String typeVersion);
+
     @Path("/{symbolicName}/{version}")
     @DELETE
     @ApiOperation(value = "Removes a bundle, unregistering all the types it declares", 

@@ -23,11 +23,12 @@ import java.io.Writer;
 
 public class PrettyXmlWriter extends Writer {
     private final Writer wrappedWriter;
-    private boolean tagClosed = false;
+    private boolean selfClosingTag = false; // ends with '/>'
     private int indentLevel = 0;
     private boolean newLine = true;
     private char lastChar = '\n';
     private boolean isComment = false;
+    private boolean newTagToProcess = false; // new tag '<'
 
     public PrettyXmlWriter(Writer writer) {
         super(writer);
@@ -36,6 +37,14 @@ public class PrettyXmlWriter extends Writer {
 
     @Override
     public void write(char[] cbuf, int off, int len) throws IOException {
+
+        // Process new tag '<' from previous call if any.
+        if (newTagToProcess) {
+            handleMeaningfulChar(cbuf, off, '<', off, len);
+            newTagToProcess = false;
+        }
+
+        // Process new data.
         for (int i = off; i < off + len; i++) {
             char c = cbuf[i];
             if (isComment) {
@@ -52,52 +61,60 @@ public class PrettyXmlWriter extends Writer {
                 writeChar(c);
             } else {
                 //Not a comment - treat as XML
-                handleMeaningfulChar(cbuf, i, c, off + len - 1);
+                handleMeaningfulChar(cbuf, i, c, off, len);
             }
         }
     }
 
-    private void handleMeaningfulChar(char[] cbuf, int i, char c, int end) throws IOException {
-        if (tagClosed) {
-            // Tag was closed on last call to write so need a new line
-            writeNewLine();
-            tagClosed = false;
+    private void handleMeaningfulChar(char[] cbuf, int i, char c, int off, int len) throws IOException {
+        int end = off + len - 1;
+        boolean endOfChunk = end == i;
+
+        // Reduce indentation level after closing a tag, starts with '</'
+        if (lastChar == '<' && c == '/' || newTagToProcess && cbuf[i] == '/') {
+            indentLevel--;
         }
+
+        // Mark self-closing tag, ends with '/>'
+        if (lastChar == '/' && c == '>') {
+            selfClosingTag = true;
+        }
+
+        // Process a new tag, starts with '<'
         if (c == '<') {
-            // Start if a tag
-            if (!newLine) {
-                // Assume closing tag following text - e.g. <t>some text</t>
-                indentLevel--;
-            } else if (i < end && cbuf[i + 1] == '/') {
-                // Closing tag
-                indentLevel--;
-                printIndent();
-                indentLevel--;
-            } else {
-                //
-                printIndent();
-            }
-        }
-        writeChar(c);
-        if ('>' == c ) {
-            if (i < end) {
-                if (cbuf[i + 1] == '<') {
-                    writeNewLine();
-                    increaseIndentIfNotSelfClosingTag();
-                }
-            } else {
-                // We've closed a tag but don't know what the next character is
-                tagClosed = true;
-                increaseIndentIfNotSelfClosingTag();
-            }
-        }
-        lastChar = c;
-    }
 
-    private void increaseIndentIfNotSelfClosingTag() {
-        if (lastChar != '/') {
-            indentLevel++;
+            // Process adjacent tags (any), '><'
+            if ('>' == lastChar) {
+
+                // Process remaining new tag '<' in the next call, if we hit the end of current chunk.
+                if (endOfChunk) {
+                    newTagToProcess = true;
+                    return;
+                }
+
+                // Write new line between adjacent tags '>\n<'
+                writeNewLine();
+
+                // Increase indentation level, assume nested content
+                indentLevel++;
+
+                if (i < end && cbuf[i + 1] == '/') {
+                    indentLevel--;
+                }
+
+                // Reduce indentation level for self-closing tag '/>'
+                if (selfClosingTag) {
+                    indentLevel--;
+                    selfClosingTag = false;
+                }
+
+                // Write indentation at a calculated level
+                printIndent();
+            }
         }
+
+        // Write a character.
+        writeChar(c);
     }
 
     private void writeNewLine() throws IOException {
@@ -108,6 +125,7 @@ public class PrettyXmlWriter extends Writer {
     private void writeChar(char c) throws IOException {
         wrappedWriter.write(c);
         newLine = false;
+        lastChar = c;
     }
 
     private void printIndent() throws IOException {
