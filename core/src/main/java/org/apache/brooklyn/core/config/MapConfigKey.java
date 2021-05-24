@@ -26,11 +26,13 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.internal.AbstractStructuredConfigKey;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -182,13 +184,29 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Override
     public Object applyValueToMap(Object value, Map target) {
-        if (value == null)
+        if (value == null) {
             return null;
-        if (value instanceof StructuredModification)
-            return ((StructuredModification)value).applyToKeyInMap(this, target);
-        if (value instanceof Map.Entry)
-            return applyEntryValueToMap((Map.Entry)value, target);
+        }
+        if (value instanceof StructuredModification) {
+            return ((StructuredModification) value).applyToKeyInMap(this, target);
+        }
+        if (value instanceof Map.Entry) {
+            return applyEntryValueToMap((Map.Entry) value, target);
+        }
         if (!(value instanceof Map)) {
+            if (ValueResolver.isDeferredOrTaskInternal(value)) {
+                boolean isSet = isSet(target);
+                if (isSet) {
+                    String warning = "Discouraged undecorated setting of a task to in-use StructuredConfigKey " + this + ": use MapModification.{set,add}. " +
+                            "Defaulting to replacing root. Look at debug logging for call stack.";
+                    log.warn(warning);
+                    if (log.isDebugEnabled())
+                        log.debug("Trace for: " + warning, new Throwable("Trace for: " + warning));
+                }
+                // just put here as the set - prior to 2021-05 we put things under an anonymous subkey
+                return target.put(this, value);
+            }
+
             Maybe<Map> coercedValue = TypeCoercions.tryCoerce(value, Map.class);
             if (coercedValue.isPresent()) {
                 log.trace("Coerced value for {} from type {} to map", this, value.getClass().getName());
@@ -197,7 +215,7 @@ public class MapConfigKey<V> extends AbstractStructuredConfigKey<Map<String,V>,M
                 throw new IllegalArgumentException("Cannot set non-map entries on "+this+", given type "+value.getClass().getName()+", value "+value);
             }
         }
-        
+
         Map result = new MutableMap();
         for (Object entry: ((Map)value).entrySet()) {
             Map.Entry entryT = (Map.Entry)entry;

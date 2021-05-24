@@ -67,6 +67,14 @@ public class DslDeferredPropertyAccess extends BrooklynDslDeferredSupplier {
         this.index = index;
     }
 
+    public BrooklynDslDeferredSupplier getTarget() {
+        return target;
+    }
+
+    public Object getIndex() {
+        return index;
+    }
+
     protected Object getIndexOnTarget(Object targetEvaluated) {
         Object targetResult = target.get();
         if (targetResult==null) {
