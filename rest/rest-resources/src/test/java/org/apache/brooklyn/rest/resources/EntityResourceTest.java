@@ -114,11 +114,11 @@ public class EntityResourceTest extends BrooklynRestResourceTest {
         // Retrieve the yaml spec, and confirm it is as expected (not wrapped in quotes, and treating \n sensibly)
         Response response;
         if (acceptMimeType != null) {
-            response = client().path("/applications/" + appName + "/entities/" + appName + "/spec")
+            response = client().path("/applications/" + appName + "/entities/" + appName + "/speclist")
                     .accept(acceptMimeType)
                     .get();
         } else {
-            response = client().path("/applications/" + appName + "/entities/" + appName + "/spec")
+            response = client().path("/applications/" + appName + "/entities/" + appName + "/speclist")
                     .get();
         }
         String data = response.readEntity(String.class);
