@@ -245,6 +245,14 @@ public class BrooklynTags {
         return null;
     }
 
+    public  static SpecTag findHierarchySpecTag(String kind, Iterable<Object> tags) {
+        for (Object object: tags) {
+            if (object instanceof SpecTag && kind.equals((((SpecTag) object).kind)))
+                return (SpecTag) object;
+        }
+        return null;
+    }
+
     public static List<NamedStringTag> findAll(String kind, Iterable<Object> tags) {
         List<NamedStringTag> result = MutableList.of();
         for (Object object: tags) {

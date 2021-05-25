@@ -55,6 +55,7 @@ import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -310,5 +311,12 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         if (spec == null)
             return null;
         return (String) WebResourceUtils.getValueForDisplay(spec.getContents(), false, true);
+    }
+
+    @Override
+    public List<Object>  getSpecList(String applicationId, String entityId) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        BrooklynTags.SpecTag specTag =  BrooklynTags.findHierarchySpecTag(BrooklynTags.YAML_SPEC_HIERARCHY, entity.tags().getTags());
+        return (List<Object>) resolving( specTag.getSpecList()).preferJson(true).resolve();
     }
 }
