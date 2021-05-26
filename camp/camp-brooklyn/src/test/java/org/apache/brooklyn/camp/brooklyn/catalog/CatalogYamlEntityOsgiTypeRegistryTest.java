@@ -29,7 +29,6 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.annotations.Test;
 
@@ -233,13 +232,12 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
                 "  item: " + BasicEntity.class.getName());
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
-        assertTrue(item.getTags().stream().anyMatch(tag -> tag instanceof BrooklynTags.SpecTag));
 
+        assertTrue(item.getTags().stream().anyMatch(tag -> tag instanceof BrooklynTags.SpecTag));
         BrooklynTags.SpecTag specTag = (BrooklynTags.SpecTag) item.getTags().stream().filter(x -> x instanceof BrooklynTags.SpecTag).findFirst().orElse(null);
         assertEquals(specTag.getSpecList().size(), 1);
         Asserts.assertEquals(((Map<String,String>)specTag.getSpecList().get(0)).get("format"), CampTypePlanTransformer.FORMAT);
         Asserts.assertEquals(((Map<String,String>)specTag.getSpecList().get(0)).get("summary"), "Plan for " + symbolicName);
-
         deleteCatalogRegisteredType(symbolicName);
     }
 
