@@ -66,6 +66,7 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
@@ -141,8 +142,7 @@ public class OsgiManager {
         }
         
         synchronized void addManagedBundle(OsgiBundleInstallationResult result, File f) {
-            updateManagedBundleFile(result, f);
-            managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+            updateManagedBundleFileAndMetadata(result, f);
             managedBundlesUidByVersionedName.put(VersionedName.toOsgiVersionedName(result.getMetadata().getVersionedName()), 
                 result.getMetadata().getId());
             if (Strings.isNonBlank(result.getMetadata().getUrl())) {
@@ -174,7 +174,7 @@ public class OsgiManager {
         }
 
         /** Updates the bundle file associated with the given record, creating and returning a backup if there was already such a file */ 
-        synchronized File updateManagedBundleFile(OsgiBundleInstallationResult result, File fNew) {
+        synchronized Pair<File,ManagedBundle> updateManagedBundleFileAndMetadata(OsgiBundleInstallationResult result, File fNew) {
             File fCached = fileFor(result.getMetadata());
             File fBak = new File(fCached.getAbsolutePath()+".bak");
             if (fBak.equals(fNew)) {
@@ -192,11 +192,14 @@ public class OsgiManager {
             } catch (IOException e) {
                 throw Exceptions.propagate(e);
             }
-            return fBak;
+
+            ManagedBundle mbBak = managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+
+            return Pair.of(fBak, mbBak);
         }
         
         /** Rolls back the officially installed file to a given backup copy of a bundle file, returning the new name of the file */
-        synchronized File rollbackManagedBundleFile(OsgiBundleInstallationResult result, File fBak) {
+        synchronized File rollbackManagedBundleFileAndMetadata(OsgiBundleInstallationResult result, File fBak, ManagedBundle mbBak) {
             log.debug("Rolling back to back Brooklyn local copy of bundle file "+fBak);
             if (!fBak.exists()) {
                 throw new IllegalStateException("Cannot rollback to "+fBak+" as file does not exist");
@@ -208,6 +211,9 @@ public class OsgiManager {
                 log.warn("No pre-existing bundle file "+fCached+" when rolling back; ignoring");
             }
             fBak.renameTo(fCached);
+
+            managedBundlesByUid.put(result.getMetadata().getId(), mbBak);
+
             return fCached;
         }
     }

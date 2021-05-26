@@ -35,6 +35,7 @@ import java.util.function.Supplier;
 import java.util.jar.Attributes;
 import java.util.jar.Manifest;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
@@ -68,6 +69,7 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
+import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
@@ -496,27 +498,42 @@ public class BrooklynBomOsgiArchiveInstaller {
                     }
                 }
 
+                log.debug("Request to install "+inferredMetadata.getVersionedName()+" (checksum "+inferredMetadata.getChecksum()+", OSGi URL "+inferredMetadata.getOsgiUniqueUrl()+") in the presence of "+result.getMetadata().getVersionedName()+" (checksum "+result.getMetadata().getChecksum()+", OSGi URL "+result.getMetadata().getOsgiUniqueUrl()+")");
+
                 result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
                 // Check if exactly this bundle is already installed
-                if (result.bundle != null && !VersionComparator.isSnapshot(inferredMetadata.getSuppliedVersionString()) &&
-                        checksumsMatch(result.getMetadata(), inferredMetadata)) {
+                if (result.bundle != null && checksumsMatch(result.getMetadata(), inferredMetadata)) {
                     // e.g. repeatedly installing the same bundle
                     log.trace("Bundle "+inferredMetadata+" matches already installed managed bundle "+result.getMetadata()
                             +"; install is no-op");
                     result.setIgnoringAlreadyInstalled();
                     return ReferenceWithError.newInstanceWithoutError(result);
-                } else if (isEquivalentBundleAlreadyOsgiInstalled(osgiManager, inferredMetadata, zipFile)) {
+
+                }
+
+                List<Bundle> matchingVsnBundles = findBundlesBySymbolicNameAndVersion(osgiManager, inferredMetadata);
+
+                List<Bundle> sameContentBundles = matchingVsnBundles.stream().filter(b -> isBundleSameOsgiUrlOrSameContents(b, inferredMetadata, zipFile)).collect(Collectors.toList());
+                if (!sameContentBundles.isEmpty()) {
                     // e.g. happens if pre-installed bundle is brought under management, and then add it again via a mvn-style url.
-                    // We wouldn't know the checksum from the pre-installed bundle.
+                    // We wouldn't know the checksum from the pre-installed bundle, the osgi locations might be different,
+                    // but the contents are the same
                     log.trace("Bundle "+inferredMetadata+" matches metadata of managed bundle "+result.getMetadata()
                             +" (but not OSGi bundle location "+result.getMetadata().getOsgiUniqueUrl()+"), "
-                            + "and matches already installed OSGi bundle; ; install is no-op");
+                            + "and identified as equivalent to installed OSGi bundle; ; install is no-op");
                     result.setIgnoringAlreadyInstalled();
+                    result.bundle = sameContentBundles.iterator().next();
                     return ReferenceWithError.newInstanceWithoutError(result);
                 }
-                
-                if (canUpdate()) { 
+
+                if (canUpdate()) {
+                    if (result.bundle == null && !matchingVsnBundles.isEmpty()) {
+                        // if we are updating a snapshot bundle or forcing, and somehow we did not manage to preserve the original OSGi location
+                        log.info("Updating existing brooklyn-managed bundle "+result+" with "+inferredMetadata+" with different OSGi location and different contents");
+                        result.bundle = matchingVsnBundles.iterator().next();
+                    }
+
                     if (result.getBundle() == null) {
                         log.warn("Brooklyn thought it was already managing bundle "+result.getMetadata().getVersionedName()
                                 +" but it's not installed to framework at location "+result.getMetadata().getOsgiUniqueUrl()+"; reinstalling it");
@@ -526,13 +543,12 @@ public class BrooklynBomOsgiArchiveInstaller {
                         updating = true;
                     }
                 } else {
-                    List<Bundle> existingBundles = findBundlesByVersion(osgiManager, inferredMetadata);
-                    if (existingBundles.size() > 0 && (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null)) {
+                    if (matchingVsnBundles.size() > 0 && (result.getMetadata().getChecksum()==null || inferredMetadata.getChecksum()==null)) {
                         // e.g. Checksum would be missing if we brought under management a pre-installed bundle with an unusable url.
                         log.info("Missing bundle checksum data for "+result+"; assuming bundle matches existing brooklyn-managed bundle (not re-installing)");
                         result.setIgnoringAlreadyInstalled();
                         return ReferenceWithError.newInstanceWithoutError(result);
-                    } else if (result.bundle != null || existingBundles.size() > 0) {
+                    } else if (result.bundle != null || matchingVsnBundles.size() > 0) {
                         throw new IllegalArgumentException("Bundle "+result.getMetadata().getVersionedName()+" already installed; "
                                 + "cannot install a different bundle with the same non-snapshot version");
                     } else {
@@ -540,6 +556,11 @@ public class BrooklynBomOsgiArchiveInstaller {
                                 + "will not re-install without use of 'force'");
                     }
                 }
+
+                // if proceeding with install, use the new metadata but the old id and osgi url
+                // (the osgi url must match because we use "getBundle(...)" to update it)
+                result.metadata = BasicManagedBundle.copyFirstWithCoordsOfSecond(inferredMetadata, result.metadata);
+
             } else {
                 // No such Brooklyn-managed bundle.
 
@@ -560,8 +581,8 @@ public class BrooklynBomOsgiArchiveInstaller {
                 result.metadata = inferredMetadata;
                 
                 // search for already-installed bundles.
-                List<Bundle> existingBundles = findBundlesByVersion(osgiManager, inferredMetadata);
-                Maybe<Bundle> existingEquivalentBundle = tryFindEquivalentBundle(existingBundles, inferredMetadata, zipFile);
+                List<Bundle> existingBundles = findBundlesBySymbolicNameAndVersion(osgiManager, inferredMetadata);
+                Maybe<Bundle> existingEquivalentBundle = tryFindSameOsgiUrlOrSameContentsBundle(existingBundles, inferredMetadata, zipFile);
                 
                 if (existingEquivalentBundle.isPresent()) {
                     // Identical bundle (by osgi location or binary content) already installed; just bring that under management.
@@ -623,10 +644,12 @@ public class BrooklynBomOsgiArchiveInstaller {
             }
             
             osgiManager.checkCorrectlyInstalled(result.getMetadata(), result.bundle);
-            final File oldZipFile; 
+            final File oldZipFile;
+            final ManagedBundle oldManagedBundle;
             
             if (!updating) { 
                 oldZipFile = null;
+                oldManagedBundle = null;
                 osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
@@ -635,7 +658,9 @@ public class BrooklynBomOsgiArchiveInstaller {
                     mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
                 }
             } else {
-                oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFile(result, zipFile);
+                Pair<File, ManagedBundle> olds = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile);
+                oldZipFile = olds.getLeft();
+                oldManagedBundle = olds.getRight();
 
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
@@ -666,9 +691,9 @@ public class BrooklynBomOsgiArchiveInstaller {
                         if (oldZipFile==null) {
                             throw new IllegalStateException("Did not have old ZIP file to install");
                         }
-                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipFile);
+                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state "+oldManagedBundle+" from "+oldZipFile);
                         try {
-                            File zipFileNow = osgiManager.managedBundlesRecord.rollbackManagedBundleFile(result, oldZipFile);
+                            File zipFileNow = osgiManager.managedBundlesRecord.rollbackManagedBundleFileAndMetadata(result, oldZipFile, oldManagedBundle);
                             result.bundle.update(new FileInputStream(Preconditions.checkNotNull(zipFileNow, "Couldn't find contents of old version of bundle")));
                         } catch (Exception e) {
                             Exceptions.propagateIfFatal(e);
@@ -875,7 +900,7 @@ public class BrooklynBomOsgiArchiveInstaller {
         return blacklistBundlePersistencePredicate.test(managedBundle);
     }
     
-    private static List<Bundle> findBundlesByVersion(OsgiManager osgiManager, ManagedBundle desired) {
+    private static List<Bundle> findBundlesBySymbolicNameAndVersion(OsgiManager osgiManager, ManagedBundle desired) {
         return Osgis.bundleFinder(osgiManager.getFramework())
                 .symbolicName(desired.getSymbolicName())
                 .version(desired.getOsgiVersionString())
@@ -886,19 +911,9 @@ public class BrooklynBomOsgiArchiveInstaller {
         return actual.getChecksum() != null && Objects.equal(actual.getChecksum(), desired.getChecksum());
     }
     
-    private static boolean isEquivalentBundleAlreadyOsgiInstalled(OsgiManager osgiManager, ManagedBundle desired, File zipFile) {
-        for (Bundle bundle : findBundlesByVersion(osgiManager, desired)) {
-            if (isEquivalentBundle(bundle, desired, zipFile)) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    private static Maybe<Bundle> tryFindEquivalentBundle(Iterable<? extends Bundle> bundles, ManagedBundle desired, File zipFile) {
+    private static Maybe<Bundle> tryFindSameOsgiUrlOrSameContentsBundle(Iterable<? extends Bundle> bundles, ManagedBundle desired, File zipFile) {
         for (Bundle bundle : bundles) {
-            if (isEquivalentBundle(bundle, desired, zipFile)) {
+            if (isBundleSameOsgiUrlOrSameContents(bundle, desired, zipFile)) {
                 return Maybe.of(bundle);
             }
         }
@@ -906,7 +921,7 @@ public class BrooklynBomOsgiArchiveInstaller {
         return Maybe.absent();
     }
     
-    private static boolean isEquivalentBundle(Bundle bundle, ManagedBundle desired, File zipFile) {
+    private static boolean isBundleSameOsgiUrlOrSameContents(Bundle bundle, ManagedBundle desired, File zipFile) {
         // Would be nice to also use `desired.getChecksum()`, but not clear if we can get
         // MD5 checksum from an installed OSGi bundle.
         

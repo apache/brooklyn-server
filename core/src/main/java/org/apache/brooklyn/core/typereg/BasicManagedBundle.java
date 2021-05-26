@@ -42,6 +42,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String symbolicName;
     private String version;
     private String checksum;
+    private String osgiUniqueUrl;
     private String format;
     private String url;
     private Credentials credentials;
@@ -60,6 +61,10 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
+        init(name, version, url, format, credentials, checksum);
+    }
+
+    private void init(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -68,10 +73,26 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         }
         this.symbolicName = name;
         this.version = version;
-        this.format = format;
         this.url = url;
-        this.checksum = checksum;
+        this.format = format;
         this.credentials = credentials;
+        this.checksum = checksum;
+    }
+
+    private BasicManagedBundle(String id, String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
+        super(id);
+        init(name, version, url, format, credentials, checksum);
+    }
+
+    /** used when updating a persisted bundle, we want to use the coords (ID and OSGI unique URL) of the second with the checksum of the former;
+     * the other fields should be the same between the two but if in doubt use the first argument
+     */
+    public static BasicManagedBundle copyFirstWithCoordsOfSecond(ManagedBundle update, ManagedBundle oldOneForCoordinates) {
+        BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum());
+        // we have secondary logic which should accept a change in the OSGi unique URL,
+        // but more efficient if we use the original URL
+        result.osgiUniqueUrl = oldOneForCoordinates.getOsgiUniqueUrl();
+        return result;
     }
     
     @Override
@@ -132,15 +153,23 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     /**
-     * Gets the (internal) value to be used as the location in bundleContext.install(location). 
-     * It thus allows us to tell if a cached OSGi bundle is the same as a bundle we are about to 
-     * install (e.g. one we get from persisted state), or have retrieved from the initial catalog.
+     * Gets the (internal) value to be used as the location in bundleContext.install(location) / bundleContext.getBundle(location).
+     * It thus allows us to tell if a cached OSGi bundle should be considered as replacement
+     * for the one we are about to install (e.g. one we get from persisted state),
+     * or have retrieved from the initial catalog with a unique URL for a bundle symbolic-name + version.
+     * This is typically not a real URL, as the same bundle may come from various locations.
+     * Typically we use a checksum or internal ID.
+     * In the case of same-version (eg snapshot or forced) bundle updates we remember and re-use the _original_ checksum.
+     * However code should be tolerant if this is not unique and use other more-expensive mechanisms for secondary de-duplication.
      * 
      * Care should be taken to set the checksum <em>before</em> using the OSGi unique url.
      */
     @Override
     public String getOsgiUniqueUrl() {
-        return "brooklyn:" + (checksum != null ? checksum : getId());
+        if (osgiUniqueUrl==null) {
+            osgiUniqueUrl = "brooklyn:" + (checksum != null ? checksum : getId());
+        }
+        return osgiUniqueUrl;
     }
     
     @Override
