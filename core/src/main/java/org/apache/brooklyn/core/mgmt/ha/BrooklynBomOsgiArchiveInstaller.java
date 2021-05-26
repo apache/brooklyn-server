@@ -69,6 +69,7 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.BrooklynVersionSyntax;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
+import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
@@ -643,10 +644,12 @@ public class BrooklynBomOsgiArchiveInstaller {
             }
             
             osgiManager.checkCorrectlyInstalled(result.getMetadata(), result.bundle);
-            final File oldZipFile; 
+            final File oldZipFile;
+            final ManagedBundle oldManagedBundle;
             
             if (!updating) { 
                 oldZipFile = null;
+                oldManagedBundle = null;
                 osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
@@ -655,7 +658,9 @@ public class BrooklynBomOsgiArchiveInstaller {
                     mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
                 }
             } else {
-                oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile);
+                Pair<File, ManagedBundle> olds = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile);
+                oldZipFile = olds.getLeft();
+                oldManagedBundle = olds.getRight();
 
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
@@ -686,9 +691,9 @@ public class BrooklynBomOsgiArchiveInstaller {
                         if (oldZipFile==null) {
                             throw new IllegalStateException("Did not have old ZIP file to install");
                         }
-                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state from "+oldZipFile);
+                        log.debug("Rolling back bundle "+result.getVersionedName()+" to state "+oldManagedBundle+" from "+oldZipFile);
                         try {
-                            File zipFileNow = osgiManager.managedBundlesRecord.rollbackManagedBundleFile(result, oldZipFile);
+                            File zipFileNow = osgiManager.managedBundlesRecord.rollbackManagedBundleFileAndMetadata(result, oldZipFile, oldManagedBundle);
                             result.bundle.update(new FileInputStream(Preconditions.checkNotNull(zipFileNow, "Couldn't find contents of old version of bundle")));
                         } catch (Exception e) {
                             Exceptions.propagateIfFatal(e);

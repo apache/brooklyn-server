@@ -66,6 +66,7 @@ import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
@@ -173,7 +174,7 @@ public class OsgiManager {
         }
 
         /** Updates the bundle file associated with the given record, creating and returning a backup if there was already such a file */ 
-        synchronized File updateManagedBundleFileAndMetadata(OsgiBundleInstallationResult result, File fNew) {
+        synchronized Pair<File,ManagedBundle> updateManagedBundleFileAndMetadata(OsgiBundleInstallationResult result, File fNew) {
             File fCached = fileFor(result.getMetadata());
             File fBak = new File(fCached.getAbsolutePath()+".bak");
             if (fBak.equals(fNew)) {
@@ -192,13 +193,13 @@ public class OsgiManager {
                 throw Exceptions.propagate(e);
             }
 
-            managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+            ManagedBundle mbBak = managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
 
-            return fBak;
+            return Pair.of(fBak, mbBak);
         }
         
         /** Rolls back the officially installed file to a given backup copy of a bundle file, returning the new name of the file */
-        synchronized File rollbackManagedBundleFile(OsgiBundleInstallationResult result, File fBak) {
+        synchronized File rollbackManagedBundleFileAndMetadata(OsgiBundleInstallationResult result, File fBak, ManagedBundle mbBak) {
             log.debug("Rolling back to back Brooklyn local copy of bundle file "+fBak);
             if (!fBak.exists()) {
                 throw new IllegalStateException("Cannot rollback to "+fBak+" as file does not exist");
@@ -210,6 +211,9 @@ public class OsgiManager {
                 log.warn("No pre-existing bundle file "+fCached+" when rolling back; ignoring");
             }
             fBak.renameTo(fCached);
+
+            managedBundlesByUid.put(result.getMetadata().getId(), mbBak);
+
             return fCached;
         }
     }
