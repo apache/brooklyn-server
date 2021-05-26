@@ -499,7 +499,8 @@ public class BrooklynBomOsgiArchiveInstaller {
                 result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
                 // Check if exactly this bundle is already installed
-                if (result.bundle != null && checksumsMatch(result.getMetadata(), inferredMetadata)) {
+                if (result.bundle != null && !VersionComparator.isSnapshot(inferredMetadata.getSuppliedVersionString()) &&
+                        checksumsMatch(result.getMetadata(), inferredMetadata)) {
                     // e.g. repeatedly installing the same bundle
                     log.trace("Bundle "+inferredMetadata+" matches already installed managed bundle "+result.getMetadata()
                             +"; install is no-op");
@@ -635,6 +636,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                 }
             } else {
                 oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFile(result, zipFile);
+
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
                 if (!isBlacklistedForPersistence(result.getMetadata())) {
@@ -825,8 +827,7 @@ public class BrooklynBomOsgiArchiveInstaller {
             if (result.getMetadata() != null) {
                 result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
-                log.debug("Bundle "+inferredMetadata+" forcibly replaced by bundle "+result.getMetadata()
-                        +"; install is no-op");
+                log.debug("Bundle "+inferredMetadata+" forcibly replaced by bundle "+result.getMetadata() +"; install is no-op");
                 result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), replacementBundle);
                 return;
             } else {
@@ -875,7 +876,10 @@ public class BrooklynBomOsgiArchiveInstaller {
     }
     
     private static List<Bundle> findBundlesByVersion(OsgiManager osgiManager, ManagedBundle desired) {
-        return Osgis.bundleFinder(osgiManager.getFramework()).symbolicName(desired.getSymbolicName()).version(desired.getOsgiVersionString()).findAll();
+        return Osgis.bundleFinder(osgiManager.getFramework())
+                .symbolicName(desired.getSymbolicName())
+                .version(desired.getOsgiVersionString())
+                .findAll();
     }
     
     private static boolean checksumsMatch(ManagedBundle actual, ManagedBundle desired) {
