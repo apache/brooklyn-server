@@ -89,6 +89,8 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
      */
     public static BasicManagedBundle copyFirstWithCoordsOfSecond(ManagedBundle update, ManagedBundle oldOneForCoordinates) {
         BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum());
+        // we have secondary logic which should accept a change in the OSGi unique URL,
+        // but more efficient if we use the original URL
         result.osgiUniqueUrl = oldOneForCoordinates.getOsgiUniqueUrl();
         return result;
     }
@@ -151,10 +153,14 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     /**
-     * Gets the (internal) value to be used as the location in bundleContext.install(location). 
+     * Gets the (internal) value to be used as the location in bundleContext.install(location) / bundleContext.getBundle(location).
      * It thus allows us to tell if a cached OSGi bundle should be considered as replacement
      * for the one we are about to install (e.g. one we get from persisted state),
-     * or have retrieved from the initial catalog.
+     * or have retrieved from the initial catalog with a unique URL for a bundle symbolic-name + version.
+     * This is typically not a real URL, as the same bundle may come from various locations.
+     * Typically we use a checksum or internal ID.
+     * In the case of same-version (eg snapshot or forced) bundle updates we remember and re-use the _original_ checksum.
+     * However code should be tolerant if this is not unique and use other more-expensive mechanisms for secondary de-duplication.
      * 
      * Care should be taken to set the checksum <em>before</em> using the OSGi unique url.
      */
