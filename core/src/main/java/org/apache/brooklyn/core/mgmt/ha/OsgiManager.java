@@ -141,8 +141,7 @@ public class OsgiManager {
         }
         
         synchronized void addManagedBundle(OsgiBundleInstallationResult result, File f) {
-            updateManagedBundleFile(result, f);
-            managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+            updateManagedBundleFileAndMetadata(result, f);
             managedBundlesUidByVersionedName.put(VersionedName.toOsgiVersionedName(result.getMetadata().getVersionedName()), 
                 result.getMetadata().getId());
             if (Strings.isNonBlank(result.getMetadata().getUrl())) {
@@ -174,7 +173,7 @@ public class OsgiManager {
         }
 
         /** Updates the bundle file associated with the given record, creating and returning a backup if there was already such a file */ 
-        synchronized File updateManagedBundleFile(OsgiBundleInstallationResult result, File fNew) {
+        synchronized File updateManagedBundleFileAndMetadata(OsgiBundleInstallationResult result, File fNew) {
             File fCached = fileFor(result.getMetadata());
             File fBak = new File(fCached.getAbsolutePath()+".bak");
             if (fBak.equals(fNew)) {
@@ -192,6 +191,9 @@ public class OsgiManager {
             } catch (IOException e) {
                 throw Exceptions.propagate(e);
             }
+
+            managedBundlesByUid.put(result.getMetadata().getId(), result.getMetadata());
+
             return fBak;
         }
         

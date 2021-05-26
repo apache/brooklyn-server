@@ -498,9 +498,13 @@ public class BrooklynBomOsgiArchiveInstaller {
 
                 result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
 
+                log.debug("Request to install "+inferredMetadata.getVersionedName()+" (checksum "+inferredMetadata.getChecksum()+", OSGi URL "+inferredMetadata.getOsgiUniqueUrl()+") in the presence of "+result.getMetadata().getVersionedName()+" (checksum "+result.getMetadata().getChecksum()+", OSGi URL "+result.getMetadata().getOsgiUniqueUrl()+")");
+
                 // Check if exactly this bundle is already installed
-                if (result.bundle != null && !VersionComparator.isSnapshot(inferredMetadata.getSuppliedVersionString()) &&
-                        checksumsMatch(result.getMetadata(), inferredMetadata)) {
+                if (result.bundle != null && checksumsMatch(result.getMetadata(), inferredMetadata)) {
+
+                    isEquivalentBundleAlreadyOsgiInstalled(osgiManager, inferredMetadata, zipFile);
+
                     // e.g. repeatedly installing the same bundle
                     log.trace("Bundle "+inferredMetadata+" matches already installed managed bundle "+result.getMetadata()
                             +"; install is no-op");
@@ -540,6 +544,11 @@ public class BrooklynBomOsgiArchiveInstaller {
                                 + "will not re-install without use of 'force'");
                     }
                 }
+
+                // if proceeding with install, use the new metadata but the old id and osgi url
+                // (the osgi url must match because we use "getBundle(...)" to update it)
+                result.metadata = BasicManagedBundle.copyFirstWithCoordsOfSecond(inferredMetadata, result.metadata);
+
             } else {
                 // No such Brooklyn-managed bundle.
 
@@ -635,7 +644,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                     mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
                 }
             } else {
-                oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFile(result, zipFile);
+                oldZipFile = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile);
 
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";

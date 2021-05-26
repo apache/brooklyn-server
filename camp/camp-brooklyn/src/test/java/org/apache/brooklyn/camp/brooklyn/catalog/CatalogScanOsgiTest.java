@@ -220,7 +220,7 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
             Streams.closeQuietly(out);
 
             OsgiBundleInstallationResult result = ((ManagementContextInternal) mgmt()).getOsgiManager().get().install(InputStreamSource.of("test:" + f, f)).getWithError();
-            LOG.info("Installed "+result.getVersionedName()+": "+result.getCode()+" - "+result.getMessage());
+            LOG.info("Installed "+result.getVersionedName()+": "+result.getCode()+" - "+result.getMessage() + " ("+result.getMetadata().getChecksum()+")");
             if (expectedResultCode!=null) Asserts.assertEquals(result.getCode(), expectedResultCode);
         } catch (Exception e) {
             throw Exceptions.propagate(e);
