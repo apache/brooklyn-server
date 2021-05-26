@@ -69,7 +69,7 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         return decorateWithHierarchySpecTag(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
-            isApplicationExpected(type, context) ? 0 : 1), type, "example-xml");
+            isApplicationExpected(type, context) ? 0 : 1), type, "example-xml", null);
     }
 
     private static boolean isApplicationExpected(RegisteredType type, RegisteredTypeLoadingContext context) {
