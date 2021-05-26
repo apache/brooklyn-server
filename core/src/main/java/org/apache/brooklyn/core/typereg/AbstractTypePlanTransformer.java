@@ -161,10 +161,14 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
     protected abstract Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
 
-    protected AbstractBrooklynObjectSpec<?,?> decorateWithHierarchySpecTag(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type, final String format) {
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithHierarchySpecTag(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type, final String format, final String summary) {
+        final String specSummary = Strings.isBlank(summary)
+                ? format + " plan for " + (Strings.isNonBlank(type.getSymbolicName())? type.getSymbolicName() : type.getDisplayName())
+                : summary;
+
         BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
                 .format(format)
-                .summary(format + " plan for " + (Strings.isNonBlank(type.getSymbolicName())? type.getSymbolicName() : type.getDisplayName()))
+                .summary(specSummary)
                 .contents(type.getPlan().getPlanData())
                 .build();
 
