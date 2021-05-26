@@ -333,7 +333,20 @@ public class RegisteredTypes {
     @Beta
     public static RegisteredType addTag(RegisteredType type, Object tag) {
         if (tag!=null) {
-            ((BasicRegisteredType)type).tags.add( tag );
+            if (tag instanceof Map) {
+                Map<String,Object> mapTag = (Map<String,Object>) tag;
+                if(mapTag.containsKey(BrooklynTags.YAML_SPEC_HIERARCHY)) {
+                    Map<String,String> hierarchySpecTag = (Map<String,String>) mapTag.get(BrooklynTags.YAML_SPEC_HIERARCHY);
+                    BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
+                            .format(hierarchySpecTag.get("format"))
+                            .summary(hierarchySpecTag.get("summary"))
+                            .contents(hierarchySpecTag.get("contents"))
+                            .build();
+                    ((BasicRegisteredType)type).tags.add( currentSpecTag );
+                }
+            } else {
+                ((BasicRegisteredType) type).tags.add(tag);
+            }
         }
         return type;
     }

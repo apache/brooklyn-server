@@ -661,6 +661,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogMetadata.put("tags", MutableSet.copyOf(getFirstAs(parentMetadata, Collection.class, "tags").orNull())
             .putAll(getFirstAs(itemMetadataWithoutItemDef, Collection.class, "tags").orNull()) );
 
+
         // brooklyn.libraries we treat specially, to append the list, with the child's list preferred in classloading order
         // `libraries` is supported in some places as a legacy syntax; it should always be `brooklyn.libraries` for new apps
         // TODO in 0.8.0 require brooklyn.libraries, don't allow "libraries" on its own

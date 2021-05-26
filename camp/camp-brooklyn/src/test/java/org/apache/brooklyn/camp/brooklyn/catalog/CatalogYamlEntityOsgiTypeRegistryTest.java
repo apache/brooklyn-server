@@ -20,7 +20,9 @@ package org.apache.brooklyn.camp.brooklyn.catalog;
 
 import java.util.Map;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -33,6 +35,9 @@ import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /** Variant of parent tests using OSGi, bundles, and type registry, instead of lightweight non-osgi catalog */
 @Test
@@ -206,6 +211,34 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         Asserts.assertEquals(item.getDescription(), "new-\nline");
         Object docTag = item.getTags().stream().filter(x -> x instanceof Map && ((Map) x).containsKey("description.md")).findFirst().orElse(null);
         Asserts.assertEquals(((Map) docTag).get("description.md"), "Line 1\nLine **2**\n");
+
+        deleteCatalogRegisteredType(symbolicName);
+    }
+
+    @Test
+    public void testAddCatalogItemWithHierarchyTag() throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  tags:",
+                "  - "+ BrooklynTags.YAML_SPEC_HIERARCHY +": ",
+                "           format: " + CampTypePlanTransformer.FORMAT,
+                "           summary:  Plan for " + symbolicName,
+                "           contents:  | " ,
+                "               line 1" ,
+                "               line 2" ,
+                "  itemType: entity",
+                "  item: " + BasicEntity.class.getName());
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+        assertTrue(item.getTags().stream().anyMatch(tag -> tag instanceof BrooklynTags.SpecTag));
+
+        BrooklynTags.SpecTag specTag = (BrooklynTags.SpecTag) item.getTags().stream().filter(x -> x instanceof BrooklynTags.SpecTag).findFirst().orElse(null);
+        assertEquals(specTag.getSpecList().size(), 1);
+        Asserts.assertEquals(((Map<String,String>)specTag.getSpecList().get(0)).get("format"), CampTypePlanTransformer.FORMAT);
+        Asserts.assertEquals(((Map<String,String>)specTag.getSpecList().get(0)).get("summary"), "Plan for " + symbolicName);
 
         deleteCatalogRegisteredType(symbolicName);
     }
