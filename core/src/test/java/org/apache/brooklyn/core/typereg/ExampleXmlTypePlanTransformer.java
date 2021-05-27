@@ -41,8 +41,10 @@ import org.w3c.dom.Node;
  * how implementations are meant to be written. */
 public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
 
+    public static final String FORMAT = "example-xml";
+
     protected ExampleXmlTypePlanTransformer() {
-        super("example-xml", "Example XML", "Illustration of writing a transformer");
+        super(FORMAT, "Example XML", "Illustration of writing a transformer");
     }
 
     @Override
@@ -66,8 +68,8 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return toEntitySpec(parseXml((String)type.getPlan().getPlanData()), 
-            isApplicationExpected(type, context) ? 0 : 1);
+        return decorateWithHierarchySpecTag(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
+            isApplicationExpected(type, context) ? 0 : 1), type, "example-xml", null);
     }
 
     private static boolean isApplicationExpected(RegisteredType type, RegisteredTypeLoadingContext context) {

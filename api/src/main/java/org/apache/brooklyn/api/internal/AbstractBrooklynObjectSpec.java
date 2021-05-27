@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -294,6 +295,10 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
 
     public final Set<Object> getTags() {
         return ImmutableSet.copyOf(tags);
+    }
+
+    public final Object getTag(Predicate<Object> predicate) {
+        return tags.stream().filter(predicate::apply).findAny().orElse(null);
     }
 
     /**

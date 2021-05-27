@@ -252,4 +252,16 @@ public interface EntityApi {
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") String entity);
+
+    @GET
+    @Path("/{entity}/speclist")
+    @ApiOperation(value = "Get the list of YAML spec used to create the entity, if available")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Application or entity missing")
+    })
+    public List<Object> getSpecList(
+            @ApiParam(value = "Application ID or name", required = true)
+            @PathParam("application") String application,
+            @ApiParam(value = "Entity ID or name", required = true)
+            @PathParam("entity") String entity);
 }
