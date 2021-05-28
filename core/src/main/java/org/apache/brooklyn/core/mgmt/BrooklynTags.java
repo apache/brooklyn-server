@@ -43,9 +43,13 @@ public class BrooklynTags {
 
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynTags.class);
 
+    // could deprecate this in favour of spec_hierarchy
     public static final String YAML_SPEC_KIND = "yaml_spec";
-    public static final String YAML_SPEC_HIERARCHY = "yaml_spec_hierarchy"; // TODO rename spec_hierarchy, have spec_source for catalog which gets removed
+
+    public static final String SPEC_HIERARCHY = "spec_hierarchy";
+
     public static final String DEPTH_IN_ANCESTOR = "depth_in_ancestor";
+
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
     public static final String ICON_URL = "icon_url";
@@ -181,7 +185,7 @@ public class BrooklynTags {
     public static class SpecHierarchyTag implements Serializable, HasKind {
         private static final long serialVersionUID = 3805124696862755492L;
 
-        public static final String KIND = YAML_SPEC_HIERARCHY;
+        public static final String KIND = SPEC_HIERARCHY;
 
         public static class SpecSummary implements Serializable {
             @JsonProperty
@@ -257,7 +261,7 @@ public class BrooklynTags {
             }
 
             public SpecHierarchyTag buildSpecHierarchyTag() {
-                return new SpecHierarchyTag(BrooklynTags.YAML_SPEC_HIERARCHY, MutableList.of(buildSpecSummary()));
+                return new SpecHierarchyTag(SPEC_HIERARCHY, MutableList.of(buildSpecSummary()));
             }
         }
 
@@ -306,14 +310,20 @@ public class BrooklynTags {
         }
 
         public void push(SpecSummary newFirstSpecTag) {
-            // usually the list has a single element here, if
             specList.add(0, newFirstSpecTag);
         }
+        public void push(List<SpecSummary> newFirstSpecs) {
+            if (newFirstSpecs==null || newFirstSpecs.isEmpty()) return;
+            if (newFirstSpecs.size()==1) {
+                push(newFirstSpecs.iterator().next());
+            } else {
+                List<SpecSummary> l = MutableList.copyOf(newFirstSpecs);
+                Collections.reverse(l);
+                l.forEach(this::push);
+            }
+        }
         public void push(SpecHierarchyTag newFirstSpecs) {
-            // usually the list has a single element here, if
-            List<SpecSummary> l = MutableList.copyOf(newFirstSpecs.getSpecList());
-            Collections.reverse(l);
-            l.forEach(this::push);
+            push(newFirstSpecs.getSpecList());
         }
 
         public SpecSummary pop() {

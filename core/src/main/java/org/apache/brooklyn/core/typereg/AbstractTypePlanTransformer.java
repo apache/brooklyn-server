@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import com.google.common.reflect.TypeToken;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -193,11 +194,10 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
             spec.tag(specTag);
         }
 
-        // TODO rename key as spec_sources
-        SpecSummary source = BrooklynTags.findSingleKeyMapValue(BrooklynTags.YAML_SPEC_HIERARCHY, SpecSummary.class, type.getTags());
-        if (source != null) {
+        List<SpecSummary> sources = BrooklynTags.findSingleKeyMapValue(BrooklynTags.SPEC_HIERARCHY, new TypeToken<List<SpecSummary>>() {}, type.getTags());
+        if (sources != null) {
             specTag.modifyHeadSummary(s -> "Converted for catalog to "+s);
-            specTag.push(source);
+            specTag.push(sources);
         }
 
         if (spec instanceof EntitySpec) {
