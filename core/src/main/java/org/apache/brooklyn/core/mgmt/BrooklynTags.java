@@ -136,13 +136,19 @@ public class BrooklynTags {
         }
 
         public static Builder builder() { return new Builder(); }
+        public static Builder builder(SpecSummary base) { return new Builder(base); }
 
         public static class Builder {
-            private String format;
             private String summary;
+            private String format;
             private Object contents;
 
             private Builder() {}
+            private Builder(SpecSummary base) {
+                summary = base.summary;
+                format = base.format;
+                contents = base.contents;
+            }
 
             public Builder summary(final String summary) {
                 this.summary = summary;
@@ -221,6 +227,12 @@ public class BrooklynTags {
             // usually the list has a single element here, if
             newFirstSpecs.getSpecList().forEach(this::push);
         }
+
+        public SpecSummary pop() {
+            if (getSpecList().isEmpty()) return null;
+            return getSpecList().remove(0);
+        }
+
     }
 
     public static class ListTag<T> {

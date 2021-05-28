@@ -65,7 +65,7 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     @SuppressWarnings({ "unchecked" })
     @Override
     protected AbstractBrooklynObjectSpec<?,?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return  decorateWithHierarchySpecTag(RegisteredTypes.newSpecInstance(mgmt, (Class<? extends BrooklynObject>) getType(type, context)), type, FORMAT, null);
+        return decorateWithHierarchySpecTag(RegisteredTypes.newSpecInstance(mgmt, (Class<? extends BrooklynObject>) getType(type, context)), type, FORMAT, null, null);
     }
 
     @Override

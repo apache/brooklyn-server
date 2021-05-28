@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import java.util.function.Function;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -27,6 +29,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag.SpecSummary;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -162,10 +165,17 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
     protected abstract Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
 
-    protected AbstractBrooklynObjectSpec<?,?> decorateWithHierarchySpecTag(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type, final String format, final String summary) {
-        final String specSummary = Strings.isBlank(summary)
-                ? format + " plan for " + (Strings.isNonBlank(type.getSymbolicName())? type.getSymbolicName() : type.getDisplayName())
-                : summary;
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithHierarchySpecTag(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
+                                                                           final String format, @Nullable final String summary,
+                                                                           @Nullable Function<String,String> previousSummaryModification) {
+        final String specSummary = Strings.isNonBlank(summary)
+                ? summary
+                : format + " plan" +
+                    (Strings.isNonBlank(type.getSymbolicName())
+                            ? "for type "+type.getSymbolicName()
+                            : Strings.isNonBlank(type.getDisplayName())
+                                ? "for "+type.getDisplayName()
+                                : "");
 
         BrooklynTags.SpecHierarchyTag.Builder currentSpecTagBuilder = BrooklynTags.SpecHierarchyTag.builder()
                 .format(format)
@@ -174,6 +184,12 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
         SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
         if (specTag != null) {
+            if (!specTag.getSpecList().isEmpty() && previousSummaryModification!=null) {
+                SpecSummary oldHead = specTag.pop();
+                SpecSummary newPrevHead = SpecHierarchyTag.builder(oldHead).summary(
+                        previousSummaryModification.apply(oldHead.summary)).buildSpecSummary();
+                specTag.push(newPrevHead);
+            }
             specTag.push(currentSpecTagBuilder.buildSpecSummary());
         } else {
             specTag = currentSpecTagBuilder.buildSpecHierarchyTag();
