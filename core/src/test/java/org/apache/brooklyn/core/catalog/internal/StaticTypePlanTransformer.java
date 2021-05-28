@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -93,9 +92,9 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         if (REGISTERED_SPECS.containsKey(type.getSymbolicName()))
-            return decorateWithHierarchySpecTag(get(type.getSymbolicName()), type, FORMAT, null );
+            return decorateWithCommonTags(get(type.getSymbolicName()), type, null, null, null);
         if (type.getPlan().getPlanData()!=null && REGISTERED_SPECS.containsKey(type.getPlan().getPlanData()))
-            return decorateWithHierarchySpecTag(get((String)type.getPlan().getPlanData()), type, FORMAT, null);
+            return decorateWithCommonTags(get((String)type.getPlan().getPlanData()), type, null, null, null);
         return null;
     }
 

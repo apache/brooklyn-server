@@ -59,7 +59,6 @@ import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.apache.brooklyn.util.yaml.Yamls;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -332,20 +331,7 @@ public class RegisteredTypes {
     @Beta
     public static RegisteredType addTag(RegisteredType type, Object tag) {
         if (tag!=null) {
-            if (tag instanceof Map &&( (Map<String,Object>) tag).containsKey(BrooklynTags.YAML_SPEC_HIERARCHY)) {
-                Map<String,Object> mapTag = (Map<String,Object>) tag;
-                if(mapTag.containsKey(BrooklynTags.YAML_SPEC_HIERARCHY)) {
-                    Map<String,String> hierarchySpecTag = (Map<String,String>) mapTag.get(BrooklynTags.YAML_SPEC_HIERARCHY);
-                    BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
-                            .format(hierarchySpecTag.get("format"))
-                            .summary(StringUtils.isNotBlank(hierarchySpecTag.get("summary"))? hierarchySpecTag.get("summary") : "Plan for " + type.getSymbolicName())
-                            .contents(StringUtils.isNotBlank(hierarchySpecTag.get("contents"))? hierarchySpecTag.get("contents") : "n/a")
-                            .build();
-                    ((BasicRegisteredType)type).tags.add( currentSpecTag );
-                }
-            } else {
-                ((BasicRegisteredType) type).tags.add(tag);
-            }
+            ((BasicRegisteredType) type).tags.add(tag);
         }
         return type;
     }
@@ -659,7 +645,7 @@ public class RegisteredTypes {
     public static String getIconUrl(BrooklynObject object) {
         if (object==null) return null;
         
-        NamedStringTag fromTag = BrooklynTags.findFirst(BrooklynTags.ICON_URL, object.tags().getTags());
+        NamedStringTag fromTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.ICON_URL, object.tags().getTags());
         if (fromTag!=null) return fromTag.getContents();
         
         ManagementContext mgmt = ((BrooklynObjectInternal)object).getManagementContext();

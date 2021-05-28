@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.StringReader;
-import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -68,8 +67,8 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return decorateWithHierarchySpecTag(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
-            isApplicationExpected(type, context) ? 0 : 1), type, "example-xml", null);
+        return decorateWithCommonTags(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
+            isApplicationExpected(type, context) ? 0 : 1), type, "example-xml", null, null);
     }
 
     private static boolean isApplicationExpected(RegisteredType type, RegisteredTypeLoadingContext context) {

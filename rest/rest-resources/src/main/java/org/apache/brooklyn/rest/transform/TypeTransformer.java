@@ -45,6 +45,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -60,6 +61,7 @@ import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.domain.TypeDetail;
 import org.apache.brooklyn.rest.domain.TypeSummary;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -100,17 +102,22 @@ public class TypeTransformer {
         }
 
         // adding tag type spec hierarchy using hierarchy tag
-        BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
+        SpecSummary currentSpec = SpecSummary.builder()
                 .format(StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat())
                 // the default type implementation is camp in this location, but hierarchy tag provides the original implementation, so it takes precedence.
                 .summary((StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat()) + " implementation")
                 .contents(item.getPlan().getPlanData())
                 .build();
-        BrooklynTags.SpecTag specTag =  BrooklynTags.findHierarchySpecTag(BrooklynTags.YAML_SPEC_HIERARCHY, item.getTags());
+
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(item.getTags());
         if(specTag!= null){
-            currentSpecTag.push(specTag);
+            SpecSummary.modifyHeadSummary(specTag, s -> "Converted to "+s);
+            SpecSummary.pushToList(specTag, currentSpec);
+        } else {
+            specTag = MutableList.of(currentSpec);
         }
-        result.setExtraField("specList", currentSpecTag.getSpecList());
+
+        result.setExtraField("specList", specTag);
         
         if (detail) {
             if (RegisteredTypes.isSubtypeOf(item, Entity.class)) {
