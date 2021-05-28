@@ -20,12 +20,9 @@ package org.apache.brooklyn.core.mgmt;
 
 import com.google.common.reflect.TypeToken;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import com.google.common.base.MoreObjects;
-import java.util.Set;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 
@@ -47,7 +44,7 @@ public class BrooklynTags {
     private static final Logger LOG = LoggerFactory.getLogger(BrooklynTags.class);
 
     public static final String YAML_SPEC_KIND = "yaml_spec";
-    public static final String YAML_SPEC_HIERARCHY = "yaml_spec_hierarchy";
+    public static final String YAML_SPEC_HIERARCHY = "yaml_spec_hierarchy"; // TODO rename spec_hierarchy, have spec_source for catalog which gets removed
     public static final String DEPTH_IN_ANCESTOR = "depth_in_ancestor";
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
@@ -194,6 +191,7 @@ public class BrooklynTags {
             @JsonProperty
             public final Object contents;
 
+            private SpecSummary() { this(null, null, null); }; //for JSON
             public SpecSummary(String summary, String format, Object contents) {
                 this.summary = summary;
                 this.format = format;
@@ -313,7 +311,9 @@ public class BrooklynTags {
         }
         public void push(SpecHierarchyTag newFirstSpecs) {
             // usually the list has a single element here, if
-            newFirstSpecs.getSpecList().forEach(this::push);
+            List<SpecSummary> l = MutableList.copyOf(newFirstSpecs.getSpecList());
+            Collections.reverse(l);
+            l.forEach(this::push);
         }
 
         public SpecSummary pop() {
@@ -321,6 +321,16 @@ public class BrooklynTags {
             return getSpecList().remove(0);
         }
 
+        public boolean modifyHeadSummary(java.util.function.Function<String, String> previousSummaryModification) {
+            if (!getSpecList().isEmpty() && previousSummaryModification!=null) {
+                SpecSummary oldHead = pop();
+                SpecSummary newPrevHead = SpecHierarchyTag.builder(oldHead).summary(
+                        previousSummaryModification.apply(oldHead.summary)).buildSpecSummary();
+                push(newPrevHead);
+                return true;
+            }
+            return false;
+        }
     }
 
     public static class ListTag<T> {

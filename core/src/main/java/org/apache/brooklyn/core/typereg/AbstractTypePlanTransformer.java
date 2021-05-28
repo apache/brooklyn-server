@@ -174,9 +174,9 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                 ? summary
                 : format + " plan" +
                     (Strings.isNonBlank(type.getSymbolicName())
-                            ? "for type "+type.getSymbolicName()
+                            ? " for type "+type.getSymbolicName()
                             : Strings.isNonBlank(type.getDisplayName())
-                                ? "for "+type.getDisplayName()
+                                ? " for "+type.getDisplayName()
                                 : "");
 
         BrooklynTags.SpecHierarchyTag.Builder currentSpecTagBuilder = BrooklynTags.SpecHierarchyTag.builder()
@@ -186,16 +186,18 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
         SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
         if (specTag != null) {
-            if (!specTag.getSpecList().isEmpty() && previousSummaryModification!=null) {
-                SpecSummary oldHead = specTag.pop();
-                SpecSummary newPrevHead = SpecHierarchyTag.builder(oldHead).summary(
-                        previousSummaryModification.apply(oldHead.summary)).buildSpecSummary();
-                specTag.push(newPrevHead);
-            }
+            specTag.modifyHeadSummary(previousSummaryModification);
             specTag.push(currentSpecTagBuilder.buildSpecSummary());
         } else {
             specTag = currentSpecTagBuilder.buildSpecHierarchyTag();
             spec.tag(specTag);
+        }
+
+        // TODO rename key as spec_sources
+        SpecSummary source = BrooklynTags.findSingleKeyMapValue(BrooklynTags.YAML_SPEC_HIERARCHY, SpecSummary.class, type.getTags());
+        if (source != null) {
+            specTag.modifyHeadSummary(s -> "Converted for catalog to "+s);
+            specTag.push(source);
         }
 
         if (spec instanceof EntitySpec) {

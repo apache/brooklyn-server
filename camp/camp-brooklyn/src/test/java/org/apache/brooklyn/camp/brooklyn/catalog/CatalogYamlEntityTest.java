@@ -247,6 +247,12 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "  - id: " + referencedSymbolicName,
                 "    item:",
                 "      type: " + TestEntity.class.getName(),
+                "    tags:" ,
+                "    - yaml_spec_hierarchy:" ,
+                "        format: camp-test",
+                "        summary:  Test Type." ,
+                "        contents: |" ,
+                "            type: " + referencedSymbolicName,
                 "  - id: " + referrerSymbolicName,
                 "    item:",
                 "      type: " + ver(referencedSymbolicName, TEST_VERSION));
@@ -267,7 +273,7 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         // tests that the plan tag was set
         BrooklynTags.SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
         Assert.assertNotNull(specTag);
-        assertEquals(specTag.getSpecList().size(), 2);
+        assertEquals(specTag.getSpecList().size(), 3);
 
         deleteCatalogRegisteredType(referencedSymbolicName);
         deleteCatalogRegisteredType(referrerSymbolicName);
