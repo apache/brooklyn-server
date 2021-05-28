@@ -30,8 +30,8 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
-import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag;
-import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag.SpecSummary;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -168,10 +168,11 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
     protected abstract Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
 
-    protected AbstractBrooklynObjectSpec<?,?> decorateWithHierarchySpecTag(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
-                                                                           final String format, @Nullable final String summary,
-                                                                           @Nullable Function<String,String> previousSummaryModification) {
-        final String specSummary = Strings.isNonBlank(summary)
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithCommonTags(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
+                                                                     @Nullable String format, @Nullable String summary,
+                                                                     @Nullable Function<String,String> previousSummaryModification) {
+        if (Strings.isBlank(format)) format = getFormatCode();
+        final String specSummaryText = Strings.isNonBlank(summary)
                 ? summary
                 : format + " plan" +
                     (Strings.isNonBlank(type.getSymbolicName())
@@ -180,25 +181,26 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                                 ? " for "+type.getDisplayName()
                                 : "");
 
-        BrooklynTags.SpecHierarchyTag.Builder currentSpecTagBuilder = BrooklynTags.SpecHierarchyTag.builder()
+        SpecSummary specSummary = SpecSummary.builder()
                 .format(format)
-                .summary(specSummary)
-                .contents(type.getPlan().getPlanData());
+                .summary(specSummaryText)
+                .contents(type.getPlan().getPlanData())
+                .build();
 
-        SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
         if (specTag != null) {
-            specTag.modifyHeadSummary(previousSummaryModification);
-            specTag.push(currentSpecTagBuilder.buildSpecSummary());
+            SpecSummary.modifyHeadSummary(specTag, previousSummaryModification);
+            SpecSummary.pushToList(specTag, specSummary);
         } else {
-            specTag = currentSpecTagBuilder.buildSpecHierarchyTag();
-            spec.tag(specTag);
+            specTag = MutableList.of(specSummary);
         }
 
-        List<SpecSummary> sources = BrooklynTags.findSingleKeyMapValue(BrooklynTags.SPEC_HIERARCHY, new TypeToken<List<SpecSummary>>() {}, type.getTags());
+        List<SpecSummary> sources = BrooklynTags.findSpecHierarchyTag(type.getTags());
         if (sources != null) {
-            specTag.modifyHeadSummary(s -> "Converted for catalog to "+s);
-            specTag.push(sources);
+            SpecSummary.modifyHeadSummary(specTag, s -> "Converted for catalog to "+s);
+            SpecSummary.pushToList(specTag, sources);
         }
+        BrooklynTags.upsertSingleKeyMapValueTag(spec, BrooklynTags.SPEC_HIERARCHY, specTag);
 
         if (spec instanceof EntitySpec) {
             addDepthTagsWhereMissing( ((EntitySpec<?>)spec).getChildren(), 1 );

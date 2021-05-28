@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -315,7 +316,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public List<Object>  getSpecList(String applicationId, String entityId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        BrooklynTags.SpecHierarchyTag specTag =  BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
-        return (List<Object>) resolving(specTag.getSpecList()).preferJson(true).resolve();
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
+        return (List<Object>) resolving(specTag).preferJson(true).resolve();
     }
 }

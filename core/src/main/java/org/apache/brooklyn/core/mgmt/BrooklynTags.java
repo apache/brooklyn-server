@@ -22,7 +22,9 @@ import com.google.common.reflect.TypeToken;
 import java.io.Serializable;
 import java.util.*;
 
-import com.google.common.base.MoreObjects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 
@@ -32,6 +34,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -46,8 +49,11 @@ public class BrooklynTags {
     // could deprecate this in favour of spec_hierarchy
     public static final String YAML_SPEC_KIND = "yaml_spec";
 
+    /** used as a single-key map key whose value is a list of {@link SpecSummary} maps, first one being the original source, then going in to conversions/definitions */
     public static final String SPEC_HIERARCHY = "spec_hierarchy";
 
+    /** used as a single-key map key whose value is a number 1 or more, indicating how many ancestors up need to be traversed
+     * to find where a particular entity was defined */
     public static final String DEPTH_IN_ANCESTOR = "depth_in_ancestor";
 
     public static final String NOTES_KIND = "notes";
@@ -60,19 +66,42 @@ public class BrooklynTags {
 
     /** find a tag which is a map of size one whose single key matches the key here, and if found return the value
      * coerced to the indicated type */
-    public static <T> T findSingleKeyMapValue(String key, TypeToken<T> type, Set<Object> tags) {
+    public static <T> T findSingleKeyMapValue(String key, TypeToken<T> type, Iterable<Object> tags) {
         if (tags==null) return null;
         for (Object tag: tags) {
-            if (tag instanceof Map && ((Map)tag).size()==1 && Objects.equal(key, ((Map)tag).keySet().iterator().next())) {
-                Object value = ((Map)tag).get(key);
+            if (isTagSingleKeyMap(tag, key)) {
+                java.lang.Object value = ((Map)tag).get(key);
                 return TypeCoercions.coerce(value, type);
             }
         }
         return null;
     }
-    /** convenience for {@link #findSingleKeyMapValue(String, TypeToken, Set)} */
-    public static <T> T findSingleKeyMapValue(String key, Class<T> type, Set<Object> tags) {
+
+    private static <Object> boolean isTagSingleKeyMap(Object tag, String key) {
+        return tag instanceof Map && ((Map) tag).size() == 1 && Objects.equal(key, ((Map) tag).keySet().iterator().next());
+    }
+
+    /** convenience for {@link #findSingleKeyMapValue(String, TypeToken, Iterable)} */
+    public static <T> T findSingleKeyMapValue(String key, Class<T> type, Iterable<Object> tags) {
         return findSingleKeyMapValue(key, TypeToken.of(type), tags);
+    }
+
+    public static <T> void upsertSingleKeyMapValueTag(AbstractBrooklynObjectSpec<?, ?> spec, String key, T value) {
+        MutableList<Object> tags = MutableList.copyOf(spec.getTags());
+        AtomicInteger count = new AtomicInteger();
+        List<Object> newTags = tags.stream().map(t -> {
+            if (isTagSingleKeyMap(t, key)) {
+                count.incrementAndGet();
+                return MutableMap.of(key, value);
+            } else {
+                return t;
+            }
+        }).collect(Collectors.toList());
+        if (count.get()>0) {
+            spec.tagsReplace(newTags);
+        } else {
+            spec.tag(MutableMap.of(key, value));
+        }
     }
 
     public static NamedStringTag findFirstNamedStringTag(String kind, Iterable<Object> tags) {
@@ -182,47 +211,41 @@ public class BrooklynTags {
         }
     }
 
-    public static class SpecHierarchyTag implements Serializable, HasKind {
-        private static final long serialVersionUID = 3805124696862755492L;
+    public static class SpecSummary implements Serializable {
+        @JsonProperty
+        public final String summary;
+        @JsonProperty
+        public final String format;
+        @JsonProperty
+        public final Object contents;
 
-        public static final String KIND = SPEC_HIERARCHY;
+        private SpecSummary() { this(null, null, null); }; //for JSON
+        public SpecSummary(String summary, String format, Object contents) {
+            this.summary = summary;
+            this.format = format;
+            this.contents = contents;
+        }
 
-        public static class SpecSummary implements Serializable {
-            @JsonProperty
-            public final String summary;
-            @JsonProperty
-            public final String format;
-            @JsonProperty
-            public final Object contents;
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            SpecSummary that = (SpecSummary) o;
+            return java.util.Objects.equals(summary, that.summary) && java.util.Objects.equals(format, that.format) && java.util.Objects.equals(contents, that.contents);
+        }
 
-            private SpecSummary() { this(null, null, null); }; //for JSON
-            public SpecSummary(String summary, String format, Object contents) {
-                this.summary = summary;
-                this.format = format;
-                this.contents = contents;
-            }
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(summary, format, contents);
+        }
 
-            @Override
-            public boolean equals(Object o) {
-                if (this == o) return true;
-                if (o == null || getClass() != o.getClass()) return false;
-                SpecSummary that = (SpecSummary) o;
-                return java.util.Objects.equals(summary, that.summary) && java.util.Objects.equals(format, that.format) && java.util.Objects.equals(contents, that.contents);
-            }
-
-            @Override
-            public int hashCode() {
-                return java.util.Objects.hash(summary, format, contents);
-            }
-
-            @Override
-            public String toString() {
-                return "SpecSummary{" +
-                        "summary='" + summary + '\'' +
-                        ", format='" + format + '\'' +
-                        ", contents=" + contents +
-                        '}';
-            }
+        @Override
+        public String toString() {
+            return "SpecSummary{" +
+                    "summary='" + summary + '\'' +
+                    ", format='" + format + '\'' +
+                    ", contents=" + contents +
+                    '}';
         }
 
         public static Builder builder() { return new Builder(); }
@@ -233,7 +256,9 @@ public class BrooklynTags {
             private String format;
             private Object contents;
 
-            private Builder() {}
+            private Builder() {
+            }
+
             private Builder(SpecSummary base) {
                 summary = base.summary;
                 format = base.format;
@@ -255,88 +280,36 @@ public class BrooklynTags {
                 return this;
             }
 
-
-            public SpecSummary buildSpecSummary() {
+            public SpecSummary build() {
                 return new SpecSummary(summary, format, contents);
             }
-
-            public SpecHierarchyTag buildSpecHierarchyTag() {
-                return new SpecHierarchyTag(SPEC_HIERARCHY, MutableList.of(buildSpecSummary()));
-            }
         }
 
-        @JsonProperty
-        String kind;
-
-        @JsonProperty
-        List<SpecSummary> specList;
-
-        // for JSON
-        private SpecHierarchyTag() {}
-
-        private SpecHierarchyTag(String kind, List<SpecSummary> specList) {
-            this.kind = kind;
-            this.specList = specList;
-        }
-
-        @Override
-        public String toString() {
-            return MoreObjects.toStringHelper(this)
-                    .omitNullValues()
-                    .add("kind", kind)
-                    .add("specList", specList)
-                    .toString();
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            SpecHierarchyTag specTag = (SpecHierarchyTag) o;
-            return Objects.equal(kind, specTag.kind) && Objects.equal(specList, specTag.specList) ;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(kind, specList);
-        }
-
-        public String getKind() {
-            return kind;
-        }
-
-        public List<SpecSummary> getSpecList() {
-            return specList;
-        }
-
-        public void push(SpecSummary newFirstSpecTag) {
+        public static void pushToList(List<SpecSummary> specList, SpecSummary newFirstSpecTag) {
             specList.add(0, newFirstSpecTag);
         }
-        public void push(List<SpecSummary> newFirstSpecs) {
+        public static void pushToList(List<SpecSummary> specList, List<SpecSummary> newFirstSpecs) {
             if (newFirstSpecs==null || newFirstSpecs.isEmpty()) return;
             if (newFirstSpecs.size()==1) {
-                push(newFirstSpecs.iterator().next());
+                pushToList(specList, newFirstSpecs.iterator().next());
             } else {
                 List<SpecSummary> l = MutableList.copyOf(newFirstSpecs);
                 Collections.reverse(l);
-                l.forEach(this::push);
+                l.forEach(li -> pushToList(specList, li));
             }
         }
-        public void push(SpecHierarchyTag newFirstSpecs) {
-            push(newFirstSpecs.getSpecList());
+
+        public static SpecSummary popFromList(List<SpecSummary> specList) {
+            if (specList.isEmpty()) return null;
+            return specList.remove(0);
         }
 
-        public SpecSummary pop() {
-            if (getSpecList().isEmpty()) return null;
-            return getSpecList().remove(0);
-        }
-
-        public boolean modifyHeadSummary(java.util.function.Function<String, String> previousSummaryModification) {
-            if (!getSpecList().isEmpty() && previousSummaryModification!=null) {
-                SpecSummary oldHead = pop();
-                SpecSummary newPrevHead = SpecHierarchyTag.builder(oldHead).summary(
-                        previousSummaryModification.apply(oldHead.summary)).buildSpecSummary();
-                push(newPrevHead);
+        public static boolean modifyHeadSummary(List<SpecSummary> specList, java.util.function.Function<String, String> previousSummaryModification) {
+            if (!specList.isEmpty() && previousSummaryModification!=null) {
+                SpecSummary oldHead = popFromList(specList);
+                SpecSummary newPrevHead = SpecSummary.builder(oldHead).summary(
+                        previousSummaryModification.apply(oldHead.summary)).build();
+                pushToList(specList, newPrevHead);
                 return true;
             }
             return false;
@@ -416,8 +389,8 @@ public class BrooklynTags {
     }
 
 
-    public static SpecHierarchyTag findSpecHierarchyTag(Iterable<Object> tags) {
-        return findFirstOfKind(SpecHierarchyTag.KIND, SpecHierarchyTag.class, tags);
+    public static List<SpecSummary> findSpecHierarchyTag(Iterable<Object> tags) {
+        return findSingleKeyMapValue(SPEC_HIERARCHY, new TypeToken<List<SpecSummary>>() {}, tags);
     }
 
     public static Integer getDepthInAncestorTag(Set<Object> tags) {

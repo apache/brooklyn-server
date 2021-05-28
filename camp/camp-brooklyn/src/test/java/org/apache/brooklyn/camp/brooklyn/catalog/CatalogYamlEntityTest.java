@@ -26,6 +26,7 @@ import java.util.Set;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.util.collections.MutableSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -271,9 +272,9 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
 
         // tests that the plan tag was set
-        BrooklynTags.SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
         Assert.assertNotNull(specTag);
-        assertEquals(specTag.getSpecList().size(), 3);
+        assertEquals(specTag.size(), 3);
 
         deleteCatalogRegisteredType(referencedSymbolicName);
         deleteCatalogRegisteredType(referrerSymbolicName);

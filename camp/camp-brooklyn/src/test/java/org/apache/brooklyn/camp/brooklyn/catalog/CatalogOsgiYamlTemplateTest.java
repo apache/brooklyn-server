@@ -18,11 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag;
-import static org.testng.Assert.assertEquals;
-
+import com.google.common.collect.Iterables;
 import java.util.List;
-
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -30,6 +27,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -38,9 +36,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
+import static org.testng.Assert.assertEquals;
 import org.testng.annotations.Test;
-
-import com.google.common.collect.Iterables;
 
 
 public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
@@ -88,9 +85,9 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         String yaml = Iterables.getOnlyElement(yamls).getContents();
         Asserts.assertStringContains(yaml, "services:", "t1", "localhost");
 
-        SpecHierarchyTag yamlsH = BrooklynTags.findSpecHierarchyTag(spec.getTags());
+        List<SpecSummary> yamlsH = BrooklynTags.findSpecHierarchyTag(spec.getTags());
         Assert.assertNotNull(yamlsH);
-        Assert.assertEquals(yamlsH.getSpecList().size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH);
+        Assert.assertEquals(yamlsH.size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH);
 
         Assert.assertNull(BrooklynTags.getDepthInAncestorTag(spec.getTags()));
 
@@ -103,14 +100,14 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         List<NamedStringTag> yamls2 = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, child.getTags());
         Assert.assertEquals(yamls2.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
 
-        SpecHierarchyTag yamlsH2 = BrooklynTags.findSpecHierarchyTag( child.getTags() );
+        List<SpecSummary> yamlsH2 = BrooklynTags.findSpecHierarchyTag(child.getTags());
         Assert.assertNotNull(yamlsH2);
-        Assert.assertEquals(yamlsH2.getSpecList().size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH2);
-        Asserts.assertStringContainsIgnoreCase(yamlsH2.getSpecList().iterator().next().contents.toString(),
+        Assert.assertEquals(yamlsH2.size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH2);
+        Asserts.assertStringContainsIgnoreCase(yamlsH2.iterator().next().contents.toString(),
                 "# this sample comment should be included",
                 "SimpleEntity");
 
-        Assert.assertEquals(BrooklynTags.getDepthInAncestorTag(spec.getTags()), (Integer) 1);
+        Assert.assertEquals(BrooklynTags.getDepthInAncestorTag(child.getTags()), (Integer) 1);
     }
     
     private RegisteredType makeItem(String symbolicName, String templateType) {

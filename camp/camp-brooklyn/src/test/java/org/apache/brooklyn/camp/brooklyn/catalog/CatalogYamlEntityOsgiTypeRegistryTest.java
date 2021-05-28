@@ -18,11 +18,13 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -227,19 +229,19 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
                 "         - format: " + CampTypePlanTransformer.FORMAT,
                 "           summary:  Plan for " + symbolicName,
                 "           contents:  | " ,
-                "               line 1" ,
-                "               line 2" ,
+                "               line 1",
+                "               line 2",
                 "  itemType: entity",
                 "  item: " + BasicEntity.class.getName());
 
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
 
-        BrooklynTags.SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(item.getTags());
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(item.getTags());
         Assert.assertNotNull(specTag);
-        assertEquals(specTag.getSpecList().size(), 1);
+        assertEquals(specTag.size(), 1);
 
-        Asserts.assertEquals(specTag.getSpecList().get(0).format, CampTypePlanTransformer.FORMAT);
-        Asserts.assertEquals(specTag.getSpecList().get(0).summary, "Plan for " + symbolicName);
+        Asserts.assertEquals(specTag.get(0).format, CampTypePlanTransformer.FORMAT);
+        Asserts.assertEquals(specTag.get(0).summary, "Plan for " + symbolicName);
         deleteCatalogRegisteredType(symbolicName);
     }
 
