@@ -18,10 +18,11 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
-import org.apache.brooklyn.api.catalog.BrooklynCatalog;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -30,6 +31,7 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag.SpecSummary;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -196,7 +198,21 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
             spec.tag(specTag);
         }
 
+        if (spec instanceof EntitySpec) {
+            addDepthTagsWhereMissing( ((EntitySpec<?>)spec).getChildren(), 1 );
+        }
+
         return spec;
     }
-    
+
+    protected void addDepthTagsWhereMissing(List<EntitySpec<?>> children, int depth) {
+        children.forEach(c -> {
+            Integer existingDepth = BrooklynTags.getDepthInAncestorTag(c.getTags());
+            if (existingDepth==null) {
+                c.tag(MutableMap.of(BrooklynTags.DEPTH_IN_ANCESTOR, depth));
+                addDepthTagsWhereMissing(c.getChildren(), depth+1);
+            }
+        });
+    }
+
 }

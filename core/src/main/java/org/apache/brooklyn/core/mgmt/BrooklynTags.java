@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.core.mgmt;
 
+import com.google.common.reflect.TypeToken;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.MoreObjects;
+import java.util.Set;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 
@@ -33,6 +35,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +48,7 @@ public class BrooklynTags {
 
     public static final String YAML_SPEC_KIND = "yaml_spec";
     public static final String YAML_SPEC_HIERARCHY = "yaml_spec_hierarchy";
+    public static final String DEPTH_IN_ANCESTOR = "depth_in_ancestor";
     public static final String NOTES_KIND = "notes";
     public static final String OWNER_ENTITY_ID = "owner_entity_id";
     public static final String ICON_URL = "icon_url";
@@ -53,8 +57,92 @@ public class BrooklynTags {
      * and does not have to resolve */
     public static final Object CATALOG_TEMPLATE = "catalog_template";
 
+    /** find a tag which is a map of size one whose single key matches the key here, and if found return the value
+     * coerced to the indicated type */
+    public static <T> T findSingleKeyMapValue(String key, TypeToken<T> type, Set<Object> tags) {
+        if (tags==null) return null;
+        for (Object tag: tags) {
+            if (tag instanceof Map && ((Map)tag).size()==1 && Objects.equal(key, ((Map)tag).keySet().iterator().next())) {
+                Object value = ((Map)tag).get(key);
+                return TypeCoercions.coerce(value, type);
+            }
+        }
+        return null;
+    }
+    /** convenience for {@link #findSingleKeyMapValue(String, TypeToken, Set)} */
+    public static <T> T findSingleKeyMapValue(String key, Class<T> type, Set<Object> tags) {
+        return findSingleKeyMapValue(key, TypeToken.of(type), tags);
+    }
+
+    public static NamedStringTag findFirstNamedStringTag(String kind, Iterable<Object> tags) {
+        return findFirstOfKind(kind, NamedStringTag.class, tags);
+    }
+
+    public static List<NamedStringTag> findAllNamedStringTags(String kind, Iterable<Object> tags) {
+        return findAllOfKind(kind, NamedStringTag.class, tags);
+    }
+
+    /** @deprecated since 1.1 use {@link #findFirstNamedStringTag(String, Iterable)} */
+    @Deprecated
+    public static NamedStringTag findFirst(String kind, Iterable<Object> tags) {
+        return findFirstNamedStringTag(kind, tags);
+    }
+
+    /** @deprecated since 1.1 use {@link #findAllNamedStringTags(String, Iterable)} */
+    @Deprecated
+    public static List<NamedStringTag> findAll(String kind, Iterable<Object> tags) {
+        return findAllNamedStringTags(kind, tags);
+    }
+
     public interface HasKind {
         public String getKind();
+    }
+
+    public static <T extends HasKind> T findFirstOfKind(String kind, Class<T> type, Iterable<Object> tags) {
+        for (Object o: tags) {
+            if (type.isInstance(o)) {
+                if (kind.equals(((T) o).getKind())) {
+                    return (T) o;
+                }
+            } else if (o instanceof Map) {
+                Object k2 = ((Map) o).get("kind");
+                if (kind.equals(k2)) {
+                    try {
+                        return BeanWithTypeUtils.newMapper(null, false, null, true).convertValue(o, type);
+
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        LOG.warn("Tag '"+o+"' declares kind '"+k2+"' but does not convert to "+type+" (ignoring): "+e);
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    public static <T extends HasKind> List<T> findAllOfKind(String kind, Class<T> type, Iterable<Object> tags) {
+        List<T> result = MutableList.of();
+
+        for (Object o: tags) {
+            if (type.isInstance(o)) {
+                if (kind.equals(((T) o).getKind())) {
+                    result.add( (T)o );
+                }
+            } else if (o instanceof Map) {
+                Object k2 = ((Map) o).get("kind");
+                if (kind.equals(k2)) {
+                    try {
+                        result.add( BeanWithTypeUtils.newMapper(null, false, null, true).convertValue(o, type) );
+
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        LOG.warn("Tag '"+o+"' declares kind '"+k2+"' but does not convert to "+type+" (ignoring): "+e);
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     public static class NamedStringTag implements Serializable, HasKind {
@@ -282,6 +370,7 @@ public class BrooklynTags {
         }
     }
 
+
     public static NamedStringTag newYamlSpecTag(String contents) {
         return new NamedStringTag(YAML_SPEC_KIND, contents);
     }
@@ -306,75 +395,13 @@ public class BrooklynTags {
         return new TraitsTag(interfaces);
     }
 
-    public static <T extends HasKind> T findFirstOfKind(String kind, Class<T> type, Iterable<Object> tags) {
-        for (Object o: tags) {
-            if (type.isInstance(o)) {
-                if (kind.equals(((T) o).getKind())) {
-                    return (T) o;
-                }
-            } else if (o instanceof Map) {
-                Object k2 = ((Map) o).get("kind");
-                if (kind.equals(k2)) {
-                    try {
-                        return BeanWithTypeUtils.newMapper(null, false, null, true).convertValue(o, type);
-
-                    } catch (Exception e) {
-                        Exceptions.propagateIfFatal(e);
-                        LOG.warn("Tag '"+o+"' declares kind '"+k2+"' but does not convert to "+type+" (ignoring): "+e);
-                    }
-                }
-            }
-        }
-        return null;
-    }
-
-    public static <T extends HasKind> List<T> findAllOfKind(String kind, Class<T> type, Iterable<Object> tags) {
-        List<T> result = MutableList.of();
-
-        for (Object o: tags) {
-            if (type.isInstance(o)) {
-                if (kind.equals(((T) o).getKind())) {
-                    result.add( (T)o );
-                }
-            } else if (o instanceof Map) {
-                Object k2 = ((Map) o).get("kind");
-                if (kind.equals(k2)) {
-                    try {
-                        result.add( BeanWithTypeUtils.newMapper(null, false, null, true).convertValue(o, type) );
-
-                    } catch (Exception e) {
-                        Exceptions.propagateIfFatal(e);
-                        LOG.warn("Tag '"+o+"' declares kind '"+k2+"' but does not convert to "+type+" (ignoring): "+e);
-                    }
-                }
-            }
-        }
-
-        return result;
-    }
 
     public static SpecHierarchyTag findSpecHierarchyTag(Iterable<Object> tags) {
         return findFirstOfKind(SpecHierarchyTag.KIND, SpecHierarchyTag.class, tags);
     }
 
-    public static NamedStringTag findFirstNamedStringTag(String kind, Iterable<Object> tags) {
-        return findFirstOfKind(kind, NamedStringTag.class, tags);
-    }
-
-    public static List<NamedStringTag> findAllNamedStringTags(String kind, Iterable<Object> tags) {
-        return findAllOfKind(kind, NamedStringTag.class, tags);
-    }
-
-    /** @deprecated since 1.1 use {@link #findFirstNamedStringTag(String, Iterable)} */
-    @Deprecated
-    public static NamedStringTag findFirst(String kind, Iterable<Object> tags) {
-        return findFirstNamedStringTag(kind, tags);
-    }
-
-    /** @deprecated since 1.1 use {@link #findAllNamedStringTags(String, Iterable)} */
-    @Deprecated
-    public static List<NamedStringTag> findAll(String kind, Iterable<Object> tags) {
-        return findAllNamedStringTags(kind, tags);
+    public static Integer getDepthInAncestorTag(Set<Object> tags) {
+        return BrooklynTags.findSingleKeyMapValue(BrooklynTags.DEPTH_IN_ANCESTOR, Integer.class, tags);
     }
 
 }

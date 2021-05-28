@@ -80,7 +80,9 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         EntitySpec<? extends Application> spec = EntityManagementUtils.createEntitySpecForApplication(mgmt(), 
             "services: [ { type: t1 } ]\n" +
             "location: localhost");
-        
+
+        // parent
+
         List<NamedStringTag> yamls = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
         Assert.assertEquals(yamls.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
         String yaml = Iterables.getOnlyElement(yamls).getContents();
@@ -90,18 +92,25 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         Assert.assertNotNull(yamlsH);
         Assert.assertEquals(yamlsH.getSpecList().size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH);
 
+        Assert.assertNull(BrooklynTags.getDepthInAncestorTag(spec.getTags()));
+
+        // and child
+
         EntitySpec<?> child = Iterables.getOnlyElement( spec.getChildren() );
         Assert.assertEquals(child.getType().getName(), SIMPLE_ENTITY_TYPE);
         Assert.assertEquals(child.getCatalogItemId(), "t1:"+TEST_VERSION);
 
         List<NamedStringTag> yamls2 = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, child.getTags());
         Assert.assertEquals(yamls2.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
+
         SpecHierarchyTag yamlsH2 = BrooklynTags.findSpecHierarchyTag( child.getTags() );
         Assert.assertNotNull(yamlsH2);
         Assert.assertEquals(yamlsH2.getSpecList().size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH2);
         Asserts.assertStringContainsIgnoreCase(yamlsH2.getSpecList().iterator().next().contents.toString(),
                 "# this sample comment should be included",
                 "SimpleEntity");
+
+        Assert.assertEquals(BrooklynTags.getDepthInAncestorTag(spec.getTags()), (Integer) 1);
     }
     
     private RegisteredType makeItem(String symbolicName, String templateType) {
