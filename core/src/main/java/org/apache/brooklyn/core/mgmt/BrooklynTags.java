@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.MoreObjects;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -32,11 +33,15 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
 import com.google.common.collect.Lists;
-import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** @since 0.7.0 some strongly typed tags for reference; note these may migrate elsewhere! */
 @Beta
 public class BrooklynTags {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BrooklynTags.class);
 
     public static final String YAML_SPEC_KIND = "yaml_spec";
     public static final String YAML_SPEC_HIERARCHY = "yaml_spec_hierarchy";
@@ -48,7 +53,11 @@ public class BrooklynTags {
      * and does not have to resolve */
     public static final Object CATALOG_TEMPLATE = "catalog_template";
 
-    public static class NamedStringTag implements Serializable {
+    public interface HasKind {
+        public String getKind();
+    }
+
+    public static class NamedStringTag implements Serializable, HasKind {
         private static final long serialVersionUID = 7932098757009051348L;
         @JsonProperty
         final String kind;
@@ -84,16 +93,92 @@ public class BrooklynTags {
         }
     }
 
-    public static class SpecTag implements Serializable {
+    public static class SpecHierarchyTag implements Serializable, HasKind {
         private static final long serialVersionUID = 3805124696862755492L;
 
-        @JsonProperty
-        final String kind;
+        public static final String KIND = YAML_SPEC_HIERARCHY;
+
+        public static class SpecSummary implements Serializable {
+            @JsonProperty
+            public final String summary;
+            @JsonProperty
+            public final String format;
+            @JsonProperty
+            public final Object contents;
+
+            public SpecSummary(String summary, String format, Object contents) {
+                this.summary = summary;
+                this.format = format;
+                this.contents = contents;
+            }
+
+            @Override
+            public boolean equals(Object o) {
+                if (this == o) return true;
+                if (o == null || getClass() != o.getClass()) return false;
+                SpecSummary that = (SpecSummary) o;
+                return java.util.Objects.equals(summary, that.summary) && java.util.Objects.equals(format, that.format) && java.util.Objects.equals(contents, that.contents);
+            }
+
+            @Override
+            public int hashCode() {
+                return java.util.Objects.hash(summary, format, contents);
+            }
+
+            @Override
+            public String toString() {
+                return "SpecSummary{" +
+                        "summary='" + summary + '\'' +
+                        ", format='" + format + '\'' +
+                        ", contents=" + contents +
+                        '}';
+            }
+        }
+
+        public static Builder builder() { return new Builder(); }
+
+        public static class Builder {
+            private String format;
+            private String summary;
+            private Object contents;
+
+            private Builder() {}
+
+            public Builder summary(final String summary) {
+                this.summary = summary;
+                return this;
+            }
+
+            public Builder format(final String format) {
+                this.format = format;
+                return this;
+            }
+
+            public Builder contents(final Object contents) {
+                this.contents = contents;
+                return this;
+            }
+
+
+            public SpecSummary buildSpecSummary() {
+                return new SpecSummary(summary, format, contents);
+            }
+
+            public SpecHierarchyTag buildSpecHierarchyTag() {
+                return new SpecHierarchyTag(BrooklynTags.YAML_SPEC_HIERARCHY, MutableList.of(buildSpecSummary()));
+            }
+        }
 
         @JsonProperty
-        final List<Object> specList;
+        String kind;
 
-        public SpecTag(@JsonProperty("kind")String kind, @JsonProperty("specList")List<Object> specList) {
+        @JsonProperty
+        List<SpecSummary> specList;
+
+        // for JSON
+        private SpecHierarchyTag() {}
+
+        private SpecHierarchyTag(String kind, List<SpecSummary> specList) {
             this.kind = kind;
             this.specList = specList;
         }
@@ -111,7 +196,7 @@ public class BrooklynTags {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (o == null || getClass() != o.getClass()) return false;
-            SpecTag specTag = (SpecTag) o;
+            SpecHierarchyTag specTag = (SpecHierarchyTag) o;
             return Objects.equal(kind, specTag.kind) && Objects.equal(specList, specTag.specList) ;
         }
 
@@ -124,45 +209,17 @@ public class BrooklynTags {
             return kind;
         }
 
-        public List<Object> getSpecList() {
+        public List<SpecSummary> getSpecList() {
             return specList;
         }
 
-        public void push(SpecTag currentSpecTag) {
+        public void push(SpecSummary newFirstSpecTag) {
             // usually the list has a single element here, if
-            currentSpecTag.getSpecList().forEach(e -> specList.add(0, e));
+            specList.add(0, newFirstSpecTag);
         }
-    }
-
-    public static class HierarchySpecTagBuilder {
-        private String format;
-        private String summary;
-        private Object contents;
-
-        public HierarchySpecTagBuilder format(final String format) {
-            this.format = format;
-            return this;
-        }
-
-        public HierarchySpecTagBuilder summary(final String summary) {
-            this.summary = summary;
-            return this;
-        }
-
-        public HierarchySpecTagBuilder contents(final Object contents) {
-            this.contents = contents;
-            return this;
-        }
-
-
-        public SpecTag build() {
-            return new SpecTag(BrooklynTags.YAML_SPEC_HIERARCHY, MutableList.of(
-                    MutableMap.of(
-                            "format", format,
-                            "summary", summary,
-                            "contents", contents
-                    )
-            ));
+        public void push(SpecHierarchyTag newFirstSpecs) {
+            // usually the list has a single element here, if
+            newFirstSpecs.getSpecList().forEach(this::push);
         }
     }
 
@@ -237,29 +294,75 @@ public class BrooklynTags {
         return new TraitsTag(interfaces);
     }
 
-    public static NamedStringTag findFirst(String kind, Iterable<Object> tags) {
-        for (Object object: tags) {
-            if (object instanceof NamedStringTag && kind.equals(((NamedStringTag)object).kind))
-                return (NamedStringTag) object;
+    public static <T extends HasKind> T findFirstOfKind(String kind, Class<T> type, Iterable<Object> tags) {
+        for (Object o: tags) {
+            if (type.isInstance(o)) {
+                if (kind.equals(((T) o).getKind())) {
+                    return (T) o;
+                }
+            } else if (o instanceof Map) {
+                Object k2 = ((Map) o).get("kind");
+                if (kind.equals(k2)) {
+                    try {
+                        return BeanWithTypeUtils.newMapper(null, false, null, true).convertValue(o, type);
+
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        LOG.warn("Tag '"+o+"' declares kind '"+k2+"' but does not convert to "+type+" (ignoring): "+e);
+                    }
+                }
+            }
         }
         return null;
     }
 
-    public  static SpecTag findHierarchySpecTag(String kind, Iterable<Object> tags) {
-        for (Object object: tags) {
-            if (object instanceof SpecTag && kind.equals((((SpecTag) object).kind)))
-                return (SpecTag) object;
-        }
-        return null;
-    }
+    public static <T extends HasKind> List<T> findAllOfKind(String kind, Class<T> type, Iterable<Object> tags) {
+        List<T> result = MutableList.of();
 
-    public static List<NamedStringTag> findAll(String kind, Iterable<Object> tags) {
-        List<NamedStringTag> result = MutableList.of();
-        for (Object object: tags) {
-            if (object instanceof NamedStringTag && kind.equals(((NamedStringTag)object).kind))
-                result.add( (NamedStringTag) object );
+        for (Object o: tags) {
+            if (type.isInstance(o)) {
+                if (kind.equals(((T) o).getKind())) {
+                    result.add( (T)o );
+                }
+            } else if (o instanceof Map) {
+                Object k2 = ((Map) o).get("kind");
+                if (kind.equals(k2)) {
+                    try {
+                        result.add( BeanWithTypeUtils.newMapper(null, false, null, true).convertValue(o, type) );
+
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        LOG.warn("Tag '"+o+"' declares kind '"+k2+"' but does not convert to "+type+" (ignoring): "+e);
+                    }
+                }
+            }
         }
+
         return result;
+    }
+
+    public static SpecHierarchyTag findSpecHierarchyTag(Iterable<Object> tags) {
+        return findFirstOfKind(SpecHierarchyTag.KIND, SpecHierarchyTag.class, tags);
+    }
+
+    public static NamedStringTag findFirstNamedStringTag(String kind, Iterable<Object> tags) {
+        return findFirstOfKind(kind, NamedStringTag.class, tags);
+    }
+
+    public static List<NamedStringTag> findAllNamedStringTags(String kind, Iterable<Object> tags) {
+        return findAllOfKind(kind, NamedStringTag.class, tags);
+    }
+
+    /** @deprecated since 1.1 use {@link #findFirstNamedStringTag(String, Iterable)} */
+    @Deprecated
+    public static NamedStringTag findFirst(String kind, Iterable<Object> tags) {
+        return findFirstNamedStringTag(kind, tags);
+    }
+
+    /** @deprecated since 1.1 use {@link #findAllNamedStringTags(String, Iterable)} */
+    @Deprecated
+    public static List<NamedStringTag> findAll(String kind, Iterable<Object> tags) {
+        return findAllNamedStringTags(kind, tags);
     }
 
 }

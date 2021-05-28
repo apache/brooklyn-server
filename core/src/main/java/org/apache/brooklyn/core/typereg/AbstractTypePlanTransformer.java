@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecHierarchyTag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -166,19 +167,19 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                 ? format + " plan for " + (Strings.isNonBlank(type.getSymbolicName())? type.getSymbolicName() : type.getDisplayName())
                 : summary;
 
-        BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
+        BrooklynTags.SpecHierarchyTag.Builder currentSpecTagBuilder = BrooklynTags.SpecHierarchyTag.builder()
                 .format(format)
                 .summary(specSummary)
-                .contents(type.getPlan().getPlanData())
-                .build();
+                .contents(type.getPlan().getPlanData());
 
-        Object specTagObj =  spec.getTag(tag -> tag instanceof BrooklynTags.SpecTag);
-        if(specTagObj != null) {
-            BrooklynTags.SpecTag specTag = (BrooklynTags.SpecTag) specTagObj;
-            specTag.push(currentSpecTag);
+        SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
+        if (specTag != null) {
+            specTag.push(currentSpecTagBuilder.buildSpecSummary());
         } else {
-            spec.tag(currentSpecTag);
+            specTag = currentSpecTagBuilder.buildSpecHierarchyTag();
+            spec.tag(specTag);
         }
+
         return spec;
     }
     

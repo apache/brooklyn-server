@@ -210,7 +210,7 @@ public class InternalEntityFactory extends InternalFactory {
             
             loadUnitializedEntity(entity, spec, options);
             
-            List<NamedStringTag> upgradedFrom = BrooklynTags.findAll(BrooklynTags.UPGRADED_FROM, spec.getTags());
+            List<NamedStringTag> upgradedFrom = BrooklynTags.findAllNamedStringTags(BrooklynTags.UPGRADED_FROM, spec.getTags());
             if (!upgradedFrom.isEmpty()) {
                 log.warn("Entity "+entity.getId()+" created with upgraded type "+entity.getCatalogItemId()+" "+upgradedFrom+" (in "+entity.getApplicationId()+", under "+entity.getParent()+")");
             }

@@ -265,8 +265,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
 
         // tests that the plan tag was set
-        assertTrue(entity.tags().getTags().stream().anyMatch(tag -> tag instanceof BrooklynTags.SpecTag));
-        BrooklynTags.SpecTag specTag = (BrooklynTags.SpecTag) entity.tags().getTags().stream().filter(tag -> tag instanceof BrooklynTags.SpecTag).findAny().orElse(null);
+        BrooklynTags.SpecHierarchyTag specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
+        Assert.assertNotNull(specTag);
         assertEquals(specTag.getSpecList().size(), 2);
 
         deleteCatalogRegisteredType(referencedSymbolicName);
