@@ -172,6 +172,11 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                 .contents(type.getPlan().getPlanData())
                 .build();
 
+        Object rtSpecTag =  type.getTags().stream().filter(tag -> tag instanceof BrooklynTags.SpecTag).findAny().orElse(null);
+        if(rtSpecTag != null) {
+            currentSpecTag.push((BrooklynTags.SpecTag)rtSpecTag);
+        }
+
         Object specTagObj =  spec.getTag(tag -> tag instanceof BrooklynTags.SpecTag);
         if(specTagObj != null) {
             BrooklynTags.SpecTag specTag = (BrooklynTags.SpecTag) specTagObj;

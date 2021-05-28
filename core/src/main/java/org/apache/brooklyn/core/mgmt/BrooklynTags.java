@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.mgmt;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 
 import com.google.common.base.MoreObjects;
@@ -129,8 +130,11 @@ public class BrooklynTags {
         }
 
         public void push(SpecTag currentSpecTag) {
-            // usually the list has a single element here, if
-            currentSpecTag.getSpecList().forEach(e -> specList.add(0, e));
+            List<Object> specs = currentSpecTag.getSpecList();
+            ListIterator<Object> li = specs.listIterator(specs.size());
+            while (li.hasPrevious()) {
+                specList.add(0, li.previous());
+            }
         }
     }
 
