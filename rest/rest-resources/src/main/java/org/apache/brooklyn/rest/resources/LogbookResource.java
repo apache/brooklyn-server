@@ -27,19 +27,20 @@ import org.apache.brooklyn.util.core.logbook.LogStore;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.List;
 
 public class LogbookResource extends AbstractBrooklynRestResource implements LogbookApi {
 
     @Override
     public Response logbookQuery(HttpServletRequest request, String query) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_QUERY, null))
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
         LogStore logStore = new DelegatingLogStoreStore(mgmt()).getDelegate();
         LogStore.LogBookQueryParams params = new LogStore.LogBookQueryParams(query);
-
+        List<String> logs = logStore.query(params);
         return Response
-                .ok(logStore.query(params), MediaType.APPLICATION_JSON)
+                .ok(logs, MediaType.APPLICATION_JSON)
                 .build();
     }
 }
