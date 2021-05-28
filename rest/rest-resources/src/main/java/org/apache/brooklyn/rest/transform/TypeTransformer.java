@@ -21,10 +21,7 @@ package org.apache.brooklyn.rest.transform;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 import java.net.URI;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.ws.rs.core.UriBuilder;
@@ -45,7 +42,9 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -65,6 +64,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
@@ -98,6 +98,19 @@ public class TypeTransformer {
                 result.setExtraField("iconUrlSource", item.getIconUrl());
             }
         }
+
+        // adding tag type spec hierarchy using hierarchy tag
+        BrooklynTags.SpecTag currentSpecTag = new BrooklynTags.HierarchySpecTagBuilder()
+                .format(StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat())
+                // the default type implementation is camp in this location, but hierarchy tag provides the original implementation, so it takes precedence.
+                .summary((StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat()) + " implementation")
+                .contents(item.getPlan().getPlanData())
+                .build();
+        BrooklynTags.SpecTag specTag =  BrooklynTags.findHierarchySpecTag(BrooklynTags.YAML_SPEC_HIERARCHY, item.getTags());
+        if(specTag!= null){
+            currentSpecTag.push(specTag);
+        }
+        result.setExtraField("specList", currentSpecTag.getSpecList());
         
         if (detail) {
             if (RegisteredTypes.isSubtypeOf(item, Entity.class)) {
