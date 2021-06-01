@@ -47,24 +47,9 @@ public class DelegatingSecurityProvider implements SecurityProvider {
 
     public DelegatingSecurityProvider(ManagementContext mgmt) {
         this.mgmt = mgmt;
-        mgmt.addPropertiesReloadListener(new PropertiesListener());
     }
     
     private SecurityProvider delegate;
-    private final AtomicLong modCount = new AtomicLong();
-
-    private class PropertiesListener implements ManagementContext.PropertiesReloadListener {
-        private static final long serialVersionUID = 8148722609022378917L;
-
-        @Override
-        public void reloaded() {
-            log.debug("{} reloading security provider", DelegatingSecurityProvider.this);
-            synchronized (DelegatingSecurityProvider.this) {
-                loadDelegate();
-                invalidateExistingSessions();
-            }
-        }
-    }
 
     public synchronized SecurityProvider getDelegate() {
         if (delegate == null) {
@@ -195,13 +180,6 @@ public class DelegatingSecurityProvider implements SecurityProvider {
             throw new ClassCastException("Delegate is either not a security provider or has an incompatible classloader: "+delegateO);
         }
         return (SecurityProvider) delegateO;
-    }
-
-    /**
-     * Causes all existing sessions to be invalidated.
-     */
-    protected void invalidateExistingSessions() {
-        modCount.incrementAndGet();
     }
 
     @Override
