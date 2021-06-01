@@ -98,22 +98,25 @@ public class DelegatingSecurityProvider implements SecurityProvider {
                 log.info("Brooklyn security: using security provider " + className + " from " + bundle+":"+bundleVersion);
                 BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
                 delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
+                saveDelegate();
             } else {
                 log.info("Brooklyn security: using security provider " + className);
                 ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
                 Class<? extends SecurityProvider> clazz = (Class<? extends SecurityProvider>) clu.loadClass(className);
                 delegate = createSecurityProviderInstance(mgmt, clazz);
+                saveDelegate();
             }
         } catch (Exception e) {
             log.warn("Brooklyn security: unable to instantiate security provider " + className + "; all logins are being disallowed", e);
             delegate = new BlackholeSecurityProvider();
         }
+        return delegate;
+    }
 
+    private void saveDelegate() {
         // Deprecated in 0.11.0. Add to release notes and remove in next release.
         ((BrooklynProperties)mgmt.getConfig()).put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
         mgmt.getScratchpad().put(BrooklynWebConfig.SECURITY_PROVIDER_INSTANCE, delegate);
-
-        return delegate;
     }
 
     public static SecurityProvider loadProviderFromBundle(
