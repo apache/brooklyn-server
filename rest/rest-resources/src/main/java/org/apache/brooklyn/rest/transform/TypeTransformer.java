@@ -101,7 +101,7 @@ public class TypeTransformer {
             }
         }
 
-        // adding tag type spec hierarchy using hierarchy tag
+        // create summary tag for the current plan
         SpecSummary currentSpec = SpecSummary.builder()
                 .format(StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat())
                 // the default type implementation is camp in this location, but hierarchy tag provides the original implementation, so it takes precedence.
@@ -110,14 +110,13 @@ public class TypeTransformer {
                 .build();
 
         List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(item.getTags());
+        List<SpecSummary> specList = MutableList.of(currentSpec);
         if(specTag!= null){
-            SpecSummary.modifyHeadSummary(specTag, s -> "Converted to "+s);
-            SpecSummary.pushToList(specTag, currentSpec);
-        } else {
-            specTag = MutableList.of(currentSpec);
+            // put the original spec tags first
+            SpecSummary.modifyHeadSummary(specList, s -> "Converted to "+s);
+            SpecSummary.pushToList(specList, specTag);
         }
-
-        result.setExtraField("specList", specTag);
+        result.setExtraField("specList", specList);
         
         if (detail) {
             if (RegisteredTypes.isSubtypeOf(item, Entity.class)) {
