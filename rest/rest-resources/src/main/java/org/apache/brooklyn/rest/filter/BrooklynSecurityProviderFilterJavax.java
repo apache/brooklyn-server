@@ -50,7 +50,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
     
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJavax.class);
 
-    private static final ConfigKey<String> LOGIN_FORM =
+    public static final ConfigKey<String> LOGIN_FORM =
             ConfigKeys.newStringConfigKey(BrooklynWebConfig.BASE_NAME_SECURITY + ".login.form",
                     "Login form location otherwise use browser popup", "");
     @Override
