@@ -25,18 +25,19 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
-public class DelegatingLogStoreStore implements LogStore {
-    private static final Logger log = LoggerFactory.getLogger(DelegatingLogStoreStore.class);
+public class DelegatingLogStore implements LogStore {
+    private static final Logger log = LoggerFactory.getLogger(DelegatingLogStore.class);
 
     private final ManagementContext mgmt;
     private LogStore delegate;
 
 
-    public DelegatingLogStoreStore(ManagementContext mgmt) {
+    public DelegatingLogStore(ManagementContext mgmt) {
         this.mgmt = mgmt;
         mgmt.addPropertiesReloadListener(new PropertiesListener());
     }
@@ -67,13 +68,13 @@ public class DelegatingLogStoreStore implements LogStore {
 //                BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
 //                delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
 //            } else {
-            log.info("Brooklyn security: using security provider " + className);
+            log.info("Brooklyn Logbook: using log store " + className);
             ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
             Class<? extends LogStore> clazz = (Class<? extends LogStore>) clu.loadClass(className);
             delegate = createLogStoreProviderInstance(mgmt, clazz);
 //            }
         } catch (Exception e) {
-            log.warn("Brooklyn security: unable to instantiate security provider " + className + "; all logins are being disallowed", e);
+            log.warn("Brooklyn Logbook: unable to instantiate Log Store " + className, e);
             delegate = new StaticLogStore();
         }
 
@@ -106,20 +107,25 @@ public class DelegatingLogStoreStore implements LogStore {
             if (constructor != null) {
                 delegateO = constructor.newInstance();
             } else {
-                throw new NoSuchMethodException("Security provider " + clazz + " does not have required no-arg or 1-arg (mgmt) constructor");
+                throw new NoSuchMethodException("Log store " + clazz + " does not have required no-arg or 1-arg (mgmt) constructor");
             }
         }
 
         if (!(delegateO instanceof LogStore)) {
             // if classloaders get mangled it will be a different CL's SecurityProvider
-            throw new ClassCastException("Delegate is either not a security provider or has an incompatible classloader: " + delegateO);
+            throw new ClassCastException("Delegate is either not a Log Store implementation or has an incompatible classloader: " + delegateO);
         }
         return (LogStore) delegateO;
     }
 
     @Override
     public List<String> query(LogBookQueryParams params) {
-        return null;
+        return getDelegate().query(params);
+    }
+
+    @Override
+    public List<String> getEntries(Integer from, Integer numberOfItems) throws IOException {
+        return getDelegate().getEntries(from,numberOfItems);
     }
 
     private class PropertiesListener implements ManagementContext.PropertiesReloadListener {
@@ -127,8 +133,8 @@ public class DelegatingLogStoreStore implements LogStore {
 
         @Override
         public void reloaded() {
-            log.debug("{} reloading security provider", DelegatingLogStoreStore.this);
-            synchronized (DelegatingLogStoreStore.this) {
+            log.debug("{} reloading Logbook log store configuration", DelegatingLogStore.this);
+            synchronized (DelegatingLogStore.this) {
                 loadDelegate();
             }
         }

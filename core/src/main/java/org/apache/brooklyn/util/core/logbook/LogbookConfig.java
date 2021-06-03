@@ -30,19 +30,5 @@ public class LogbookConfig {
     public final static ConfigKey<LogStore> LOGBOOK_LOG_STORE_INSTANCE = ConfigKeys.newConfigKey(LogStore.class,
             LOGBOOK_LOG_STORE_CLASSNAME.getName()+".internal.instance", "instance of a pre-configured log store");
 
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_HOST = ConfigKeys.newStringConfigKey(
-            BASE_NAME_LOGBOOK+".logStoreHost", "Log store host","https://localhost:9200");
-
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_USER = ConfigKeys.newStringConfigKey(
-            BASE_NAME_LOGBOOK+".logStoreUser","User name" );
-
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_PASS = ConfigKeys.newStringConfigKey(
-            BASE_NAME_LOGBOOK+".logStoreHost", "User password");
-
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_APIKEY = ConfigKeys.newStringConfigKey(
-            BASE_NAME_LOGBOOK+".logStoreApikey", "API key");
-
-    public final static ConfigKey<Boolean> LOGBOOK_LOG_STORE_VERIFY_SSL = ConfigKeys.newBooleanConfigKey(
-            BASE_NAME_LOGBOOK+".logStoreVerifySSl", "Verify SSL",true);
 
 }

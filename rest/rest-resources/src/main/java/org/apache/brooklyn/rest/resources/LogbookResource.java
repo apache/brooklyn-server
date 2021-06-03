@@ -21,12 +21,14 @@ package org.apache.brooklyn.rest.resources;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.LogbookApi;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
-import org.apache.brooklyn.util.core.logbook.DelegatingLogStoreStore;
+import org.apache.brooklyn.util.core.logbook.DelegatingLogStore;
 import org.apache.brooklyn.util.core.logbook.LogStore;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.io.IOException;
 import java.util.List;
 
 public class LogbookResource extends AbstractBrooklynRestResource implements LogbookApi {
@@ -36,11 +38,31 @@ public class LogbookResource extends AbstractBrooklynRestResource implements Log
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
-        LogStore logStore = new DelegatingLogStoreStore(mgmt()).getDelegate();
+        LogStore logStore = new DelegatingLogStore(mgmt()).getDelegate();
         LogStore.LogBookQueryParams params = new LogStore.LogBookQueryParams(query);
         List<String> logs = logStore.query(params);
         return Response
                 .ok(logs, MediaType.APPLICATION_JSON)
                 .build();
+    }
+
+    @Override
+    public Response getEntries(HttpServletRequest request, Integer from, Integer numberOfItems) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null))
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+
+        LogStore logStore = new DelegatingLogStore(mgmt()).getDelegate();
+        try {
+            return Response
+                    .ok(logStore.getEntries(from, numberOfItems), MediaType.APPLICATION_JSON)
+                    .build();
+        } catch (IOException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
+    @Override
+    public Response tail(HttpServletRequest request, Integer numberOfItems) {
+        return getEntries(request, -1, numberOfItems);
     }
 }

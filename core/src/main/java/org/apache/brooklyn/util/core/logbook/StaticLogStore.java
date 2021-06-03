@@ -28,11 +28,39 @@ public class StaticLogStore implements LogStore {
 
 
     public StaticLogStore() {
-        this.logData = ImmutableList.of("Log line 1", "Log line 2");
+        this.logData = ImmutableList.<String>builder()
+                .add("Log line 01")
+                .add("Log line 02")
+                .add("Log line 03")
+                .add("Log line 04")
+                .add("Log line 05")
+                .add("Log line 06")
+                .add("Log line 07")
+                .add("Log line 08")
+                .add("Log line 09")
+                .add("Log line 10")
+                .add("Log line 11")
+                .add("Log line 12")
+                .add("Log line 13")
+                .add("Log line 14")
+                .add("Log line 15")
+                .build();
     }
 
     @Override
     public List<String> query(LogBookQueryParams params) {
         return logData;
+    }
+
+    @Override
+    public List<String> getEntries(Integer from, Integer numberOfItems) {
+        if (from >= 0) {
+            return logData.subList(from, logData.size() > from + numberOfItems ? from + numberOfItems : logData.size());
+        } else {
+            int upperLimit = logData.size() + from - numberOfItems;// total+from-num
+            int lowLimit = logData.size() + from; // total+from
+
+            return logData.subList(upperLimit, lowLimit);
+        }
     }
 }

@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.util.core.logbook;
 
+import java.io.IOException;
 import java.util.List;
 
 public interface LogStore {
     List<String> query(LogBookQueryParams params);
+
+    List<String> getEntries(Integer from, Integer numberOfItems) throws IOException;
 
     class LogBookQueryParams {
         private final String query;
