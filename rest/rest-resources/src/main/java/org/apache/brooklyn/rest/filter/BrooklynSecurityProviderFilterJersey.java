@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJersey.class);
+    public static final String LOGIN_PAGE_HEADER = "LOGIN_PAGE";
 
     @Context
     HttpServletRequest webRequest;
@@ -75,7 +76,7 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
             }
             if (rin.getStatus()==Status.UNAUTHORIZED.getStatusCode() &&
                     Strings.isNonBlank(mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM))) {
-                rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").header("LOGIN_PAGE", "brooklyn-ui-login").build();
+                rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").header(LOGIN_PAGE_HEADER, mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM)).build();
             }
 
             requestContext.abortWith(rin);
