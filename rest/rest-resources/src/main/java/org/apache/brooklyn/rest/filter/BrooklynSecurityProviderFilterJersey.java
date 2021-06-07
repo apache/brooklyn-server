@@ -44,7 +44,7 @@ import org.slf4j.LoggerFactory;
 public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJersey.class);
-    public static final String LOGIN_PAGE_HEADER = "LOGIN_PAGE";
+    public static final String LOGIN_PAGE_HEADER = "X_BROOKLYN_LOGIN_PAGE";
 
     @Context
     HttpServletRequest webRequest;
