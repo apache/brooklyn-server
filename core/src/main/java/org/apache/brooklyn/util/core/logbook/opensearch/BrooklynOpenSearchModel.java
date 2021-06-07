@@ -16,13 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.core.logbook;
+package org.apache.brooklyn.util.core.logbook.opensearch;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.commons.lang3.StringEscapeUtils;
 
 import java.util.List;
 
@@ -70,7 +70,7 @@ class BrooklynOpenSearchModel {
     static class OpenSearchHit {
         String _index;
         String _type;
-        BrooklynHit _source;
+        BrooklynLogEntry _source;
 
         public String get_index() {
             return _index;
@@ -88,97 +88,17 @@ class BrooklynOpenSearchModel {
             this._type = _type;
         }
 
-        public BrooklynHit get_source() {
+        public BrooklynLogEntry get_source() {
             return _source;
         }
 
-        public void set_source(BrooklynHit _source) {
+        public void set_source(BrooklynLogEntry _source) {
             this._source = _source;
         }
 
-        public BrooklynHit getSource() {
+        public BrooklynLogEntry getSource() {
             return _source;
         }
     }
 
-    static class BrooklynHit {
-        String timestamp;
-        String level;
-        String bundle_id;
-        @JsonProperty("class")
-        String clazz;
-        String thread_name;
-        String message;
-
-        public String getTimestamp() {
-            return timestamp;
-        }
-
-        public void setTimestamp(String timestamp) {
-            this.timestamp = timestamp;
-        }
-
-        public String getLevel() {
-            return level;
-        }
-
-        public void setLevel(String level) {
-            this.level = level;
-        }
-
-        public String getBundle_id() {
-            return bundle_id;
-        }
-
-        public void setBundle_id(String bundle_id) {
-            this.bundle_id = bundle_id;
-        }
-
-        public String getClazz() {
-            return clazz;
-        }
-
-        public void setClazz(String clazz) {
-            this.clazz = clazz;
-        }
-
-        public String getThread_name() {
-            return thread_name;
-        }
-
-        public void setThread_name(String thread_name) {
-            this.thread_name = thread_name;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-
-        public String toJsonString() {
-            String json = "";
-            try {
-                ObjectMapper objectMapper = new ObjectMapper();
-                json = objectMapper.writeValueAsString(this);
-            } catch (JsonProcessingException e) {
-                Exceptions.propagate(e);
-            }
-            return json;
-        }
-
-        @Override
-        public String toString() {
-            return "{" +
-                    "timestamp='" + timestamp + '\'' +
-                    ", level='" + level + '\'' +
-                    ", bundle_id='" + bundle_id + '\'' +
-                    ", class='" + clazz + '\'' +
-                    ", thread_name='" + thread_name + '\'' +
-                    ", message='" + message + '\'' +
-                    '}';
-        }
-    }
 }

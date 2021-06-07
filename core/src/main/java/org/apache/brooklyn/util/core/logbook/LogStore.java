@@ -22,21 +22,7 @@ import java.io.IOException;
 import java.util.List;
 
 public interface LogStore {
-    List<String> query(LogBookQueryParams params);
 
-    List<String> getEntries(Integer from, Integer numberOfItems) throws IOException;
+    List<BrooklynLogEntry> query(LogBookQueryParams query) throws IOException;
 
-    class LogBookQueryParams {
-        private final String query;
-        private final Boolean orderAsc;
-
-        public LogBookQueryParams(String query) {
-            this(query,false);
-        }
-
-        public LogBookQueryParams(String query, boolean orderAsc) {
-            this.query = query;
-            this.orderAsc = orderAsc;
-        }
-    }
 }

@@ -22,6 +22,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.logbook.file.FileLogStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,23 +60,14 @@ public class DelegatingLogStore implements LogStore {
         }
         String className = brooklynProperties.getConfig(LogbookConfig.LOGBOOK_LOG_STORE_CLASSNAME);
         try {
-            // TODO implement logic to allow to inject the impementation from bundle.
-            // TODO refactor logic to use it also for the security provider (this comes from there DelegatingSecurityProvider)
-//            String bundle = brooklynProperties.getConfig(LogbookConfig.SECURITY_PROVIDER_BUNDLE);
-//            if (bundle!=null) {
-//                String bundleVersion = brooklynProperties.getConfig(LogbookConfig.SECURITY_PROVIDER_BUNDLE_VERSION);
-//                log.info("Brooklyn security: using security provider " + className + " from " + bundle+":"+bundleVersion);
-//                BundleContext bundleContext = ((ManagementContextInternal)mgmt).getOsgiManager().get().getFramework().getBundleContext();
-//                delegate = loadProviderFromBundle(mgmt, bundleContext, bundle, bundleVersion, className);
-//            } else {
+            // TODO implement logic to allow to inject the implementation from bundle.
             log.info("Brooklyn Logbook: using log store " + className);
             ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
             Class<? extends LogStore> clazz = (Class<? extends LogStore>) clu.loadClass(className);
             delegate = createLogStoreProviderInstance(mgmt, clazz);
-//            }
         } catch (Exception e) {
-            log.warn("Brooklyn Logbook: unable to instantiate Log Store " + className, e);
-            delegate = new StaticLogStore();
+            log.warn("Brooklyn Logbook: unable to instantiate Log Store " + className, ". Forcing to use FileLogStore", e);
+            delegate = new FileLogStore(mgmt);
         }
 
         // TODO what must be removed here nad on the DelegatingSecurityProvider
@@ -119,17 +111,12 @@ public class DelegatingLogStore implements LogStore {
     }
 
     @Override
-    public List<String> query(LogBookQueryParams params) {
+    public List<BrooklynLogEntry> query(LogBookQueryParams params) throws IOException {
         return getDelegate().query(params);
     }
 
-    @Override
-    public List<String> getEntries(Integer from, Integer numberOfItems) throws IOException {
-        return getDelegate().getEntries(from,numberOfItems);
-    }
-
     private class PropertiesListener implements ManagementContext.PropertiesReloadListener {
-        private static final long serialVersionUID = 8148722609022378917L;
+        private static final long serialVersionUID = -8334871795049809213L;
 
         @Override
         public void reloaded() {

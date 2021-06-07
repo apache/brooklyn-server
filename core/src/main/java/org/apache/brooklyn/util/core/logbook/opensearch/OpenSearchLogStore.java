@@ -16,15 +16,21 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.util.core.logbook;
+package org.apache.brooklyn.util.core.logbook.opensearch;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import net.minidev.json.JSONObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
+import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
+import org.apache.brooklyn.util.core.logbook.LogStore;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpHeaders;
@@ -60,8 +66,8 @@ import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGB
 public class OpenSearchLogStore implements LogStore {
 
     /*
-     example config for local default implementation
-     brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.OpenSearchLogStore
+     # example config for local default implementation
+     brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.opensearch.OpenSearchLogStore
      brooklyn.logbook.openSearchLogStore.host = https://localhost:9200
      brooklyn.logbook.openSearchLogStore.index = brooklyn8
      brooklyn.logbook.openSearchLogStore.user = admin
@@ -97,6 +103,10 @@ public class OpenSearchLogStore implements LogStore {
     private String apiKey;
     private Boolean verifySsl;
     private String indexName;
+
+    public OpenSearchLogStore() {
+        this.mgmt = null;
+    }
 
     public OpenSearchLogStore(ManagementContext mgmt) {
         this.mgmt = mgmt;
@@ -155,38 +165,61 @@ public class OpenSearchLogStore implements LogStore {
     }
 
     @Override
-    public List<String> query(LogBookQueryParams params) {
-        return null;
-    }
-
-    @Override
-    public List<String> getEntries(Integer from, Integer numberOfItems) throws IOException {
+    public List<BrooklynLogEntry> query(LogBookQueryParams params) throws IOException {
         HttpPost request = new HttpPost(host + "/" + indexName + "/_search");
         request.addHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        request.setEntity(new StringEntity(getJSONQuery(from, numberOfItems)));
+        request.setEntity(new StringEntity(getJSONQuery(params)));
         try (CloseableHttpResponse response = httpClient.execute(request)) {
             BrooklynOpenSearchModel jsonResponse = new ObjectMapper()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                     .readValue(response.getEntity().getContent(), BrooklynOpenSearchModel.class);
-            return jsonResponse.hits.hits.stream()
-                    .map(BrooklynOpenSearchModel.OpenSearchHit::getSource)
-                    .map(BrooklynOpenSearchModel.BrooklynHit::toJsonString)
-                    .collect(Collectors.toList());
+            if (jsonResponse.hits != null && jsonResponse.hits.hits != null) {
+                return jsonResponse.hits.hits.stream()
+                        .map(BrooklynOpenSearchModel.OpenSearchHit::getSource)
+                        .collect(Collectors.toList());
+            } else {
+                return ImmutableList.of();
+            }
         }
     }
 
-    private String getJSONQuery(Integer from, Integer numberOfItems) {
-        int initialEntry = from >= 0 ? from : -from;
-        String order = from > 0 ? "asc" : "desc";
-
-        return new StringBuilder()
-                .append("{")
-                .append("\"from\":").append(initialEntry).append(",")
-                .append("\"size\":").append(numberOfItems).append(",")
-                .append("\"sort\": { \"timestamp\": \"").append(order).append("\"},")
-                .append("  \"query\": {\"match_all\": {}}")
-                .append("}").toString();
+    @VisibleForTesting
+    protected String getJSONQuery(LogBookQueryParams params) {
+        ImmutableMap qb = ImmutableMap.builder()
+                .put("size", params.getNumberOfItems())
+                .put("sort", ImmutableMap.of("timestamp", params.getReverseOrder() ? "desc" : "asc"))
+                .put("query", buildQuery(params))
+                .build();
+        return new JSONObject(qb).toString();
     }
 
+    private ImmutableMap<String, Object> buildQuery(LogBookQueryParams params) {
+        boolean noConditions = true;
+        ImmutableList.Builder<Object> conditionsBuilder = ImmutableList.builder();
+
+        if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL")) {
+            conditionsBuilder.add(ImmutableMap.of("terms",
+                    ImmutableMap.of("level", ImmutableList.copyOf(params.getLevels().stream().map(String::toLowerCase).map(String::trim).collect(Collectors.toList())))));
+            noConditions = false;
+        }
+        if (Strings.isNonBlank(params.getInitTime()) || Strings.isNonBlank(params.getFinalTime())) {
+            ImmutableMap.Builder<Object, Object> timestampMapBuilder = ImmutableMap.builder();
+            if (Strings.isNonBlank(params.getInitTime())) {
+                timestampMapBuilder.put("gte", params.getInitTime());
+            }
+            if (Strings.isNonBlank(params.getFinalTime())) {
+                timestampMapBuilder.put("lte", params.getFinalTime());
+            }
+            conditionsBuilder.add(ImmutableMap.of("range", ImmutableMap.of("timestamp", timestampMapBuilder.build())));
+            noConditions = false;
+        }
+
+        if (noConditions) {
+            return ImmutableMap.of("match_all", ImmutableMap.of());
+        } else {
+            return ImmutableMap.of("bool", ImmutableMap.of("must", conditionsBuilder.build()));
+        }
+
+    }
 
 }

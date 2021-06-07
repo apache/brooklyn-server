@@ -21,6 +21,8 @@ package org.apache.brooklyn.rest.api;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
+import org.apache.brooklyn.util.core.logbook.LogStore;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
@@ -37,28 +39,9 @@ public interface LogbookApi {
     @POST
     @ApiOperation(value = "Execute query for getting log data",
             response = org.apache.brooklyn.rest.domain.SensorSummary.class)
+    // todo document query params model
     Response logbookQuery(
             @Context HttpServletRequest request,
-            @ApiParam(name = "query", value = "Query filter", required = true)
-                    String query);
-
-    @GET
-    @Path("/getEntries")
-    @ApiOperation(value = "Returns a range of stored log entries",
-            response = org.apache.brooklyn.rest.domain.SensorSummary.class)
-    Response getEntries(
-            @Context HttpServletRequest request,
-            @ApiParam(name = "from", value = "Initial value for the range")
-            @QueryParam("from") Integer from,
-            @ApiParam(name = "numberOfItems", value = "Number of items to return")
-            @QueryParam("numberOfItems") @DefaultValue("25") Integer numberOfItems);
-
-    @GET
-    @Path("/tail")
-    @ApiOperation(value = "Returns the last requested entries",
-            response = org.apache.brooklyn.rest.domain.SensorSummary.class)
-    Response tail(
-            @Context HttpServletRequest request,
-            @ApiParam(name = "numberOfItems", value = "Number of items to return")
-            @QueryParam("numberOfItems") @DefaultValue("25") Integer numberOfItems);
+            @ApiParam(name = "params", value = "Query filter", required = true)
+                    LogBookQueryParams params);
 }
