@@ -1165,11 +1165,9 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
     }
     
     @Test
-    // different metadata is allowed as that doesn't affect operation (but different definition is not, see below)
-    // if in same bundle, it's deduped and last one wins; should warn and could disallow, but if type is pulled in 
-    // multiple times from copied files, it feels convenient just to dedupe and forgive minor metadata changes;
-    // if in different bundles, see other test below, but in that case both are added
-    public void testAddSameTypeTwiceInSameBundleDifferentDisplayName_LastOneWins() throws Exception {
+    // 2021-06 validation changed in Brooklyn, from taking the last, to disallowing the bundle,
+    // if the same symbolic name added multiple times
+    public void testAddSameTypeTwiceInSameBundleDifferentDisplayName_NotAllowed() throws Exception {
         final String symbolicName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod();
         final String entityName = symbolicName+".type";
 
@@ -1192,21 +1190,14 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         Response result = client().path("/catalog/bundles")
             .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
             .post(Streams.readFully(new FileInputStream(jar)));
-        HttpAsserts.assertHealthyStatusCode(result.getStatus());
 
-        TypeSummary entity = client().path("/catalog/types/" + entityName + "/" + TEST_VERSION)
-                .get(TypeSummary.class);
-        assertEquals(entity.getDisplayName(), "U");
-        
-        List<TypeSummary> entities = client().path("/catalog/types/" + entityName)
-                .get(new GenericType<List<TypeSummary>>() {});
-        Asserts.assertSize(entities, 1);
-        assertEquals(Iterables.getOnlyElement(entities), entity);
-        
-        BundleSummary bundle = client().path("/catalog/bundles/" + symbolicName + "/" + TEST_VERSION)
-            .get(BundleSummary.class);
-        Asserts.assertSize(bundle.getTypes(), 1);
-        assertEquals(Iterables.getOnlyElement(bundle.getTypes()), entity);
+        HttpAsserts.assertNotHealthyStatusCode(result.getStatus());
+        Map resultO = result.readEntity(Map.class);
+        String message = (String) resultO.get("message");
+        Asserts.assertStringContainsIgnoreCase(message,
+                "Cannot define two different items with the same name in a bundle",
+                "type:0.1.2",
+                "test.duplicate.type");
     }
     
     @Test

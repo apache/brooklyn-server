@@ -1044,6 +1044,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (resultNewFormat!=null) {
             if (resultNewFormat.containsKey(newInstance)) {
                 log.debug("Multiple definitions for "+newInstance+" in BOM; only recording one");
+            } else if (resultNewFormat.containsKey(replacedInstance)) {
+                throw new IllegalArgumentException("Cannot define two different items with the same name in a bundle: "+replacedInstance+" and "+newInstance);
             } else {
                 resultNewFormat.put(newInstance, replacedInstance);
             }
