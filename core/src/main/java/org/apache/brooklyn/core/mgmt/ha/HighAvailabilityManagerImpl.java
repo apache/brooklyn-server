@@ -271,6 +271,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         persistenceEnabled = true;
         disabled = false;
         running = true;
+        persister.setIsStartup(true);
         changeMode(startMode, true, true);
     }
     
@@ -662,16 +663,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             // else ex-masters who died are kept around!
             if (!ManagementNodeState.MASTER.equals(node.getValue().getStatus()) || 
                     !Objects.equal(plane.getMasterNodeId(), node.getValue().getNodeId())) {
-                Duration terminatedNodeDeletionTimeout = managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP);
-                if (terminatedNodeDeletionTimeout.compareTo(Duration.ZERO) == 1){
-                    Date now = new Date();
-                    Duration inactivityDuration = new Duration(now.getTime() - node.getValue().getRemoteTimestamp(), TimeUnit.MILLISECONDS);
-                    if ((inactivityDuration.compareTo(terminatedNodeDeletionTimeout) != 1) || !(node.getValue().getStatus().equals("TERMINATED"))){
-                        continue;
-                    }
-                }
                 db.removedNodeId(node.getKey());
-
             }
         }
         persister.delta(db.build());

@@ -180,6 +180,11 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
 
     @Override
     public ManagementPlaneSyncRecord loadSyncRecord() throws IOException {
+        return loadSyncRecord(Duration.ZERO);
+    }
+
+    @Override
+    public ManagementPlaneSyncRecord loadSyncRecord(Duration terminatedNodeDeletionTimeout) throws IOException {
         if (!running) {
             throw new IllegalStateException("Persister not running; cannot load memento from "+ objectStore.getSummaryName());
         }
@@ -243,9 +248,25 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
                     Date lastModifiedDate = objectAccessor.getLastModifiedDate();
                     ((BasicManagementNodeSyncRecord)memento).setRemoteTimestamp(lastModifiedDate!=null ? lastModifiedDate.getTime() : null);
                 }
+                if ((terminatedNodeDeletionTimeout.compareTo(Duration.ZERO) == 1) && isStartup){
+                    Date now = new Date();
+                    Duration inactivityDuration = new Duration(now.getTime() - memento.getRemoteTimestamp(), TimeUnit.MILLISECONDS);
+                    if ((inactivityDuration.compareTo(terminatedNodeDeletionTimeout) == 1) && memento.getStatus().name().equals(("TERMINATED"))){
+                        LOG.debug("Last modified date exceeds the provided threshold for: "+memento+"; node will be removed from persistence store");
+                        try {
+                            objectAccessor.delete();
+                        }
+                        catch (Exception e){
+                            LOG.debug("Exception: " + e + " while trying to remove and old node. Progressing regardless...");
+                        }
+                        continue;
+                    }
+                }
                 builder.node(memento);
             }
         }
+
+        if (isStartup) isStartup = false;
 
         if (LOG.isDebugEnabled()) LOG.trace("Loaded management-plane memento; {} nodes, took {}",
             nodeFiles.size(),

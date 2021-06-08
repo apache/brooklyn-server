@@ -45,6 +45,7 @@ public interface ManagementPlaneSyncRecordPersister {
      * Note that this method is *not* thread safe.
      */
     ManagementPlaneSyncRecord loadSyncRecord() throws IOException;
+    ManagementPlaneSyncRecord loadSyncRecord(Duration terminatedNodeDeletionTimeout) throws IOException;
 
     void setIsStartup(boolean isStartup);
     
