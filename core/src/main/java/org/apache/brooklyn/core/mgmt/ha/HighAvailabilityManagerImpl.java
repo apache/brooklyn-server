@@ -269,7 +269,9 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         persistenceEnabled = true;
         disabled = false;
         running = true;
-        persister.setIsStartup(true);
+        if (persister != null){
+            persister.setIsStartup(true);
+        }
         changeMode(startMode, true, true);
     }
     
