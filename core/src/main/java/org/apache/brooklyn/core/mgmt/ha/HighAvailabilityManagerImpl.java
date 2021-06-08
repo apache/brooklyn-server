@@ -26,6 +26,8 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+import java.util.Date;
 
 import javax.annotation.Nullable;
 
@@ -122,6 +124,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     public final ConfigKey<Duration> HEARTBEAT_TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.heartbeatTimeout",
         "Maximum allowable time for detection of a peer's heartbeat; if no sign of master after this time, "
         + "another node may promote itself", Duration.THIRTY_SECONDS);
+    public final ConfigKey<Duration> TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.timeoutForInactiveNodeRemovalOnStartup",
+            "TBD", Duration.ZERO);
     
     @VisibleForTesting /* only used in tests currently */
     public static interface PromotionListener {
@@ -658,7 +662,16 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             // else ex-masters who died are kept around!
             if (!ManagementNodeState.MASTER.equals(node.getValue().getStatus()) || 
                     !Objects.equal(plane.getMasterNodeId(), node.getValue().getNodeId())) {
+                Duration terminatedNodeDeletionTimeout = managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP);
+                if (terminatedNodeDeletionTimeout.compareTo(Duration.ZERO) == 1){
+                    Date now = new Date();
+                    Duration inactivityDuration = new Duration(now.getTime() - node.getValue().getRemoteTimestamp(), TimeUnit.MILLISECONDS);
+                    if ((inactivityDuration.compareTo(terminatedNodeDeletionTimeout) != 1) || !(node.getValue().getStatus().equals("TERMINATED"))){
+                        continue;
+                    }
+                }
                 db.removedNodeId(node.getKey());
+
             }
         }
         persister.delta(db.build());

@@ -45,6 +45,8 @@ public interface ManagementPlaneSyncRecordPersister {
      * Note that this method is *not* thread safe.
      */
     ManagementPlaneSyncRecord loadSyncRecord() throws IOException;
+
+    void setIsStartup(boolean isStartup);
     
     void delta(Delta delta);
 

@@ -109,6 +109,8 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
 
     protected final AtomicLong checkpointLogCount = new AtomicLong();
     private static final int INITIAL_LOG_WRITES = 5;
+
+    private boolean isStartup = false;
     
     @VisibleForTesting
     /** allows, when testing, to be able to override file times / blobstore times with time from the ticker */
@@ -249,6 +251,11 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
             nodeFiles.size(),
             Time.makeTimeStringRounded(stopwatch.elapsed(TimeUnit.MILLISECONDS)));
         return builder.build();
+    }
+
+    @Override
+    public void setIsStartup(boolean isStartup){
+        this.isStartup = isStartup;
     }
     
     @Override
