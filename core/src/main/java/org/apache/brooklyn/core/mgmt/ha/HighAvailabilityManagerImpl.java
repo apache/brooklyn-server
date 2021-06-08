@@ -152,6 +152,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     private volatile ManagementNodeState nodeState = ManagementNodeState.INITIALIZING;
     private volatile boolean nodeStateTransitionComplete = false;
     private volatile long priority = 0;
+    private String nodeIdToRemove = "";
     
     private final static int MAX_NODE_STATE_HISTORY = 200;
     private final List<Map<String,Object>> nodeStateHistory = MutableList.of();
@@ -164,6 +165,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     private volatile PersistenceActivityMetrics managementStateWritePersistenceMetrics = new PersistenceActivityMetrics();
     private volatile PersistenceActivityMetrics managementStateReadPersistenceMetrics = new PersistenceActivityMetrics();
     private final long startTimeUtc;
+
 
     /**
      * 
@@ -656,14 +658,25 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         for (Map.Entry<String,ManagementNodeSyncRecord> node: plane.getManagementNodes().entrySet()) {
             // only keep a node if it both claims master and is recognised as master;
             // else ex-masters who died are kept around!
-            if (!ManagementNodeState.MASTER.equals(node.getValue().getStatus()) || 
-                    !Objects.equal(plane.getMasterNodeId(), node.getValue().getNodeId())) {
+            // server API /ha/states/clear/node allows to remove a particular node, if called then node ID stored in nodeIdToRemove and only that node removed
+            if ((!ManagementNodeState.MASTER.equals(node.getValue().getStatus()) ||
+                    !Objects.equal(plane.getMasterNodeId(), node.getValue().getNodeId())) &&
+                    (this.nodeIdToRemove.equals("") || (!this.nodeIdToRemove.equals("") && node.getValue().getNodeId().equals(this.nodeIdToRemove)))){
                 db.removedNodeId(node.getKey());
             }
         }
         persister.delta(db.build());
         // then get, so model is updated
         loadManagementPlaneSyncRecord(true);
+
+        if (!(this.nodeIdToRemove.equals(""))){
+            setNodeIdToRemove("");
+        }
+    }
+
+    @Override
+    public void setNodeIdToRemove(String nodeId) {
+        nodeIdToRemove = nodeId;
     }
     
     protected synchronized void publishDemotion(boolean demotingFromMaster) {
