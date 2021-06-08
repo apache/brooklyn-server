@@ -248,10 +248,10 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
                     Date lastModifiedDate = objectAccessor.getLastModifiedDate();
                     ((BasicManagementNodeSyncRecord)memento).setRemoteTimestamp(lastModifiedDate!=null ? lastModifiedDate.getTime() : null);
                 }
-                if ((terminatedNodeDeletionTimeout.compareTo(Duration.ZERO) == 1) && isStartup){
+                if ((terminatedNodeDeletionTimeout.compareTo(Duration.ZERO) == 1) && isStartup && memento.getStatus().name().equals(("TERMINATED"))){
                     Date now = new Date();
                     Duration inactivityDuration = new Duration(now.getTime() - memento.getRemoteTimestamp(), TimeUnit.MILLISECONDS);
-                    if ((inactivityDuration.compareTo(terminatedNodeDeletionTimeout) == 1) && memento.getStatus().name().equals(("TERMINATED"))){
+                    if (inactivityDuration.compareTo(terminatedNodeDeletionTimeout) == 1){
                         LOG.debug("Last modified date exceeds the provided threshold for: "+memento+"; node will be removed from persistence store.");
                         try {
                             objectAccessor.delete();
