@@ -252,12 +252,12 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
                     Date now = new Date();
                     Duration inactivityDuration = new Duration(now.getTime() - memento.getRemoteTimestamp(), TimeUnit.MILLISECONDS);
                     if ((inactivityDuration.compareTo(terminatedNodeDeletionTimeout) == 1) && memento.getStatus().name().equals(("TERMINATED"))){
-                        LOG.debug("Last modified date exceeds the provided threshold for: "+memento+"; node will be removed from persistence store");
+                        LOG.debug("Last modified date exceeds the provided threshold for: "+memento+"; node will be removed from persistence store.");
                         try {
                             objectAccessor.delete();
                         }
                         catch (Exception e){
-                            LOG.debug("Exception: " + e + " while trying to remove and old node. Progressing regardless...");
+                            LOG.debug("Exception: " + e + " while trying to remove node: "+memento+". Progressing regardless...");
                         }
                         continue;
                     }
