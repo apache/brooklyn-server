@@ -106,6 +106,9 @@ public class EntityManagementSupport {
         return currentlyDeployed.get();
     }
 
+    /**
+     * Use this instead of !Entities.isManaged(entity) to avoid skipping publishing ov values that to be published before the entity starts.
+     */
     public boolean isNoLongerManaged() {
         return wasDeployed() && !isDeployed();
     }
