@@ -26,8 +26,6 @@ import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-import java.util.Date;
 
 import javax.annotation.Nullable;
 
@@ -125,7 +123,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         "Maximum allowable time for detection of a peer's heartbeat; if no sign of master after this time, "
         + "another node may promote itself", Duration.THIRTY_SECONDS);
     public final ConfigKey<Duration> TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.timeoutForInactiveNodeRemovalOnStartup",
-            "TBD", Duration.ZERO);
+            "Duration threshold for terminated node deletion from persistence (on startup of a server)", Duration.ZERO);
     
     @VisibleForTesting /* only used in tests currently */
     public static interface PromotionListener {
@@ -1032,7 +1030,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
 
         for (int i = 0; i < maxLoadAttempts; i++) {
             try {
-                ManagementPlaneSyncRecord result = persister.loadSyncRecord();
+                ManagementPlaneSyncRecord result = persister.loadSyncRecord(managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP));
                 
                 if (useLocalKnowledgeForThisNode) {
                     // Report this node's most recent state, and detect AWOL nodes
