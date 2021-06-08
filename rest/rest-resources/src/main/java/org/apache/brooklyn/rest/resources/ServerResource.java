@@ -477,6 +477,16 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     }
 
     @Override
+    public Response clearHighAvailabilityPlaneStates(String nodeId) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+        HighAvailabilityManager haMan = mgmt().getHighAvailabilityManager();
+        haMan.setNodeIdToRemove(nodeId);
+        haMan.publishClearNonMaster();
+        return Response.ok().build();
+    }
+
+    @Override
     public String getUser() {
         // force creation of session to help ui, ensure continuity of user info
         MultiSessionAttributeAdapter.of(request);
