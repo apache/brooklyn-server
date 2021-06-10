@@ -18,56 +18,38 @@
  */
 package org.apache.brooklyn.rest.security.provider;
 
-import org.junit.rules.ExpectedException;
+import org.junit.Assert;
+import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 import javax.naming.NamingException;
+import javax.servlet.http.HttpSession;
+
+import java.util.function.Supplier;
 
 import static org.testng.Assert.*;
 
 public class LdapSecurityProviderTest {
 
     @Test
-    public void testNoDomain() throws NamingException {
+    public void testNoRealm() throws NamingException {
         LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", "Users");
 
-        assertEquals(ldapSecurityProvider.getUserDN("Me"), "cn=Me,ou=Users,dc=example,dc=org");
+        assertEquals(ldapSecurityProvider.getSecurityPrincipal("Me"), "cn=Me,ou=Users,dc=example,dc=org");
     }
 
     @Test
-    public void testAllowedDomainByRegexDirectMatch() throws NamingException {
-        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", "MyDomain", "Users");
+    public void testDomain() throws NamingException {
+        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", null, "Users");
 
-        assertEquals(ldapSecurityProvider.getUserDN("MyDomain\\Me"), "cn=Me,ou=Users,dc=mydomain");
+        assertEquals(ldapSecurityProvider.getSecurityPrincipal("MyDomain\\Me"), "MyDomain\\Me");
     }
 
     @Test
     public void testAllowedDomainByRegexListMatch() throws NamingException {
-        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", "MyDomain|OtherDomain", "Users");
+        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", null, "Users");
 
-        assertEquals(ldapSecurityProvider.getUserDN("MyDomain\\Me"), "cn=Me,ou=Users,dc=mydomain");
-    }
-
-    @Test
-    public void testAllowedDomainByRegexWildcardMatch() throws NamingException {
-        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", ".*Domain", "Users");
-
-        assertEquals(ldapSecurityProvider.getUserDN("MyDomain\\Me"), "cn=Me,ou=Users,dc=mydomain");
-        assertEquals(ldapSecurityProvider.getUserDN("OtherDomain\\Me"), "cn=Me,ou=Users,dc=otherdomain");
-    }
-
-    @Test
-    public void testDefaultDomainIsAlsoAnAllowedDomainInUserString() throws NamingException{
-        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", "MyDomain", "Users");
-
-        assertEquals(ldapSecurityProvider.getUserDN("example.org\\Me"), "cn=Me,ou=Users,dc=example,dc=org");
-    }
-
-    @Test(expectedExceptions=NamingException.class)
-    public void testNotAllowedDomain() throws NamingException {
-        LdapSecurityProvider ldapSecurityProvider = new LdapSecurityProvider("url", "example.org", "MyDomain", "Users");
-
-        ldapSecurityProvider.getUserDN("OtherDomain\\Me");
+        assertEquals(ldapSecurityProvider.getSecurityPrincipal("username@example.org"), "username@example.org");
     }
 
 }
