@@ -35,7 +35,7 @@ public class LdapSecurityProviderLiveTest {
      * Use this for testing against an local openldap or Apache Directory Studio test server
      * @throws SecurityProvider.SecurityProviderDeniedAuthentication
      */
-    @Test(groups = {"live"})
+    @Test(groups = {"Live"})
     public void testLiveLdapServerADStudio() throws SecurityProvider.SecurityProviderDeniedAuthentication {
         boolean authenticated = isAuthenticated("ldap://localhost:10389/", "example.com", "Users", "username", "password");
 
@@ -54,21 +54,21 @@ public class LdapSecurityProviderLiveTest {
     public static final String ORGANIZATION_UNIT = "MyUsers";
     public static final String PASSWORD = "password";
 
-    @Test(groups = {"live"})
+    @Test(groups = {"Live"})
     public void testLiveLdapServerAD() throws SecurityProvider.SecurityProviderDeniedAuthentication {
         boolean authenticated = isAuthenticated(LDAP_URL, LDAP_REALM, ORGANIZATION_UNIT, "My Common Name", PASSWORD);
 
         Assert.assertTrue(authenticated);
     }
 
-    @Test(groups = {"live"})
+    @Test(groups = {"Live"})
     public void testLiveLdapServerADOld() throws SecurityProvider.SecurityProviderDeniedAuthentication {
         boolean authenticated = isAuthenticated(LDAP_URL, LDAP_REALM, ORGANIZATION_UNIT, "DOMAIN\\MyUser", PASSWORD);
 
         Assert.assertTrue(authenticated);
     }
 
-    @Test(groups = {"live"})
+    @Test(groups = {"Live"})
     public void testLiveLdapServerUserAtFQDN() throws SecurityProvider.SecurityProviderDeniedAuthentication {
         boolean authenticated = isAuthenticated(LDAP_URL, LDAP_REALM, ORGANIZATION_UNIT, "MyUser@" + LDAP_REALM, PASSWORD);
 
