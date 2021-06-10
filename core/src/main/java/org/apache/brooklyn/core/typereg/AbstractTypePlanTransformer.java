@@ -18,13 +18,21 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import com.google.common.reflect.TypeToken;
+import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.brooklyn.api.catalog.BrooklynCatalog;
+import javax.annotation.Nullable;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -159,5 +167,56 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     protected abstract AbstractBrooklynObjectSpec<?,?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
 
     protected abstract Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
-    
+
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithCommonTags(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
+                                                                     @Nullable String format, @Nullable String summary,
+                                                                     @Nullable Function<String,String> previousSummaryModification) {
+        if (Strings.isBlank(format)) format = getFormatCode();
+        final String specSummaryText = Strings.isNonBlank(summary)
+                ? summary
+                : format + " plan" +
+                    (Strings.isNonBlank(type.getSymbolicName())
+                            ? " for type "+type.getSymbolicName()
+                            : Strings.isNonBlank(type.getDisplayName())
+                                ? " for "+type.getDisplayName()
+                                : "");
+
+        SpecSummary specSummary = SpecSummary.builder()
+                .format(format)
+                .summary(specSummaryText)
+                .contents(type.getPlan().getPlanData())
+                .build();
+
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
+        if (specTag != null) {
+            SpecSummary.modifyHeadSummary(specTag, previousSummaryModification);
+            SpecSummary.pushToList(specTag, specSummary);
+        } else {
+            specTag = MutableList.of(specSummary);
+        }
+
+        List<SpecSummary> sources = BrooklynTags.findSpecHierarchyTag(type.getTags());
+        if (sources != null) {
+            SpecSummary.modifyHeadSummary(specTag, s -> "Converted for catalog to "+s);
+            SpecSummary.pushToList(specTag, sources);
+        }
+        BrooklynTags.upsertSingleKeyMapValueTag(spec, BrooklynTags.SPEC_HIERARCHY, specTag);
+
+        if (spec instanceof EntitySpec) {
+            addDepthTagsWhereMissing( ((EntitySpec<?>)spec).getChildren(), 1 );
+        }
+
+        return spec;
+    }
+
+    protected void addDepthTagsWhereMissing(List<EntitySpec<?>> children, int depth) {
+        children.forEach(c -> {
+            Integer existingDepth = BrooklynTags.getDepthInAncestorTag(c.getTags());
+            if (existingDepth==null) {
+                c.tag(MutableMap.of(BrooklynTags.DEPTH_IN_ANCESTOR, depth));
+                addDepthTagsWhereMissing(c.getChildren(), depth+1);
+            }
+        });
+    }
+
 }

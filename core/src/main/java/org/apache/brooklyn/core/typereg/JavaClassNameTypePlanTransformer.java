@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.lang.reflect.Constructor;
-import java.util.List;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -65,7 +64,7 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     @SuppressWarnings({ "unchecked" })
     @Override
     protected AbstractBrooklynObjectSpec<?,?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return RegisteredTypes.newSpecInstance(mgmt, (Class<? extends BrooklynObject>) getType(type, context));
+        return decorateWithCommonTags(RegisteredTypes.newSpecInstance(mgmt, (Class<? extends BrooklynObject>) getType(type, context)), type, null, null, null);
     }
 
     @Override

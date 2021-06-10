@@ -25,12 +25,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import com.google.common.collect.Iterators;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
@@ -333,7 +331,7 @@ public class RegisteredTypes {
     @Beta
     public static RegisteredType addTag(RegisteredType type, Object tag) {
         if (tag!=null) {
-            ((BasicRegisteredType)type).tags.add( tag );
+            ((BasicRegisteredType) type).tags.add(tag);
         }
         return type;
     }
@@ -647,7 +645,7 @@ public class RegisteredTypes {
     public static String getIconUrl(BrooklynObject object) {
         if (object==null) return null;
         
-        NamedStringTag fromTag = BrooklynTags.findFirst(BrooklynTags.ICON_URL, object.tags().getTags());
+        NamedStringTag fromTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.ICON_URL, object.tags().getTags());
         if (fromTag!=null) return fromTag.getContents();
         
         ManagementContext mgmt = ((BrooklynObjectInternal)object).getManagementContext();

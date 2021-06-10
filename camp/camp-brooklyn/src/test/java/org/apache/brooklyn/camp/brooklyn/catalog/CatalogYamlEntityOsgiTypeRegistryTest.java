@@ -18,21 +18,28 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.osgi.VersionedName;
-import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.Iterables;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 /** Variant of parent tests using OSGi, bundles, and type registry, instead of lightweight non-osgi catalog */
 @Test
@@ -207,6 +214,34 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
         Object docTag = item.getTags().stream().filter(x -> x instanceof Map && ((Map) x).containsKey("description.md")).findFirst().orElse(null);
         Asserts.assertEquals(((Map) docTag).get("description.md"), "Line 1\nLine **2**\n");
 
+        deleteCatalogRegisteredType(symbolicName);
+    }
+
+    @Test
+    public void testAddCatalogItemWithHierarchyTag() throws Exception {
+        String symbolicName = "my.catalog.app.id.load";
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  id: " + symbolicName,
+                "  version: " + TEST_VERSION,
+                "  tags:",
+                "  - "+ BrooklynTags.SPEC_HIERARCHY +": ",
+                "         - format: " + CampTypePlanTransformer.FORMAT,
+                "           summary:  Plan for " + symbolicName,
+                "           contents:  | " ,
+                "               line 1",
+                "               line 2",
+                "  itemType: entity",
+                "  item: " + BasicEntity.class.getName());
+
+        RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
+
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(item.getTags());
+        Assert.assertNotNull(specTag);
+        assertEquals(specTag.size(), 1);
+
+        Asserts.assertEquals(specTag.get(0).format, CampTypePlanTransformer.FORMAT);
+        Asserts.assertEquals(specTag.get(0).summary, "Plan for " + symbolicName);
         deleteCatalogRegisteredType(symbolicName);
     }
 

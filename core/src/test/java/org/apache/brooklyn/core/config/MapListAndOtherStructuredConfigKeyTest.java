@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.config;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -136,6 +137,14 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     }
 
     @Test
+    public void testMapConfigKeyCanStoreAndRetrieveFutureAtRoot() throws Exception {
+        entity.config().set(TestEntity.CONF_MAP_THING, DependentConfiguration.whenDone(Callables.returning(MutableMap.of("akey", "aval"))));
+        app.start(locs);
+
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval"));
+    }
+
+    @Test
     public void testUnstructuredConfigKeyCanStoreAndRetrieveFutureValsPutAsMap() throws Exception {
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
         final AtomicInteger bref = new AtomicInteger(0);
@@ -233,6 +242,14 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), DependentConfiguration.whenDone(Callables.returning("bval")));
         app.start(locs);
         
+        assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval","bval"));
+    }
+
+    @Test
+    public void testSetConfigKeyCanStoreAndRetrieveFutureAtRoot() throws Exception {
+        entity.config().set(TestEntity.CONF_SET_THING, DependentConfiguration.whenDone(Callables.returning(MutableSet.of("aval", "bval"))));
+        app.start(locs);
+
         assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval","bval"));
     }
 

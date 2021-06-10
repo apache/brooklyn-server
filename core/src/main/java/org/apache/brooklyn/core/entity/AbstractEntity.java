@@ -836,7 +836,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         }
 
         for (Location loc : newLocations) {
-            NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
+            NamedStringTag ownerEntityTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
             if (ownerEntityTag != null) {
                 if (!getId().equals(ownerEntityTag.getContents())) {
                     // A location is "owned" if it was created as part of the EntitySpec of an entity (by Brooklyn).

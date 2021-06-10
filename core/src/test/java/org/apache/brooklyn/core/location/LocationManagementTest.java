@@ -140,7 +140,7 @@ public class LocationManagementTest extends BrooklynAppUnitTestSupport {
         app.start(ImmutableList.<Location>of());
         Location appLocation = Iterables.getOnlyElement(app.getLocations());
 
-        NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, appLocation.tags().getTags());
+        NamedStringTag ownerEntityTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.OWNER_ENTITY_ID, appLocation.tags().getTags());
         Assert.assertNotNull(ownerEntityTag);
         Assert.assertEquals(ownerEntityTag.getContents(), app.getId());
 

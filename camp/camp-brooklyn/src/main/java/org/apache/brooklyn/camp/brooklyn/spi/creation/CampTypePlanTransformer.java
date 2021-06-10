@@ -104,7 +104,9 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
-            return new CampResolver(mgmt, type, context).createSpec();
+            return decorateWithCommonTags(new CampResolver(mgmt, type, context).createSpec(), type, null, null,
+                    prevHeadSpecSummary -> "Based on "+prevHeadSpecSummary);
+
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             String message = null;

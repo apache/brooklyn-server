@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
 import org.apache.brooklyn.rest.util.ManagementContextProvider;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.eclipse.jetty.http.HttpHeader;
 import org.slf4j.Logger;
@@ -50,7 +51,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
     
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJavax.class);
 
-    private static final ConfigKey<String> LOGIN_FORM =
+    public static final ConfigKey<String> LOGIN_FORM =
             ConfigKeys.newStringConfigKey(BrooklynWebConfig.BASE_NAME_SECURITY + ".login.form",
                     "Login form location otherwise use browser popup", "");
     @Override
@@ -66,7 +67,7 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
         try {
             log.trace("BrooklynSecurityProviderFilterJavax.doFilter {}", request);
             ManagementContext mgmt = new ManagementContextProvider(request.getServletContext()).getManagementContext();
-            loginPage =  mgmt.getConfig().getConfig(LOGIN_FORM);
+            loginPage = getLoginPageFromContext(mgmt);
 
             Preconditions.checkNotNull(mgmt, "Brooklyn management context not available; cannot authenticate");
             new BrooklynSecurityProviderFilterHelper().run((HttpServletRequest)request, mgmt);
@@ -99,6 +100,15 @@ public class BrooklynSecurityProviderFilterJavax implements Filter {
                 response.getWriter().flush();
             }
         }
+    }
+
+    /**
+     * While starting the management context can be null which will throw an NPE and looks
+     * bad although there would still be no available functionality
+     */
+    private String getLoginPageFromContext(ManagementContext mgmt) {
+        if (mgmt == null) return "";
+        return mgmt.getConfig() == null ? "" : mgmt.getConfig().getConfig(LOGIN_FORM);
     }
 
     @Override

@@ -18,10 +18,7 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import javax.annotation.Nullable;
 
@@ -135,17 +132,31 @@ public class CatalogUtils {
         return result;
     }
 
-    /** Creates a new loading context using the primary bundle and the search bundles.
-     *  If the primary bundle is included in the search bundles, then it is read in the order it lies within the search bundle.
-     *  If it is not in the search list it is read first. */
+    /** Creates a new loading context using the primary bundle first and the search bundles. */
     public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
-        ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
+            ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
+        return newClassLoadingContextForCatalogItems(managementContext, primaryItemId, searchPath,
+                /* added as parameter and changed default from true 2021-06 because in nested situations it usually is wanted */
+                // specifically if i have an entity with the same name as the bundle, and it is used nested in an entity from another bundle
+                // "true" means the classpath has the containing entity's bundle first
+                false);
+    }
+
+    /** Creates a new loading context using the primary bundle and the search bundles.
+     *  Optionally if the primary bundle is included in the search bundles, then it can be
+     *  specified to read in the order it lies within the search bundle, otherwise add it first. */
+    public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
+            ManagementContext managementContext, String primaryItemId, List<String> searchPath, boolean omitPrimaryIfContainedInSearchPath) {
 
         BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
-        if (!searchPath.contains(primaryItemId)) {
+        Set<String> path = MutableSet.copyOf(searchPath);
+
+        if (!omitPrimaryIfContainedInSearchPath || !searchPath.contains(primaryItemId)) {
             addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
+            path.remove(primaryItemId);
         }
-        for (String searchId : searchPath) {
+
+        for (String searchId : path) {
             addSearchItem(managementContext, seqLoader, searchId, true);
         }
         return seqLoader;

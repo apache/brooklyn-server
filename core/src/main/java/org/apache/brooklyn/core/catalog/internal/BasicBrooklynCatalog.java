@@ -661,6 +661,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         catalogMetadata.put("tags", MutableSet.copyOf(getFirstAs(parentMetadata, Collection.class, "tags").orNull())
             .putAll(getFirstAs(itemMetadataWithoutItemDef, Collection.class, "tags").orNull()) );
 
+
         // brooklyn.libraries we treat specially, to append the list, with the child's list preferred in classloading order
         // `libraries` is supported in some places as a legacy syntax; it should always be `brooklyn.libraries` for new apps
         // TODO in 0.8.0 require brooklyn.libraries, don't allow "libraries" on its own
@@ -1043,6 +1044,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (resultNewFormat!=null) {
             if (resultNewFormat.containsKey(newInstance)) {
                 log.debug("Multiple definitions for "+newInstance+" in BOM; only recording one");
+            } else if (resultNewFormat.containsKey(replacedInstance)) {
+                throw new IllegalArgumentException("Cannot define two different items with the same name in a bundle: "+replacedInstance+" and "+newInstance);
             } else {
                 resultNewFormat.put(newInstance, replacedInstance);
             }

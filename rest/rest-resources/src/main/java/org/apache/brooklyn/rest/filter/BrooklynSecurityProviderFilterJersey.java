@@ -33,6 +33,7 @@ import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProviderDeniedAuthentication;
+import org.apache.brooklyn.util.text.Strings;
 import org.eclipse.jetty.http.HttpHeader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +44,7 @@ import org.slf4j.LoggerFactory;
 public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynSecurityProviderFilterJersey.class);
+    public static final String LOGIN_PAGE_HEADER = "X_BROOKLYN_LOGIN_PAGE";
 
     @Context
     HttpServletRequest webRequest;
@@ -54,8 +56,9 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
         log.trace("BrooklynSecurityProviderFilterJersey.filter {}", requestContext);
+        ManagementContext mgmt = mgmtC.getContext(ManagementContext.class);
         try {
-            new BrooklynSecurityProviderFilterHelper().run(webRequest, mgmtC.getContext(ManagementContext.class));
+            new BrooklynSecurityProviderFilterHelper().run(webRequest, mgmt);
         } catch (SecurityProviderDeniedAuthentication e) {
             Response rin = e.getResponse();
             if (rin==null) rin = Response.status(Status.UNAUTHORIZED).build();
@@ -71,6 +74,11 @@ public class BrooklynSecurityProviderFilterJersey implements ContainerRequestFil
                     rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").build();
                 }
             }
+            if (rin.getStatus()==Status.UNAUTHORIZED.getStatusCode() &&
+                    Strings.isNonBlank(mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM))) {
+                rin = Response.status(Status.UNAUTHORIZED).entity("Authentication is required").header(LOGIN_PAGE_HEADER, mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM)).build();
+            }
+
             requestContext.abortWith(rin);
         }
     }

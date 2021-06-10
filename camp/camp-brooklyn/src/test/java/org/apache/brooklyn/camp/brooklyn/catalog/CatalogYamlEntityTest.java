@@ -22,7 +22,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Throwables;
 import java.util.Collection;
 import java.util.Set;
+
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.util.collections.MutableSet;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -244,6 +248,12 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
                 "  - id: " + referencedSymbolicName,
                 "    item:",
                 "      type: " + TestEntity.class.getName(),
+                "    tags:" ,
+                "    - "+BrooklynTags.SPEC_HIERARCHY+":",
+                "      - format: camp-test",
+                "        summary:  Test Type." ,
+                "        contents: |" ,
+                "            type: " + referencedSymbolicName,
                 "  - id: " + referrerSymbolicName,
                 "    item:",
                 "      type: " + ver(referencedSymbolicName, TEST_VERSION));
@@ -260,6 +270,11 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.getEntityType().getName(), TestEntity.class.getName());
+
+        // tests that the plan tag was set
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
+        Assert.assertNotNull(specTag);
+        assertEquals(specTag.size(), 3);
 
         deleteCatalogRegisteredType(referencedSymbolicName);
         deleteCatalogRegisteredType(referrerSymbolicName);

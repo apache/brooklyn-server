@@ -18,10 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import static org.testng.Assert.assertEquals;
-
+import com.google.common.collect.Iterables;
 import java.util.List;
-
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -29,6 +27,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -37,9 +36,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
+import static org.testng.Assert.assertEquals;
 import org.testng.annotations.Test;
-
-import com.google.common.collect.Iterables;
 
 
 public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
@@ -79,15 +77,37 @@ public class CatalogOsgiYamlTemplateTest extends AbstractYamlTest {
         EntitySpec<? extends Application> spec = EntityManagementUtils.createEntitySpecForApplication(mgmt(), 
             "services: [ { type: t1 } ]\n" +
             "location: localhost");
-        
-        List<NamedStringTag> yamls = BrooklynTags.findAll(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
+
+        // parent
+
+        List<NamedStringTag> yamls = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
         Assert.assertEquals(yamls.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
         String yaml = Iterables.getOnlyElement(yamls).getContents();
         Asserts.assertStringContains(yaml, "services:", "t1", "localhost");
-        
+
+        List<SpecSummary> yamlsH = BrooklynTags.findSpecHierarchyTag(spec.getTags());
+        Assert.assertNotNull(yamlsH);
+        Assert.assertEquals(yamlsH.size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH);
+
+        Assert.assertNull(BrooklynTags.getDepthInAncestorTag(spec.getTags()));
+
+        // and child
+
         EntitySpec<?> child = Iterables.getOnlyElement( spec.getChildren() );
         Assert.assertEquals(child.getType().getName(), SIMPLE_ENTITY_TYPE);
         Assert.assertEquals(child.getCatalogItemId(), "t1:"+TEST_VERSION);
+
+        List<NamedStringTag> yamls2 = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, child.getTags());
+        Assert.assertEquals(yamls2.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
+
+        List<SpecSummary> yamlsH2 = BrooklynTags.findSpecHierarchyTag(child.getTags());
+        Assert.assertNotNull(yamlsH2);
+        Assert.assertEquals(yamlsH2.size(), 1, "Expected 1 yaml tag in hierarchy; instead had: "+yamlsH2);
+        Asserts.assertStringContainsIgnoreCase(yamlsH2.iterator().next().contents.toString(),
+                "# this sample comment should be included",
+                "SimpleEntity");
+
+        Assert.assertEquals(BrooklynTags.getDepthInAncestorTag(child.getTags()), (Integer) 1);
     }
     
     private RegisteredType makeItem(String symbolicName, String templateType) {

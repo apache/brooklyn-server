@@ -513,7 +513,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
             Asserts.expectedFailureContains(e, "DeliberatelyMissing", appSymbolicName);
         }
         Map<String, ManagedBundle> newBundles = origManagementContext.getOsgiManager().get().getManagedBundles();
-        Assert.assertEquals(newBundles, oldBundles, "Bundles: "+newBundles);
+        Assert.assertEquals(newBundles, oldBundles, "Bundles: "+newBundles+" != "+oldBundles);
 
         rebind();
         newBundles = origManagementContext.getOsgiManager().get().getManagedBundles();

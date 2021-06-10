@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -466,11 +467,15 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     private Response launch(String yaml, EntitySpec<? extends Application> spec, Optional<String> entityId) {
+        return launch(yaml, spec, entityId, mgmt(), ui);
+    }
+
+    public static Response launch(String planForReference, EntitySpec<? extends Application> spec, Optional<String> entityId, ManagementContext mgmt, UriInfo ui) {
         try {
-            Application app = EntityManagementUtils.createUnstarted(mgmt(), spec, entityId);
+            Application app = EntityManagementUtils.createUnstarted(mgmt, spec, entityId);
 
             boolean isEntitled = Entitlements.isEntitled(
-                    mgmt().getEntitlementManager(),
+                    mgmt.getEntitlementManager(),
                     Entitlements.INVOKE_EFFECTOR,
                     EntityAndItem.of(app, StringAndArgument.of(Startable.START.getName(), null)));
 
@@ -482,7 +487,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             CreationResult<Application,Void> result = EntityManagementUtils.start(app);
             waitForStart(app, Duration.millis(100));
 
-            log.info("Launched from YAML: " + yaml + " -> " + app + " (" + result.task() + ")");
+            log.info("Launched from plan: " + planForReference + " -> " + app + " (" + result.task() + ")");
 
             URI ref = serviceAbsoluteUriBuilder(ui.getBaseUriBuilder(), ApplicationApi.class, "get").build(app.getApplicationId());
             ResponseBuilder response = created(ref);
@@ -496,7 +501,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
     }
 
-    private void waitForStart(final Application app, Duration timeout) {
+    private static void waitForStart(final Application app, Duration timeout) {
         // without this UI shows "stopped" sometimes esp if brooklyn has just started,
         // because app goes to stopped state if it sees unstarted children,
         // and that gets returned too quickly, before the start has taken effect

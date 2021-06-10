@@ -121,6 +121,7 @@ public class EntityResourceTest extends BrooklynRestResourceTest {
             response = client().path("/applications/" + appName + "/entities/" + appName + "/spec")
                     .get();
         }
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
         String data = response.readEntity(String.class);
 
         assertEquals(data.trim(), yaml.trim());
