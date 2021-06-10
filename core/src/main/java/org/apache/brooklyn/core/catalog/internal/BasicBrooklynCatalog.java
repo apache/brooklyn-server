@@ -569,6 +569,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         itemDef.remove("brooklyn.catalog");
         catalogMetadata.remove("item");
         catalogMetadata.remove("items");
+        catalogMetadata.remove("tags");
         if (!itemDef.isEmpty()) {
             // AH - i forgot we even supported this. probably no point anymore,
             // now that catalog defs can reference an item yaml and things can be bundled together?
