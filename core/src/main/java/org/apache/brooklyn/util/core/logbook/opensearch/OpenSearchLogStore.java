@@ -63,6 +63,9 @@ import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
 
+/**
+ * Implementation for expose log from ElasticSearch to the logbook API.
+ */
 public class OpenSearchLogStore implements LogStore {
 
     /*
@@ -72,7 +75,6 @@ public class OpenSearchLogStore implements LogStore {
      brooklyn.logbook.openSearchLogStore.index = brooklyn8
      brooklyn.logbook.openSearchLogStore.user = admin
      brooklyn.logbook.openSearchLogStore.password = admin
-     # brooklyn.logbook.openSearchLogStore.apikey = <replace> #not used by default
      brooklyn.logbook.openSearchLogStore.verifySSl = false
      */
     public final static String BASE_NAME_OPEN_SEARCH_LOG_STORE = BASE_NAME_LOGBOOK + ".openSearchLogStore";
@@ -159,7 +161,7 @@ public class OpenSearchLogStore implements LogStore {
 
         this.user = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_USER);
         this.indexName = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_INDEX);
-        this.password = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_PASS); //todojd this is not secure
+        this.password = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_PASS); // TODO: this is not completely secure
         this.apiKey = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_APIKEY);
         this.verifySsl = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_VERIFY_SSL);
     }

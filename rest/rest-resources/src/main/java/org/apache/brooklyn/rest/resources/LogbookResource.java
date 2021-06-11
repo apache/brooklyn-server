@@ -38,6 +38,7 @@ public class LogbookResource extends AbstractBrooklynRestResource implements Log
 
     @Override
     public Response logbookQuery(HttpServletRequest request, LogBookQueryParams params) {
+        // TODO discuss about if is ok or not allow only to the root user to see the logs.
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         Preconditions.checkNotNull(params, "params must not be null");

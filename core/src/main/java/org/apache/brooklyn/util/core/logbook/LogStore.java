@@ -22,7 +22,9 @@ import java.io.IOException;
 import java.util.List;
 
 public interface LogStore {
-
+    /**
+     * Expects a set of parameters {@link LogBookQueryParams} to query to the implemented logstore
+     */
     List<BrooklynLogEntry> query(LogBookQueryParams query) throws IOException;
 
 }

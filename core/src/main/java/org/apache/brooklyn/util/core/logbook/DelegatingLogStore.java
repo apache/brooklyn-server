@@ -60,7 +60,7 @@ public class DelegatingLogStore implements LogStore {
         }
         String className = brooklynProperties.getConfig(LogbookConfig.LOGBOOK_LOG_STORE_CLASSNAME);
         try {
-            // TODO implement logic to allow to inject the implementation from bundle.
+            // TODO implement logic to allow to inject the implementation from other bundle.
             log.info("Brooklyn Logbook: using log store " + className);
             ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
             Class<? extends LogStore> clazz = (Class<? extends LogStore>) clu.loadClass(className);
@@ -70,7 +70,7 @@ public class DelegatingLogStore implements LogStore {
             delegate = new FileLogStore(mgmt);
         }
 
-        // TODO what must be removed here nad on the DelegatingSecurityProvider
+        // TODO what must be removed here and on the DelegatingSecurityProvider
         // Deprecated in 0.11.0. Add to release notes and remove in next release.
         ((BrooklynProperties) mgmt.getConfig()).put(LogbookConfig.LOGBOOK_LOG_STORE_INSTANCE, delegate);
         mgmt.getScratchpad().put(LogbookConfig.LOGBOOK_LOG_STORE_INSTANCE, delegate);
@@ -104,7 +104,6 @@ public class DelegatingLogStore implements LogStore {
         }
 
         if (!(delegateO instanceof LogStore)) {
-            // if classloaders get mangled it will be a different CL's SecurityProvider
             throw new ClassCastException("Delegate is either not a Log Store implementation or has an incompatible classloader: " + delegateO);
         }
         return (LogStore) delegateO;

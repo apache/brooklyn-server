@@ -46,14 +46,15 @@ import java.util.stream.Stream;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
 
+/**
+ * Implementation for expose log from an existing file to the logbook API
+ */
 public class FileLogStore implements LogStore {
 
     /*
-    example config for local default implementation
+    # Example config for local default implementation
     brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.file.FileLogStore
     brooklyn.logbook.fileLogStore.path = /var/logs/brooklyn/brooklyn.debug.log
-     # todojd remove
-    # brooklyn.logbook.fileLogStore.path = /home/juan/git/brooklyn/brooklyn-dist/karaf/apache-brooklyn/target/assembly/data/log/brooklyn.debug.log
     */
     public final static String BASE_NAME_FILE_LOG_STORE = BASE_NAME_LOGBOOK + ".fileLogStore";
     public final static ConfigKey<String> LOGBOOK_LOG_STORE_PATH = ConfigKeys.newStringConfigKey(
@@ -89,8 +90,7 @@ public class FileLogStore implements LogStore {
 
     @Override
     public List<BrooklynLogEntry> query(LogBookQueryParams params) {
-        // TODO the read of the file needs to be improved, specially reading the file backwards
-
+        // TODO the read of the file needs to be improved, specially to implement reading the file backwards
         try (Stream<String> stream = Files.lines(path)) {
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
                 String initTime = params.getInitTime();
@@ -100,11 +100,11 @@ public class FileLogStore implements LogStore {
                 boolean finalTimeFilter = true;
                 if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL"))
                     levelFilter = params.getLevels().contains(brooklynLogEntry.getLevel());
-                if (Strings.isNonBlank(initTime) && brooklynLogEntry.getDatetime()!=null) {
+                if (Strings.isNonBlank(initTime) && brooklynLogEntry.getDatetime() != null) {
                     Date initDate = Time.parseDate(initTime);
                     initTimeFilter = brooklynLogEntry.getDatetime().compareTo(initDate) > 0;
                 }
-                if (Strings.isNonBlank(finalTime) && brooklynLogEntry.getDatetime()!=null) {
+                if (Strings.isNonBlank(finalTime) && brooklynLogEntry.getDatetime() != null) {
                     Date finalDate = Time.parseDate(finalTime);
                     finalTimeFilter = brooklynLogEntry.getDatetime().compareTo(finalDate) < 0;
                 }
@@ -116,9 +116,9 @@ public class FileLogStore implements LogStore {
                     .filter(filter)
                     .limit(params.getNumberOfItems())
                     .sorted((o1, o2) -> {
-                        if(params.getReverseOrder()) {
+                        if (params.getReverseOrder()) {
                             return o2.getDatetime().compareTo(o1.getDatetime());
-                        }else{
+                        } else {
                             return o1.getDatetime().compareTo(o2.getDatetime());
                         }
                     })

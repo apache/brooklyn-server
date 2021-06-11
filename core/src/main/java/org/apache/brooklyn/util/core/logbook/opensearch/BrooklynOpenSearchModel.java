@@ -18,11 +18,7 @@
  */
 package org.apache.brooklyn.util.core.logbook.opensearch;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import java.util.List;
 

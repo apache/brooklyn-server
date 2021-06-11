@@ -33,11 +33,9 @@ public class BrooklynLogEntry {
     String taskId;
     String entityIds;
     String level;
-    @JsonProperty("bundle_id")
     String bundleId;
     @JsonProperty("class")
     String clazz;
-    @JsonProperty("thread_name")
     String threadName;
     String message;
 
@@ -56,6 +54,7 @@ public class BrooklynLogEntry {
     public void setDatetime(Date datetime) {
         this.datetime = datetime;
     }
+
     public String getTaskId() {
         return taskId;
     }
