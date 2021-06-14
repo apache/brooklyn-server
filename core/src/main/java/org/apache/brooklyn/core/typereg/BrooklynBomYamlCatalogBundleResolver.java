@@ -115,10 +115,16 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
 
         OsgiBundleInstallationResult result;
         try {
+
+            BasicManagedBundle basicManagedBundle = new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
+                    null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
+                    null, null);
+            // if the submitted blueprint contains tags, we set them on the bundle, so they can be picked up and used to tag the plan.
+            if( cm.containsKey("tags") && cm.get("tags") instanceof Iterable) {
+                basicManagedBundle.tags().addTags((Iterable<?>)cm.get("tags"));
+            }
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
-                    new BasicManagedBundle(vn.getSymbolicName(), vn.getVersionString(),
-                            null, BrooklynBomBundleCatalogBundleResolver.FORMAT,
-                            null, null), InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots()).get();
+                    basicManagedBundle, InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots()).get();
         } finally {
             bf.delete();
         }
