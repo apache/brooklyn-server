@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.logbook.opensearch;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 
 import java.util.List;
@@ -30,7 +31,8 @@ import java.util.List;
 class BrooklynOpenSearchModel {
     OpenSearchHitsWrapper hits;
     Integer took;
-    Boolean timed_out;
+    @JsonProperty("timed_out")
+    Boolean timedOut;
 
     public OpenSearchHitsWrapper getHits() {
         return hits;
@@ -48,12 +50,12 @@ class BrooklynOpenSearchModel {
         this.took = took;
     }
 
-    public Boolean getTimed_out() {
-        return timed_out;
+    public Boolean getTimedOut() {
+        return timedOut;
     }
 
-    public void setTimed_out(Boolean timed_out) {
-        this.timed_out = timed_out;
+    public void setTimedOut(Boolean timedOut) {
+        this.timedOut = timedOut;
     }
 
     static class OpenSearchHitsWrapper {
@@ -69,37 +71,39 @@ class BrooklynOpenSearchModel {
     }
 
     static class OpenSearchHit {
-        String _index;
-        String _type;
-        BrooklynLogEntry _source;
+        @JsonProperty("_index")
+        String index;
 
-        public String get_index() {
-            return _index;
+        @JsonProperty("_type")
+        String type;
+
+        @JsonProperty("_source")
+        BrooklynLogEntry source;
+
+        public String getIndex() {
+            return index;
         }
 
-        public void set_index(String _index) {
-            this._index = _index;
+        public void setIndex(String index) {
+            this.index = index;
         }
 
-        public String get_type() {
-            return _type;
+        public String getType() {
+            return type;
         }
 
-        public void set_type(String _type) {
-            this._type = _type;
-        }
-
-        public BrooklynLogEntry get_source() {
-            return _source;
-        }
-
-        public void set_source(BrooklynLogEntry _source) {
-            this._source = _source;
+        public void setType(String type) {
+            this.type = type;
         }
 
         public BrooklynLogEntry getSource() {
-            return _source;
+            return source;
         }
+
+        public void setSource(BrooklynLogEntry source) {
+            this.source = source;
+        }
+
     }
 
 }
