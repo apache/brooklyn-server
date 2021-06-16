@@ -25,6 +25,10 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import java.util.Date;
 
+/**
+ * This class models the log format used by Apache Brooklyn by default
+ * @see `etc/org.ops4j.pax.logging.cfg`
+ */
 public class BrooklynLogEntry {
 
     @JsonProperty("timestamp")

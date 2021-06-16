@@ -22,6 +22,11 @@ import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 
 import java.util.List;
 
+/**
+ * This class models the data returned by the ElasticSearch search method. Only the required fields for the implemented
+ * behaviour are present.
+ * The original doc can be found in: https://www.elastic.co/guide/en/elasticsearch/reference/current/search-search.html#search-api-response-body
+ */
 class BrooklynOpenSearchModel {
     OpenSearchHitsWrapper hits;
     Integer took;

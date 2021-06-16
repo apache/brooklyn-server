@@ -106,6 +106,7 @@ public class OpenSearchLogStore implements LogStore {
     private Boolean verifySsl;
     private String indexName;
 
+    @VisibleForTesting
     public OpenSearchLogStore() {
         this.mgmt = null;
     }
@@ -144,7 +145,7 @@ public class OpenSearchLogStore implements LogStore {
         try {
             url = new URL(host);
         } catch (MalformedURLException e) {
-            throw new IllegalArgumentException("The provided host OpenSeatch host ulr is not valid: " + host);
+            throw new IllegalArgumentException("The provided host OpenSearch host URL is not valid: " + host);
         }
         HttpHost httpHost = new HttpHost(url.getHost(), url.getPort());
         CredentialsProvider provider = new BasicCredentialsProvider();

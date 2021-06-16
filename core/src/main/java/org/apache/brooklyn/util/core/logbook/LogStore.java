@@ -24,6 +24,9 @@ import java.util.List;
 public interface LogStore {
     /**
      * Expects a set of parameters {@link LogBookQueryParams} to query to the implemented logstore
+     * @param query Depending on the implementation some of fields could be mandatory
+     * @return List of the log entries modeled
+     * @throws IOException
      */
     List<BrooklynLogEntry> query(LogBookQueryParams query) throws IOException;
 

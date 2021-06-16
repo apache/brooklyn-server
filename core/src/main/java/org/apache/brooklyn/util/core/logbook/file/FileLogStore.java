@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.logbook.file;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -73,6 +74,7 @@ public class FileLogStore implements LogStore {
     private final String logLinePattern;
     private final String logDateFormat;
 
+    @VisibleForTesting
     public FileLogStore() {
         this.path = null;
         this.filePath = "";
@@ -90,7 +92,8 @@ public class FileLogStore implements LogStore {
 
     @Override
     public List<BrooklynLogEntry> query(LogBookQueryParams params) {
-        // TODO the read of the file needs to be improved, specially to implement reading the file backwards
+        // TODO the read of the file needs to be improved, specially to implement reading the file backwards and
+        //  do a correct multiline log reading
         try (Stream<String> stream = Files.lines(path)) {
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
                 String initTime = params.getInitTime();
