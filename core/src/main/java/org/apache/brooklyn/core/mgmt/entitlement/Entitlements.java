@@ -24,7 +24,6 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementClass;
@@ -123,6 +122,11 @@ public class Entitlements {
      */
     public static EntitlementClass<Void> ROOT = new BasicEntitlementClassDefinition<Void>("root", Void.class);
 
+    /**
+     * Permission to query the query the log store
+     */
+    public static EntitlementClass<Void> LOGBOOK_LOG_STORE_QUERY = new BasicEntitlementClassDefinition<Void>("logbook.query", Void.class);
+
     @SuppressWarnings("unchecked")
     public enum EntitlementClassesEnum {
         ENTITLEMENT_SEE_CATALOG_ITEM(SEE_CATALOG_ITEM) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeCatalogItem((String)argument); } },
@@ -139,6 +143,8 @@ public class Entitlements {
         ENTITLEMENT_SEE_ALL_SERVER_INFO(SEE_ALL_SERVER_INFO) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeAllServerInfo(); } },
         ENTITLEMENT_SERVER_STATUS(SERVER_STATUS) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeServerStatus(); } },
         ENTITLEMENT_ROOT(ROOT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
+        // TODO define new handler
+        ENTITLEMENT_LOGBOOK_QUERY(LOGBOOK_LOG_STORE_QUERY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
         ;
         
         private EntitlementClass<?> entitlementClass;
