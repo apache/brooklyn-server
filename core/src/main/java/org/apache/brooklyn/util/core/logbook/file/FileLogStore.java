@@ -137,7 +137,7 @@ public class FileLogStore implements LogStore {
         Pattern p = Pattern.compile(this.logLinePattern);
         Matcher m = p.matcher(logLine);
         BrooklynLogEntry entry = new BrooklynLogEntry();
-        assert m.find();
+        m.find();
         if (m.matches()) {
             entry.setTimestampString(m.group("timestamp"));
             Maybe<Calendar> calendarMaybe = Time.parseCalendarFormat(entry.getTimestampString(), logDateFormat);
