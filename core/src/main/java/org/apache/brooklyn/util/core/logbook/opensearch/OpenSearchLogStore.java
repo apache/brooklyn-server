@@ -75,7 +75,7 @@ public class OpenSearchLogStore implements LogStore {
      brooklyn.logbook.openSearchLogStore.index = brooklyn8
      brooklyn.logbook.openSearchLogStore.user = admin
      brooklyn.logbook.openSearchLogStore.password = admin
-     brooklyn.logbook.openSearchLogStore.verifySSl = false
+     brooklyn.logbook.openSearchLogStore.verifySsl = false
      */
     public final static String BASE_NAME_OPEN_SEARCH_LOG_STORE = BASE_NAME_LOGBOOK + ".openSearchLogStore";
 
@@ -95,7 +95,7 @@ public class OpenSearchLogStore implements LogStore {
             BASE_NAME_OPEN_SEARCH_LOG_STORE + ".apikey", "API key");
 
     public final static ConfigKey<Boolean> LOGBOOK_LOG_STORE_VERIFY_SSL = ConfigKeys.newBooleanConfigKey(
-            BASE_NAME_OPEN_SEARCH_LOG_STORE + ".verifySSl", "Verify SSL", true);
+            BASE_NAME_OPEN_SEARCH_LOG_STORE + ".verifySsl", "Verify SSL", true);
 
     private final ManagementContext mgmt;
     CloseableHttpClient httpClient;
