@@ -465,6 +465,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (memento.getMasterNodeId() == null) {
             memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
         }
+
         return HighAvailabilityTransformer.highAvailabilitySummary(mgmt().getManagementNodeId(), memento);
     }
 
