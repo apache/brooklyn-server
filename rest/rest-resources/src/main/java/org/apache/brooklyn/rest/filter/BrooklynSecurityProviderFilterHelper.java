@@ -106,15 +106,6 @@ public class BrooklynSecurityProviderFilterHelper {
 
             abort(e.getResponse());
         }
-        final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
-        
-        if (log.isTraceEnabled()) {
-            log.trace("{} checking {}", this, MultiSessionAttributeAdapter.info(webRequest));
-        }
-        if (provider.isAuthenticated(preferredSession1)) {
-            log.trace("{} already authenticated - {}", this, preferredSession1);
-            return;
-        }
 
         String unauthenticatedEndpoints = mgmt.getConfig().getConfig(UNAUTHENTICATED_ENDPOINTS);
         if (Strings.isNonBlank(unauthenticatedEndpoints)) {
@@ -125,6 +116,17 @@ public class BrooklynSecurityProviderFilterHelper {
                 }
             }
         }
+
+        final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
+        
+        if (log.isTraceEnabled()) {
+            log.trace("{} checking {}", this, MultiSessionAttributeAdapter.info(webRequest));
+        }
+        if (provider.isAuthenticated(preferredSession1)) {
+            log.trace("{} already authenticated - {}", this, preferredSession1);
+            return;
+        }
+
 
         String user = null, pass = null;
         if (provider.requiresUserPass()) {
