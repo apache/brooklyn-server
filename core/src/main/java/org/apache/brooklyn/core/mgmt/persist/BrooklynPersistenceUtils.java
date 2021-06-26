@@ -294,30 +294,24 @@ public class BrooklynPersistenceUtils {
     public static void createStateExport (ManagementContext managementContext, File persistenceBaseDir){
         try {
             File dir = null;
-
             BrooklynMementoRawData memento = null;
             ManagementPlaneSyncRecord planeState = null;
-
             MementoCopyMode source = (managementContext.getHighAvailabilityManager().getNodeState()==ManagementNodeState.MASTER ? MementoCopyMode.LOCAL : MementoCopyMode.REMOTE);
 
             memento = newStateMemento(managementContext, source);
-            try {
-                planeState = newManagerMemento(managementContext, source);
-            } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-            }
+            planeState = newManagerMemento(managementContext, source);
 
             PersistenceObjectStore targetStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, null,
                     "tmp/persistence-state-export");
             dir = ((FileBasedObjectStore)targetStore).getBaseDir();
-            // only register the parent dir because that will prevent leaks for the random ID
             Os.deleteOnExitEmptyParentsUpTo(dir.getParentFile(), dir.getParentFile());
+
             BrooklynPersistenceUtils.writeMemento(managementContext, memento, targetStore);
             BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, targetStore);
 
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName() ).stream(baos);
-            ArchiveBuilder.zip().create(persistenceBaseDir + File.separator + ".." + File.separator + "persistence-state-export.zip");
+            //ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName() ).create((persistenceBaseDir + File.separator + ".." + File.separator + "persistence-state-export.zip"));
+            //ArchiveBuilder.zip().create(persistenceBaseDir + File.separator + ".." + File.separator + "persistence-state-export.zip");
             Os.deleteRecursively(dir);
 
         } catch (Exception e) {

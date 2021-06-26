@@ -519,7 +519,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                 // Tell the persister to persist it
                 persister.delta(persisterDelta, exceptionHandler);
 
-                // save export zip of persistence state, only for file based
+                // save export zip of persistence state, only for file based persistence stores
                 if ((persister instanceof BrooklynMementoPersisterToObjectStore) && (((BrooklynMementoPersisterToObjectStore) persister).getObjectStore() instanceof FileBasedObjectStore)){
                     BrooklynPersistenceUtils.createStateExport(((BrooklynMementoPersisterToObjectStore) persister).getManagementContext(), ((FileBasedObjectStore) ((BrooklynMementoPersisterToObjectStore) persister).getObjectStore()).getBaseDir());
                 }
