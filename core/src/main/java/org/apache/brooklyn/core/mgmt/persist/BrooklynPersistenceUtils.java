@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.List;
 
@@ -309,9 +308,8 @@ public class BrooklynPersistenceUtils {
             BrooklynPersistenceUtils.writeMemento(managementContext, memento, targetStore);
             BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, targetStore);
 
-            //ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName() ).create((persistenceBaseDir + File.separator + ".." + File.separator + "persistence-state-export.zip"));
-            //ArchiveBuilder.zip().create(persistenceBaseDir + File.separator + ".." + File.separator + "persistence-state-export.zip");
+            ArchiveBuilder.zip().addDirContentsAt(((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName())
+                    .create((persistenceBaseDir + File.separator + ".." + File.separator + "persistence-state-export.zip"));
             Os.deleteRecursively(dir);
 
         } catch (Exception e) {
