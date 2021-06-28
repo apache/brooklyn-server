@@ -20,12 +20,12 @@ package org.apache.brooklyn.rest.resources;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.rest.api.LogbookApi;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
-import org.apache.cxf.jaxrs.client.WebClient;
 import org.apache.http.HttpStatus;
-import org.testng.annotations.Test;
+import org.testng.annotations.*;
 
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
@@ -39,7 +39,7 @@ import static org.testng.Assert.assertEquals;
 /**
  * Tests the {@link LogbookApi} implementation.
  */
-@Test(singleThreaded = true)
+@Test(singleThreaded = true, suiteName = "LogbookResourceTest")
 public class LogbookResourceTest extends BrooklynRestResourceTest {
 
     @Test
@@ -58,7 +58,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
     public void testQueryLogbookUnknownArgs() throws IOException {
 
         // Prepare query with unknown args.
-        ImmutableMap qb = ImmutableMap.builder()
+        ImmutableMap<Object, Object> qb = ImmutableMap.builder()
                 .put("unknownArg", false)
                 .build();
 
@@ -74,7 +74,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
     public void testQueryLogbookValidArgs() throws IOException {
 
         // Prepare a valid query.
-        ImmutableMap qb = ImmutableMap.builder()
+        ImmutableMap<Object, Object> qb = ImmutableMap.builder()
                 .put("numberOfItems", 3)
                 .put("reverseOrder", false)
                 .put("levels", ImmutableList.of("WARN", "DEBUG"))
@@ -91,23 +91,87 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
         assertEquals(brooklynLogEntries.size(), 3);
     }
 
-    // TODO: complete this test, find a way to test the un-entitled access.
-    @Test(groups="WIP")
-    public void testQueryLogbookNotEntitled() throws Exception {
+    // ------------ THE TEST GROUP BELOW IS FOR UNAUTHORIZED ACCESS CASES -----------------------
 
-        // Prepare a valid query.
-        ImmutableMap qb = ImmutableMap.builder()
-                .put("numberOfItems", 3)
-                .put("reverseOrder", false)
-                .put("levels", ImmutableList.of("WARN", "DEBUG"))
-                .build();
+    private static class AbstractLogbookResourceWithEntitlementTest extends BrooklynRestResourceTest {
 
-        // Access the logbook resource with un-entitled user.
-        WebClient resource = WebClient.create(getEndpointAddress(), clientProviders, "user", "password", null)
-                .path("/logbook")
-                .accept(MediaType.APPLICATION_JSON);
-        Response response = resource.post(toJsonEntity(qb));
+        /**
+         * @return The 'brooklyn.entitlements.global' brooklyn property.
+         */
+        protected String getBrooklynEntitlementsGlobal() {
+            return "root"; // root is default, however, lets make it explicit.
+        }
 
-        assertEquals(response.getStatus(),  HttpStatus.SC_UNAUTHORIZED);
+        @Override
+        protected BrooklynProperties getBrooklynProperties() {
+            BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
+            brooklynProperties.put("brooklyn.entitlements.global", this.getBrooklynEntitlementsGlobal());
+            return brooklynProperties;
+        }
+
+        /**
+         * Test to verify if logbook access is not authorized.
+         *
+         * @throws Exception in case of test infrastructure errors.
+         */
+        private void testQueryLogbookNotAuthorized() throws Exception {
+
+            // Prepare a valid query.
+            ImmutableMap<Object, Object> qb = ImmutableMap.builder()
+                    .put("numberOfItems", 3)
+                    .put("reverseOrder", false)
+                    .put("levels", ImmutableList.of("WARN", "DEBUG"))
+                    .build();
+
+            // Access the logbook resource with un-entitled user.
+            Response response = client()
+                    .path("/logbook")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .post(toJsonEntity(qb));
+
+            assertEquals(response.getStatus(), HttpStatus.SC_UNAUTHORIZED);
+        }
+    }
+
+    @Test(singleThreaded = true, suiteName = "LogbookResourceTest")
+    public static class LogbookResourceGlobalEntitlementMinimalTest extends AbstractLogbookResourceWithEntitlementTest {
+
+        @Override
+        protected String getBrooklynEntitlementsGlobal() {
+            return "minimal";
+        }
+
+        @Test
+        public void testQueryLogbookNotAuthorized() throws Exception {
+            super.testQueryLogbookNotAuthorized();
+        }
+    }
+
+    @Test(singleThreaded = true, suiteName = "LogbookResourceTest")
+    public static class LogbookResourceGlobalEntitlementUserTest extends AbstractLogbookResourceWithEntitlementTest {
+
+        @Override
+        protected String getBrooklynEntitlementsGlobal() {
+            return "user";
+        }
+
+        @Test
+        public void testQueryLogbookNotAuthorized() throws Exception {
+            super.testQueryLogbookNotAuthorized();
+        }
+    }
+
+    @Test(singleThreaded = true, suiteName = "LogbookResourceTest")
+    public static class LogbookResourceGlobalEntitlementReadonlyTest extends AbstractLogbookResourceWithEntitlementTest {
+
+        @Override
+        protected String getBrooklynEntitlementsGlobal() {
+            return "readonly";
+        }
+
+        @Test
+        public void testQueryLogbookNotAuthorized() throws Exception {
+            super.testQueryLogbookNotAuthorized();
+        }
     }
 }
