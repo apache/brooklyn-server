@@ -33,6 +33,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 public class LogbookResource extends AbstractBrooklynRestResource implements LogbookApi {
 
@@ -40,7 +41,8 @@ public class LogbookResource extends AbstractBrooklynRestResource implements Log
     public Response logbookQuery(HttpServletRequest request, LogBookQueryParams params) {
 
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.unauthorized("User '%s' is not authorized to perform this operation",
+                    !Objects.isNull(Entitlements.getEntitlementContext()) ? Entitlements.getEntitlementContext().user() : "");
         }
 
         Preconditions.checkNotNull(params, "params must not be null");
