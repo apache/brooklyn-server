@@ -22,7 +22,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
-import org.apache.brooklyn.util.core.logbook.LogStore;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;

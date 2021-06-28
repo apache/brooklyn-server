@@ -143,7 +143,8 @@ public class Entitlements {
         ENTITLEMENT_SEE_ALL_SERVER_INFO(SEE_ALL_SERVER_INFO) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeAllServerInfo(); } },
         ENTITLEMENT_SERVER_STATUS(SERVER_STATUS) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeServerStatus(); } },
         ENTITLEMENT_ROOT(ROOT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
-        // TODO define new handler
+
+        /* NOTE, 'ROOT' USER ONLY IS ALLOWED TO SEE THE LOGS. */
         ENTITLEMENT_LOGBOOK_QUERY(LOGBOOK_LOG_STORE_QUERY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
         ;
         

@@ -66,7 +66,8 @@ public class DelegatingLogStore implements LogStore {
             Class<? extends LogStore> clazz = (Class<? extends LogStore>) clu.loadClass(className);
             delegate = createLogStoreProviderInstance(mgmt, clazz);
         } catch (Exception e) {
-            log.warn("Brooklyn Logbook: unable to instantiate Log Store " + className, ". Forcing to use FileLogStore", e);
+            log.warn("Brooklyn Logbook: unable to instantiate Log Store '" + className + "'. Fall back on FileLogStore", e.getMessage());
+            log.debug("", e);
             delegate = new FileLogStore(mgmt);
         }
 
