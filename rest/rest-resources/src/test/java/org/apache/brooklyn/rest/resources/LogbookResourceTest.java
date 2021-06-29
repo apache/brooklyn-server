@@ -42,6 +42,13 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true, suiteName = "LogbookResourceTest")
 public class LogbookResourceTest extends BrooklynRestResourceTest {
 
+    @Override
+    protected BrooklynProperties getBrooklynProperties() {
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
+        brooklynProperties.put("brooklyn.logbook.fileLogStore.path", "src/test/resources/logbook.test.log");
+        return brooklynProperties;
+    }
+
     @Test
     public void testQueryLogbookNoArgs(){
 
@@ -93,6 +100,9 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
 
     // ------------ THE TEST GROUP BELOW IS FOR UNAUTHORIZED ACCESS CASES -----------------------
 
+    /**
+     * This class is required to configure different startup Brooklyn properties for tests that depend on that.
+     */
     private static class AbstractLogbookResourceWithEntitlementTest extends BrooklynRestResourceTest {
 
         /**
@@ -106,6 +116,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
         protected BrooklynProperties getBrooklynProperties() {
             BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
             brooklynProperties.put("brooklyn.entitlements.global", this.getBrooklynEntitlementsGlobal());
+            brooklynProperties.put("brooklyn.logbook.fileLogStore.path", "src/test/resources/logbook.test.log");
             return brooklynProperties;
         }
 

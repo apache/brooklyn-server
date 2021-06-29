@@ -143,14 +143,14 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
 
     // user
     public void testGlobalUserEntitlement() {
-        EntitlementManager root = Entitlements.user();
-        assertFalse(root.isEntitled(null, Entitlements.ROOT, null));
-        assertTrue(root.isEntitled(null, Entitlements.SEE_ENTITY, null));
-        assertTrue(root.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
-        assertTrue(root.isEntitled(null, Entitlements.SEE_SENSOR, null));
-        assertTrue(root.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
-        assertFalse(root.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
-        assertFalse(root.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        EntitlementManager user = Entitlements.user();
+        assertFalse(user.isEntitled(null, Entitlements.ROOT, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertTrue(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
     }
 
     // minimal
