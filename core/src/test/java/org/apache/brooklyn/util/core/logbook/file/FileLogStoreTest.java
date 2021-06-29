@@ -23,15 +23,14 @@ import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.junit.Test;
 
 public class FileLogStoreTest extends TestCase {
-    String javaLog = "2021-05-27T11:36:59,251 - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
-    String javaLog2 = "2021-06-07T14:58:58,487 - INFO    6 o.o.p.l.s.s.EventAdminConfigurationNotifier [s4j.pax.logging)] Sending Event Admin notification (configuration successful) to org/ops4j/pax/logging/Configuration";
-
-    String taskLog = "2021-05-27T11:36:59,258 OGObOWJs-[gwpndj09r8] DEBUG 146 o.a.b.c.m.i.EffectorUtils [ager-WgxriwjB-43] Invoking effector restart on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
+    private final String JAVA_LOG_LINE = "2021-05-27T11:36:59,251 - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
+    private final String JAVA_LOG_LINE_WITH_EXTRA_SPACE = "2021-06-07T14:58:58,487 - INFO    6 o.o.p.l.s.s.EventAdminConfigurationNotifier [s4j.pax.logging)] Sending Event Admin notification (configuration successful) to org/ops4j/pax/logging/Configuration";
+    private final String TASK_LOG_LINE = "2021-05-27T11:36:59,258 OGObOWJs-[gwpndj09r8] DEBUG 146 o.a.b.c.m.i.EffectorUtils [ager-WgxriwjB-43] Invoking effector restart on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
 
     @Test
     public void testParseLogJavaLine() {
         FileLogStore cut = new FileLogStore();
-        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(javaLog);
+        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE);
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertEquals("2021-05-27T11:36:59,251", brooklynLogEntry.getTimestampString());
@@ -43,9 +42,23 @@ public class FileLogStoreTest extends TestCase {
     }
 
     @Test
+    public void testParseLogJavaLineWithExtraSpace() {
+        FileLogStore cut = new FileLogStore();
+        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE_WITH_EXTRA_SPACE);
+        assertNull(brooklynLogEntry.getTaskId());
+        assertNull(brooklynLogEntry.getEntityIds());
+        assertEquals("2021-06-07T14:58:58,487", brooklynLogEntry.getTimestampString());
+        assertEquals("INFO", brooklynLogEntry.getLevel());
+        assertEquals("6", brooklynLogEntry.getBundleId());
+        assertEquals("o.o.p.l.s.s.EventAdminConfigurationNotifier", brooklynLogEntry.getClazz());
+        assertEquals("s4j.pax.logging)", brooklynLogEntry.getThreadName());
+        assertEquals("Sending Event Admin notification (configuration successful) to org/ops4j/pax/logging/Configuration", brooklynLogEntry.getMessage());
+    }
+
+    @Test
     public void testParseLogTaskLine() {
         FileLogStore cut = new FileLogStore();
-        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(taskLog);
+        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(TASK_LOG_LINE);
         assertEquals("2021-05-27T11:36:59,258", brooklynLogEntry.getTimestampString());
         assertEquals("OGObOWJs", brooklynLogEntry.getTaskId());
         assertEquals("[gwpndj09r8]", brooklynLogEntry.getEntityIds());
