@@ -70,7 +70,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
         assertEquals(response.getStatus(), HttpStatus.SC_INTERNAL_SERVER_ERROR);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testQueryLogbookValidArgs() throws IOException {
 
         // Prepare a valid query.
