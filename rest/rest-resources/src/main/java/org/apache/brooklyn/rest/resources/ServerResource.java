@@ -44,6 +44,9 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
+import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -51,12 +54,17 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
+import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
+import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.domain.BrooklynFeatureSummary;
 import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
@@ -528,4 +536,36 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         }
     }
 
+
+    public Response importPersistenceData(String persistenceExportLocation) {
+        try {
+            BrooklynProperties brooklynPropertiesWithExportPersistenceDir = BrooklynProperties.Factory.builderDefault().build();
+            brooklynPropertiesWithExportPersistenceDir.put("amp.persistence.dir",persistenceExportLocation);
+
+            LocalManagementContext tempMgmt = new LocalManagementContext(brooklynPropertiesWithExportPersistenceDir);
+
+            PersistenceObjectStore tempObjectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, persistenceExportLocation);
+
+            BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
+                    tempObjectStore, tempMgmt);
+
+            RebindManager rebindManager = tempMgmt.getRebindManager();
+
+            PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
+            ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(Duration.ONE_SECOND);
+            rebindManager.setPersister(persister, persistenceExceptionHandler);
+            rebindManager.forcePersistNow(false, null);
+
+            BrooklynMementoRawData newMementoRawData = tempMgmt.getRebindManager().retrieveMementoRawData();
+
+            PersistenceObjectStore currentObjectStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
+
+            BrooklynPersistenceUtils.writeMemento(mgmt(),newMementoRawData,currentObjectStore);
+
+
+        } catch (Exception e){
+            Exceptions.propagateIfFatal(e);
+        }
+        return Response.ok().build();
+    }
 }
