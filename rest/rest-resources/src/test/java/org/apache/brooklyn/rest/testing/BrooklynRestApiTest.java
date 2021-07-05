@@ -143,6 +143,10 @@ public abstract class BrooklynRestApiTest {
         return new TestShutdownHandler();
     }
 
+    protected BrooklynProperties getBrooklynProperties() {
+        return null;
+    }
+
     protected synchronized ManagementContext getManagementContext() {
         if (manager==null) {
             if (useOsgi()) {
@@ -150,7 +154,7 @@ public abstract class BrooklynRestApiTest {
                         .enableOsgiReusable()
                         .build();
             } else {
-                manager = new LocalManagementContextForTests();
+                manager = new LocalManagementContextForTests(getBrooklynProperties());
             }
             if (useLocalScannedCatalog()) {
                 forceUseOfDefaultCatalogWithJavaClassPath();

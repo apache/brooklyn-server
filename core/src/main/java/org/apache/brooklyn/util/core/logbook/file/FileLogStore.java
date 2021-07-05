@@ -146,7 +146,7 @@ public class FileLogStore implements LogStore {
             }
             entry.setTaskId(m.group("taskId"));
             entry.setEntityIds(m.group("entityIds"));
-            entry.setLevel(m.group("level"));
+            entry.setLevel(m.group("level").trim()); // Trim the log level key.
             entry.setBundleId(m.group("bundleId"));
             entry.setClazz(m.group("class"));
             entry.setThreadName(m.group("threadName"));

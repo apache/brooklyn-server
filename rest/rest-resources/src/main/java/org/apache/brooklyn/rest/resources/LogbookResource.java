@@ -33,15 +33,20 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.util.List;
+import java.util.Objects;
 
 public class LogbookResource extends AbstractBrooklynRestResource implements LogbookApi {
 
     @Override
     public Response logbookQuery(HttpServletRequest request, LogBookQueryParams params) {
-        // TODO discuss about if is ok or not allow only to the root user to see the logs.
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.LOGBOOK_LOG_STORE_QUERY, null)) {
+            throw WebResourceUtils.unauthorized("User '%s' is not authorized to perform this operation",
+                    !Objects.isNull(Entitlements.getEntitlementContext()) ? Entitlements.getEntitlementContext().user() : "");
+        }
+
         Preconditions.checkNotNull(params, "params must not be null");
+
         LogStore logStore = new DelegatingLogStore(mgmt()).getDelegate();
         try {
             List<BrooklynLogEntry> logs = logStore.query(params);
@@ -51,6 +56,5 @@ public class LogbookResource extends AbstractBrooklynRestResource implements Log
         } catch (IOException e) {
             throw Exceptions.propagate(e);
         }
-
     }
 }

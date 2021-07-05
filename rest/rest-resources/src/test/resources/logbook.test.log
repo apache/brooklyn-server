@@ -1,0 +1,5 @@
+2021-06-29T13:01:33,321 - WARN  324 o.a.b.r.u.MultiSessionAttributeAdapter [qtp213572341-586] Unsupported session impl in org.apache.cxf.jaxrs.impl.tl.ThreadLocalHttpServletRequest@2ff437f8[/v1/server/user@null]
+2021-06-29T13:01:33,327 - WARN  324 o.a.b.r.u.MultiSessionAttributeAdapter [qtp213572341-791] Unsupported session impl in org.apache.cxf.jaxrs.impl.tl.ThreadLocalHttpServletRequest@606bd997[/v1/ui-module-registry@null]
+2021-06-29T13:01:33,327 - WARN  324 o.a.b.r.u.MultiSessionAttributeAdapter [qtp213572341-791] Unsupported session impl in org.apache.cxf.jaxrs.impl.tl.ThreadLocalHttpServletRequest@17dc0492[/v1/ui-module-registry@null]
+2021-06-29T13:01:33,332 - WARN  324 o.a.b.r.u.MultiSessionAttributeAdapter [qtp213572341-791] Unsupported session impl in org.apache.cxf.jaxrs.impl.tl.ThreadLocalHttpServletRequest@40ddb947[/v1/ui-module-registry@null]
+2021-06-29T13:01:33,340 - DEBUG 324 o.a.b.r.u.j.BrooklynJacksonJsonProvider [qtp213572341-791] Found mapper com.fasterxml.jackson.databind.ObjectMapper@20ac4763 for org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider@42f134e5, creating custom Brooklyn mapper
