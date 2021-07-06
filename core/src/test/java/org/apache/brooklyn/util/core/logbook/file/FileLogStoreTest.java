@@ -24,7 +24,6 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
-import org.junit.AfterClass;
 import org.junit.Test;
 import org.testng.annotations.*;
 
