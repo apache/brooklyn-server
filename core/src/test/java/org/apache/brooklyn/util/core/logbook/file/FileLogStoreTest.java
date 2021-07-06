@@ -18,14 +18,33 @@
  */
 package org.apache.brooklyn.util.core.logbook.file;
 
+import com.google.common.collect.ImmutableList;
 import junit.framework.TestCase;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
+import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 import org.junit.Test;
 
+import java.io.File;
+import java.util.List;
+import java.util.Objects;
+
+import static org.apache.brooklyn.util.core.logbook.file.FileLogStore.LOGBOOK_LOG_STORE_DATEFORMAT;
+import static org.apache.brooklyn.util.core.logbook.file.FileLogStore.LOGBOOK_LOG_STORE_PATH;
+
 public class FileLogStoreTest extends TestCase {
+
+    private final String UNEXPECTED_DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss,SSS";
+    private final String JAVA_LOG_SAMPLE_PATH = "brooklyn/util/core/logbook/file/log-sample.txt";
     private final String JAVA_LOG_LINE = "2021-05-27T11:36:59,251 - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
+    private final String JAVA_LOG_LINE_WITH_NO_DATETIME = " - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
     private final String JAVA_LOG_LINE_WITH_EXTRA_SPACE = "2021-06-07T14:58:58,487 - INFO    6 o.o.p.l.s.s.EventAdminConfigurationNotifier [s4j.pax.logging)] Sending Event Admin notification (configuration successful) to org/ops4j/pax/logging/Configuration";
     private final String TASK_LOG_LINE = "2021-05-27T11:36:59,258 OGObOWJs-[gwpndj09r8] DEBUG 146 o.a.b.c.m.i.EffectorUtils [ager-WgxriwjB-43] Invoking effector restart on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
+    private final String JAVA_LOG_MULTI_LINE_TEXT = "2021-07-05T12:38:09,351 - ERROR 293 o.a.b.u.m.ExternalUiModule [tures-3-thread-1] bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component\n" +
+            "org.osgi.service.component.ComponentException: The component name 'org.apache.brooklyn.ui.external.module' has already been registered by Bundle 293 (org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules) as Component of Class org.apache.brooklyn.ui.modularity.ExternalUiModule\n" +
+            "\tat org.apache.felix.scr.impl.ComponentRegistry.checkComponentName(ComponentRegistry.java:240) ~[?:?]\n" +
+            "\tat org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]";
 
     @Test
     public void testParseLogJavaLine() {
@@ -34,6 +53,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertEquals("2021-05-27T11:36:59,251", brooklynLogEntry.getTimestampString());
+        assertEquals("Thu May 27 11:36:59 BST 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("DEBUG", brooklynLogEntry.getLevel());
         assertEquals("146", brooklynLogEntry.getBundleId());
         assertEquals("o.a.b.c.m.i.LocalManagementContext", brooklynLogEntry.getClazz());
@@ -48,6 +68,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertEquals("2021-06-07T14:58:58,487", brooklynLogEntry.getTimestampString());
+        assertEquals("Mon Jun 07 14:58:58 BST 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("INFO", brooklynLogEntry.getLevel());
         assertEquals("6", brooklynLogEntry.getBundleId());
         assertEquals("o.o.p.l.s.s.EventAdminConfigurationNotifier", brooklynLogEntry.getClazz());
@@ -60,6 +81,7 @@ public class FileLogStoreTest extends TestCase {
         FileLogStore cut = new FileLogStore();
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(TASK_LOG_LINE);
         assertEquals("2021-05-27T11:36:59,258", brooklynLogEntry.getTimestampString());
+        assertEquals("Thu May 27 11:36:59 BST 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("OGObOWJs", brooklynLogEntry.getTaskId());
         assertEquals("[gwpndj09r8]", brooklynLogEntry.getEntityIds());
         assertEquals("DEBUG", brooklynLogEntry.getLevel());
@@ -67,5 +89,239 @@ public class FileLogStoreTest extends TestCase {
         assertEquals("o.a.b.c.m.i.EffectorUtils", brooklynLogEntry.getClazz());
         assertEquals("ager-WgxriwjB-43", brooklynLogEntry.getThreadName());
         assertEquals("Invoking effector restart on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}", brooklynLogEntry.getMessage());
+    }
+
+    @Test
+    public void testParseMultiLineLog() {
+        FileLogStore cut = new FileLogStore();
+        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_MULTI_LINE_TEXT);
+        assertNull(brooklynLogEntry.getTaskId());
+        assertNull(brooklynLogEntry.getEntityIds());
+        assertEquals("2021-07-05T12:38:09,351", brooklynLogEntry.getTimestampString());
+        assertEquals("Mon Jul 05 12:38:09 BST 2021", brooklynLogEntry.getDatetime().toString());
+        assertEquals("ERROR", brooklynLogEntry.getLevel());
+        assertEquals("293", brooklynLogEntry.getBundleId());
+        assertEquals("o.a.b.u.m.ExternalUiModule", brooklynLogEntry.getClazz());
+        assertEquals("tures-3-thread-1", brooklynLogEntry.getThreadName());
+        assertEquals("bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component\n" +
+                "org.osgi.service.component.ComponentException: The component name 'org.apache.brooklyn.ui.external.module' has already been registered by Bundle 293 (org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules) as Component of Class org.apache.brooklyn.ui.modularity.ExternalUiModule\n" +
+                "\tat org.apache.felix.scr.impl.ComponentRegistry.checkComponentName(ComponentRegistry.java:240) ~[?:?]\n" +
+                "\tat org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]", brooklynLogEntry.getMessage());
+    }
+
+    @Test
+    public void testParseLogWithNoDateTime() {
+        FileLogStore cut = new FileLogStore();
+        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE_WITH_NO_DATETIME);
+        assertNull(brooklynLogEntry.getTaskId());
+        assertNull(brooklynLogEntry.getEntityIds());
+        assertNull(brooklynLogEntry.getTimestampString());
+        assertNull(brooklynLogEntry.getDatetime());
+        assertNull(brooklynLogEntry.getLevel());
+        assertNull(brooklynLogEntry.getBundleId());
+        assertNull(brooklynLogEntry.getClazz());
+        assertNull(brooklynLogEntry.getThreadName());
+        assertNull(brooklynLogEntry.getMessage());
+}
+
+    @Test
+    public void testParseLogWithDateTimeFormatMismatch() {
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_DATEFORMAT.getName(), UNEXPECTED_DATE_TIME_FORMAT);
+        FileLogStore cut = new FileLogStore(mgmt);
+        BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE);
+        assertNull(brooklynLogEntry.getTaskId());
+        assertNull(brooklynLogEntry.getEntityIds());
+        assertNull(brooklynLogEntry.getDatetime());
+        assertEquals("2021-05-27T11:36:59,251", brooklynLogEntry.getTimestampString());
+        assertEquals("DEBUG", brooklynLogEntry.getLevel());
+        assertEquals("146", brooklynLogEntry.getBundleId());
+        assertEquals("o.a.b.c.m.i.LocalManagementContext", brooklynLogEntry.getClazz());
+        assertEquals("qtp158784971-235", brooklynLogEntry.getThreadName());
+        assertEquals("Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}", brooklynLogEntry.getMessage());
+    }
+
+    @Test
+    public void testQueryLogSample() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(2); // Request first two only.
+        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(2, brooklynLogEntries.size());
+
+        // Check first log line
+        BrooklynLogEntry firstBrooklynLogEntry = brooklynLogEntries.get(0);
+        assertNull(firstBrooklynLogEntry.getTaskId());
+        assertNull(firstBrooklynLogEntry.getEntityIds());
+        assertEquals("2021-05-27T11:36:59,251", firstBrooklynLogEntry.getTimestampString());
+        assertEquals("Thu May 27 11:36:59 BST 2021",firstBrooklynLogEntry.getDatetime().toString());
+        assertEquals("DEBUG", firstBrooklynLogEntry.getLevel());
+        assertEquals("146", firstBrooklynLogEntry.getBundleId());
+        assertEquals("o.a.b.c.m.i.LocalManagementContext", firstBrooklynLogEntry.getClazz());
+        assertEquals("qtp158784971-235", firstBrooklynLogEntry.getThreadName());
+        assertEquals("Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}", firstBrooklynLogEntry.getMessage());
+
+        // Check second log line. NOTE, this is the same multiline example.
+        BrooklynLogEntry secondBrooklynLogEntry = brooklynLogEntries.get(1);
+        assertNull(secondBrooklynLogEntry.getTaskId());
+        assertNull(secondBrooklynLogEntry.getEntityIds());
+        assertEquals("2021-07-05T12:38:09,351", secondBrooklynLogEntry.getTimestampString());
+        assertEquals("Mon Jul 05 12:38:09 BST 2021", secondBrooklynLogEntry.getDatetime().toString());
+        assertEquals("ERROR", secondBrooklynLogEntry.getLevel());
+        assertEquals("293", secondBrooklynLogEntry.getBundleId());
+        assertEquals("o.a.b.u.m.ExternalUiModule", secondBrooklynLogEntry.getClazz());
+        assertEquals("tures-3-thread-1", secondBrooklynLogEntry.getThreadName());
+
+        // TODO: this log message is expected to be a multi-line one. Fix log-store RegEx to support this.
+        //       The second assertion below is the expected one, not the following one:
+        assertEquals("bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component", secondBrooklynLogEntry.getMessage());
+        //assertEquals("bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component\n" +
+        //        "org.osgi.service.component.ComponentException: The component name 'org.apache.brooklyn.ui.external.module' has already been registered by Bundle 293 (org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules) as Component of Class org.apache.brooklyn.ui.modularity.ExternalUiModule\n" +
+        //        "\tat org.apache.felix.scr.impl.ComponentRegistry.checkComponentName(ComponentRegistry.java:240) ~[?:?]\n" +
+        //        "\tat org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]", secondBrooklynLogEntry.getMessage());
+    }
+
+    @Test
+    public void testQueryLogSampleWithDateTimeFormatMismatch() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_DATEFORMAT.getName(), UNEXPECTED_DATE_TIME_FORMAT);
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000); // Request all.
+        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        // Expect no entries found, date-time format did not match, sorting is not possible.
+        assertEquals(0, brooklynLogEntries.size());
+    }
+
+    @Test
+    public void testQueryLogSampleWithReverseOrder() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(2); // Request first two only.
+        logBookQueryParams.setReverseOrder(true); // Request reverse order.
+        logBookQueryParams.setLevels(ImmutableList.of());
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(2, brooklynLogEntries.size());
+
+        // Check log levels for revers order only. There are first two in the normal order: first is DEBUG and second is ERROR.
+        // Expect them to appear in reverse order.
+
+        // Check first log line,
+        BrooklynLogEntry firstBrooklynLogEntry = brooklynLogEntries.get(0);
+        assertEquals("ERROR", firstBrooklynLogEntry.getLevel());
+
+        // Check second log line.
+        BrooklynLogEntry secondBrooklynLogEntry = brooklynLogEntries.get(1);
+        assertEquals("DEBUG", secondBrooklynLogEntry.getLevel());
+    }
+
+    @Test
+    public void testQueryLogSampleWithSearchPhrase() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(2); // Request first two only.
+        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setSearchPhrase("Cannot register component"); // Request search phrase.
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(1, brooklynLogEntries.size());
+
+        // Search phrase appears in ERROR log line only.
+        BrooklynLogEntry brooklynLogEntry = brooklynLogEntries.get(0);
+        assertEquals("ERROR", brooklynLogEntry.getLevel());
+        // TODO: this log message is expected to be a multi-line one. Fix log-store RegEx to support this.
+        //       The second assertion below is the expected one, not the following one:
+        assertEquals("bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component", brooklynLogEntry.getMessage());
+        //assertEquals("bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component\n" +
+        //        "org.osgi.service.component.ComponentException: The component name 'org.apache.brooklyn.ui.external.module' has already been registered by Bundle 293 (org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules) as Component of Class org.apache.brooklyn.ui.modularity.ExternalUiModule\n" +
+        //        "\tat org.apache.felix.scr.impl.ComponentRegistry.checkComponentName(ComponentRegistry.java:240) ~[?:?]\n" +
+        //        "\tat org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]", secondBrooklynLogEntry.getMessage());
+
+        // TODO: cover case with search phrase in the stack-trace, once multi-line issue mentioned above is resolved.
+    }
+
+    @Test
+    public void testQueryLogSampleWithZeroNumberOfLInes() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(0); // Request zero lines.
+        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(0, brooklynLogEntries.size());
+    }
+
+    @Test
+    public void testQueryLogSampleWithDateTimeRange() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000); // Request all.
+        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setDateTimeFrom("Mon Jul 05 12:38:10 BST 2021"); // Date of the first INFO log line.
+        logBookQueryParams.setDateTimeTo("Mon Jul 05 12:38:12 BST 2021"); // Date of the second INFO log line.
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(2, brooklynLogEntries.size());
+
+        // Check first log line,
+        BrooklynLogEntry firstBrooklynLogEntry = brooklynLogEntries.get(0);
+        assertEquals("INFO", firstBrooklynLogEntry.getLevel());
+        assertEquals("  org.apache.brooklyn.ui.modularity.brooklyn-ui-module-registry/1.1.0.SNAPSHOT", firstBrooklynLogEntry.getMessage());
+
+        // Check second log line.
+        BrooklynLogEntry secondBrooklynLogEntry = brooklynLogEntries.get(1);
+        assertEquals("INFO", secondBrooklynLogEntry.getLevel());
+        assertEquals("registering JasperInitializer", secondBrooklynLogEntry.getMessage());
+    }
+
+    @Test
+    public void testQueryLogSampleWithLogLevels() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        System.out.println(file.getAbsolutePath());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(1000); // Request all.
+        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setLevels(ImmutableList.of("INFO", "DEBUG")); // Request INFO and DEBUG levels.
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        // There is one DEBUG log line and 3 INFO lines.
+        assertEquals(4, brooklynLogEntries.size());
+
+        // Check appearance of log levels
+        assertEquals("DEBUG", brooklynLogEntries.get(0).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(2).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(3).getLevel());
     }
 }

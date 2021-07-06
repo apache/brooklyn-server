@@ -92,27 +92,52 @@ public class FileLogStore implements LogStore {
 
     @Override
     public List<BrooklynLogEntry> query(LogBookQueryParams params) {
-        // TODO the read of the file needs to be improved, specially to implement reading the file backwards and
+
+        // TODO: the read of the file needs to be improved, specially to implement reading the file backwards and
         //  do a correct multiline log reading
         try (Stream<String> stream = Files.lines(path)) {
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
-                String initTime = params.getInitTime();
-                String finalTime = params.getFinalTime();
-                boolean levelFilter = true;
-                boolean initTimeFilter = true;
-                boolean finalTimeFilter = true;
-                if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL"))
-                    levelFilter = params.getLevels().contains(brooklynLogEntry.getLevel());
-                if (Strings.isNonBlank(initTime) && brooklynLogEntry.getDatetime() != null) {
-                    Date initDate = Time.parseDate(initTime);
-                    initTimeFilter = brooklynLogEntry.getDatetime().compareTo(initDate) > 0;
-                }
-                if (Strings.isNonBlank(finalTime) && brooklynLogEntry.getDatetime() != null) {
-                    Date finalDate = Time.parseDate(finalTime);
-                    finalTimeFilter = brooklynLogEntry.getDatetime().compareTo(finalDate) < 0;
+
+                // Exclude non-sortable items, sorting requires date-time.
+                if (brooklynLogEntry.getDatetime() == null) {
+                    // TODO: fix the RegEx to process multiline log messages like stack-traces, and remove this condition.
+                    return false;
                 }
 
-                return levelFilter && initTimeFilter && finalTimeFilter;
+                // Initialize matching conditions as true by default.
+                boolean isLogLevelMatch = true;
+                boolean isDateTimeFromMatch = true;
+                boolean isDateTimeToMatch = true;
+                boolean isSearchPhraseMatch = true;
+                // Re-evaluate conditions if requested in the query.
+
+                // Check log levels.
+                if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL")) {
+                    isLogLevelMatch = params.getLevels().contains(brooklynLogEntry.getLevel());
+                }
+
+                // Check the date-time range.
+                if (brooklynLogEntry.getDatetime() != null) {
+
+                    // Date-time from.
+                    if (Strings.isNonBlank(params.getDateTimeFrom())) {
+                        Date initDate = Time.parseDate(params.getDateTimeFrom());
+                        isDateTimeFromMatch = brooklynLogEntry.getDatetime().compareTo(initDate) >= 0;
+                    }
+
+                    // Date-time to.
+                    if (Strings.isNonBlank(params.getDateTimeTo())) {
+                        Date finalDate = Time.parseDate(params.getDateTimeTo());
+                        isDateTimeToMatch = brooklynLogEntry.getDatetime().compareTo(finalDate) <= 0;
+                    }
+                }
+
+                // Check the search phrase.
+                if (Strings.isNonBlank(params.getSearchPhrase()) && Strings.isNonBlank(brooklynLogEntry.getMessage())) {
+                    isSearchPhraseMatch = brooklynLogEntry.getMessage().contains(params.getSearchPhrase());
+                }
+
+                return isLogLevelMatch && isDateTimeFromMatch && isDateTimeToMatch && isSearchPhraseMatch;
             };
             return stream
                     .map(this::parseLogLine)

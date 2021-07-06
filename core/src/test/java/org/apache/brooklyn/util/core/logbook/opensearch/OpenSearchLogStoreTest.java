@@ -32,32 +32,32 @@ public class OpenSearchLogStoreTest {
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setReverseOrder(false);
-        p.setInitTime("2021-06-01T13:18:48,482");
-        p.setFinalTime("2021-06-01T13:28:48,482");
+        p.setDateTimeFrom("2021-06-01T13:18:48,482");
+        p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of());
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
     @Test
-    public void queryWithTimeInitialTime() {
+    public void queryWithDateTimeFrom() {
         OpenSearchLogStore cut = new OpenSearchLogStore();
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setReverseOrder(false);
-        p.setInitTime("2021-01-01T00:00:00,001");
+        p.setDateTimeFrom("2021-01-01T00:00:00,001");
         p.setLevels(ImmutableList.of());
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
     }
 
     @Test
-    public void queryWithTimeFinalTime() {
+    public void queryWithDateTimeTo() {
         OpenSearchLogStore cut = new OpenSearchLogStore();
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setReverseOrder(false);
-        p.setFinalTime("2021-01-01T00:00:00,001");
+        p.setDateTimeTo("2021-01-01T00:00:00,001");
         p.setLevels(ImmutableList.of());
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"lte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
@@ -80,8 +80,8 @@ public class OpenSearchLogStoreTest {
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setReverseOrder(false);
-        p.setInitTime("2021-06-01T13:18:48,482");
-        p.setFinalTime("2021-06-01T13:28:48,482");
+        p.setDateTimeFrom("2021-06-01T13:18:48,482");
+        p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of("DEBUG"));
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
@@ -93,10 +93,22 @@ public class OpenSearchLogStoreTest {
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setReverseOrder(false);
-        p.setInitTime("2021-06-01T13:18:48,482");
-        p.setFinalTime("2021-06-01T13:28:48,482");
+        p.setDateTimeFrom("2021-06-01T13:18:48,482");
+        p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of("WARN", "DEBUG"));
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
+    }
+
+    @Test
+    public void queryWithSearchPhrase() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setReverseOrder(false);
+        p.setLevels(ImmutableList.of());
+        p.setSearchPhrase("some phrase");
+        String query = cut.getJSONQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 }
