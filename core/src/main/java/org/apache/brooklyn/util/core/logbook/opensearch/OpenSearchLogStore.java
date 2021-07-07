@@ -28,6 +28,7 @@ import net.minidev.json.JSONObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 import org.apache.brooklyn.util.core.logbook.LogStore;
@@ -59,6 +60,7 @@ import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
@@ -72,7 +74,7 @@ public class OpenSearchLogStore implements LogStore {
      # example config for local default implementation
      brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.opensearch.OpenSearchLogStore
      brooklyn.logbook.openSearchLogStore.host = https://localhost:9200
-     brooklyn.logbook.openSearchLogStore.index = brooklyn8
+     brooklyn.logbook.openSearchLogStore.index = brooklyn
      brooklyn.logbook.openSearchLogStore.user = admin
      brooklyn.logbook.openSearchLogStore.password = admin
      brooklyn.logbook.openSearchLogStore.verifySsl = false
@@ -141,7 +143,7 @@ public class OpenSearchLogStore implements LogStore {
     }
 
     private CredentialsProvider buildBasicCredentialsProvider() {
-        URL url = null;
+        URL url;
         try {
             url = new URL(host);
         } catch (MalformedURLException e) {
@@ -197,32 +199,51 @@ public class OpenSearchLogStore implements LogStore {
     }
 
     private ImmutableMap<String, Object> buildQuery(LogBookQueryParams params) {
-        boolean noConditions = true;
-        ImmutableList.Builder<Object> conditionsBuilder = ImmutableList.builder();
 
+        // The `query.bool.must` part of the open-search query.
+        ImmutableList.Builder<Object> queryBoolMustListBuilder = ImmutableList.builder();
+
+        // Apply log levels.
         if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL")) {
-            conditionsBuilder.add(ImmutableMap.of("terms",
-                    ImmutableMap.of("level", ImmutableList.copyOf(params.getLevels().stream().map(String::toLowerCase).map(String::trim).collect(Collectors.toList())))));
-            noConditions = false;
-        }
-        if (Strings.isNonBlank(params.getInitTime()) || Strings.isNonBlank(params.getFinalTime())) {
-            ImmutableMap.Builder<Object, Object> timestampMapBuilder = ImmutableMap.builder();
-            if (Strings.isNonBlank(params.getInitTime())) {
-                timestampMapBuilder.put("gte", params.getInitTime());
-            }
-            if (Strings.isNonBlank(params.getFinalTime())) {
-                timestampMapBuilder.put("lte", params.getFinalTime());
-            }
-            conditionsBuilder.add(ImmutableMap.of("range", ImmutableMap.of("timestamp", timestampMapBuilder.build())));
-            noConditions = false;
+
+            queryBoolMustListBuilder.add(
+                    ImmutableMap.of("terms",
+                            ImmutableMap.of("level",
+                                    ImmutableList.copyOf(
+                                            params.getLevels()
+                                                    .stream()
+                                                    .map(String::toLowerCase)
+                                                    .map(String::trim)
+                                                    .collect(Collectors.toList())))));
         }
 
-        if (noConditions) {
+        // Apply date-time range.
+        if (Strings.isNonBlank(params.getDateTimeFrom()) || Strings.isNonBlank(params.getDateTimeTo())) {
+
+            ImmutableMap.Builder<Object, Object> timestampMapBuilder = ImmutableMap.builder();
+            if (Strings.isNonBlank(params.getDateTimeFrom())) {
+                timestampMapBuilder.put("gte", params.getDateTimeFrom());
+            }
+
+            if (Strings.isNonBlank(params.getDateTimeTo())) {
+                timestampMapBuilder.put("lte", params.getDateTimeTo());
+            }
+
+            queryBoolMustListBuilder.add(ImmutableMap.of("range", ImmutableMap.of("timestamp", timestampMapBuilder.build())));
+        }
+
+        // Apply search phrase.
+        if (Strings.isNonBlank(params.getSearchPhrase())) {
+            queryBoolMustListBuilder.add(ImmutableMap.of("match_phrase", ImmutableMap.of("message", params.getSearchPhrase())));
+        }
+
+        ImmutableList<Object> queryBoolMustList = queryBoolMustListBuilder.build();
+
+        if (queryBoolMustList.isEmpty()) {
             return ImmutableMap.of("match_all", ImmutableMap.of());
         } else {
-            return ImmutableMap.of("bool", ImmutableMap.of("must", conditionsBuilder.build()));
+            Map<String,Object> query = MutableMap.of("bool", ImmutableMap.of("must", queryBoolMustList));
+            return ImmutableMap.copyOf(query);
         }
-
     }
-
 }
