@@ -174,9 +174,9 @@ public interface ServerApi {
     // TODO would be nice to allow setting, as a means to recover / control more easily than messing with persistent stores
     @POST
     @Path("/ha/persist/import")
-    @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications.")
+    @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications (merged with the current persistence).")
     public Response importPersistenceData(
-        @ApiParam(name = "persistenceExportLocation", value = "location of perisstence to import", required = true)
+        @ApiParam(name = "persistenceExportLocation", value = "location of persistence to import", required = true)
         @FormParam("persistenceExportLocation") String persistenceExportLocation);
 
 

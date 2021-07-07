@@ -63,7 +63,6 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.BrooklynFeatureSummary;
@@ -71,7 +70,6 @@ import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
-import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -542,40 +540,43 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public Response importPersistenceData(String persistenceExportLocation) {
         try {
+            File persistenceLocation = new File(persistenceExportLocation);
+            if (!persistenceLocation.isDirectory()){
+                throw WebResourceUtils.badRequest("Invalid persistence directory - %s does not exist or is not a directory", persistenceExportLocation);
+            }
+
             // set up temporary management context using the persistence to be imported
             BrooklynProperties brooklynPropertiesWithExportPersistenceDir = BrooklynProperties.Factory.builderDefault().build();
             brooklynPropertiesWithExportPersistenceDir.put("amp.persistence.dir",persistenceExportLocation);
 
             LocalManagementContext tempMgmt = new LocalManagementContext(brooklynPropertiesWithExportPersistenceDir);
-            PersistenceObjectStore tempObjectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, persistenceExportLocation);
+            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, persistenceExportLocation);
+            tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
             BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
-                    tempObjectStore, tempMgmt);
-            RebindManager rebindManager = tempMgmt.getRebindManager();
-            ((RebindManagerImpl) rebindManager).setPeriodicPersistPeriod(Duration.ONE_SECOND);
+                    tempPersistenceStore, tempMgmt);
             PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
+            RebindManager rebindManager = tempMgmt.getRebindManager();
             rebindManager.setPersister(persister, persistenceExceptionHandler);
             rebindManager.forcePersistNow(false, null);
-            PersistenceObjectStore currentObjectStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
 
             BrooklynMementoRawData newMementoRawData = tempMgmt.getRebindManager().retrieveMementoRawData();
 
             // install bundles to active management context
             for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()){
                 ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-                        .install(InputStreamSource.of("REST bundle upload", bundleJar.getValue().read()), "", false);
+                        .install(InputStreamSource.of("Persistence import - bundle install", bundleJar.getValue().read()), "", false);
 
                 if (result.hasError()) {
                     if (log.isTraceEnabled()) {
                         log.trace("Unable to create, format '', returning 400: "+result.getError().getMessage(), result.getError());
                     }
-                    ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
+                    String errorMsg = "";
                     if (result.getWithoutError()!=null) {
-                        error = error.message(result.getWithoutError().getMessage())
-                                .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui));
+                        errorMsg = result.getWithoutError().getMessage();
                     } else {
-                        error.message(Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString());
+                        errorMsg = Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString();
                     }
-                    return error.build().asJsonResponse();
+                    throw new Exception(errorMsg);
                 }
             }
 
@@ -592,12 +593,22 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             result.feeds(newMementoRawData.getFeeds());
             result.catalogItems(newMementoRawData.getCatalogItems());
 
-            BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentObjectStore);
+            PersistenceObjectStore currentPersistenceStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
+            BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentPersistenceStore);
             mgmt().getRebindManager().rebind(mgmt().getCatalogClassLoader(),null, mgmt().getHighAvailabilityManager().getNodeState());
+
+            // clean up the temporary management context
+            rebindManager.stop();
+            persister.stop(true);
+            tempPersistenceStore.close();
+            tempMgmt.terminate();
 
 
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
+            ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
+            error.message(e.getMessage());
+            return error.build().asJsonResponse();
         }
         return Response.ok().build();
     }
