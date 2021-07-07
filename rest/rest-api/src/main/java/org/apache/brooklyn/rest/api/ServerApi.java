@@ -135,6 +135,7 @@ public interface ServerApi {
     @POST
     @Path("/ha/state")
     @ApiOperation(value = "Changes the HA state of this management node")
+    @Produces({MediaType.APPLICATION_FORM_URLENCODED})
     public ManagementNodeState setHighAvailabilityNodeState(
             @ApiParam(name = "mode", value = "The state to change to")
             @FormParam("mode") HighAvailabilityMode mode);
@@ -158,6 +159,7 @@ public interface ServerApi {
     @POST
     @Path("/ha/priority")
     @ApiOperation(value = "Sets the HA node priority for MASTER failover")
+    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     public long setHighAvailabilityPriority(
             @ApiParam(name = "priority", value = "The priority to be set")
             @FormParam("priority") long priority);
