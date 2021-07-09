@@ -98,8 +98,8 @@ public class FileLogStore implements LogStore {
         try (Stream<String> stream = Files.lines(path)) {
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
 
-                // Exclude non-sortable items, sorting requires date-time.
-                if (brooklynLogEntry.getDatetime() == null) {
+                // Excludes unrecognized items or items without a date, typically they are multiline log messages.
+                if (brooklynLogEntry == null || brooklynLogEntry.getDatetime() == null) {
                     // TODO: fix the RegEx to process multiline log messages like stack-traces, and remove this condition.
                     return false;
                 }
@@ -139,18 +139,26 @@ public class FileLogStore implements LogStore {
 
                 return isLogLevelMatch && isDateTimeFromMatch && isDateTimeToMatch && isSearchPhraseMatch;
             };
-            return stream
+
+            // Filter result first, we need to know how many to skip go get the tail.
+            List<BrooklynLogEntry> filteredQueryResult = stream
                     .map(this::parseLogLine)
                     .filter(filter)
-                    .limit(params.getNumberOfItems())
-                    .sorted((o1, o2) -> {
-                        if (params.getReverseOrder()) {
-                            return o2.getDatetime().compareTo(o1.getDatetime());
-                        } else {
-                            return o1.getDatetime().compareTo(o2.getDatetime());
-                        }
-                    })
                     .collect(Collectors.toList());
+
+            // Now get 'tail' of the filtered query, if requested, or 'head' otherwise.
+            Stream<BrooklynLogEntry> filteredStream;
+            if (params.isTail()) {
+                // Get 'tail' - last number of lines, with the stream().skip().
+                filteredStream = filteredQueryResult.stream()
+                        .skip(Math.max(0, filteredQueryResult.size() - params.getNumberOfItems()));
+            } else {
+                // Get 'head' - first number of lines, with the stream().limit()
+                filteredStream = filteredQueryResult.stream().limit(params.getNumberOfItems());
+            }
+
+            // Collect the query result.
+            return filteredStream.collect(Collectors.toList());
 
         } catch (IOException e) {
             Exceptions.propagate(e);
@@ -161,9 +169,10 @@ public class FileLogStore implements LogStore {
     protected BrooklynLogEntry parseLogLine(String logLine) {
         Pattern p = Pattern.compile(this.logLinePattern);
         Matcher m = p.matcher(logLine);
-        BrooklynLogEntry entry = new BrooklynLogEntry();
+        BrooklynLogEntry entry = null;
         m.find();
         if (m.matches()) {
+            entry = new BrooklynLogEntry();
             entry.setTimestampString(m.group("timestamp"));
             Maybe<Calendar> calendarMaybe = Time.parseCalendarFormat(entry.getTimestampString(), logDateFormat);
             if (calendarMaybe.isPresentAndNonNull()) {

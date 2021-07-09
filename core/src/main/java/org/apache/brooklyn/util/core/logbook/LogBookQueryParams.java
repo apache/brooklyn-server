@@ -28,8 +28,8 @@ public class LogBookQueryParams {
     /** The number of log items to query. Note, one log item can be a multi-line one, e.g. a stacktrace */
     private Integer numberOfItems;
 
-    /** The indicator whether to return logs in reverse order */
-    private Boolean reverseOrder;
+    /** The indicator whether to return last number of items (tail) or not */
+    private Boolean tail;
 
     /** The log levels: INFO, FATAL, ERROR, DEBUG or WARNING */
     private List<String> levels;
@@ -51,12 +51,12 @@ public class LogBookQueryParams {
         this.numberOfItems = numberOfItems;
     }
 
-    public Boolean getReverseOrder() {
-        return reverseOrder;
+    public Boolean isTail() {
+        return tail;
     }
 
-    public void setReverseOrder(Boolean reverseOrder) {
-        this.reverseOrder = reverseOrder;
+    public void setTail(Boolean tail) {
+        this.tail = tail;
     }
 
     public List<String> getLevels() {
