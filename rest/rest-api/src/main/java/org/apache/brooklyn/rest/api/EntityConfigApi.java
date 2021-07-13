@@ -86,7 +86,16 @@ public interface EntityConfigApi {
             @PathParam("entity") String entityToken,
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("config") String configKeyName,
-            @ApiParam(value = "Return raw config data instead of display values", required = false)
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHint") @DefaultValue("true") final Boolean useDisplayHint,
+            @ApiParam(value = "Whether to skip resolution of all values", required = false)
+            @QueryParam("skipResolution") @DefaultValue("false") final Boolean skipResolution,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") @DefaultValue("false") final Boolean suppressSecrets,
+
+            @ApiParam(value = "Return raw config data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated
             @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     // if user requests plain value we skip some json post-processing
@@ -104,7 +113,16 @@ public interface EntityConfigApi {
             @PathParam("entity") String entityToken,
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("config") String configKeyName,
-            @ApiParam(value = "Return raw config data instead of display values", required = false)
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Whether to skip resolution of all values", required = false)
+            @QueryParam("skipResolution") @DefaultValue("false") final Boolean skipResolution,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") @DefaultValue("false") final Boolean suppressSecrets,
+
+            @ApiParam(value = "Return raw config data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated
             @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     @POST
