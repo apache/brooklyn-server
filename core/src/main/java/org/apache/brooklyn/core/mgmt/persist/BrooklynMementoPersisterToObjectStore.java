@@ -893,4 +893,6 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     public String getBackingStoreDescription() {
         return getObjectStore().getSummaryName();
     }
+
+    public ManagementContext getManagementContext() { return this.mgmt;}
 }
