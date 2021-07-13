@@ -123,12 +123,11 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                             new Object[] {Entitlements.getEntitlementContext().user(), ek.getKey().getName(), entity});
                     continue;
                 }
-                if(raw) {
-                    result.put(key.getName(), key.getDefaultValue());
-                } else {
-                    result.put(key.getName(),
-                            resource.resolving(value, mgmt).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(key).resolve());
-                }
+                result.put(key.getName(),
+                            resource.resolving(value, mgmt).preferJson(true).asJerseyOutermostReturnValue(false)
+                                    .raw(raw).context(entity).timeout(Duration.ZERO).renderAs(key)
+                                    .resolve());
+
             }
             return result;
         }

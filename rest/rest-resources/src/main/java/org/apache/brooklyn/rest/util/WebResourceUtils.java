@@ -28,6 +28,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.rest.domain.ApiError;
@@ -157,7 +158,9 @@ public class WebResourceUtils {
             // no serialization checks required, with new smart-mapper which does toString
             // (note there is more sophisticated logic in git history however)
             result = value;
-            
+            if (result instanceof BrooklynDslDeferredSupplier) {
+                result = result.toString();
+            }
             if (isJerseyReturnValue) {
                 if (result instanceof String) {
                     // Jersey does not do json encoding if the return type is a string,
