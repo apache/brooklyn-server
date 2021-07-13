@@ -59,6 +59,7 @@ import java.net.URL;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -174,14 +175,27 @@ public class OpenSearchLogStore implements LogStore {
         HttpPost request = new HttpPost(host + "/" + indexName + "/_search");
         request.addHeader(HttpHeaders.CONTENT_TYPE, "application/json");
         request.setEntity(new StringEntity(getJSONQuery(params)));
+
         try (CloseableHttpResponse response = httpClient.execute(request)) {
+
             BrooklynOpenSearchModel jsonResponse = new ObjectMapper()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                     .readValue(response.getEntity().getContent(), BrooklynOpenSearchModel.class);
+
             if (jsonResponse.hits != null && jsonResponse.hits.hits != null) {
-                return jsonResponse.hits.hits.stream()
-                        .map(BrooklynOpenSearchModel.OpenSearchHit::getSource)
-                        .collect(Collectors.toList());
+
+                // Get the filtered stream from elastic search query result.
+                List<BrooklynLogEntry> brooklynLogEntries = jsonResponse.hits.hits.stream()
+                        .map(BrooklynOpenSearchModel.OpenSearchHit::getSource).collect(Collectors.toList());
+
+                // Note, 'tail' requires to reverse the order back since elastic search requires 'sort' + 'desc' to get
+                // last number of items, when requested.
+                if (params.isTail()) {
+                    Collections.reverse(brooklynLogEntries);
+                }
+
+                // Collect the query result.
+                return brooklynLogEntries;
             } else {
                 return ImmutableList.of();
             }
@@ -192,7 +206,7 @@ public class OpenSearchLogStore implements LogStore {
     protected String getJSONQuery(LogBookQueryParams params) {
         ImmutableMap qb = ImmutableMap.builder()
                 .put("size", params.getNumberOfItems())
-                .put("sort", ImmutableMap.of("timestamp", params.getReverseOrder() ? "desc" : "asc"))
+                .put("sort", ImmutableMap.of("timestamp", params.isTail() ? "desc" : "asc"))
                 .put("query", buildQuery(params))
                 .build();
         return new JSONObject(qb).toString();

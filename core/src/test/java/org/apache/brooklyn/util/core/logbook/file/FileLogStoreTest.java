@@ -120,15 +120,7 @@ public class FileLogStoreTest extends TestCase {
     public void testParseLogWithNoDateTime() {
         FileLogStore cut = new FileLogStore();
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE_WITH_NO_DATETIME);
-        assertNull(brooklynLogEntry.getTaskId());
-        assertNull(brooklynLogEntry.getEntityIds());
-        assertNull(brooklynLogEntry.getTimestampString());
-        assertNull(brooklynLogEntry.getDatetime());
-        assertNull(brooklynLogEntry.getLevel());
-        assertNull(brooklynLogEntry.getBundleId());
-        assertNull(brooklynLogEntry.getClazz());
-        assertNull(brooklynLogEntry.getThreadName());
-        assertNull(brooklynLogEntry.getMessage());
+        assertNull(brooklynLogEntry);
 }
 
     @Test
@@ -155,7 +147,7 @@ public class FileLogStoreTest extends TestCase {
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
-        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
@@ -201,7 +193,7 @@ public class FileLogStoreTest extends TestCase {
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_DATEFORMAT.getName(), UNEXPECTED_DATE_TIME_FORMAT);
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(1000); // Request all.
-        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
@@ -211,28 +203,24 @@ public class FileLogStoreTest extends TestCase {
     }
 
     @Test
-    public void testQueryLogSampleWithReverseOrder() {
+    public void testQueryTailOfLogSample() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
         ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
-        logBookQueryParams.setNumberOfItems(2); // Request first two only.
-        logBookQueryParams.setReverseOrder(true); // Request reverse order.
+        logBookQueryParams.setNumberOfItems(4); // Request 4 records.
+        logBookQueryParams.setTail(true); // Request tail!
         logBookQueryParams.setLevels(ImmutableList.of());
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
-        assertEquals(2, brooklynLogEntries.size());
+        assertEquals(4, brooklynLogEntries.size());
 
-        // Check log levels for revers order only. There are first two in the normal order: first is DEBUG and second is ERROR.
-        // Expect them to appear in reverse order.
-
-        // Check first log line,
-        BrooklynLogEntry firstBrooklynLogEntry = brooklynLogEntries.get(0);
-        assertEquals("ERROR", firstBrooklynLogEntry.getLevel());
-
-        // Check second log line.
-        BrooklynLogEntry secondBrooklynLogEntry = brooklynLogEntries.get(1);
-        assertEquals("DEBUG", secondBrooklynLogEntry.getLevel());
+        // Test with log levels only. There are 5 records in total in the normal order: DEBUG, ERROR, INFO, INFO, WARN.
+        // Expect 4 last items starting with ERROR.
+        assertEquals("ERROR", brooklynLogEntries.get(0).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(2).getLevel());
+        assertEquals("WARN", brooklynLogEntries.get(3).getLevel());
     }
 
     @Test
@@ -242,7 +230,7 @@ public class FileLogStoreTest extends TestCase {
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
-        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
         logBookQueryParams.setSearchPhrase("Cannot register component"); // Request search phrase.
         FileLogStore fileLogStore = new FileLogStore(mgmt);
@@ -270,7 +258,7 @@ public class FileLogStoreTest extends TestCase {
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(0); // Request zero lines.
-        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
@@ -284,7 +272,7 @@ public class FileLogStoreTest extends TestCase {
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(1000); // Request all.
-        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
         logBookQueryParams.setDateTimeFrom("Mon Jul 05 12:38:10 GMT 2021"); // Date of the first INFO log line.
         logBookQueryParams.setDateTimeTo("Mon Jul 05 12:38:12 GMT 2021"); // Date of the second INFO log line.
@@ -310,18 +298,17 @@ public class FileLogStoreTest extends TestCase {
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(1000); // Request all.
-        logBookQueryParams.setReverseOrder(false);
+        logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of("INFO", "DEBUG")); // Request INFO and DEBUG levels.
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
 
-        // There is one DEBUG log line and 3 INFO lines.
-        assertEquals(4, brooklynLogEntries.size());
+        // There is one DEBUG log line and two INFO lines.
+        assertEquals(3, brooklynLogEntries.size());
 
         // Check appearance of log levels
         assertEquals("DEBUG", brooklynLogEntries.get(0).getLevel());
         assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
         assertEquals("INFO", brooklynLogEntries.get(2).getLevel());
-        assertEquals("INFO", brooklynLogEntries.get(3).getLevel());
     }
 }
