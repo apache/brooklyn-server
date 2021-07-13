@@ -40,6 +40,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
     }
+
     public void testAllowingSeeEntity() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.SEE_ENTITY);
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.ROOT, null));
@@ -128,6 +129,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(root.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertTrue(root.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertTrue(root.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertTrue(root.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
     }
     public void testAppSpecificRootEntitlement() {
         EntitlementManager root = Entitlements.root();
@@ -139,6 +141,18 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(root.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
     }
 
+    // user
+    public void testGlobalUserEntitlement() {
+        EntitlementManager user = Entitlements.user();
+        assertFalse(user.isEntitled(null, Entitlements.ROOT, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertTrue(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+    }
+
     // minimal
     public void testGlobalMinimalEntitlement() {
         EntitlementManager minimal = Entitlements.minimal();
@@ -148,6 +162,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(minimal.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(minimal.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(minimal.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
     }
     public void testAppSpecificMinimalEntitlement() {
         EntitlementManager minimal = Entitlements.minimal();
@@ -168,6 +183,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(readOnly.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(readOnly.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(readOnly.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(readOnly.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
     }
     public void testAppSpecificReadOnlyEntitlement() {
         EntitlementManager readOnly = Entitlements.readOnly();

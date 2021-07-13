@@ -32,9 +32,7 @@ import javax.naming.directory.InitialDirContext;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -50,16 +48,11 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
 
     public static final Logger LOG = LoggerFactory.getLogger(LdapSecurityProvider.class);
 
-    public final static ConfigKey<String> LDAP_REALM_REGEX = ConfigKeys.newStringConfigKey(
-            BrooklynWebConfig.BASE_NAME_SECURITY+".ldap.allowed_realms_regex",
-            "Regular expression for allowed realms / domains" , "");
-
     public static final String LDAP_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
 
     private final String ldapUrl;
     private final String defaultLdapRealm;
     private final String organizationUnit;
-    private String allowedRealmsRegex;
 
     public LdapSecurityProvider(ManagementContext mgmt) {
         StringConfigMap properties = mgmt.getConfig();
@@ -71,11 +64,6 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             defaultLdapRealm = CharMatcher.isNot('"').retainFrom(realmConfig);
         } else {
             defaultLdapRealm = "";
-        }
-        allowedRealmsRegex = properties.getConfig(LDAP_REALM_REGEX);
-        if(Strings.isEmpty(defaultLdapRealm) && Strings.isEmpty(allowedRealmsRegex)) {
-            throw new IllegalArgumentException("LDAP security provider configuration missing at least one of " +
-                    "required properties "+BrooklynWebConfig.LDAP_REALM + " or " + LDAP_REALM_REGEX);
         }
 
         if(Strings.isBlank(properties.getConfig(BrooklynWebConfig.LDAP_OU))) {
@@ -90,11 +78,6 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         this.ldapUrl = ldapUrl;
         this.defaultLdapRealm = ldapRealm;
         this.organizationUnit = organizationUnit;
-    }
-
-    public LdapSecurityProvider(String ldapUrl, String ldapRealm, String allowedRealmsRegex, String organizationUnit) {
-        this(ldapUrl, ldapRealm, organizationUnit);
-        this.allowedRealmsRegex = allowedRealmsRegex;
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
@@ -113,7 +96,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
             env.put(Context.PROVIDER_URL, ldapUrl);
             env.put(Context.SECURITY_AUTHENTICATION, "simple");
-            env.put(Context.SECURITY_PRINCIPAL, getUserDN(user));
+            env.put(Context.SECURITY_PRINCIPAL, getSecurityPrincipal(user));
             env.put(Context.SECURITY_CREDENTIALS, pass);
 
             new InitialDirContext(env);  // will throw if password is invalid
@@ -129,16 +112,12 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
      * @param user
      * @return String
      */
-    protected String getUserDN(String user) throws NamingException {
-        String[] split = user.split("\\\\");
-        String realm = defaultLdapRealm;
-        String username = user;
-        if (split.length==2) {
-            realm = split[0];
-            username = split[1];
-            assertAllowedDomain(realm);
+    protected String getSecurityPrincipal(String user) throws NamingException {
+        if (user.contains("@") || user.contains("\\")) {
+            return user;
         }
-        List<String> domain = Lists.transform(Arrays.asList(realm.split("\\.")), new Function<String, String>() {
+
+        List<String> domain = Lists.transform(Arrays.asList(defaultLdapRealm.split("\\.")), new Function<String, String>() {
             @Override
             public String apply(String input) {
                 return "dc=" + input;
@@ -146,18 +125,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         });
 
         String dc = Joiner.on(",").join(domain).toLowerCase();
-        return "cn=" + username + ",ou=" + organizationUnit + "," + dc;
-    }
-
-    private void assertAllowedDomain(String realm) throws NamingException {
-        if (defaultLdapRealm.equals(realm)) {
-            return;
-        }
-        if (Strings.isNonBlank(allowedRealmsRegex) && realm.matches(allowedRealmsRegex)) {
-            return;
-        }
-        throw new NamingException("The domain " + realm + " has not been configured as a brooklyn allowed domain using " +
-                "the config key " + LDAP_REALM_REGEX);
+        return "cn=" + user + ",ou=" + organizationUnit + "," + dc;
     }
 
     static boolean triedLoading = false;

@@ -122,6 +122,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     public final ConfigKey<Duration> HEARTBEAT_TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.heartbeatTimeout",
         "Maximum allowable time for detection of a peer's heartbeat; if no sign of master after this time, "
         + "another node may promote itself", Duration.THIRTY_SECONDS);
+    public final ConfigKey<Duration> TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.timeoutForInactiveNodeRemovalOnStartup",
+            "Duration threshold for terminated node deletion from persistence (on startup of a server)", Duration.ZERO);
     
     @VisibleForTesting /* only used in tests currently */
     public static interface PromotionListener {
@@ -269,6 +271,9 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         persistenceEnabled = true;
         disabled = false;
         running = true;
+        if (persister != null){
+            persister.setIsStartup(true);
+        }
         changeMode(startMode, true, true);
     }
     
@@ -1051,7 +1056,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
 
         for (int i = 0; i < maxLoadAttempts; i++) {
             try {
-                ManagementPlaneSyncRecord result = persister.loadSyncRecord();
+                ManagementPlaneSyncRecord result = persister.loadSyncRecord(managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP));
                 
                 if (useLocalKnowledgeForThisNode) {
                     result = updateManagementPlaneSyncRecordWithLocalKnowledge(result);

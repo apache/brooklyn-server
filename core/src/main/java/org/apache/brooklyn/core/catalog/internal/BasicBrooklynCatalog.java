@@ -569,8 +569,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         itemDef.remove("brooklyn.catalog");
         catalogMetadata.remove("item");
         catalogMetadata.remove("items");
+        catalogMetadata.remove("tags");
         if (!itemDef.isEmpty()) {
-            // AH - i forgot we even supported this. probably no point anymore,
+            // AH - i forgot we even supported this. probably no point anymore,§
             // now that catalog defs can reference an item yaml and things can be bundled together?
             log.warn("Deprecated read of catalog item from sibling keys of `brooklyn.catalog` section, "
                 + "instead of the more common appraoch of putting inside an `item` within it. "
