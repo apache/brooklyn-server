@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import io.swagger.annotations.ApiParam;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.QueryParam;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -134,16 +137,26 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     }
 
     @Override
-    public Object get(String application, String entityToken, String configKeyName, Boolean raw) {
-        return get(true, application, entityToken, configKeyName, raw);
+    public Object get(String application, String entityToken, String configKeyName,
+                      Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                      @Deprecated Boolean raw) {
+        return get(true, application, entityToken, configKeyName,
+                useDisplayHints, skipResolution, suppressSecrets,
+                raw);
     }
 
     @Override
-    public String getPlain(String application, String entityToken, String configKeyName, Boolean raw) {
-        return Strings.toString(get(false, application, entityToken, configKeyName, raw));
+    public String getPlain(String application, String entityToken, String configKeyName,
+                           Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                           @Deprecated Boolean raw) {
+        return Strings.toString(get(false, application, entityToken, configKeyName,
+                useDisplayHints, skipResolution, suppressSecrets,
+                raw));
     }
 
-    public Object get(boolean preferJson, String application, String entityToken, String configKeyName, Boolean raw) {
+    public Object get(boolean preferJson, String application, String entityToken, String configKeyName,
+                      Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                      @Deprecated Boolean raw) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         ConfigKey<?> ck = findConfig(entity, configKeyName);
         
@@ -157,7 +170,12 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         }
         
         Object value = ((EntityInternal)entity).config().getRaw(ck).orNull();
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).immediately(true).renderAs(ck).resolve();
+        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true)
+                .raw(raw)
+                .useDisplayHints(useDisplayHints)
+                .skipResolution(skipResolution)
+                .suppressIfSecret(ck.getName(), suppressSecrets)
+                .context(entity).immediately(true).renderAs(ck).resolve();
     }
 
     private ConfigKey<?> findConfig(Entity entity, String configKeyName) {
