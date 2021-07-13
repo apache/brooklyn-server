@@ -239,8 +239,8 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
         }
         session.setAttribute(CSRF_TOKEN_VALUE_ATTR, token);
 
-        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE, token, "Clients should send this value in header "+CSRF_TOKEN_VALUE_HEADER+" for validation");
-        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE_ANGULAR_NAME, token, "Compatibility cookie for "+CSRF_TOKEN_VALUE_COOKIE+" following AngularJS conventions");
+        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE, token, "Clients should send this value in header "+CSRF_TOKEN_VALUE_HEADER+" for validation", requestContext.getSecurityContext().isSecure());
+        addCookie(responseContext, CSRF_TOKEN_VALUE_COOKIE_ANGULAR_NAME, token, "Compatibility cookie for "+CSRF_TOKEN_VALUE_COOKIE+" following AngularJS conventions", requestContext.getSecurityContext().isSecure());
 
         CsrfTokenRequiredForRequests requiredWhen;
         if (Strings.isNonBlank(requiredWhenS)) {
@@ -273,9 +273,10 @@ public class CsrfTokenFilter implements ContainerRequestFilter, ContainerRespons
 
     }
 
-    protected NewCookie addCookie(ContainerResponseContext responseContext, String cookieName, String token, String comment) {
-        NewCookie cookie = new NewCookie(cookieName, token, "/", null, comment, -1, false);
+    protected NewCookie addCookie(ContainerResponseContext responseContext, String cookieName, String token, String comment, boolean markSecure) {
+        NewCookie cookie = new NewCookie(cookieName, token, "/", null, comment, -1, markSecure);
         responseContext.getHeaders().add("Set-Cookie", cookie);
+
         return cookie;
     }
 

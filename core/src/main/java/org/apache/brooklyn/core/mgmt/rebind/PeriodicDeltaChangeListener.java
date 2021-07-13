@@ -44,7 +44,9 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
+import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -516,6 +518,13 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
 
                 // Tell the persister to persist it
                 persister.delta(persisterDelta, exceptionHandler);
+
+                // save export zip of persistence state, only for file based persistence stores
+                if ((persister instanceof BrooklynMementoPersisterToObjectStore) && (((BrooklynMementoPersisterToObjectStore) persister).getObjectStore() instanceof FileBasedObjectStore)){
+                    BrooklynPersistenceUtils.createStateExport(((BrooklynMementoPersisterToObjectStore) persister).getManagementContext(), ((FileBasedObjectStore) ((BrooklynMementoPersisterToObjectStore) persister).getObjectStore()).getBaseDir());
+                }
+
+
             }
         } catch (Exception e) {
             if (isActive()) {

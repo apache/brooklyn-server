@@ -20,12 +20,28 @@ package org.apache.brooklyn.util.core.logbook;
 
 import java.util.List;
 
+/**
+ * The logbook query parameters.
+ */
 public class LogBookQueryParams {
+
+    /** The number of log items to query. Note, one log item can be a multi-line one, e.g. a stacktrace */
     private Integer numberOfItems;
-    private Boolean reverseOrder;
+
+    /** The indicator whether to return last number of items (tail) or not */
+    private Boolean tail;
+
+    /** The log levels: INFO, FATAL, ERROR, DEBUG or WARNING */
     private List<String> levels;
-    private String initTime;
-    private String finalTime;
+
+    /** The date-time to look log items from */
+    private String dateTimeFrom;
+
+    /** The date-time to look log items up to */
+    private String dateTimeTo;
+
+    /** The search phrase to look log items with */
+    private String searchPhrase;
 
     public Integer getNumberOfItems() {
         return numberOfItems;
@@ -35,12 +51,12 @@ public class LogBookQueryParams {
         this.numberOfItems = numberOfItems;
     }
 
-    public Boolean getReverseOrder() {
-        return reverseOrder;
+    public Boolean isTail() {
+        return tail;
     }
 
-    public void setReverseOrder(Boolean reverseOrder) {
-        this.reverseOrder = reverseOrder;
+    public void setTail(Boolean tail) {
+        this.tail = tail;
     }
 
     public List<String> getLevels() {
@@ -51,19 +67,27 @@ public class LogBookQueryParams {
         this.levels = levels;
     }
 
-    public String getInitTime() {
-        return initTime;
+    public String getDateTimeFrom() {
+        return dateTimeFrom;
     }
 
-    public void setInitTime(String initTime) {
-        this.initTime = initTime;
+    public void setDateTimeFrom(String dateTimeFrom) {
+        this.dateTimeFrom = dateTimeFrom;
     }
 
-    public String getFinalTime() {
-        return finalTime;
+    public String getDateTimeTo() {
+        return dateTimeTo;
     }
 
-    public void setFinalTime(String finalTime) {
-        this.finalTime = finalTime;
+    public void setDateTimeTo(String dateTimeTo) {
+        this.dateTimeTo = dateTimeTo;
+    }
+
+    public String getSearchPhrase() {
+        return searchPhrase;
+    }
+
+    public void setSearchPhrase(String searchPhrase) {
+        this.searchPhrase = searchPhrase;
     }
 }
