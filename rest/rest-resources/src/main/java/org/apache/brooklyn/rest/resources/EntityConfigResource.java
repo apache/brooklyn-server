@@ -84,7 +84,9 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     // TODO support parameters  ?show=value,summary&name=xxx &format={string,json,xml}
     // (and in sensors class)
     @Override
-    public Map<String, Object> batchConfigRead(String application, String entityToken, Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets, @Deprecated Boolean raw) {
+    public Map<String, Object> batchConfigRead(String application, String entityToken,
+                                               Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                                               Boolean raw) {
         // TODO: add test
         Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
@@ -95,26 +97,25 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         // wrap in a task for better runtime view
         return Entities.submit(entity, Tasks.<Map<String,Object>>builder().displayName("REST API batch config read")
             .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-            .body(new BatchConfigRead(mgmt(), this, entity,useDisplayHints, skipResolution, suppressSecrets, raw)).build()).getUnchecked();
+            .body(new BatchConfigRead(mgmt(), this, entity, useDisplayHints, skipResolution, suppressSecrets, raw)).build()).getUnchecked();
     }
     
     private static class BatchConfigRead implements Callable<Map<String,Object>> {
         private final ManagementContext mgmt;
         private final EntityConfigResource resource;
         private final Entity entity;
-        private final Boolean raw;
-        private final Boolean useDisplayHints;
-        private final Boolean skipResolution;
-        private final Boolean suppressSecrets;
+        private final Boolean useDisplayHints, skipResolution, suppressSecrets, raw;
 
-        public BatchConfigRead(ManagementContext mgmt, EntityConfigResource resource, Entity entity, Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets, @Deprecated Boolean raw) {
+        public BatchConfigRead(ManagementContext mgmt, EntityConfigResource resource, Entity entity,
+                               Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                               @Deprecated Boolean raw) {
             this.mgmt = mgmt;
             this.resource = resource;
             this.entity = entity;
-            this.raw = raw;
             this.useDisplayHints = useDisplayHints;
             this.skipResolution = skipResolution;
             this.suppressSecrets = suppressSecrets;
+            this.raw = raw;
         }
 
         @Override
@@ -132,14 +133,14 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                             new Object[] {Entitlements.getEntitlementContext().user(), ek.getKey().getName(), entity});
                     continue;
                 }
-
                 result.put(key.getName(),
-                        resource.resolving(value).preferJson(true).asJerseyOutermostReturnValue(true)
-                        .raw(raw)
-                        .useDisplayHints(useDisplayHints)
-                        .skipResolution(skipResolution)
-                        .suppressIfSecret(key.getName(), suppressSecrets)
-                        .context(entity).immediately(true).renderAs(key).resolve());
+                            resource.resolving(value, mgmt).preferJson(true).asJerseyOutermostReturnValue(false)
+                                    .useDisplayHints(useDisplayHints)
+                                    .skipResolution(skipResolution)
+                                    .suppressIfSecret(key.getName(), suppressSecrets)
+                                    .raw(raw)
+                                    .context(entity).timeout(Duration.ZERO).renderAs(key)
+                                    .resolve());
 
             }
             return result;
@@ -181,10 +182,10 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         
         Object value = ((EntityInternal)entity).config().getRaw(ck).orNull();
         return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true)
-                .raw(raw)
                 .useDisplayHints(useDisplayHints)
                 .skipResolution(skipResolution)
                 .suppressIfSecret(ck.getName(), suppressSecrets)
+                .raw(raw)
                 .context(entity).immediately(true).renderAs(ck).resolve();
     }
 

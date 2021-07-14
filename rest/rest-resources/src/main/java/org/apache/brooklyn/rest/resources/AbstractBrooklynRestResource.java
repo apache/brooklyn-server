@@ -113,6 +113,7 @@ public abstract class AbstractBrooklynRestResource {
         private @Nullable Object rendererHintSource;
         private @Nullable Boolean immediately;
 
+        private @Nullable Boolean raw;
         private @Nullable Boolean useDisplayHints;
         private @Nullable Boolean skipResolution;
         private @Nullable Boolean suppressBecauseSecret;
@@ -141,16 +142,25 @@ public abstract class AbstractBrooklynRestResource {
 
         @Deprecated // since 1.0
         public RestValueResolver raw(Boolean raw) {
-            if (raw) {
-                // raw overrides useDisplayHints in this case to ensure backwards compatibility
-                // raw will never be null, defaults to false and according to tests we want hints when raw is false
-                useDisplayHints(false);
-            }
+            this.raw = raw;
             return this;
         }
         public RestValueResolver useDisplayHints(Boolean useDisplayHints) {
             this.useDisplayHints = useDisplayHints;
             return this;
+        }
+        private boolean isUseDisplayHints() {
+            if (raw!=null) {
+                if (raw) {
+                    // explicit non-default value takes precedence
+                    // (REST API will not allow 'null')
+                    return !raw;
+                }
+                // otherwise pass through
+            }
+
+            if (useDisplayHints!=null) return useDisplayHints;
+            return true;
         }
         public RestValueResolver skipResolution(Boolean skipResolution) {
             this.skipResolution = skipResolution;
@@ -177,7 +187,7 @@ public abstract class AbstractBrooklynRestResource {
                             ? valueToResolve
                             : getImmediateValue(valueToResolve, entity, immediately, timeout);
             if (valueResult==UNRESOLVED) valueResult = valueToResolve;
-            if (rendererHintSource!=null && !Boolean.FALSE.equals(useDisplayHints)) {
+            if (rendererHintSource!=null && isUseDisplayHints()) {
                 valueResult = RendererHints.applyDisplayValueHintUnchecked(rendererHintSource, valueResult);
             }
             if (Boolean.TRUE.equals(suppressBecauseSecret)) {

@@ -272,7 +272,7 @@ public class OsgiManager {
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         } finally {
-            if (reuseFramework) {
+            if (reuseFramework && framework!=null) {
                 bundlesAtStartup = MutableSet.copyOf(Arrays.asList(framework.getBundleContext().getBundles()));
             }
         }
