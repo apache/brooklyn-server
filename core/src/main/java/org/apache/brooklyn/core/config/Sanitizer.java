@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.config;
 
+import java.io.ByteArrayInputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.brooklyn.util.stream.Streams;
 
 public final class Sanitizer {
 
@@ -46,6 +48,25 @@ public final class Sanitizer {
             "access.key");
 
     public static final Predicate<Object> IS_SECRET_PREDICATE = new IsSecretPredicate();
+
+    public static Object suppressIfSecret(Object key, Object value) {
+        if (Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
+            return suppress(value);
+        }
+        return value;
+    }
+
+    public static String suppress(Object value) {
+        String md5Checksum = Streams.getMd5Checksum(new ByteArrayInputStream(("" + value).getBytes()));
+        return "<suppressed> (MD5 hash: " + md5Checksum + ")";
+    }
+
+    public static String suppressIfSecret(Object key, String value) {
+        if (Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
+            return suppress(value);
+        }
+        return value;
+    }
 
     private static class IsSecretPredicate implements Predicate<Object> {
         @Override

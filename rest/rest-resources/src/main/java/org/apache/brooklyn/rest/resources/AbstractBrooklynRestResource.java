@@ -26,7 +26,10 @@ import javax.ws.rs.ext.ContextResolver;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.render.RendererHints;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
@@ -104,12 +107,16 @@ public abstract class AbstractBrooklynRestResource {
         private @Nullable ObjectMapper mapper;
         private boolean preferJson;
         private boolean isJerseyReturnValue;
-        private @Nullable Boolean raw; 
+
         private @Nullable Entity entity;
         private @Nullable Duration timeout;
         private @Nullable Object rendererHintSource;
         private @Nullable Boolean immediately;
-        
+
+        private @Nullable Boolean useDisplayHints;
+        private @Nullable Boolean skipResolution;
+        private @Nullable Boolean suppressBecauseSecret;
+
         public static RestValueResolver resolving(Object v) { return new RestValueResolver(v); }
         
         private RestValueResolver(Object v) { valueToResolve = v; }
@@ -131,17 +138,54 @@ public abstract class AbstractBrooklynRestResource {
             isJerseyReturnValue = asJerseyReturnJson;
             return this;
         }
-        public RestValueResolver raw(Boolean raw) { this.raw = raw; return this; }
+
+        @Deprecated // since 1.0
+        public RestValueResolver raw(Boolean raw) {
+            if (raw) {
+                // raw overrides useDisplayHints in this case to ensure backwards compatibility
+                // raw will never be null, defaults to false and according to tests we want hints when raw is false
+                useDisplayHints(false);
+            }
+            return this;
+        }
+        public RestValueResolver useDisplayHints(Boolean useDisplayHints) {
+            this.useDisplayHints = useDisplayHints;
+            return this;
+        }
+        public RestValueResolver skipResolution(Boolean skipResolution) {
+            this.skipResolution = skipResolution;
+            return this;
+        }
+        public RestValueResolver suppressIfSecret(String keyName, Boolean suppressIfSecret) {
+            if (Boolean.TRUE.equals(suppressIfSecret)) {
+                if (Sanitizer.IS_SECRET_PREDICATE.apply(keyName)) {
+                    suppressBecauseSecret = true;
+                }
+            }
+
+            return this;
+        }
+
         public RestValueResolver context(Entity entity) { this.entity = entity; return this; }
         public RestValueResolver timeout(Duration timeout) { this.timeout = timeout; return this; }
         public RestValueResolver immediately(boolean immediately) { this.immediately = immediately; return this; }
         public RestValueResolver renderAs(Object rendererHintSource) { this.rendererHintSource = rendererHintSource; return this; }
 
         public Object resolve() {
-            Object valueResult = getImmediateValue(valueToResolve, entity, immediately, timeout);
+            Object valueResult =
+                    Boolean.FALSE.equals(skipResolution)
+                            ? valueToResolve
+                            : getImmediateValue(valueToResolve, entity, immediately, timeout);
             if (valueResult==UNRESOLVED) valueResult = valueToResolve;
-            if (rendererHintSource!=null && Boolean.FALSE.equals(raw)) {
+            if (rendererHintSource!=null && !Boolean.FALSE.equals(useDisplayHints)) {
                 valueResult = RendererHints.applyDisplayValueHintUnchecked(rendererHintSource, valueResult);
+            }
+            if (Boolean.TRUE.equals(suppressBecauseSecret)) {
+                if (valueResult instanceof BrooklynDslDeferredSupplier) {
+                    // deferred supplier not suppressed
+                } else {
+                    valueResult = Sanitizer.suppress(valueResult);
+                }
             }
             return WebResourceUtils.getValueForDisplay(mapper, valueResult, preferJson, isJerseyReturnValue);
         }
