@@ -385,13 +385,9 @@ public class InternalEntityFactory extends InternalFactory {
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
 
-                List<EntityInitializer> initializers = Stream.concat(spec.getInitializers().stream(), getDefaultInitializers().stream())
+                List<EntityInitializer> initializers = Stream.concat(getDefaultInitializers().stream(), spec.getInitializers().stream())
                         .collect(Collectors.toList());
                 for (EntityInitializer initializer: initializers) {
-                    initializer.apply((EntityInternal)entity);
-                }
-
-                for (EntityInitializer initializer: spec.getInitializers()) {
                     initializer.apply((EntityInternal)entity);
                 }
 
