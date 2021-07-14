@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -495,17 +496,19 @@ public class InternalEntityFactory extends InternalFactory {
     private List<EntityInitializer> getGlobalDeploymentInitializers() {
         return Arrays.stream(managementContext.getConfig().getConfig(GLOBAL_DEPLOYMENT_INITIALIZER_CLASSNAMES).split(","))
                 .filter(Strings::isNonEmpty)
-                .map(className -> {
-                    try {
-                        Class<?> initializerClass = getClass().getClassLoader().loadClass(className);
-                        return (EntityInitializer) initializerClass.newInstance();
-                    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
-                        RegisteredType registeredType = managementContext.getTypeRegistry()
-                                .getMaybe(className, null)
-                                .orThrow("Failed to load default initializer with class name: " + className);
-                        return managementContext.getTypeRegistry().create(registeredType, null, null);
-                    }
-                })
+                .map(className -> managementContext.getTypeRegistry()
+                        .getMaybe(className, null)
+                        .map(registeredType -> (EntityInitializer) managementContext.getTypeRegistry().create(registeredType, null, null))
+                        .or(JavaBrooklynClassLoadingContext.create(managementContext)
+                                .tryLoadClass(className)
+                                .map(aClass -> {
+                                    try {
+                                        return (EntityInitializer) aClass.newInstance();
+                                    } catch (InstantiationException | IllegalAccessException e) {
+                                        throw new IllegalStateException(e);
+                                    }
+                                }))
+                        .orNull())
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
