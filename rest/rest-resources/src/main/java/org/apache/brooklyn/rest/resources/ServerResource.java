@@ -22,6 +22,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +31,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.ZipFile;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -75,6 +78,7 @@ import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
+import org.apache.brooklyn.util.core.file.ArchiveUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -86,6 +90,8 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -538,17 +544,35 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     }
 
     @Override
-    public Response importPersistenceData(String persistenceExportLocation) {
+    public Response importPersistenceData(byte[] persistenceStateData) {
         try {
-            File persistenceLocation = new File(persistenceExportLocation);
-            if (!persistenceLocation.isDirectory()){
-                throw WebResourceUtils.badRequest("Invalid persistence directory - %s does not exist or is not a directory", persistenceExportLocation);
-            }
-
             // set up temporary management context using the persistence to be imported
             BrooklynProperties brooklynPropertiesWithExportPersistenceDir = BrooklynProperties.Factory.builderDefault().build();
+
+            // save the temp persistence in same location with /tmp/ added
+            String persistenceExportLocation;
+            if (!brooklynPropertiesWithExportPersistenceDir.getConfig("amp.persistence.dir").equals("") && !(brooklynPropertiesWithExportPersistenceDir.getConfig("amp.persistence.dir") == null)){
+                persistenceExportLocation = (String) brooklynPropertiesWithExportPersistenceDir.getConfig("amp.persistence.dir") + "/persistence-imports/import-" + Time.makeDateSimpleStampString() + ".zip";
+            }
+            else {
+                throw WebResourceUtils.serverError("Error. Current persistence location could not be read from brooklyn properties");
+            }
             brooklynPropertiesWithExportPersistenceDir.put("amp.persistence.dir",persistenceExportLocation);
 
+            // write to zip
+            File zipFile = new File(persistenceExportLocation);
+            FileUtils.writeByteArrayToFile(zipFile, persistenceStateData);
+
+            // extract to dir
+            try {
+                ArchiveUtils.extractZip(new ZipFile(persistenceExportLocation),zipFile.getParent() + "/");
+                File persistenceLocation = new File(zipFile.getParent() + "/persistence-state-export/");
+
+            } catch (Exception e) {
+                log.info("Import Persistence Data - Path passed is not a zip file");
+            }
+
+            // read back into temp mgmt context
             LocalManagementContext tempMgmt = new LocalManagementContext(brooklynPropertiesWithExportPersistenceDir);
             PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, persistenceExportLocation);
             tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
