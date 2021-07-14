@@ -93,7 +93,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
 
             Object value = entity.getAttribute(findSensor(entity, sensor.getName()));
             sensorMap.put(sensor.getName(), 
-                resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(useDisplayHints).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor).resolve());
+                resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).useDisplayHints(useDisplayHints).context(entity).timeout(Duration.ZERO).renderAs(sensor).resolve());
         }
         return sensorMap;
     }
@@ -112,7 +112,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
         }
         
         Object value = entity.getAttribute(sensor);
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).useDisplayHints(useDisplayHints).raw(raw).context(entity).immediately(true).renderAs(sensor).resolve();
+        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).useDisplayHints(useDisplayHints).context(entity).immediately(true).renderAs(sensor).resolve();
     }
 
     @Override
