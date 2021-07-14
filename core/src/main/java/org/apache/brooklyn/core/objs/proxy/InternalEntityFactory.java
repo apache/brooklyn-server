@@ -48,7 +48,6 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
@@ -93,11 +92,12 @@ public class InternalEntityFactory extends InternalFactory {
     private final ClassLoaderCache classLoaderCache;
 
     /**
-     * The initializers to be add to any application deployed by Brooklyn.
+     * The initializers to be added to any application deployed by Brooklyn.
      * e.g. <code>brooklyn.deployment.initializers=org.apache.brooklyn.core.effector.AddDeploySensorsInitializer</code>
-     * will automatically add tags to the root node of any deployed application.
+     * will automatically add a sensor to the root node of any deployed application. It's value is a JSON payload containing
+     * information about who and when the application has been deployed.
      */
-    public final static ConfigKey<String> DEFAULT_INITIALIZERS_CLASSNAMES = ConfigKeys.newStringConfigKey(
+    public final static ConfigKey<String> GLOBAL_DEPLOYMENT_INITIALIZER_CLASSNAMES = ConfigKeys.newStringConfigKey(
             "brooklyn.deployment.initializers",
             "Comma separated list of class names corresponding to Brooklyn Initializers to be automatically added and ran on every application deployed",
             "");
@@ -385,7 +385,7 @@ public class InternalEntityFactory extends InternalFactory {
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
 
-                List<EntityInitializer> initializers = Stream.concat(getDefaultInitializers().stream(), spec.getInitializers().stream())
+                List<EntityInitializer> initializers = Stream.concat(getGlobalDeploymentInitializers().stream(), spec.getInitializers().stream())
                         .collect(Collectors.toList());
                 for (EntityInitializer initializer: initializers) {
                     initializer.apply((EntityInternal)entity);
@@ -492,8 +492,8 @@ public class InternalEntityFactory extends InternalFactory {
         }
     }
 
-    private List<EntityInitializer> getDefaultInitializers() {
-        return Arrays.stream(managementContext.getConfig().getConfig(DEFAULT_INITIALIZERS_CLASSNAMES).split(","))
+    private List<EntityInitializer> getGlobalDeploymentInitializers() {
+        return Arrays.stream(managementContext.getConfig().getConfig(GLOBAL_DEPLOYMENT_INITIALIZER_CLASSNAMES).split(","))
                 .filter(Strings::isNonEmpty)
                 .map(className -> {
                     try {
