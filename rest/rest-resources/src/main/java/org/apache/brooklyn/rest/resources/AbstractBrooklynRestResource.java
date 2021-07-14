@@ -141,8 +141,10 @@ public abstract class AbstractBrooklynRestResource {
 
         @Deprecated // since 1.0
         public RestValueResolver raw(Boolean raw) {
-            if (raw!=null) {
-                useDisplayHints(!Boolean.FALSE.equals(raw));
+            if (raw) {
+                // raw overrides useDisplayHints in this case to ensure backwards compatibility
+                // raw will never be null, defaults to false and according to tests we want hints when raw is false
+                useDisplayHints(false);
             }
             return this;
         }
