@@ -1019,13 +1019,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         return record; 
     }
 
-    private boolean updateLastManagementPlaneSyncRecordWithLocalKnowledge() {
-        if (lastSyncRecord != null) {
-            lastSyncRecord = updateManagementPlaneSyncRecordWithLocalKnowledge(lastSyncRecord);
-            return true;
-        } else {
-            return false;
-        }
+    private void updateLastManagementPlaneSyncRecordWithLocalKnowledge() {
+        if (lastSyncRecord != null) updateManagementPlaneSyncRecordWithLocalKnowledge(lastSyncRecord);
     }
 
     @Override
@@ -1059,7 +1054,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 ManagementPlaneSyncRecord result = persister.loadSyncRecord(managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP));
                 
                 if (useLocalKnowledgeForThisNode) {
-                    result = updateManagementPlaneSyncRecordWithLocalKnowledge(result);
+                    updateManagementPlaneSyncRecordWithLocalKnowledge(result);
                 }
                 
                 if (i>0) {
@@ -1081,7 +1076,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         throw new IllegalStateException(message, lastException);
     }
 
-    private ManagementPlaneSyncRecord updateManagementPlaneSyncRecordWithLocalKnowledge(ManagementPlaneSyncRecord result) {
+    private void updateManagementPlaneSyncRecordWithLocalKnowledge(ManagementPlaneSyncRecord result) {
         // Report this node's most recent state, and detect AWOL nodes
         ManagementNodeSyncRecord me = BasicManagementNodeSyncRecord.builder()
                 .from(result.getManagementNodes().get(ownNodeId), true)
@@ -1098,7 +1093,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             builder.masterNodeId(ownNodeId);
         }
         result = builder.build();
-        return result;
     }
 
     protected ManagementNodeSyncRecord createManagementNodeSyncRecord(boolean useLocalTimestampAsRemoteTimestamp) {
