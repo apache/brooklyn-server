@@ -83,7 +83,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
         // Prepare a valid query.
         ImmutableMap<Object, Object> qb = ImmutableMap.builder()
                 .put("numberOfItems", 3)
-                .put("reverseOrder", false)
+                .put("tail", false)
                 .put("levels", ImmutableList.of("WARN", "DEBUG"))
                 .build();
 
@@ -130,7 +130,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
             // Prepare a valid query.
             ImmutableMap<Object, Object> qb = ImmutableMap.builder()
                     .put("numberOfItems", 3)
-                    .put("reverseOrder", false)
+                    .put("tail", false)
                     .put("levels", ImmutableList.of("WARN", "DEBUG"))
                     .build();
 
