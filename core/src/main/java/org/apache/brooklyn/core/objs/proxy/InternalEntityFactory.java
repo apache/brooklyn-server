@@ -31,8 +31,10 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
@@ -46,46 +48,60 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nonnull;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 /**
- * Creates entities (and proxies) of required types, given the 
- * 
+ * Creates entities (and proxies) of required types, given the
+ *
  * This is an internal class for use by core-brooklyn. End-users are strongly discouraged from
  * using this class directly.
- * 
+ *
  * Used in three situations:
  * <ul>
  *   <li>Normal entity creation (through entityManager.createEntity)
  *   <li>rebind (i.e. Brooklyn restart, or promotion of HA standby manager node)
  *   <li>yaml parsing
  * </ul>
- * 
+ *
  * @author aled
  */
 public class InternalEntityFactory extends InternalFactory {
 
     private static final Logger log = LoggerFactory.getLogger(InternalEntityFactory.class);
-    
+
     private final EntityTypeRegistry entityTypeRegistry;
     private final InternalPolicyFactory policyFactory;
     private final ClassLoaderCache classLoaderCache;
-    
+
+    /**
+     * The initializers to be add to any application deployed by Brooklyn.
+     * e.g. <code>brooklyn.deployment.initializers=org.apache.brooklyn.core.effector.AddDeploySensorsInitializer</code>
+     * will automatically add tags to the root node of any deployed application.
+     */
+    public final static ConfigKey<String> DEFAULT_INITIALIZERS_CLASSNAMES = ConfigKeys.newStringConfigKey(
+            "brooklyn.deployment.initializers",
+            "Comma separated list of class names corresponding to Brooklyn Initializers to be automatically added and ran on every application deployed",
+            "");
+
     public InternalEntityFactory(ManagementContextInternal managementContext, EntityTypeRegistry entityTypeRegistry, InternalPolicyFactory policyFactory) {
         super(managementContext);
         this.entityTypeRegistry = checkNotNull(entityTypeRegistry, "entityTypeRegistry");
@@ -103,7 +119,7 @@ public class InternalEntityFactory extends InternalFactory {
             interfaces.addAll(Reflections.getAllInterfaces(spec.getType()));
         }
         interfaces.addAll(spec.getAdditionalInterfaces());
-        
+
         return createEntityProxy(interfaces, entity);
     }
 
@@ -151,7 +167,7 @@ public class InternalEntityFactory extends InternalFactory {
 
     /** creates a new entity instance from a spec, with all children, policies, etc,
      * fully initialized ({@link AbstractEntity#init()} invoked) and ready for
-     * management -- commonly the caller will next call 
+     * management -- commonly the caller will next call
      * {@link Entities#manage(Entity)} (if it's in a managed application)
      * or {@link Entities#startManagement(org.apache.brooklyn.api.entity.Application, org.apache.brooklyn.api.mgmt.ManagementContext)}
      * (if it's an application) */
@@ -162,7 +178,7 @@ public class InternalEntityFactory extends InternalFactory {
          * It seems we need access to the parent (indeed the root application) when running some initializers (esp children initializers).
          * <p>
          * Now we do two passes, so that hierarchy is fully populated before initialization and policies.
-         * (This is needed where some config or initializer might reference another entity by its ID, e.g. yaml $brooklyn:component("id"). 
+         * (This is needed where some config or initializer might reference another entity by its ID, e.g. yaml $brooklyn:component("id").
          * Initialization is done in parent-first order with depth-first children traversal.
          */
 
@@ -171,7 +187,7 @@ public class InternalEntityFactory extends InternalFactory {
         // (maps needed because we need the spec, and we need to keep the AbstractEntity to call init, not a proxy)
         Map<String,Entity> entitiesByEntityId = MutableMap.of();
         Map<String,EntitySpec<?>> specsByEntityId = MutableMap.of();
-        
+
         T entity = createEntityAndDescendantsUninitialized(0, spec, options, entitiesByEntityId, specsByEntityId);
         try {
             initEntityAndDescendants(entity.getId(), entitiesByEntityId, specsByEntityId, options);
@@ -190,7 +206,7 @@ public class InternalEntityFactory extends InternalFactory {
         }
         return entity;
     }
-    
+
     private <T extends Entity> T createEntityAndDescendantsUninitialized(int depth, EntitySpec<T> spec, EntityManager.EntityCreationOptions options,
             Map<String,Entity> entitiesByEntityId, Map<String,EntitySpec<?>> specsByEntityId) {
 
@@ -205,11 +221,11 @@ public class InternalEntityFactory extends InternalFactory {
             }
 
             Class<? extends T> clazz = getImplementedBy(spec);
-            
+
             entity = constructEntity(clazz, spec, depth==0 ? options.getRequiredUniqueId() : null);
-            
+
             loadUnitializedEntity(entity, spec, options);
-            
+
             List<NamedStringTag> upgradedFrom = BrooklynTags.findAllNamedStringTags(BrooklynTags.UPGRADED_FROM, spec.getTags());
             if (!upgradedFrom.isEmpty()) {
                 log.warn("Entity "+entity.getId()+" created with upgraded type "+entity.getCatalogItemId()+" "+upgradedFrom+" (in "+entity.getApplicationId()+", under "+entity.getParent()+")");
@@ -230,7 +246,7 @@ public class InternalEntityFactory extends InternalFactory {
                 Entity child = createEntityAndDescendantsUninitialized(depth+1, childSpec, options, entitiesByEntityId, specsByEntityId);
                 entity.addChild(child);
             }
-            
+
             for (Entity member: spec.getMembers()) {
                 if (!(entity instanceof Group)) {
                     throw new IllegalStateException("Entity "+entity+" must be a group to add members "+spec.getMembers());
@@ -243,13 +259,13 @@ public class InternalEntityFactory extends InternalFactory {
             }
 
             return entity;
-            
+
         } catch (Exception ex) {
             options.onException(ex, Exceptions::propagate);
             return entity;
         }
     }
-    
+
     @SuppressWarnings({ "unchecked", "rawtypes" })
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec, EntityManager.EntityCreationOptions options) {
         try {
@@ -321,11 +337,11 @@ public class InternalEntityFactory extends InternalFactory {
             queue.addAll(e1.getChildren());
         }
     }
-    
+
     protected <T extends Entity> void initEntityAndDescendants(String entityId, final Map<String,Entity> entitiesByEntityId, final Map<String,EntitySpec<?>> specsByEntityId, EntityManager.EntityCreationOptions options) {
         final Entity entity = entitiesByEntityId.get(entityId);
         final EntitySpec<?> spec = specsByEntityId.get(entityId);
-        
+
         if (entity==null || spec==null) {
             log.debug("Skipping initialization of "+entityId+" found as child of entity being initialized, "
                 + "but this child is not one we created; likely it was created by an initializer, "
@@ -338,17 +354,17 @@ public class InternalEntityFactory extends InternalFactory {
         validateDescendantConfig(entity, options);
 
         /* Marked transient so that the task is not needlessly kept around at the highest level.
-         * Note that the task is not normally visible in the GUI, because 
+         * Note that the task is not normally visible in the GUI, because
          * (a) while it is running, the entity is often parentless (and so not in the tree);
          * and (b) when it is completed it is GC'd, as it is transient.
          * However task info is available via the API if you know its ID,
-         * and if better subtask querying is available it will be picked up as a background task 
+         * and if better subtask querying is available it will be picked up as a background task
          * of the parent entity creating this child entity
          * (note however such subtasks are currently filtered based on parent entity so is excluded).
          * <p>
          * Some of these (initializers and enrichers) submit background scheduled tasks,
          * which currently show up at the top level once the initializer task completes.
-         * TODO It would be nice if these schedule tasks were grouped in a bucket! 
+         * TODO It would be nice if these schedule tasks were grouped in a bucket!
          */
         ((EntityInternal)entity).getExecutionContext().get(Tasks.builder().dynamic(false).displayName("Entity initialization")
                 .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
@@ -368,6 +384,12 @@ public class InternalEntityFactory extends InternalFactory {
                         managementContext.getLocationManager().createLocation(taggedSpec)));
                 }
                 ((AbstractEntity)entity).addLocations(spec.getLocations());
+
+                List<EntityInitializer> initializers = Stream.concat(spec.getInitializers().stream(), getDefaultInitializers().stream())
+                        .collect(Collectors.toList());
+                for (EntityInitializer initializer: initializers) {
+                    initializer.apply((EntityInternal)entity);
+                }
 
                 for (EntityInitializer initializer: spec.getInitializers()) {
                     initializer.apply((EntityInternal)entity);
@@ -393,16 +415,16 @@ public class InternalEntityFactory extends InternalFactory {
             }
         }).build());
     }
-    
+
     /**
      * Constructs an entity, i.e. instantiate the actual class given a spec,
      * and sets the entity's proxy. Used by this factory to {@link #createEntity(EntitySpec, org.apache.brooklyn.api.mgmt.EntityManager.EntityCreationOptions)}
      * and also used during rebind.
-     * <p> 
+     * <p>
      * If the entityId is provided, then uses that to override the entity's id,
      * but that behaviour is deprecated.
      * <p>
-     * The new-style no-arg constructor is preferred, and   
+     * The new-style no-arg constructor is preferred, and
      * configuration from the {@link EntitySpec} is <b>not</b> normally applied,
      * although for old-style entities flags from the spec are passed to the constructor.
      * <p>
@@ -426,7 +448,7 @@ public class InternalEntityFactory extends InternalFactory {
         }
         checkNotNull(entityId, "entityId");
         checkState(interfaces != null && !Iterables.isEmpty(interfaces), "must have at least one interface for entity %s:%s", clazz, entityId);
-        
+
         T entity = constructEntityImpl(clazz, null, null, entityId);
         if (((AbstractEntity)entity).getProxy() == null) {
             Entity proxy = managementContext.getEntityManager().getEntity(entity.getId());
@@ -442,10 +464,10 @@ public class InternalEntityFactory extends InternalFactory {
         return entity;
     }
 
-    private <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, EntitySpec<?> optionalSpec, 
+    private <T extends Entity> T constructEntityImpl(Class<? extends T> clazz, EntitySpec<?> optionalSpec,
             Map<String, ?> optionalConstructorFlags, String entityId) {
         T entity = construct(clazz, optionalSpec, optionalConstructorFlags);
-        
+
         if (entityId!=null) {
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", entityId), entity);
         }
@@ -465,12 +487,30 @@ public class InternalEntityFactory extends InternalFactory {
         }
         return super.constructOldStyle(clazz, flags);
     }
-    
+
     private <T extends Entity> Class<? extends T> getImplementedBy(EntitySpec<T> spec) {
         if (spec.getImplementation() != null) {
             return spec.getImplementation();
         } else {
             return entityTypeRegistry.getImplementedBy(spec.getType());
         }
+    }
+
+    private List<EntityInitializer> getDefaultInitializers() {
+        return Arrays.stream(managementContext.getConfig().getConfig(DEFAULT_INITIALIZERS_CLASSNAMES).split(","))
+                .filter(Strings::isNonEmpty)
+                .map(className -> {
+                    try {
+                        Class<?> initializerClass = getClass().getClassLoader().loadClass(className);
+                        return (EntityInitializer) initializerClass.newInstance();
+                    } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+                        RegisteredType registeredType = managementContext.getTypeRegistry()
+                                .getMaybe(className, null)
+                                .orThrow("Failed to load default initializer with class name: " + className);
+                        return managementContext.getTypeRegistry().create(registeredType, null, null);
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 }
