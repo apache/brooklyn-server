@@ -18,9 +18,8 @@
  */
 package org.apache.brooklyn.core.effector;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
@@ -28,6 +27,8 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.sensor.Sensors;
+
+import java.util.Map;
 
 public class AddDeploySensorsInitializer implements EntityInitializer {
     @Override
@@ -37,18 +38,15 @@ public class AddDeploySensorsInitializer implements EntityInitializer {
             return;
         }
         EntitlementContext entitlementContext = Entitlements.getEntitlementContext();
-        AttributeSensor<String> sensor = Sensors.newSensor(
-                String.class,
+        AttributeSensor<Map<String, Object>> sensor = Sensors.newSensor(
+                new TypeToken<Map<String, Object>>() {},
                 "deployment.metadata",
-                "Metadata information about this particular deployment. Contains at least who triggered it and when.");
+                "A map of metadata information about this particular deployment. Contains at least who triggered it and when.");
         ((EntityInternal) entity).getMutableEntityType().addSensor(sensor);
-        try {
-            entity.sensors().set(sensor, new ObjectMapper().writeValueAsString(ImmutableMap.of(
-                    "user", entitlementContext != null ? entitlementContext.user() : "Unknown",
-                    "deploy_time", System.currentTimeMillis()
-            )));
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
-        }
+        entity.sensors().set(sensor, ImmutableMap.of(
+                "user", entitlementContext != null ? entitlementContext.user() : "Unknown",
+                "deploy_time", System.currentTimeMillis()
+        ));
+
     }
 }
