@@ -18,12 +18,10 @@
  */
 package org.apache.brooklyn.rest.filter;
 
-import com.google.common.collect.ImmutableMap;
-import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
-import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
-import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
-import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
-import org.apache.brooklyn.util.text.Strings;
+import java.io.IOException;
+import java.security.Principal;
+import java.util.List;
+import java.util.Map;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
@@ -34,10 +32,13 @@ import javax.ws.rs.container.ContainerResponseFilter;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.Provider;
-import java.io.IOException;
-import java.security.Principal;
-import java.util.List;
-import java.util.Map;
+
+import com.google.common.collect.ImmutableMap;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.text.Strings;;
 
 @Provider
 @Priority(400)
