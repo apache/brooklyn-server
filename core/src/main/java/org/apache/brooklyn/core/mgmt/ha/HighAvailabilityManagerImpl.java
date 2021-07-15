@@ -154,6 +154,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     private volatile ManagementNodeState nodeState = ManagementNodeState.INITIALIZING;
     private volatile boolean nodeStateTransitionComplete = false;
     private volatile long priority = 0;
+    private String nodeIdToRemove = "";
     
     private final static int MAX_NODE_STATE_HISTORY = 200;
     private final List<Map<String,Object>> nodeStateHistory = MutableList.of();
@@ -166,6 +167,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     private volatile PersistenceActivityMetrics managementStateWritePersistenceMetrics = new PersistenceActivityMetrics();
     private volatile PersistenceActivityMetrics managementStateReadPersistenceMetrics = new PersistenceActivityMetrics();
     private final long startTimeUtc;
+
 
     /**
      * 
@@ -474,6 +476,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         } else {
             setNodeStateTransitionComplete(true);
         }
+        updateLastManagementPlaneSyncRecordWithLocalKnowledge();
         if (startMode!=HighAvailabilityMode.DISABLED)
             registerPollTask();
     }
@@ -641,6 +644,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             Delta delta = ManagementPlaneSyncRecordDeltaImpl.builder().node(memento).build();
             persister.delta(delta);
             managementStateWritePersistenceMetrics.noteSuccess(Duration.of(timer));
+            updateLastManagementPlaneSyncRecordWithLocalKnowledge();
             if (LOG.isTraceEnabled()) LOG.trace("Published management-node health: {}", memento);
         } catch (Throwable t) {
             managementStateWritePersistenceMetrics.noteFailure(Duration.of(timer));
@@ -661,14 +665,25 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         for (Map.Entry<String,ManagementNodeSyncRecord> node: plane.getManagementNodes().entrySet()) {
             // only keep a node if it both claims master and is recognised as master;
             // else ex-masters who died are kept around!
-            if (!ManagementNodeState.MASTER.equals(node.getValue().getStatus()) || 
-                    !Objects.equal(plane.getMasterNodeId(), node.getValue().getNodeId())) {
+            // server API /ha/states/clear/node allows to remove a particular node, if called then node ID stored in nodeIdToRemove and only that node removed
+            if ((!ManagementNodeState.MASTER.equals(node.getValue().getStatus()) ||
+                    !Objects.equal(plane.getMasterNodeId(), node.getValue().getNodeId())) &&
+                    (this.nodeIdToRemove.equals("") || (!this.nodeIdToRemove.equals("") && node.getValue().getNodeId().equals(this.nodeIdToRemove)))){
                 db.removedNodeId(node.getKey());
             }
         }
         persister.delta(db.build());
         // then get, so model is updated
         loadManagementPlaneSyncRecord(true);
+
+        if (!(this.nodeIdToRemove.equals(""))){
+            setNodeIdToRemove("");
+        }
+    }
+
+    @Override
+    public void setNodeIdToRemove(String nodeId) {
+        nodeIdToRemove = nodeId;
     }
     
     protected synchronized void publishDemotion(boolean demotingFromMaster) {
@@ -1004,6 +1019,10 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         return record; 
     }
 
+    private void updateLastManagementPlaneSyncRecordWithLocalKnowledge() {
+        if (lastSyncRecord != null) updateManagementPlaneSyncRecordWithLocalKnowledge(lastSyncRecord);
+    }
+
     @Override
     public ManagementPlaneSyncRecord getLastManagementPlaneSyncRecord() {
         return lastSyncRecord;
@@ -1035,22 +1054,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 ManagementPlaneSyncRecord result = persister.loadSyncRecord(managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP));
                 
                 if (useLocalKnowledgeForThisNode) {
-                    // Report this node's most recent state, and detect AWOL nodes
-                    ManagementNodeSyncRecord me = BasicManagementNodeSyncRecord.builder()
-                        .from(result.getManagementNodes().get(ownNodeId), true)
-                        .from(createManagementNodeSyncRecord(false), true)
-                        .build();
-                    Iterable<ManagementNodeSyncRecord> allNodes = result.getManagementNodes().values();
-                    if (me.getRemoteTimestamp()!=null)
-                        allNodes = Iterables.transform(allNodes, new MarkAwolNodes(me));
-                    Builder builder = ManagementPlaneSyncRecordImpl.builder()
-                        .masterNodeId(result.getMasterNodeId())
-                        .nodes(allNodes);
-                    builder.node(me);
-                    if (getTransitionTargetNodeState() == ManagementNodeState.MASTER) {
-                        builder.masterNodeId(ownNodeId);
-                    }
-                    result = builder.build();
+                    updateManagementPlaneSyncRecordWithLocalKnowledge(result);
                 }
                 
                 if (i>0) {
@@ -1070,6 +1074,25 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         managementStateReadPersistenceMetrics.noteFailure(Duration.of(timer));
 
         throw new IllegalStateException(message, lastException);
+    }
+
+    private void updateManagementPlaneSyncRecordWithLocalKnowledge(ManagementPlaneSyncRecord result) {
+        // Report this node's most recent state, and detect AWOL nodes
+        ManagementNodeSyncRecord me = BasicManagementNodeSyncRecord.builder()
+                .from(result.getManagementNodes().get(ownNodeId), true)
+                .from(createManagementNodeSyncRecord(false), true)
+                .build();
+        Iterable<ManagementNodeSyncRecord> allNodes = result.getManagementNodes().values();
+        if (me.getRemoteTimestamp()!=null)
+            allNodes = Iterables.transform(allNodes, new MarkAwolNodes(me));
+        Builder builder = ManagementPlaneSyncRecordImpl.builder()
+                .masterNodeId(result.getMasterNodeId())
+                .nodes(allNodes);
+        builder.node(me);
+        if (getTransitionTargetNodeState() == ManagementNodeState.MASTER) {
+            builder.masterNodeId(ownNodeId);
+        }
+        result = builder.build();
     }
 
     protected ManagementNodeSyncRecord createManagementNodeSyncRecord(boolean useLocalTimestampAsRemoteTimestamp) {

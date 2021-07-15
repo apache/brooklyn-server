@@ -149,6 +149,13 @@ public interface ServerApi {
     @Path("/ha/states/clear")
     @ApiOperation(value = "Clears HA node information for non-master nodes; active nodes will repopulate and other records will be erased")
     public Response clearHighAvailabilityPlaneStates();
+
+    @POST
+    @Path("/ha/states/clear/node")
+    @ApiOperation(value = "Clears HA node information for a particular non-master node; other nodes will repopulate and selected node will be erased")
+    public Response clearHighAvailabilityPlaneStates(
+            @ApiParam(name = "nodeId", value = "ID of node to be removed")
+            @FormParam("nodeId") String nodeId);
     
     @GET
     @Path("/ha/priority")
@@ -172,18 +179,13 @@ public interface ServerApi {
         @QueryParam("origin") @DefaultValue("AUTO") String origin);
 
     // TODO would be nice to allow setting, as a means to recover / control more easily than messing with persistent stores
-//    @POST
-//    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
-//    @Path("/ha/persist/import")
-//    @ApiOperation(value = "Causes the supplied persistence data (tgz) to be imported and added "
-//        + "(fails if the node is not master), optionally removing any items not referenced")
-//    public Response importPersistenceData(
-//          // question: do we want the MementoCopyMode, cf export above?
-//        @ApiParam(name = "clearOthers", value = "Whether to clear all existing items before adding these", required = false, defaultValue = "false")
-//        @FormParam("clearOthers") Boolean clearOthers,
-//        @ApiParam(name = "data",
-//        value = "TGZ contents of a persistent directory to be imported", required = true)
-//    @Valid String dataTgz);
+    @POST
+    @Path("/ha/persist/import")
+    @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications (merged with the current persistence).")
+    public Response importPersistenceData(
+        @ApiParam(name = "persistenceExportLocation", value = "location of persistence to import", required = true)
+        @FormParam("persistenceExportLocation") String persistenceExportLocation);
+
 
     // TODO /ha/persist/backup set of endpoints, to list and retrieve specific backups
 

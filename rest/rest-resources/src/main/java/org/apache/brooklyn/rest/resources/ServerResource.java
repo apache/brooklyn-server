@@ -35,6 +35,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ContextResolver;
 
+import com.google.common.io.ByteSource;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -44,6 +45,9 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
+import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -51,13 +55,16 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
-import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
-import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
+import org.apache.brooklyn.core.mgmt.persist.*;
+import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.rest.api.ServerApi;
+import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.BrooklynFeatureSummary;
 import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
@@ -70,8 +77,10 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -465,6 +474,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (memento.getMasterNodeId() == null) {
             memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
         }
+
         return HighAvailabilityTransformer.highAvailabilitySummary(mgmt().getManagementNodeId(), memento);
     }
 
@@ -473,6 +483,16 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         mgmt().getHighAvailabilityManager().publishClearNonMaster();
+        return Response.ok().build();
+    }
+
+    @Override
+    public Response clearHighAvailabilityPlaneStates(String nodeId) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+        HighAvailabilityManager haMan = mgmt().getHighAvailabilityManager();
+        haMan.setNodeIdToRemove(nodeId);
+        haMan.publishClearNonMaster();
         return Response.ok().build();
     }
 
@@ -528,4 +548,79 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         }
     }
 
+    @Override
+    public Response importPersistenceData(String persistenceExportLocation) {
+        try {
+            File persistenceLocation = new File(persistenceExportLocation);
+            if (!persistenceLocation.isDirectory()){
+                throw WebResourceUtils.badRequest("Invalid persistence directory - %s does not exist or is not a directory", persistenceExportLocation);
+            }
+
+            // set up temporary management context using the persistence to be imported
+            BrooklynProperties brooklynPropertiesWithExportPersistenceDir = BrooklynProperties.Factory.builderDefault().build();
+            brooklynPropertiesWithExportPersistenceDir.put("amp.persistence.dir",persistenceExportLocation);
+
+            LocalManagementContext tempMgmt = new LocalManagementContext(brooklynPropertiesWithExportPersistenceDir);
+            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, persistenceExportLocation);
+            tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
+            BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
+                    tempPersistenceStore, tempMgmt);
+            PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
+            RebindManager rebindManager = tempMgmt.getRebindManager();
+            rebindManager.setPersister(persister, persistenceExceptionHandler);
+            rebindManager.forcePersistNow(false, null);
+
+            BrooklynMementoRawData newMementoRawData = tempMgmt.getRebindManager().retrieveMementoRawData();
+
+            // install bundles to active management context
+            for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()){
+                ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
+                        .install(InputStreamSource.of("Persistence import - bundle install", bundleJar.getValue().read()), "", false);
+
+                if (result.hasError()) {
+                    if (log.isTraceEnabled()) {
+                        log.trace("Unable to create, format '', returning 400: "+result.getError().getMessage(), result.getError());
+                    }
+                    String errorMsg = "";
+                    if (result.getWithoutError()!=null) {
+                        errorMsg = result.getWithoutError().getMessage();
+                    } else {
+                        errorMsg = Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString();
+                    }
+                    throw new Exception(errorMsg);
+                }
+            }
+
+            // write persisted items and rebind to load applications
+            BrooklynMementoRawData.Builder result = BrooklynMementoRawData.builder();
+            MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(mgmt().getClass().getClassLoader());
+            RetryingMementoSerializer<Object> serializer = new RetryingMementoSerializer<Object>(rawSerializer, 1);
+
+            result.planeId(mgmt().getManagementPlaneIdMaybe().orNull());
+            result.entities(newMementoRawData.getEntities());
+            result.locations(newMementoRawData.getLocations());
+            result.policies(newMementoRawData.getPolicies());
+            result.enrichers(newMementoRawData.getEnrichers());
+            result.feeds(newMementoRawData.getFeeds());
+            result.catalogItems(newMementoRawData.getCatalogItems());
+
+            PersistenceObjectStore currentPersistenceStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
+            BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentPersistenceStore);
+            mgmt().getRebindManager().rebind(mgmt().getCatalogClassLoader(),null, mgmt().getHighAvailabilityManager().getNodeState());
+
+            // clean up the temporary management context
+            rebindManager.stop();
+            persister.stop(true);
+            tempPersistenceStore.close();
+            tempMgmt.terminate();
+
+
+        } catch (Exception e){
+            Exceptions.propagateIfFatal(e);
+            ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
+            error.message(e.getMessage());
+            return error.build().asJsonResponse();
+        }
+        return Response.ok().build();
+    }
 }
