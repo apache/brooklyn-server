@@ -19,7 +19,11 @@
 package org.apache.brooklyn.core.mgmt.entitlement;
 
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Indicates an authenticated web request as the entitlements context;
@@ -27,9 +31,15 @@ import org.apache.brooklyn.util.javalang.JavaClassNames;
  */
 public class WebEntitlementContext implements EntitlementContext {
 
+    public static final String ENTITLEMENTS_ATTRIBUTES = "brooklyn.entitlements.attributes";
+
+    public static final String USER_ROLES = "brooklyn.entitlements.user.roles";
+
+
     final String user;
     final String sourceIp;
     final String requestUri;
+    final Map<String, Object> attributes;
     
     /**
      * A mostly-unique identifier for the inbound request, to distinguish
@@ -38,16 +48,25 @@ public class WebEntitlementContext implements EntitlementContext {
     final String requestUniqueIdentifier;
     
     public WebEntitlementContext(String user, String sourceIp, String requestUri, String requestUniqueIdentifier) {
+        this(user, sourceIp, requestUri, requestUniqueIdentifier, new HashMap<>());
+    }
+
+    public WebEntitlementContext(String user, String sourceIp, String requestUri, String requestUniqueIdentifier, Map attributes) {
         this.user = user;
         this.sourceIp = sourceIp;
         this.requestUri = requestUri;
         this.requestUniqueIdentifier = requestUniqueIdentifier;
+        if(attributes!=null)
+            this.attributes = attributes;
+        else
+            this.attributes = MutableMap.of();
     }
-    
+
     @Override public String user() { return user; }
     public String sourceIp() { return sourceIp; }
     public String requestUri() { return requestUri; }
     public String requestUniqueIdentifier() { return requestUniqueIdentifier; }
+    public Map<String, Object> attributes() { return attributes; }
 
     @Override
     public String toString() {

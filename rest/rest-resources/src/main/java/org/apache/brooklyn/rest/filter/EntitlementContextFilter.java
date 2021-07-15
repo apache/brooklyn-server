@@ -18,8 +18,12 @@
  */
 package org.apache.brooklyn.rest.filter;
 
-import java.io.IOException;
-import java.security.Principal;
+import com.google.common.collect.ImmutableMap;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.text.Strings;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
@@ -30,12 +34,10 @@ import javax.ws.rs.container.ContainerResponseFilter;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.Provider;
-
-import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
-import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
-import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
-import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
-import org.apache.brooklyn.util.text.Strings;
+import java.io.IOException;
+import java.security.Principal;
+import java.util.List;
+import java.util.Map;
 
 @Provider
 @Priority(400)
@@ -55,28 +57,42 @@ public class EntitlementContextFilter implements ContainerRequestFilter, Contain
         } else {
 
             // now look in session attribute - because principals hard to set from javax filter
-            if (request!=null) {
-                MultiSessionAttributeAdapter s = MultiSessionAttributeAdapter.of(request, false);
-                if (s!=null) {
-                    userName = Strings.toString(s.getAttribute(
-                            BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE));
-                }
-            }
+            userName = Strings.toString(getAttributeFromSession(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE));
         }
 
         if (userName != null) {
             EntitlementContext oldEntitlement = Entitlements.getEntitlementContext();
-            if (oldEntitlement!=null && !userName.equals(oldEntitlement.user())) {
-                throw new IllegalStateException("Illegal entitement context switch, from user "+oldEntitlement.user()+" to "+userName);
+            if (oldEntitlement != null && !userName.equals(oldEntitlement.user())) {
+                throw new IllegalStateException("Illegal entitlement context switch, from user " + oldEntitlement.user() + " to " + userName);
             }
 
             String uri = request.getRequestURI();
             String remoteAddr = request.getRemoteAddr();
 
             String uid = RequestTaggingRsFilter.getTag();
-            WebEntitlementContext entitlementContext = new WebEntitlementContext(userName, remoteAddr, uri, uid);
+            List<String> userRoles = (List<String>) getAttributeFromSession(WebEntitlementContext.USER_ROLES);
+            Map<String, Object> entitlementAttributes = null;
+            if (userRoles != null) {
+                entitlementAttributes = ImmutableMap.of(
+                        WebEntitlementContext.ENTITLEMENTS_ATTRIBUTES,
+                        ImmutableMap.of(
+                                WebEntitlementContext.USER_ROLES,
+                                userRoles));
+            }
+
+            WebEntitlementContext entitlementContext = new WebEntitlementContext(userName, remoteAddr, uri, uid, entitlementAttributes);
             Entitlements.setEntitlementContext(entitlementContext);
         }
+    }
+
+    private Object getAttributeFromSession(String attributeName) {
+        if (request != null) {
+            MultiSessionAttributeAdapter s = MultiSessionAttributeAdapter.of(request, false);
+            if (s != null) {
+                return s.getAttribute(attributeName);
+            }
+        }
+        return null;
     }
 
     @Override
