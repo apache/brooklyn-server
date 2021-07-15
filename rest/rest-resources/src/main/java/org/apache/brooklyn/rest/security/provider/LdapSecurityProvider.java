@@ -131,9 +131,13 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         while (answer.hasMore()) {
             SearchResult rslt = (SearchResult) answer.next();
             Attributes attrs = rslt.getAttributes();
-            NamingEnumeration<?> memberOf = attrs.get("memberOf").getAll();
-            while (memberOf.hasMore()) {
-                groupsListBuilder.add(getGroupName(memberOf.next().toString()));
+
+            Attribute memberOf = attrs.get("memberOf");
+            if(memberOf != null){
+                NamingEnumeration<?> groups = memberOf.getAll();
+                while (groups.hasMore()) {
+                    groupsListBuilder.add(getGroupName(groups.next().toString()));
+                }
             }
         }
         return groupsListBuilder.build();
