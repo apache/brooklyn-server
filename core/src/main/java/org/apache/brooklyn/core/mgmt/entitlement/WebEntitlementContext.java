@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.mgmt.entitlement;
 
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 
 import java.util.HashMap;
@@ -51,7 +50,7 @@ public class WebEntitlementContext implements EntitlementContext {
         this(user, sourceIp, requestUri, requestUniqueIdentifier, new HashMap<>());
     }
 
-    public WebEntitlementContext(String user, String sourceIp, String requestUri, String requestUniqueIdentifier, Map attributes) {
+    public WebEntitlementContext(String user, String sourceIp, String requestUri, String requestUniqueIdentifier, Map<String, Object> attributes) {
         this.user = user;
         this.sourceIp = sourceIp;
         this.requestUri = requestUri;
@@ -59,7 +58,7 @@ public class WebEntitlementContext implements EntitlementContext {
         if(attributes!=null)
             this.attributes = attributes;
         else
-            this.attributes = MutableMap.of();
+            this.attributes = new HashMap<>();
     }
 
     @Override public String user() { return user; }

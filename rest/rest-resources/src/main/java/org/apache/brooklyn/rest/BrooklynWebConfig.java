@@ -85,7 +85,7 @@ public class BrooklynWebConfig {
 
     public final static ConfigKey<Boolean> LDAP_FETCH_USER_GROUPS = ConfigKeys.newBooleanConfigKey(
             BASE_NAME_SECURITY+".ldap.fetch_user_group",
-            "Whether if user groups should be fetch from LDAP server",
+            "Whether user groups should be fetched from the LDAP server",
             false);
 
     public final static ConfigKey<Boolean> HTTPS_REQUIRED = ConfigKeys.newBooleanConfigKey(

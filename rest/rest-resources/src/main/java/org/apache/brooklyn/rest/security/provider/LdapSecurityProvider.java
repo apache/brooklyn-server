@@ -23,6 +23,18 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import java.util.Arrays;
+import java.util.Hashtable;
+import java.util.List;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.naming.Context;
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.*;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
@@ -31,19 +43,6 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.naming.Context;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.directory.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpSession;
-import java.util.Arrays;
-import java.util.Hashtable;
-import java.util.List;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.USER_ROLES;
 
@@ -113,7 +112,6 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
                 // adds user groups ot eh session
                 sessionSupplierOnSuccess.get().setAttribute(USER_ROLES, getUserGroups(user, ctx));
             }
-            ctx.close();
             return allow(sessionSupplierOnSuccess.get(), user);
         } catch (NamingException e) {
             return false;
