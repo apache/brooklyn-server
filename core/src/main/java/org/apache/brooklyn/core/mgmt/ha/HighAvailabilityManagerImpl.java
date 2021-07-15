@@ -1020,7 +1020,9 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     }
 
     private void updateLastManagementPlaneSyncRecordWithLocalKnowledge() {
-        if (lastSyncRecord != null) updateManagementPlaneSyncRecordWithLocalKnowledge(lastSyncRecord);
+        if (lastSyncRecord != null) {
+            lastSyncRecord = updateManagementPlaneSyncRecordWithLocalKnowledge(lastSyncRecord);
+        }
     }
 
     @Override
@@ -1054,7 +1056,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 ManagementPlaneSyncRecord result = persister.loadSyncRecord(managementContext.getBrooklynProperties().getConfig(TIMEOUT_FOR_INACTIVE_NODE_REMOVAL_ON_STARTUP));
                 
                 if (useLocalKnowledgeForThisNode) {
-                    updateManagementPlaneSyncRecordWithLocalKnowledge(result);
+                    result = updateManagementPlaneSyncRecordWithLocalKnowledge(result);
                 }
                 
                 if (i>0) {
@@ -1076,7 +1078,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         throw new IllegalStateException(message, lastException);
     }
 
-    private void updateManagementPlaneSyncRecordWithLocalKnowledge(ManagementPlaneSyncRecord result) {
+    private ManagementPlaneSyncRecord  updateManagementPlaneSyncRecordWithLocalKnowledge(ManagementPlaneSyncRecord result) {
         // Report this node's most recent state, and detect AWOL nodes
         ManagementNodeSyncRecord me = BasicManagementNodeSyncRecord.builder()
                 .from(result.getManagementNodes().get(ownNodeId), true)
@@ -1092,7 +1094,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         if (getTransitionTargetNodeState() == ManagementNodeState.MASTER) {
             builder.masterNodeId(ownNodeId);
         }
-        result = builder.build();
+        return builder.build();
     }
 
     protected ManagementNodeSyncRecord createManagementNodeSyncRecord(boolean useLocalTimestampAsRemoteTimestamp) {
