@@ -285,7 +285,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, s.getName()))) {
                     Object sv = entity.sensors().get(s);
                     if (sv!=null) {
-                        sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(false).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                         sensors.put(s.getName(), sv);
                     }
                 }
@@ -314,7 +314,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     String name = kv.getKey().getName();
                     if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, name))) {
                         if (extraSensorGlobs.stream().anyMatch(sn -> WildcardGlobs.isGlobMatched(sn, name))) {
-                            sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                            sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(false).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                             sensors.put(name, sv);
                         }
                     }
@@ -344,7 +344,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     Maybe<Object> vRaw = ((EntityInternal)entity).config().getRaw(key);
                     Object v = vRaw.isPresent() ? vRaw.get() : entity.config().get(key);
                     if (v!=null) {
-                        v = resolving(v, mgmt()).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        v = resolving(v, mgmt()).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(false).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                         configs.put(key.getName(), v);
                     }
                 }

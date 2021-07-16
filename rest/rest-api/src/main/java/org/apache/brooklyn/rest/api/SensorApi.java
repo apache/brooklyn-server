@@ -67,8 +67,11 @@ public interface SensorApi {
             @PathParam("application") final String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") final String entityToken,
-            @ApiParam(value = "Return raw sensor data instead of display values", required = false)
-            @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     @GET
     @Path("/{sensor}")
@@ -84,8 +87,11 @@ public interface SensorApi {
             @PathParam("entity") final String entityToken,
             @ApiParam(value = "Sensor name", required = true)
             @PathParam("sensor") String sensorName,
-            @ApiParam(value = "Return raw sensor data instead of display values", required = false)
-            @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     // this method is used if user has requested plain (ie not converting to json)
     @GET
@@ -102,8 +108,11 @@ public interface SensorApi {
             @PathParam("entity") final String entityToken,
             @ApiParam(value = "Sensor name", required = true)
             @PathParam("sensor") String sensorName,
-            @ApiParam(value = "Return raw sensor data instead of display values", required = false)
-            @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     @POST
     @ApiOperation(value = "Manually set multiple sensor values")

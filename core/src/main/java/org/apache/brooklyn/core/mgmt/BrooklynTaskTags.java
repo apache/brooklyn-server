@@ -361,10 +361,7 @@ public class BrooklynTaskTags extends TaskTags {
         for (Map.Entry<?,?> kv: env.entrySet()) {
             String stringValue = kv.getValue() != null ? kv.getValue().toString() : "";
             if (!stringValue.isEmpty()) {
-                if (Sanitizer.IS_SECRET_PREDICATE.apply(kv.getKey())) {
-                    String md5Checksum = Streams.getMd5Checksum(new ByteArrayInputStream(stringValue.getBytes()));
-                    stringValue = "<suppressed> (MD5 hash: " + md5Checksum + ")";
-                }
+                stringValue = Sanitizer.suppressIfSecret(kv.getKey(), stringValue);
                 stringValue = BashStringEscapes.wrapBash(stringValue);
             }
             sb.append(kv.getKey()).append("=").append(stringValue).append("\n");
