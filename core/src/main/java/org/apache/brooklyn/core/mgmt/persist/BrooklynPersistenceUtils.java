@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-import java.io.File;
 import java.util.List;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
@@ -53,10 +52,7 @@ import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -288,30 +284,5 @@ public class BrooklynPersistenceUtils {
             Exceptions.propagateIfFatal(e);
             log.warn("Unable to backup management plane sync state on "+mode+" (ignoring): "+e, e);
         }
-    }
-
-    public static void createStateExport (ManagementContext managementContext, File persistenceBaseDir){
-        try {
-            MementoCopyMode source = (managementContext.getHighAvailabilityManager().getNodeState()==ManagementNodeState.MASTER ? MementoCopyMode.LOCAL : MementoCopyMode.REMOTE);
-
-            BrooklynMementoRawData memento = newStateMemento(managementContext, source);
-            ManagementPlaneSyncRecord planeState = newManagerMemento(managementContext, source);
-
-            PersistenceObjectStore targetStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, null,
-                    "tmp/persistence-state-export");
-            File dir = ((FileBasedObjectStore)targetStore).getBaseDir();
-            Os.deleteOnExitEmptyParentsUpTo(dir.getParentFile(), dir.getParentFile());
-
-            BrooklynPersistenceUtils.writeMemento(managementContext, memento, targetStore);
-            BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, targetStore);
-
-            ArchiveBuilder.zip().addDirContentsAt(dir, dir.getName())
-                    .create((persistenceBaseDir + File.separator + "../backups" + File.separator + "persistence-state-export.zip"));
-            Os.deleteRecursively(dir);
-
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-        }
-
     }
 }

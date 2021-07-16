@@ -700,6 +700,10 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override
+        public void setNodeIdToRemove(String nodeId) {
+            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+        @Override
         public long getLastStateChange() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
