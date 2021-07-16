@@ -131,6 +131,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
      * for any concurrent call to complete.
      */
     private final ReadWriteLock lock = new ReentrantReadWriteLock(true);
+    private Set<String> lastErrors = MutableSet.of();
 
     public BrooklynMementoPersisterToObjectStore(PersistenceObjectStore objectStore, ManagementContext mgmt) {
         this(objectStore, mgmt, mgmt.getCatalogClassLoader());
@@ -587,11 +588,16 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             throw new IllegalStateException("Writes not allowed in "+this);
         }
     }
-    
+
+    @Override
+    public Set<String> getLastErrors() {
+        return lastErrors;
+    }
+
     /** See {@link BrooklynPersistenceUtils} for conveniences for using this method. */
     @Override
     @Beta
-    public void checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler) {
+    public boolean checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler) {
         checkWritesAllowed();
         try {
             lock.writeLock().lockInterruptibly();
@@ -600,6 +606,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
         
         try {
+            exceptionHandler.clearRecentErrors();
             objectStore.prepareForMasterUse();
             
             Stopwatch stopwatch = Stopwatch.createStarted();
@@ -623,31 +630,40 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             }
             if (LOG.isDebugEnabled()) LOG.debug("Checkpointed entire memento in {}", Time.makeTimeStringRounded(stopwatch));
         } finally {
+            lastErrors = exceptionHandler.getRecentErrors();
             lock.writeLock().unlock();
         }
+        return lastErrors.isEmpty();
     }
 
     @Override
-    public void delta(Delta delta, PersistenceExceptionHandler exceptionHandler) {
+    public boolean delta(Delta delta, PersistenceExceptionHandler exceptionHandler) {
         checkWritesAllowed();
+        Set<String> theseErrors = MutableSet.of();
 
         while (!queuedDeltas.isEmpty()) {
             Delta extraDelta = queuedDeltas.remove(0);
-            doDelta(extraDelta, exceptionHandler, true);
+            theseErrors.addAll( doDelta(extraDelta, exceptionHandler, true) );
         }
 
-        doDelta(delta, exceptionHandler, false);
+        theseErrors.addAll( doDelta(delta, exceptionHandler, false) );
+        lastErrors = theseErrors;
+        return theseErrors.isEmpty();
     }
     
-    protected void doDelta(Delta delta, PersistenceExceptionHandler exceptionHandler, boolean previouslyQueued) {
-        Stopwatch stopwatch = deltaImpl(delta, exceptionHandler);
+    protected Set<String> doDelta(Delta delta, PersistenceExceptionHandler exceptionHandler, boolean previouslyQueued) {
+        Stopwatch stopwatch = Stopwatch.createStarted();
+        Set<String> theseLastErrors = deltaImpl(delta, exceptionHandler);
         
         if (LOG.isDebugEnabled()) LOG.debug("Checkpointed "+(previouslyQueued ? "previously queued " : "")+"delta of memento in {}: "
                 + "updated {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles; "
-                + "removed {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles",
+                + "removed {} entities, {} locations, {} policies, {} enrichers, {} catalog items, {} bundles"
+                + (theseLastErrors.isEmpty() ? "" : "; "+theseLastErrors.size()+" errors: "+theseLastErrors),
                     new Object[] {Time.makeTimeStringRounded(stopwatch),
                         delta.entities().size(), delta.locations().size(), delta.policies().size(), delta.enrichers().size(), delta.catalogItems().size(), delta.bundles().size(),
                         delta.removedEntityIds().size(), delta.removedLocationIds().size(), delta.removedPolicyIds().size(), delta.removedEnricherIds().size(), delta.removedCatalogItemIds().size(), delta.removedBundleIds().size()});
+
+        return theseLastErrors;
     }
     
     @Override
@@ -662,16 +678,16 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
      * TODO Longer term, if we care more about concurrent calls we could merge the queued deltas so that we
      * don't do unnecessary repeated writes of an entity.
      */
-    private Stopwatch deltaImpl(Delta delta, PersistenceExceptionHandler exceptionHandler) {
+    private Set<String> deltaImpl(Delta delta, PersistenceExceptionHandler exceptionHandler) {
         try {
             lock.writeLock().lockInterruptibly();
         } catch (InterruptedException e) {
             throw Exceptions.propagate(e);
         }
         try {
+            exceptionHandler.clearRecentErrors();
             objectStore.prepareForMasterUse();
-            
-            Stopwatch stopwatch = Stopwatch.createStarted();
+
             List<ListenableFuture<?>> futures = Lists.newArrayList();
             
             Set<String> deletedIds = MutableSet.of();
@@ -708,10 +724,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 throw Exceptions.propagate(e);
             }
             
-            return stopwatch;
         } finally {
+            lastErrors = exceptionHandler.getRecentErrors();
             lock.writeLock().unlock();
         }
+        return lastErrors;
     }
 
     private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {

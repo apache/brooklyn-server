@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import java.util.Collection;
+import java.util.function.Supplier;
+import org.apache.brooklyn.util.collections.MutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
