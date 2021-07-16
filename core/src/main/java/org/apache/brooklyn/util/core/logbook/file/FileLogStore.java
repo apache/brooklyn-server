@@ -39,6 +39,7 @@ import java.nio.file.Paths;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -140,9 +141,12 @@ public class FileLogStore implements LogStore {
                 return isLogLevelMatch && isDateTimeFromMatch && isDateTimeToMatch && isSearchPhraseMatch;
             };
 
+            // Use line count to supply identification of go lines.
+            AtomicInteger lineCount = new AtomicInteger();
+
             // Filter result first, we need to know how many to skip go get the tail.
             List<BrooklynLogEntry> filteredQueryResult = stream
-                    .map(this::parseLogLine)
+                    .map(line -> parseLogLine(line, lineCount))
                     .filter(filter)
                     .collect(Collectors.toList());
 
@@ -166,7 +170,7 @@ public class FileLogStore implements LogStore {
         return ImmutableList.of();
     }
 
-    protected BrooklynLogEntry parseLogLine(String logLine) {
+    protected BrooklynLogEntry parseLogLine(String logLine, AtomicInteger lineCount) {
         Pattern p = Pattern.compile(this.logLinePattern);
         Matcher m = p.matcher(logLine);
         BrooklynLogEntry entry = null;
@@ -185,6 +189,7 @@ public class FileLogStore implements LogStore {
             entry.setClazz(m.group("class"));
             entry.setThreadName(m.group("threadName"));
             entry.setMessage(m.group("message"));
+            entry.setLineId(String.valueOf(lineCount.incrementAndGet()));
         }
         return entry;
     }
