@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.entitlement;
 
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 
 import java.util.HashMap;
@@ -38,7 +39,7 @@ public class WebEntitlementContext implements EntitlementContext {
     final String user;
     final String sourceIp;
     final String requestUri;
-    final Map<String, Object> attributes;
+    final Map<String, Object> attributes = MutableMap.of();
     
     /**
      * A mostly-unique identifier for the inbound request, to distinguish
@@ -47,7 +48,7 @@ public class WebEntitlementContext implements EntitlementContext {
     final String requestUniqueIdentifier;
     
     public WebEntitlementContext(String user, String sourceIp, String requestUri, String requestUniqueIdentifier) {
-        this(user, sourceIp, requestUri, requestUniqueIdentifier, new HashMap<>());
+        this(user, sourceIp, requestUri, requestUniqueIdentifier, null);
     }
 
     public WebEntitlementContext(String user, String sourceIp, String requestUri, String requestUniqueIdentifier, Map<String, Object> attributes) {
@@ -56,9 +57,7 @@ public class WebEntitlementContext implements EntitlementContext {
         this.requestUri = requestUri;
         this.requestUniqueIdentifier = requestUniqueIdentifier;
         if(attributes!=null)
-            this.attributes = attributes;
-        else
-            this.attributes = new HashMap<>();
+            this.attributes.putAll(attributes) ;
     }
 
     @Override public String user() { return user; }
