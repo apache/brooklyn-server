@@ -480,6 +480,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (memento.getMasterNodeId() == null) {
             memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
         }
+
         return HighAvailabilityTransformer.highAvailabilitySummary(mgmt().getManagementNodeId(), memento);
     }
 
@@ -488,6 +489,16 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
         mgmt().getHighAvailabilityManager().publishClearNonMaster();
+        return Response.ok().build();
+    }
+
+    @Override
+    public Response clearHighAvailabilityPlaneStates(String nodeId) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+        HighAvailabilityManager haMan = mgmt().getHighAvailabilityManager();
+        haMan.setNodeIdToRemove(nodeId);
+        haMan.publishClearNonMaster();
         return Response.ok().build();
     }
 

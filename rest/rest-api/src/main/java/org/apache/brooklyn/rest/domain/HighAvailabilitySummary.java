@@ -38,18 +38,21 @@ public class HighAvailabilitySummary implements Serializable {
         private final String status;
         private final Long localTimestamp;
         private final Long remoteTimestamp;
+        private final Long priority;
 
         public HaNodeSummary(
                 @JsonProperty("nodeId") String nodeId,
                 @JsonProperty("nodeUri") URI nodeUri,
                 @JsonProperty("status") String status,
                 @JsonProperty("localTimestamp") Long localTimestamp,
-                @JsonProperty("remoteTimestamp") Long remoteTimestamp) {
+                @JsonProperty("remoteTimestamp") Long remoteTimestamp,
+                @JsonProperty("priority") Long priority) {
             this.nodeId = nodeId;
             this.nodeUri = nodeUri;
             this.status = status;
             this.localTimestamp = localTimestamp;
             this.remoteTimestamp = remoteTimestamp;
+            this.priority = priority;
         }
 
         public String getNodeId() {
@@ -71,6 +74,8 @@ public class HighAvailabilitySummary implements Serializable {
         public Long getRemoteTimestamp() {
             return remoteTimestamp;
         }
+
+        public Long getPriority() { return priority; }
 
         @Override
         public boolean equals(Object o) {
@@ -97,6 +102,7 @@ public class HighAvailabilitySummary implements Serializable {
                     ", status='" + status + '\'' +
                     ", localTimestamp=" + localTimestamp +
                     ", remoteTimestamp=" + remoteTimestamp +
+                    ", priority= " + priority +
                     '}';
         }
     }

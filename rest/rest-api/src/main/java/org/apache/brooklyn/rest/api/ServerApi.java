@@ -149,6 +149,13 @@ public interface ServerApi {
     @Path("/ha/states/clear")
     @ApiOperation(value = "Clears HA node information for non-master nodes; active nodes will repopulate and other records will be erased")
     public Response clearHighAvailabilityPlaneStates();
+
+    @POST
+    @Path("/ha/states/clear/node")
+    @ApiOperation(value = "Clears HA node information for a particular non-master node; other nodes will repopulate and selected node will be erased")
+    public Response clearHighAvailabilityPlaneStates(
+            @ApiParam(name = "nodeId", value = "ID of node to be removed")
+            @FormParam("nodeId") String nodeId);
     
     @GET
     @Path("/ha/priority")
