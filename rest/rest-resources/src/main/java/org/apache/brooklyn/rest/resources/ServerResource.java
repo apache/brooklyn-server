@@ -62,6 +62,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.domain.ApiError;
@@ -593,7 +594,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
             // write persisted items and rebind to load applications
             BrooklynMementoRawData.Builder result = BrooklynMementoRawData.builder();
-            MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(mgmt().getClass().getClassLoader());
+            MementoSerializer<Object> rawSerializer = XmlMementoSerializerBuilder.from(mgmt())
+                    .withBrooklynDeserializingClassRenames()
+                    .build();
             RetryingMementoSerializer<Object> serializer = new RetryingMementoSerializer<Object>(rawSerializer, 1);
 
             result.planeId(mgmt().getManagementPlaneIdMaybe().orNull());

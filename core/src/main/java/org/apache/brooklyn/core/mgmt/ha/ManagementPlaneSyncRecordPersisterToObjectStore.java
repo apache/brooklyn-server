@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.mgmt.persist.RetryingMementoSerializer;
 import org.apache.brooklyn.core.mgmt.persist.StoreObjectAccessorLocking;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -126,7 +127,9 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
         this.mgmt = mgmt;
         this.objectStore = checkNotNull(objectStore, "objectStore");
 
-        MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(checkNotNull(classLoader, "classLoader"));
+        MementoSerializer<Object> rawSerializer = XmlMementoSerializerBuilder.from(mgmt)
+                .withBrooklynDeserializingClassRenames()
+                .withClassLoader(checkNotNull(classLoader, "classLoader")).build();
         this.serializer = new RetryingMementoSerializer<Object>(rawSerializer, MAX_SERIALIZATION_ATTEMPTS);
 
         objectStore.createSubPath(NODES_SUB_PATH);

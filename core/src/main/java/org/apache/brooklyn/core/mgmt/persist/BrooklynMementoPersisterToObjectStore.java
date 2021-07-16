@@ -60,6 +60,7 @@ import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLo
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessor;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoManifestImpl;
@@ -147,7 +148,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         this.brooklynProperties = brooklynProperties;
         
         int maxSerializationAttempts = brooklynProperties.getConfig(PERSISTER_MAX_SERIALIZATION_ATTEMPTS);
-        MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(classLoader);
+        MementoSerializer<Object> rawSerializer = XmlMementoSerializerBuilder.from(brooklynProperties)
+                .withBrooklynDeserializingClassRenames()
+                .withClassLoader(classLoader).build();
         this.serializerWithStandardClassLoader = new RetryingMementoSerializer<Object>(rawSerializer, maxSerializationAttempts);
 
         int maxThreadPoolSize = brooklynProperties.getConfig(PERSISTER_MAX_THREAD_POOL_SIZE);
@@ -185,7 +188,9 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     
     protected MementoSerializer<Object> getSerializerWithCustomClassLoader(LookupContext lookupContext, ClassLoader classLoader) {
         int maxSerializationAttempts = brooklynProperties.getConfig(PERSISTER_MAX_SERIALIZATION_ATTEMPTS);
-        MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(classLoader);
+        MementoSerializer<Object> rawSerializer = XmlMementoSerializerBuilder.from(brooklynProperties)
+                .withBrooklynDeserializingClassRenames()
+                .withClassLoader(classLoader).build();
         MementoSerializer<Object> result = new RetryingMementoSerializer<Object>(rawSerializer, maxSerializationAttempts);
         result.setLookupContext(lookupContext);
         return result;
