@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.api;
 
+import java.io.InputStream;
 import java.util.Map;
 
 import javax.ws.rs.Consumes;
@@ -181,10 +182,10 @@ public interface ServerApi {
 
     @POST
     @Path("/ha/persist/import")
+    @Consumes
     @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications (merged with the current persistence).")
     public Response importPersistenceData(
-        @ApiParam(name = "persistenceStateData", value = "Archived data", required = true)
-        @FormParam("persistenceStateData") byte[] persistenceStateData);
+        @ApiParam(name = "persistenceData", value = "Archived data", required = true) byte[] persistenceData);
 
 
     // TODO /ha/persist/backup set of endpoints, to list and retrieve specific backups
