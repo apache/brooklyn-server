@@ -22,7 +22,6 @@ import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -31,9 +30,7 @@ import java.util.Map;
  */
 public class WebEntitlementContext implements EntitlementContext {
 
-    public static final String ENTITLEMENTS_ATTRIBUTES = "brooklyn.entitlements.attributes";
-
-    public static final String USER_ROLES = "brooklyn.entitlements.user.roles";
+    public static final String USER_GROUPS = "brooklyn.entitlements.user.groups";
 
 
     final String user;

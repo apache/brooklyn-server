@@ -20,8 +20,6 @@ package org.apache.brooklyn.rest.filter;
 
 import java.io.IOException;
 import java.security.Principal;
-import java.util.List;
-import java.util.Map;
 
 import javax.annotation.Priority;
 import javax.servlet.http.HttpServletRequest;
@@ -33,11 +31,11 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.Provider;
 
-import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;;
 
 @Provider
@@ -71,17 +69,13 @@ public class EntitlementContextFilter implements ContainerRequestFilter, Contain
             String remoteAddr = request.getRemoteAddr();
 
             String uid = RequestTaggingRsFilter.getTag();
-            List<String> userRoles = (List<String>) getAttributeFromSession(WebEntitlementContext.USER_ROLES);
-            Map<String, Object> entitlementAttributes = null;
-            if (userRoles != null) {
-                entitlementAttributes = ImmutableMap.of(
-                        WebEntitlementContext.ENTITLEMENTS_ATTRIBUTES,
-                        ImmutableMap.of(
-                                WebEntitlementContext.USER_ROLES,
-                                userRoles));
-            }
 
-            WebEntitlementContext entitlementContext = new WebEntitlementContext(userName, remoteAddr, uri, uid, entitlementAttributes);
+            WebEntitlementContext entitlementContext = new WebEntitlementContext(
+                    userName,
+                    remoteAddr,
+                    uri,
+                    uid,
+                    MutableMap.<String, Object>of().addIfNotNull(WebEntitlementContext.USER_GROUPS, getAttributeFromSession(WebEntitlementContext.USER_GROUPS)));
             Entitlements.setEntitlementContext(entitlementContext);
         }
     }

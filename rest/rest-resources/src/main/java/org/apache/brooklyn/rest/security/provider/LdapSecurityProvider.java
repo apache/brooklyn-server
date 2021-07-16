@@ -44,7 +44,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.USER_ROLES;
+import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.USER_GROUPS;
 
 /**
  * A {@link SecurityProvider} implementation that relies on LDAP to authenticate.
@@ -110,7 +110,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             DirContext ctx = new InitialDirContext(env);// will throw if password is invalid
             if (fetchUserGroups) {
                 // adds user groups ot eh session
-                sessionSupplierOnSuccess.get().setAttribute(USER_ROLES, getUserGroups(user, ctx));
+                sessionSupplierOnSuccess.get().setAttribute(USER_GROUPS, getUserGroups(user, ctx));
             }
             return allow(sessionSupplierOnSuccess.get(), user);
         } catch (NamingException e) {
