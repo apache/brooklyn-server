@@ -27,6 +27,7 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
+import java.util.function.Function;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -46,7 +47,7 @@ public class XmlSerializer<T> {
     protected final XStream xstream;
 
     public XmlSerializer() {
-        this(ImmutableMap.<String, String>of());
+        this(null);
     }
     
     public XmlSerializer(Map<String, String> deserializingClassRenames) {
@@ -54,11 +55,19 @@ public class XmlSerializer<T> {
     }
     
     public XmlSerializer(ClassLoader loader, Map<String, String> deserializingClassRenames) {
-        this.deserializingClassRenames = deserializingClassRenames;
+        this(loader, deserializingClassRenames, null);
+    }
+
+    public XmlSerializer(ClassLoader loader, Map<String, String> deserializingClassRenames, Function<MapperWrapper,MapperWrapper> mapperCustomizer) {
+        this.deserializingClassRenames = deserializingClassRenames == null ? ImmutableMap.of() : deserializingClassRenames;
         xstream = new XStream() {
             @Override
             protected MapperWrapper wrapMapper(MapperWrapper next) {
-                return XmlSerializer.this.wrapMapperForNormalUsage( super.wrapMapper(next) );
+                MapperWrapper result = XmlSerializer.this.wrapMapperForNormalUsage(super.wrapMapper(next));
+                if (mapperCustomizer!=null) {
+                    result = mapperCustomizer.apply(result);
+                }
+                return result;
             }
         };
 
@@ -148,7 +157,7 @@ public class XmlSerializer<T> {
         // we swap the order of the above calls, because it _will_ be able to rely on
         // OsgiClassnameMapper to attempt to load with the xstream reference stack
         // (not doing it just now because close to a release)
-        
+
         return result;
     }
     /** Extension point where sub-classes can add mappers to set up the main {@link Mapper} given to XStream.
