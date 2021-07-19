@@ -36,9 +36,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -69,23 +70,28 @@ public class FileLogStore implements LogStore {
     public final static ConfigKey<String> LOGBOOK_LOG_STORE_DATEFORMAT = ConfigKeys.newStringConfigKey(
             BASE_NAME_FILE_LOG_STORE + ".dateFormat", "Date format", "yyyy-MM-dd'T'HH:mm:ss,SSS");
 
+    public final static TimeZone UTC_TIMEZONE = TimeZone.getTimeZone("UTC");
+
     private final String filePath;
     private final Path path;
     private final String logLinePattern;
-    private final String logDateFormat;
+    private final DateFormat dateFormat;
+
 
     @VisibleForTesting
     public FileLogStore() {
         this.path = null;
         this.filePath = "";
         this.logLinePattern = LOGBOOK_LOG_STORE_REGEX.getDefaultValue();
-        this.logDateFormat = LOGBOOK_LOG_STORE_DATEFORMAT.getDefaultValue();
+        dateFormat = new SimpleDateFormat(LOGBOOK_LOG_STORE_DATEFORMAT.getDefaultValue());
+        dateFormat.setTimeZone(UTC_TIMEZONE);
     }
 
     public FileLogStore(ManagementContext mgmt) {
         this.filePath = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_PATH);
         this.logLinePattern = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_REGEX);
-        this.logDateFormat = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_DATEFORMAT);
+        dateFormat = new SimpleDateFormat(mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_DATEFORMAT));
+        dateFormat.setTimeZone(UTC_TIMEZONE);
         Preconditions.checkNotNull(filePath, "Log file path must be set: " + LOGBOOK_LOG_STORE_PATH.getName());
         this.path = Paths.get(this.filePath);
     }
@@ -96,6 +102,10 @@ public class FileLogStore implements LogStore {
         // TODO: the read of the file needs to be improved, specially to implement reading the file backwards and
         //  do a correct multiline log reading
         try (Stream<String> stream = Files.lines(path)) {
+
+            Date dateTimeFrom = Strings.isNonBlank(params.getDateTimeFrom()) ? Time.parseDate(params.getDateTimeFrom()) : null;
+            Date dateTimeTo = Strings.isNonBlank(params.getDateTimeTo()) ? Time.parseDate(params.getDateTimeTo()) : null;
+
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
 
                 // Excludes unrecognized items or items without a date, typically they are multiline log messages.
@@ -120,15 +130,13 @@ public class FileLogStore implements LogStore {
                 if (brooklynLogEntry.getDatetime() != null) {
 
                     // Date-time from.
-                    if (Strings.isNonBlank(params.getDateTimeFrom())) {
-                        Date initDate = Time.parseDate(params.getDateTimeFrom());
-                        isDateTimeFromMatch = brooklynLogEntry.getDatetime().compareTo(initDate) >= 0;
+                    if (!Objects.isNull(dateTimeFrom)) {
+                        isDateTimeFromMatch = brooklynLogEntry.getDatetime().compareTo(dateTimeFrom) >= 0;
                     }
 
                     // Date-time to.
-                    if (Strings.isNonBlank(params.getDateTimeTo())) {
-                        Date finalDate = Time.parseDate(params.getDateTimeTo());
-                        isDateTimeToMatch = brooklynLogEntry.getDatetime().compareTo(finalDate) <= 0;
+                    if (!Objects.isNull(dateTimeTo)) {
+                        isDateTimeToMatch = brooklynLogEntry.getDatetime().compareTo(dateTimeTo) <= 0;
                     }
                 }
 
@@ -140,9 +148,12 @@ public class FileLogStore implements LogStore {
                 return isLogLevelMatch && isDateTimeFromMatch && isDateTimeToMatch && isSearchPhraseMatch;
             };
 
+            // Use line count to supply identification of go lines.
+            AtomicInteger lineCount = new AtomicInteger();
+
             // Filter result first, we need to know how many to skip go get the tail.
             List<BrooklynLogEntry> filteredQueryResult = stream
-                    .map(this::parseLogLine)
+                    .map(line -> parseLogLine(line, lineCount))
                     .filter(filter)
                     .collect(Collectors.toList());
 
@@ -166,7 +177,7 @@ public class FileLogStore implements LogStore {
         return ImmutableList.of();
     }
 
-    protected BrooklynLogEntry parseLogLine(String logLine) {
+    protected BrooklynLogEntry parseLogLine(String logLine, AtomicInteger lineCount) {
         Pattern p = Pattern.compile(this.logLinePattern);
         Matcher m = p.matcher(logLine);
         BrooklynLogEntry entry = null;
@@ -174,7 +185,7 @@ public class FileLogStore implements LogStore {
         if (m.matches()) {
             entry = new BrooklynLogEntry();
             entry.setTimestampString(m.group("timestamp"));
-            Maybe<Calendar> calendarMaybe = Time.parseCalendarFormat(entry.getTimestampString(), logDateFormat);
+            Maybe<Calendar> calendarMaybe = Time.parseCalendarFormat(entry.getTimestampString(), dateFormat);
             if (calendarMaybe.isPresentAndNonNull()) {
                 entry.setDatetime(calendarMaybe.get().getTime());
             }
@@ -185,6 +196,7 @@ public class FileLogStore implements LogStore {
             entry.setClazz(m.group("class"));
             entry.setThreadName(m.group("threadName"));
             entry.setMessage(m.group("message"));
+            entry.setLineId(String.valueOf(lineCount.incrementAndGet()));
         }
         return entry;
     }

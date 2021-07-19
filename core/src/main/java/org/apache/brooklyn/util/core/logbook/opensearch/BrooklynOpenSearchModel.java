@@ -77,6 +77,9 @@ class BrooklynOpenSearchModel {
         @JsonProperty("_type")
         String type;
 
+        @JsonProperty("_id")
+        String id;
+
         @JsonProperty("_source")
         BrooklynLogEntry source;
 
@@ -94,6 +97,14 @@ class BrooklynOpenSearchModel {
 
         public void setType(String type) {
             this.type = type;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public void setId(String id) {
+            this.id = id;
         }
 
         public BrooklynLogEntry getSource() {

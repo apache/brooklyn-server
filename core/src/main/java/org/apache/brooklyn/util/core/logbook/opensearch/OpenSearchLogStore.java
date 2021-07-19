@@ -186,7 +186,11 @@ public class OpenSearchLogStore implements LogStore {
 
                 // Get the filtered stream from elastic search query result.
                 List<BrooklynLogEntry> brooklynLogEntries = jsonResponse.hits.hits.stream()
-                        .map(BrooklynOpenSearchModel.OpenSearchHit::getSource).collect(Collectors.toList());
+                        .map(openSearchHit -> {
+                            BrooklynLogEntry entry = openSearchHit.getSource();
+                            entry.setLineId(openSearchHit.getId());
+                            return entry;
+                        }).collect(Collectors.toList());
 
                 // Note, 'tail' requires to reverse the order back since elastic search requires 'sort' + 'desc' to get
                 // last number of items, when requested.
