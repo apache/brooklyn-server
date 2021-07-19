@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.rest.testing;
 
+import com.google.common.collect.Iterables;
+import java.util.stream.Collectors;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
@@ -143,10 +147,10 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
         }
     }
     
-    protected void waitForApplicationToBeRunning(final URI applicationRef) {
-        waitForApplicationToBeRunning(applicationRef, Duration.minutes(3));
+    protected Application waitForApplicationToBeRunning(final URI applicationRef) {
+        return waitForApplicationToBeRunning(applicationRef, Duration.minutes(3));
     }
-    protected void waitForApplicationToBeRunning(final URI applicationRef, Duration timeout) {
+    protected Application waitForApplicationToBeRunning(final URI applicationRef, Duration timeout) {
         if (applicationRef==null)
             throw new NullPointerException("No application URI available (consider using BrooklynRestResourceTest.clientDeploy)");
         
@@ -172,6 +176,10 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
                 Entities.dumpInfo(app);
         }
         assertTrue(started);
+
+        Application app = Iterables.getOnlyElement(getManagementContext().getApplications().stream().filter(appI -> applicationRef.toString().contains(appI.getId())).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, Attributes.SERVICE_UP, true);
+        return app;
     }
 
     protected Status getApplicationStatus(URI uri) {
