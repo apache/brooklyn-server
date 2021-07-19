@@ -31,6 +31,7 @@ import java.util.Date;
  */
 public class BrooklynLogEntry {
 
+    String lineId;
     @JsonProperty("timestamp")
     String timestampString;
     Date datetime;
@@ -42,6 +43,14 @@ public class BrooklynLogEntry {
     String clazz;
     String threadName;
     String message;
+
+    public String getLineId() {
+        return lineId;
+    }
+
+    public void setLineId(String lineId) {
+        this.lineId = lineId;
+    }
 
     public String getTimestampString() {
         return timestampString;

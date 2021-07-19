@@ -183,7 +183,7 @@ public abstract class AbstractBrooklynRestResource {
 
         public Object resolve() {
             Object valueResult =
-                    Boolean.FALSE.equals(skipResolution)
+                    Boolean.TRUE.equals(skipResolution)
                             ? valueToResolve
                             : getImmediateValue(valueToResolve, entity, immediately, timeout);
             if (valueResult==UNRESOLVED) valueResult = valueToResolve;

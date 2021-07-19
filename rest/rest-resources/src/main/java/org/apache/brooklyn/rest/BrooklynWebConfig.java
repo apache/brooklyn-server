@@ -83,6 +83,11 @@ public class BrooklynWebConfig {
     public final static ConfigKey<String> LDAP_OU = ConfigKeys.newStringConfigKey(
             BASE_NAME_SECURITY+".ldap.ou");
 
+    public final static ConfigKey<Boolean> LDAP_FETCH_USER_GROUPS = ConfigKeys.newBooleanConfigKey(
+            BASE_NAME_SECURITY+".ldap.fetch_user_group",
+            "Whether user groups should be fetched from the LDAP server",
+            false);
+
     public final static ConfigKey<Boolean> HTTPS_REQUIRED = ConfigKeys.newBooleanConfigKey(
             BASE_NAME+".security.https.required",
             "Whether HTTPS is required; false here can be overridden by CLI option", false); 
