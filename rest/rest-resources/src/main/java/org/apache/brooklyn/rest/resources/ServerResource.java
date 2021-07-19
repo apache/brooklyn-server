@@ -553,9 +553,10 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public Response importPersistenceData(byte[] persistenceData) {
+        File tempZipFile = null;
         try {
             // create a temporary archive where persistence data supplied is written to
-            File tempZipFile = File.createTempFile("persistence-import",null);
+            tempZipFile = File.createTempFile("persistence-import",null);
             Files.write(tempZipFile.toPath(), persistenceData, StandardOpenOption.TRUNCATE_EXISTING);
 
             // set path where the data is extracted to - saved in the root of persistence location
@@ -628,6 +629,15 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
             error.message(e.getMessage());
             return error.build().asJsonResponse();
+        } finally {
+            if (tempZipFile!=null) {
+                try {
+                    tempZipFile.delete();
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.warn("Failed to delete temp file "+tempZipFile+" (ignoring): "+e, e);
+                }
+            }
         }
         return Response.ok().build();
     }
