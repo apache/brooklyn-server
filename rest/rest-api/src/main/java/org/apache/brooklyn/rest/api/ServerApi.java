@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.api;
 
+import java.io.InputStream;
 import java.util.Map;
 
 import javax.ws.rs.Consumes;
@@ -178,13 +179,13 @@ public interface ServerApi {
                 + "using LOCAL as master and REMOTE for other notes")
         @QueryParam("origin") @DefaultValue("AUTO") String origin);
 
-    // TODO would be nice to allow setting, as a means to recover / control more easily than messing with persistent stores
+
     @POST
     @Path("/ha/persist/import")
+    @Consumes
     @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications (merged with the current persistence).")
     public Response importPersistenceData(
-        @ApiParam(name = "persistenceExportLocation", value = "location of persistence to import", required = true)
-        @FormParam("persistenceExportLocation") String persistenceExportLocation);
+        @ApiParam(name = "persistenceData", value = "Archived data", required = true) byte[] persistenceData);
 
 
     // TODO /ha/persist/backup set of endpoints, to list and retrieve specific backups

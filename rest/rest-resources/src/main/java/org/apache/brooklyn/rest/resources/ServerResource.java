@@ -18,10 +18,9 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +28,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.ZipFile;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -63,6 +63,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
+import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.domain.BrooklynFeatureSummary;
@@ -75,6 +76,7 @@ import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
+import org.apache.brooklyn.util.core.file.ArchiveUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -86,6 +88,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -549,19 +552,22 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     }
 
     @Override
-    public Response importPersistenceData(String persistenceExportLocation) {
+    public Response importPersistenceData(byte[] persistenceData) {
         try {
-            File persistenceLocation = new File(persistenceExportLocation);
-            if (!persistenceLocation.isDirectory()){
-                throw WebResourceUtils.badRequest("Invalid persistence directory - %s does not exist or is not a directory", persistenceExportLocation);
-            }
+            // create a temporary archive where persistence data supplied is written to
+            File tempZipFile = File.createTempFile("persistence-import",null);
+            Files.write(tempZipFile.toPath(), persistenceData, StandardOpenOption.TRUNCATE_EXISTING);
 
-            // set up temporary management context using the persistence to be imported
-            BrooklynProperties brooklynPropertiesWithExportPersistenceDir = BrooklynProperties.Factory.builderDefault().build();
-            brooklynPropertiesWithExportPersistenceDir.put("amp.persistence.dir",persistenceExportLocation);
+            // set path where the data is extracted to - saved in the root of persistence location
+            // this directory is deleted at end of the method
+            String unzippedPath = BrooklynServerPaths.newMainPersistencePathResolver(mgmt()).dir(tempZipFile.getName()).resolve();
 
-            LocalManagementContext tempMgmt = new LocalManagementContext(brooklynPropertiesWithExportPersistenceDir);
-            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, persistenceExportLocation);
+            // extract to the location specified
+            ArchiveUtils.extractZip(new ZipFile(tempZipFile),unzippedPath);
+
+            // create a temporary mgmt context and load the persistence data
+            LocalManagementContext tempMgmt = new LocalManagementContext(BrooklynProperties.Factory.builderDefault().build());
+            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, unzippedPath + "/data/");
             tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
             BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
                     tempPersistenceStore, tempMgmt);
@@ -570,6 +576,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             rebindManager.setPersister(persister, persistenceExceptionHandler);
             rebindManager.forcePersistNow(false, null);
 
+            // create raw memento of persisted state to be imported
             BrooklynMementoRawData newMementoRawData = tempMgmt.getRebindManager().retrieveMementoRawData();
 
             // install bundles to active management context
@@ -614,7 +621,8 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             tempPersistenceStore.close();
             tempMgmt.terminate();
 
-
+            // delete the dir with the import data
+            FileUtils.deleteDirectory(new File(unzippedPath));
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
             ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
