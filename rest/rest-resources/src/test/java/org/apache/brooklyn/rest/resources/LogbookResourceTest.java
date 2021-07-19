@@ -20,10 +20,17 @@ package org.apache.brooklyn.rest.resources;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.io.File;
+import java.io.FileWriter;
+import java.nio.file.Files;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.rest.api.LogbookApi;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.Streams;
 import org.apache.http.HttpStatus;
 import org.testng.annotations.*;
 
@@ -42,10 +49,34 @@ import static org.testng.Assert.assertEquals;
 @Test(singleThreaded = true, suiteName = "LogbookResourceTest")
 public class LogbookResourceTest extends BrooklynRestResourceTest {
 
+    static class LogbookResourceTestHelper {
+        private static File LOG_TEMP_FILE;
+
+        public synchronized static File installSampleLog() {
+            if (LOG_TEMP_FILE == null) {
+                // copy from classpath so tests don't make assumptions about file system, e.g. if running from jar
+                LOG_TEMP_FILE = Os.newTempFile(LogbookResourceTest.class, "log");
+                try {
+                    FileWriter fw = new FileWriter(LOG_TEMP_FILE);
+                    fw.write(ResourceUtils.create(LogbookResourceTest.class).getResourceAsString("classpath:/logbook.log.sample"));
+                    fw.close();
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+            return LOG_TEMP_FILE;
+        }
+
+        public static void installSampleLog(BrooklynProperties brooklynProperties) {
+            installSampleLog();
+            brooklynProperties.put("brooklyn.logbook.fileLogStore.path", LOG_TEMP_FILE.getAbsolutePath());
+        }
+    }
+
     @Override
     protected BrooklynProperties getBrooklynProperties() {
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
-        brooklynProperties.put("brooklyn.logbook.fileLogStore.path", "src/test/resources/logbook.test.log");
+        LogbookResourceTestHelper.installSampleLog(brooklynProperties);
         return brooklynProperties;
     }
 
@@ -116,7 +147,7 @@ public class LogbookResourceTest extends BrooklynRestResourceTest {
         protected BrooklynProperties getBrooklynProperties() {
             BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
             brooklynProperties.put("brooklyn.entitlements.global", this.getBrooklynEntitlementsGlobal());
-            brooklynProperties.put("brooklyn.logbook.fileLogStore.path", "src/test/resources/logbook.test.log");
+            LogbookResourceTestHelper.installSampleLog(brooklynProperties);
             return brooklynProperties;
         }
 
