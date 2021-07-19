@@ -53,7 +53,7 @@ public class FileLogStoreTest extends TestCase {
 
     @BeforeTest
     public void setUp() {
-        TimeZone.setDefault(TimeZone.getTimeZone("GMT"));
+        TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     }
 
     @BeforeMethod
@@ -68,7 +68,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertEquals("2021-05-27T11:36:59,251", brooklynLogEntry.getTimestampString());
-        assertEquals("Thu May 27 11:36:59 GMT 2021", brooklynLogEntry.getDatetime().toString());
+        assertEquals("Thu May 27 11:36:59 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("DEBUG", brooklynLogEntry.getLevel());
         assertEquals("146", brooklynLogEntry.getBundleId());
         assertEquals("o.a.b.c.m.i.LocalManagementContext", brooklynLogEntry.getClazz());
@@ -84,7 +84,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertEquals("2021-06-07T14:58:58,487", brooklynLogEntry.getTimestampString());
-        assertEquals("Mon Jun 07 14:58:58 GMT 2021", brooklynLogEntry.getDatetime().toString());
+        assertEquals("Mon Jun 07 14:58:58 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("INFO", brooklynLogEntry.getLevel());
         assertEquals("6", brooklynLogEntry.getBundleId());
         assertEquals("o.o.p.l.s.s.EventAdminConfigurationNotifier", brooklynLogEntry.getClazz());
@@ -98,7 +98,7 @@ public class FileLogStoreTest extends TestCase {
         FileLogStore cut = new FileLogStore();
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(TASK_LOG_LINE, lineCount);
         assertEquals("2021-05-27T11:36:59,258", brooklynLogEntry.getTimestampString());
-        assertEquals("Thu May 27 11:36:59 GMT 2021", brooklynLogEntry.getDatetime().toString());
+        assertEquals("Thu May 27 11:36:59 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("OGObOWJs", brooklynLogEntry.getTaskId());
         assertEquals("[gwpndj09r8]", brooklynLogEntry.getEntityIds());
         assertEquals("DEBUG", brooklynLogEntry.getLevel());
@@ -116,7 +116,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertEquals("2021-07-05T12:38:09,351", brooklynLogEntry.getTimestampString());
-        assertEquals("Mon Jul 05 12:38:09 GMT 2021", brooklynLogEntry.getDatetime().toString());
+        assertEquals("Mon Jul 05 12:38:09 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("ERROR", brooklynLogEntry.getLevel());
         assertEquals("293", brooklynLogEntry.getBundleId());
         assertEquals("o.a.b.u.m.ExternalUiModule", brooklynLogEntry.getClazz());
@@ -171,7 +171,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(firstBrooklynLogEntry.getTaskId());
         assertNull(firstBrooklynLogEntry.getEntityIds());
         assertEquals("2021-05-27T11:36:59,251", firstBrooklynLogEntry.getTimestampString());
-        assertEquals("Thu May 27 11:36:59 GMT 2021",firstBrooklynLogEntry.getDatetime().toString());
+        assertEquals("Thu May 27 11:36:59 UTC 2021",firstBrooklynLogEntry.getDatetime().toString());
         assertEquals("DEBUG", firstBrooklynLogEntry.getLevel());
         assertEquals("146", firstBrooklynLogEntry.getBundleId());
         assertEquals("o.a.b.c.m.i.LocalManagementContext", firstBrooklynLogEntry.getClazz());
@@ -184,7 +184,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(secondBrooklynLogEntry.getTaskId());
         assertNull(secondBrooklynLogEntry.getEntityIds());
         assertEquals("2021-07-05T12:38:09,351", secondBrooklynLogEntry.getTimestampString());
-        assertEquals("Mon Jul 05 12:38:09 GMT 2021", secondBrooklynLogEntry.getDatetime().toString());
+        assertEquals("Mon Jul 05 12:38:09 UTC 2021", secondBrooklynLogEntry.getDatetime().toString());
         assertEquals("ERROR", secondBrooklynLogEntry.getLevel());
         assertEquals("293", secondBrooklynLogEntry.getBundleId());
         assertEquals("o.a.b.u.m.ExternalUiModule", secondBrooklynLogEntry.getClazz());
@@ -289,8 +289,8 @@ public class FileLogStoreTest extends TestCase {
         logBookQueryParams.setNumberOfItems(1000); // Request all.
         logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
-        logBookQueryParams.setDateTimeFrom("Mon Jul 05 12:38:10 GMT 2021"); // Date of the first INFO log line.
-        logBookQueryParams.setDateTimeTo("Mon Jul 05 12:38:12 GMT 2021"); // Date of the second INFO log line.
+        logBookQueryParams.setDateTimeFrom("Mon Jul 05 12:38:10 UTC 2021"); // Date of the first INFO log line.
+        logBookQueryParams.setDateTimeTo("Mon Jul 05 12:38:12 UTC 2021"); // Date of the second INFO log line.
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
         assertEquals(2, brooklynLogEntries.size());
