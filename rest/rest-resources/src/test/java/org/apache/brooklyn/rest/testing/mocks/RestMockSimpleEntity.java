@@ -46,6 +46,9 @@ public class RestMockSimpleEntity extends SoftwareProcessImpl {
     public static final ConfigKey<String> SAMPLE_CONFIG = new BasicConfigKey<String>(
             String.class, "brooklyn.rest.mock.sample.config", "Mock sample config", "DEFAULT_VALUE");
 
+    public static final ConfigKey<String> SECRET_CONFIG = new BasicConfigKey<String>(
+            String.class, "brooklyn.rest.mock.secret.config");
+
     public static final AttributeSensor<String> SAMPLE_SENSOR = new BasicAttributeSensor<String>(
             String.class, "brooklyn.rest.mock.sample.sensor", "Mock sample sensor");
 

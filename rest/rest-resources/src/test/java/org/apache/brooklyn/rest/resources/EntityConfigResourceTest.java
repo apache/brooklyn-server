@@ -18,23 +18,22 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-
+import java.util.function.Function;
 import javax.annotation.Nullable;
+import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.apache.brooklyn.api.entity.Application;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.DslFormatString;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
@@ -43,13 +42,16 @@ import org.apache.brooklyn.rest.domain.EntitySpec;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
-
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import javax.ws.rs.core.GenericType;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 @Test(singleThreaded = true,
         // by using a different suite name we disallow interleaving other tests between the methods of this test class, which wrecks the test fixtures
@@ -57,6 +59,9 @@ import javax.ws.rs.core.GenericType;
 public class EntityConfigResourceTest extends BrooklynRestResourceTest {
     
     private final static Logger log = LoggerFactory.getLogger(EntityConfigResourceTest.class);
+
+    final static String HELLO_WORLD_DSL = "$brooklyn:formatString(\"%s-%s\", \"hello\", \"world\")";
+
     private URI applicationUri;
     private EntityInternal entity;
 
@@ -74,9 +79,12 @@ public class EntityConfigResourceTest extends BrooklynRestResourceTest {
         assertTrue(status >= 200 && status <= 299, "expected HTTP Response of 2xx but got " + status);
         applicationUri = response.getLocation();
         log.debug("Built app: application");
-        waitForApplicationToBeRunning(applicationUri);
+        Application app = waitForApplicationToBeRunning(applicationUri);
         
         entity = (EntityInternal) Iterables.find(getManagementContext().getEntityManager().getEntities(), EntityPredicates.displayNameEqualTo("simple-ent"));
+        Assert.assertEquals( Iterables.getOnlyElement(app.getChildren()), entity );
+
+        entity.config().set( (ConfigKey) RestMockSimpleEntity.SECRET_CONFIG, new DslFormatString("%s-%s", "hello", "world") );
     }
 
     @Test
@@ -130,6 +138,36 @@ public class EntityConfigResourceTest extends BrooklynRestResourceTest {
                 .accept(MediaType.TEXT_PLAIN_TYPE)
                 .get(String.class);
         assertEquals(configValue, "1.0.0");
+    }
+
+    @Test
+    public void testGetJsonWithParameters() throws Exception {
+        Function<String,String> getSecretWithQueryParams = qp ->
+                client().path(
+                        URI.create("/applications/simple-app/entities/simple-ent/config/"+RestMockSimpleEntity.SECRET_CONFIG.getName()))
+                        .replaceQuery(qp)
+                        .accept(MediaType.APPLICATION_JSON_TYPE)
+                        .get(String.class);
+
+        assertEquals(getSecretWithQueryParams.apply(""), JavaStringEscapes.wrapJavaString("hello-world"));
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), JavaStringEscapes.wrapJavaString("<suppressed> (MD5 hash: 2095312189753DE6AD47DFE20CBE97EC)"));
+        assertEquals(getSecretWithQueryParams.apply("skipResolution=true"), JavaStringEscapes.wrapJavaString(HELLO_WORLD_DSL));
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), JavaStringEscapes.wrapJavaString(HELLO_WORLD_DSL));
+    }
+
+    @Test
+    public void testGetPlainWithParameters() throws Exception {
+        Function<String,String> getSecretWithQueryParams = qp ->
+                client().path(
+                    URI.create("/applications/simple-app/entities/simple-ent/config/"+RestMockSimpleEntity.SECRET_CONFIG.getName()))
+                    .replaceQuery(qp)
+                    .accept(MediaType.TEXT_PLAIN_TYPE)
+                    .get(String.class);
+
+        assertEquals(getSecretWithQueryParams.apply(""), "hello-world");
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), "<suppressed> (MD5 hash: 2095312189753DE6AD47DFE20CBE97EC)");
+        assertEquals(getSecretWithQueryParams.apply("skipResolution=true"), HELLO_WORLD_DSL);
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), HELLO_WORLD_DSL);
     }
 
     @Test
