@@ -22,6 +22,8 @@ import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 import org.junit.Test;
 
+import java.util.Collections;
+
 import static org.apache.brooklyn.test.Asserts.assertEquals;
 
 public class OpenSearchLogStoreTest {
@@ -122,14 +124,26 @@ public class OpenSearchLogStoreTest {
     }
 
     @Test
-    public void queryWithSearchPhrase() {
+    public void queryWithSearchSinglePhrase() {
         OpenSearchLogStore cut = new OpenSearchLogStore();
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setTail(false);
         p.setLevels(ImmutableList.of());
-        p.setSearchPhrase("some phrase");
+        p.setSearchPhrases(ImmutableList.of("some phrase"));
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
+    }
+
+    @Test
+    public void queryWithSearchMultiplePhrases() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setTail(false);
+        p.setLevels(ImmutableList.of());
+        p.setSearchPhrases(ImmutableList.of("some phrase", "another phrase"));
+        String query = cut.getJSONQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}},{\"match_phrase\":{\"message\":\"another phrase\"}}]}}}");
     }
 }
