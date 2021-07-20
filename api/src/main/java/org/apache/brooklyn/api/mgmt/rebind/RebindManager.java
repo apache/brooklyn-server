@@ -64,6 +64,8 @@ public interface RebindManager {
     @VisibleForTesting
     public BrooklynMementoPersister getPersister();
 
+    public PersistenceExceptionHandler getPersisterExceptionHandler();
+
     /** Causes this management context to rebind, loading data from the given backing store.
      * use wisely, as this can cause local entities to be completely lost, or will throw in many other situations.
      * in general it may be invoked for a new node becoming {@link ManagementNodeState#MASTER} 

@@ -40,6 +40,7 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer;
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -290,9 +291,9 @@ public class CatalogPredicates {
         public boolean apply(@Nullable CatalogItem<T,SpecT> item) {
             try {
                 Memento memento = MementosGenerators.newBasicMemento(item);
-                XmlMementoSerializer<CatalogItem<?,?>> serializer = new XmlMementoSerializer<CatalogItem<?,?>>(
-                        CatalogPredicates.class.getClassLoader(), 
-                        ImmutableMap.<String,String>of());
+                XmlMementoSerializer<CatalogItem<?,?>> serializer = XmlMementoSerializerBuilder.<CatalogItem<?,?>>empty()
+                        .withDeserializingClassRenames(null)
+                        .withClassLoader( CatalogPredicates.class.getClassLoader() ).build();
                 StringWriter writer = new StringWriter();
                 serializer.serialize(memento, writer);
                 return filter.apply(writer.toString());

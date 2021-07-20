@@ -171,6 +171,19 @@ public class LocalEntityManager implements EntityManagerInternal {
                 Entity proxy = ((AbstractEntity)entity).getProxy();
                 checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
                 manage(entity);
+                if (options.persistAfterCreation()) {
+                    try {
+                        managementContext.getRebindManager().forcePersistNow(false, null);
+                    } catch (Exception e) {
+                        log.warn("Error persisting "+entity+" after creation; will unmanage then rethrow: "+e);
+                        try {
+                            unmanage(entity);
+                        } catch (Exception e2) {
+                            log.error("Could not unmanage "+entity+" which failed persistence after creation; manual removal will be required: "+e2, e2);
+                        }
+                        throw Exceptions.propagate(e);
+                    }
+                }
                 return (T) proxy;
             }
 

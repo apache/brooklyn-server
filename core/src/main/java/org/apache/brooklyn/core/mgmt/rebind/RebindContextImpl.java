@@ -40,6 +40,7 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.osgi.framework.BundleException;
 
 import com.google.common.collect.Maps;
@@ -90,6 +91,10 @@ public class RebindContextImpl implements RebindContext {
     
     public void registerCatalogItem(String id, CatalogItem<?, ?> catalogItem) {
         catalogItems.put(id, catalogItem);
+    }
+
+    public void registerBundle(String versionedName, ManagedBundle bundle) {
+        bundles.put(versionedName, bundle);
     }
 
     /** install the bundles into brooklyn and osgi, but do not start nor validate;

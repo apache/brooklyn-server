@@ -23,6 +23,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeoutException;
@@ -267,7 +268,14 @@ public class RebindManagerImpl implements RebindManager {
     public BrooklynMementoPersister getPersister() {
         return persistenceStoreAccess;
     }
-    
+
+    @Override
+    public PersistenceExceptionHandler getPersisterExceptionHandler() {
+        BrooklynMementoPersister p = getPersister();
+        if (persistenceRealChangeListener==null) return null;
+        return persistenceRealChangeListener.getExceptionHandler();
+    }
+
     @Override
     public void startPersistence() {
         if (readOnlyRunning) {
@@ -469,7 +477,7 @@ public class RebindManagerImpl implements RebindManager {
     @VisibleForTesting
     public void forcePersistNow(boolean full, PersistenceExceptionHandler exceptionHandler) {
         if (persistenceStoreAccess == null || persistenceRealChangeListener == null) {
-            LOG.info("Skipping forced persist; no persistence mechanism available");
+            LOG.debug("Skipping forced persist; no persistence mechanism available");
             return;
         }
         if (full) {
@@ -480,8 +488,12 @@ public class RebindManagerImpl implements RebindManager {
             persistenceStoreAccess.checkpoint(memento, exceptionHandler);
         } else {
             if (!persistenceRealChangeListener.persistNowSafely()) {
-                throw new IllegalStateException("Forced persistence failed; see logs fore more detail");
+                throw new IllegalStateException("Forced persistence failed; see logs for more detail");
             }
+        }
+        Set<String> errors = persistenceStoreAccess.getLastErrors();
+        if (!errors.isEmpty()) {
+            throw new IllegalStateException("Forced persistence failed: "+errors);
         }
     }
 

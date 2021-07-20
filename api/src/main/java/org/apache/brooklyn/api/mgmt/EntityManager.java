@@ -76,6 +76,8 @@ public interface EntityManager {
         default boolean isDryRun() { return false; }
         /** whether the item should have a specific identifier; may fail or return existing if it already exists */
         default String getRequiredUniqueId() { return null; }
+        /** whether to persist as part of creation (forces failure if creation fails, in the creating thread) */
+        default boolean persistAfterCreation() { return true; }
     }
 
     /**
