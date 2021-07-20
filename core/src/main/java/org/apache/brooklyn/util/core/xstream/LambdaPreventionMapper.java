@@ -18,12 +18,12 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
-import com.thoughtworks.xstream.core.util.Types;
 import com.thoughtworks.xstream.mapper.Mapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
 import java.io.Serializable;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.config.ConfigKey;
@@ -41,6 +41,8 @@ public class LambdaPreventionMapper extends MapperWrapper {
 
     private static final Logger LOG = LoggerFactory.getLogger(LambdaPreventionMapper.class);
 
+    private static final Pattern lambdaPattern = Pattern.compile(".*\\$\\$Lambda\\$[0-9]+/.*");
+    
     enum LambdaPersistenceMode { ACCEPT, WARN, FAIL };
 
     public static final ConfigKey<LambdaPersistenceMode> LAMBDA_PERSISTENCE = ConfigKeys.newConfigKey(LambdaPersistenceMode.class, "brooklyn.persistence.advanced.lambdas",
@@ -79,7 +81,7 @@ public class LambdaPreventionMapper extends MapperWrapper {
     }
 
     public String serializedClass(Class type) {
-        if (Types.isLambdaType(type)) {
+        if (isLambdaType(type)) {
             LambdaPersistenceMode mode = null;
             if (Serializable.class.isAssignableFrom(type)) {
                 mode = persistenceModeIfSerializable;
@@ -108,4 +110,8 @@ public class LambdaPreventionMapper extends MapperWrapper {
         return super.serializedClass(type);
     }
 
+    // from com.thoughtworks.xstream.core.util.Types but that package isn't exported
+    public static final boolean isLambdaType(Class<?> type) {
+        return type != null && type.isSynthetic() && lambdaPattern.matcher(type.getSimpleName()).matches();
+    }
 }
