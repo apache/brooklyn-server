@@ -28,6 +28,7 @@ import org.junit.Test;
 import org.testng.annotations.*;
 
 import java.io.File;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.TimeZone;
@@ -239,7 +240,7 @@ public class FileLogStoreTest extends TestCase {
     }
 
     @Test
-    public void testQueryLogSampleWithSearchPhrase() {
+    public void testQueryLogSampleWithSearchSinglePhrase() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
         ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
@@ -247,7 +248,7 @@ public class FileLogStoreTest extends TestCase {
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
         logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
-        logBookQueryParams.setSearchPhrase("Cannot register component"); // Request search phrase.
+        logBookQueryParams.setSearchPhrases(ImmutableList.of("Cannot register component")); // Request search phrase.
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
         assertEquals(1, brooklynLogEntries.size());
@@ -264,6 +265,33 @@ public class FileLogStoreTest extends TestCase {
         //        "\tat org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]", secondBrooklynLogEntry.getMessage());
 
         // TODO: cover case with search phrase in the stack-trace, once multi-line issue mentioned above is resolved.
+    }
+
+    @Test
+    public void testQueryLogSampleWithSearchMultiplePhrases() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(2); // Request first two only.
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setSearchPhrases(ImmutableList.of("bundle")); // Request search phrase.
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(2, brooklynLogEntries.size());
+
+        // Search phrase appears in ERROR and WARN log lines.
+        assertEquals("ERROR", brooklynLogEntries.get(0).getLevel());
+        assertEquals("WARN", brooklynLogEntries.get(1).getLevel());
+
+        // Now request multiple search phrases
+        logBookQueryParams.setSearchPhrases(ImmutableList.of("bundle", "is waiting for dependencies"));
+        brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(1, brooklynLogEntries.size());
+
+        // 2 phrases appear in WARN log line only
+        assertEquals("WARN", brooklynLogEntries.get(0).getLevel());
     }
 
     @Test

@@ -29,5 +29,4 @@ public interface LogStore {
      * @throws IOException
      */
     List<BrooklynLogEntry> query(LogBookQueryParams query) throws IOException;
-
 }
