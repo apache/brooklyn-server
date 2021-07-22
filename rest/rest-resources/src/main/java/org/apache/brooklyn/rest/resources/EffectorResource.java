@@ -63,7 +63,9 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
                 .filter(new Predicate<Effector<?>>() {
                     @Override
                     public boolean apply(@Nullable Effector<?> input) {
-                        return Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR,
+                        return Entitlements.isEntitled(mgmt().getEntitlementManager(),
+                                // see notes on INVOKE_EFFECTOR about the prospect of a separate SEE_EFFECTOR
+                                Entitlements.INVOKE_EFFECTOR,
                                 Entitlements.EntityAndItem.of(entity, StringAndArgument.of(input.getName(), null)));
                     }
                 })
