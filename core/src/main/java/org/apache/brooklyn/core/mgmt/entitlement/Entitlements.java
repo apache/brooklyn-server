@@ -73,6 +73,7 @@ public class Entitlements {
     public static EntitlementClass<EntityAndItem<String>> SEE_CONFIG = new BasicEntitlementClassDefinition<EntityAndItem<String>>("config.see", EntityAndItem.typeToken(String.class));
     public static EntitlementClass<TaskAndItem<String>> SEE_ACTIVITY_STREAMS = new BasicEntitlementClassDefinition<TaskAndItem<String>>("activity.streams.see", TaskAndItem.typeToken(String.class));
     // string is effector name; argument may be a map or a list, depending how the args were supplied
+    // currently this permission gates even _seeing_ the effector; in future we might have a separate permission for that
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
 
@@ -261,7 +262,7 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT} and {@link #SEE_ALL_SERVER_INFO}.
+     * @return An entitlement manager allowing everything but {@link #EXECUTE_GROOVY_SCRIPT}.
      */
     public static EntitlementManager powerUser() {
         return new EntitlementManager() {
@@ -277,7 +278,7 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT} and {@link #SEE_ALL_SERVER_INFO}.
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY} and {@link #SEE_ALL_SERVER_INFO}.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
@@ -502,6 +503,8 @@ public class Entitlements {
             return minimal();
         } else if ("user".equalsIgnoreCase(type)) {
             return user();
+        } else if ("powerUser".equalsIgnoreCase(type) || "power_user".equalsIgnoreCase(type)) {
+            return powerUser();
         }
         if (Strings.isNonBlank(type)) {
             try {

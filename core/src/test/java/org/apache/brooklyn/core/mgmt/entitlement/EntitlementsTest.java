@@ -142,7 +142,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
     }
 
 
-    // user
+    // powerUser, same as root but not Groovy scripts
     public void testGlobalPowerUserEntitlement() {
         EntitlementManager user = Entitlements.powerUser();
         assertTrue(user.isEntitled(null, Entitlements.ROOT, null));
