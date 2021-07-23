@@ -21,10 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -62,16 +59,13 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
-import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.rest.api.ServerApi;
-import org.apache.brooklyn.rest.domain.ApiError;
-import org.apache.brooklyn.rest.domain.BrooklynFeatureSummary;
-import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
-import org.apache.brooklyn.rest.domain.VersionSummary;
+import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
+import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -555,6 +549,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public Response importPersistenceData(byte[] persistenceData) {
         File tempZipFile = null;
+        String unzippedPath = null;
         try {
             // create a temporary archive where persistence data supplied is written to
             tempZipFile = File.createTempFile("persistence-import",null);
@@ -562,7 +557,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
             // set path where the data is extracted to - saved in the root of persistence location
             // this directory is deleted at end of the method
-            String unzippedPath = BrooklynServerPaths.newMainPersistencePathResolver(mgmt()).dir(tempZipFile.getName()).resolve();
+            unzippedPath = BrooklynServerPaths.newMainPersistencePathResolver(mgmt()).dir(tempZipFile.getName()).resolve();
 
             // extract to the location specified
             ArchiveUtils.extractZip(new ZipFile(tempZipFile),unzippedPath);
@@ -583,40 +578,41 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
             // install bundles to active management context
             for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()){
-                ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
+                ReferenceWithError<OsgiBundleInstallationResult> bundleInstallResult = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
                         .install(InputStreamSource.of("Persistence import - bundle install", bundleJar.getValue().read()), "", false);
 
-                if (result.hasError()) {
+                if (bundleInstallResult.hasError()) {
                     if (log.isTraceEnabled()) {
-                        log.trace("Unable to create, format '', returning 400: "+result.getError().getMessage(), result.getError());
+                        log.trace("Unable to create, format '', returning 400: "+bundleInstallResult.getError().getMessage(), bundleInstallResult.getError());
                     }
                     String errorMsg = "";
-                    if (result.getWithoutError()!=null) {
-                        errorMsg = result.getWithoutError().getMessage();
+                    if (bundleInstallResult.getWithoutError()!=null) {
+                        errorMsg = bundleInstallResult.getWithoutError().getMessage();
                     } else {
-                        errorMsg = Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString();
+                        errorMsg = Strings.isNonBlank(bundleInstallResult.getError().getMessage()) ? bundleInstallResult.getError().getMessage() : bundleInstallResult.getError().toString();
                     }
                     throw new Exception(errorMsg);
                 }
+                if (!bundleInstallResult.get().getCode().equals(OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED) && !bundleInstallResult.get().getCode().equals(OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE)) {
+                    TypeTransformer.bundleInstallationResult(bundleInstallResult.get(), mgmt(), brooklyn(), ui);
+                }
             }
+
 
             // write persisted items and rebind to load applications
             BrooklynMementoRawData.Builder result = BrooklynMementoRawData.builder();
-            MementoSerializer<Object> rawSerializer = XmlMementoSerializerBuilder.from(mgmt())
-                    .withBrooklynDeserializingClassRenames()
-                    .build();
-            RetryingMementoSerializer<Object> serializer = new RetryingMementoSerializer<Object>(rawSerializer, 1);
-
             result.planeId(mgmt().getManagementPlaneIdMaybe().orNull());
             result.entities(newMementoRawData.getEntities());
             result.locations(newMementoRawData.getLocations());
             result.policies(newMementoRawData.getPolicies());
             result.enrichers(newMementoRawData.getEnrichers());
             result.feeds(newMementoRawData.getFeeds());
+            result.feeds(newMementoRawData.getFeeds());
             result.catalogItems(newMementoRawData.getCatalogItems());
 
             PersistenceObjectStore currentPersistenceStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
             BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentPersistenceStore);
+
             mgmt().getRebindManager().rebind(mgmt().getCatalogClassLoader(),null, mgmt().getHighAvailabilityManager().getNodeState());
 
             // clean up the temporary management context
@@ -625,14 +621,23 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             tempPersistenceStore.close();
             tempMgmt.terminate();
 
-            // delete the dir with the import data
-            FileUtils.deleteDirectory(new File(unzippedPath));
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
             ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
             error.message(e.getMessage());
             return error.build().asJsonResponse();
         } finally {
+            File unzippedData = new File(unzippedPath);
+            if (unzippedData!=null){
+                try {
+                    FileUtils.deleteDirectory(unzippedData);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.warn("Failed to delete temp directory "+unzippedData+" (ignoring): "+e, e);
+                }
+
+            }
+
             if (tempZipFile!=null) {
                 try {
                     tempZipFile.delete();
