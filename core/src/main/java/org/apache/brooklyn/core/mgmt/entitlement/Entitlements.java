@@ -128,6 +128,11 @@ public class Entitlements {
      */
     public static EntitlementClass<Void> LOGBOOK_LOG_STORE_QUERY = new BasicEntitlementClassDefinition<Void>("logbook.query", Void.class);
 
+    /**
+     * Permission to execute groovy scripts
+     */
+    public static EntitlementClass<Void> EXECUTE_GROOVY_SCRIPT = new BasicEntitlementClassDefinition<Void>("groovy_script.execute", Void.class);
+
     @SuppressWarnings("unchecked")
     public enum EntitlementClassesEnum {
         ENTITLEMENT_SEE_CATALOG_ITEM(SEE_CATALOG_ITEM) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeCatalogItem((String)argument); } },
@@ -144,6 +149,7 @@ public class Entitlements {
         ENTITLEMENT_SEE_ALL_SERVER_INFO(SEE_ALL_SERVER_INFO) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeAllServerInfo(); } },
         ENTITLEMENT_SERVER_STATUS(SERVER_STATUS) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeServerStatus(); } },
         ENTITLEMENT_ROOT(ROOT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
+        ENTITLEMENT_EXECUTE_GROOVY_SCRIPT(EXECUTE_GROOVY_SCRIPT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleExecuteGroovyScript(); } },
 
         /* NOTE, 'ROOT' USER ONLY IS ALLOWED TO SEE THE LOGS. */
         ENTITLEMENT_LOGBOOK_QUERY(LOGBOOK_LOG_STORE_QUERY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
@@ -179,6 +185,7 @@ public class Entitlements {
         public T handleModifyEntity(Entity entity);
         public T handleDeployApplication(Object app);
         public T handleSeeAllServerInfo();
+        public T handleExecuteGroovyScript();
         public T handleRoot();
     }
     
@@ -255,13 +262,33 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT} and {@link #SEE_ALL_SERVER_INFO}.
+     * @return An entitlement manager allowing everything but {@link #EXECUTE_GROOVY_SCRIPT}.
+     */
+    public static EntitlementManager powerUser() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return !EXECUTE_GROOVY_SCRIPT.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.powerUser";
+            }
+        };
+    }
+
+    /**
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY} and {@link #SEE_ALL_SERVER_INFO}.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
             @Override
             public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
-                return !SEE_ALL_SERVER_INFO.equals(permission) && !ROOT.equals(permission) && !LOGBOOK_LOG_STORE_QUERY.equals(permission);
+                return
+                        !SEE_ALL_SERVER_INFO.equals(permission) &&
+                        !ROOT.equals(permission) &&
+                        !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
+                        !EXECUTE_GROOVY_SCRIPT.equals(permission);
             }
             @Override
             public String toString() {
@@ -480,6 +507,8 @@ public class Entitlements {
             return minimal();
         } else if ("user".equalsIgnoreCase(type)) {
             return user();
+        } else if ("powerUser".equalsIgnoreCase(type) || "power_user".equalsIgnoreCase(type)) {
+            return powerUser();
         }
         if (Strings.isNonBlank(type)) {
             try {
