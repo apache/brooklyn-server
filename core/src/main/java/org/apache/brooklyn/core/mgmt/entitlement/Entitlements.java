@@ -284,7 +284,11 @@ public class Entitlements {
         return new EntitlementManager() {
             @Override
             public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
-                return !SEE_ALL_SERVER_INFO.equals(permission) && !ROOT.equals(permission) && !LOGBOOK_LOG_STORE_QUERY.equals(permission);
+                return
+                        !SEE_ALL_SERVER_INFO.equals(permission) &&
+                        !ROOT.equals(permission) &&
+                        !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
+                        !EXECUTE_GROOVY_SCRIPT.equals(permission);
             }
             @Override
             public String toString() {
