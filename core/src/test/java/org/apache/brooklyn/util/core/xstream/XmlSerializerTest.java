@@ -18,20 +18,22 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
-import static org.testng.Assert.assertEquals;
-
-import java.util.Arrays;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
-
 import com.google.common.base.Objects;
 import com.thoughtworks.xstream.annotations.XStreamAlias;
 import com.thoughtworks.xstream.annotations.XStreamConverter;
 import com.thoughtworks.xstream.converters.basic.BooleanConverter;
 import com.thoughtworks.xstream.converters.extended.ToAttributedValueConverter;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.function.Supplier;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper.LambdaPersistenceMode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static org.testng.Assert.assertEquals;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class XmlSerializerTest {
 
@@ -98,6 +100,56 @@ public class XmlSerializerTest {
         assertSerializeAndDeserialize(val);
         assertSerializeAndDeserialize(new StringHolder(val));
     }
+
+
+    // lambdas
+
+    private void serializeExpectingNull(Supplier<String> s) {
+        String xml = serializer.toString(s);
+        Object s2 = serializer.fromString(xml);
+        Asserts.assertStringContainsIgnoreCase(xml, "null");
+        Asserts.assertNull(s2);
+    }
+    private void serializeExpectingFailure(Supplier<String> s) {
+        Asserts.assertFailsWith(()->serializer.toString(s),
+                error -> {
+                    Asserts.expectedFailureContainsIgnoreCase(error, "lambda");
+                    return true;
+                });
+    }
+    private void serializeExpectingHelloSupplied(Supplier<String> s) {
+        String xml = serializer.toString(s);
+        Object s2 = serializer.fromString(xml);
+        Asserts.assertInstanceOf(s2, Supplier.class);
+        Asserts.assertEquals( ((Supplier<String>)s2).get(), s.get() );
+    }
+
+    interface SerializableSupplier<T> extends Supplier<T>, Serializable {}
+
+    @Test
+    public void testLambdaXstreamDefaultNotSerializable() throws Exception {
+        serializeExpectingNull( () -> "hello" );
+    }
+
+    @Test
+    public void testLambdaXstreamDefaultSerializable() throws Exception {
+        serializeExpectingHelloSupplied( (SerializableSupplier<String>) () -> "hello" );
+    }
+
+    @Test
+    public void testLambdaXstreamFailingAllSerializable() throws Exception {
+        serializer = new XmlSerializer<Object>(null, null, LambdaPreventionMapper.factory(ConfigBag.newInstance().configure(LambdaPreventionMapper.LAMBDA_PERSISTENCE, LambdaPersistenceMode.FAIL)));
+        serializeExpectingFailure( () -> "hello" );
+        serializeExpectingFailure( (SerializableSupplier<String>) () -> "hello" );
+    }
+
+    @Test
+    public void testLambdaXstreamFailingNonSerializable() throws Exception {
+        serializer = new XmlSerializer<Object>(null, null, LambdaPreventionMapper.factory(ConfigBag.newInstance()));
+        serializeExpectingFailure( () -> "hello" );
+        serializeExpectingHelloSupplied( (SerializableSupplier<String>) () -> "hello" );
+    }
+
 
     protected void assertSerializeAndDeserialize(Object val) throws Exception {
         String xml = serializer.toString(val);

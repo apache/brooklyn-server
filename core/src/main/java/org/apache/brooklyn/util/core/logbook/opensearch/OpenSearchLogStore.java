@@ -62,6 +62,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
@@ -220,6 +221,8 @@ public class OpenSearchLogStore implements LogStore {
 
         // The `query.bool.must` part of the open-search query.
         ImmutableList.Builder<Object> queryBoolMustListBuilder = ImmutableList.builder();
+        ImmutableList<String> searchPhrases = params.getSearchPhrases() == null ? ImmutableList.of() :
+                ImmutableList.copyOf(params.getSearchPhrases().stream().filter(Strings::isNonBlank).collect(Collectors.toList()));
 
         // Apply log levels.
         if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL")) {
@@ -251,9 +254,8 @@ public class OpenSearchLogStore implements LogStore {
         }
 
         // Apply search phrase.
-        if (Strings.isNonBlank(params.getSearchPhrase())) {
-            queryBoolMustListBuilder.add(ImmutableMap.of("match_phrase", ImmutableMap.of("message", params.getSearchPhrase())));
-        }
+        searchPhrases.forEach(searchPhrase ->
+            queryBoolMustListBuilder.add(ImmutableMap.of("match_phrase", ImmutableMap.of("message", searchPhrase))));
 
         ImmutableList<Object> queryBoolMustList = queryBoolMustListBuilder.build();
 

@@ -109,8 +109,12 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
 
             DirContext ctx = new InitialDirContext(env);// will throw if password is invalid
             if (fetchUserGroups) {
-                // adds user groups ot eh session
-                sessionSupplierOnSuccess.get().setAttribute(USER_GROUPS, getUserGroups(user, ctx));
+                List<String> userGroups = getUserGroups(user, ctx);
+                if (userGroups.isEmpty()) {
+                    return false;
+                }
+                // adds user groups to the session
+                sessionSupplierOnSuccess.get().setAttribute(USER_GROUPS, userGroups);
             }
             return allow(sessionSupplierOnSuccess.get(), user);
         } catch (NamingException e) {

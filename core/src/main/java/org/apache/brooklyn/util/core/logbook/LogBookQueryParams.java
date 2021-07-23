@@ -41,7 +41,7 @@ public class LogBookQueryParams {
     private String dateTimeTo;
 
     /** The search phrase to look log items with */
-    private String searchPhrase;
+    private List<String> searchPhrases;
 
     public Integer getNumberOfItems() {
         return numberOfItems;
@@ -83,11 +83,11 @@ public class LogBookQueryParams {
         this.dateTimeTo = dateTimeTo;
     }
 
-    public String getSearchPhrase() {
-        return searchPhrase;
+    public List<String> getSearchPhrases() {
+        return searchPhrases;
     }
 
-    public void setSearchPhrase(String searchPhrase) {
-        this.searchPhrase = searchPhrase;
+    public void setSearchPhrases(List<String> searchPhrases) {
+        this.searchPhrases = searchPhrases;
     }
 }

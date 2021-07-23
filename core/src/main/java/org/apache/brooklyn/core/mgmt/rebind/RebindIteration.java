@@ -378,6 +378,7 @@ public abstract class RebindIteration {
             for (ManagedBundleMemento bundleMemento : mementoManifest.getBundles().values()) {
                 ManagedBundle managedBundle = instantiator.newManagedBundle(bundleMemento);
                 bundles.put(managedBundle.getVersionedName(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
+                rebindContext.registerBundle(bundleMemento.getId(), managedBundle);
             }
         } else {
             logRebindingDebug("Not rebinding bundles; feature disabled: {}", mementoManifest.getBundleIds());

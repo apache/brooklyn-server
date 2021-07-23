@@ -1092,13 +1092,18 @@ public class Asserts {
     }
 
     public static void assertFailsWith(Runnable r, Predicate<? super Throwable> exceptionChecker) {
-        assertFailsWith(toCallable(r), exceptionChecker);
+        assertFailsWith(toCallable(r), exceptionChecker, false);
     }
     
     public static void assertFailsWith(Callable<?> c, Predicate<? super Throwable> exceptionChecker) {
+        assertFailsWith(c, exceptionChecker, true);
+    }
+
+    private static void assertFailsWith(Callable<?> c, Predicate<? super Throwable> exceptionChecker, boolean showResult) {
         boolean failed = false;
+        Object result = null;
         try {
-            c.call();
+            result = c.call();
         } catch (Throwable e) {
             failed = true;
             try {
@@ -1112,7 +1117,8 @@ public class Asserts {
                 throw Exceptions.propagate(e2);
             }
         }
-        if (!failed) fail("Test code should have thrown exception but did not");
+        if (!failed) fail("Test code should have thrown exception but did not" +
+                (showResult ? "; returned: "+result : ""));
     }
 
     public static void assertReturnsEventually(final Runnable r, Duration timeout) throws InterruptedException, ExecutionException, TimeoutException {

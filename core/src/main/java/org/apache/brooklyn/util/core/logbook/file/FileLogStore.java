@@ -105,6 +105,7 @@ public class FileLogStore implements LogStore {
 
             Date dateTimeFrom = Strings.isNonBlank(params.getDateTimeFrom()) ? Time.parseDate(params.getDateTimeFrom()) : null;
             Date dateTimeTo = Strings.isNonBlank(params.getDateTimeTo()) ? Time.parseDate(params.getDateTimeTo()) : null;
+            boolean isSearchPhrasesPresent = !Objects.isNull(params.getSearchPhrases()) && !params.getSearchPhrases().isEmpty();
 
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
 
@@ -140,9 +141,9 @@ public class FileLogStore implements LogStore {
                     }
                 }
 
-                // Check the search phrase.
-                if (Strings.isNonBlank(params.getSearchPhrase()) && Strings.isNonBlank(brooklynLogEntry.getMessage())) {
-                    isSearchPhraseMatch = brooklynLogEntry.getMessage().contains(params.getSearchPhrase());
+                // Check search phrases.
+                if (isSearchPhrasesPresent && Strings.isNonBlank(brooklynLogEntry.getMessage())) {
+                    isSearchPhraseMatch = containsSearchPhrases(brooklynLogEntry.getMessage(), params.getSearchPhrases());
                 }
 
                 return isLogLevelMatch && isDateTimeFromMatch && isDateTimeToMatch && isSearchPhraseMatch;
@@ -199,5 +200,16 @@ public class FileLogStore implements LogStore {
             entry.setLineId(String.valueOf(lineCount.incrementAndGet()));
         }
         return entry;
+    }
+
+    public static boolean containsSearchPhrases(String logMessage, List<String> searchPhrases) {
+        boolean found = true;
+        for (String searchPhrase : searchPhrases) {
+            if (!logMessage.contains(searchPhrase)) {
+                found = false;
+                break;
+            }
+        }
+        return found;
     }
 }

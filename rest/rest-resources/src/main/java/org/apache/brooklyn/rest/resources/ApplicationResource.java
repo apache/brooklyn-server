@@ -220,7 +220,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         
         List<EntityDetail> entitySummaries = Lists.newArrayList();
         for (Entity application : mgmt().getApplications()) {
-            entitySummaries.add(addSensorsByName((EntityDetail)fromEntity(application, false, -1, null, null), application, extraSensors));
+            if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, application)) {
+                entitySummaries.add(addSensorsByName((EntityDetail) fromEntity(application, false, -1, null, null), application, extraSensors));
+            }
         }
 
         if (Strings.isNonBlank(entityIds)) {

@@ -27,7 +27,12 @@ import io.swagger.annotations.Api;
 import io.swagger.config.SwaggerConfig;
 import io.swagger.jaxrs.config.AbstractScanner;
 import io.swagger.jaxrs.config.JaxrsScanner;
+import io.swagger.models.Info;
+import io.swagger.models.Scheme;
 import io.swagger.models.Swagger;
+import io.swagger.models.auth.ApiKeyAuthDefinition;
+import io.swagger.models.auth.BasicAuthDefinition;
+import io.swagger.models.auth.In;
 
 
 /**
@@ -109,7 +114,29 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     @Override
     public Swagger configure(Swagger swagger) {
         swagger.setBasePath("/v1");
+        swagger.setSchemes(Arrays.asList(new Scheme[]{Scheme.HTTPS, Scheme.HTTP}));
+
+        swagger.info(getSwaggerInfo());
+
+        ApiKeyAuthDefinition security = new ApiKeyAuthDefinition();
+        String apiKeyName = "JWT";
+        security.setName(apiKeyName);
+        security.setIn(In.HEADER);
+        security.setType("apiKey");
+        swagger.addSecurityDefinition(apiKeyName, security);
+
+        BasicAuthDefinition basicAuthDefinition = new BasicAuthDefinition();
+        swagger.addSecurityDefinition("Basic authentication", basicAuthDefinition);
+
         return swagger;
+    }
+
+    private Info getSwaggerInfo() {
+        Info info = new Info();
+        info.setTitle("Apache Brooklyn API");
+        info.setVersion(this.getClass().getPackage()!=null?this.getClass().getPackage().getImplementationVersion():"");
+        info.setDescription("API specification for Apache Brooklyn");
+        return info;
     }
 
     @Override
