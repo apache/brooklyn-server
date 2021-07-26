@@ -49,7 +49,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
         protected List<String> searchPath;
         protected Map<String, Object> customFields = Maps.newLinkedHashMap();
         protected List<Object> tags = Lists.newArrayList();
-        protected Map<String,Set<String>> relations = Maps.newLinkedHashMap();
+        protected Map<Object,Set<String>> relations = Maps.newLinkedHashMap();
 
         // only supported for EntityAdjuncts
         protected String uniqueTag;
@@ -95,7 +95,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     protected String catalogItemId;
     private List<String> searchPath = Lists.newArrayList();
     private List<Object> tags;
-    private Map<String,Set<String>> relations;
+    private Map<Object,Set<String>> relations;
     
     // for EntityAdjuncts; not used for entity
     private String uniqueTag;
@@ -178,7 +178,7 @@ public abstract class AbstractMemento implements Memento, Serializable {
     }
 
     @Override
-    public Map<String,Set<String>> getRelations() {
+    public Map<Object,Set<String>> getRelations() {
         return fromPersistedMap(relations);
     }
     

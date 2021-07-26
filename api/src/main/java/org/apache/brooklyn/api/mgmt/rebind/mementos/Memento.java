@@ -86,8 +86,9 @@ public interface Memento extends Serializable {
     Class<?> getTypeClass();
 
     Collection<Object> getTags();
-    
-    Map<String,Set<String>> getRelations();
+
+    /** Key can be relationship name if a standard one, or an object. */
+    Map<Object,Set<String>> getRelations();
     
     /** Null for {@link Entity}, but important for adjuncts; see {@link EntityAdjunct#getUniqueTag()} */
     String getUniqueTag();
