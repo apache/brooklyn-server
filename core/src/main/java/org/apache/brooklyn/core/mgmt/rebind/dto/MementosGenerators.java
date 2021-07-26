@@ -53,10 +53,12 @@ import org.apache.brooklyn.core.catalog.internal.CatalogItemDo;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.entity.EntityRelations;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.rebind.AbstractBrooklynObjectRebindSupport;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -382,7 +384,12 @@ public class MementosGenerators {
             Set relations = instance.relations().getRelations((RelationshipType)relationship);
             Set<String> relationIds = Sets.newLinkedHashSet();
             for (Object r: relations) relationIds.add( ((BrooklynObject)r).getId() );
-            builder.relations.put(relationship.getRelationshipTypeName(), relationIds);
+
+            // key is string name if known relationship type, otherwise the relationship type object
+            Object relTest = EntityRelations.lookup( ((BrooklynObjectInternal)instance).getManagementContext(), relationship.getRelationshipTypeName() );
+            Object rKey = relationship.equals(relTest) ? relationship.getRelationshipTypeName() : relationship;
+
+            builder.relations.put(rKey, relationIds);
         }
     }
 

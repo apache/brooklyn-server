@@ -57,7 +57,7 @@ public interface EntityMemento extends Memento, TreeNode {
     /**
      * The ids of the member entities, if this is a Group; otherwise empty.
      * 
-     * @see Group.getMembers()
+     * @see org.apache.brooklyn.api.entity.Group#getMembers
      */
     public List<String> getMembers();
     
