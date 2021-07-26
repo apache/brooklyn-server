@@ -593,7 +593,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     }
                     throw new Exception(errorMsg);
                 }
-                if (!bundleInstallResult.get().getCode().equals(OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED) && !bundleInstallResult.get().getCode().equals(OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE)) {
+                if (!OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(bundleInstallResult.get().getCode()) && !OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE.equals(bundleInstallResult.get().getCode())) {
                     TypeTransformer.bundleInstallationResult(bundleInstallResult.get(), mgmt(), brooklyn(), ui);
                 }
             }
