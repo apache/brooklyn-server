@@ -179,7 +179,7 @@ public interface ApplicationApi {
     @Beta
     @PUT
     @Path("/{application}")
-    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML and format with the given id",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
@@ -188,13 +188,34 @@ public interface ApplicationApi {
             @ApiResponse(code = 404, message = "Undefined entity or location"),
             @ApiResponse(code = 409, message = "Application already registered")
     })
-    public Response createFromYamlAndFormatAndAppId(
+    public Response createFromYamlAndFormatAndAppIdForm(
             @ApiParam(name = "plan", value = "Plan", required = true)
             @FormParam("plan") String yaml,
             @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
             @FormParam("format") String format,
             @ApiParam(name = "application", value = "Application id", required = true)
             @PathParam("application") String appId);
+
+    @Beta
+    @PUT
+    @Path("/{application}")
+    @Consumes({MediaType.MULTIPART_FORM_DATA})
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML and format with the given id",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered")
+    })
+    public Response createFromYamlAndFormatAndAppIdMultipart(
+            @ApiParam(name = "plan", value = "Plan", required = true)
+            @Multipart("plan") String yaml,
+            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
+            @Multipart("format") String format,
+            @ApiParam(name = "application", value = "Application id", required = true)
+            @Multipart("application") String appId);
+
 
     /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
     @Deprecated
