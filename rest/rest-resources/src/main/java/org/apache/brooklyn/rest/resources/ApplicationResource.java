@@ -533,6 +533,15 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
+    public Response createWithFormatForm(String plan, String format) {
+        return createWithFormat(plan, format);
+    }
+
+    @Override
+    public Response createWithFormatMultipart(String plan, String format) {
+        return createWithFormat(plan, format);
+    }
+
     public Response createWithFormat(String inputToAutodetectType, String format) {
         log.debug("Creating app from autodetecting input");
 
