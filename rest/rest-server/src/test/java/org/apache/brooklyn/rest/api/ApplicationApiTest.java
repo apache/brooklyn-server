@@ -45,8 +45,43 @@ public class ApplicationApiTest extends BrooklynRestApiLauncherTestFixture {
         assertPostMultiPart("admin", "/v1/applications", body.getBytes(), headers);
     }
 
+
+    @Test(groups = "Integration")
+    public void testMultipartFormWithoutOptionalFormat() throws Exception {
+        useServerForTest(newServer());
+        String body = "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2\n\r" +
+                "Content-Disposition: form-data; name=\"plan\"\n\r\n\r" +
+                "services:\n\r" +
+                "- type: org.apache.brooklyn.entity.stock.BasicEntity\n\r" +
+                "  brooklyn.config:\n\r" +
+                "    example: $brooklyn:formatString(\"%s\", \"vault\")\n\r\n\r\n\r" +
+                "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2--\n\r";
+        ImmutableMap<String, String> headers = ImmutableMap.of("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryaQhM7RFMi4ZiXOj2");
+        assertPostMultiPart("admin", "/v1/applications", body.getBytes(), headers);
+    }
+
+
+    @Test(groups = "Integration")
+    public void testMultipartFormWithAppIdWithoutOptionalFormat() throws Exception {
+        useServerForTest(newServer());
+        String body = "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2\n\r" +
+                "Content-Disposition: form-data; name=\"plan\"\n\r\n\r" +
+                "services:\n\r" +
+                "- type: org.apache.brooklyn.entity.stock.BasicEntity\n\r" +
+                "  brooklyn.config:\n\r" +
+                "    example: $brooklyn:formatString(\"%s\", \"vault\")\n\r\n\r\n\r" +
+                "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2--\n\r";
+        ImmutableMap<String, String> headers = ImmutableMap.of("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryaQhM7RFMi4ZiXOj2");
+        assertPutMultiPart("admin", "/v1/applications/sample0unique0request0id0min10chars0letters0or0numbers", body.getBytes(), headers);
+    }
+
     public void assertPostMultiPart(String user, String path, byte[] body, Map<String, String> headers) throws Exception {
         HttpToolResponse response = httpPost(user, path, body, headers);
+        assertHealthyStatusCode(response);
+    }
+
+    public void assertPutMultiPart(String user, String path, byte[] body, Map<String, String> headers) throws Exception {
+        HttpToolResponse response = httpPut(user, path, body, headers);
         assertHealthyStatusCode(response);
     }
 

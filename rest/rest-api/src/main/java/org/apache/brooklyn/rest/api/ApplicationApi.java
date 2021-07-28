@@ -212,12 +212,12 @@ public interface ApplicationApi {
             @ApiParam(name = "plan", value = "Plan", required = true)
             @Multipart("plan") String yaml,
             @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
-            @Multipart("format") String format,
+            @Multipart(value = "format", required = false) String format,
             @ApiParam(name = "application", value = "Application id", required = true)
-            @Multipart("application") String appId);
+            @PathParam("application") String appId);
 
 
-    /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
+    /** @deprecated since 1.1 use {@link #createWithFormatMultipart(String, String)} instead */
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
@@ -271,7 +271,7 @@ public interface ApplicationApi {
             @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
             @Multipart("plan") String plan,
             @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
-            @Multipart("format") String format);
+            @Multipart(value = "format", required = false) String format);
 
     @Beta
     @POST

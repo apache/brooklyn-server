@@ -113,6 +113,11 @@ public abstract class BrooklynRestApiLauncherTestFixture {
         return HttpTool.httpPost(newClient(user), uri, headers, body);
     }
 
+    protected HttpToolResponse httpPut(String user, String path, byte[] body, Map<String, String> headers) throws Exception {
+        final URI uri = URI.create(getBaseUriRest()).resolve(path);
+        return HttpTool.httpPut(newClient(user), uri, headers, body);
+    }
+
     protected void assertHealthyStatusCode(HttpToolResponse response) {
         assertTrue(HttpAsserts.isHealthyStatusCode(response.getResponseCode()), "code="+response.getResponseCode()+"; reason="+response.getReasonPhrase());
     }
