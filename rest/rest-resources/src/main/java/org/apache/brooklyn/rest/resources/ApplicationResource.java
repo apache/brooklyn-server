@@ -408,6 +408,15 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
+    public Response createFromYamlAndFormatAndAppIdForm(String yaml, String format, String appId) {
+        return createFromYamlAndFormatAndAppId(yaml, format, appId);
+    }
+
+    @Override
+    public Response createFromYamlAndFormatAndAppIdMultipart(String yaml, String format, String appId) {
+        return createFromYamlAndFormatAndAppId(yaml, format, appId);
+    }
+
     public Response createFromYamlAndFormatAndAppId(String yaml, String format, String appId) {
         return createFromYaml(yaml, format, Optional.of(appId));
     }
@@ -535,6 +544,15 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
+    public Response createWithFormatForm(String plan, String format) {
+        return createWithFormat(plan, format);
+    }
+
+    @Override
+    public Response createWithFormatMultipart(String plan, String format) {
+        return createWithFormat(plan, format);
+    }
+
     public Response createWithFormat(String inputToAutodetectType, String format) {
         log.debug("Creating app from autodetecting input");
 

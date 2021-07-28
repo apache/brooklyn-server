@@ -33,6 +33,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.apache.cxf.jaxrs.ext.multipart.Multipart;
+
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -177,7 +179,7 @@ public interface ApplicationApi {
     @Beta
     @PUT
     @Path("/{application}")
-    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML and format with the given id",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
@@ -186,13 +188,34 @@ public interface ApplicationApi {
             @ApiResponse(code = 404, message = "Undefined entity or location"),
             @ApiResponse(code = 409, message = "Application already registered")
     })
-    public Response createFromYamlAndFormatAndAppId(
+    public Response createFromYamlAndFormatAndAppIdForm(
             @ApiParam(name = "plan", value = "Plan", required = true)
             @FormParam("plan") String yaml,
             @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
             @FormParam("format") String format,
             @ApiParam(name = "application", value = "Application id", required = true)
             @PathParam("application") String appId);
+
+    @Beta
+    @PUT
+    @Path("/{application}")
+    @Consumes({MediaType.MULTIPART_FORM_DATA})
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML and format with the given id",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered")
+    })
+    public Response createFromYamlAndFormatAndAppIdMultipart(
+            @ApiParam(name = "plan", value = "Plan", required = true)
+            @Multipart("plan") String yaml,
+            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
+            @Multipart("format") String format,
+            @ApiParam(name = "application", value = "Application id", required = true)
+            @Multipart("application") String appId);
+
 
     /** @deprecated since 1.1 use {@link #createWithFormat(byte[], String)} instead */
     @Deprecated
@@ -236,7 +259,7 @@ public interface ApplicationApi {
 
     @Beta
     @POST
-    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
@@ -244,12 +267,27 @@ public interface ApplicationApi {
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Undefined entity or location")
     })
-    public Response createWithFormat(
+    public Response createWithFormatMultipart(
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
+            @Multipart("plan") String plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
+            @Multipart("format") String format);
+
+    @Beta
+    @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Undefined entity or location")
+    })
+    public Response createWithFormatForm(
             @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
             @FormParam("plan") String plan,
             @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
             @FormParam("format") String format);
-
 
     @DELETE
     @Path("/{application}")
