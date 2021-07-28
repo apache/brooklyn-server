@@ -156,7 +156,7 @@ public class TypePlanTransformers {
             result = failuresFromTransformers.size()==1 ? Exceptions.create(null, failuresFromTransformers) :
                 Exceptions.create("All applicable plan transformers failed", failuresFromTransformers);
         } else {
-            String prefix = Strings.isBlank(type.getPlan().getPlanFormat()) ? "Invalid plan" : "Invalid '"+type.getPlan().getPlanFormat()+"' plan]";
+            String prefix = Strings.isBlank(type.getPlan().getPlanFormat()) ? "Invalid plan" : "Invalid '"+type.getPlan().getPlanFormat()+"' plan";
             if (transformers.isEmpty()) {
                 result = new UnsupportedTypePlanException(prefix + "; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+
                     (type.getId()!=null ? type.getId() : "plan:\n"+type.getPlan().getPlanData()));

@@ -554,6 +554,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     public Response createWithFormat(String inputToAutodetectType, String format) {
+        if (format!=null) format = format.trim();
         log.debug("Creating app from autodetecting input");
 
         boolean looksLikeLegacy = false;

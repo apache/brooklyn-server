@@ -31,7 +31,16 @@ public class ApplicationApiTest extends BrooklynRestApiLauncherTestFixture {
     @Test(groups = "Integration")
     public void testMultipartFormWithInvalidChar() throws Exception {
         useServerForTest(newServer());
-        String body = "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2\n\rContent-Disposition: form-data; services:\n\r- type: org.apache.brooklyn.entity.stock.BasicEntity\n\rbrooklyn.config:\n\rexample: $brooklyn:formatString(\"%s\", \"vault\")\n\r\n\r\n\r------WebKitFormBoundaryaQhM7RFMi4ZiXOj2\n\rContent-Disposition: form-data; name=\"format\"\n\r\n\rcamp\n\r------WebKitFormBoundaryaQhM7RFMi4ZiXOj2--\n\r";
+        String body = "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2\n\r" +
+                "Content-Disposition: form-data; name=\"plan\"\n\r\n\r" +
+                "services:\n\r" +
+                "- type: org.apache.brooklyn.entity.stock.BasicEntity\n\r" +
+                "  brooklyn.config:\n\r" +
+                "    example: $brooklyn:formatString(\"%s\", \"vault\")\n\r\n\r\n\r" +
+                "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2\n\r" +
+                "Content-Disposition: form-data; name=\"format\"\n\r\n\r" +
+                "brooklyn-camp\n\r" +
+                "------WebKitFormBoundaryaQhM7RFMi4ZiXOj2--\n\r";
         ImmutableMap<String, String> headers = ImmutableMap.of("Content-Type", "multipart/form-data; boundary=----WebKitFormBoundaryaQhM7RFMi4ZiXOj2");
         assertPostMultiPart("admin", "/v1/applications", body.getBytes(), headers);
     }
