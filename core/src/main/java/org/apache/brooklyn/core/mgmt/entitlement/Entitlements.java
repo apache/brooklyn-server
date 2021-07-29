@@ -104,6 +104,7 @@ public class Entitlements {
      * of the app to be deployed (spec instance or yaml plan)
      */
     public static EntitlementClass<Object> DEPLOY_APPLICATION = new BasicEntitlementClassDefinition<Object>("app.deploy", Object.class);
+    public static EntitlementClass<Object> INSTALL_JAVA = new BasicEntitlementClassDefinition<Object>("java.deploy", Object.class);
 
     /**
      * Catch-all for catalog, locations, scripting, usage, etc - exporting persistence, shutting down, etc;
