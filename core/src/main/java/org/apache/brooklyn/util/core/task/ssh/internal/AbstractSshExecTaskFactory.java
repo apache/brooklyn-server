@@ -47,7 +47,9 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
         this(commands);
         machine(machine);
     }
-    
+
+    protected abstract String taskTypeShortName();
+
     @Override
     public ProcessTaskWrapper<RET> newTask() {
         dirty = false;
@@ -64,7 +66,7 @@ public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFa
                 }
             }
             @Override
-            protected String taskTypeShortName() { return "SSH"; }
+            protected String taskTypeShortName() { return AbstractSshExecTaskFactory.this.taskTypeShortName(); }
 
             @Override
             protected void initStreams(TaskBuilder<Object> tb) {

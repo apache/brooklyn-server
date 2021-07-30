@@ -47,6 +47,9 @@ public class PlainWinRmExecTaskFactory<RET> extends AbstractSshExecTaskFactory<P
     }
 
     @Override
+    protected String taskTypeShortName() { return "WinRM"; }
+
+    @Override
     public <T2> PlainWinRmExecTaskFactory<T2> returning(ScriptReturnType type) {
         return (PlainWinRmExecTaskFactory<T2>) super.<T2>returning(type);
     }

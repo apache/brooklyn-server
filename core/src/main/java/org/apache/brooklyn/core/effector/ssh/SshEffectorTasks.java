@@ -109,6 +109,10 @@ public class SshEffectorTasks {
         public SshEffectorTaskFactory(MachineLocation machine, String ...commands) {
             super(machine, commands);
         }
+
+        @Override
+        protected String taskTypeShortName() { return "SSH"; }
+
         @Override
         public ProcessTaskWrapper<RET> newTask(Entity entity, Effector<RET> effector, ConfigBag parameters) {
             markDirty();
