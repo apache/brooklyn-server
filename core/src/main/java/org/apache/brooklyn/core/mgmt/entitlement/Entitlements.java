@@ -105,7 +105,6 @@ public class Entitlements {
      */
     public static EntitlementClass<Object> DEPLOY_APPLICATION = new BasicEntitlementClassDefinition<Object>("app.deploy", Object.class);
     public static EntitlementClass<Object> ADD_JAVA = new BasicEntitlementClassDefinition<Object>("java.add", Object.class);
-    public static EntitlementClass<Object> ADD_BOM = new BasicEntitlementClassDefinition<Object>("bom.add", Object.class);
 
     /**
      * Catch-all for catalog, locations, scripting, usage, etc - exporting persistence, shutting down, etc;
