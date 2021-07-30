@@ -40,23 +40,32 @@ public class BrooklynCampPlatformLauncher extends BrooklynCampPlatformLauncherAb
     public BrooklynCampPlatformLauncher launch() {
         assert platform == null;
 
-        mgmt = newManagementContext();
+        mgmt = getManagementContextForLauncher();
         
         // We created the management context, so we are responsible for terminating it
         BrooklynShutdownHooks.invokeTerminateOnShutdown(mgmt);
 
-        brooklynLauncher = BrooklynLauncher.newInstance().managementContext(mgmt).start();
+        brooklynLauncher = getBrooklynLauncherStarted(mgmt);
         platform = new BrooklynCampPlatform(
                 PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
-                mgmt).setConfigKeyAtManagmentContext();
+                mgmt)
+                .setConfigKeyAtManagmentContext();
         
         campServer = new CampServer(getCampPlatform(), "").start();
         
         return this;
     }
-    
+
+    protected BrooklynLauncher getBrooklynLauncherStarted(ManagementContext mgmt) {
+        return BrooklynLauncher.newInstance().managementContext(mgmt).start();
+    }
+
     protected ManagementContext newManagementContext() {
         return new LocalManagementContext();
+    }
+
+    protected ManagementContext getManagementContextForLauncher() {
+        return newManagementContext();
     }
 
     public static void main(String[] args) {

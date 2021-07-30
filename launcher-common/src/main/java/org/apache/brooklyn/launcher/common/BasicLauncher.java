@@ -512,8 +512,16 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
 
     protected void handlePersistence() {
         try {
-            initPersistence();
-            startPersistence();
+            if (managementContext.getRebindManager().getPersister()!=null) {
+                LOG.debug("Persister already initialized by mgmt context; skipping from launcher");
+                // call below will fail if persister already set eg by RebindTestUtils
+                if (!(((RebindManagerImpl) managementContext.getRebindManager()).isPersistenceRunning())) {
+                    throw new IllegalStateException("Persistence was initialized but not running, prior to launcher");
+                }
+            } else {
+                initPersistence();
+                startPersistence();
+            }
         } catch (Exception e) {
             handleSubsystemStartupError(ignorePersistenceErrors, "persistence", e);
         }

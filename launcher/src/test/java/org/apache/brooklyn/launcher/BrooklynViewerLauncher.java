@@ -67,15 +67,26 @@ public class BrooklynViewerLauncher extends BrooklynLauncher {
         if (started) throw new IllegalStateException("Cannot start() or launch() multiple times");
         started = true;
 
-        if (getManagementContext() == null || !getManagementContext().isRunning()) {
-            throw new IllegalStateException("Management context must be set, and running");
-        }
-        
-        startingUp();
-        markStartupComplete();
-        
-        initBrooklynNode();
+        startViewer();
 
         return this;
     }
+
+    protected void startViewer() {
+        if (getManagementContext() == null || !getManagementContext().isRunning()) {
+            throw new IllegalStateException("Management context must be set, and running");
+        }
+
+        startingUp();
+        markStartupComplete();
+
+        initBrooklynNode();
+    }
+
+    public BrooklynLauncher startBrooklynAndViewer() {
+        super.start();
+        startViewer();
+        return this;
+    }
+
 }

@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.launcher.blueprints;
 
+import java.util.function.Consumer;
+import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -65,7 +67,7 @@ public abstract class AbstractBlueprintTest {
     
     protected ManagementContext mgmt;
     protected SimpleYamlLauncherForTests launcher;
-    protected BrooklynLauncher viewer;
+    protected BrooklynViewerLauncher viewer;
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
@@ -78,15 +80,26 @@ public abstract class AbstractBlueprintTest {
             protected BrooklynCampPlatformLauncherAbstract newPlatformLauncher() {
                 return new BrooklynCampPlatformLauncher() {
                     @Override
-                    protected ManagementContext newManagementContext() {
+                    protected ManagementContext getManagementContextForLauncher() {
                         return AbstractBlueprintTest.this.mgmt;
+                    }
+
+                    @Override
+                    protected BrooklynLauncher getBrooklynLauncherStarted(ManagementContext mgmt) {
+                        if (viewer!=null) {
+                            throw new IllegalStateException("Viewer already running");
+                        }
+                        viewer = BrooklynViewerLauncher.newInstance();
+                        viewer.managementContext(mgmt);
+
+                        // other persistence options come from mgmt console but launcher needs to know this:
+                        viewer.persistMode(PersistMode.AUTO);
+
+                        return viewer.startBrooklynAndViewer();
                     }
                 };
             }
         };
-        viewer = BrooklynViewerLauncher.newInstance()
-                .managementContext(mgmt)
-                .start();
     }
 
     @AfterMethod(alwaysRun=true)
@@ -141,13 +154,29 @@ public abstract class AbstractBlueprintTest {
         }
     }
     
-    protected void runTest(String yamlFile) throws Exception {
-        final Application app = launcher.launchAppYaml(yamlFile);
-        
-        assertNoFires(app);
+    protected Application runTest(String yamlFile) throws Exception {
+        return runTestOnFile(yamlFile);
+    }
+
+    protected Application runTestOnFile(String yamlFile) throws Exception {
+        return runTest(launcher.launchAppYaml(yamlFile));
+    }
+
+    protected Application runTestOnBlueprint(String blueprint) throws Exception {
+        return runTest(launcher.launchAppYaml(new StringReader(blueprint)));
+    }
+
+    protected Application runTest(Application app) throws Exception {
+        return runTest(app, this::assertNoFires);
+    }
+
+    protected Application runTest(Application app, Consumer<Application> check) throws Exception {
+        check.accept(app);
         
         Application newApp = rebind();
-        assertNoFires(newApp);
+        check.accept(newApp);
+
+        return app;
     }
     
     protected void runTest(Reader yaml) throws Exception {
