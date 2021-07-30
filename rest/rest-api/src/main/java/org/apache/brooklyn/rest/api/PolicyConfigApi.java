@@ -39,7 +39,7 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
 @Path("/applications/{application}/entities/{entity}/policies/{policy}/config")
-@Api("Entity Policy Config")
+@Api(value="Entity Policy Config (deprecated; use Entity Adjuncts endpoint)", hidden = true)
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 /** @deprecated since 1.0.0 use AdjunctApi */

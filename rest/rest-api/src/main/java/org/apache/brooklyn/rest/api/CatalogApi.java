@@ -48,9 +48,11 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
 @Path("/catalog")
-@Api("Catalog")
+@Api(value = "Catalog (deprecated; use Catalog Types endpoint)", hidden = true)
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+@Deprecated
+/** @deprecated since 1.1 use {@link TypeApi} instead */
 public interface CatalogApi {
 
     /** @deprecated since 0.11.0 use {@link #createFromYaml(String, boolean)} instead */
