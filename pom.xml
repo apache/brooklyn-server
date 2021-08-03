@@ -115,7 +115,7 @@
         <failureaccess.version>1.0.1</failureaccess.version>
 
         <!-- xstream -->
-        <xstream.version>1.4.15</xstream.version>
+        <xstream.version>1.4.17</xstream.version>
 
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
@@ -180,7 +180,7 @@
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.3.0</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.35.v20201120</jetty.version> <!-- 9.4.31.v20200723 from Karaf 4.3.0 -->
+        <jetty.version>9.4.39.v20210325</jetty.version> <!-- 9.4.31.v20200723 from Karaf 4.3.0 -->
         <commons-collections.version>3.2.2</commons-collections.version>
         <pax-web.version>7.3.9</pax-web.version>
         <jaxb-api.version>2.3.3</jaxb-api.version>
