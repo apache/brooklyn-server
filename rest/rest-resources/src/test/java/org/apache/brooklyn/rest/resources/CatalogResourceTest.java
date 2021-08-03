@@ -19,8 +19,7 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 import java.awt.Image;
 import java.awt.Toolkit;
@@ -31,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -79,6 +79,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.cxf.jaxrs.client.WebClient;
@@ -1293,7 +1294,34 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .description(updatedDescription)
                 .applyAsserts(() -> client());
     }
-    
+
+    @Test
+    public void testIsJavaFileNull(){
+        CatalogResource cut = new CatalogResource();
+        assertFalse(cut.isJava(null));
+    }
+
+    @Test
+    public void testIsJavaFileText() throws IOException {
+        CatalogResource cut = new CatalogResource();
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/scanning.catalog.bom").getPath()));
+        assertFalse(cut.isJava(InputStreamSource.of("Test bom file", bytes)));
+    }
+
+    @Test
+    public void testIsJavaNoClassesJar() throws IOException {
+        CatalogResource cut = new CatalogResource();
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/rest/resources/testNoJava-0.1.0-SNAPSHOT.jar").getPath()));
+        assertFalse(cut.isJava(InputStreamSource.of("Test Jar without Java classes", bytes)));
+    }
+
+    @Test
+    public void testIsJavaWithClassesJar() throws IOException {
+        CatalogResource cut = new CatalogResource();
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/rest/resources/testWithJava-0.1.0-SNAPSHOT.jar").getPath()));
+        assertTrue(cut.isJava(InputStreamSource.of("Test JAR with Java classes", bytes)));
+    }
+
     enum CatalogItemType {
         APPLICATION("applications", CatalogEntitySummary.class),
         ENTITY("entities", CatalogEntitySummary.class),
