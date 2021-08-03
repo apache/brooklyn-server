@@ -57,7 +57,7 @@ public interface LogoutApi {
     @Deprecated
     @POST
     @Path("/{user}")
-    @ApiOperation(value = "Logout and clean session if matching user logged in")
+    @ApiOperation(value = "Logout and clean session if matching user logged in (deprecated; username should now be omitted)")
     Response logoutUser(
         @ApiParam(value = "User to log out", required = true)
         @PathParam("user") final String user);

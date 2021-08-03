@@ -207,7 +207,7 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         return create(zipInput, BrooklynBomBundleCatalogBundleResolver.FORMAT, force);
     }
 
-    @Override @Deprecated
+    @Override
     public Response create(byte[] contents, String format, Boolean force) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog items",

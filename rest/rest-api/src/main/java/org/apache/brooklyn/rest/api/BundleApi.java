@@ -183,7 +183,7 @@ public interface BundleApi {
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml")
-    @ApiOperation(value = "(deprecated)", hidden = true, response = BundleInstallationRestResult.class)
+    @ApiOperation(value = "(deprecated; use same endpoint accepting optional format)", hidden = true, response = BundleInstallationRestResult.class)
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "BOM YAML declaring the types to be installed", required = true)
             @Valid String yaml,
@@ -195,7 +195,7 @@ public interface BundleApi {
     @Deprecated
     @POST
     @Consumes({"application/deprecated-zip"})
-    @ApiOperation(value = "(deprecated)", hidden = true, response = BundleInstallationRestResult.class)
+    @ApiOperation(value = "(deprecated; use same endpoint accepting optional format)", hidden = true, response = BundleInstallationRestResult.class)
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
@@ -206,15 +206,13 @@ public interface BundleApi {
             @QueryParam("force") @DefaultValue("false")
             Boolean force);
 
-    /** @deprecated since 1.1 use {@link #create(byte[], String, Boolean)} instead */
-    @Deprecated
     @POST
     @Consumes // anything - now autodetect is done for everything unless 'format' is specified
     // (mime type is ignored; though it could be useful in the "score" function, and probably is available on the thread)
     @ApiOperation(
             value = "Add a bundle of types (entities, etc) to the type registry",
-            notes = "This will auto-detect the format, with the 'brooklyn-bom-bundle' being common and consisting of "
-                    + "a ZIP/JAR containing a catalog.bom",
+            notes = "Format can be omitted for auto-detection, or supplied explicitly eg 'brooklyn-bom-bundle' to upload "
+                    + "a ZIP/JAR containing a catalog.bom and optional other items",
             response = BundleInstallationRestResult.class)
     @ApiResponses(value = {
             @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
@@ -226,7 +224,7 @@ public interface BundleApi {
                     value = "Bundle contents to install, eg for brooklyn-catalog-bundle a ZIP or JAR containing a catalog.bom file",
                     required = true)
                     byte[] archive,
-            @ApiParam(name = "format", value="Specify the format to indicate a specific resolver for handling this", required=false)
+            @ApiParam(name = "format", value="Specify the format to indicate a specific resolver for handling this (auto-detect if omitted)", required=false)
             @QueryParam("format") @DefaultValue("")
                     String format,
             @ApiParam(name = "force", value = "Whether to forcibly remove it, even if in use and/or errors", required = false, defaultValue = "false")
