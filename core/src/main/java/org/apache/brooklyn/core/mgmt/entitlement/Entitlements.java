@@ -104,6 +104,7 @@ public class Entitlements {
      * of the app to be deployed (spec instance or yaml plan)
      */
     public static EntitlementClass<Object> DEPLOY_APPLICATION = new BasicEntitlementClassDefinition<Object>("app.deploy", Object.class);
+    public static EntitlementClass<Object> ADD_JAVA = new BasicEntitlementClassDefinition<Object>("java.add", Object.class);
 
     /**
      * Catch-all for catalog, locations, scripting, usage, etc - exporting persistence, shutting down, etc;
@@ -145,7 +146,9 @@ public class Entitlements {
         ENTITLEMENT_MODIFY_ENTITY(MODIFY_ENTITY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleModifyEntity((Entity)argument); } },
         
         ENTITLEMENT_DEPLOY_APPLICATION(DEPLOY_APPLICATION) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleDeployApplication(argument); } },
-        
+
+        ENTITLEMENT_ADD_JAVA(ADD_JAVA) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleAddJava(argument); } },
+
         ENTITLEMENT_SEE_ALL_SERVER_INFO(SEE_ALL_SERVER_INFO) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeAllServerInfo(); } },
         ENTITLEMENT_SERVER_STATUS(SERVER_STATUS) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeServerStatus(); } },
         ENTITLEMENT_ROOT(ROOT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
@@ -184,6 +187,7 @@ public class Entitlements {
         public T handleInvokeEffector(EntityAndItem<StringAndArgument> effectorInfo);
         public T handleModifyEntity(Entity entity);
         public T handleDeployApplication(Object app);
+        public T handleAddJava(Object app);
         public T handleSeeAllServerInfo();
         public T handleExecuteGroovyScript();
         public T handleRoot();
@@ -278,7 +282,8 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY} and {@link #SEE_ALL_SERVER_INFO}.
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY},{@link #SEE_ALL_SERVER_INFO}
+     * and {@link #EXECUTE_GROOVY_SCRIPT}.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
@@ -289,6 +294,28 @@ public class Entitlements {
                         !ROOT.equals(permission) &&
                         !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
                         !EXECUTE_GROOVY_SCRIPT.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.user";
+            }
+        };
+    }
+
+    /**
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY}, {@link #SEE_ALL_SERVER_INFO},
+     * {@link #EXECUTE_GROOVY_SCRIPT} and {@link #ADD_JAVA}
+     */
+    public static EntitlementManager blueprintAuthor() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return
+                        !SEE_ALL_SERVER_INFO.equals(permission) &&
+                        !ROOT.equals(permission) &&
+                        !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
+                        !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
+                        !ADD_JAVA.equals(permission);
             }
             @Override
             public String toString() {
@@ -509,6 +536,8 @@ public class Entitlements {
             return user();
         } else if ("powerUser".equalsIgnoreCase(type) || "power_user".equalsIgnoreCase(type)) {
             return powerUser();
+        } else if ("blueprintAuthor".equalsIgnoreCase(type) || "blueprint_author".equalsIgnoreCase(type)) {
+            return blueprintAuthor();
         }
         if (Strings.isNonBlank(type)) {
             try {

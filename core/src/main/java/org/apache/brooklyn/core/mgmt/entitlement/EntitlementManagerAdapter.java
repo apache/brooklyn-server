@@ -91,6 +91,11 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
         }
 
         @Override
+        public Boolean handleAddJava(Object app) {
+            return isEntitledToAddJava(context, app);
+        }
+
+        @Override
         public Boolean handleSeeAllServerInfo() {
             return isEntitledToSeeAllServerInfo(context);
         }
@@ -135,6 +140,8 @@ public abstract class EntitlementManagerAdapter implements EntitlementManager {
     protected abstract boolean isEntitledToInvokeEffector(EntitlementContext context, Entity entity, String effectorName, Object arguments);
     protected abstract boolean isEntitledToModifyEntity(EntitlementContext context, Entity entity);
     protected abstract boolean isEntitledToDeployApplication(EntitlementContext context, Object app);
+    protected abstract boolean isEntitledToAddJava(EntitlementContext context, Object app);
+    protected abstract boolean isEntitledToAddBom(EntitlementContext context, Object app);
     protected abstract boolean isEntitledToSeeAllServerInfo(EntitlementContext context);
     protected abstract boolean isEntitledToSeeServerStatus(EntitlementContext context);
     protected abstract boolean isEntitledToExecuteGroovyScripts(EntitlementContext context);

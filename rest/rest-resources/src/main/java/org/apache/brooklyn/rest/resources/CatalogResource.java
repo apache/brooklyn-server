@@ -19,12 +19,17 @@
 package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipException;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.DefaultValue;
@@ -33,6 +38,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -64,6 +70,7 @@ import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.apache.commons.compress.compressors.z.ZCompressorInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,7 +90,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
     private static final Logger log = LoggerFactory.getLogger(CatalogResource.class);
     private static final String LATEST = "latest";
-    
+
     @Deprecated
     private Function<RegisteredType, CatalogItemSummary> toCatalogItemSummary(final UriInfo ui) {
         return new Function<RegisteredType, CatalogItemSummary>() {
@@ -112,20 +119,20 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             Exceptions.propagateIfFatal(e);
             yamlException = e;
         }
-        
+
         if (yamlException==null) {
             // treat as yaml if it parsed
             return createFromYaml(new String(item), forceUpdate);
         }
-        
+
         return createFromArchive(item, false, forceUpdate);
     }
-    
+
     @Override @Deprecated
     public Response create(String yaml, boolean forceUpdate) {
         return createFromYaml(yaml, forceUpdate);
     }
-    
+
     @Override @Deprecated
     public Response createFromYaml(String yaml, boolean forceUpdate) {
         return create(yaml.getBytes(), BrooklynBomYamlCatalogBundleResolver.FORMAT, false, true, forceUpdate);
@@ -138,13 +145,20 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
     @Override
     public Response create(byte[] archive, String format, boolean detail, boolean itemDetails, boolean forceUpdate) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
+        InputStreamSource source = InputStreamSource.of("REST bundle upload", archive);
+        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && isJava(source)){
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_JAVA, null)) {
+                throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item containing java classes",
+                        Entitlements.getEntitlementContext().user());
+            }
+        }
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                     Entitlements.getEntitlementContext().user());
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-                .install(InputStreamSource.of("REST bundle upload", archive), format, forceUpdate);
+                .install(source, format, forceUpdate);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
@@ -177,6 +191,21 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         return Response.status(status).entity( detail ? resultR : resultR.getTypes() ).build();
     }
 
+    @VisibleForTesting
+    protected boolean isJava(InputStreamSource archive) {
+        try {
+            ZipInputStream zipIS = new ZipInputStream(archive.get());
+            for (ZipEntry entry = zipIS.getNextEntry(); entry != null; entry = zipIS.getNextEntry()) {
+                if (!entry.isDirectory() && (entry.getName().endsWith(".class") || entry.getName().endsWith(".jar"))) {
+                    return true;
+                }
+            }
+        }catch (Exception e){
+            log.debug("Error analyzing file to be added as a bundle", e);
+        }
+        return false;
+    }
+
     @Override
     @Deprecated
     public void deleteApplication(String symbolicName, String version) throws Exception {
@@ -192,7 +221,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, version);
         if (item == null) {
             throw WebResourceUtils.notFound("Entity with id '%s:%s' not found", symbolicName, version);
@@ -212,7 +241,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         RegisteredType item = mgmt().getTypeRegistry().get(policyId, version);
         if (item == null) {
             throw WebResourceUtils.notFound("Policy with id '%s:%s' not found", policyId, version);
@@ -232,7 +261,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         RegisteredType item = mgmt().getTypeRegistry().get(locationId, version);
         if (item == null) {
             throw WebResourceUtils.notFound("Location with id '%s:%s' not found", locationId, version);
@@ -265,7 +294,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                         RegisteredTypePredicates.disabled(false));
         return getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, allVersions);
     }
-    
+
     @Override
     @Deprecated
     public CatalogEntitySummary getEntity(String symbolicName, String version) {
@@ -358,7 +387,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             filters.add(RegisteredTypePredicates.stringRepresentationMatches(StringPredicates.containsLiteralIgnoreCase(fragment)));
         if (!allVersions)
             filters.add(RegisteredTypePredicates.isBestVersion(mgmt()));
-        
+
         filters.add(RegisteredTypePredicates.entitledToSee(mgmt()));
 
         ImmutableList<RegisteredType> sortedItems =
@@ -375,10 +404,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
     }
-    
+
     @Override
     @Deprecated
     public void setDeprecated(String itemId, boolean deprecated) {
@@ -450,13 +479,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             log.debug("No icon available for "+result+"; returning "+Status.NO_CONTENT);
             return Response.status(Status.NO_CONTENT).build();
         }
-        
+
         if (brooklyn().isUrlServerSideAndSafe(url)) {
             // classpath URL's we will serve IF they end with a recognised image format;
-            // paths (ie non-protocol) and 
+            // paths (ie non-protocol) and
             // NB, for security, file URL's are NOT served
             log.debug("Loading and returning "+url+" as icon for "+result);
-            
+
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
             try {
                 Object content = ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt(), result)).getResourceFromUrl(url);
@@ -476,9 +505,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 throw WebResourceUtils.notFound("Icon unavailable for %s", result.getId());
             }
         }
-        
+
         log.debug("Returning redirect to "+url+" as icon for "+result);
-        
+
         // for anything else we do a redirect (e.g. http / https; perhaps ftp)
         return Response.temporaryRedirect(URI.create(url)).build();
     }
@@ -497,7 +526,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 } else {
                     Exceptions.propagateIfFatal(throwable);
                 }
-                
+
                 // item cannot be transformed; we will have logged a warning earlier
                 log.debug("Ignoring invalid catalog item: "+throwable);
             }
