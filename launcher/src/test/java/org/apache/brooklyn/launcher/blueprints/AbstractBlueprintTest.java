@@ -18,8 +18,12 @@
  */
 package org.apache.brooklyn.launcher.blueprints;
 
+import java.util.Set;
 import java.util.function.Consumer;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.util.collections.MutableSet;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -42,10 +46,8 @@ import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess;
-import org.apache.brooklyn.launcher.BrooklynLauncher;
 import org.apache.brooklyn.launcher.BrooklynViewerLauncher;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
-import org.apache.brooklyn.launcher.camp.BrooklynCampPlatformLauncher;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.os.Os;
@@ -67,39 +69,62 @@ public abstract class AbstractBlueprintTest {
     
     protected ManagementContext mgmt;
     protected SimpleYamlLauncherForTests launcher;
-    protected BrooklynViewerLauncher viewer;
+    protected Set<BrooklynViewerLauncher> viewers = MutableSet.of();
 
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         mementoDir = Os.newTempDir(getClass());
         mgmt = createOrigManagementContext();
+
+        // required for REST access - otherwise it is viewed as not yet ready
+        ((RebindManagerImpl)mgmt.getRebindManager()).setAwaitingInitialRebind(false);
+
         LOG.info("Test "+getClass()+" persisting to "+mementoDir);
+
+        startViewer(true);
 
         launcher = new SimpleYamlLauncherForTests() {
             @Override
             protected BrooklynCampPlatformLauncherAbstract newPlatformLauncher() {
-                return new BrooklynCampPlatformLauncher() {
+                return new BrooklynCampPlatformLauncherNoServer() {
                     @Override
-                    protected ManagementContext getManagementContextForLauncher() {
-                        return AbstractBlueprintTest.this.mgmt;
-                    }
-
-                    @Override
-                    protected BrooklynLauncher getBrooklynLauncherStarted(ManagementContext mgmt) {
-                        if (viewer!=null) {
-                            throw new IllegalStateException("Viewer already running");
-                        }
-                        viewer = BrooklynViewerLauncher.newInstance();
-                        viewer.managementContext(mgmt);
-
-                        // other persistence options come from mgmt console but launcher needs to know this:
-                        viewer.persistMode(PersistMode.AUTO);
-
-                        return viewer.startBrooklynAndViewer();
+                    public BrooklynCampPlatformLauncherAbstract launch() {
+                        useManagementContext(AbstractBlueprintTest.this.mgmt);
+                        return super.launch();
                     }
                 };
             }
         };
+    }
+
+    protected void startViewer(boolean killCurrent) {
+        if (isViewerEnabled()) {
+            if (killCurrent) {
+                // typically we kill the old and restart on the same port during rebind;
+                // the old mgmt context is no longer active so isn't useful;
+                // but if we wanted to have multiple viewers we could
+                stopAllViewers();
+            }
+
+            BrooklynViewerLauncher viewer = BrooklynViewerLauncher.newInstance();
+            synchronized (viewers) {
+                viewers.add(viewer);
+            }
+
+            viewer.managementContext(mgmt);
+
+            // other persistence options come from mgmt console but launcher needs to know this:
+            viewer.persistMode(PersistMode.AUTO);
+
+            viewer.start();
+        }
+    }
+
+    protected void stopAllViewers() {
+        synchronized (viewers) {
+            viewers.forEach(BrooklynViewerLauncher::terminate);
+            viewers.clear();
+        }
     }
 
     @AfterMethod(alwaysRun=true)
@@ -117,7 +142,7 @@ public abstract class AbstractBlueprintTest {
                 }
             }
             if (launcher != null) launcher.destroyAll();
-            if (viewer != null) viewer.terminate();
+            if (viewers!=null) stopAllViewers();
             if (mgmt != null) Entities.destroyAll(mgmt);
             if (mementoDir != null) FileBasedObjectStore.deleteCompletely(mementoDir);
         } catch (Throwable t) {
@@ -241,10 +266,23 @@ public abstract class AbstractBlueprintTest {
         }
         
         mgmt = options.newManagementContext;
+
+        startViewer(!isUsingNewViewerForRebind());
+
         Application newApp = RebindTestUtils.rebind(options);
         return newApp;
     }
-    
+
+    /** override this to specify whether you want a viewer created (for testing) */
+    protected boolean isViewerEnabled() {
+        return true;
+    }
+
+    /** override this to return true if you want separate viewers for pre- and post- rebind */
+    protected boolean isUsingNewViewerForRebind() {
+        return false;
+    }
+
     /** @return A started management context */
     protected LocalManagementContext createOrigManagementContext() {
         return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)

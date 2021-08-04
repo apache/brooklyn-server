@@ -25,10 +25,23 @@ import org.testng.annotations.Test;
 
 public class SimpleBlueprintTest extends AbstractBlueprintTest {
 
+    @Override
+    protected boolean isViewerEnabled() {
+        return true;
+    }
+
+    @Override
+    protected boolean isUsingNewViewerForRebind() {
+        return true;
+    }
+
     // only Live because it starts a server
     @Test(groups={"Live"})
     public void testBasicEntity() throws Exception {
         Application app = runTestOnBlueprint("services: [ { type: " + BasicEntity.class.getName() + " } ]");
+
+        // stick a breakpoint on the following line (make sure it is thread-only, not all-threads!)
+        // then connect a UI eg brooklyn-ui/app-inspector `make dev` to the API endpoint used
         Dumper.dumpInfo(app);
     }
 

@@ -19,7 +19,9 @@
 package org.apache.brooklyn.launcher;
 
 /**
- * A convenience for started the Brooklyn REST api and web-app in a test, so that one can visually
+ * Starts a viewing instance on an already-started management context - skipping catalog etc.
+ *
+ * This is a convenience for started the Brooklyn REST api and web-app in a test, so that one can visually
  * inspect the app that the test creates. This is intended as a read-only view (but it has the real
  * management context so one can perform actions through this UI).
  * 
@@ -67,12 +69,17 @@ public class BrooklynViewerLauncher extends BrooklynLauncher {
         if (started) throw new IllegalStateException("Cannot start() or launch() multiple times");
         started = true;
 
-        startViewer();
+        startViewerOnly();
 
         return this;
     }
 
-    protected void startViewer() {
+    @Override
+    public void terminate() {
+        terminateWebServer();
+    }
+
+    protected void startViewerOnly() {
         if (getManagementContext() == null || !getManagementContext().isRunning()) {
             throw new IllegalStateException("Management context must be set, and running");
         }
@@ -81,12 +88,6 @@ public class BrooklynViewerLauncher extends BrooklynLauncher {
         markStartupComplete();
 
         initBrooklynNode();
-    }
-
-    public BrooklynLauncher startBrooklynAndViewer() {
-        super.start();
-        startViewer();
-        return this;
     }
 
 }

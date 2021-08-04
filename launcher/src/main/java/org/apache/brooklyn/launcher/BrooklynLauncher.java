@@ -381,13 +381,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
     public void terminate() {
         if (!isStarted()) return; // no-op
 
-        if (webServer != null) {
-            try {
-                webServer.stop();
-            } catch (Exception e) {
-                LOG.warn("Error stopping web-server; continuing with termination", e);
-            }
-        }
+        terminateWebServer();
 
         ManagementContext managementContext = getManagementContext();
 
@@ -419,6 +413,16 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         for (Location loc : getLocations()) {
             if (loc instanceof Closeable) {
                 Streams.closeQuietly((Closeable)loc);
+            }
+        }
+    }
+
+    protected void terminateWebServer() {
+        if (webServer != null) {
+            try {
+                webServer.stop();
+            } catch (Exception e) {
+                LOG.warn("Error stopping web-server; continuing with termination", e);
             }
         }
     }
