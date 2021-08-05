@@ -169,7 +169,7 @@ public class JmxmpAgentSslTest {
         new JmxmpClient().connect("service:jmx:jmxmp://localhost:11099", new LinkedHashMap());
     }
 
-    @Test
+    @Test(groups = "Integration")
     public void testAllGoodSignatures() throws Exception {
         serverKeystore.setKeyEntry("child-2", child2Key.getPrivate(), new char[]{},  
                 new java.security.cert.Certificate[]{ child2Cert, caRootCert });
