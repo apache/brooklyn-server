@@ -260,18 +260,13 @@ public class DslYamlTest extends AbstractYamlTest {
                 "  - type: wrapping-simple");
         Entity child1 = Iterables.get(app.getChildren(), 0);
         Entity child2 = Iterables.get(app.getChildren(), 1);
-        assertScopeRoot(child1, false);
-        // TODO Not the result I'd expect - in both cases the entity argument should the the scopeRoot element, not its child
-        assertScopeRoot(child2, true);
+        assertChildScopeRootReferenceIs(child1);
+        assertChildScopeRootReferenceIs(child2);
     }
 
-    private void assertScopeRoot(Entity entity, boolean isScopeBugged) throws Exception {
+    private void assertChildScopeRootReferenceIs(Entity entity) throws Exception {
         Entity child = Iterables.getOnlyElement(entity.getChildren());
-        if (!isScopeBugged) {
-            assertEquals(getConfigEventually(child, DEST), entity);
-        } else {
-            assertEquals(getConfigEventually(child, DEST), child);
-        }
+        assertEquals(getConfigEventually(child, DEST), entity);
     }
 
     @Test
