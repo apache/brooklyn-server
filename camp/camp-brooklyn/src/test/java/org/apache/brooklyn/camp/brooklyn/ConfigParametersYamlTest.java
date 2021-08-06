@@ -662,8 +662,11 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "- type: wrapper-entity",
                 "  brooklyn.config:",
                 "    key4: $brooklyn:config(\"my.param.key\")",
-                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
-        
+                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.other.key\")",
+                "    my.other.key: notUsed",
+                "brooklyn.config:",
+                "  my.other.key: otherDefaultValue");
+
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.param.key")), "myDefaultValInOuter");
@@ -671,7 +674,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3")), "myDefaultValInOuter");
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3.from.root")), "myDefaultValInOuter");
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4")), "myDefaultValInOuter");
-        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "myDefaultValInOuter");
+        // scopeRoot in this context now correctly goes to application root; previously (before 2021-08) it looked at the place where the wrapper-entity was defined
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "otherDefaultValue");
     }
     
     @Test
@@ -714,8 +718,11 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "- type: wrapper-entity",
                 "  brooklyn.config:",
                 "    key4: $brooklyn:config(\"my.param.key\")",
-                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
-        
+                "    key4.from.root: $brooklyn:scopeRoot().config(\"my.other.key\")",
+                "    my.other.key: notUsed",
+                "brooklyn.config:",
+                "  my.other.key: otherDefaultValue");
+
         Entity app = createStartWaitAndLogApplication(yaml);
         final TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         LOG.info("Config keys declared on "+entity+": "+entity.config().findKeysDeclared(Predicates.alwaysTrue()));
@@ -728,7 +735,8 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3")), "myDefaultVal");
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key3.from.root")), "myDefaultVal");
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4")), "myDefaultVal");
-        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "myDefaultVal");
+        // scopeRoot in this context now correctly goes to application root; previously (before 2021-08) it looked at the place where the wrapper-entity was defined
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "otherDefaultValue");
     }
     
     @Test

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
 
 import java.io.Closeable;
@@ -1149,6 +1150,16 @@ public class Entities {
 
     public static Entity catalogItemScopeRoot(Entity entity) {
         Entity root = entity;
+
+        Integer depth = BrooklynTags.getDepthInAncestorTag(root.tags().getTags());
+        if (depth!=null && depth>0) {
+            while (depth>0) {
+                root = root.getParent();
+                depth--;
+            }
+            return root;
+        }
+
         while (root.getParent() != null &&
                 root != root.getParent() &&
                 Objects.equal(root.getParent().getCatalogItemId(), root.getCatalogItemId())) {

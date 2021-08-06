@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.Set;
+import java.util.function.Function;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.Collection;
@@ -111,6 +112,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         } else {
             return new DslComponent(scope, (DeferredSupplier<?>)componentId);
         }
+    }
+
+    public static DslComponent newInstanceChangingScope(Scope scope, DslComponent old, Function<String,String> dslUpdateFn) {
+        DslComponent result;
+        if (old.componentIdSupplier!=null) result = new DslComponent(scope, old.componentIdSupplier);
+        else if (old.componentId!=null) result = new DslComponent(scope, old.componentId);
+        else result = new DslComponent(scope);
+
+        if (dslUpdateFn!=null && old.dsl instanceof String) {
+            result.dsl = dslUpdateFn.apply((String) old.dsl);
+        } else {
+            result.dsl = old.dsl;
+        }
+        return result;
     }
 
     /**
@@ -1028,7 +1043,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         DESCENDANT,
         ANCESTOR,
         ROOT,
-        /** highest ancestor where all items come from the same catalog item ID */
+        /** root node of blueprint where the the DSL is used; usually the depth in ancestor,
+         *  though specially treated in CampResolver to handle usage within blueprints */
         SCOPE_ROOT,
         THIS;
 

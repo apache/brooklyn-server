@@ -526,71 +526,105 @@ public class EntitiesYamlTest extends AbstractYamlTest {
             }
         }
     }
-    
-    @Test
-    public void testScopeReferences() throws Exception {
+
+    private void doTestScopeReferences(String reference) throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  itemType: entity",
                 "  items:",
                 "  - id: ref_child",
                 "    item:",
-                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      type: " + reference,
+                "      name: RC",
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
                 "      brooklyn.children:",
-                "      - type: " + ReferencingYamlTestEntity.class.getName(),
+                "      - type: " + reference,
+                "        name: RC-child",
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
 
                 "  - id: ref_parent",
                 "    item:",
-                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      type: " + reference,
+                "      name: RP",
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
                 "      brooklyn.children:",
-                "      - type: " + ReferencingYamlTestEntity.class.getName(),
+                "      - type: " + reference,
+                "        name: RP-child",
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
                 "        brooklyn.children:",
-                "        - type: ref_child");
-        
+                "        - type: ref_child",
+                "          name: RP-grandchild=RC",
+                "          test.reference.scope_root2: $brooklyn:scopeRoot()");
+
         Entity app = createAndStartApplication(
                 "brooklyn.config:",
                 "  test.reference.root: $brooklyn:root()",
                 "  test.reference.scope_root: $brooklyn:scopeRoot()",
+                "name: APP",
                 "services:",
-                "- type: " + ReferencingYamlTestEntity.class.getName(),
+                "- type: " + reference,
+                "  name: APP-child",
                 "  test.reference.root: $brooklyn:root()",
                 "  test.reference.scope_root: $brooklyn:scopeRoot()",
                 "  brooklyn.children:",
-                "  - type: " + ReferencingYamlTestEntity.class.getName(),
+                "  - type: " + reference,
+                "    name: APP-grandchild",
                 "    test.reference.root: $brooklyn:root()",
                 "    test.reference.scope_root: $brooklyn:scopeRoot()",
                 "    brooklyn.children:",
-                "    - type: ref_parent");
-        
-        assertScopes(app, app, app);
+                "    - type: ref_parent",
+                "      name: APP-greatgrandchild=RP",
+                "      test.reference.scope_root2: $brooklyn:scopeRoot()");
+
+        assertScopes(app, "APP", app, app);
         Entity e1 = nextChild(app);
-        assertScopes(e1, app, app);
+        assertScopes(e1, "APP-child", app, app);
         Entity e2 = nextChild(e1);
-        assertScopes(e2, app, app);
+        assertScopes(e2, "APP-grandchild", app, app);
         Entity e3 = nextChild(e2);
-        assertScopes(e3, app, e3);
+        // see logic in CampResolver which ensures scopeRoot in a nested blueprint refer to the root of that nested blueprint
+        assertScopes(e3, "APP-greatgrandchild=RP", app, e3, app);
         Entity e4 = nextChild(e3);
-        assertScopes(e4, app, e3);
+        assertScopes(e4, "RP-child", app, e3);
         Entity e5 = nextChild(e4);
-        assertScopes(e5, app, e5);
+        assertScopes(e5, "RP-grandchild=RC", app, e5, e3);
         Entity e6 = nextChild(e5);
-        assertScopes(e6, app, e5);
+        assertScopes(e6, "RC-child", app, e5);
+    }
+
+    @Test
+    public void testScopeReferences() throws Exception {
+        doTestScopeReferences(ReferencingYamlTestEntity.class.getName());
+    }
+
+    @Test
+    public void testScopeReferencesComplex() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: ref_entity",
+                "    item:",
+                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      name: RE");
+        doTestScopeReferences("ref_entity");
     }
     
     private static Entity nextChild(Entity entity) {
         return Iterables.getOnlyElement(entity.getChildren());
     }
-    private static void assertScopes(Entity entity, Entity root, Entity scopeRoot) {
+    private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot) {
+        assertScopes(entity, name, root, scopeRoot, null);
+    }
+    private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot, Entity scopeRoot2) {
+        if (name!=null) assertEquals(entity.getDisplayName(), name);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_ROOT), root);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT), scopeRoot);
+        assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT2), scopeRoot2);
     }
 
     private void checkReferences(final Entity entity, Map<ConfigKey<Entity>, Entity> keyToEntity) throws Exception {
