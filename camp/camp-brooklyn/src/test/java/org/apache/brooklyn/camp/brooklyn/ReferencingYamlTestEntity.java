@@ -20,7 +20,9 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.ImplementedBy;
+import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 
 import com.google.common.reflect.TypeToken;
@@ -34,6 +36,10 @@ public interface ReferencingYamlTestEntity extends Entity {
     @SuppressWarnings("serial")
     public static final ConfigKey<Entity> TEST_REFERENCE_SCOPE_ROOT = BasicConfigKey.builder(new TypeToken<Entity>(){})
             .name("test.reference.scope_root")
+            .build();
+    public static final ConfigKey<Entity> TEST_REFERENCE_SCOPE_ROOT2 = BasicConfigKey.builder(new TypeToken<Entity>(){})
+            .name("test.reference.scope_root2")
+            .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
             .build();
     @SuppressWarnings("serial")
     public static final ConfigKey<Entity> TEST_REFERENCE_APP = BasicConfigKey.builder(new TypeToken<Entity>(){})

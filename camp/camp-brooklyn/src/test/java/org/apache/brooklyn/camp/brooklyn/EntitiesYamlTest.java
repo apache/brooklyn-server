@@ -557,7 +557,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
                 "        brooklyn.children:",
                 "        - type: ref_child",
-                "          name: RP-grandchild=RC");
+                "          name: RP-grandchild=RC",
+                "          test.reference.scope_root2: $brooklyn:scopeRoot()");
 
         Entity app = createAndStartApplication(
                 "brooklyn.config:",
@@ -576,7 +577,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
                 "    test.reference.scope_root: $brooklyn:scopeRoot()",
                 "    brooklyn.children:",
                 "    - type: ref_parent",
-                "      name: APP-greatgrandchild=RP");
+                "      name: APP-greatgrandchild=RP",
+                "      test.reference.scope_root2: $brooklyn:scopeRoot()");
 
         assertScopes(app, "APP", app, app);
         Entity e1 = nextChild(app);
@@ -584,20 +586,21 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Entity e2 = nextChild(e1);
         assertScopes(e2, "APP-grandchild", app, app);
         Entity e3 = nextChild(e2);
-        assertScopes(e3, "APP-greatgrandchild=RP", app, e3);
+        assertScopes(e3, "APP-greatgrandchild=RP", app, e2, app);
         Entity e4 = nextChild(e3);
         assertScopes(e4, "RP-child", app, e3);
         Entity e5 = nextChild(e4);
-        assertScopes(e5, "RP-grandchild=RC", app, e5);
+        assertScopes(e5, "RP-grandchild=RC", app, e5, e3);
         Entity e6 = nextChild(e5);
         assertScopes(e6, "RC-child", app, e5);
     }
+
     @Test
     public void testScopeReferences() throws Exception {
         doTestScopeReferences(ReferencingYamlTestEntity.class.getName());
     }
 
-    @Test(groups="WIP")
+    @Test
     public void testScopeReferencesComplex() throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -614,9 +617,20 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         return Iterables.getOnlyElement(entity.getChildren());
     }
     private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot) {
+        assertScopes(entity, name, root, scopeRoot, null);
+    }
+    private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot, Entity scopeRoot2) {
         if (name!=null) assertEquals(entity.getDisplayName(), name);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_ROOT), root);
-        assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT), scopeRoot);
+
+        Entity actualScopeRoot = entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT);
+        if (!actualScopeRoot.equals(scopeRoot) && !actualScopeRoot.equals(scopeRoot2)) {
+            Assert.fail("Wrong scope root; should be either "+scopeRoot+" or "+scopeRoot2+"; but is actually "+actualScopeRoot);
+        }
+        // TODO would be nice if we can capture which blueprint scopeRoot is used in - but this requires introspecting the DSL
+        // currently it will always equal scopeRoot2; if we could convert it to "self()" when the definition is loaded, that would solve it
+
+        assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT2), scopeRoot2);
     }
 
     private void checkReferences(final Entity entity, Map<ConfigKey<Entity>, Entity> keyToEntity) throws Exception {
