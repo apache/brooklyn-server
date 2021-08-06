@@ -26,17 +26,22 @@ import com.google.common.collect.Lists;
 import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.naming.Context;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
+import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -49,6 +54,14 @@ import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.US
 /**
  * A {@link SecurityProvider} implementation that relies on LDAP to authenticate.
  *
+ * CONFIG EXAMPLE
+ * brooklyn.webconsole.security.ldap.url=ldap://<server>:<port>/
+ * brooklyn.webconsole.security.ldap.realm=<,>realm>
+ * brooklyn.webconsole.security.ldap.ou=<ou>.<parent_ou>
+ * brooklyn.webconsole.security.ldap.fetch_user_group=true
+ * brooklyn.webconsole.security.ldap.group_config_key=<role_resolver_config_key>
+ * brooklyn.webconsole.security.ldap.login_info_log=true
+ *
  * @author Peter Veentjer.
  */
 public class LdapSecurityProvider extends AbstractSecurityProvider implements SecurityProvider {
@@ -59,13 +72,22 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
     private final String ldapUrl;
     private final String defaultLdapRealm;
     private final String organizationUnit;
+    private boolean logUserLoginAttempt;
     private boolean fetchUserGroups = false;
+    private List<String> validGroups;
 
     public LdapSecurityProvider(ManagementContext mgmt) {
         StringConfigMap properties = mgmt.getConfig();
         ldapUrl = properties.getConfig(BrooklynWebConfig.LDAP_URL);
         Strings.checkNonEmpty(ldapUrl, "LDAP security provider configuration missing required property " + BrooklynWebConfig.LDAP_URL);
         fetchUserGroups = properties.getConfig(BrooklynWebConfig.LDAP_FETCH_USER_GROUPS);
+        logUserLoginAttempt = properties.getConfig(BrooklynWebConfig.LDAP_LOGIN_INFO_LOG);
+        String prefix = properties.getConfig(BrooklynWebConfig.GROUP_CONFIG_KEY_NAME);
+        if (fetchUserGroups && Strings.isNonBlank(prefix)) {
+            validGroups = getConfiguredGroups(properties, prefix);
+        } else {
+            validGroups = ImmutableList.of();
+        }
 
         String realmConfig = properties.getConfig(BrooklynWebConfig.LDAP_REALM);
         if (Strings.isNonBlank(realmConfig)) {
@@ -98,7 +120,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             // InitialDirContext doesn't do authentication if no password is supplied!
             return false;
         }
-
+        addToInfoLog("Login attempt with " + user);
         try {
             Hashtable env = new Hashtable();
             env.put(Context.INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
@@ -111,14 +133,35 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             if (fetchUserGroups) {
                 List<String> userGroups = getUserGroups(user, ctx);
                 if (userGroups.isEmpty()) {
+                    addToInfoLog("Unsuccessful for " + user);
+                    LOG.trace("User {} is not member of any group", user);
                     return false;
                 }
                 // adds user groups to the session
                 sessionSupplierOnSuccess.get().setAttribute(USER_GROUPS, userGroups);
+                addToInfoLog("Successful for " + user + " member of " + userGroups);
+            } else {
+                addToInfoLog("Successful for " + user);
             }
             return allow(sessionSupplierOnSuccess.get(), user);
         } catch (NamingException e) {
+            addToInfoLog("Unsuccessful for " + user);
             return false;
+        }
+    }
+
+    private List<String> getConfiguredGroups(StringConfigMap properties, String prefix) {
+        ImmutableList.Builder<String> configuredGroupsBuilder = ImmutableList.builder();
+        StringConfigMap roles = properties.submap(ConfigPredicates.nameStartsWith(prefix + "."));
+        for (Map.Entry<ConfigKey<?>, ?> entry : roles.getAllConfigLocalRaw().entrySet()) {
+            configuredGroupsBuilder.add(Strings.removeFromStart(entry.getKey().getName(), prefix + "."));
+        }
+        return configuredGroupsBuilder.build();
+    }
+
+    private void addToInfoLog(String s) {
+        if (logUserLoginAttempt) {
+            LOG.info(s);
         }
     }
 
@@ -135,14 +178,19 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             Attributes attrs = rslt.getAttributes();
 
             Attribute memberOf = attrs.get("memberOf");
-            if(memberOf != null){
+            if (memberOf != null) {
                 NamingEnumeration<?> groups = memberOf.getAll();
                 while (groups.hasMore()) {
                     groupsListBuilder.add(getGroupName(groups.next().toString()));
                 }
             }
         }
-        return groupsListBuilder.build();
+        ImmutableList<String> ldapGroups = groupsListBuilder.build();
+        if (LOG.isTraceEnabled()) {
+            LOG.trace("LDAP groups for {}: {}", user, ldapGroups);
+        }
+        // only store return the LDAP groups with a matching role in the configuration file
+        return ldapGroups.stream().filter(ldapGroup -> validGroups.contains(ldapGroup)).collect(Collectors.toList());
     }
 
     private String buildUserContainer() {

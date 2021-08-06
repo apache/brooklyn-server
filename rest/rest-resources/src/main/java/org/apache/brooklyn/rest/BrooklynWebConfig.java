@@ -26,6 +26,7 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.ExplicitUsersSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
+import org.apache.brooklyn.util.text.Strings;
 
 public class BrooklynWebConfig {
 
@@ -87,6 +88,16 @@ public class BrooklynWebConfig {
             BASE_NAME_SECURITY+".ldap.fetch_user_group",
             "Whether user groups should be fetched from the LDAP server",
             false);
+
+    public final static ConfigKey<Boolean> LDAP_LOGIN_INFO_LOG = ConfigKeys.newBooleanConfigKey(
+            BASE_NAME_SECURITY+".ldap.login_info_log",
+            "Whether the users attempt to login and its groups are print on the `info` log",
+            false);
+
+    public final static ConfigKey<String> GROUP_CONFIG_KEY_NAME = ConfigKeys.newStringConfigKey(
+            BASE_NAME_SECURITY+".ldap.group_config_key",
+            "Config key name for defining groups-role relationship",
+            Strings.EMPTY);
 
     public final static ConfigKey<Boolean> HTTPS_REQUIRED = ConfigKeys.newBooleanConfigKey(
             BASE_NAME+".security.https.required",
