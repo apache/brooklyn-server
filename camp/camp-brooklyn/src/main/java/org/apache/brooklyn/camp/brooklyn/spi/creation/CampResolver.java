@@ -213,12 +213,13 @@ class CampResolver {
 
     private static void fixScopeRoot(ManagementContext mgmt, Object value, Consumer<Object> updater) {
         Function<String,String> fixString = v -> "$brooklyn:self()" + Strings.removeFromStart((String)v, "$brooklyn:scopeRoot()");
-        if (value instanceof String) {
-            if (((String)value).startsWith("$brooklyn:scopeRoot()")) {
-                updater.accept( fixString.apply((String)value) );
-            }
-            return;
-        }
+        // TODO better approach to replacing scopeRoot
+        // we could replace within maps and strings, and inside DSL; currently only supported at root of config or flags
+        // but that's hard, we'd need to rebuild those maps and strings, which might be inside objects;
+        // and we'd need to replace references to scopeRoot inside a DSL, eg formatString;
+        // better would be to collect the DSL items we just created, and convert those if they belong to the now-root node (possibly promoted);
+        // it is a rare edge case however, so for now we use this poor-man's logic which captures the most common case --
+        // see DslYamlTest.testDslScopeRootEdgeCases
         if (value instanceof BrooklynDslDeferredSupplier) {
             if (value.toString().startsWith("$brooklyn:scopeRoot()")) {
                 updater.accept(DslUtils.parseBrooklynDsl(mgmt, fixString.apply(value.toString())));
@@ -226,17 +227,21 @@ class CampResolver {
             }
         }
 
+        // don't think blocks below here ever get used...
+        if (value instanceof String) {
+            if (((String)value).startsWith("$brooklyn:scopeRoot()")) {
+                updater.accept( fixString.apply((String)value) );
+            }
+            return;
+        }
+
         if (value instanceof DslComponent) {
-            // superseded by above - no longer used?
+            // superseded by above - no longer used
             if ( ((DslComponent)value).getScope() == Scope.SCOPE_ROOT ) {
                 updater.accept( DslComponent.newInstanceChangingScope(Scope.THIS, (DslComponent) value, fixString) );
             }
             return;
         }
-
-        // TODO replace within maps and strings; currently only supported at root of config or flags
-        // or have some way to gather the scope root components created and convert them all; easy enough for outer, but harder for nested DSL items,
-        // we need to update the dsl string as well as the items themselves
     }
 
 }

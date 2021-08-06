@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Map;
@@ -267,6 +268,33 @@ public class DslYamlTest extends AbstractYamlTest {
     private void assertChildScopeRootReferenceIs(Entity entity) throws Exception {
         Entity child = Iterables.getOnlyElement(entity.getChildren());
         assertEquals(getConfigEventually(child, DEST), entity);
+    }
+
+    @Test
+    public void testDslScopeRootEdgeCases() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: simple-item",
+                "    itemType: entity",
+                "    item:",
+                "      type: "+ BasicEntity.class.getName(),
+                "      brooklyn.config:",
+                "        v: 1",
+                "        refInDsl: $brooklyn:formatString(\"%s\", scopeRoot().config(\"v\"))",
+                "        refInMap:",
+                "          v: $brooklyn:scopeRoot().config(\"v\")");
+
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: simple-item",
+                "brooklyn.config:",
+                "  v: 2");
+        Entity child = Iterables.get(app.getChildren(), 0);
+        // TODO - these should both be 1, but scopeRoot for the simple-item goes to the blueprint where it is used; see notes in CampResolver.fixScopeRoot
+        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInDsl")), "2" );
+        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInMap")), MutableMap.of("v", 2) );
     }
 
     @Test
