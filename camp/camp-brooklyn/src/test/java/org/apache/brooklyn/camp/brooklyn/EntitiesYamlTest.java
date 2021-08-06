@@ -526,59 +526,58 @@ public class EntitiesYamlTest extends AbstractYamlTest {
             }
         }
     }
-    
-    @Test
-    public void testScopeReferences() throws Exception {
+
+    private void doTestScopeReferences(String reference) throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  itemType: entity",
                 "  items:",
                 "  - id: ref_child",
                 "    item:",
-                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      type: " + reference,
                 "      name: RC",
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
                 "      brooklyn.children:",
-                "      - type: " + ReferencingYamlTestEntity.class.getName(),
+                "      - type: " + reference,
                 "        name: RC-child",
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
 
                 "  - id: ref_parent",
                 "    item:",
-                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      type: " + reference,
                 "      name: RP",
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
                 "      brooklyn.children:",
-                "      - type: " + ReferencingYamlTestEntity.class.getName(),
+                "      - type: " + reference,
                 "        name: RP-child",
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
                 "        brooklyn.children:",
                 "        - type: ref_child",
                 "          name: RP-grandchild=RC");
-        
+
         Entity app = createAndStartApplication(
                 "brooklyn.config:",
                 "  test.reference.root: $brooklyn:root()",
                 "  test.reference.scope_root: $brooklyn:scopeRoot()",
                 "name: APP",
                 "services:",
-                "- type: " + ReferencingYamlTestEntity.class.getName(),
+                "- type: " + reference,
                 "  name: APP-child",
                 "  test.reference.root: $brooklyn:root()",
                 "  test.reference.scope_root: $brooklyn:scopeRoot()",
                 "  brooklyn.children:",
-                "  - type: " + ReferencingYamlTestEntity.class.getName(),
+                "  - type: " + reference,
                 "    name: APP-grandchild",
                 "    test.reference.root: $brooklyn:root()",
                 "    test.reference.scope_root: $brooklyn:scopeRoot()",
                 "    brooklyn.children:",
                 "    - type: ref_parent",
                 "      name: APP-greatgrandchild=RP");
-        
+
         assertScopes(app, "APP", app, app);
         Entity e1 = nextChild(app);
         assertScopes(e1, "APP-child", app, app);
@@ -592,6 +591,23 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         assertScopes(e5, "RP-grandchild=RC", app, e5);
         Entity e6 = nextChild(e5);
         assertScopes(e6, "RC-child", app, e5);
+    }
+    @Test
+    public void testScopeReferences() throws Exception {
+        doTestScopeReferences(ReferencingYamlTestEntity.class.getName());
+    }
+
+    @Test(groups="WIP")
+    public void testScopeReferencesComplex() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: ref_entity",
+                "    item:",
+                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      name: RE");
+        doTestScopeReferences("ref_entity");
     }
     
     private static Entity nextChild(Entity entity) {
