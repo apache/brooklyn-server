@@ -22,6 +22,8 @@ import com.google.common.annotations.Beta;
 import java.util.Set;
 
 import java.util.Stack;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -36,8 +38,11 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.BasicCampPlatform;
 import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractEntity;
@@ -176,11 +181,14 @@ class CampResolver {
 
             // above will unwrap but only if it's an Application (and it's permitted); 
             // but it doesn't know whether we need an App or if an Entity is okay  
-            if (!isApplication) return EntityManagementUtils.unwrapEntity(appSpec);
+            EntitySpec<?> result = !isApplication ? EntityManagementUtils.unwrapEntity(appSpec) : appSpec;
             // if we need an App then definitely *don't* unwrap here because
             // the instantiator will have done that, and it knows if the plan
             // specified a wrapped app explicitly (whereas we don't easily know that here!)
-            return appSpec;
+
+            fixScopeRootAtRoot(result);
+
+            return result;
             
         } else {
             if (at.getPlatformComponentTemplates()==null || at.getPlatformComponentTemplates().isEmpty()) {
@@ -189,6 +197,28 @@ class CampResolver {
             throw new IllegalStateException("Unable to instantiate YAML; invalid type or parameters in plan:\n"+plan);
         }
 
+    }
+
+    private static void fixScopeRootAtRoot(EntitySpec<?> node) {
+        node.getConfig().entrySet().forEach(entry -> {
+            fixScopeRoot(entry.getValue(), newValue -> node.configure( (ConfigKey) entry.getKey(), newValue));
+        });
+        node.getFlags().entrySet().forEach(entry -> {
+            fixScopeRoot(entry.getValue(), newValue -> node.configure( entry.getKey(), newValue));
+        });
+    }
+
+    private static void fixScopeRoot(Object value, Consumer<Object> updater) {
+        Function<String,String> fixString = v -> "$brooklyn:self()" + Strings.removeFromStart((String)v, "$brooklyn:scopeRoot()");
+        if (value instanceof String && ((String)value).startsWith("$brooklyn:scopeRoot()")) {
+            value = fixString.apply((String)value);
+            updater.accept(value);
+        } else if (value instanceof DslComponent) {
+            if ( ((DslComponent)value).getScope() == Scope.SCOPE_ROOT ) {
+                value = DslComponent.newInstanceChangingScope(Scope.THIS, (DslComponent) value, fixString);
+                updater.accept(value);
+            }
+        }
     }
 
 }

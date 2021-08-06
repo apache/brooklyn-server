@@ -586,7 +586,8 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Entity e2 = nextChild(e1);
         assertScopes(e2, "APP-grandchild", app, app);
         Entity e3 = nextChild(e2);
-        assertScopes(e3, "APP-greatgrandchild=RP", app, e2, app);
+        // see logic in CampResolver which ensures scopeRoot in a nested blueprint refer to the root of that nested blueprint
+        assertScopes(e3, "APP-greatgrandchild=RP", app, e3, app);
         Entity e4 = nextChild(e3);
         assertScopes(e4, "RP-child", app, e3);
         Entity e5 = nextChild(e4);
@@ -622,14 +623,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot, Entity scopeRoot2) {
         if (name!=null) assertEquals(entity.getDisplayName(), name);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_ROOT), root);
-
-        Entity actualScopeRoot = entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT);
-        if (!actualScopeRoot.equals(scopeRoot) && !actualScopeRoot.equals(scopeRoot2)) {
-            Assert.fail("Wrong scope root; should be either "+scopeRoot+" or "+scopeRoot2+"; but is actually "+actualScopeRoot);
-        }
-        // TODO would be nice if we can capture which blueprint scopeRoot is used in - but this requires introspecting the DSL
-        // currently it will always equal scopeRoot2; if we could convert it to "self()" when the definition is loaded, that would solve it
-
+        assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT), scopeRoot);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT2), scopeRoot2);
     }
 
