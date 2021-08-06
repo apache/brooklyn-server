@@ -38,8 +38,11 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.camp.BasicCampPlatform;
 import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
 import org.apache.brooklyn.config.ConfigKey;
@@ -129,9 +132,9 @@ class CampResolver {
             } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Location.class)) {
                 spec = CampInternalUtils.createLocationSpec(planYaml, loader, encounteredTypes);
             } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Application.class)) {
-                spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, true);
+                spec = createEntitySpecFromServicesBlock(mgmt, planYaml, loader, encounteredTypes, true);
             } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
-                spec = createEntitySpecFromServicesBlock(planYaml, loader, encounteredTypes, false);
+                spec = createEntitySpecFromServicesBlock(mgmt, planYaml, loader, encounteredTypes, false);
             } else {
                 String msg = (item.getSuperTypes()==null || item.getSuperTypes().isEmpty()) ? "no supertypes declared" : "incompatible supertypes "+item.getSuperTypes();
                 String itemName = Strings.firstNonBlank(item.getSymbolicName(), BasicBrooklynCatalog.currentlyResolvingType.get(), "<unidentified>");
@@ -168,7 +171,7 @@ class CampResolver {
         }
     }
  
-    private static EntitySpec<?> createEntitySpecFromServicesBlock(String plan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes, boolean isApplication) {
+    private static EntitySpec<?> createEntitySpecFromServicesBlock(ManagementContext mgmt, String plan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes, boolean isApplication) {
         CampPlatform camp = CampInternalUtils.getCampPlatform(loader.getManagementContext());
 
         // TODO instead of BasicBrooklynCatalog.attemptLegacySpecTransformers where candidate yaml has 'services:' prepended, try that in this method
@@ -186,7 +189,7 @@ class CampResolver {
             // the instantiator will have done that, and it knows if the plan
             // specified a wrapped app explicitly (whereas we don't easily know that here!)
 
-            fixScopeRootAtRoot(result);
+            fixScopeRootAtRoot(mgmt, result);
 
             return result;
             
@@ -199,26 +202,41 @@ class CampResolver {
 
     }
 
-    private static void fixScopeRootAtRoot(EntitySpec<?> node) {
+    private static void fixScopeRootAtRoot(ManagementContext mgmt, EntitySpec<?> node) {
         node.getConfig().entrySet().forEach(entry -> {
-            fixScopeRoot(entry.getValue(), newValue -> node.configure( (ConfigKey) entry.getKey(), newValue));
+            fixScopeRoot(mgmt, entry.getValue(), newValue -> node.configure( (ConfigKey) entry.getKey(), newValue));
         });
         node.getFlags().entrySet().forEach(entry -> {
-            fixScopeRoot(entry.getValue(), newValue -> node.configure( entry.getKey(), newValue));
+            fixScopeRoot(mgmt, entry.getValue(), newValue -> node.configure( entry.getKey(), newValue));
         });
     }
 
-    private static void fixScopeRoot(Object value, Consumer<Object> updater) {
+    private static void fixScopeRoot(ManagementContext mgmt, Object value, Consumer<Object> updater) {
         Function<String,String> fixString = v -> "$brooklyn:self()" + Strings.removeFromStart((String)v, "$brooklyn:scopeRoot()");
-        if (value instanceof String && ((String)value).startsWith("$brooklyn:scopeRoot()")) {
-            value = fixString.apply((String)value);
-            updater.accept(value);
-        } else if (value instanceof DslComponent) {
-            if ( ((DslComponent)value).getScope() == Scope.SCOPE_ROOT ) {
-                value = DslComponent.newInstanceChangingScope(Scope.THIS, (DslComponent) value, fixString);
-                updater.accept(value);
+        if (value instanceof String) {
+            if (((String)value).startsWith("$brooklyn:scopeRoot()")) {
+                updater.accept( fixString.apply((String)value) );
+            }
+            return;
+        }
+        if (value instanceof BrooklynDslDeferredSupplier) {
+            if (value.toString().startsWith("$brooklyn:scopeRoot()")) {
+                updater.accept(DslUtils.parseBrooklynDsl(mgmt, fixString.apply(value.toString())));
+                return;
             }
         }
+
+        if (value instanceof DslComponent) {
+            // superseded by above - no longer used?
+            if ( ((DslComponent)value).getScope() == Scope.SCOPE_ROOT ) {
+                updater.accept( DslComponent.newInstanceChangingScope(Scope.THIS, (DslComponent) value, fixString) );
+            }
+            return;
+        }
+
+        // TODO replace within maps and strings; currently only supported at root of config or flags
+        // or have some way to gather the scope root components created and convert them all; easy enough for outer, but harder for nested DSL items,
+        // we need to update the dsl string as well as the items themselves
     }
 
 }
