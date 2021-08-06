@@ -182,17 +182,18 @@ class CampResolver {
         if (instantiator instanceof AssemblyTemplateSpecInstantiator) {
             EntitySpec<? extends Application> appSpec = ((AssemblyTemplateSpecInstantiator)instantiator).createApplicationSpec(at, camp, loader, encounteredTypes);
 
-            // above will unwrap but only if it's an Application (and it's permitted); 
+            // above will unwrap but only if it's an Application (and it's permitted);
             // but it doesn't know whether we need an App or if an Entity is okay  
-            EntitySpec<?> result = !isApplication ? EntityManagementUtils.unwrapEntity(appSpec) : appSpec;
+            EntitySpec<? extends Entity> result = !isApplication ? EntityManagementUtils.unwrapEntity(appSpec) : appSpec;
             // if we need an App then definitely *don't* unwrap here because
             // the instantiator will have done that, and it knows if the plan
             // specified a wrapped app explicitly (whereas we don't easily know that here!)
 
+            // it's maybe enough just doing this in BCTR; but feels safer to do it here also, no harm in doing it twice
             fixScopeRootAtRoot(mgmt, result);
 
             return result;
-            
+
         } else {
             if (at.getPlatformComponentTemplates()==null || at.getPlatformComponentTemplates().isEmpty()) {
                 throw new UnsupportedTypePlanException("No 'services' declared");
@@ -202,7 +203,8 @@ class CampResolver {
 
     }
 
-    private static void fixScopeRootAtRoot(ManagementContext mgmt, EntitySpec<?> node) {
+
+    static void fixScopeRootAtRoot(ManagementContext mgmt, EntitySpec<?> node) {
         node.getConfig().entrySet().forEach(entry -> {
             fixScopeRoot(mgmt, entry.getValue(), newValue -> node.configure( (ConfigKey) entry.getKey(), newValue));
         });
@@ -212,7 +214,7 @@ class CampResolver {
     }
 
     private static void fixScopeRoot(ManagementContext mgmt, Object value, Consumer<Object> updater) {
-        Function<String,String> fixString = v -> "$brooklyn:self()" + Strings.removeFromStart((String)v, "$brooklyn:scopeRoot()");
+        java.util.function.Function<String,String> fixString = v -> "$brooklyn:self()" + Strings.removeFromStart((String)v, "$brooklyn:scopeRoot()");
         // TODO better approach to replacing scopeRoot
         // we could replace within maps and strings, and inside DSL; currently only supported at root of config or flags
         // but that's hard, we'd need to rebuild those maps and strings, which might be inside objects;
@@ -243,5 +245,4 @@ class CampResolver {
             return;
         }
     }
-
 }

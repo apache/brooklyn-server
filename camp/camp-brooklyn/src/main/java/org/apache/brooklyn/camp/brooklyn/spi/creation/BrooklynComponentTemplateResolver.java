@@ -24,6 +24,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
@@ -38,6 +39,10 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.service.CampServiceSpecResolver;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.camp.spi.AbstractResource;
 import org.apache.brooklyn.camp.spi.ApplicationComponentTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
@@ -194,6 +199,8 @@ public class BrooklynComponentTemplateResolver {
             throw new IllegalStateException("Unable to create spec for type " + type + ". " + msgDetails);
         }
         spec = EntityManagementUtils.unwrapEntity(spec);
+
+        CampResolver.fixScopeRootAtRoot(mgmt, spec);
 
         populateSpec(spec, encounteredRegisteredTypeSymbolicNames);
 
@@ -640,4 +647,5 @@ public class BrooklynComponentTemplateResolver {
             return flag;
         }
     }
+
 }

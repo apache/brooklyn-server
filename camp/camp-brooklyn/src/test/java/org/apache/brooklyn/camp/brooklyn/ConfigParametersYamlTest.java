@@ -80,17 +80,17 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
-	
+
     private static final Logger LOG = LoggerFactory.getLogger(ConfigParametersYamlTest.class);
 
-    @BeforeMethod(alwaysRun=true)
+    @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
         RecordingSshTool.clear();
     }
-    
-    @AfterMethod(alwaysRun=true)
+
+    @AfterMethod(alwaysRun = true)
     @Override
     public void tearDown() throws Exception {
         try {
@@ -99,7 +99,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             RecordingSshTool.clear();
         }
     }
-    
+
     @Test
     public void testConfigParameterWithOverriddenValueListedInType() throws Exception {
         addCatalogItems(
@@ -108,7 +108,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: testConfigParametersListedInType.mykey",
                 "        description: myDescription",
@@ -116,11 +116,11 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        default: myDefaultVal",
                 "      brooklyn.config:",
                 "        testConfigParametersListedInType.mykey: myOverridingVal");
-        
+
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: entity-with-keys");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
@@ -132,7 +132,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
         assertKeyEquals(newEntity, "testConfigParametersListedInType.mykey", "myDescription", String.class, "myDefaultVal", "myOverridingVal");
     }
-    
+
     @Test
     public void testConfigParameterOverridingJavaListedInType() throws Exception {
         addCatalogItems(
@@ -141,17 +141,17 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: " + TestEntity.CONF_NAME.getName(),
                 "        description: myDescription",
                 "        type: String",
                 "        default: myDefaultYamlVal");
-        
+
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: entity-with-keys");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
@@ -163,7 +163,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
         assertKeyEquals(newEntity, TestEntity.CONF_NAME.getName(), "myDescription", String.class, "myDefaultYamlVal", "myDefaultYamlVal");
     }
-    
+
     // See https://issues.apache.org/jira/browse/BROOKLYN-345, and the breakage that 
     // fix originally caused - discussed in https://github.com/apache/brooklyn-server/pull/440.
     //
@@ -184,18 +184,18 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
     //  4. [TODO] Major overhaul of the ConfigKey name versus `SetFromFlag` alias. It is currently
     //     confusing in when reading the config values what the precedence is because there are 
     //     different names that are only understood by some things.
-    @Test(groups="Broken")
+    @Test(groups = "Broken")
     public void testConfigParameterOverridingJavaMapConfigKey() throws Exception {
         runConfigParameterOverridingJavaMapConfigKey(true);
     }
-    
+
     @Test
     public void testConfigParameterOverridingJavaMapConfigKeyWithoutRebindValueCheck() throws Exception {
         // A cut-down test of what is actually working just now (so we can detect any 
         // further regressions!)
         runConfigParameterOverridingJavaMapConfigKey(false);
     }
-    
+
     protected void runConfigParameterOverridingJavaMapConfigKey(boolean assertReboundVal) throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
@@ -203,19 +203,19 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: " + TestEntity.CONF_MAP_THING.getName(),
                 "        description: myDescription",
                 "        type: java.util.Map",
                 "      brooklyn.config:",
-                "        "+TestEntity.CONF_MAP_THING.getName()+":",
+                "        " + TestEntity.CONF_MAP_THING.getName() + ":",
                 "          mykey: myval");
-        
+
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: entity-with-keys");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
@@ -235,7 +235,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             assertEquals(key.getDefaultValue(), null);
         }
     }
-    
+
     @Test
     public void testConfigParametersListedInType() throws Exception {
         addCatalogItems(
@@ -244,23 +244,23 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: testConfigParametersListedInType.mykey",
                 "        description: myDescription",
                 "        type: java.util.Map",
                 "        inheritance.type: deep_merge",
                 "        default: {myDefaultKey: myDefaultVal}");
-        
+
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: entity-with-keys");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
 
         // Check config key is listed
-        Map<?,?> expectedVal = ImmutableMap.of("myDefaultKey", "myDefaultVal");
+        Map<?, ?> expectedVal = ImmutableMap.of("myDefaultKey", "myDefaultVal");
         assertKeyEquals(entity, "testConfigParametersListedInType.mykey", "myDescription", Map.class, expectedVal, expectedVal);
 
         // Rebind, and then check again that the config key is listed
@@ -268,19 +268,19 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
         assertKeyEquals(newEntity, "testConfigParametersListedInType.mykey", "myDescription", Map.class, expectedVal, expectedVal);
     }
-    
+
     /**
-     * See comment in testConfigParametersAtRootListedInTemplateSingleEntity for why we have two. 
-     * Note that (surprisingly!) it's very important that there are two entities listed under 
-     * "services". If there is just one, then the BasicApplication created to wrap it will not 
-     * have the key. Instead, the single child will have the key. This is because the top-level 
+     * See comment in testConfigParametersAtRootListedInTemplateSingleEntity for why we have two.
+     * Note that (surprisingly!) it's very important that there are two entities listed under
+     * "services". If there is just one, then the BasicApplication created to wrap it will not
+     * have the key. Instead, the single child will have the key. This is because the top-level
      * app is considered "uninteresting" as it is only there to wrap a non-app entity.
-     * 
+     *
      * @see {@link #testConfigParametersAtRootListedInTemplateSingleEntity()}
      */
     @Test
     public void testConfigParametersAtRootListedInTemplateApp() throws Exception {
-        
+
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  itemType: template",
@@ -293,15 +293,15 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        type: String",
                 "        default: myDefaultParamVal",
                 "      services:",
-                "      - type: "+TestEntity.class.getName(),
-                "      - type: "+TestEntity.class.getName()
+                "      - type: " + TestEntity.class.getName(),
+                "      - type: " + TestEntity.class.getName()
         );
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: template-with-top-level-params");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
-        
+
         assertKeyEquals(app, "test.parameter", "myDescription", String.class, "myDefaultParamVal", "myDefaultParamVal");
 
         // After rebind, check config key is listed
@@ -327,17 +327,17 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        type: String",
                 "        default: myDefaultParamVal",
                 "      services:",
-                "      - type: "+TestEntity.class.getName()
+                "      - type: " + TestEntity.class.getName()
         );
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: template-with-top-level-params");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
-        
+
         assertKeyEquals(entity, "test.parameter", "myDescription", String.class, "myDefaultParamVal", "myDefaultParamVal");
-        
+
         // After rebind, check config key is listed
         newApp = rebind();
         TestEntity newEntity = (TestEntity) Iterables.getOnlyElement(newApp.getChildren());
@@ -352,7 +352,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: my.param.key",
                 "        type: string",
@@ -367,7 +367,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  - id: sub-entity",
                 "    item:",
                 "      type: entity-with-keys");
-        
+
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  itemType: template",
@@ -385,7 +385,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
             assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultVal");
         }
-        
+
         {
             String yaml = Joiner.on("\n").join(
                     "services:",
@@ -396,7 +396,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
             assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myOverrideVal");
         }
-        
+
         {
             String yaml = Joiner.on("\n").join(
                     "services:",
@@ -405,7 +405,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
             assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultVal");
         }
-        
+
         {
             String yaml = Joiner.on("\n").join(
                     "services:",
@@ -416,7 +416,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
             assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myOverrideVal");
         }
-        
+
         {
             String yaml = Joiner.on("\n").join(
                     "services:",
@@ -425,7 +425,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
             assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myDefaultVal");
         }
-        
+
         {
             String yaml = Joiner.on("\n").join(
                     "services:",
@@ -437,7 +437,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
             assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("my.other.key")), "myOverrideVal");
         }
     }
-    
+
     @Test
     public void testSubTypeUsesDefaultsFromSuper() throws Exception {
         addCatalogItems(
@@ -446,7 +446,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: my.param.key",
                 "        type: string",
@@ -463,7 +463,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "      type: entity-with-keys",
                 "      brooklyn.config:",
                 "        my.sub.key: $brooklyn:config(\"my.param.key\")");
-        
+
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: sub-entity");
@@ -487,14 +487,14 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        type: String",
                 "        default: myDefaultParamVal",
                 "      services:",
-                "      - type: "+TestEntity.class.getName(),
+                "      - type: " + TestEntity.class.getName(),
                 "        brooklyn.config:",
                 "          " + TestEntity.ATTRIBUTE_AND_CONF_STRING.getName() + ": $brooklyn:config(\"test.parameter\")"
         );
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: template-with-top-level-params");
-        
+
         Entity app = createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         assertEquals(entity.sensors().get(TestEntity.ATTRIBUTE_AND_CONF_STRING), "myDefaultParamVal");
@@ -514,7 +514,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "        type: String",
                 "        default: myDefaultParamVal",
                 "      services:",
-                "      - type: "+VanillaSoftwareProcess.class.getName(),
+                "      - type: " + VanillaSoftwareProcess.class.getName(),
                 "        sshMonitoring.enabled: false",
                 "        " + BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION.getName() + ": true",
                 "        shell.env:",
@@ -530,11 +530,11 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "    " + SshMachineLocation.SSH_TOOL_CLASS.getName() + ": " + RecordingSshTool.class.getName(),
                 "services:",
                 "- type: template-with-top-level-params");
-        
+
         createStartWaitAndLogApplication(yaml);
-        
+
         Map<?, ?> env = RecordingSshTool.getLastExecCmd().env;
-        assertEquals(env.get("TEST"), "myDefaultParamVal", "env="+env);
+        assertEquals(env.get("TEST"), "myDefaultParamVal", "env=" + env);
     }
 
     @Test
@@ -545,19 +545,19 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: my.list.key",
                 "        type: java.util.List",
                 "        default: [\"myDefaultVal\"]",
                 "      - name: my.set.key",
-                "        type: "+java.util.Set.class.getName(),
+                "        type: " + java.util.Set.class.getName(),
                 "        default: [\"myDefaultVal\"]",
                 "      - name: my.collection.key",
-                "        type: "+java.util.Collection.class.getName(),
+                "        type: " + java.util.Collection.class.getName(),
                 "        default: [\"myDefaultVal\"]",
                 "      - name: my.map.key",
-                "        type: "+java.util.Map.class.getName(),
+                "        type: " + java.util.Map.class.getName(),
                 "        default: {\"myDefaultKey\":\"myDefaultVal\"}");
 
         String yaml = Joiner.on("\n").join(
@@ -569,7 +569,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         Set<?> set = (Set<?>) entity.config().get(entity.getEntityType().getConfigKey("my.set.key"));
         Collection<?> collection = (Collection<?>) entity.config().get(entity.getEntityType().getConfigKey("my.set.key"));
         Map<?, ?> map = (Map<?, ?>) entity.config().get(entity.getEntityType().getConfigKey("my.map.key"));
-        
+
         assertEquals(list, ImmutableList.of("myDefaultVal"));
         assertEquals(set, ImmutableSet.of("myDefaultVal"));
         assertEquals(collection, ImmutableList.of("myDefaultVal"));
@@ -583,23 +583,23 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
     @SuppressWarnings("unchecked")
     private void assertImmutable(Collection<?> val) {
         try {
-            ((Collection<Object>)val).add("myNewVal");
+            ((Collection<Object>) val).add("myNewVal");
             Asserts.shouldHaveFailedPreviously("Collection of type " + val.getClass().getName() + " was mutable");
         } catch (UnsupportedOperationException e) {
             // expected - success
         }
     }
-    
+
     @SuppressWarnings("unchecked")
-    private void assertImmutable(Map<?,?> val) {
+    private void assertImmutable(Map<?, ?> val) {
         try {
-            ((Map<Object, Object>)val).put("myNewKey", "myNewVal");
+            ((Map<Object, Object>) val).put("myNewKey", "myNewVal");
             Asserts.shouldHaveFailedPreviously("Map of type " + val.getClass().getName() + " was mutable");
         } catch (UnsupportedOperationException e) {
             // expected - success
         }
     }
-    
+
     // See https://issues.apache.org/jira/browse/BROOKLYN-328
     @Test
     public void testConfigParameterOverridingJavaConfig() throws Exception {
@@ -610,13 +610,13 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
-                "      - name: "+confName,
+                "      - name: " + confName,
                 "        type: java.lang.Object",
                 "        default: myDefaultObj",
                 "      brooklyn.config:",
-                "        my.other.obj: $brooklyn:config(\""+confName+"\")");
+                "        my.other.obj: $brooklyn:config(\"" + confName + "\")");
 
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -634,7 +634,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "  items:",
                 "  - id: entity-with-keys",
                 "    item:",
-                "      type: "+TestEntity.class.getName(),
+                "      type: " + TestEntity.class.getName(),
                 "      brooklyn.parameters:",
                 "      - name: my.param.key",
                 "        type: string",
@@ -656,7 +656,7 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "      brooklyn.config:",
                 "        key3: $brooklyn:config(\"my.param.key\")",
                 "        key3.from.root: $brooklyn:scopeRoot().config(\"my.param.key\")");
-        
+
         String yaml = Joiner.on("\n").join(
                 "services:",
                 "- type: wrapper-entity",
@@ -677,7 +677,45 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
         // scopeRoot in this context now correctly goes to application root; previously (before 2021-08) it looked at the place where the wrapper-entity was defined
         assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("key4.from.root")), "otherDefaultValue");
     }
-    
+
+    @Test
+    public void testConfigParameterAccessedByScopeRoot() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:\n" +
+                "  id: testTemplateLevelTwo\n" +
+                "  version: 0.1.0-SNAPSHOT\n" +
+                "\n" +
+                "  items:\n" +
+                "  - id: custom.Node\n" +
+                "    itemType: entity\n" +
+                "    item:\n" +
+                "      type: " + BasicEntity.class.getName() + "\n" +
+                "\n" +
+                "  - itemType: template\n" +
+                "    item:\n" +
+                "      brooklyn.parameters:\n" +
+                "      - name: p\n" +
+                "        default: used-for-v\n" +
+                "\n" +
+                "      services:\n" +
+                "      - id: level_two_node\n" +
+                "        type: custom.Node\n" +
+                "        brooklyn.config:\n" +
+                "          v: $brooklyn:scopeRoot().config(\"p\")\n");
+        Entity app = createStartWaitAndLogApplication(
+                "services:",
+                "- type: testTemplateLevelTwo",
+                "  brooklyn.config:",
+                "    w: $brooklyn:scopeRoot().config(\"p\")",
+                "brooklyn.parameters:",
+                "- name: p",
+                "  default: used-for-w");
+
+        final Entity entity = Iterables.getOnlyElement(app.getChildren());
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("v")), "used-for-v");
+        assertEquals(entity.config().get(ConfigKeys.newStringConfigKey("w")), "used-for-w");
+    }
+
     @Test
     public void testConfigParameterInSubInheritsDefaultFromYaml() throws Exception {
     	// TODO note that the corresponding functionality to inherit config info from a *java* config key is not supported
