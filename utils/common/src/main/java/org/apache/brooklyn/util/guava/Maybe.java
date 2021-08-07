@@ -403,6 +403,10 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         return new MaybeTransforming(this, f);
     }
 
+    public <V> Maybe<V> mapMaybe(final Function<? super T, Maybe<V>> f) {
+        return new MaybeTransformingMaybe(this, f);
+    }
+
     private <V> Maybe<V> mapKeptForDeserializingOld(final Function<? super T, V> f) {
         if (isPresent()) return new AbstractPresent<V>() {
             private static final long serialVersionUID = 325089324325L;
@@ -432,6 +436,55 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
         @Override
         public V get() {
             return f.apply(input.get());
+        }
+
+        @Override
+        public boolean isNull() {
+            return isPresent() ? get()==null : input.isNull();
+        }
+    }
+
+    public static class MaybeTransformingMaybe<T,V> extends Maybe<V> {
+        private static final long serialVersionUID = 325089324325L;
+        private final Maybe<T> input;
+        private final Function<? super T, Maybe<V>> f;
+        private boolean gotten = false;
+        private Maybe<V> gottenObject;
+
+        public MaybeTransformingMaybe(Maybe<T> input, Function<? super T,Maybe<V>> f) {
+            this.input = input;
+            this.f = f;
+        }
+
+        @Override
+        public boolean isPresent() {
+            if (!input.isPresent()) return false;
+            evaluate();
+            return gottenObject.isPresent();
+        }
+
+        public void evaluate() {
+            if (!gotten) {
+                synchronized (this) {
+                    if (!gotten) {
+                        gotten = true;
+                        if (!input.isPresent()) {
+                            gottenObject = Maybe.castAbsent(input);
+                            return;
+                        }
+                        gottenObject = f.apply(input.get());
+                        if (gottenObject==null) {
+                            gottenObject = Maybe.absent("transformation yielded null rather than a maybe");
+                        }
+                    }
+                }
+            }
+        }
+
+        @Override
+        public V get() {
+            evaluate();
+            return gottenObject.get();
         }
 
         @Override

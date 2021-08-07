@@ -29,6 +29,9 @@ import java.io.*;
 import java.net.URL;
 import java.util.*;
 import java.util.concurrent.Callable;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -59,6 +62,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.os.Os.DeletionResult;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -70,6 +74,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
 import org.osgi.framework.Constants;
+import org.osgi.framework.FrameworkEvent;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -296,7 +301,43 @@ public class OsgiManager {
         }
         
         if (!reuseFramework || !REUSED_FRAMEWORKS_ARE_KEPT_RUNNING) {
+            try {
+                for (Bundle b: framework.getBundleContext().getBundles()) {
+                    if ((bundlesAtStartup==null || !bundlesAtStartup.contains(b)) && (b!=framework)) {
+                        try {
+                            log.info("Uninstalling "+b+" from OSGi container");
+                            b.uninstall();
+                        } catch (Exception e) {
+                            Exceptions.propagateIfFatal(e);
+                            log.warn("Unable to uninstall "+b+": "+e, e);
+                        }
+                    }
+                }
+
+                framework.stop();
+                final FrameworkEvent fe = framework.waitForStop(Duration.seconds(30).toMilliseconds());
+                log.debug("Stopped OSGi framework: "+fe);
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
             Osgis.ungetFramework(framework);
+
+            // aggressively clean up, as Felix leaks threadpools and other objects;
+            // but even with this _something_ is clogging up the app classloader
+            // which is causing file handles to leak badly;
+
+            Reflections.getFieldValueMaybe(framework, "m_resolver")
+                .mapMaybe(resolver -> Reflections.getFieldValueMaybe(resolver, "m_executor"))
+                .transformNow(ex -> {
+                    if (ex instanceof ExecutorService) {
+                        return ((ExecutorService) ex).shutdownNow();
+                    }
+                    return null;
+                });
+
+            System.gc(); System.gc();
+            System.runFinalization(); System.runFinalization();
+            System.gc(); System.gc();
         }
         
         if (reuseFramework) {
