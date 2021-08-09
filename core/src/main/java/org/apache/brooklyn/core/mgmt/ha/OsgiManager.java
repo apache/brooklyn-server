@@ -288,7 +288,7 @@ public class OsgiManager {
             for (Bundle b: framework.getBundleContext().getBundles()) {
                 if (!bundlesAtStartup.contains(b)) {
                     try {
-                        log.info("Uninstalling "+b+" from OSGi container in "+framework.getBundleContext().getProperty(Constants.FRAMEWORK_STORAGE));
+                        log.trace("Uninstalling "+b+" from OSGi container in "+framework.getBundleContext().getProperty(Constants.FRAMEWORK_STORAGE));
                         b.uninstall();
                     } catch (BundleException e) {
                         Exceptions.propagateIfFatal(e);
