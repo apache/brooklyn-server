@@ -1295,32 +1295,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .applyAsserts(() -> client());
     }
 
-    @Test
-    public void testIsJavaFileNull(){
-        CatalogResource cut = new CatalogResource();
-        assertFalse(cut.isJava(null));
-    }
 
-    @Test
-    public void testIsJavaFileText() throws IOException {
-        CatalogResource cut = new CatalogResource();
-        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/scanning.catalog.bom").getPath()));
-        assertFalse(cut.isJava(InputStreamSource.of("Test bom file", bytes)));
-    }
-
-    @Test
-    public void testIsJavaNoClassesJar() throws IOException {
-        CatalogResource cut = new CatalogResource();
-        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/rest/resources/testNoJava-0.1.0-SNAPSHOT.jar").getPath()));
-        assertFalse(cut.isJava(InputStreamSource.of("Test Jar without Java classes", bytes)));
-    }
-
-    @Test
-    public void testIsJavaWithClassesJar() throws IOException {
-        CatalogResource cut = new CatalogResource();
-        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/rest/resources/testWithJava-0.1.0-SNAPSHOT.jar").getPath()));
-        assertTrue(cut.isJava(InputStreamSource.of("Test JAR with Java classes", bytes)));
-    }
 
     enum CatalogItemType {
         APPLICATION("applications", CatalogEntitySummary.class),

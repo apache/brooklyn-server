@@ -66,6 +66,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
@@ -146,7 +147,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public Response create(byte[] archive, String format, boolean detail, boolean itemDetails, boolean forceUpdate) {
         InputStreamSource source = InputStreamSource.of("REST bundle upload", archive);
-        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && isJava(source)){
+        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.isJava(source)){
             if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_JAVA, null)) {
                 throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item containing java classes",
                         Entitlements.getEntitlementContext().user());
@@ -189,21 +190,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 break;
         }
         return Response.status(status).entity( detail ? resultR : resultR.getTypes() ).build();
-    }
-
-    @VisibleForTesting
-    protected boolean isJava(InputStreamSource archive) {
-        try {
-            ZipInputStream zipIS = new ZipInputStream(archive.get());
-            for (ZipEntry entry = zipIS.getNextEntry(); entry != null; entry = zipIS.getNextEntry()) {
-                if (!entry.isDirectory() && (entry.getName().endsWith(".class") || entry.getName().endsWith(".jar"))) {
-                    return true;
-                }
-            }
-        }catch (Exception e){
-            log.debug("Error analyzing file to be added as a bundle", e);
-        }
-        return false;
     }
 
     @Override
