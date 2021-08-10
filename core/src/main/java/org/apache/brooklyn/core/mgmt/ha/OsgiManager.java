@@ -302,6 +302,7 @@ public class OsgiManager {
         
         if (!reuseFramework || !REUSED_FRAMEWORKS_ARE_KEPT_RUNNING) {
             try {
+                /* if not re-using, don't do this, because we might be being called _from_ the osgi shutdown process (can cause deadlock on karaf shutdown)
                 for (Bundle b: framework.getBundleContext().getBundles()) {
                     if ((bundlesAtStartup==null || !bundlesAtStartup.contains(b)) && (b!=framework)) {
                         try {
@@ -317,6 +318,10 @@ public class OsgiManager {
                 framework.stop();
                 final FrameworkEvent fe = framework.waitForStop(Duration.seconds(30).toMilliseconds());
                 log.debug("Stopped OSGi framework: "+fe);
+                 */
+
+                framework.stop();
+
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
