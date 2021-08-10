@@ -50,6 +50,7 @@ import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.osgi.VersionedName.VersionedNameComparator;
 import org.apache.brooklyn.util.stream.InputStreamSource;
@@ -209,14 +210,21 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
 
     @Override @Deprecated
     public Response create(byte[] contents, String format, Boolean force) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog items",
+        InputStreamSource source = InputStreamSource.of("REST bundle upload", contents);
+        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.isJava(source)){
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_JAVA, null)) {
+                throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item containing java classes",
+                        Entitlements.getEntitlementContext().user());
+            }
+        }
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, null)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
                     Entitlements.getEntitlementContext().user());
         }
         if (force==null) force = false;
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-                .install(InputStreamSource.of("REST bundle upload", contents), format, force);
+                .install(source, format, force);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)

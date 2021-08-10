@@ -18,13 +18,12 @@
  */
 package org.apache.brooklyn.util.io;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Paths;
 
-import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -32,6 +31,8 @@ import org.testng.annotations.Test;
 import com.google.common.base.Charsets;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+
+import static org.testng.Assert.*;
 
 public class FileUtilTest {
 
@@ -114,5 +115,34 @@ public class FileUtilTest {
         FileUtil.setFilePermissionsTo600(file);
         FileUtil.setFilePermissionsTo700(file);
         FileUtil.setFilePermissionsTo700(file);
+    }
+
+    @Test
+    public void testIsJavaFileNull(){
+        assertFalse(FileUtil.isJava(null));
+    }
+
+    @Test
+    public void testIsJavaFileText() throws IOException {
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.txt").getPath()));
+        assertFalse(FileUtil.isJava(InputStreamSource.of("Test bom file", bytes)));
+    }
+
+    @Test
+    public void testIsJavaNoClassesJar() throws IOException {
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/files/testNoJava-0.1.0-SNAPSHOT.jar").getPath()));
+        assertFalse(FileUtil.isJava(InputStreamSource.of("Test Jar without Java classes", bytes)));
+    }
+
+    @Test
+    public void testIsFakeJavaWithClassesJar() throws IOException {
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/files/testWithJava-0.1.0-SNAPSHOT.jar").getPath()));
+        assertTrue(FileUtil.isJava(InputStreamSource.of("Test fail JAR with files renamed as .class", bytes)));
+    }
+
+    @Test
+    public void testIsRealJavaFileText() throws IOException {
+        byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.jar").getPath()));
+        assertTrue(FileUtil.isJava(InputStreamSource.of("Test real JAR with Java classes", bytes)));
     }
 }
