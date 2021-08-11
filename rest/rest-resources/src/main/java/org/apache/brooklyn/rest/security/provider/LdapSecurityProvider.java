@@ -139,7 +139,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
                 }
                 // adds user groups to the session
                 sessionSupplierOnSuccess.get().setAttribute(USER_GROUPS, userGroups);
-                addToInfoLog("Successful for " + user + " member of " + userGroups);
+                addToInfoLog("Authentication successful for user " + user + ", in relevant LDAP groups "+userGroups);
             } else {
                 addToInfoLog("Successful for " + user);
             }
