@@ -29,7 +29,6 @@ import javax.ws.rs.core.Response.Status;
 
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -48,7 +47,6 @@ import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -211,7 +209,7 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
     @Override @Deprecated
     public Response create(byte[] contents, String format, Boolean force) {
         InputStreamSource source = InputStreamSource.of("REST bundle upload", contents);
-        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.isJava(source)){
+        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.doesZipContainJavaBinaries(source)){
             if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_JAVA, null)) {
                 throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item containing java classes",
                         Entitlements.getEntitlementContext().user());

@@ -19,17 +19,12 @@
 package org.apache.brooklyn.rest.resources;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipException;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 
 import javax.annotation.Nullable;
 import javax.ws.rs.DefaultValue;
@@ -38,7 +33,6 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
@@ -71,7 +65,6 @@ import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
-import org.apache.commons.compress.compressors.z.ZCompressorInputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -147,7 +140,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
     @Override
     public Response create(byte[] archive, String format, boolean detail, boolean itemDetails, boolean forceUpdate) {
         InputStreamSource source = InputStreamSource.of("REST bundle upload", archive);
-        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.isJava(source)){
+        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.doesZipContainJavaBinaries(source)){
             if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_JAVA, null)) {
                 throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item containing java classes",
                         Entitlements.getEntitlementContext().user());
