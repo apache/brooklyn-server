@@ -206,7 +206,7 @@ public class FileUtil {
         }
     }
 
-    public static boolean isJava(InputStreamSource archive) {
+    public static boolean doesZipContainJavaBinaries(InputStreamSource archive) {
         try {
             ZipInputStream zipIS = new ZipInputStream(archive.get());
             for (ZipEntry entry = zipIS.getNextEntry(); entry != null; entry = zipIS.getNextEntry()) {

@@ -119,30 +119,30 @@ public class FileUtilTest {
 
     @Test
     public void testIsJavaFileNull(){
-        assertFalse(FileUtil.isJava(null));
+        assertFalse(FileUtil.doesZipContainJavaBinaries(null));
     }
 
     @Test
     public void testIsJavaFileText() throws IOException {
         byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.txt").getPath()));
-        assertFalse(FileUtil.isJava(InputStreamSource.of("Test bom file", bytes)));
+        assertFalse(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test bom file", bytes)));
     }
 
     @Test
     public void testIsJavaNoClassesJar() throws IOException {
         byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/files/testNoJava-0.1.0-SNAPSHOT.jar").getPath()));
-        assertFalse(FileUtil.isJava(InputStreamSource.of("Test Jar without Java classes", bytes)));
+        assertFalse(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test Jar without Java classes", bytes)));
     }
 
     @Test
     public void testIsFakeJavaWithClassesJar() throws IOException {
         byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/files/testWithJava-0.1.0-SNAPSHOT.jar").getPath()));
-        assertTrue(FileUtil.isJava(InputStreamSource.of("Test fail JAR with files renamed as .class", bytes)));
+        assertTrue(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test fail JAR with files renamed as .class", bytes)));
     }
 
     @Test
     public void testIsRealJavaFileText() throws IOException {
         byte[] bytes = java.nio.file.Files.readAllBytes(Paths.get(this.getClass().getClassLoader().getResource("brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.jar").getPath()));
-        assertTrue(FileUtil.isJava(InputStreamSource.of("Test real JAR with Java classes", bytes)));
+        assertTrue(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test real JAR with Java classes", bytes)));
     }
 }
