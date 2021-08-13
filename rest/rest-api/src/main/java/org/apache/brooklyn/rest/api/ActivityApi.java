@@ -77,7 +77,8 @@ public interface ActivityApi {
     @GET
     @Path("/{task}/children/recurse/deprecated")
     @ApiOperation(
-            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID",
+            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID. Deprecated since 0.12.0. Use " +
+                    "/activities/{task}/children/recurse instead.",
             response = Map.class)
     @Deprecated
     public Map<String,TaskSummary> getAllChildrenAsMap(
