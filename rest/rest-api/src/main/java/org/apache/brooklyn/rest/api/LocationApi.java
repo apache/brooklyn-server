@@ -52,7 +52,7 @@ public interface LocationApi {
      * @deprecated since 0.7.0; use {@link CatalogApi#listLocations}
      */
     @GET
-    @ApiOperation(value = "Fetch the list of location definitions",
+    @ApiOperation(value = "Fetch the list of location definitions (deprecated; locations now included via /catalog/types endpoint)",
             response = org.apache.brooklyn.rest.domain.LocationSummary.class,
             responseContainer = "List")
     @Deprecated
@@ -82,7 +82,7 @@ public interface LocationApi {
 
     /** @deprecated since 0.7.0 use {@link CatalogApi#create(String)} with a location definition */
     @POST
-    @ApiOperation(value = "Create a new location definition", response = String.class)
+    @ApiOperation(value = "Create a new location definition (deprecated; locations now installed via /catalog/bundles endpoint)", response = String.class)
     @Deprecated
     public Response create(
             @ApiParam(name = "locationSpec", value = "Location specification object", required = true)
@@ -93,7 +93,7 @@ public interface LocationApi {
      */
     @DELETE
     @Path("/{locationId}")
-    @ApiOperation(value = "Deletes a location definition by id")
+    @ApiOperation(value = "Deletes a location definition by id (deprecated; locations now managed via /catalog/bundles endpoint)")
     @Deprecated
     public void delete(
             @ApiParam(value = "Location id to delete", required = true)

@@ -206,7 +206,7 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         return create(zipInput, BrooklynBomBundleCatalogBundleResolver.FORMAT, force);
     }
 
-    @Override @Deprecated
+    @Override
     public Response create(byte[] contents, String format, Boolean force) {
         InputStreamSource source = InputStreamSource.of("REST bundle upload", contents);
         if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.doesZipContainJavaBinaries(source)){

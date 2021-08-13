@@ -110,13 +110,16 @@ public interface CatalogApi {
             @QueryParam("forceUpdate") @DefaultValue("false")
                     boolean forceUpdate);
 
+    /** @deprecated since 1.1.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
     // the /bundles endpoint is preferred and things (Go client and UI) should be switched to use it exclusively
+    @Deprecated
     @Beta
     @POST
     @Consumes // anything - now autodetect is done for everything unless 'format' is specified
     // (mime type is ignored; though it could be useful in the "score" function, and probably is available on the thread)
     @ApiOperation(
-            value = "Add a bundle of types (entities, etc) to the type registry (catalog)",
+            value = "Add a bundle of types (entities, etc) to the type registry (deprecated, use /catalog/bundles endpoint instead)",
             notes = "This will auto-detect the format, with the 'brooklyn-bom-bundle' being common and consisting of "
                     + "a ZIP/JAR containing a catalog.bom. "
                     + "Return value is map of ID to CatalogItemSummary unless detail=true is passed as a parameter in which "
@@ -130,7 +133,7 @@ public interface CatalogApi {
     public Response create(
             @ApiParam(
                     name = "bundle",
-                    value = "Bundle contents to install, eg for brooklyn-catalog-bundle a ZIP or JAR containing a catalog.bom file",
+                    value = "Bundle contents to install, eg for brooklyn-catalog-bundle a ZIP or JAR containing a catalog.bom file (deprecated, use /catalog/bundles endpoint instead)",
                     required = true)
                     byte[] archive,
             @ApiParam(name="format", value="Specify the format to indicate a specific resolver for handling this", required=false)
@@ -372,10 +375,13 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.1.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/icon/{itemId}/{version}")
     @ApiOperation(
-            value = "Return the icon for a given catalog entry (application/image or HTTP redirect)",
+            value = "Return the icon for a given catalog entry (application/image or HTTP redirect) (deprecated, use /catalog/types/.../icon endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'itemId'"
     )
