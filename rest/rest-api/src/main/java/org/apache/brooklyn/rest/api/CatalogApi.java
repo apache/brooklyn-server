@@ -110,7 +110,7 @@ public interface CatalogApi {
             @QueryParam("forceUpdate") @DefaultValue("false")
                     boolean forceUpdate);
 
-    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    /** @deprecated since 1.1.0 delete the bundle via DELETE /catalog/bundles/xxx */
     // but we will probably keep this around for a while as many places use it
     // the /bundles endpoint is preferred and things (Go client and UI) should be switched to use it exclusively
     @Deprecated
@@ -375,7 +375,7 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
-    /** @deprecated since 1.0.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    /** @deprecated since 1.1.0 delete the bundle via DELETE /catalog/bundles/xxx */
     // but we will probably keep this around for a while as many places use it
     @Deprecated
     @GET
