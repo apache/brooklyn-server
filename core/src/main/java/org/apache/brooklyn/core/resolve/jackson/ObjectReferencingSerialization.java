@@ -2,7 +2,6 @@ package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.BeanDescription;
 import com.fasterxml.jackson.databind.DeserializationContext;
@@ -20,13 +19,15 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
 import java.io.IOException;
-import java.util.Map;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class ObjectReferencingSerialization {
+
+    // some other explorations of approaches, including object id, are in the git history;
+    // but this seemed the best as object id was harder to use for all bean types
 
     private static final Logger LOG = LoggerFactory.getLogger(ObjectReferencingSerialization.class);
 
@@ -37,21 +38,8 @@ public class ObjectReferencingSerialization {
                 .addDeserializerWrapper(
                         d -> new ObjectReferencingJsonDeserializer(d, backingMap)
                 ).apply(mapper);
-
-//        mapper.registerModule(new SimpleModule()
-//                .addSerializer(Object.class, new ObjectReferenceSerializer(backingMap))
-//                .addDeserializer(Object.class, new ObjectReferenceDeserializer(backingMap))
-//        );
         return mapper;
     }
-
-
-    static class ObjectReference {
-        String id;
-        public ObjectReference() {}
-        public ObjectReference(String id) { this.id = id; }
-    }
-
 
     static class ObjectReferenceSerializer extends StdSerializer<Object> {
         private final BiMap<String, Object> backingMap;
@@ -75,19 +63,6 @@ public class ObjectReferencingSerialization {
             }
 
             gen.writeObjectRef(id);
-
-//            serializers.findValueSerializer(Map.class, null).serializeWithType(MutableMap.of("@ref", id), gen, serializers,
-//                    serializers.findTypeSerializer(serializers.constructType(Object.class)));
-        }
-    }
-
-    static class ObjectReferenceDeserializer extends JsonDeserializer<Object> {
-        public ObjectReferenceDeserializer(Map<String, Object> backingMap) {
-        }
-
-        @Override
-        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-            return null;
         }
     }
 
@@ -136,37 +111,5 @@ public class ObjectReferencingSerialization {
             return nestedDeserialize.apply(jp, ctxt);
         }
     }
-//
-//    public static class ObjectReferencingDeserializerFactory extends BeanDeserializerFactory {
-//        protected ObjectReferencingDeserializerFactory(DeserializerFactoryConfig config) {
-//            super(config);
-//        }
-//
-//        public static ObjectReferencingDeserializerFactory extending(DeserializerFactory factory) {
-//            if (factory == null) return new ObjectReferencingDeserializerFactory(null);
-//            if (factory instanceof ObjectReferencingDeserializerFactory) return (ObjectReferencingDeserializerFactory) factory;
-//            if (factory instanceof BeanDeserializerFactory) return new ObjectReferencingDeserializerFactory( ((BeanDeserializerFactory) factory).getFactoryConfig() );
-//            throw new IllegalStateException("Cannot extend "+factory);
-//        }
-//        @Override
-//        public ObjectReferencingDeserializerFactory withConfig(DeserializerFactoryConfig config) {
-//            if (_factoryConfig == config) return this;
-//            return new ObjectReferencingDeserializerFactory(config);
-//        }
-//
-//        // --- our special behaviour
-//
-//
-//        @Override
-//        protected BeanDeserializerBuilder constructBeanDeserializerBuilder(DeserializationContext ctxt, BeanDescription beanDesc) {
-//            return new BeanDeserializerBuilder(beanDesc, ctxt) {
-//                {
-//                    _objectIdReader = new ObjectIdReader() {
-//
-//                    };
-//                }
-//            };
-//        }
-//    }
 
 }
