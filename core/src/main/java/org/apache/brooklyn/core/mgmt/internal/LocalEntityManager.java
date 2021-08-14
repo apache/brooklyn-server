@@ -845,8 +845,9 @@ public class LocalEntityManager implements EntityManagerInternal {
          * this is happening? Should abstractEntity.onManagementStopped or some such remove the entity
          * from its groups?
          */
-        
-        if (!getLastManagementTransitionMode(e.getId()).isReadOnly()) {
+
+        ManagementTransitionMode lastTM = getLastManagementTransitionMode(e.getId());
+        if (lastTM!=null && !lastTM.isReadOnly()) {
             e.clearParent();
             for (Group group : e.groups()) {
                 if (!Entities.isNoLongerManaged(group)) group.removeMember(e);
@@ -858,7 +859,7 @@ public class LocalEntityManager implements EntityManagerInternal {
                 }
             }
         } else {
-            log.debug("No relations being updated on unmanage of read only {}", e);
+            log.debug("No relations being updated on unmanage of read only {} (mode {})", e, lastTM);
         }
 
         unmanageOwnedLocations(e);
