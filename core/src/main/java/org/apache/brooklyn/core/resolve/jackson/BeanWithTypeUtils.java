@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import java.util.*;
 import java.util.Map.Entry;
@@ -124,9 +125,26 @@ public class BeanWithTypeUtils {
      */
 
     public static <T> T convert(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
-        ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
-        String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
-        return m.readValue(serialization, BrooklynJacksonType.asJavaType(m, type));
+        // try with complex types are saved as objects rather than serialized
+        ObjectMapper mapper = YAMLMapper.builder().build();
+        mapper = BeanWithTypeUtils.applyCommonMapperConfig(mapper, mgmt, allowRegisteredTypes, loader, allowJavaTypes);
+        mapper = new ObjectReferencingSerialization().useAndApplytoMapper(mapper);
+
+        String serialization = mapper.writeValueAsString(mapOrListToSerializeThenDeserialize);
+        return mapper.readValue(serialization, BrooklynJacksonType.asJavaType(mapper, type));
+    }
+
+    @Beta
+    public static <T> T convertExtra(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
+        try {
+            return convert(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+
+        } catch (Exception e) {
+            // try full serialization - but won't work if things being written cannot be deserialized
+            ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
+            String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
+            return m.readValue(serialization, BrooklynJacksonType.asJavaType(m, type));
+        }
     }
 
     public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, TypeToken<T> type) {

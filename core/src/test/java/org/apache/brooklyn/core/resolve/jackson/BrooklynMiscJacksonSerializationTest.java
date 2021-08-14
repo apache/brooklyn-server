@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.reflect.TypeToken;
+import java.io.IOException;
 import java.util.Map;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -56,7 +57,7 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         Asserts.assertEquals(deser("\"1m\"", Duration.class), Duration.minutes(1));
     }
 
-    static class ObjWithoutIdentityInfoAnnotation {
+    static class ObjForSerializingAsReference {
         String foo;
 
         @Override
@@ -69,29 +70,34 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
 
     @Test
     public void testCustomHandlerForReferences() throws Exception {
-        mapper = new ObjectReferencingSerialization().useMapper(
-                BeanWithTypeUtils.applyCommonMapperConfig(
-                    YAMLMapper.builder()
-//                        .handlerInstantiator(new AllBeansIdentityHandler())
-                        .build()
-                , null, false, null, true));
+        mapper = YAMLMapper.builder().build();
+        mapper = BeanWithTypeUtils.applyCommonMapperConfig(mapper, null, false, null, true);
+        mapper = new ObjectReferencingSerialization().useAndApplytoMapper(mapper);
 
-        ObjWithoutIdentityInfoAnnotation f1 = new ObjWithoutIdentityInfoAnnotation(); f1.foo = "1";
-        ObjWithoutIdentityInfoAnnotation f2 = new ObjWithoutIdentityInfoAnnotation(); f2.foo = "2";
+        ObjForSerializingAsReference f1 = new ObjForSerializingAsReference(); f1.foo = "1";
+        ObjForSerializingAsReference f2 = new ObjForSerializingAsReference(); f2.foo = "2";
         String out = ser(MutableMap.of("a", f1, "b", f2, "c", f1));
         LOG.info("Result of "+ JavaClassNames.niceClassAndMethod()+": "+out);
 
         Map in = deser(out,
-//                Map.class
-                new TypeToken<Map<String, ObjWithoutIdentityInfoAnnotation>>() {}
+                Map.class
+//                new TypeToken<Map<String, ObjForSerializingAsReference>>() {}
         );
-        ObjWithoutIdentityInfoAnnotation a = (ObjWithoutIdentityInfoAnnotation)in.get("a");
-        ObjWithoutIdentityInfoAnnotation b = (ObjWithoutIdentityInfoAnnotation)in.get("b");
-        ObjWithoutIdentityInfoAnnotation c = (ObjWithoutIdentityInfoAnnotation)in.get("c");
+        ObjForSerializingAsReference a = (ObjForSerializingAsReference)in.get("a");
+        ObjForSerializingAsReference b = (ObjForSerializingAsReference)in.get("b");
+        ObjForSerializingAsReference c = (ObjForSerializingAsReference)in.get("c");
         Asserts.assertTrue(a.foo.equals(c.foo), "expected same foo value for a and c - "+a+" != "+c);
         Asserts.assertTrue(!b.foo.equals(c.foo), "expected different foo value for a and b");
         Asserts.assertTrue(a == c, "expected same instance for a and c - "+a+" != "+c);
         Asserts.assertTrue(a != b, "expected different instance for a and b");
+    }
+
+    @Test
+    public void testObjectReferences() throws IOException {
+        ObjForSerializingAsReference f1 = new ObjForSerializingAsReference(); f1.foo = "1";
+        Object f2 = new ObjectReferencingSerialization().serializeAndDeserialize(f1);
+        Asserts.assertEquals(f1, f2);
+        Asserts.assertTrue(f1==f2, "different instances for "+f1+" and "+f2);
     }
 
 }
