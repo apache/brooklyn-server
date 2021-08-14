@@ -421,6 +421,7 @@ public class BrooklynLauncher extends BasicLauncher<BrooklynLauncher> {
         if (webServer != null) {
             try {
                 webServer.stop();
+                webServer = null;
             } catch (Exception e) {
                 LOG.warn("Error stopping web-server; continuing with termination", e);
             }
