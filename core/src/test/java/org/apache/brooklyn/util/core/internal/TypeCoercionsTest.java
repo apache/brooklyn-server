@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.core.internal;
 
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -425,15 +426,23 @@ public class TypeCoercionsTest {
 
     public static class ClassWithMap {
         Map<String,Object> properties = MutableMap.of();
+        Map<String,List<MyClazz>> propsList = MutableMap.of();
     }
 
     @Test
     public void testObjectInMapCoercion() {
-        ClassWithMap r1 = TypeCoercions.coerce(MutableMap.of("properties", MutableMap.of("x", 1)), ClassWithMap.class);
+        ClassWithMap r1 =
+                TypeCoercions.coerce(MutableMap.of("properties", MutableMap.of("x", 1)), ClassWithMap.class);
         Assert.assertEquals(r1.properties.get("x"), 1);
 
         r1 = TypeCoercions.coerce(MutableMap.of("properties", MutableMap.of("x", new MyClazz())), ClassWithMap.class);
         Asserts.assertInstanceOf(r1.properties.get("x"), MyClazz.class);
+
+        r1 = TypeCoercions.coerce(MutableMap.of(
+                "properties", MutableMap.of("x", new MyClazz()),
+                "propsList", MutableMap.of("y", MutableList.of(new MyClazz()))
+                ), ClassWithMap.class);
+        Asserts.assertInstanceOf(((List)r1.propsList.get("y")).get(0), MyClazz.class);
     }
 
 }

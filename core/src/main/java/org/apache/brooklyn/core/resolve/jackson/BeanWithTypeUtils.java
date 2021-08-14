@@ -125,7 +125,17 @@ public class BeanWithTypeUtils {
      */
 
     public static <T> T convert(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
-        // try with complex types are saved as objects rather than serialized
+        try {
+            return convertDeeply(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+
+        } catch (Exception e) {
+            return convertShallow(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
+        }
+    }
+
+    @Beta
+    public static <T> T convertShallow(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
+        // try with complex types are saved as objects rather than serialized, but won't work if special deserialization is wanted to apply to a map inside a complex type
         ObjectMapper mapper = YAMLMapper.builder().build();
         mapper = BeanWithTypeUtils.applyCommonMapperConfig(mapper, mgmt, allowRegisteredTypes, loader, allowJavaTypes);
         mapper = new ObjectReferencingSerialization().useAndApplytoMapper(mapper);
@@ -135,16 +145,11 @@ public class BeanWithTypeUtils {
     }
 
     @Beta
-    public static <T> T convertExtra(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
-        try {
-            return convert(mgmt, mapOrListToSerializeThenDeserialize, type, allowRegisteredTypes, loader, allowJavaTypes);
-
-        } catch (Exception e) {
-            // try full serialization - but won't work if things being written cannot be deserialized
-            ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
-            String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
-            return m.readValue(serialization, BrooklynJacksonType.asJavaType(m, type));
-        }
+    public static <T> T convertDeeply(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
+        // try full serialization - but won't work if things being written cannot be deserialized, eg due to unknown type
+        ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
+        String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
+        return m.readValue(serialization, BrooklynJacksonType.asJavaType(m, type));
     }
 
     public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, TypeToken<T> type) {

@@ -228,9 +228,10 @@ public class BrooklynRegisteredTypeJacksonSerialization {
     public static ObjectMapper apply(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
         // the type resolver is extended to recognise brooklyn registered type names
         // and return a subtype of jackson JavaType
-        mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
-
         mapper.setDefaultTyping(new BrtTypeResolverBuilder(mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes));
+
+//        // this is tempting but it breaks places where we rely on type: ... to tell us the type
+//        mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
 
         SimpleModule module = new SimpleModule();
         if (allowRegisteredTypes) {

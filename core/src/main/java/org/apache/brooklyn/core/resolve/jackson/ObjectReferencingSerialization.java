@@ -37,8 +37,10 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import com.google.common.reflect.TypeToken;
 import java.io.IOException;
 import java.io.StringReader;
+import java.lang.reflect.Type;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -143,13 +145,29 @@ public class ObjectReferencingSerialization {
         @Override
         protected Object deserializeWrapper(JsonParser jp, DeserializationContext ctxt, BiFunctionThrowsIoException<JsonParser, DeserializationContext, Object> nestedDeserialize) throws IOException {
             String v = jp.getCurrentToken()== JsonToken.VALUE_STRING ? jp.getValueAsString() : null;
-            Class<?> expected = ctxt.getContextualType()==null ? null : ctxt.getContextualType().getRawClass();
-            if (expected==null) expected = Object.class;
-            if (v!=null && !String.class.equals(expected)) {
+            if (v!=null) {
+                Type expected = _valueType!=null ? _valueType : _valueClass;
+
+                // not sure if we ever need to look at contextual type
+                Type expected2 = ctxt.getContextualType()==null ? null : ctxt.getContextualType();
+                if (expected2!=null) {
+                    if (expected==null) {
+                        expected = expected2;
+                    } else {
+                        // we have two expectations
+                        LOG.debug("Object reference deserialization ambiguity, expected "+expected+" and "+expected2);
+                    }
+                }
+                if (expected==null) {
+                    expected = Object.class;
+                }
+
                 Object result = backingMap.get(v);
                 if (result!=null) {
-                    if (!expected.isInstance(result)) {
-                        return TypeCoercions.coerce(result, expected);
+                    // Because of how UntypedObjectDeserializer.deserializeWithType treats strings
+                    // we cannot trust string being expected (if we could, we could exclude backing map lookup!)
+                    if (!String.class.equals(expected)) {
+                        result = TypeCoercions.coerce(result, TypeToken.of(expected));
                     }
                     return result;
                 }
