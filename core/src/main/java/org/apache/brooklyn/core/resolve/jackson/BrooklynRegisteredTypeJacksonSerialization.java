@@ -18,9 +18,12 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
@@ -122,6 +125,11 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                     return context.constructType(fromLoader.get());
                 }
             }
+            // TODO - this would be nice to support complex types
+//            if (type is present in a registered type) {
+//                get the bundle of registered type
+//                use that classloader to instantiate the type
+//            }
             if (allowPojoJavaTypes) {
                 return super.typeFromId(context, id);
             }
@@ -220,6 +228,8 @@ public class BrooklynRegisteredTypeJacksonSerialization {
     public static ObjectMapper apply(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
         // the type resolver is extended to recognise brooklyn registered type names
         // and return a subtype of jackson JavaType
+        mapper.disable(SerializationFeature.FAIL_ON_EMPTY_BEANS);
+
         mapper.setDefaultTyping(new BrtTypeResolverBuilder(mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes));
 
         SimpleModule module = new SimpleModule();

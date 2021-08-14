@@ -199,16 +199,19 @@ public class WrappedValuesSerialization {
             if (factory.getClass() == BeanSerializerFactory.class) return new NullWrappedValueSuppressingBeanSerializerFactory( ((BeanSerializerFactory) factory).getFactoryConfig() );
             throw new IllegalStateException("Cannot extend "+factory);
         }
+        @Override
+        public SerializerFactory withConfig(SerializerFactoryConfig config) {
+            if (_factoryConfig == config) return this;
+            return new NullWrappedValueSuppressingBeanSerializerFactory(config);
+        }
+
+        // --- our special behaviour
 
         @Override
         protected PropertyBuilder constructPropertyBuilder(SerializationConfig config, BeanDescription beanDesc) {
             return new NullWrappedValueSuppressingPropertyBuilder(config, beanDesc);
         }
 
-        public SerializerFactory withConfig(SerializerFactoryConfig config) {
-            if (_factoryConfig == config) return this;
-            return new NullWrappedValueSuppressingBeanSerializerFactory(config);
-        }
     }
 
     public static <T> T ensureWrappedValuesInitialized(T x) {

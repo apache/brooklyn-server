@@ -354,13 +354,19 @@ public class TypeCoercions {
         public void registerBeanWithTypeAdapter() {
             // if we want to do bean-with-type coercion ... probably nice to do if it doesn't already match
             registerAdapter("80-bean-with-type", new TryCoercer() {
+
                 @Override
                 public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
                     if (!(input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrBoxedObject(input))) {
                         return null;
                     }
                     if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {
-                        return BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), type);
+                        try {
+                            Maybe<T> result = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), type);
+                            return result;
+                        } catch (Exception e) {
+                            return Maybe.absent(e);
+                        }
                     }
                     return null;
                 }
