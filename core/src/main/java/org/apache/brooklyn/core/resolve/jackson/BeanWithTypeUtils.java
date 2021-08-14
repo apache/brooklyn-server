@@ -18,9 +18,15 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.reflect.TypeToken;
 import java.util.*;
 import java.util.Map.Entry;
@@ -50,8 +56,14 @@ public class BeanWithTypeUtils {
 
     /** also see {@link org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper#newMapper(ManagementContext)} */
     public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
-        JsonMapper mapper = newSimpleMapper();
+        return applyCommonMapperConfig(newSimpleMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+    }
 
+    public static ObjectMapper newYamlMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
+        return applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+    }
+
+    public static ObjectMapper applyCommonMapperConfig(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
         BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
         WrappedValuesSerialization.apply(mapper, mgmt);
         mapper = new ConfigurableBeanDeserializerModifier()
@@ -66,6 +78,11 @@ public class BeanWithTypeUtils {
     public static JsonMapper newSimpleMapper() {
         // for use with json maps (no special type resolution, even the field "type" is ignored)
         return JsonMapper.builder().build();
+    }
+
+    public static YAMLMapper newSimpleYamlMapper() {
+        // for use with json maps (no special type resolution, even the field "type" is ignored)
+        return YAMLMapper.builder().build();
     }
 
     public static boolean isPureJson(Object o) {
