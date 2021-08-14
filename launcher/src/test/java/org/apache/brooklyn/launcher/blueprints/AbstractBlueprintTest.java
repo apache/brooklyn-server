@@ -205,12 +205,7 @@ public abstract class AbstractBlueprintTest {
     }
     
     protected void runTest(Reader yaml) throws Exception {
-        final Application app = launcher.launchAppYaml(yaml);
-        
-        assertNoFires(app);
-        
-        Application newApp = rebind();
-        assertNoFires(newApp);
+        runTest(launcher.launchAppYaml(yaml), this::assertNoFires);
     }
     
     protected void assertNoFires(final Entity app) {
