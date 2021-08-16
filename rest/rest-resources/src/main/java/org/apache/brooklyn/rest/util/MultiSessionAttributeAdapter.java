@@ -20,6 +20,7 @@ package org.apache.brooklyn.rest.util;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.JsonObject;
+import javax.servlet.http.Cookie;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -249,12 +250,40 @@ public class MultiSessionAttributeAdapter {
 
             if (preferredHandler != null ) {
                 String extendedId= optionalLocalSession!=null ? optionalLocalSession.getId() : optionalRequest!=null ? optionalRequest.getRequestedSessionId() : null;
+
+                // first use the requestedSessionId assigned by the request's session handler
                 if (Strings.isNonBlank(extendedId)) {
                     SessionIdManager idManager = preferredHandler.getSessionIdManager();
                     String id = idManager.getId(extendedId);
                     preferredSession = getSessionSafely(preferredHandler, id);
                     if (preferredSession != null && !((Session) preferredSession).getExtendedId().equals(extendedId))
                         ((Session) preferredSession).setIdChanged(true);
+                }
+
+                // now try all requested session id's, because the request's session handler is not aware of global sessions, see if any are still valid
+                if (preferredSession==null && optionalRequest instanceof Request) {
+                    SessionHandler sh = ((Request) optionalRequest).getSessionHandler();
+                    // look at all cookies on request
+                    if (sh.isUsingCookies()) {
+                        Cookie[] cookies = optionalRequest.getCookies();
+                        if (cookies != null && cookies.length > 0) {
+                            final String sessionCookie = sh.getSessionCookieName(sh.getSessionCookieConfig());
+                            for (Cookie cookie : cookies) {
+                                if (sessionCookie.equalsIgnoreCase(cookie.getName())) {
+                                    SessionIdManager idManager = preferredHandler.getSessionIdManager();
+                                    String requestedId = cookie.getValue();
+
+                                    String globalSessionId = idManager.getId(requestedId);
+                                    preferredSession = getSessionSafely(preferredHandler, globalSessionId);
+                                    if (preferredSession != null) {
+                                        ((Request) optionalRequest).setRequestedSessionId(requestedId);
+                                        ((Session) preferredSession).setIdChanged(true);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
@@ -285,7 +314,7 @@ public class MultiSessionAttributeAdapter {
                     // shouldn't come here; at minimum it should have returned the local session's handler
                     log.warn("Unexpected failure to find a handler for "+info(optionalRequest, optionalLocalSession));
                 }
-            } else {
+            } else if (optionalLocalSession!=null) {
                 log.warn("Unsupported session impl in "+info(optionalRequest, optionalLocalSession));
             }
             return optionalLocalSession;
