@@ -84,7 +84,7 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
     public void filter(ContainerRequestContext requestContext) throws IOException {
         String problem = lookForProblem(requestContext);
         if (Strings.isNonBlank(problem)) {
-            requestContext.abortWith(helper.disallowResponse(problem, requestContext.getUriInfo().getAbsolutePath()+"/"+resourceInfo.getResourceMethod()));
+            requestContext.abortWith(helper.disallowResponse(problem, requestContext.getUriInfo().getAbsolutePath()+" ("+resourceInfo.getResourceMethod()+")"));
         }
     }
 
