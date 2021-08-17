@@ -136,7 +136,7 @@ public interface ServerApi {
     @POST
     @Path("/ha/state")
     @ApiOperation(value = "Changes the HA state of this management node")
-    @Produces({MediaType.APPLICATION_FORM_URLENCODED})
+    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     public ManagementNodeState setHighAvailabilityNodeState(
             @ApiParam(name = "mode", value = "The state to change to")
             @FormParam("mode") HighAvailabilityMode mode);
