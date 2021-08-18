@@ -29,7 +29,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.config.render.RendererHints;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
@@ -206,6 +205,7 @@ public abstract class AbstractBrooklynRestResource {
             return Tasks.resolving(value)
                     .as(Object.class)
                     .defaultValue(UNRESOLVED)
+                    .deep()
                     .timeout(timeout)
                     .immediately(immediately == null ? false : immediately.booleanValue())
                     .context(context)
