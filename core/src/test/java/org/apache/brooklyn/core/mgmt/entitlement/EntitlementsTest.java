@@ -163,6 +163,20 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
 
+    // logViewer, can only see the logs
+    public void testGlobalLogViewerEntitlement() {
+        EntitlementManager user = Entitlements.logViewer();
+        assertTrue(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertFalse(user.isEntitled(null, Entitlements.ROOT, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertFalse(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertFalse(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+    }
+
     // user
     public void testGlobalUserEntitlement() {
         EntitlementManager user = Entitlements.user();
