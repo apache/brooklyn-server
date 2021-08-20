@@ -70,7 +70,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
     public static final Logger LOG = LoggerFactory.getLogger(LdapSecurityProvider.class);
 
     public static final String LDAP_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
-    public static final String LDAP_USER_GROUPS_ORIGIN = "brooklyn.entitlements.user.groups.origin.LdapSecurityProvider";
+    public static final String LDAP_USER_GROUPS_ORIGIN = LdapSecurityProvider.class.getName();
     private final String ldapUrl;
     private final String defaultLdapRealm;
     private final String organizationUnit;
