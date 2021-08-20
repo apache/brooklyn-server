@@ -56,11 +56,11 @@ public class FileLogStore implements LogStore {
     /*
     # Example config for local default implementation
     brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.file.FileLogStore
-    brooklyn.logbook.fileLogStore.path = /var/logs/brooklyn/brooklyn.debug.log
+    brooklyn.logbook.fileLogStore.path = /var/log/brooklyn/brooklyn.debug.log
     */
     public final static String BASE_NAME_FILE_LOG_STORE = BASE_NAME_LOGBOOK + ".fileLogStore";
     public final static ConfigKey<String> LOGBOOK_LOG_STORE_PATH = ConfigKeys.newStringConfigKey(
-            BASE_NAME_FILE_LOG_STORE + ".path", "Log file path", "/var/logs/brooklyn/brooklyn.debug.log");
+            BASE_NAME_FILE_LOG_STORE + ".path", "Log file path", "/var/log/brooklyn/brooklyn.debug.log");
 
     public final static ConfigKey<String> LOGBOOK_LOG_STORE_REGEX = ConfigKeys.newStringConfigKey(
             BASE_NAME_FILE_LOG_STORE + ".regexPattern",

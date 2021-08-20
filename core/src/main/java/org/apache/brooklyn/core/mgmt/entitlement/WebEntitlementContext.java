@@ -31,7 +31,7 @@ import java.util.Map;
 public class WebEntitlementContext implements EntitlementContext {
 
     public static final String USER_GROUPS = "brooklyn.entitlements.user.groups";
-
+    public static final String USER_GROUPS_ORIGIN = "brooklyn.entitlements.user.groups.origin";
 
     final String user;
     final String sourceIp;

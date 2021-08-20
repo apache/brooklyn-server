@@ -50,6 +50,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.USER_GROUPS;
+import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.USER_GROUPS_ORIGIN;
 
 /**
  * A {@link SecurityProvider} implementation that relies on LDAP to authenticate.
@@ -69,6 +70,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
     public static final Logger LOG = LoggerFactory.getLogger(LdapSecurityProvider.class);
 
     public static final String LDAP_CONTEXT_FACTORY = "com.sun.jndi.ldap.LdapCtxFactory";
+    public static final String LDAP_USER_GROUPS_ORIGIN = LdapSecurityProvider.class.getName();
     private final String ldapUrl;
     private final String defaultLdapRealm;
     private final String organizationUnit;
@@ -131,6 +133,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
 
             DirContext ctx = new InitialDirContext(env);// will throw if password is invalid
             if (fetchUserGroups) {
+                sessionSupplierOnSuccess.get().setAttribute(USER_GROUPS_ORIGIN, LDAP_USER_GROUPS_ORIGIN);
                 List<String> userGroups = getUserGroups(user, ctx);
                 if (userGroups.isEmpty()) {
                     addToInfoLog("Unsuccessful for " + user);
