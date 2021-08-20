@@ -75,7 +75,9 @@ public class EntitlementContextFilter implements ContainerRequestFilter, Contain
                     remoteAddr,
                     uri,
                     uid,
-                    MutableMap.<String, Object>of().addIfNotNull(WebEntitlementContext.USER_GROUPS, getAttributeFromSession(WebEntitlementContext.USER_GROUPS)));
+                    MutableMap.<String, Object>of()
+                            .addIfNotNull(WebEntitlementContext.USER_GROUPS, getAttributeFromSession(WebEntitlementContext.USER_GROUPS))
+                            .addIfNotNull(WebEntitlementContext.USER_GROUPS_ORIGIN, getAttributeFromSession(WebEntitlementContext.USER_GROUPS_ORIGIN)));
             Entitlements.setEntitlementContext(entitlementContext);
         }
     }
