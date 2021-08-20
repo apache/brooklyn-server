@@ -281,4 +281,19 @@ public class LocationsYamlTest extends AbstractYamlTest {
         return log;
     }
 
+    @Test
+    public void testLocationWithTags() throws Exception {
+        String yaml =
+                "location:\n"+
+                "  localhost:\n"+
+                "    tags: [ foo ]\n"+
+                "services:\n"+
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
+        assertNotNull(loc);
+        Assert.assertTrue(loc.tags().containsTag("foo"), "location tags missing: "+loc.tags().getTags());
+    }
+
 }
