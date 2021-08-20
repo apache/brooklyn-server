@@ -324,6 +324,19 @@ public class Entitlements {
         };
     }
 
+    public static EntitlementManager logViewer() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return LOGBOOK_LOG_STORE_QUERY.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.logViewer";
+            }
+        };
+    }
+
     /**
      * @return An entitlement manager denying access to anything that requires entitlements.
      */
@@ -538,6 +551,8 @@ public class Entitlements {
             return powerUser();
         } else if ("blueprintAuthor".equalsIgnoreCase(type) || "blueprint_author".equalsIgnoreCase(type)) {
             return blueprintAuthor();
+        }else if ("logViewer".equalsIgnoreCase(type) || "log_viewer".equalsIgnoreCase(type) || "log".equalsIgnoreCase(type)) {
+            return logViewer();
         }
         if (Strings.isNonBlank(type)) {
             try {
