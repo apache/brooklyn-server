@@ -28,7 +28,6 @@ import org.junit.Test;
 import org.testng.annotations.*;
 
 import java.io.File;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.TimeZone;
@@ -41,11 +40,11 @@ public class FileLogStoreTest extends TestCase {
 
     private final String UNEXPECTED_DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss,SSS";
     private final String JAVA_LOG_SAMPLE_PATH = "brooklyn/util/core/logbook/file/log-sample.txt";
-    private final String JAVA_LOG_LINE = "2021-05-27T11:36:59,251 - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
+    private final String JAVA_LOG_LINE = "2021-05-27T11:36:59,251Z - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
     private final String JAVA_LOG_LINE_WITH_NO_DATETIME = " - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
-    private final String JAVA_LOG_LINE_WITH_EXTRA_SPACE = "2021-06-07T14:58:58,487 - INFO    6 o.o.p.l.s.s.EventAdminConfigurationNotifier [s4j.pax.logging)] Sending Event Admin notification (configuration successful) to org/ops4j/pax/logging/Configuration";
-    private final String TASK_LOG_LINE = "2021-05-27T11:36:59,258 OGObOWJs-[gwpndj09r8] DEBUG 146 o.a.b.c.m.i.EffectorUtils [ager-WgxriwjB-43] Invoking effector restart on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
-    private final String JAVA_LOG_MULTI_LINE_TEXT = "2021-07-05T12:38:09,351 - ERROR 293 o.a.b.u.m.ExternalUiModule [tures-3-thread-1] bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component\n" +
+    private final String JAVA_LOG_LINE_WITH_EXTRA_SPACE = "2021-06-07T14:58:58,487Z - INFO    6 o.o.p.l.s.s.EventAdminConfigurationNotifier [s4j.pax.logging)] Sending Event Admin notification (configuration successful) to org/ops4j/pax/logging/Configuration";
+    private final String TASK_LOG_LINE = "2021-05-27T11:36:59,258Z OGObOWJs-[gwpndj09r8] DEBUG 146 o.a.b.c.m.i.EffectorUtils [ager-WgxriwjB-43] Invoking effector restart on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}";
+    private final String JAVA_LOG_MULTI_LINE_TEXT = "2021-07-05T12:38:09,351Z - ERROR 293 o.a.b.u.m.ExternalUiModule [tures-3-thread-1] bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component\n" +
             "org.osgi.service.component.ComponentException: The component name 'org.apache.brooklyn.ui.external.module' has already been registered by Bundle 293 (org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules) as Component of Class org.apache.brooklyn.ui.modularity.ExternalUiModule\n" +
             "\tat org.apache.felix.scr.impl.ComponentRegistry.checkComponentName(ComponentRegistry.java:240) ~[?:?]\n" +
             "\tat org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]";
@@ -68,7 +67,7 @@ public class FileLogStoreTest extends TestCase {
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE, lineCount);
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
-        assertEquals("2021-05-27T11:36:59,251", brooklynLogEntry.getTimestampString());
+        assertEquals("2021-05-27T11:36:59,251Z", brooklynLogEntry.getTimestampString());
         assertEquals("Thu May 27 11:36:59 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("DEBUG", brooklynLogEntry.getLevel());
         assertEquals("146", brooklynLogEntry.getBundleId());
@@ -84,7 +83,7 @@ public class FileLogStoreTest extends TestCase {
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE_WITH_EXTRA_SPACE, lineCount);
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
-        assertEquals("2021-06-07T14:58:58,487", brooklynLogEntry.getTimestampString());
+        assertEquals("2021-06-07T14:58:58,487Z", brooklynLogEntry.getTimestampString());
         assertEquals("Mon Jun 07 14:58:58 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("INFO", brooklynLogEntry.getLevel());
         assertEquals("6", brooklynLogEntry.getBundleId());
@@ -98,7 +97,7 @@ public class FileLogStoreTest extends TestCase {
     public void testParseLogTaskLine() {
         FileLogStore cut = new FileLogStore();
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(TASK_LOG_LINE, lineCount);
-        assertEquals("2021-05-27T11:36:59,258", brooklynLogEntry.getTimestampString());
+        assertEquals("2021-05-27T11:36:59,258Z", brooklynLogEntry.getTimestampString());
         assertEquals("Thu May 27 11:36:59 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("OGObOWJs", brooklynLogEntry.getTaskId());
         assertEquals("[gwpndj09r8]", brooklynLogEntry.getEntityIds());
@@ -116,7 +115,7 @@ public class FileLogStoreTest extends TestCase {
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_MULTI_LINE_TEXT, lineCount);
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
-        assertEquals("2021-07-05T12:38:09,351", brooklynLogEntry.getTimestampString());
+        assertEquals("2021-07-05T12:38:09,351Z", brooklynLogEntry.getTimestampString());
         assertEquals("Mon Jul 05 12:38:09 UTC 2021", brooklynLogEntry.getDatetime().toString());
         assertEquals("ERROR", brooklynLogEntry.getLevel());
         assertEquals("293", brooklynLogEntry.getBundleId());
@@ -145,7 +144,7 @@ public class FileLogStoreTest extends TestCase {
         assertNull(brooklynLogEntry.getTaskId());
         assertNull(brooklynLogEntry.getEntityIds());
         assertNull(brooklynLogEntry.getDatetime());
-        assertEquals("2021-05-27T11:36:59,251", brooklynLogEntry.getTimestampString());
+        assertEquals("2021-05-27T11:36:59,251Z", brooklynLogEntry.getTimestampString());
         assertEquals("DEBUG", brooklynLogEntry.getLevel());
         assertEquals("146", brooklynLogEntry.getBundleId());
         assertEquals("o.a.b.c.m.i.LocalManagementContext", brooklynLogEntry.getClazz());
@@ -171,7 +170,7 @@ public class FileLogStoreTest extends TestCase {
         BrooklynLogEntry firstBrooklynLogEntry = brooklynLogEntries.get(0);
         assertNull(firstBrooklynLogEntry.getTaskId());
         assertNull(firstBrooklynLogEntry.getEntityIds());
-        assertEquals("2021-05-27T11:36:59,251", firstBrooklynLogEntry.getTimestampString());
+        assertEquals("2021-05-27T11:36:59,251Z", firstBrooklynLogEntry.getTimestampString());
         assertEquals("Thu May 27 11:36:59 UTC 2021",firstBrooklynLogEntry.getDatetime().toString());
         assertEquals("DEBUG", firstBrooklynLogEntry.getLevel());
         assertEquals("146", firstBrooklynLogEntry.getBundleId());
@@ -184,7 +183,7 @@ public class FileLogStoreTest extends TestCase {
         BrooklynLogEntry secondBrooklynLogEntry = brooklynLogEntries.get(1);
         assertNull(secondBrooklynLogEntry.getTaskId());
         assertNull(secondBrooklynLogEntry.getEntityIds());
-        assertEquals("2021-07-05T12:38:09,351", secondBrooklynLogEntry.getTimestampString());
+        assertEquals("2021-07-05T12:38:09,351Z", secondBrooklynLogEntry.getTimestampString());
         assertEquals("Mon Jul 05 12:38:09 UTC 2021", secondBrooklynLogEntry.getDatetime().toString());
         assertEquals("ERROR", secondBrooklynLogEntry.getLevel());
         assertEquals("293", secondBrooklynLogEntry.getBundleId());
