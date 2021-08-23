@@ -61,7 +61,7 @@ public interface WinRmTool {
      * TODO Winrm supports several authentication mechanisms so it would be better to replace it with a prioritised list of authentication mechanisms to try.
      */
     @Beta
-    ConfigKey<Boolean> USE_NTLM = ConfigKeys.newBooleanConfigKey("winrm.useNtlm", "The parameter configures tells the machine sensors whether the winrm port is over https. If the parameter is true then 5986 will be used as a winrm port.", true);
+    ConfigKey<Boolean> USE_NTLM = ConfigKeys.newBooleanConfigKey("winrm.useNtlm", "The parameter configures whether to use NTLM or not.", true);
 
     @Beta
     ConfigKey<String> COMPUTER_NAME = ConfigKeys.newStringConfigKey("winrm.computerName", "Windows Computer Name to use for authentication.");
