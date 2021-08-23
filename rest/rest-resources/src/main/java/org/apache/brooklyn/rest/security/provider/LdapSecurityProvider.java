@@ -60,7 +60,7 @@ import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.US
  * brooklyn.webconsole.security.ldap.realm=<,>realm>
  * brooklyn.webconsole.security.ldap.ou=<ou>.<parent_ou>
  * brooklyn.webconsole.security.ldap.fetch_user_group=true
- * brooklyn.webconsole.security.ldap.group_config_key=<role_resolver_config_key>
+ * brooklyn.webconsole.security.ldap.group_config_keys=<role_resolver_config_key_example_one>,<role_resolver_config_key_example_two>
  * brooklyn.webconsole.security.ldap.login_info_log=true
  *
  * @author Peter Veentjer.
