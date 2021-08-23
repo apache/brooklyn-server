@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -322,6 +323,9 @@ public class ServiceStateLogic {
                 return Maybe.of(Lifecycle.RUNNING);
             } else {
                 if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
+                    Lifecycle.Transition serviceExpected = entity.getAttribute(SERVICE_STATE_EXPECTED);
+                    // very occasional race here; might want to give a grace period if entity has just transitioned,
+                    // allow children to catch up
                     BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(entity, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.DEBUG),
                         "Setting "+entity+" "+Lifecycle.ON_FIRE+" due to problems when expected running, up="+serviceUp+", "+
                             (problems==null || problems.isEmpty() ? "not-up-indicators: "+entity.getAttribute(SERVICE_NOT_UP_INDICATORS) : "problems: "+problems));
@@ -536,7 +540,7 @@ public class ServiceStateLogic {
             if (entity==null || !Entities.isManaged(entity)) {
                 // either invoked during setup or entity has become unmanaged; just ignore
                 BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
-                    "Ignoring {} onUpdated when entity is not in valid state ({})", this, entity);
+                    "Ignoring service indicators onUpdated at {} from invalid/unmanaged entity ({})", this, entity);
                 return;
             }
 
@@ -591,12 +595,12 @@ public class ServiceStateLogic {
         protected Object computeServiceProblems() {
             Map<Entity, Lifecycle> values = getValues(SERVICE_STATE_ACTUAL);
             int numRunning=0;
-            List<Entity> onesNotHealthy=MutableList.of();
+            Map<Entity,String> onesNotHealthy=MutableMap.of();
             Set<Lifecycle> ignoreStates = getConfig(IGNORE_ENTITIES_WITH_THESE_SERVICE_STATES);
             for (Map.Entry<Entity,Lifecycle> state: values.entrySet()) {
                 if (state.getValue()==Lifecycle.RUNNING) numRunning++;
                 else if (!ignoreStates.contains(state.getValue()))
-                    onesNotHealthy.add(state.getKey());
+                    onesNotHealthy.put(state.getKey(), ""+state.getValue());
             }
 
             QuorumCheck qc = getConfig(RUNNING_QUORUM_CHECK);
@@ -613,8 +617,9 @@ public class ServiceStateLogic {
             }
 
             return "Required entit"+Strings.ies(onesNotHealthy.size())+" not healthy: "+
-                (onesNotHealthy.size()>3 ? nameOfEntity(onesNotHealthy.get(0))+" and "+(onesNotHealthy.size()-1)+" others"
-                    : Strings.join(nameOfEntity(onesNotHealthy), ", "));
+                (onesNotHealthy.size()>3
+                        ? nameOfEntity(onesNotHealthy.keySet().iterator().next())+" ("+onesNotHealthy.values().iterator().next()+") and "+(onesNotHealthy.size()-1)+" others"
+                        : onesNotHealthy.entrySet().stream().map(entry -> nameOfEntity(entry.getKey())+" ("+entry.getValue()+")").collect(Collectors.joining(", ")));
         }
 
         private List<String> nameOfEntity(List<Entity> entities) {
