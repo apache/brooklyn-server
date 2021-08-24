@@ -89,7 +89,7 @@ public class HaMasterCheckFilter implements Filter {
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
         String problem = lookForProblem(request);
         if (problem!=null) {
-            WebResourceUtils.applyJsonResponse(mgmt, helper.disallowResponse(problem, request.getParameterMap()), (HttpServletResponse)response);
+            WebResourceUtils.applyJsonResponse(mgmt, helper.disallowResponse(problem, request.getParameterMap(), true), (HttpServletResponse)response);
         } else {
             chain.doFilter(request, response);
         }

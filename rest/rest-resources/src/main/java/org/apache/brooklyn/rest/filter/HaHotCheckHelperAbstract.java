@@ -55,9 +55,13 @@ public abstract class HaHotCheckHelperAbstract {
     }
 
     public Response disallowResponse(String problem, Object info) {
+        return disallowResponse(problem, info, true);
+    }
+
+    public Response disallowResponse(String problem, Object info, boolean masterRequired) {
         log.warn("Disallowing web request as "+problem+": "+info+" (caller should set '"+HaHotCheckHelperAbstract.SKIP_CHECK_HEADER+"' to force)");
         return ApiError.builder()
-            .message("This request is only permitted against an active master Brooklyn server")
+            .message("This request is only permitted against an active "+(masterRequired?"primary":"primary or hot standby/backup")+" Brooklyn server")
             .errorCode(Response.Status.FORBIDDEN).build().asJsonResponse();
     }
 
