@@ -419,4 +419,60 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_LIST_PLAIN).get(), ImmutableList.of("myOther"));
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_SET_PLAIN).get(), ImmutableSet.of("myOther"));
     }
+
+    @Test
+    public void testConfigGoodNumericCoercions() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: 1.1",
+                "    test.confInteger: 1.0");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        assertEquals(entity.config().get(TestEntity.CONF_INTEGER), (Integer)1);
+        assertEquals(entity.config().get(TestEntity.CONF_DOUBLE), (Double)1.1);
+    }
+
+    @Test
+    public void testConfigVeryLargeIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 9999999999999999999999999999999999999332",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+            e -> e.toString().contains("9999332"));
+    }
+
+    @Test
+    public void testConfigVeryLargeDoubleCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999332",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("9999332"));
+    }
+
+    @Test
+    public void testConfigFloatAsIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 1.5",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("1.5"));
+    }
+
 }
