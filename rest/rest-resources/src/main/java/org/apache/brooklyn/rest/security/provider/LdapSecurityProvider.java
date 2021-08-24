@@ -60,7 +60,7 @@ import static org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext.US
  * brooklyn.webconsole.security.ldap.realm=<,>realm>
  * brooklyn.webconsole.security.ldap.ou=<ou>.<parent_ou>
  * brooklyn.webconsole.security.ldap.fetch_user_group=true
- * brooklyn.webconsole.security.ldap.group_config_key=<role_resolver_config_key>
+ * brooklyn.webconsole.security.ldap.group_config_keys=<role_resolver_config_key_example_one>,<role_resolver_config_key_example_two>
  * brooklyn.webconsole.security.ldap.login_info_log=true
  *
  * @author Peter Veentjer.
@@ -84,9 +84,9 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         Strings.checkNonEmpty(ldapUrl, "LDAP security provider configuration missing required property " + BrooklynWebConfig.LDAP_URL);
         fetchUserGroups = properties.getConfig(BrooklynWebConfig.LDAP_FETCH_USER_GROUPS);
         logUserLoginAttempt = properties.getConfig(BrooklynWebConfig.LDAP_LOGIN_INFO_LOG);
-        String prefix = properties.getConfig(BrooklynWebConfig.GROUP_CONFIG_KEY_NAME);
-        if (fetchUserGroups && Strings.isNonBlank(prefix)) {
-            validGroups = getConfiguredGroups(properties, prefix);
+        List ldapGroupsPrefixes = properties.getConfig(BrooklynWebConfig.GROUP_CONFIG_KEY_NAME);
+        if (fetchUserGroups && !ldapGroupsPrefixes.isEmpty()) {
+            validGroups = getConfiguredGroups(properties, ldapGroupsPrefixes);
         } else {
             validGroups = ImmutableList.of();
         }
@@ -153,11 +153,13 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         }
     }
 
-    private List<String> getConfiguredGroups(StringConfigMap properties, String prefix) {
+    private List<String> getConfiguredGroups(StringConfigMap properties, List<String> prefixes) {
         ImmutableList.Builder<String> configuredGroupsBuilder = ImmutableList.builder();
-        StringConfigMap roles = properties.submap(ConfigPredicates.nameStartsWith(prefix + "."));
-        for (Map.Entry<ConfigKey<?>, ?> entry : roles.getAllConfigLocalRaw().entrySet()) {
-            configuredGroupsBuilder.add(Strings.removeFromStart(entry.getKey().getName(), prefix + "."));
+        for (String prefix : prefixes){
+            StringConfigMap roles = properties.submap(ConfigPredicates.nameStartsWith(prefix + "."));
+            for (Map.Entry<ConfigKey<?>, ?> entry : roles.getAllConfigLocalRaw().entrySet()) {
+                configuredGroupsBuilder.add(Strings.removeFromStart(entry.getKey().getName(), prefix + "."));
+            }
         }
         return configuredGroupsBuilder.build();
     }
