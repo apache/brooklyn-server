@@ -38,6 +38,7 @@ import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import org.apache.commons.lang3.tuple.Pair;
 
 /** 
  * Checks that if the method or resource class corresponding to a request
@@ -82,18 +83,18 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
-        String problem = lookForProblem(requestContext);
-        if (Strings.isNonBlank(problem)) {
-            requestContext.abortWith(helper.disallowResponse(problem, requestContext.getUriInfo().getAbsolutePath()+" ("+resourceInfo.getResourceMethod()+")"));
+        Pair<String,Boolean> problemAndMaster = lookForProblem(requestContext);
+        if (problemAndMaster!=null && Strings.isNonBlank(problemAndMaster.getLeft())) {
+            requestContext.abortWith(helper.disallowResponse(problemAndMaster.getLeft(), requestContext.getUriInfo().getAbsolutePath()+" ("+resourceInfo.getResourceMethod()+")", problemAndMaster.getRight()));
         }
     }
 
-    private String lookForProblem(ContainerRequestContext requestContext) {
+    private Pair<String,Boolean> lookForProblem(ContainerRequestContext requestContext) {
         if (helper.isSkipCheckHeaderSet(requestContext.getHeaderString(SKIP_CHECK_HEADER))) 
             return null;
         
         if (isMasterRequiredForRequest(requestContext) && !isMaster()) {
-            return "server not in required HA master state";
+            return Pair.of("server not in required HA primary state",true);
         }
         
         if (!isHaHotStateRequired())
@@ -101,12 +102,12 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
         
         Maybe<String> problem = helper.getProblemMessageIfServerNotRunning();
         if (problem.isPresent()) 
-            return problem.get();
+            return Pair.of(problem.get(),false);
         
         if (!helper.isHaHotStatus())
-            return "server not in required HA hot state";
+            return Pair.of("server not in required HA hot state",false);
         if (helper.isStateNotYetValid())
-            return "server not yet completed loading data for required HA hot state";
+            return Pair.of("server not yet completed loading data for required HA hot state",false);
         
         return null;
     }
