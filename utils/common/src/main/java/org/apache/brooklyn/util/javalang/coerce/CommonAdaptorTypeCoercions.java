@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.javalang.coerce;
 
+import com.google.common.annotations.Beta;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
@@ -57,6 +58,8 @@ import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
 public class CommonAdaptorTypeCoercions {
+
+    @Beta public static final double DELTA_FOR_COERCION = 0.000001;
 
     private final TypeCoercerExtensible coercer;
 
@@ -205,19 +208,19 @@ public class CommonAdaptorTypeCoercions {
         registerAdapter(BigDecimal.class, Double.class, new Function<BigDecimal,Double>() {
             @Override
             public Double apply(BigDecimal input) {
-                return input.doubleValue();
+                return checkValidForConversion(input, input.doubleValue());
             }
         });
         registerAdapter(BigInteger.class, Long.class, new Function<BigInteger,Long>() {
             @Override
             public Long apply(BigInteger input) {
-                return input.longValue();
+                return input.longValueExact();
             }
         });
         registerAdapter(BigInteger.class, Integer.class, new Function<BigInteger,Integer>() {
             @Override
             public Integer apply(BigInteger input) {
-                return input.intValue();
+                return input.intValueExact();
             }
         });
         registerAdapter(String.class, BigDecimal.class, new Function<String,BigDecimal>() {
@@ -317,7 +320,15 @@ public class CommonAdaptorTypeCoercions {
             }
         });
     }
-    
+
+    @Beta
+    public static double checkValidForConversion(BigDecimal input, double candidate) {
+        if (input.subtract(BigDecimal.valueOf(candidate)).abs().compareTo(BigDecimal.valueOf(DELTA_FOR_COERCION))>0) {
+            throw new IllegalStateException("Decimal value out of range; cannot convert "+ input +" to double");
+        }
+        return candidate;
+    }
+
     @SuppressWarnings("rawtypes")
     public void registerRecursiveIterableAdapters() {
         

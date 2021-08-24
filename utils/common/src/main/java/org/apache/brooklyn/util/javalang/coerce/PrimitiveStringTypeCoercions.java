@@ -20,6 +20,8 @@ package org.apache.brooklyn.util.javalang.coerce;
 
 import java.lang.reflect.Method;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
@@ -150,18 +152,28 @@ public class PrimitiveStringTypeCoercions {
         } else {
             isdouble = false;
         }
+
         if (isdouble) {
-            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)d)); 
-            if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf((byte)d)); 
-            if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf((short)d)); 
-            if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((int)d)); 
-            if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf((long)d)); 
-            if (targetWrapType == Float.class) return Maybe.of((T) Float.valueOf((float)d)); 
             if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(d));
-            return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
-        } else {
-            return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
+
+            BigDecimal dd = BigDecimal.valueOf(d);
+            if (targetWrapType == Float.class) {
+                float candidate = (float)d;
+                if (dd.subtract(BigDecimal.valueOf(candidate)).abs().compareTo(BigDecimal.valueOf(CommonAdaptorTypeCoercions.DELTA_FOR_COERCION))>0) {
+                    throw new IllegalStateException("Decimal value out of range; cannot convert "+ candidate +" to float");
+                }
+                return Maybe.of((T) (Float) candidate);
+            }
+
+            if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((dd.intValueExact())));
+            if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(dd.longValueExact()));
+            if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf(dd.shortValueExact()));
+            if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf(dd.byteValueExact()));
+
+            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)dd.intValueExact()));
         }
+
+        return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
     }
     
     public static boolean isPrimitiveOrBoxer(Class<?> type) {
