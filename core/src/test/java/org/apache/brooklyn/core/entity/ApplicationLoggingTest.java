@@ -18,20 +18,16 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static org.apache.brooklyn.test.LogWatcher.EventPredicates.containsMessage;
-import static org.apache.brooklyn.test.LogWatcher.EventPredicates.matchingRegexes;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.List;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -44,18 +40,16 @@ import org.apache.brooklyn.core.test.entity.TestApplicationImpl;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.entity.TestEntityImpl;
 import org.apache.brooklyn.test.LogWatcher;
+import static org.apache.brooklyn.test.LogWatcher.EventPredicates.containsMessage;
+import static org.apache.brooklyn.test.LogWatcher.EventPredicates.matchingRegexes;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
-
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
-import ch.qos.logback.classic.Level;
 
 @Test
 public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
@@ -97,12 +91,13 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
     public static final class TestEntityWithLoggingImp extends TestEntityImpl implements TestEntityWithLogging {
 
         private String getIndent() {
+            // no need for indent is there?
             String indent = "";
-            Entity e = this;
-            while (e.getParent() != null) {
-                indent += "  ";
-                e = e.getParent();
-            }
+//            Entity e = this;
+//            while (e.getParent() != null) {
+//                indent += "  ";
+//                e = e.getParent();
+//            }
             return indent;
         }
 
@@ -124,6 +119,8 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
                 throw new RuntimeException(e);
             }
             LOG.info(getIndent() + "Hello from entity {}", getId());
+            DynamicTasks.queue(Tasks.parallel("Queued parallel in start", Tasks.builder().body(()->LOG.info("task-qp1")).displayName("Task QP1").build()));
+            DynamicTasks.submit(Tasks.builder().body(()->LOG.info("task-s1")).displayName("Simple task").build(), this).blockUntilEnded();
         }
 
         @Override
@@ -163,22 +160,37 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
             executionContext.submit(stopTask);
             assertHealthEventually(app, Lifecycle.STOPPED, false);
 
+            watcher.dumpLog();
+
             // Look for output like
-//          2018-02-05 16:23:11,485 INFO  K09KEX1U-[y4lgil3hya,xn0fmqrhzd,khx0py82ba]     Hello from entity khx0py82ba
-//          2018-02-05 16:23:11,488 INFO  kD8Q76x0-[y4lgil3hya,xn0fmqrhzd]   Hello from entity xn0fmqrhzd
-//          2018-02-05 16:23:11,488 INFO  ZsU4OGEp-[y4lgil3hya] Hello world
-//          2018-02-05 16:23:11,496 INFO  - Stop task id is pOp03ybS
-//          2018-02-05 16:23:11,498 INFO  pOp03ybS-[y4lgil3hya] Goodbye cruel world
-//          2018-02-05 16:23:11,499 INFO  c1Pcn3FR-[y4lgil3hya,xn0fmqrhzd]   Goodbye from entity xn0fmqrhzd
-//          2018-02-05 16:23:11,500 INFO  eq9akWgK-[y4lgil3hya,xn0fmqrhzd,khx0py82ba]     Goodbye from entity khx0py82ba
+//            2021-08-25 01:05:57,300 INFO  NRVV5rRl-[xm8hb6sl61,v030wunwkf,nlj2rrkoun] Hello from entity nlj2rrkoun
+//            2021-08-25 01:05:57,303 INFO  - task-qp1
+//            2021-08-25 01:05:57,304 INFO  - task-s1
+//            2021-08-25 01:05:57,305 INFO  zTpsUVf8-[xm8hb6sl61,v030wunwkf] Hello from entity v030wunwkf
+//            2021-08-25 01:05:57,305 INFO  - task-qp1
+//            2021-08-25 01:05:57,305 INFO  - task-s1
+//            2021-08-25 01:05:57,306 INFO  wv5xPCQx-[xm8hb6sl61] Hello world
+//            2021-08-25 01:05:57,315 INFO  - Stop task id is Tads2TKn
+//            2021-08-25 01:05:57,316 INFO  Tads2TKn-[xm8hb6sl61] Goodbye cruel world
+//            2021-08-25 01:05:57,317 INFO  s4kkzRju-[xm8hb6sl61,v030wunwkf] Goodbye from entity v030wunwkf
+//            2021-08-25 01:05:57,318 INFO  OirHlnKp-[xm8hb6sl61,v030wunwkf,nlj2rrkoun] Goodbye from entity nlj2rrkoun
             watcher.assertHasEvent(containsMessage(stopId + "-"));
             watcher.assertHasEvent(matchingRegexes(".*" + app.getApplicationId() + ".*Hello world.*"));;
             watcher.assertHasEvent(matchingRegexes(".*" +
-                ImmutableList.of(app.getId(), entity.getId()).toString()
-                + ".*from entity.*" + entity.getId() + ".*"));
+                    Strings.join(ImmutableList.of(app.getId(), entity.getId()), ",")+"\\]"
+                    + ".*from entity.*" + entity.getId() + ".*"));
             watcher.assertHasEvent(matchingRegexes(".*" +
-                ImmutableList.of(app.getId(), entity.getId(), child.getId()).toString()
-                + ".*from entity.*" + child.getId() + ".*"));
+                    Strings.join(ImmutableList.of(app.getId(), entity.getId(), child.getId()), ",")
+                    + ".*from entity.*" + child.getId() + ".*"));
+
+            // these fail
+            watcher.assertHasEvent(matchingRegexes(".*" +
+                    Strings.join(ImmutableList.of(app.getId(), entity.getId()), ",")+"\\]"
+                    + ".*task-qp1.*"));
+            watcher.assertHasEvent(matchingRegexes(".*" +
+                    Strings.join(ImmutableList.of(app.getId(), entity.getId()), ",")+"\\]"
+                    + ".*task-s1.*"));
+
         }
     }
 
