@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Supplier;
+import com.google.common.collect.Iterables;
 import java.lang.reflect.Proxy;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -35,8 +39,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
@@ -59,12 +61,6 @@ import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Supplier;
-import com.google.common.collect.Iterables;
 
 /**
  * A means of executing tasks against an ExecutionManager with a given bucket/set of tags pre-defined
@@ -371,14 +367,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             taskTags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         }
 
-        BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create();
-
         final Object startCallback = properties.get("newTaskStartCallback");
         properties.put("newTaskStartCallback", new Function<Task<?>,Void>() {
             @Override
             public Void apply(Task<?> it) {
                 registerPerThreadExecutionContext();
-                mdc.withTask(it).start();
                 if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
                 return null;
             }});
@@ -391,7 +384,6 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                     if (endCallback!=null) BasicExecutionManager.invokeCallback(endCallback, it);
                 } finally {
                     clearPerThreadExecutionContext();
-                    mdc.finish();
                 }
                 return null;
             }});
