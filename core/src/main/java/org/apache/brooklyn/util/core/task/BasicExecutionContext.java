@@ -51,6 +51,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier.ImmediateUnsupportedException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -74,8 +75,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     private static final Logger log = LoggerFactory.getLogger(BasicExecutionContext.class);
     
     static final ThreadLocal<BasicExecutionContext> perThreadExecutionContext = new ThreadLocal<BasicExecutionContext>();
-    public static final String ENTITY_IDS = "entity.ids";
-    public static final String TASK_ID = "task.id";
+
+    /** @deprecated since 1.1 use BasicExecutionManager.LOGGING_MDC_KEY_ENTITY_IDS */
+    public static final String ENTITY_IDS = BasicExecutionManager.LOGGING_MDC_KEY_ENTITY_IDS;
+    /** @deprecated since 1.1 use BasicExecutionManager.LOGGING_MDC_KEY_TASK_ID */
+    public static final String TASK_ID = BasicExecutionManager.LOGGING_MDC_KEY_TASK_ID;
 
     public static BasicExecutionContext getCurrentExecutionContext() { return perThreadExecutionContext.get(); }
 
@@ -213,12 +217,12 @@ public class BasicExecutionContext extends AbstractExecutionContext {
     }
     
     /** Internal utility method to avoid replication between 
-     * implementations in {@link #get(Task)} and {@link #getImmediately(Object)}.
+     * implementations in {@link #get(TaskAdaptable)} and {@link #getImmediately(Object)}.
      * The two submit different jobs but after doing a lot of the same setup and catch/finally.
      * Logic re return type is a little fiddly given the differences but should be clearer
      * seeing how the two work (as opposed to this method being designed as something
      * more generally useful). */
-    private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) throws Exception {
+    private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) {
         ((TaskInternal<T>)task).getMutableTags().addAll(tags);
         
         Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
@@ -228,18 +232,11 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         
         SimpleFuture<T> future = new SimpleFuture<>();
         Throwable error = null;
-        final Set<Object> taskTags = task.getTags();
-        Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
-        final AtomicReference<MDC.MDCCloseable> entityMDC = new AtomicReference<>();
-        final AtomicReference<MDC.MDCCloseable> taskMDC = new AtomicReference<>();
 
-        try {
+        try (BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create(task).start()) {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
-            if (target != null) {
-                entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target)));
-                taskMDC.set(MDC.putCloseable(TASK_ID, task.getId()));
-            }
+
             return future.set(job.call());
             
         } catch (Exception e) {
@@ -253,8 +250,6 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             try {
                 ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task, error);
             } finally {
-                if (entityMDC.get() != null) entityMDC.get().close();
-                if (taskMDC.get() != null) taskMDC.get().close();
                 BasicExecutionManager.getPerThreadCurrentTask().set(previousTask);
                 perThreadExecutionContext.set(oldExecutionContext);
             }
@@ -376,19 +371,14 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             taskTags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         }
 
-        Entity target = BrooklynTaskTags.getWrappedEntityOfType(taskTags, BrooklynTaskTags.TARGET_ENTITY);
-        final AtomicReference<MDC.MDCCloseable> entityMDC = new AtomicReference<>();
-        final AtomicReference<MDC.MDCCloseable> taskMDC = new AtomicReference<>();
+        BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create();
 
         final Object startCallback = properties.get("newTaskStartCallback");
         properties.put("newTaskStartCallback", new Function<Task<?>,Void>() {
             @Override
             public Void apply(Task<?> it) {
                 registerPerThreadExecutionContext();
-                if (target != null) {
-                    entityMDC.set(MDC.putCloseable(ENTITY_IDS, idStack(target)));
-                    taskMDC.set(MDC.putCloseable(TASK_ID, it.getId()));
-                }
+                mdc.withTask(it).start();
                 if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
                 return null;
             }});
@@ -401,8 +391,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
                     if (endCallback!=null) BasicExecutionManager.invokeCallback(endCallback, it);
                 } finally {
                     clearPerThreadExecutionContext();
-                    if (entityMDC.get() != null) entityMDC.get().close();
-                    if (taskMDC.get() != null) taskMDC.get().close();
+                    mdc.finish();
                 }
                 return null;
             }});

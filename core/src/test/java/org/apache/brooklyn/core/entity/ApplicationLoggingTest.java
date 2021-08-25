@@ -162,7 +162,7 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
 
             watcher.dumpLog();
 
-            // Look for output like
+            // Was like this
 //            2021-08-25 01:05:57,300 INFO  NRVV5rRl-[xm8hb6sl61,v030wunwkf,nlj2rrkoun] Hello from entity nlj2rrkoun
 //            2021-08-25 01:05:57,303 INFO  - task-qp1
 //            2021-08-25 01:05:57,304 INFO  - task-s1
@@ -174,13 +174,26 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
 //            2021-08-25 01:05:57,316 INFO  Tads2TKn-[xm8hb6sl61] Goodbye cruel world
 //            2021-08-25 01:05:57,317 INFO  s4kkzRju-[xm8hb6sl61,v030wunwkf] Goodbye from entity v030wunwkf
 //            2021-08-25 01:05:57,318 INFO  OirHlnKp-[xm8hb6sl61,v030wunwkf,nlj2rrkoun] Goodbye from entity nlj2rrkoun
+            // Now like this
+//            2021-08-25 03:25:09,225 AUxQncSH-[jsgii01x6z,k482sbdld8] INFO  o.a.b.c.e.ApplicationLoggingTest                  Hello from entity k482sbdld8
+//            2021-08-25 03:25:09,228 GOxbPmDI-[jsgii01x6z,k482sbdld8] INFO  o.a.b.c.e.ApplicationLoggingTest                  task-qp1
+//            2021-08-25 03:25:09,229 IsZ6JACj-[jsgii01x6z,k482sbdld8] INFO  o.a.b.c.e.ApplicationLoggingTest                  task-s1
+//            2021-08-25 03:25:09,230 UtPwBp4Y-[jsgii01x6z,ry2o7ppr19] INFO  o.a.b.c.e.ApplicationLoggingTest                  Hello from entity ry2o7ppr19
+//            2021-08-25 03:25:09,230 UvIkYT5x-[jsgii01x6z,ry2o7ppr19] INFO  o.a.b.c.e.ApplicationLoggingTest                  task-qp1
+//            2021-08-25 03:25:09,231 asSZuFLg-[jsgii01x6z,ry2o7ppr19] INFO  o.a.b.c.e.ApplicationLoggingTest                  task-s1
+//            2021-08-25 03:25:09,231 yeMZ29he-[jsgii01x6z,jsgii01x6z] INFO  o.a.b.c.e.ApplicationLoggingTest                  Hello world
+//            2021-08-25 03:25:09,240         -                        INFO  o.a.b.c.e.ApplicationLoggingTest                  Stop task id is J5gxh53d
+//            2021-08-25 03:25:09,242 J5gxh53d-[jsgii01x6z,jsgii01x6z] INFO  o.a.b.c.e.ApplicationLoggingTest                  Goodbye cruel world
+//            2021-08-25 03:25:09,243 c1x0JDL5-[jsgii01x6z,ry2o7ppr19] INFO  o.a.b.c.e.ApplicationLoggingTest                  Goodbye from entity ry2o7ppr19
+//            2021-08-25 03:25:09,244 McOOTM2B-[jsgii01x6z,k482sbdld8] INFO  o.a.b.c.e.ApplicationLoggingTest                  Goodbye from entity k482sbdld8
+
             watcher.assertHasEvent(containsMessage(stopId + "-"));
             watcher.assertHasEvent(matchingRegexes(".*" + app.getApplicationId() + ".*Hello world.*"));;
             watcher.assertHasEvent(matchingRegexes(".*" +
                     Strings.join(ImmutableList.of(app.getId(), entity.getId()), ",")+"\\]"
                     + ".*from entity.*" + entity.getId() + ".*"));
             watcher.assertHasEvent(matchingRegexes(".*" +
-                    Strings.join(ImmutableList.of(app.getId(), entity.getId(), child.getId()), ",")
+                    Strings.join(ImmutableList.of(app.getId(), child.getId()), ",")
                     + ".*from entity.*" + child.getId() + ".*"));
 
             // these fail
