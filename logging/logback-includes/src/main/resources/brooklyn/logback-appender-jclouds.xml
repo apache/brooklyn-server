@@ -29,7 +29,8 @@
                 <file>${logging.dir:-./}${logging.basename:-brooklyn}.${jcloudsPersistSwitch}.log</file>
                 <append>true</append>
                 <encoder>
-                    <pattern>%d %-5level %logger{30} [%thread{15}]: %msg%n</pattern>
+                    <pattern>%d{ISO8601} %-5.5p %c{1}  %m%n</pattern>
+<!--                    <pattern>%d %-5level %logger{30} [%thread{15}]: %msg%n</pattern>-->
                 </encoder>
 
                 <!-- Truncate log at 100 MB, max history of 10 -->

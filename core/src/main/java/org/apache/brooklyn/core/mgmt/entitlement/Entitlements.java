@@ -497,6 +497,19 @@ public class Entitlements {
         return null;
     }
 
+    public static String getEntitlementContextUser() {
+        return getEntitlementContextUserMaybe().or("<system>");
+    }
+
+    public static Maybe<String> getEntitlementContextUserMaybe() {
+        EntitlementContext ctx = getEntitlementContext();
+        if (ctx!=null) {
+            String user = ctx.user();
+            if (Strings.isNonBlank(user)) return Maybe.of(user);
+        }
+        return Maybe.absent();
+    }
+
     public static void setEntitlementContext(EntitlementContext context) {
         EntitlementContext oldContext = PerThreadEntitlementContextHolder.perThreadEntitlementsContextHolder.get();
         if (oldContext!=null && context!=null) {

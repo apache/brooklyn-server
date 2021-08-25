@@ -47,7 +47,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -56,6 +58,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
@@ -84,6 +87,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import groovy.lang.Closure;
+import org.slf4j.MDC;
 
 /**
  * Manages the execution of atomic tasks and scheduled (recurring) tasks,
@@ -95,6 +99,9 @@ public class BasicExecutionManager implements ExecutionManager {
     private static final boolean RENAME_THREADS = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_RENAME_THREADS);
     private static final String JITTER_THREADS_MAX_DELAY_PROPERTY = BrooklynFeatureEnablement.FEATURE_JITTER_THREADS + ".maxDelay";
 
+    public static final String LOGGING_MDC_KEY_ENTITY_IDS = "entity.ids";
+    public static final String LOGGING_MDC_KEY_TASK_ID = "task.id";
+
     private boolean jitterThreads = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_JITTER_THREADS);
     private int jitterThreadsMaxDelay = Integer.getInteger(JITTER_THREADS_MAX_DELAY_PROPERTY, 200);
 
@@ -104,6 +111,59 @@ public class BasicExecutionManager implements ExecutionManager {
 
     public static ThreadLocal<Task<?>> getPerThreadCurrentTask() {
         return PerThreadCurrentTaskHolder.perThreadCurrentTask;
+    }
+
+    @Beta
+    public static class BrooklynTaskLoggingMdc implements AutoCloseable {
+        public static BrooklynTaskLoggingMdc create() {
+            return new BrooklynTaskLoggingMdc();
+        }
+        public static BrooklynTaskLoggingMdc create(Task task) {
+            return new BrooklynTaskLoggingMdc().withTask(task);
+        }
+
+        Task task;
+        MDC.MDCCloseable taskMdc=null, entityMdc=null;
+
+        private BrooklynTaskLoggingMdc() {}
+
+        public BrooklynTaskLoggingMdc withTask(Task task) {
+            this.task = task;
+            return this;
+        }
+
+        public BrooklynTaskLoggingMdc start() {
+            if (task!=null) {
+                taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
+            }
+
+            Entity entity = BrooklynTaskTags.getTargetOrContextEntity(task);
+            if (entity != null) {
+                entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
+            }
+
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled()) {
+                BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.debug("Starting task " + task.getId() +
+                        (Strings.isNonBlank(task.getDisplayName()) ? " ("+task.getDisplayName()+")" : "")+
+                        (entity == null ? "" : " on entity " + entity.getId()) +
+                        (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task "+task.getSubmittedByTaskId() : "") +
+                        Entitlements.getEntitlementContextUserMaybe().map(s -> " for user "+s).or("")
+                );
+            }
+            return this;
+        }
+
+        public void finish() {
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled()) {
+                BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.debug("Ending task " + task.getId());
+            }
+            if (entityMdc != null) entityMdc.close();
+            if (taskMdc != null) taskMdc.close();
+        }
+
+        public void close() {
+            finish();
+        }
     }
 
     private final ThreadFactory threadFactory;
@@ -467,7 +527,7 @@ public class BasicExecutionManager implements ExecutionManager {
                     Throwable lastError = null;
                     boolean shouldResubmit = true;
                     task.recentRun = taskScheduledF;
-                    try {
+                    try (BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create(task).start()) {
                         synchronized (task) {
                             task.notifyAll();
                         }
@@ -556,7 +616,7 @@ public class BasicExecutionManager implements ExecutionManager {
         public T call() {
             T result = null;
             Throwable error = null;
-            try {
+            try (BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create(task).start()) {
                 beforeStartAtomicTask(flags, task);
                 if (task.isCancelled()) {
                     afterEndForCancelBeforeStart(flags, task, false);
@@ -888,7 +948,7 @@ public class BasicExecutionManager implements ExecutionManager {
     protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Throwable error) {
         internalAfterEnd(flags, taskRepeatedlyScheduling, false, true, error);
     }
-    /** called once for each call to {@link #beforeStartScheduledTaskSubmissionIteration(Map, Task)},
+    /** called once for each call to {@link #beforeStartScheduledTaskSubmissionIteration(Map, Task, Task)},
      * with a per-iteration task generated by the surrounding scheduled task */
     protected void afterEndScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Task<?> taskIteration, Throwable error) {
         internalAfterEnd(flags, taskRepeatedlyScheduling, true, false, error);
@@ -922,7 +982,7 @@ public class BasicExecutionManager implements ExecutionManager {
     
     /** normally (if not interrupted) called once for each call to {@link #internalBeforeSubmit(Map, Task)},
      * and, for atomic tasks and scheduled-task submission iterations where 
-     * always called once if {@link #internalBeforeStart(Map, Task)} is invoked and in the same thread as that method */
+     * always called once if {@link #internalBeforeStart(Map, Task, boolean)} is invoked and in the same thread as that method */
     protected void internalAfterEnd(Map<?,?> flags, Task<?> task, boolean startedInThisThread, boolean isEndingAllIterations, Throwable error) {
         boolean taskWasSubmittedAndNotYetEnded = true;
         try {
