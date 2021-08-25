@@ -51,6 +51,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+
     }
     public void testAllowingInvokeEffector() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.INVOKE_EFFECTOR);
@@ -137,6 +138,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(root.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertTrue(root.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertTrue(root.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertTrue(root.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
     public void testAppSpecificRootEntitlement() {
         EntitlementManager root = Entitlements.root();
@@ -160,6 +162,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertTrue(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertTrue(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertTrue(user.isEntitled(null, Entitlements.HA_ADMIN, null));
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
 
@@ -175,6 +178,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertFalse(user.isEntitled(null, Entitlements.ADD_JAVA, null));
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
 
     // user
@@ -189,8 +193,8 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
-
 
     // blueprintautor, same as root but not Groovy scripts
     public void testGlobalBlueprintAuthorEntitlement() {
@@ -204,6 +208,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
         assertFalse(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
 
     // minimal
@@ -218,6 +223,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(minimal.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertFalse(minimal.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
         assertFalse(minimal.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
     public void testAppSpecificMinimalEntitlement() {
         EntitlementManager minimal = Entitlements.minimal();
@@ -241,6 +247,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(readOnly.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertFalse(readOnly.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
         assertFalse(readOnly.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(readOnly.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
     public void testAppSpecificReadOnlyEntitlement() {
         EntitlementManager readOnly = Entitlements.readOnly();

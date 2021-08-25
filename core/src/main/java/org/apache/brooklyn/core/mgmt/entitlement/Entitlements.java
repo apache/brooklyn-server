@@ -293,7 +293,8 @@ public class Entitlements {
                         !SEE_ALL_SERVER_INFO.equals(permission) &&
                         !ROOT.equals(permission) &&
                         !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
-                        !EXECUTE_GROOVY_SCRIPT.equals(permission);
+                        !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
+                        !HA_ADMIN.equals(permission);
             }
             @Override
             public String toString() {
@@ -315,7 +316,8 @@ public class Entitlements {
                         !ROOT.equals(permission) &&
                         !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
                         !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
-                        !ADD_JAVA.equals(permission);
+                        !ADD_JAVA.equals(permission) &&
+                        !HA_ADMIN.equals(permission);
             }
             @Override
             public String toString() {
