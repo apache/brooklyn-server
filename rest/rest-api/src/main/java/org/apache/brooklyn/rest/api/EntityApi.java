@@ -129,7 +129,7 @@ public interface EntityApi {
     /** @deprecated since 0.12.0 use {@link #listTasks(String, String, int, Boolean)} */
     @GET
     @Path("/{entity}/activities/deprecated")
-    @ApiOperation(value = "Fetch list of tasks for this entity")
+    @ApiOperation(value = "Fetch list of tasks for this entity", hidden = true)
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application or entity")
     })
