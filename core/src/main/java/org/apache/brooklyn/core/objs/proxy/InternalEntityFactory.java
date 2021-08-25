@@ -24,9 +24,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import org.apache.brooklyn.api.entity.*;
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.EntityManager;
+import org.apache.brooklyn.api.mgmt.EntityManager.EntityCreationOptions;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -41,6 +43,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -225,6 +228,23 @@ public class InternalEntityFactory extends InternalFactory {
 
             entity = constructEntity(clazz, spec, depth==0 ? options.getRequiredUniqueId() : null);
 
+            if (!options.isDryRun()) {
+                // entity.getParent and .getApplicationId not available yet; but spec.getParent does have them;
+                // we want to show the message before initialization happens
+                if (spec.getParent() == null) {
+                    BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Creating application " + entity.getId() + " (" + entity + ") for user " + Entitlements.getEntitlementContextUser());
+                } else {
+                    BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Creating entity " + entity.getId() + " (" + entity + ") " +
+                            "for user " + Entitlements.getEntitlementContextUser() + ", "+
+                            "child of " +
+                            (!Objects.equals(spec.getParent().getId(), spec.getParent().getApplicationId())
+                                    ? "entity " + spec.getParent().getId() + " in "
+                                    : "") +
+                            "application " + spec.getParent().getApplicationId()
+                            );
+                }
+            }
+
             loadUnitializedEntity(entity, spec, options);
 
             List<NamedStringTag> upgradedFrom = BrooklynTags.findAllNamedStringTags(BrooklynTags.UPGRADED_FROM, spec.getTags());
@@ -268,7 +288,8 @@ public class InternalEntityFactory extends InternalFactory {
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec, EntityManager.EntityCreationOptions options) {
+    protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec, EntityManager.
+        EntityCreationOptions options) {
         try {
             Task<T> initialize = Tasks.create("initialize", () -> {
                 final AbstractEntity theEntity = (AbstractEntity) entity;

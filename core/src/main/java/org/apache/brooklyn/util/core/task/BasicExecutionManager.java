@@ -49,6 +49,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -57,6 +58,7 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
@@ -139,10 +141,22 @@ public class BasicExecutionManager implements ExecutionManager {
             if (entity != null) {
                 entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
             }
+
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled()) {
+                BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.debug("Starting task " + task.getId() +
+                        (Strings.isNonBlank(task.getDisplayName()) ? " ("+task.getDisplayName()+")" : "")+
+                        (entity == null ? "" : " on entity " + entity.getId()) +
+                        (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task "+task.getSubmittedByTaskId() : "") +
+                        Entitlements.getEntitlementContextUserMaybe().map(s -> " for user "+s).or("")
+                );
+            }
             return this;
         }
 
         public void finish() {
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled()) {
+                BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.debug("Ending task " + task.getId());
+            }
             if (entityMdc != null) entityMdc.close();
             if (taskMdc != null) taskMdc.close();
         }
@@ -885,7 +899,6 @@ public class BasicExecutionManager implements ExecutionManager {
             PerThreadCurrentTaskHolder.perThreadCurrentTask.set(task);
             ((TaskInternal<?>)task).setStartTimeUtc(System.currentTimeMillis());
         }
-        BrooklynTaskLoggingMdc.create(task).start();
 
         if (allowJitter) {
             jitterThreadStart(task);

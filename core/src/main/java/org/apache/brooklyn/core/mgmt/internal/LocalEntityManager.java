@@ -32,9 +32,11 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -49,15 +51,19 @@ import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.core.objs.BasicEntityTypeRegistry;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.SetFromLiveMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -170,6 +176,7 @@ public class LocalEntityManager implements EntityManagerInternal {
             } else {
                 Entity proxy = ((AbstractEntity)entity).getProxy();
                 checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
+
                 manage(entity);
                 if (options.persistAfterCreation()) {
                     try {
@@ -573,8 +580,17 @@ public class LocalEntityManager implements EntityManagerInternal {
                 return true;
             } });
 
+            MutableList<EntityInternal> allEntitiesExceptApp = MutableList.copyOf(allEntities);
+            EntityInternal app = allEntitiesExceptApp.remove(0);
+            Collections.reverse(allEntitiesExceptApp);
+            allEntitiesExceptApp.forEach(it -> {
+                BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Deleting entity " + it.getId() + " (" + it + ") in application " + it.getApplicationId() + " for user " + Entitlements.getEntitlementContextUser());
+            });
+            BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Deleting application " + app.getId() + " (" + app + ") for user " + Entitlements.getEntitlementContextUser());
+
             for (EntityInternal it : allEntities) {
                 if (shouldSkipUnmanagement(it)) continue;
+
                 unmanageNonRecursive(it);
                 stopTasks(it);
             }
