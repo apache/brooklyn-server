@@ -89,13 +89,28 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
 
     @Override
     public Application getApplication() {
+        Entity proxy = null;
         if (application!=null) {
-            if (application.getId().equals(getId()))
-                return (Application) getProxyIfAvailable();
-            return application;
+            if (application.getId().equals(getId())) {
+                proxy = getProxyIfAvailable();
+            }
+            if (proxy==null || !(proxy instanceof Application)) {
+                return application;
+            }
         }
-        if (getParent()==null) return (Application)getProxyIfAvailable();
-        return getParent().getApplication();
+        if (getParent()!=null) {
+            return getParent().getApplication();
+        }
+        if (proxy==null) {
+            proxy = getProxyIfAvailable();
+        }
+        if (proxy instanceof Application) {
+            return (Application)getProxyIfAvailable();
+        }
+        if (this instanceof Application) {
+            return this;
+        }
+        return null;
     }
     
     @Override
