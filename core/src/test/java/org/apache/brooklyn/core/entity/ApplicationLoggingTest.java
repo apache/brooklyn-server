@@ -84,11 +84,11 @@ public class ApplicationLoggingTest extends BrooklynAppUnitTestSupport {
         }
     }
 
-    @ImplementedBy(TestEntityWithLoggingImp.class)
+    @ImplementedBy(TestEntityWithLoggingImpl.class)
     public interface TestEntityWithLogging extends TestEntity {
     }
 
-    public static final class TestEntityWithLoggingImp extends TestEntityImpl implements TestEntityWithLogging {
+    public static final class TestEntityWithLoggingImpl extends TestEntityImpl implements TestEntityWithLogging {
 
         private String getIndent() {
             // no need for indent is there?
