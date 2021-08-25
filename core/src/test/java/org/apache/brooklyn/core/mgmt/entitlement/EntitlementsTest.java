@@ -162,8 +162,8 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
         assertTrue(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
         assertTrue(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertTrue(user.isEntitled(null, Entitlements.HA_ADMIN, null));
         assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
-        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
 
     // logViewer, can only see the logs
