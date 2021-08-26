@@ -109,12 +109,6 @@ brooklyn.catalog:
         description: |
           Transforms a sensor into a rolling average based on a fixed window size. 
           This is useful for smoothing sample type metrics, such as latency or CPU time.
-    - id: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
-      item:
-        type: org.apache.brooklyn.policy.enricher.RollingTimeWindowMeanEnricher
-        name: "[DEPRECATED] Rolling Mean in Time Window"
-        description: "[DEPRECATED] Prefer YamlRollingTimeWindowMeanEnricher"
-        deprecated: true
     - id: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
       item:
         type: org.apache.brooklyn.policy.enricher.TimeFractionDeltaEnricher
@@ -122,12 +116,6 @@ brooklyn.catalog:
         description: |
           Converts an absolute measure of time into a fraction of time, 
           based on the delta between consecutive values and the elapsed time between those values.
-    - id: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
-      item:
-        type: org.apache.brooklyn.policy.enricher.TimeWeightedDeltaEnricher
-        name: "[DEPRECATED] Time Weighted Delta"
-        description: "[DEPRECATED] prefer 'YamlTimeWeightedDeltaEnricher'"
-        deprecated: true
     - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
       item:
         type: org.apache.brooklyn.policy.ha.ServiceFailureDetector
