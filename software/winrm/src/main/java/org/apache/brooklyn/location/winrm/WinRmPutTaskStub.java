@@ -55,7 +55,7 @@ public class WinRmPutTaskStub {
 
     public String getSummary() {
         if (summary!=null) return summary;
-        return "scp put: "+remoteFile;
+        return "WinRM put: "+remoteFile;
     }
 
     public WinRmMachineLocation getMachine() {

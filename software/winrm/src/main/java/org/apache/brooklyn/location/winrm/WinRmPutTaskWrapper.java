@@ -171,12 +171,12 @@ public class WinRmPutTaskWrapper extends WinRmPutTaskStub implements TaskWrapper
         return this;
     }
 
-    /** true iff the ssh job has completed (with or without failure) */
+    /** true iff the WinRm connect job has completed (with or without failure) */
     public boolean isDone() {
         return getTask().isDone();
     }
 
-    /** true iff the scp has completed successfully; guaranteed to be set before {@link #isDone()} or {@link #block()} are satisfied */
+    /** true iff the WinRm secure copy has completed successfully; guaranteed to be set before {@link #isDone()} or {@link #block()} are satisfied */
     public boolean isSuccessful() {
         return successful;
     }

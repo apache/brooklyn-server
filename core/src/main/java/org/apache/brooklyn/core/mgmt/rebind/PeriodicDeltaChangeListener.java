@@ -48,6 +48,7 @@ import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -81,6 +82,7 @@ import com.google.common.collect.Sets;
 public class PeriodicDeltaChangeListener implements ChangeListener {
 
     private static final Logger LOG = LoggerFactory.getLogger(PeriodicDeltaChangeListener.class);
+    public static final String TASK_NAME = "periodic-persister";
 
     protected final AtomicLong checkpointLogCount = new AtomicLong();
     private static final int INITIAL_LOG_WRITES = 5;
@@ -213,6 +215,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             PersistenceExceptionHandler exceptionHandler,
             PersistenceActivityMetrics metrics,
             Duration period) {
+        BasicExecutionManager.registerUninterestingTaskName(TASK_NAME,true);
         this.planeIdSupplier = planeIdSupplier;
         this.executionContext = executionContext;
         this.persister = persister;
@@ -236,7 +239,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
 
             Callable<Task<?>> taskFactory = new Callable<Task<?>>() {
                 @Override public Task<Void> call() {
-                    return Tasks.<Void>builder().dynamic(false).displayName("periodic-persister").body(new Callable<Void>() {
+                    return Tasks.<Void>builder().dynamic(false).displayName(TASK_NAME).body(new Callable<Void>() {
                         @Override
                         public Void call() {
                             persistNowSafely();
@@ -245,7 +248,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                 }
             };
             scheduledTask = (ScheduledTask) executionContext.submit(
-                ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-persister]").tagTransient().period(period).delay(period).build() );
+                ScheduledTask.builder(taskFactory).displayName(ScheduledTask.prefixScheduledName(TASK_NAME)).tagTransient().period(period).delay(period).build() );
         }
     }
 
