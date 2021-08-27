@@ -69,6 +69,7 @@ import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -177,6 +178,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
      *                      changes, as would be advertised by {@link #getNodeState()}
      */
     public HighAvailabilityManagerImpl(ManagementContextInternal managementContext, ManagementNodeStateListener stateListener) {
+        BasicExecutionManager.registerUninterestingTaskName(TASK_NAME,true);
         this.managementContext = managementContext;
         this.stateListener = stateListener;
         ownNodeId = managementContext.getManagementNodeId();

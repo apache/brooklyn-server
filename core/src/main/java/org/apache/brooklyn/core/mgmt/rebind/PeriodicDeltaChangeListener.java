@@ -48,6 +48,7 @@ import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -214,6 +215,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
             PersistenceExceptionHandler exceptionHandler,
             PersistenceActivityMetrics metrics,
             Duration period) {
+        BasicExecutionManager.registerUninterestingTaskName(TASK_NAME,true);
         this.planeIdSupplier = planeIdSupplier;
         this.executionContext = executionContext;
         this.persister = persister;

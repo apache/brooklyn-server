@@ -47,7 +47,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-import java.util.concurrent.atomic.AtomicReference;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
@@ -60,10 +59,9 @@ import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
-import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
-import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -119,12 +117,7 @@ public class BasicExecutionManager implements ExecutionManager {
     /**
      * task names in this list will be print only in the trace level
      */
-    public static List<String> uninterestingTasks = ImmutableList.<String>builder()
-            .add(HighAvailabilityManagerImpl.TASK_NAME)
-            .add(ScheduledTask.prefixScheduledName(HighAvailabilityManagerImpl.TASK_NAME))
-            .add(PeriodicDeltaChangeListener.TASK_NAME)
-            .add(ScheduledTask.prefixScheduledName(PeriodicDeltaChangeListener.TASK_NAME))
-            .build();
+    private static Set<String> UNINTERESTING_TASK_NAMES = MutableSet.of();
 
     @Beta
     public static class BrooklynTaskLoggingMdc implements AutoCloseable {
@@ -162,7 +155,7 @@ public class BasicExecutionManager implements ExecutionManager {
                         (entity == null ? "" : " on entity " + entity.getId()) +
                         (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task " + task.getSubmittedByTaskId() : "") +
                         Entitlements.getEntitlementContextUserMaybe().map(s -> " for user " + s).or("");
-                if(uninterestingTasks.contains(taskName)){
+                if(UNINTERESTING_TASK_NAMES.contains(taskName)){
                     BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.TRACE, message);
                 }else{
                     BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.DEBUG, message);
@@ -174,11 +167,9 @@ public class BasicExecutionManager implements ExecutionManager {
         public void finish() {
             if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
                 String taskName = task.getDisplayName();
-                if(uninterestingTasks.contains(taskName)){
-                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.TRACE, "Ending task " + task.getId());
-                }else{
-                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.DEBUG, "Ending task " + task.getId());
-                }
+                BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG,
+                        UNINTERESTING_TASK_NAMES.contains(taskName) ? BrooklynLogging.LoggingLevel.TRACE : BrooklynLogging.LoggingLevel.DEBUG,
+                        "Ending task {}", task.getId());
             }
             if (entityMdc != null) entityMdc.close();
             if (taskMdc != null) taskMdc.close();
@@ -186,6 +177,17 @@ public class BasicExecutionManager implements ExecutionManager {
 
         public void close() {
             finish();
+        }
+    }
+
+    public static void registerUninterestingTaskName(String taskName){
+        registerUninterestingTaskName(taskName,false);
+    }
+    public static void registerUninterestingTaskName(String taskName, boolean registerScheduledPrefix){
+        log.debug("Registering '{}' as UninterestingTaskName. Starting finishing trace will be log as trace",taskName);
+        UNINTERESTING_TASK_NAMES.add(taskName);
+        if(registerScheduledPrefix) {
+            UNINTERESTING_TASK_NAMES.add(ScheduledTask.prefixScheduledName(taskName));
         }
     }
 
