@@ -158,7 +158,11 @@ public class ScheduledTask extends BasicTask<Object> {
         public Builder addFlags(Map<String,?> val) { this.flags.putAll(val); return this; }
 
     }
-    
+
+    public static String prefixScheduledName(String taskName){
+        return "scheduled:["+taskName+"]";
+    }
+
     public ScheduledTask delay(Duration d) {
         this.delay = d;
         return this;

@@ -117,6 +117,7 @@ import com.google.common.collect.Iterables;
 @Beta
 public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
 
+    public static final String TASK_NAME = "HA poller task";
     public final ConfigKey<Duration> POLL_PERIOD = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.pollPeriod",
         "How often nodes should poll to detect whether master is healthy", Duration.seconds(1));
     public final ConfigKey<Duration> HEARTBEAT_TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "brooklyn.ha.heartbeatTimeout",
@@ -605,7 +606,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         };
         Callable<Task<?>> taskFactory = new Callable<Task<?>>() {
             @Override public Task<?> call() {
-                return Tasks.builder().dynamic(false).body(job).displayName("HA poller task").tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                return Tasks.builder().dynamic(false).body(job).displayName(TASK_NAME).tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                     .description("polls HA status to see whether this node should promote").build();
             }
         };
@@ -620,7 +621,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         } else {
             if (pollingTask!=null) pollingTask.cancel(true);
             
-            ScheduledTask task = ScheduledTask.builder(taskFactory).period(pollPeriod).displayName("scheduled:[HA poller task]").tagTransient().build();
+            ScheduledTask task = ScheduledTask.builder(taskFactory).period(pollPeriod).displayName(ScheduledTask.prefixScheduledName(TASK_NAME)).tagTransient().build();
             pollingTask = managementContext.getExecutionManager().submit(task);
         }
     }

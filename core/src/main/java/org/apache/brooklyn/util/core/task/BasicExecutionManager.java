@@ -55,10 +55,13 @@ import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
@@ -113,6 +116,16 @@ public class BasicExecutionManager implements ExecutionManager {
         return PerThreadCurrentTaskHolder.perThreadCurrentTask;
     }
 
+    /**
+     * task names in this list will be print only in the trace level
+     */
+    public static List<String> uninterestingTasks = ImmutableList.<String>builder()
+            .add(HighAvailabilityManagerImpl.TASK_NAME)
+            .add(ScheduledTask.prefixScheduledName(HighAvailabilityManagerImpl.TASK_NAME))
+            .add(PeriodicDeltaChangeListener.TASK_NAME)
+            .add(ScheduledTask.prefixScheduledName(PeriodicDeltaChangeListener.TASK_NAME))
+            .build();
+
     @Beta
     public static class BrooklynTaskLoggingMdc implements AutoCloseable {
         public static BrooklynTaskLoggingMdc create() {
@@ -142,20 +155,30 @@ public class BasicExecutionManager implements ExecutionManager {
                 entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
             }
 
-            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled()) {
-                BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.debug("Starting task " + task.getId() +
-                        (Strings.isNonBlank(task.getDisplayName()) ? " ("+task.getDisplayName()+")" : "")+
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
+                String taskName = task.getDisplayName();
+                String message = "Starting task " + task.getId() +
+                        (Strings.isNonBlank(taskName) ? " ("+taskName+")" : "") +
                         (entity == null ? "" : " on entity " + entity.getId()) +
-                        (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task "+task.getSubmittedByTaskId() : "") +
-                        Entitlements.getEntitlementContextUserMaybe().map(s -> " for user "+s).or("")
-                );
+                        (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task " + task.getSubmittedByTaskId() : "") +
+                        Entitlements.getEntitlementContextUserMaybe().map(s -> " for user " + s).or("");
+                if(uninterestingTasks.contains(taskName)){
+                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.TRACE, message);
+                }else{
+                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.DEBUG, message);
+                }
             }
             return this;
         }
 
         public void finish() {
-            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled()) {
-                BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.debug("Ending task " + task.getId());
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
+                String taskName = task.getDisplayName();
+                if(uninterestingTasks.contains(taskName)){
+                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.TRACE, "Ending task " + task.getId());
+                }else{
+                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.DEBUG, "Ending task " + task.getId());
+                }
             }
             if (entityMdc != null) entityMdc.close();
             if (taskMdc != null) taskMdc.close();
