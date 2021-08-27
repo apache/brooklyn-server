@@ -155,11 +155,10 @@ public class BasicExecutionManager implements ExecutionManager {
                         (entity == null ? "" : " on entity " + entity.getId()) +
                         (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task " + task.getSubmittedByTaskId() : "") +
                         Entitlements.getEntitlementContextUserMaybe().map(s -> " for user " + s).or("");
-                if(UNINTERESTING_TASK_NAMES.contains(taskName)){
-                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.TRACE, message);
-                }else{
-                    BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, BrooklynLogging.LoggingLevel.DEBUG, message);
-                }
+                BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG,
+                        UNINTERESTING_TASK_NAMES.contains(taskName) ? BrooklynLogging.LoggingLevel.TRACE : BrooklynLogging.LoggingLevel.DEBUG,
+                        message);
+
             }
             return this;
         }
