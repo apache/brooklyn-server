@@ -131,11 +131,11 @@ public class VanillaSoftwareProcessStreamsTest extends AbstractSoftwareProcessSt
     protected Map<String, String> getCommands() {
         return ImmutableMap.<String, String>builder()
                 .put("pre-install-command", "myPreInstall")
-                .put("ssh: installing.*", "myInstall")
+                .put("installing.*", "myInstall")
                 .put("post-install-command", "myPostInstall")
-                .put("ssh: customizing.*", "myCustomizing")
+                .put("customizing.*", "myCustomizing")
                 .put("pre-launch-command", "myPreLaunch")
-                .put("ssh: launching.*", "myLaunch")
+                .put("launching.*", "myLaunch")
                 .put("post-launch-command", "myPostLaunch")
                 .build();
     }
