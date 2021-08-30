@@ -71,10 +71,7 @@ public class XmlSerializer<T> {
             }
         };
 
-        XStream.setupDefaultSecurity(xstream);
-        xstream.allowTypesByWildcard(new String[] {
-               "**"
-        });
+        allowAllTypes(xstream);
 
         if (loader!=null) {
             xstream.setClassLoader(loader);
@@ -105,11 +102,17 @@ public class XmlSerializer<T> {
 
         xstream.registerConverter(new EnumCaseForgivingConverter());
         xstream.registerConverter(new Inet4AddressConverter());
-        
+
         // See ObjectWithDefaultStringImplConverter (and its usage) for why we want to auto-detect 
         // annotations (usages of this is in the camp project, so we can't just list it statically
         // here unfortunately).
         xstream.autodetectAnnotations(true);
+    }
+
+    public static void allowAllTypes(final XStream xstream) {
+        xstream.allowTypesByWildcard(new String[] {
+                "**"
+        });
     }
 
     /**

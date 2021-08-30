@@ -26,6 +26,7 @@ public class ConverterTestFixture {
 
     protected Object assertX(Object obj, String fmt) {
         XStream xstream = new XStream();
+        XmlSerializer.allowAllTypes(xstream);
         registerConverters(xstream);
         String s1 = xstream.toXML(obj);
         Assert.assertEquals(s1, fmt);
