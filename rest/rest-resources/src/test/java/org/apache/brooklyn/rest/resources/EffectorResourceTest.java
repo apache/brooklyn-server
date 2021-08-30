@@ -124,7 +124,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
         assertTrue(runDuration.isLongerThan(Duration.millis(40)), "runDuration="+runDuration);
     }
     
-    @Test
+    @Test(groups={"WIP"})
     public void testInvokeEffectorWithTimeoutTimesOut() throws Exception {
         /*
          * The effector is invoked via:
