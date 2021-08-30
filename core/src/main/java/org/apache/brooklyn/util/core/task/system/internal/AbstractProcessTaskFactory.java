@@ -170,13 +170,13 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
 
     /** creates the TaskBuilder which can be further customized; typically invoked by the initial {@link #newTask()} */
     public TaskBuilder<Object> constructCustomizedTaskBuilder() {
-        String displayName = config.containsKey("displayName") ? String.valueOf(config.getStringKey("displayName")) : "ssh: "+ getSummary();
+        String displayName = config.containsKey("displayName") ? String.valueOf(config.getStringKey("displayName")) : getSummary();
         TaskBuilder<Object> tb = TaskBuilder.builder().dynamic(false).displayName(displayName);
         
         tb.tag(BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_STDIN, 
                 Streams.byteArrayOfString(Strings.join(commands, "\n"))));
         tb.tag(BrooklynTaskTags.tagForEnvStream(BrooklynTaskTags.STREAM_ENV, shellEnvironment));
-        
+
         return tb;
     }
     

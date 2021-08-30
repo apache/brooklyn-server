@@ -55,7 +55,7 @@ public class WinRmPutTaskStub {
 
     public String getSummary() {
         if (summary!=null) return summary;
-        return "WinRM put: "+remoteFile;
+        return "WinRm put: "+remoteFile;
     }
 
     public WinRmMachineLocation getMachine() {
