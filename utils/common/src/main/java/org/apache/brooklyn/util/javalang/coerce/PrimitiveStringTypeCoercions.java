@@ -132,10 +132,10 @@ public class PrimitiveStringTypeCoercions {
             islong = false;
         }
         if (islong) {
-            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)v)); 
-            if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf((byte)v));
-            if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf((short)v)); 
-            if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((int)v)); 
+            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)v));
+            if (targetWrapType == Byte.class) return Maybe.of((T) (Byte) Byte.parseByte(""+v));
+            if (targetWrapType == Short.class) return Maybe.of((T) (Short) Short.parseShort(""+v));
+            if (targetWrapType == Integer.class) return Maybe.of((T) (Integer) Integer.parseInt(""+v));
             if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(v));
             if (targetWrapType == Float.class) return Maybe.of((T) Float.valueOf(v));
             if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(v));
@@ -188,17 +188,17 @@ public class PrimitiveStringTypeCoercions {
     }
     
     @SuppressWarnings("unchecked")
-    public static <T> Maybe<T> stringToPrimitiveMaybe(String value, Class<T> targetType) {
+    public static <T> Maybe<T> stringToPrimitiveMaybe(String origValue, Class<T> targetType) {
         assert Primitives.allPrimitiveTypes().contains(targetType) || Primitives.allWrapperTypes().contains(targetType) : "targetType="+targetType;
         // If char, then need to do explicit conversion
         if (targetType == Character.class || targetType == char.class) {
-            if (value.length() == 1) {
-                return Maybe.of((T) (Character) value.charAt(0));
-            } else if (value.length() != 1) {
-                throw new ClassCoercionException("Cannot coerce type String to "+targetType.getCanonicalName()+" ("+value+"): adapting failed");
+            if (origValue.length() == 1) {
+                return Maybe.of((T) (Character) origValue.charAt(0));
+            } else if (origValue.length() != 1) {
+                throw new ClassCoercionException("Cannot coerce type String to "+targetType.getCanonicalName()+" ("+origValue+"): adapting failed");
             }
         }
-        value = value.trim();
+        String value = origValue.trim();
         // For boolean we could use valueOf, but that returns false whereas we'd rather throw errors on bad values
         if (targetType == Boolean.class || targetType == boolean.class) {
             if ("true".equalsIgnoreCase(value)) return Maybe.of((T) Boolean.TRUE);
@@ -221,13 +221,25 @@ public class PrimitiveStringTypeCoercions {
             wrappedType = targetType;
         }
         
+        Object v;
         try {
-            return Maybe.of((T) wrappedType.getMethod("valueOf", String.class).invoke(null, value));
+            v = wrappedType.getMethod("valueOf", String.class).invoke(null, value);
         } catch (Exception e) {
             ClassCoercionException tothrow = new ClassCoercionException("Cannot coerce "+value.getClass().getSimpleName()+" "+JavaStringEscapes.wrapJavaString(value)+" to "+targetType.getCanonicalName()+": adapting failed");
             tothrow.initCause(e);
             return Maybe.absent(tothrow);
         }
+
+        if (isNanOrInf(v)) {
+            return Maybe.absent(() -> new NumberFormatException("Invalid number for "+value+" as "+targetType+": "+v));
+        }
+        return Maybe.of((T) v);
+    }
+
+    public static boolean isNanOrInf(Object o) {
+        if (o instanceof Double) return !Double.isFinite((double)o);
+        if (o instanceof Float) return !Float.isFinite((float)o);
+        return false;
     }
     
 }

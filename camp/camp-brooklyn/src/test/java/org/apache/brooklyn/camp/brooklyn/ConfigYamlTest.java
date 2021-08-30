@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import java.util.Map;
+import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.yaml.Yamls;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -51,6 +55,8 @@ import com.google.common.collect.Iterables;
 public class ConfigYamlTest extends AbstractYamlTest {
     
     private static final Logger LOG = LoggerFactory.getLogger(ConfigYamlTest.class);
+
+    final static String DOUBLE_MAX_VALUE_TIMES_TEN = "" + Double.MAX_VALUE + "0";
 
     private ExecutorService executor;
 
@@ -450,6 +456,32 @@ public class ConfigYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testConfigOtherVeryLargeIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 100000000000000000000000000000000000",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("100000000000000000000000000000000000"));
+    }
+
+    @Test
+    public void testConfigSlightlyLargeIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 2147483648",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("2147483648"));
+    }
+
+    @Test
     public void testConfigVeryLargeDoubleCoercionFails() throws Exception {
         String yaml = Joiner.on("\n").join(
                 "services:",
@@ -460,6 +492,51 @@ public class ConfigYamlTest extends AbstractYamlTest {
 
         Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
                 e -> e.toString().contains("9999332"));
+    }
+
+    @Test
+    public void testConfigSlightlyLargeDoubleParseFails() throws Exception {
+        Object xm = null;
+        try {
+            xm = Yamls.parseAll("x: " + DOUBLE_MAX_VALUE_TIMES_TEN).iterator().next();
+
+//        Object x = ((Map)xm).get("x");
+//        LOG.info("x: "+x);
+//        if (x instanceof Double) {
+//            Asserts.fail("Should not be a double: "+x);
+//        }
+
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "yaml parser", "out of range", DOUBLE_MAX_VALUE_TIMES_TEN);
+        }
+    }
+
+    @Test
+    public void testConfigSlightlyLargeDoubleCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: "+DOUBLE_MAX_VALUE_TIMES_TEN,
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "yaml parser", "out of range", DOUBLE_MAX_VALUE_TIMES_TEN));
+    }
+
+
+    @Test
+    public void testConfigSlightlyLargeDoubleAsStringCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: "+ JavaStringEscapes.wrapJavaString(DOUBLE_MAX_VALUE_TIMES_TEN),
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "cannot coerce", DOUBLE_MAX_VALUE_TIMES_TEN));
     }
 
     @Test
