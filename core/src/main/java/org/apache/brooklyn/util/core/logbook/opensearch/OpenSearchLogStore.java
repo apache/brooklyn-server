@@ -62,7 +62,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
@@ -221,8 +220,6 @@ public class OpenSearchLogStore implements LogStore {
 
         // The `query.bool.must` part of the open-search query.
         ImmutableList.Builder<Object> queryBoolMustListBuilder = ImmutableList.builder();
-        ImmutableList<String> searchPhrases = params.getSearchPhrases() == null ? ImmutableList.of() :
-                ImmutableList.copyOf(params.getSearchPhrases().stream().filter(Strings::isNonBlank).collect(Collectors.toList()));
 
         // Apply log levels.
         if (!params.getLevels().isEmpty() && !params.getLevels().contains("ALL")) {
@@ -253,17 +250,47 @@ public class OpenSearchLogStore implements LogStore {
             queryBoolMustListBuilder.add(ImmutableMap.of("range", ImmutableMap.of("timestamp", timestampMapBuilder.build())));
         }
 
+        // Apply search taskId.
+        if (Strings.isNonBlank(params.getTaskId())) {
+            queryBoolMustListBuilder.add(
+                    ImmutableMap.of("bool",
+                            ImmutableMap.of("should",
+                                    ImmutableList.of(
+                                            buildMatchPhraseOf("taskId", params.getTaskId()),
+                                            buildMatchPhraseOf("message", params.getTaskId())
+                                    ))
+                    )
+            );
+        }
+        // Apply search entityId.
+        if (Strings.isNonBlank(params.getEntityId())) {
+            queryBoolMustListBuilder.add(
+                    ImmutableMap.of("bool",
+                            ImmutableMap.of("should",
+                                    ImmutableList.of(
+                                            buildMatchPhraseOf("entityIds", params.getEntityId()),
+                                            buildMatchPhraseOf("message", params.getEntityId())
+                                    ))
+                    )
+            );
+        }
+
         // Apply search phrase.
-        searchPhrases.forEach(searchPhrase ->
-            queryBoolMustListBuilder.add(ImmutableMap.of("match_phrase", ImmutableMap.of("message", searchPhrase))));
+        if (Strings.isNonBlank(params.getSearchPhrase())) {
+            queryBoolMustListBuilder.add(buildMatchPhraseOf("message", params.getSearchPhrase()));
+        }
 
         ImmutableList<Object> queryBoolMustList = queryBoolMustListBuilder.build();
 
         if (queryBoolMustList.isEmpty()) {
             return ImmutableMap.of("match_all", ImmutableMap.of());
         } else {
-            Map<String,Object> query = MutableMap.of("bool", ImmutableMap.of("must", queryBoolMustList));
+            Map<String, Object> query = MutableMap.of("bool", ImmutableMap.of("must", queryBoolMustList));
             return ImmutableMap.copyOf(query);
         }
+    }
+
+    private ImmutableMap<String, ImmutableMap<String, String>> buildMatchPhraseOf(String message, String searchPhrase) {
+        return ImmutableMap.of("match_phrase", ImmutableMap.of(message, searchPhrase));
     }
 }
