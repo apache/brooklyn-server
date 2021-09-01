@@ -92,7 +92,7 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
             throw WebResourceUtils.forbidden("User '%s' is not authorized to invoke effector %s on entity %s",
                     Entitlements.getEntitlementContext().user(), effector.get().getName(), entity);
         }
-        String userInfo = Entitlements.getEntitlementContext() != null ? "by user " + Entitlements.getEntitlementContext().user() : "(no user info available)";
+        String userInfo = Entitlements.getEntitlementContext() != null ? "for user " + Entitlements.getEntitlementContext().user() : "(no user info available)";
         log.info("REST invocation of " + entity + "." + effector.get() + " " + Sanitizer.sanitize(parameters) + " " + userInfo);
         Task<?> t = entity.invoke(effector.get(), parameters);
 
