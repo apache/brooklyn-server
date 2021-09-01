@@ -105,8 +105,6 @@ public class FileLogStore implements LogStore {
 
             Date dateTimeFrom = Strings.isNonBlank(params.getDateTimeFrom()) ? Time.parseDate(params.getDateTimeFrom()) : null;
             Date dateTimeTo = Strings.isNonBlank(params.getDateTimeTo()) ? Time.parseDate(params.getDateTimeTo()) : null;
-            boolean isSearchPhrasesPresent = !Objects.isNull(params.getSearchPhrases()) && !params.getSearchPhrases().isEmpty();
-
             Predicate<BrooklynLogEntry> filter = brooklynLogEntry -> {
 
                 // Excludes unrecognized items or items without a date, typically they are multiline log messages.
@@ -120,6 +118,8 @@ public class FileLogStore implements LogStore {
                 boolean isDateTimeFromMatch = true;
                 boolean isDateTimeToMatch = true;
                 boolean isSearchPhraseMatch = true;
+                boolean isSearchTaskIdMatch = true;
+                boolean isSearchEntityIdMatch = true;
                 // Re-evaluate conditions if requested in the query.
 
                 // Check log levels.
@@ -141,12 +141,37 @@ public class FileLogStore implements LogStore {
                     }
                 }
 
-                // Check search phrases.
-                if (isSearchPhrasesPresent && Strings.isNonBlank(brooklynLogEntry.getMessage())) {
-                    isSearchPhraseMatch = containsSearchPhrases(brooklynLogEntry.getMessage(), params.getSearchPhrases());
+                // Check search entityId as field or part of the message.
+                if (Strings.isNonBlank(params.getEntityId()) &&
+                        (Strings.isNonBlank(brooklynLogEntry.getEntityIds()) || Strings.isNonBlank(brooklynLogEntry.getMessage())))
+                {
+                    isSearchEntityIdMatch =
+                            (Strings.isNonBlank(brooklynLogEntry.getEntityIds()) && brooklynLogEntry.getEntityIds().contains(params.getEntityId())) ||
+                                    (Strings.isNonBlank(brooklynLogEntry.getMessage()) && brooklynLogEntry.getMessage().contains(params.getEntityId()))
+                    ;
                 }
 
-                return isLogLevelMatch && isDateTimeFromMatch && isDateTimeToMatch && isSearchPhraseMatch;
+                // Check search taskId as field or part of the message.
+                if (Strings.isNonBlank(params.getTaskId()) &&
+                        (Strings.isNonBlank(brooklynLogEntry.getTaskId()) || Strings.isNonBlank(brooklynLogEntry.getMessage())))
+                {
+                    isSearchTaskIdMatch =
+                            params.getTaskId().equals(brooklynLogEntry.getTaskId()) ||
+                                    (Strings.isNonBlank(brooklynLogEntry.getMessage()) && brooklynLogEntry.getMessage().contains(params.getTaskId()));
+                }
+
+                // Check search phrases.
+                if (Strings.isNonBlank(params.getSearchPhrase()) && Strings.isNonBlank(brooklynLogEntry.getMessage())) {
+                    isSearchPhraseMatch = brooklynLogEntry.getMessage().contains(params.getSearchPhrase());
+                }
+
+
+                return isLogLevelMatch
+                        && isDateTimeFromMatch
+                        && isDateTimeToMatch
+                        && isSearchPhraseMatch
+                        && isSearchTaskIdMatch
+                        && isSearchEntityIdMatch;
             };
 
             // Use line count to supply identification of go lines.
@@ -200,16 +225,5 @@ public class FileLogStore implements LogStore {
             entry.setLineId(String.valueOf(lineCount.incrementAndGet()));
         }
         return entry;
-    }
-
-    public static boolean containsSearchPhrases(String logMessage, List<String> searchPhrases) {
-        boolean found = true;
-        for (String searchPhrase : searchPhrases) {
-            if (!logMessage.contains(searchPhrase)) {
-                found = false;
-                break;
-            }
-        }
-        return found;
     }
 }

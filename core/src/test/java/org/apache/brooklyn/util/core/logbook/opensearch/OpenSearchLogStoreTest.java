@@ -130,20 +130,58 @@ public class OpenSearchLogStoreTest {
         p.setNumberOfItems(10);
         p.setTail(false);
         p.setLevels(ImmutableList.of());
-        p.setSearchPhrases(ImmutableList.of("some phrase"));
+        p.setSearchPhrase("some phrase");
         String query = cut.getJSONQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 
     @Test
-    public void queryWithSearchMultiplePhrases() {
+    public void queryWithEntityId() {
         OpenSearchLogStore cut = new OpenSearchLogStore();
         LogBookQueryParams p = new LogBookQueryParams();
         p.setNumberOfItems(10);
         p.setTail(false);
         p.setLevels(ImmutableList.of());
-        p.setSearchPhrases(ImmutableList.of("some phrase", "another phrase"));
+        p.setEntityId("entityIdxx");
         String query = cut.getJSONQuery(p);
-        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}},{\"match_phrase\":{\"message\":\"another phrase\"}}]}}}");
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}}]}}}");
+    }
+
+    @Test
+    public void queryWithTaskId() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setTail(false);
+        p.setLevels(ImmutableList.of());
+        p.setTaskId("taskIdxxxx");
+        String query = cut.getJSONQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}}]}}}");
+    }
+
+    @Test
+    public void queryWithEntityIdAndPhrase() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setTail(false);
+        p.setLevels(ImmutableList.of());
+        p.setEntityId("entityIdxx");
+        p.setSearchPhrase("some phrase");
+        String query = cut.getJSONQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
+    }
+
+    @Test
+    public void queryWithTaskIdAndPhrase() {
+        OpenSearchLogStore cut = new OpenSearchLogStore();
+        LogBookQueryParams p = new LogBookQueryParams();
+        p.setNumberOfItems(10);
+        p.setTail(false);
+        p.setLevels(ImmutableList.of());
+        p.setTaskId("taskIdxxxx");
+        p.setSearchPhrase("some phrase");
+        String query = cut.getJSONQuery(p);
+        assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 }

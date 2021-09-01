@@ -232,10 +232,10 @@ public class FileLogStoreTest extends TestCase {
 
         // Test with log levels only. There are 5 records in total in the normal order: DEBUG, ERROR, INFO, INFO, WARN.
         // Expect 4 last items starting with ERROR.
-        assertEquals("ERROR", brooklynLogEntries.get(0).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(0).getLevel());
         assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
-        assertEquals("INFO", brooklynLogEntries.get(2).getLevel());
-        assertEquals("WARN", brooklynLogEntries.get(3).getLevel());
+        assertEquals("WARN", brooklynLogEntries.get(2).getLevel());
+        assertEquals("INFO", brooklynLogEntries.get(3).getLevel());
     }
 
     @Test
@@ -247,7 +247,7 @@ public class FileLogStoreTest extends TestCase {
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
         logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
-        logBookQueryParams.setSearchPhrases(ImmutableList.of("Cannot register component")); // Request search phrase.
+        logBookQueryParams.setSearchPhrase("Cannot register component"); // Request search phrase.
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
         assertEquals(1, brooklynLogEntries.size());
@@ -267,7 +267,23 @@ public class FileLogStoreTest extends TestCase {
     }
 
     @Test
-    public void testQueryLogSampleWithSearchMultiplePhrases() {
+    public void testQueryLogSampleWithTaskId() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(5); // Request first five only, only three expected.
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setTaskId("CMeSRJNF");
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(2, brooklynLogEntries.size());
+        assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
+    }
+
+    @Test
+    public void testQueryLogSampleWithTaskIdAndPhase() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
         ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
@@ -275,22 +291,62 @@ public class FileLogStoreTest extends TestCase {
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
         logBookQueryParams.setTail(false);
         logBookQueryParams.setLevels(ImmutableList.of());
-        logBookQueryParams.setSearchPhrases(ImmutableList.of("bundle")); // Request search phrase.
+        logBookQueryParams.setTaskId("CMeSRJNF");
+        logBookQueryParams.setSearchPhrase("testing");
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(1, brooklynLogEntries.size());
+        assertEquals("INFO", brooklynLogEntries.get(0).getLevel());
+    }
+
+    @Test
+    public void testQueryLogSampleWithEntityId() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(10); // Request first two only.
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setEntityId("l8442kq0zu");
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(4, brooklynLogEntries.size());
+        assertEquals("INFO", brooklynLogEntries.get(0).getLevel());
+    }
+
+    @Test
+    public void testQueryLogSampleWithEntityIdAndPhase() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(2); // Request first two only.
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setEntityId("l8442kq0zu");
+        logBookQueryParams.setSearchPhrase("testing");
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
         assertEquals(2, brooklynLogEntries.size());
+        assertEquals("INFO", brooklynLogEntries.get(0).getLevel());
+    }
 
-        // Search phrase appears in ERROR and WARN log lines.
+    @Test
+    public void testQueryLogSampleWithEntityIdInMessageAndPhase() {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+        LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
+        logBookQueryParams.setNumberOfItems(2); // Request first two only.
+        logBookQueryParams.setTail(false);
+        logBookQueryParams.setLevels(ImmutableList.of());
+        logBookQueryParams.setEntityId("iffj68b370");
+        logBookQueryParams.setSearchPhrase("testing");
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+        assertEquals(2, brooklynLogEntries.size());
         assertEquals("ERROR", brooklynLogEntries.get(0).getLevel());
-        assertEquals("WARN", brooklynLogEntries.get(1).getLevel());
-
-        // Now request multiple search phrases
-        logBookQueryParams.setSearchPhrases(ImmutableList.of("bundle", "is waiting for dependencies"));
-        brooklynLogEntries = fileLogStore.query(logBookQueryParams);
-        assertEquals(1, brooklynLogEntries.size());
-
-        // 2 phrases appear in WARN log line only
-        assertEquals("WARN", brooklynLogEntries.get(0).getLevel());
     }
 
     @Test
@@ -325,7 +381,7 @@ public class FileLogStoreTest extends TestCase {
         // Check first log line,
         BrooklynLogEntry firstBrooklynLogEntry = brooklynLogEntries.get(0);
         assertEquals("INFO", firstBrooklynLogEntry.getLevel());
-        assertEquals("  org.apache.brooklyn.ui.modularity.brooklyn-ui-module-registry/1.1.0.SNAPSHOT", firstBrooklynLogEntry.getMessage());
+        assertEquals("  org.apache.brooklyn.ui.modularity.brooklyn-ui-module-registry/1.1.0.SNAPSHOT in entity l8442kq0zu", firstBrooklynLogEntry.getMessage());
 
         // Check second log line.
         BrooklynLogEntry secondBrooklynLogEntry = brooklynLogEntries.get(1);
@@ -345,8 +401,8 @@ public class FileLogStoreTest extends TestCase {
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
 
-        // There is one DEBUG log line and two INFO lines.
-        assertEquals(3, brooklynLogEntries.size());
+        // There is one DEBUG log line and five INFO lines.
+        assertEquals(6, brooklynLogEntries.size());
 
         // Check appearance of log levels
         assertEquals("DEBUG", brooklynLogEntries.get(0).getLevel());
