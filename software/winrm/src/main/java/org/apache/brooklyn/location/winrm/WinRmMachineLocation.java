@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.location.winrm;
 
+import java.util.concurrent.Callable;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
@@ -43,6 +44,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.location.ssh.CanResolveOnBoxDir;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -313,7 +315,31 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
      */
     public WinRmToolResponse executeCommand(Map<?,?> props, List<String> script) {
         WinRmTool tool = newWinRmTool(props);
-        return tool.executeCommand(script);
+        return runWithLogging(props, () -> tool.executeCommand(script));
+    }
+
+    private WinRmToolResponse runWithLogging(Map<?,?> props, Supplier<WinRmToolResponse> r) {
+        /** for Windows we log here, as opposed to the ExecWithLoggingHelper.
+         *  ExecWithLoggingHelper has better support for showing output as it arrives,
+         *  but is more complicated to wire in for winrm execution.
+         *  (in future it might be nicer to shift the logic below to a windows-variant ShellTool used by ExecWithLoggingHelper.
+         */
+        // TODO log stdin and sanitized environment before launch
+        // options:
+        // - could take from tags on current task if present (env will already be sanitized)
+        //   eg BrooklynTaskTags.stream(Tasks.current(), BrooklynTaskTags.STREAM_ENV);
+
+        // - could look in the `props` here (more portable) - need to reapply sanitization logic
+        //   eg props.get("env") then (refactor and) run logic from Sanitizer.sanitizeMapToString
+
+        // verdict-- use the props.  only env needs sanitizing.
+
+        WinRmToolResponse result = r.get();
+        // TODO log stdout and stderr afterwards (if present)
+        // - again could look from tags on current task to get streams and write those
+        // - or props passed to tool
+
+        return result;
     }
 
     public WinRmToolResponse executePsScript(String psScript) {
@@ -326,7 +352,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     
     public WinRmToolResponse executePsScript(Map<?,?> props, List<String> psScript) {
         WinRmTool tool = newWinRmTool(props);
-        return tool.executePs(psScript);
+        return runWithLogging(props, () -> tool.executePs(psScript));
     }
 
     protected WinRmTool newWinRmTool(Map<?,?> props) {
