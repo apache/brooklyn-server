@@ -619,7 +619,6 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             rebindManager.stop();
             persister.stop(true);
             tempPersistenceStore.close();
-            tempMgmt.terminate();
 
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
