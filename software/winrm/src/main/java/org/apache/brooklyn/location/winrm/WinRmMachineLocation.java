@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.location.winrm;
 
-import java.util.concurrent.Callable;
+import org.apache.brooklyn.api.mgmt.Task;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -45,6 +46,7 @@ import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.location.ssh.CanResolveOnBoxDir;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -77,6 +79,7 @@ import com.google.common.reflect.TypeToken;
 public class WinRmMachineLocation extends AbstractMachineLocation implements MachineLocation, CanResolveOnBoxDir {
 
     private static final Logger LOG = LoggerFactory.getLogger(WinRmMachineLocation.class);
+    private static final Logger logWinRm = LoggerFactory.getLogger(BrooklynLogging.WINRM_IO);
 
     public static final ConfigKey<InetAddress> ADDRESS = ConfigKeys.newConfigKey(
             InetAddress.class,
@@ -315,31 +318,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
      */
     public WinRmToolResponse executeCommand(Map<?,?> props, List<String> script) {
         WinRmTool tool = newWinRmTool(props);
-        return runWithLogging(props, () -> tool.executeCommand(script));
-    }
-
-    private WinRmToolResponse runWithLogging(Map<?,?> props, Supplier<WinRmToolResponse> r) {
-        /** for Windows we log here, as opposed to the ExecWithLoggingHelper.
-         *  ExecWithLoggingHelper has better support for showing output as it arrives,
-         *  but is more complicated to wire in for winrm execution.
-         *  (in future it might be nicer to shift the logic below to a windows-variant ShellTool used by ExecWithLoggingHelper.
-         */
-        // TODO log stdin and sanitized environment before launch
-        // options:
-        // - could take from tags on current task if present (env will already be sanitized)
-        //   eg BrooklynTaskTags.stream(Tasks.current(), BrooklynTaskTags.STREAM_ENV);
-
-        // - could look in the `props` here (more portable) - need to reapply sanitization logic
-        //   eg props.get("env") then (refactor and) run logic from Sanitizer.sanitizeMapToString
-
-        // verdict-- use the props.  only env needs sanitizing.
-
-        WinRmToolResponse result = r.get();
-        // TODO log stdout and stderr afterwards (if present)
-        // - again could look from tags on current task to get streams and write those
-        // - or props passed to tool
-
-        return result;
+        return runWithLogging(props, script, () -> tool.executeCommand(script));
     }
 
     public WinRmToolResponse executePsScript(String psScript) {
@@ -349,10 +328,68 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     public WinRmToolResponse executePsScript(List<String> psScript) {
         return executePsScript(ImmutableMap.of(), psScript);
     }
-    
+
     public WinRmToolResponse executePsScript(Map<?,?> props, List<String> psScript) {
         WinRmTool tool = newWinRmTool(props);
-        return runWithLogging(props, () -> tool.executePs(psScript));
+        return runWithLogging(props, psScript, () -> tool.executePs(psScript));
+    }
+
+    private WinRmToolResponse runWithLogging(Map<?,?> props, List<String> stdinToLog, Supplier<WinRmToolResponse> r) {
+        /** for Windows we log here, as opposed to the ExecWithLoggingHelper.
+         *  ExecWithLoggingHelper has better support for showing output as it arrives,
+         *  but is more complicated to wire in for winrm execution.
+         *  (in future it might be nicer to shift the logic below to a windows-variant ShellTool used by ExecWithLoggingHelper.
+         */
+        String user = getUser();
+        String prefix = "["+( user != null ? user+"@" : "") + getHostAndPort()+"]";
+
+        if(logWinRm.isDebugEnabled()){
+            StringBuilder sb = new StringBuilder();
+            Sanitizer.sanitizeMapToString((Map)props.get(WinRmTool.ENVIRONMENT), sb);
+            logIfPresent("{} env: {}" , prefix, sb.toString());
+
+            logIfPresent("{} stdin: {}" , prefix, stdinToLog!=null ? Strings.join(stdinToLog, "\n") : null);
+        }
+
+        WinRmToolResponse result = r.get();
+
+        if(logWinRm.isDebugEnabled()){
+            logIfPresent("{} status code: {}",prefix, ""+result.getStatusCode());
+            // the stream supplied here is the stream for _writing_; it is not guaranteed we can read from it
+            // so we first try to take it from the task, then fall back to figuring out how to get the output from the writer-stream
+            // and if that fails we look at the response
+            logIfPresent("{} stdout: {}", prefix, getBuffer(BrooklynTaskTags.STREAM_STDOUT, props, ShellTool.PROP_OUT_STREAM, result::getStdOut));
+            logIfPresent("{} stderr: {}", prefix, getBuffer(BrooklynTaskTags.STREAM_STDERR, props, ShellTool.PROP_ERR_STREAM, result::getStdErr));
+        }
+
+        return result;
+    }
+
+    private String getBuffer(String firstTryStreamType, Map<?,?> secondTryProps, Object secondTryKey, Supplier<String> thirdTryFallback) {
+        return getTaskStream(firstTryStreamType).map(s -> s.streamContents.get())
+                .orMaybe(() -> getBufferOutput(secondTryProps, secondTryKey))
+                .or(thirdTryFallback);
+    }
+
+    private Maybe<WrappedStream> getTaskStream(String streamType) {
+        return Maybe.ofDisallowingNull(BrooklynTaskTags.stream(Tasks.current(), streamType));
+    }
+    private Maybe<String> getBufferOutput(Map<?,?> props, Object key) {
+        if(props == null){
+            return null;
+        }
+        Object b = props.get(key);
+        if (b==null && key instanceof ConfigKey) b = props.get( ((ConfigKey)b).getName() );
+        if (b==null) return null;
+        if (b instanceof String) return Maybe.of((String)b);
+        if (b instanceof ByteArrayOutputStream) return Maybe.of( new String( ((ByteArrayOutputStream) b).toByteArray() ) );
+        return Maybe.of(""+b);
+    }
+
+    private void logIfPresent(String format, String prefix, String output) {
+        if(Strings.isNonEmpty(output)){
+            logWinRm.debug(format, prefix, output);
+        }
     }
 
     protected WinRmTool newWinRmTool(Map<?,?> props) {
