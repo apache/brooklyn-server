@@ -564,7 +564,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
             // create a temporary mgmt context and load the persistence data
             LocalManagementContext tempMgmt = new LocalManagementContext(BrooklynProperties.Factory.builderDefault().build());
-            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, unzippedPath + "/data/");
+            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, unzippedPath);
             tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
             BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
                     tempPersistenceStore, tempMgmt);
