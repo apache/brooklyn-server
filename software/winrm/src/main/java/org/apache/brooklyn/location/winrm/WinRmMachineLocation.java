@@ -373,15 +373,16 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     }
 
     private Maybe<WrappedStream> getTaskStream(String streamType) {
-        return Maybe.ofDisallowingNull(BrooklynTaskTags.stream(Tasks.current(), streamType));
+        return Maybe.ofDisallowingNull(BrooklynTaskTags.stream(Tasks.current(), streamType))
+                .or(Maybe.absent());
     }
     private Maybe<String> getBufferOutput(Map<?,?> props, Object key) {
         if(props == null){
-            return null;
+            return Maybe.absent();
         }
         Object b = props.get(key);
         if (b==null && key instanceof ConfigKey) b = props.get( ((ConfigKey)key).getName() );
-        if (b==null) return null;
+        if (b==null) return Maybe.absent();
         if (b instanceof String) return Maybe.of((String)b);
         if (b instanceof ByteArrayOutputStream) return Maybe.of( new String( ((ByteArrayOutputStream) b).toByteArray() ) );
         return Maybe.of(""+b);
