@@ -527,7 +527,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             BrooklynPersistenceUtils.writeMemento(mgmt(), targetStore, preferredOrigin);
             
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName() ).stream(baos);
+            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName()  + "/data" ).stream(baos);
             Os.deleteRecursively(dir);
             String filename = "brooklyn-state-"+label+".zip";
             return Response.ok(baos.toByteArray(), MediaType.APPLICATION_OCTET_STREAM_TYPE)
@@ -564,7 +564,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
             // create a temporary mgmt context and load the persistence data
             LocalManagementContext tempMgmt = new LocalManagementContext(BrooklynProperties.Factory.builderDefault().build());
-            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, unzippedPath);
+            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, unzippedPath + "/data");
             tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
             BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
                     tempPersistenceStore, tempMgmt);
