@@ -347,7 +347,6 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
             StringBuilder sb = new StringBuilder();
             Sanitizer.sanitizeMapToString((Map)props.get(WinRmTool.ENVIRONMENT), sb);
             logIfPresent("{} env: {}" , prefix, sb.toString());
-
             logIfPresent("{} stdin: {}" , prefix, stdinToLog!=null ? Strings.join(stdinToLog, "\n") : null);
         }
 
@@ -379,7 +378,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
             return null;
         }
         Object b = props.get(key);
-        if (b==null && key instanceof ConfigKey) b = props.get( ((ConfigKey)b).getName() );
+        if (b==null && key instanceof ConfigKey) b = props.get( ((ConfigKey)key).getName() );
         if (b==null) return null;
         if (b instanceof String) return Maybe.of((String)b);
         if (b instanceof ByteArrayOutputStream) return Maybe.of( new String( ((ByteArrayOutputStream) b).toByteArray() ) );
