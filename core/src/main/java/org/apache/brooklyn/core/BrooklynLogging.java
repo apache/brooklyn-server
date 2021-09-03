@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 public class BrooklynLogging {
 
     public static final String SSH_IO = "org.apache.brooklyn.SSH";
+    public static final String WINRM_IO = "org.apache.brooklyn.WinRm";
 
     public static final String REST = "org.apache.brooklyn.REST";
 
