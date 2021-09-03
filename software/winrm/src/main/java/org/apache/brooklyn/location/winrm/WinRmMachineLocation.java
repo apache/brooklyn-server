@@ -358,6 +358,8 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
             // so we first try to take it from the task, then fall back to figuring out how to get the output from the writer-stream
             // and if that fails we look at the response
             logIfPresent("{} stdout: {}", prefix, getBuffer(BrooklynTaskTags.STREAM_STDOUT, props, ShellTool.PROP_OUT_STREAM, result::getStdOut));
+            logIfPresent("{} winrm: {}", prefix, getTaskStream(PlainWinRmExecTaskFactory.WINRM_STREAM).map(s -> s.streamContents.get()).orNull());
+            // stderr is usually not available
             logIfPresent("{} stderr: {}", prefix, getBuffer(BrooklynTaskTags.STREAM_STDERR, props, ShellTool.PROP_ERR_STREAM, result::getStdErr));
         }
 
