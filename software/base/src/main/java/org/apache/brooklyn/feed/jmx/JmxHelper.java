@@ -308,6 +308,13 @@ public class JmxHelper {
     public static JMXConnector newConnector(JMXServiceURL url, Map<String, ?> env) throws IOException {
         Map<String, Object> envCopy = MutableMap.copyOf(env);
         String protocol = url.getProtocol();
+        /*
+         * References for this change:
+         * https://issues.apache.org/jira/browse/KARAF-2925
+         * https://issues.apache.org/jira/browse/BROOKLYN-626
+         * https://github.com/apache/karaf/commit/407525b5048938d4299dcdb1e7998ba548e17370
+         * https://karaf.apache.org/manual/latest/monitoring#_monitoring_and_management_using_jmx
+         */
         if ("jmxmp".equalsIgnoreCase(protocol)) {
             envCopy.put(JMXConnectorFactory.PROTOCOL_PROVIDER_CLASS_LOADER, javax.management.remote.jmxmp.JMXMPConnector.class.getClassLoader());
             envCopy.put(JMXConnectorFactory.DEFAULT_CLASS_LOADER, javax.management.remote.jmxmp.JMXMPConnector.class.getClassLoader());
