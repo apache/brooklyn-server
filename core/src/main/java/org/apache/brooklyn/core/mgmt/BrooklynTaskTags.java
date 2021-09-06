@@ -358,14 +358,7 @@ public class BrooklynTaskTags extends TaskTags {
      * */
     public static WrappedStream tagForEnvStream(String streamEnv, Map<?, ?> env) {
         StringBuilder sb = new StringBuilder();
-        for (Map.Entry<?,?> kv: env.entrySet()) {
-            String stringValue = kv.getValue() != null ? kv.getValue().toString() : "";
-            if (!stringValue.isEmpty()) {
-                stringValue = Sanitizer.suppressIfSecret(kv.getKey(), stringValue);
-                stringValue = BashStringEscapes.wrapBash(stringValue);
-            }
-            sb.append(kv.getKey()).append("=").append(stringValue).append("\n");
-        }
+        Sanitizer.sanitizeMapToString(env, sb);
         // TODO also make soft - this is often larger than the streams themselves
         return BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_ENV, Streams.byteArrayOfString(sb.toString()));
     }

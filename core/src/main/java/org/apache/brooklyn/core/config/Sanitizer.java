@@ -31,6 +31,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 
 public final class Sanitizer {
 
@@ -66,6 +67,19 @@ public final class Sanitizer {
             return suppress(value);
         }
         return value;
+    }
+
+    public static void sanitizeMapToString(Map<?, ?> env, StringBuilder sb) {
+        if (env!=null) {
+            for (Map.Entry<?, ?> kv : env.entrySet()) {
+                String stringValue = kv.getValue() != null ? kv.getValue().toString() : "";
+                if (!stringValue.isEmpty()) {
+                    stringValue = Sanitizer.suppressIfSecret(kv.getKey(), stringValue);
+                    stringValue = BashStringEscapes.wrapBash(stringValue);
+                }
+                sb.append(kv.getKey()).append("=").append(stringValue).append("\n");
+            }
+        }
     }
 
     private static class IsSecretPredicate implements Predicate<Object> {
