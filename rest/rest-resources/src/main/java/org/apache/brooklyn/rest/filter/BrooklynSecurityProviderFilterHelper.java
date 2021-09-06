@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.rest.filter;
 
+import com.google.common.collect.ImmutableList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import javax.servlet.http.HttpServletRequest;
@@ -76,6 +80,10 @@ public class BrooklynSecurityProviderFilterHelper {
             ConfigKeys.newStringConfigKey(BrooklynWebConfig.BASE_NAME_SECURITY + ".unauthenticated.endpoints",
                     "List of endpoints available without authentication e.g. a login page", "");
 
+    private static final List<String> STATIC_CONTENT_EXTENSIONS = ImmutableList.of(
+                ".html", ".htm", ".js", ".png", ".gif", ".jpg", ".svg"
+            );
+
     public interface Responder {
         void error(String message, boolean requiresBasicAuth) throws SecurityProviderDeniedAuthentication;
     }
@@ -115,6 +123,10 @@ public class BrooklynSecurityProviderFilterHelper {
                     return;
                 }
             }
+        }
+        if (Strings.isNonBlank(mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM)) && isStaticContent(webRequest)) {
+            // also allow pages' static content to be accessed
+            return;
         }
 
         final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
@@ -174,7 +186,31 @@ public class BrooklynSecurityProviderFilterHelper {
 
         throw abort("Authentication failed", provider.requiresUserPass());
     }
-    
+
+    boolean isStaticContent(HttpServletRequest webRequest) {
+        String servletPath = webRequest.getServletPath();
+        if (servletPath!=null) {
+            if (servletPath.matches("\\/v[0-9]+\\/")) {
+                // disallow API endpoints
+                return false;
+            }
+
+            if (Objects.equals(stripTrailingSlash(webRequest.getContextPath()), stripTrailingSlash(servletPath))) {
+                return true;
+            }
+            String servletPathLower = servletPath.toLowerCase(Locale.ROOT);
+            if (STATIC_CONTENT_EXTENSIONS.stream().anyMatch(
+                    //ext -> servletPath.endsWith(ext)  // <-- this seems allowed, but why? it's not effectively final!
+                    servletPathLower::endsWith
+                    )) return true;
+        }
+        return false;
+    }
+
+    private String stripTrailingSlash(String contextPath) {
+        return Strings.removeFromEnd(contextPath, "/");
+    }
+
     SecurityProviderDeniedAuthentication abort(String msg, boolean requiresUserPass) throws SecurityProviderDeniedAuthentication {
         ResponseBuilder response = Response.status(Status.UNAUTHORIZED);
         if (requiresUserPass) {
