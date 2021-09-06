@@ -306,13 +306,16 @@ public class JmxHelper {
      * Handles loading the {@link JMXConnector} in OSGi, where we need to supply the classloader.
      */
     public static JMXConnector newConnector(JMXServiceURL url, Map<String, ?> env) throws IOException {
-        // Fix for BROOKLYN-626
-        // In Karaf 4.2.8, they added jmxmp support via a jar in boot/lib/
-        // This means it's on the root classpath without it being a proper/normal bundle!
-        // We need to use the classes from that ClassLoader rather than our own bundle, otherwise
-        // we get ClassCastException when we deserialize a jmxmp message and try to cast it to
-        // `Message` from the other ClassLoader. 
-        return JMXConnectorFactory.connect(url, env);
+        Map<String, Object> envCopy = MutableMap.copyOf(env);
+        String protocol = url.getProtocol();
+        if ("jmxmp".equalsIgnoreCase(protocol)) {
+            envCopy.put(JMXConnectorFactory.PROTOCOL_PROVIDER_CLASS_LOADER, javax.management.remote.jmxmp.JMXMPConnector.class.getClassLoader());
+            envCopy.put(JMXConnectorFactory.DEFAULT_CLASS_LOADER, javax.management.remote.jmxmp.JMXMPConnector.class.getClassLoader());
+        } else if ("rmi".equalsIgnoreCase(protocol)) {
+            envCopy.put(JMXConnectorFactory.PROTOCOL_PROVIDER_CLASS_LOADER, javax.management.remote.rmi.RMIConnector.class.getClassLoader());
+            envCopy.put(JMXConnectorFactory.DEFAULT_CLASS_LOADER, javax.management.remote.rmi.RMIConnector.class.getClassLoader());
+        }
+        return JMXConnectorFactory.connect(url, envCopy);
     }
     
     @SuppressWarnings({ "rawtypes", "unchecked" })
