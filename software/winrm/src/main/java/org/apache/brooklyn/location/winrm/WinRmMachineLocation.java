@@ -246,7 +246,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     @Nullable
     protected String getHostAndPort() {
         String host = getHostname();
-        return (host == null) ? null : host + ":" + getDefaultPort();
+        return (host == null) ? null : host + ":" + getPort();
     }
 
     public int getPort() {
