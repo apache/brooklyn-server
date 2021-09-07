@@ -75,6 +75,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
     private final String defaultLdapRealm;
     private final String organizationUnit;
     private final String userNameRegex;
+    private final String domainRegex;
     private boolean logUserLoginAttempt;
     private boolean fetchUserGroups = false;
     private List<String> validGroups;
@@ -85,6 +86,7 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         Strings.checkNonEmpty(ldapUrl, "LDAP security provider configuration missing required property " + BrooklynWebConfig.LDAP_URL);
         fetchUserGroups = properties.getConfig(BrooklynWebConfig.LDAP_FETCH_USER_GROUPS);
         logUserLoginAttempt = properties.getConfig(BrooklynWebConfig.LDAP_LOGIN_INFO_LOG);
+        domainRegex = properties.getConfig(BrooklynWebConfig.LDAP_DOMAIN_REGEX);
         userNameRegex = properties.getConfig(BrooklynWebConfig.LDAP_USERNAME_REGEX);
         List ldapGroupsPrefixes = properties.getConfig(BrooklynWebConfig.GROUP_CONFIG_KEY_NAME);
         if (fetchUserGroups && !ldapGroupsPrefixes.isEmpty()) {
@@ -113,14 +115,16 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
         this.defaultLdapRealm = ldapRealm;
         this.organizationUnit = organizationUnit;
         this.userNameRegex = "";
+        this.domainRegex = "";
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Override
     public boolean authenticate(HttpServletRequest request, Supplier<HttpSession> sessionSupplierOnSuccess, String user, String pass) throws SecurityProviderDeniedAuthentication {
         if (user == null) return false;
-        if(Strings.isNonEmpty(userNameRegex) && !user.matches(userNameRegex)){
-            LOG.debug("Rejecting authenticating attempt for user `{}` due to userNameRegex configuration: {}", user, userNameRegex);
+        String ldapRegex = getLdapRegexPattern();
+        if(Strings.isNonEmpty(ldapRegex) && !user.matches(ldapRegex)){
+            LOG.debug("Rejecting authenticating attempt for user `{}` due to userNameRegex configuration: {}", user, ldapRegex);
             return false;
         }
         checkCanLoad();
@@ -158,6 +162,15 @@ public class LdapSecurityProvider extends AbstractSecurityProvider implements Se
             addToInfoLog("Unsuccessful for " + user);
             return false;
         }
+    }
+
+    private String getLdapRegexPattern() {
+        if(Strings.isBlank(domainRegex) && Strings.isBlank(userNameRegex)) return "";
+        if(Strings.isBlank(domainRegex)) return userNameRegex;
+        return Strings.join(new String[]{
+                        domainRegex,
+                        Strings.isNonBlank(userNameRegex) ? userNameRegex : ".*"}
+                , "\\\\");
     }
 
     private List<String> getConfiguredGroups(StringConfigMap properties, List<String> prefixes) {
