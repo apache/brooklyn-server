@@ -20,7 +20,7 @@ brooklyn.catalog:
   id: simple-tomcat-test
   version: 1.0
   itemType: template
-  iconUrl: http://tomcat.apache.org/images/tomcat.png
+  iconUrl: http://tomcat.apache.org/res/images/tomcat.png
   name: Simple Tomcat Test
   license: Apache-2.0
   item:
