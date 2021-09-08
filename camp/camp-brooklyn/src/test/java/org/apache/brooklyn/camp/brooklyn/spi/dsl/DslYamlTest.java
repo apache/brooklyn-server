@@ -689,7 +689,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
-    @Test
+    @Test(groups="Integration")  // because takes 3 seconds ... not sure why!?
     public void testDeferredDslObjectAsFirstArgument() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
