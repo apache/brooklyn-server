@@ -79,8 +79,11 @@ public class BrooklynWebConfig {
         return ConfigKeys.newStringConfigKey(BASE_NAME_SECURITY + ".user." + user + ".sha256");
     }
 
+    public final static ConfigKey<String> LDAP_DOMAIN_REGEX = ConfigKeys.newStringConfigKey(
+            BASE_NAME_SECURITY+".ldap.domain_name_regex","Regex pattern for the domain","");
+
     public final static ConfigKey<String> LDAP_USERNAME_REGEX = ConfigKeys.newStringConfigKey(
-            BASE_NAME_SECURITY+".ldap.user_name_regex");
+            BASE_NAME_SECURITY+".ldap.user_name_regex","Regex pattern for the username","");
 
     public final static ConfigKey<String> LDAP_URL = ConfigKeys.newStringConfigKey(
             BASE_NAME_SECURITY+".ldap.url");
