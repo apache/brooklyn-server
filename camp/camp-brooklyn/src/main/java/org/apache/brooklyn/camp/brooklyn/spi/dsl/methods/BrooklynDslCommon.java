@@ -138,11 +138,14 @@ public class BrooklynDslCommon {
     public static DslComponent root() {
         return new DslComponent(Scope.ROOT);
     }
+
     @DslAccessible
     public static DslComponent scopeRoot() {
         return new DslComponent(Scope.SCOPE_ROOT);
     }
-    // prefer the syntax above to the below now, but not deprecating the below
+    // above is within the current definition
+    // whereas the below _prefers_ in the current definition
+
     @DslAccessible
     public static DslComponent component(Object id) {
         return component("global", id);

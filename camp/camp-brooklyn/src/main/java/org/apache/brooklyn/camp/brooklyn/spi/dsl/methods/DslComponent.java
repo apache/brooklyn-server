@@ -18,18 +18,26 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.util.Set;
-import java.util.function.Function;
-import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
-
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Callables;
+import com.thoughtworks.xstream.annotations.XStreamConverter;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-
+import java.util.function.Function;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -38,9 +46,11 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.AppGroupTraverser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
+import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -48,7 +58,6 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -63,19 +72,6 @@ import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverte
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-
-import com.google.common.base.CaseFormat;
-import com.google.common.base.Converter;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.Callables;
-import com.thoughtworks.xstream.annotations.XStreamConverter;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
 
@@ -278,15 +274,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 return Maybe.<Entity>ofDisallowingNull(entity()).or(Maybe.<Entity>absent("Context entity not available when trying to evaluate Brooklyn DSL"));
             }
         }
-        
+
         protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
             Maybe<Entity> entityMaybe = getEntity(immediate);
             if (immediate && entityMaybe.isAbsent()) {
                 return entityMaybe;
             }
             EntityInternal entity = (EntityInternal) entityMaybe.get();
-            
-            Iterable<Entity> entitiesToSearch = null;
+
+            java.util.function.Predicate<Entity> acceptableEntity = x -> true;
             Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
 
             switch (scope) {
@@ -297,8 +293,9 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 case GLOBAL:
                     if (Entities.isManaged(entity())) {
                         // use management context if entity is managed (usual case, more efficient)
-                        entitiesToSearch = ((EntityManagerInternal) entity.getManagementContext().getEntityManager())
-                                .getAllEntitiesInApplication(entity().getApplication());
+                        String appId = entity().getApplicationId();
+                        acceptableEntity = ee -> appId!=null && appId.equals(ee.getApplicationId());
+
                     } else {
                         // otherwise traverse the application
                         if (entity()!=null && entity().getApplication()!=null) {
@@ -312,7 +309,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                                     });
                                 });
                             }
-                            entitiesToSearch = visited;
+                            acceptableEntity = visited::contains;
                         } else {
                             // nothing to do
                         }
@@ -323,17 +320,16 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 case SCOPE_ROOT:
                     return Maybe.<Entity>of(Entities.catalogItemScopeRoot(entity));
                 case DESCENDANT:
-                    entitiesToSearch = Entities.descendantsWithoutSelf(entity);
+                    acceptableEntity = MutableSet.copyOf(Entities.descendantsWithoutSelf(entity))::contains;
                     break;
                 case ANCESTOR:
-                    entitiesToSearch = Entities.ancestorsWithoutSelf(entity);
+                    acceptableEntity = MutableSet.copyOf(Entities.ancestorsWithoutSelf(entity))::contains;
                     break;
                 case SIBLING:
-                    entitiesToSearch = entity.getParent().getChildren();
-                    entitiesToSearch = Iterables.filter(entitiesToSearch, notSelfPredicate);
+                    acceptableEntity = MutableSet.copyOf(Iterables.filter(entity.getParent().getChildren(), notSelfPredicate))::contains;
                     break;
                 case CHILD:
-                    entitiesToSearch = entity.getChildren();
+                    acceptableEntity = MutableSet.copyOf(entity.getChildren())::contains;
                     break;
                 default:
                     throw new IllegalStateException("Unexpected scope "+scope);
@@ -359,9 +355,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 }
                 
                 // Support being passed an explicit entity via the DSL
-                if (maybeComponentId.get() instanceof BrooklynObject) {
-                    if (Iterables.contains(entitiesToSearch, maybeComponentId.get())) {
-                        return Maybe.of((Entity)maybeComponentId.get());
+                Object candidate = maybeComponentId.get();
+                if (candidate instanceof BrooklynObject) {
+                    if (acceptableEntity.test((Entity)candidate)) {
+                        return Maybe.of((Entity)candidate);
                     } else {
                         throw new IllegalStateException("Resolved component " + maybeComponentId.get() + " is not in scope '" + scope + "' wrt " + entity);
                     }
@@ -376,15 +373,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             } else {
                 desiredComponentId = componentId;
             }
-            
-            Optional<Entity> result = Iterables.tryFind(entitiesToSearch, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, desiredComponentId));
-            if (result.isPresent()) {
-                return Maybe.of(result.get());
+
+            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
+                    Predicates.and(EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, desiredComponentId), acceptableEntity::test)::apply);
+            if (firstGroupOfMatches.isEmpty()) {
+                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
+                        Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), acceptableEntity::test)::apply);
             }
-            
-            result = Iterables.tryFind(entitiesToSearch, EntityPredicates.idEqualTo(desiredComponentId));
-            if (result.isPresent()) {
-                return Maybe.of(result.get());
+            if (!firstGroupOfMatches.isEmpty()) {
+                return Maybe.of(firstGroupOfMatches.get(0));
             }
             
             // could be nice if DSL has an extra .block() method to allow it to wait for a matching entity.
