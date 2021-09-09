@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Entity.GroupSupport;
 import org.apache.brooklyn.api.entity.EntityType;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -71,6 +72,7 @@ public interface EntityTransientCopyInternal {
     <T> T getConfig(ConfigKey<T> key);
     <T> T getConfig(HasConfigKey<T> key);
     TagSupport tags();
+    GroupSupport groups();
     String getCatalogItemId();
 
     // from EntityInternal:

@@ -424,8 +424,12 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
 
+
         HighAvailabilityManager haMgr = mgmt().getHighAvailabilityManager();
         ManagementNodeState existingState = haMgr.getNodeState();
+
+        log.info("REST call to set server state "+mode+" (currently "+existingState+") by "+Entitlements.getEntitlementContext().user());
+
         haMgr.changeMode(mode);
         return existingState;
     }
@@ -455,6 +459,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
         HighAvailabilityManager haMgr = mgmt().getHighAvailabilityManager();
         long oldPrio = haMgr.getPriority();
+
+        log.info("REST call to set server priority "+priority+" (currently "+oldPrio+") by "+Entitlements.getEntitlementContext().user());
+
         haMgr.setPriority(priority);
         return oldPrio;
     }

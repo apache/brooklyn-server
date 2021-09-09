@@ -393,7 +393,8 @@ public class LocalEntityManager implements EntityManagerInternal {
             if (mode==null) {
                 setManagementTransitionMode(it, mode = initialMode);
             }
-            
+            log.debug("Starting management of {} mode {}", it, mode);
+
             Boolean isReadOnlyFromEntity = it.getManagementSupport().isReadOnlyRaw();
             if (isReadOnlyFromEntity==null) {
                 if (mode.isReadOnly()) {
@@ -530,7 +531,7 @@ public class LocalEntityManager implements EntityManagerInternal {
     }
 
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
-        if (shouldSkipUnmanagement(e)) return;
+        if (shouldSkipUnmanagement(e, hasBeenReplaced)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
         
         if (hasBeenReplaced) {
@@ -574,22 +575,26 @@ public class LocalEntityManager implements EntityManagerInternal {
             // Need to store all child entities as onManagementStopping removes a child from the parent entity
             final List<EntityInternal> allEntities =  Lists.newArrayList();
             recursively(e, new Predicate<EntityInternal>() { @Override public boolean apply(EntityInternal it) {
-                if (shouldSkipUnmanagement(it)) return false;
+                if (shouldSkipUnmanagement(it, false)) return false;
                 allEntities.add(it);
                 it.getManagementSupport().onManagementStopping(info, false);
                 return true;
             } });
 
-            MutableList<EntityInternal> allEntitiesExceptApp = MutableList.copyOf(allEntities);
-            EntityInternal app = allEntitiesExceptApp.remove(0);
-            Collections.reverse(allEntitiesExceptApp);
-            allEntitiesExceptApp.forEach(it -> {
-                BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Deleting entity " + it.getId() + " (" + it + ") in application " + it.getApplicationId() + " for user " + Entitlements.getEntitlementContextUser());
-            });
-            BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Deleting application " + app.getId() + " (" + app + ") for user " + Entitlements.getEntitlementContextUser());
+            if (!allEntities.isEmpty()) {
+                MutableList<EntityInternal> allEntitiesExceptApp = MutableList.copyOf(allEntities);
+                EntityInternal app = allEntitiesExceptApp.remove(0);
+                Collections.reverse(allEntitiesExceptApp);
+                // log in reverse order, so that ancestor nodes logged later because they are more interesting
+                // (and application is the last one logged)
+                allEntitiesExceptApp.forEach(it -> {
+                    BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Deleting entity " + it.getId() + " (" + it + ") in application " + it.getApplicationId() + " for user " + Entitlements.getEntitlementContextUser());
+                });
+                BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Deleting application " + app.getId() + " (" + app + ") mode "+mode+" for user " + Entitlements.getEntitlementContextUser());
+            }
 
             for (EntityInternal it : allEntities) {
-                if (shouldSkipUnmanagement(it)) continue;
+                if (shouldSkipUnmanagement(it, false)) continue;
 
                 unmanageNonRecursive(it);
                 stopTasks(it);
@@ -834,6 +839,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         
         if (old!=null && old!=e) {
             // passing the transition info will ensure the right shutdown steps invoked for old instance
+            log.debug("Unmanaging previous instance {} being replaced by {} {}", old, e, mode);
             unmanage(old, mode, true);
         }
         
@@ -875,7 +881,7 @@ public class LocalEntityManager implements EntityManagerInternal {
                 }
             }
         } else {
-            log.debug("No relations being updated on unmanage of read only {} (mode {})", e, lastTM);
+            log.trace("No groups being updated on unmanage of read only {} (mode {})", e, lastTM);
         }
 
         unmanageOwnedLocations(e);
@@ -889,20 +895,20 @@ public class LocalEntityManager implements EntityManagerInternal {
 
             entities.remove(proxyE);
             entityProxiesById.remove(e.getId());
-            entityModesById.remove(e.getId());
+            ManagementTransitionMode oldMode = entityModesById.remove(e.getId());
             
             Object old = entitiesById.remove(e.getId());
 
             entityTypes.remove(e.getId());
             if (old==null) {
-                log.warn("{} call to stop management of unknown entity (already unmanaged?) {}; ignoring", this, e);
+                log.warn("{} call to stop management of unknown entity (already unmanaged?) {} {}/{}; ignoring", this, e, oldMode, lastTM);
                 return false;
             } else if (!old.equals(e)) {
                 // shouldn't happen...
-                log.error("{} call to stop management of entity {} removed different entity {}", new Object[] { this, e, old });
+                log.error("{} call to stop management of entity {} removed different entity {} {}/{}", new Object[] { this, e, old, oldMode, lastTM });
                 return true;
             } else {
-                if (log.isDebugEnabled()) log.debug("{} stopped management of entity {}", this, e);
+                if (log.isDebugEnabled()) log.debug("{} stopped management of entity {} {}/{}", this, e, oldMode, lastTM);
                 return true;
             }
         }
@@ -937,14 +943,18 @@ public class LocalEntityManager implements EntityManagerInternal {
         entities.removeListener(wrappedListener);
     }
     
-    private boolean shouldSkipUnmanagement(Entity e) {
+    private boolean shouldSkipUnmanagement(Entity e, boolean hasBeenReplaced) {
         if (e==null) {
             log.warn(""+this+" call to unmanage null entity; skipping",  
                 new IllegalStateException("source of null unmanagement call to "+this));
             return true;
         }
         if (!isManaged(e)) {
-            log.warn("{} call to stop management of unknown entity (already unmanaged?) {}; skipping, and all descendants", this, e);
+            if (!hasBeenReplaced) {
+                log.warn("{} call to stop management of unknown entity (already unmanaged?) {}; skipping, and all descendants", this, e);
+            } else {
+                log.trace("{} call to stop management of replaced entity (previous already unmanaged?) {}; skipping, and all descendants", this, e);
+            }
             return true;
         }
         return false;

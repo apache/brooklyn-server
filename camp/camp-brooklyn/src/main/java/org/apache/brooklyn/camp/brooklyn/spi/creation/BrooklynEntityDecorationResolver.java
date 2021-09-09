@@ -209,7 +209,20 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
                     result = instantiator.from(decorationJson).prefix(typeKeyPrefix).newInstance(EntityInitializer.class);
                     if (type!=null) {
                         // make a note of this because the new syntax should do everything the old one does except if the type is specified as 'initializerType'
-                        log.debug("Initializer for type '"+type+"' instantiated via old syntax (due to "+e+")");
+                        if (EntityInitializer.class.isInstance(type)) {
+                            // expected for initializers still, to require the old style instantiation not beans often
+                            /*
+                            Initializer for type 'org.apache.brooklyn.core.sensor.http.HttpRequestSensor' instantiated via old syntax
+                            (due to com.fasterxml.jackson.databind.JsonMappingException: Cannot find a (Map) Key deserializer for
+                            type [simple type, class org.apache.brooklyn.config.ConfigKey<java.lang.Object>]
+                            at [Source: (StringReader); line: 2, column: 7],
+                            processing class org.apache.brooklyn.util.core.config.ConfigBag,
+                            processing class org.apache.brooklyn.core.sensor.http.HttpRequestSensor)
+                             */
+                            log.trace("Initializer for type '{}' instantiated via old syntax (due to {})", type, e);
+                        } else {
+                            log.debug("Initializer for type '{}' instantiated via old syntax (due to {})", type, e);
+                        }
                     }
                 } catch (Exception e2) {
                     Exceptions.propagateIfFatal(e2);
