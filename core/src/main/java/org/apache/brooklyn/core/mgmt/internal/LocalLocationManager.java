@@ -306,21 +306,16 @@ public class LocalLocationManager implements LocationManagerInternal {
             // As above, see TODO in LocalEntityManager about recursive management / unmanagement v manageAll/unmanageAll
             recursively(loc, new Predicate<AbstractLocation>() { @Override public boolean apply(AbstractLocation it) {
                 if (shouldSkipUnmanagement(it)) return false;
-                boolean result = unmanageNonRecursiveRemoveFromRecords(it, mode);
-                if (result) {
-                    ManagementTransitionMode mode = getLastManagementTransitionMode(it.getId());
-                    if (mode==null) {
-                        // ad hoc creation e.g. tests
-                        log.debug("Missing transition mode for "+it+" when unmanaging; assuming primary/destroying");
-                        mode = ManagementTransitionMode.guessing(BrooklynObjectManagementMode.MANAGED_PRIMARY, BrooklynObjectManagementMode.NONEXISTENT);
-                    }
+                boolean unmanaged = unmanageNonRecursiveRemoveFromRecords(it, mode);
+                if (unmanaged) {
+                    // note: there is more complicated logic in history, esp for tests
                     if (mode.wasPrimary()) it.onManagementStopped();
                     managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
                     if (mode.isDestroying()) recordLocationEvent(it, Lifecycle.DESTROYED);
                     if (managementContext.gc != null) managementContext.gc.onUnmanaged(it);
                 }
                 unmanageNonRecursiveClearItsFields(loc, mode);
-                return result;
+                return unmanaged;
             } });
             
         } else {
@@ -414,7 +409,7 @@ public class LocalLocationManager implements LocationManagerInternal {
     
     /**
      * Should ensure that the location is no longer managed anywhere, remove from all lists.
-     * Returns true if the location has been removed from management; if it was not previously managed (anything else throws exception) 
+     * Returns true if the location has been removed from management; if it was not previously managed (anything else throws exception)
      */
     private synchronized boolean unmanageNonRecursiveRemoveFromRecords(Location loc, ManagementTransitionMode mode) {
         Object old = locationsById.remove(loc.getId());
@@ -422,14 +417,14 @@ public class LocalLocationManager implements LocationManagerInternal {
         locationModesById.remove(loc.getId());
         
         if (old==null) {
-            log.warn("{} call to stop management of unknown location (already unmanaged?) {}; ignoring", this, loc);
+            log.warn("{} call to stop management of unknown location (already unmanaged?) {} ({}), mode {}; ignoring", this, loc, loc.getId(), mode);
             return false;
         } else if (!old.equals(loc)) {
             // shouldn't happen...
             log.error("{} call to stop management of location {} removed different location {}; ignoring", new Object[] { this, loc, old });
             return true;
         } else {
-            if (log.isDebugEnabled()) log.debug("{} stopped management of location {}", this, loc);
+            if (log.isDebugEnabled()) log.debug("{} stopped management of location {} ({}), mode {}", this, loc, loc.getId(), mode);
             return true;
         }
     }

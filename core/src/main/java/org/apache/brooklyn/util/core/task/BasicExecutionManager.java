@@ -139,14 +139,7 @@ public class BasicExecutionManager implements ExecutionManager {
         }
 
         public BrooklynTaskLoggingMdc start() {
-            if (task!=null) {
-                taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
-            }
-
             Entity entity = BrooklynTaskTags.getTargetOrContextEntity(task);
-            if (entity != null) {
-                entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
-            }
 
             if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
                 String taskName = task.getDisplayName();
@@ -160,6 +153,15 @@ public class BasicExecutionManager implements ExecutionManager {
                         message);
 
             }
+
+            // set context _after_ the log so that context shows which task started this
+            if (task!=null) {
+                taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
+            }
+            if (entity != null) {
+                entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
+            }
+
             return this;
         }
 
