@@ -837,10 +837,10 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 });
         }
         String message = "Management node "+ownNodeId+" detected ";
-        String currMasterSummary = currMasterNodeId + "(" + (currMasterNodeRecord==null ? "<none>" : timestampString(currMasterNodeRecord.getRemoteTimestamp())) + ")";
+        String currMasterSummary = currMasterNodeId + " (" + (currMasterNodeRecord==null ? "<none>" : timestampString(currMasterNodeRecord.getRemoteTimestamp())) + ")";
         if (weAreNewMaster && (ownNodeRecord.getStatus() == ManagementNodeState.MASTER)) {
-            LOG.warn(message + "we must reassert master status, as was stolen and then failed at "+
-                (currMasterNodeRecord==null ? "a node which has gone away" : currMasterSummary));
+            LOG.warn(message + "we must reassert master status, as we believe we should be master and other master "+
+                (currMasterNodeRecord==null ? "(a node which has gone away)" : currMasterSummary)+" has failed");
             publishPromotionToMaster();
             publishHealth();
             return;

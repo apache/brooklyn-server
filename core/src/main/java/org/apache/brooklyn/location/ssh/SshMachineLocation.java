@@ -904,7 +904,8 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
 
     @Override
     public String toString() {
-        return "SshMachineLocation["+getDisplayName()+":"+user+"@"+address+":"+getPort()+"(id="+getId()+")]";
+        // previously we did getPort but that might not work eg if pointing at entity which is not managed
+        return "SshMachineLocation["+getDisplayName()+":"+user+"@"+address+"(id="+getId()+")]";
     }
 
     @Override
