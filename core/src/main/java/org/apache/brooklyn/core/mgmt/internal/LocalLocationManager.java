@@ -306,24 +306,9 @@ public class LocalLocationManager implements LocationManagerInternal {
             // As above, see TODO in LocalEntityManager about recursive management / unmanagement v manageAll/unmanageAll
             recursively(loc, new Predicate<AbstractLocation>() { @Override public boolean apply(AbstractLocation it) {
                 if (shouldSkipUnmanagement(it)) return false;
-                ManagementTransitionMode oldMode = unmanageNonRecursiveRemoveFromRecords(it, mode);
-                boolean unmanaged = oldMode!=null;
+                boolean unmanaged = unmanageNonRecursiveRemoveFromRecords(it, mode);
                 if (unmanaged) {
-//                    if (oldMode==null) {
-//                        // ad hoc creation e.g. tests
-//                        oldMode = ManagementTransitionMode.guessing(BrooklynObjectManagementMode.MANAGED_PRIMARY, BrooklynObjectManagementMode.NONEXISTENT);
-//                        log.debug("Missing transition mode for "+it+" ("+it.getId()+") when unmanaging; assuming "+oldMode);
-//                    } else {
-//                        // should be trace if all is okay; though maybe we don't even need oldMode now that mode captures whether is was primary
-//                        log.debug("Transition mode for "+it+" ("+it.getId()+") when unmanaging was previously "+oldMode+", now "+mode);
-//                    }
-//                    if (oldMode.wasPrimary()) it.onManagementStopped();
-//                    managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
-//                    if (oldMode.isDestroying()) recordLocationEvent(it, Lifecycle.DESTROYED);
-//                    if (managementContext.gc != null) managementContext.gc.onUnmanaged(it);
-
-                    // TODO if below works we can simply remove the stuff above and revert the oldMode return from unmanageNonRecursive
-
+                    // note: there is more complicated logic in history, esp for tests
                     if (mode.wasPrimary()) it.onManagementStopped();
                     managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
                     if (mode.isDestroying()) recordLocationEvent(it, Lifecycle.DESTROYED);
@@ -425,23 +410,22 @@ public class LocalLocationManager implements LocationManagerInternal {
     /**
      * Should ensure that the location is no longer managed anywhere, remove from all lists.
      * Returns true if the location has been removed from management; if it was not previously managed (anything else throws exception)
-     * @return
      */
-    private synchronized ManagementTransitionMode unmanageNonRecursiveRemoveFromRecords(Location loc, ManagementTransitionMode mode) {
+    private synchronized boolean unmanageNonRecursiveRemoveFromRecords(Location loc, ManagementTransitionMode mode) {
         Object old = locationsById.remove(loc.getId());
         locationTypes.remove(loc.getId());
-        ManagementTransitionMode oldMode = locationModesById.remove(loc.getId());
+        locationModesById.remove(loc.getId());
         
         if (old==null) {
             log.warn("{} call to stop management of unknown location (already unmanaged?) {} ({}), mode {}; ignoring", this, loc, loc.getId(), mode);
-            return null;
+            return false;
         } else if (!old.equals(loc)) {
             // shouldn't happen...
             log.error("{} call to stop management of location {} removed different location {}; ignoring", new Object[] { this, loc, old });
-            return oldMode;
+            return true;
         } else {
             if (log.isDebugEnabled()) log.debug("{} stopped management of location {} ({}), mode {}", this, loc, loc.getId(), mode);
-            return oldMode;
+            return true;
         }
     }
 
