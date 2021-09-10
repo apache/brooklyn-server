@@ -25,14 +25,19 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Entity.EnricherSupport;
 import org.apache.brooklyn.api.entity.Entity.GroupSupport;
+import org.apache.brooklyn.api.entity.Entity.PolicySupport;
+import org.apache.brooklyn.api.entity.Entity.SensorSupport;
 import org.apache.brooklyn.api.entity.EntityType;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.EntityMemento;
+import org.apache.brooklyn.api.objs.BrooklynObject.RelationSupport;
 import org.apache.brooklyn.api.objs.BrooklynObject.TagSupport;
+import org.apache.brooklyn.api.objs.Configurable.ConfigurationSupport;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
@@ -71,8 +76,13 @@ public interface EntityTransientCopyInternal {
     <T> T getAttribute(AttributeSensor<T> sensor);
     <T> T getConfig(ConfigKey<T> key);
     <T> T getConfig(HasConfigKey<T> key);
+    ConfigurationSupport config();
+    SensorSupport sensors();
+    PolicySupport policies();
+    EnricherSupport enrichers();
     TagSupport tags();
     GroupSupport groups();
+    RelationSupport<Entity> relations();
     String getCatalogItemId();
 
     // from EntityInternal:
