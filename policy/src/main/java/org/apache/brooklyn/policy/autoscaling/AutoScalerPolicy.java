@@ -850,8 +850,8 @@ public class AutoScalerPolicy extends AbstractPolicy {
     }
     
     private void analyze(ScalingData data, String description) {
-        if (!Entities.isManaged(entity)) {
-            LOG.debug("Skipping autoscaling analysis because entity "+entity+" is unmanaged");
+        if (!Entities.isManagedActive(entity)) {
+            LOG.debug("Skipping autoscaling analysis because entity "+entity+" is not actively managed");
             return;
         }
 
@@ -1102,8 +1102,8 @@ public class AutoScalerPolicy extends AbstractPolicy {
 
     private void resizeNow(String reason) {
         // this runs in a thread after the fact so might not be cancelled
-        if (!Entities.isManaged(entity)) {
-            LOG.debug("Skipping autoscaling resize scheduling (due to '"+reason+"') because entity "+entity+" is unmanaged");
+        if (!Entities.isManagedActive(entity)) {
+            LOG.debug("Skipping autoscaling resize scheduling (due to '"+reason+"') because entity "+entity+" is not actively managed");
             return;
         }
 
@@ -1139,8 +1139,8 @@ public class AutoScalerPolicy extends AbstractPolicy {
                 public Void call() throws Exception {
                     // TODO Should we use int throughout, rather than casting here?
                     try {
-                        if (!Entities.isManaged(entity)) {
-                            LOG.warn("Skipping autoscaling resize task (due to '"+reason+"') because entity "+entity+" is unmanaged");
+                        if (!Entities.isManagedActive(entity)) {
+                            LOG.warn("Skipping autoscaling resize task (due to '"+reason+"') because entity "+entity+" is not actively managed");
                             return null;
                         }
 

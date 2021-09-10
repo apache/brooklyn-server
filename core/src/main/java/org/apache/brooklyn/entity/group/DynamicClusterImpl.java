@@ -453,7 +453,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     protected void doStart() {
         if (isQuarantineEnabled()) {
             QuarantineGroup quarantineGroup = getAttribute(QUARANTINE_GROUP);
-            if (quarantineGroup==null || !Entities.isManaged(quarantineGroup)) {
+            if (quarantineGroup==null || !Entities.isManagedActive(quarantineGroup)) {
                 quarantineGroup = addChild(EntitySpec.create(QuarantineGroup.class).displayName("quarantine"));
                 sensors().set(QUARANTINE_GROUP, quarantineGroup);
             }

@@ -184,8 +184,8 @@ public class ServiceStateLogic {
 
     private static void waitBrieflyForServiceUpIfStateIsRunning(Entity entity, Lifecycle state) {
         if (state==Lifecycle.RUNNING) {
-            Boolean up = ((EntityInternal)entity).getAttribute(Attributes.SERVICE_UP);
-            if (!Boolean.TRUE.equals(up) && !Boolean.TRUE.equals(Entities.isReadOnly(entity))) {
+            Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
+            if (!Boolean.TRUE.equals(up) && !Entities.isReadOnly(entity)) {
                 // pause briefly to allow any recent problem-clearing processing to complete
                 Stopwatch timer = Stopwatch.createStarted();
                 boolean nowUp = Repeater.create()
@@ -537,7 +537,7 @@ public class ServiceStateLogic {
 
         @Override
         protected void onUpdated() {
-            if (entity==null || !Entities.isManaged(entity)) {
+            if (entity==null || !Entities.isManagedActive(entity)) {
                 // either invoked during setup or entity has become unmanaged; just ignore
                 BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
                     "Ignoring service indicators onUpdated at {} from invalid/unmanaged entity ({})", this, entity);

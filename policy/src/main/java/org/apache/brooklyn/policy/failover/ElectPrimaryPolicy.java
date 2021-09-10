@@ -111,6 +111,11 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
     @Override
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
+
+        if (!Entities.isManagedActive(entity)) {
+            // hot standby or entity finished
+            return;
+        }
         
         checkAndMaybeAddEffector(entity);
         checkQuorums(entity);

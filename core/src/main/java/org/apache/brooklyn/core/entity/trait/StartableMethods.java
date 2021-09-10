@@ -76,7 +76,7 @@ public class StartableMethods {
         List<Startable> failedEntities = Lists.newArrayList();
         
         for (final Startable entity : entities) {
-            if (!Entities.isManaged((Entity)entity)) {
+            if (!Entities.isManagedActive((Entity)entity)) {
                 log.debug("Not stopping {} because it is not managed; continuing", entity);
                 continue;
             }

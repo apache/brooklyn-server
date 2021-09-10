@@ -102,8 +102,8 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     protected WinRmExecuteHelper newEmptyScript(String taskNamePrefix) {
-        if (!Entities.isManaged(getEntity()))
-            throw new IllegalStateException(getEntity() + " is no longer managed; cannot create script to run here (" + taskNamePrefix + ")");
+        if (!Entities.isManagedActive(getEntity()))
+            throw new IllegalStateException(getEntity() + " is not managed here; cannot create script to run here (" + taskNamePrefix + ")");
 
         WinRmExecuteHelper s = new WinRmExecuteHelper(this, taskNamePrefix + " " + elvis(entity, this));
         return s;
