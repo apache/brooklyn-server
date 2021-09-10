@@ -790,7 +790,18 @@ public class Entities {
         }
     }
 
+    /** As {@link #isManagedOrReadOnly(Entity)}.  Consider using {@link #isManagedActive(Entity)} instead. */
     public static boolean isManaged(Entity e) {
+        return isManagedOrReadOnly(e);
+    }
+
+    /** If entity is under management and the management node is the primary for this entity, i.e. not read-only. */
+    public static boolean isManagedActive(Entity e) {
+        return ((EntityInternal)e).getManagementSupport().isDeployed() && ((EntityInternal)e).getManagementContext().isRunning() && !isReadOnly(e);
+    }
+
+    /** If entity is under management either as primary or in read-only (hot-standby) state. */
+    public static boolean isManagedOrReadOnly(Entity e) {
         return ((EntityInternal)e).getManagementSupport().isDeployed() && ((EntityInternal)e).getManagementContext().isRunning();
     }
 
@@ -798,10 +809,9 @@ public class Entities {
         return ((EntityInternal)e).getManagementSupport().isNoLongerManaged();
     }
 
-    /** as {@link EntityManagerInternal#isReadOnly(Entity)} */
-    @Beta
-    public static Boolean isReadOnly(Entity e) {
-        return ((EntityInternal)e).getManagementSupport().isReadOnly();
+    /** if entity is managed, but in a read-only state */
+    public static boolean isReadOnly(Entity e) {
+        return Boolean.TRUE.equals( ((EntityInternal)e).getManagementSupport().isReadOnlyRaw() );
     }
 
     /** Unwraps a proxy to retrieve the real item, if available.

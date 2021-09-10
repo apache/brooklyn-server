@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.ha;
 
+import java.util.Collection;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -661,6 +662,20 @@ public class HotStandbyTest {
             }).runRequiringTrue();
         // make sure not too many tasks (allowing 5 for rebind etc; currently just 2)
         RebindTestFixture.waitForTaskCountToBecome(hsb.mgmt, 5);
+    }
+
+    @Test(groups="Integration")   // could be promoted to non-integration test if we can guarantee app is present
+    public void testHotStandbyEntityIsManagedFalse() throws Exception {
+        HaMgmtNode n1 = createMaster(Duration.PRACTICALLY_FOREVER);
+        TestApplication app = createFirstAppAndPersist(n1);
+        forcePersistNow(n1);
+        Assert.assertTrue(Entities.isManaged(app));
+
+        final HaMgmtNode hsb = createHotStandby(Duration.millis(10));
+        Collection<Application> apps = hsb.mgmt.getApplications();
+        Asserts.assertSize(apps, 1);
+        Assert.assertFalse(Entities.isManagedActive(apps.iterator().next()));
+        Assert.assertTrue(Entities.isManaged(apps.iterator().next()));
     }
 
 
