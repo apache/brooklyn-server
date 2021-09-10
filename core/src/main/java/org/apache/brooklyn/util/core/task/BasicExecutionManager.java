@@ -130,6 +130,7 @@ public class BasicExecutionManager implements ExecutionManager {
 
         Task task;
         MDC.MDCCloseable taskMdc=null, entityMdc=null;
+        String prevTaskMdc, prevEntityMdc;
 
         private BrooklynTaskLoggingMdc() {}
 
@@ -140,6 +141,19 @@ public class BasicExecutionManager implements ExecutionManager {
 
         public BrooklynTaskLoggingMdc start() {
             Entity entity = BrooklynTaskTags.getTargetOrContextEntity(task);
+
+            // set context _before_ the log so that context shows this task as starter;
+            // the log _message_ shows who submitted it, which is more reliable than
+            // the prevTaskMdc as we might be in a different thread and/or the prevTaskMdc
+            // can misleadingly point point to the task which triggered the executor
+            if (task!=null) {
+                prevTaskMdc = MDC.get(LOGGING_MDC_KEY_TASK_ID);
+                taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
+            }
+            if (entity != null) {
+                prevEntityMdc = MDC.get(LOGGING_MDC_KEY_ENTITY_IDS);
+                entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
+            }
 
             if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
                 String taskName = task.getDisplayName();
@@ -154,14 +168,6 @@ public class BasicExecutionManager implements ExecutionManager {
 
             }
 
-            // set context _after_ the log so that context shows which task started this
-            if (task!=null) {
-                taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
-            }
-            if (entity != null) {
-                entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
-            }
-
             return this;
         }
 
@@ -172,8 +178,14 @@ public class BasicExecutionManager implements ExecutionManager {
                         UNINTERESTING_TASK_NAMES.contains(taskName) ? BrooklynLogging.LoggingLevel.TRACE : BrooklynLogging.LoggingLevel.DEBUG,
                         "Ending task {}", task.getId());
             }
-            if (entityMdc != null) entityMdc.close();
-            if (taskMdc != null) taskMdc.close();
+            if (entityMdc != null) {
+                entityMdc.close();
+                if (prevEntityMdc!=null) MDC.put(LOGGING_MDC_KEY_ENTITY_IDS, prevEntityMdc);
+            }
+            if (taskMdc != null) {
+                taskMdc.close();
+                if (prevTaskMdc!=null) MDC.put(LOGGING_MDC_KEY_TASK_ID, prevTaskMdc);
+            }
         }
 
         public void close() {
