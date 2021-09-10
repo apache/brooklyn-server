@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.rebind.ChangeListener;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -180,6 +181,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     }
     
     private final ExecutionContext executionContext;
+    private final RebindManager rebindManager;
     
     private final BrooklynMementoPersister persister;
 
@@ -198,7 +200,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     private final boolean persistEnrichersEnabled;
     private final boolean persistFeedsEnabled;
     private final boolean rePersistReferencedObjectsEnabled;
-    
+
     private final Semaphore persistingMutex = new Semaphore(1);
     private final Object startStopMutex = new Object();
     private final AtomicInteger writeCount = new AtomicInteger(0);
@@ -210,6 +212,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
 
     public PeriodicDeltaChangeListener(
             Supplier<String> planeIdSupplier,
+            RebindManager rebindManager,
             ExecutionContext executionContext,
             BrooklynMementoPersister persister,
             PersistenceExceptionHandler exceptionHandler,
@@ -218,6 +221,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         BasicExecutionManager.registerUninterestingTaskName(TASK_NAME,true);
         this.planeIdSupplier = planeIdSupplier;
         this.executionContext = executionContext;
+        this.rebindManager = rebindManager;
         this.persister = persister;
         this.exceptionHandler = exceptionHandler;
         this.metrics = metrics;
@@ -560,8 +564,10 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     @Override
     public synchronized void onManaged(BrooklynObject instance) {
         if (LOG.isTraceEnabled()) LOG.trace("onManaged: {}", instance);
-        onChanged(instance);
-        addReferencedObjectsForInitialPersist(instance);
+        if (!rebindManager.isReadOnly()) {
+            onChanged(instance);
+            addReferencedObjectsForInitialPersist(instance);
+        }
     }
 
     private void addReferencedObjectsForInitialPersist(BrooklynObject instance) {
@@ -612,7 +618,7 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     @Override
     public synchronized void onChanged(BrooklynObject instance) {
         if (LOG.isTraceEnabled()) LOG.trace("onChanged: {}", instance);
-        if (!isStopped()) {
+        if (!isStopped() && !rebindManager.isReadOnly()) {
             deltaCollector.add(instance);
         }
     }

@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.ha;
 
 import java.util.Collection;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -232,13 +233,10 @@ public class HotStandbyTest {
         assertEquals(appRO.getConfig(TestEntity.CONF_NAME), "first-app");
         assertEquals(appRO.getAttribute(TestEntity.SEQUENCE), (Integer)3);
 
-        try {
-            ((TestApplication)appRO).sensors().set(TestEntity.SEQUENCE, 4);
-            Assert.fail("Should not have allowed sensor to be set");
-        } catch (Exception e) {
-            Assert.assertTrue(e.toString().toLowerCase().contains("read-only"), "Error message did not contain expected text: "+e);
-        }
-        assertEquals(appRO.getAttribute(TestEntity.SEQUENCE), (Integer)3);
+        setSensorOnReadOnly(appRO, TestEntity.SEQUENCE, 4);
+
+        // it will revert to 3
+        EntityAsserts.assertAttributeEqualsEventually(appRO, TestEntity.SEQUENCE, (Integer)3);
     }
 
     @Test
@@ -410,11 +408,13 @@ public class HotStandbyTest {
 //        Jenkins: java.lang.AssertionError: Too much memory used - 158m > max 154m
 //        Svet local: java.lang.AssertionError: Too much memory used - 16m > max 13m
 //    The test is not deterministic so marking as "Manual", i.e. probably shouldn't be included in automated tests.
+    // But it is a very useful check that hot standby is stable!
     @Test(groups={"Integration", "Broken", "Manual"})
     public void testHotStandbyDoesNotLeakBigObjects() throws Exception {
         log.info("Starting test "+JavaClassNames.niceClassAndMethod());
         final int SIZE = 5;
-        final int SIZE_UP_BOUND = SIZE+2;
+        final int SIZE_UP_BOUND1 = SIZE+2;
+        final int SIZE_UP_BOUND2 = SIZE_UP_BOUND1;
         final int SIZE_DOWN_BOUND = SIZE-1;
         final int GRACE = 2;
         // the XML persistence uses a lot of space, we approx at between 2x and 3c
@@ -426,16 +426,18 @@ public class HotStandbyTest {
         noteUsedMemory("Finished seeding");
         Long initialUsed = memoryAssertions.peekLastUsedMemory();
         app.config().set(TestEntity.CONF_OBJECT, new BigObject(SIZE*1000*1000));
-        assertUsedMemoryMaxDelta("Set a big config object", SIZE_UP_BOUND);
+        assertUsedMemoryMaxDelta("Set a big config object", SIZE_UP_BOUND1);
         forcePersistNow(n1);
         assertUsedMemoryMaxDelta("Persisted a big config object", SIZE_IN_XML);
         
         HaMgmtNode n2 = createHotStandby(Duration.PRACTICALLY_FOREVER);
         forceRebindNow(n2);
-        assertUsedMemoryMaxDelta("Rebinded", SIZE_UP_BOUND);
+        assertUsedMemoryMaxDelta("Rebinded", SIZE_UP_BOUND2);
         
-        for (int i=0; i<10; i++)
+        for (int i=0; i<10; i++) {
             forceRebindNow(n2);
+        }
+
         assertUsedMemoryMaxDelta("Several more rebinds", GRACE);
         for (int i=0; i<10; i++) {
             forcePersistNow(n1);
@@ -446,10 +448,10 @@ public class HotStandbyTest {
         app.config().set(TestEntity.CONF_OBJECT, "big is now small");
         assertUsedMemoryMaxDelta("Big made small at primary", -SIZE_DOWN_BOUND);
         forcePersistNow(n1);
-        assertUsedMemoryMaxDelta("And persisted", -SIZE_IN_XML_DOWN);
+        assertUsedMemoryMaxDelta("And persisted", 0); //-SIZE_IN_XML_DOWN);
         
         forceRebindNow(n2);
-        assertUsedMemoryMaxDelta("And at secondary", -SIZE_DOWN_BOUND);
+        assertUsedMemoryMaxDelta("And at secondary", 0); //-SIZE_DOWN_BOUND);
         
         Entities.unmanage(app);
         forcePersistNow(n1);
@@ -543,12 +545,7 @@ public class HotStandbyTest {
         });
 
         Application app2RO = n1.mgmt.lookup(app2.getId(), Application.class);
-        try {
-            ((TestApplication)app2RO).sensors().set(TestEntity.SEQUENCE, 4);
-            Assert.fail("Should not have allowed sensor to be set");
-        } catch (Exception e) {
-            Assert.assertTrue(e.toString().toLowerCase().contains("read-only"), "Error message did not contain expected text: "+e);
-        }
+        setSensorOnReadOnly(app2RO, TestEntity.SEQUENCE, 4);
 
         n1.ha.changeMode(HighAvailabilityMode.AUTO);
         n2.ha.changeMode(HighAvailabilityMode.HOT_STANDBY, true, false);
@@ -572,6 +569,17 @@ public class HotStandbyTest {
         Application app2BRO = n1.mgmt.lookup(app2.getId(), Application.class);
         Assert.assertNotNull(app2BRO);
         EntityAsserts.assertAttributeEquals(app2BRO, TestEntity.SEQUENCE, 4);
+    }
+
+    private <T> void setSensorOnReadOnly(Entity item, AttributeSensor<T> sensor, T value) {
+        try {
+            item.sensors().set(sensor, value);
+
+            // we now allow access to the sensors -- but they don't have effect and a warning is logged
+            // Assert.fail("Should not have allowed sensor to be set");
+        } catch (Exception e) {
+            // Assert.assertTrue(e.toString().toLowerCase().contains("read-only"), "Error message did not contain expected text: "+e);
+        }
     }
 
     @Test(groups="Integration", invocationCount=20)

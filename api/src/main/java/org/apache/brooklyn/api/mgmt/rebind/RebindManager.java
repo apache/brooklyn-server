@@ -97,6 +97,8 @@ public interface RebindManager {
      * Interrupts any current activity and waits for it to cease. */
     public void stopReadOnly();
 
+    public boolean isReadOnly();
+
     /**
      * Resets the effects of previously being read-only, ready to be used again (e.g. when promoting to master).
      * Expected to be called after {@link #stopReadOnly()} (thus long after {@link #setPersister(BrooklynMementoPersister)}, 
@@ -105,7 +107,7 @@ public interface RebindManager {
     public void reset();
 
     /** Starts the appropriate background processes, {@link #startPersistence()} if {@link ManagementNodeState#MASTER},
-     * {@link #startReadOnly()} if {@link ManagementNodeState#HOT_STANDBY} or {@link ManagementNodeState#HOT_BACKUP} */
+     * {@link #startReadOnly(ManagementNodeState)} if {@link ManagementNodeState#HOT_STANDBY} or {@link ManagementNodeState#HOT_BACKUP} */
     public void start();
     /** Stops the appropriate background processes, {@link #stopPersistence()} or {@link #stopReadOnly()},
      * waiting for activity there to cease (interrupting in the case of {@link #stopReadOnly()}). */

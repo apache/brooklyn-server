@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
+import java.util.stream.Collectors;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
@@ -58,6 +59,8 @@ import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedEntity;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -368,6 +371,13 @@ public class BasicExecutionManager implements ExecutionManager {
                 log.warn("Deleting submitted task before completion: "+removed+"; this task will continue to run in the background outwith "+this+", but perhaps it should have been cancelled?");
             }
         }
+        task.getTags().forEach(t -> {
+            // remove tags which might have references to entities etc (help out garbage collector)
+            if (t instanceof TaskInternal) {
+                Set<Object> tagsM = ((TaskInternal) t).getMutableTags();
+                tagsM.removeAll(tagsM.stream().filter(tag -> tag instanceof WrappedStream || tag instanceof WrappedEntity).collect(Collectors.toList()));
+            }
+        });
         return removed != null;
     }
 

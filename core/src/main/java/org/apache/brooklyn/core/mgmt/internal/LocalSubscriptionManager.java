@@ -117,6 +117,11 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
     @SuppressWarnings("unchecked")
     protected synchronized <T> SubscriptionHandle subscribe(Map<String, Object> flags, final Subscription<T> s) {
         Entity producer = s.producer;
+        if (producer!=null && Entities.isReadOnly(producer)) {
+            LOG.trace("Skipping subscription in read only mode {} {}", s, flags);
+            return s;
+        }
+
         Sensor<T> sensor= s.sensor;
         s.subscriber = getSubscriber(flags, s);
         s.subscriptionDescription = getSubscriptionDescription(flags, s);

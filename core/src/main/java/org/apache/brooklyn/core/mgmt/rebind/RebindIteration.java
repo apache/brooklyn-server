@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
+import org.apache.brooklyn.api.mgmt.Task;
 import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND;
 import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
@@ -83,6 +85,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -111,6 +114,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -118,6 +122,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -256,6 +261,34 @@ public abstract class RebindIteration {
     }
     
     protected void doRun() throws Exception {
+        if (readOnlyRebindCount.get()>1) {
+            // wait for tasks
+            Collection<Task<?>> entityTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
+                            .stream().filter(t -> BrooklynTaskTags.getContextEntity(t)!=null).collect(Collectors.toList());
+            List<Task<?>> openTasks;
+            CountdownTimer time = CountdownTimer.newInstanceStarted(Duration.seconds(15));
+            do {
+                openTasks = entityTasks.stream().filter(t -> !t.isDone()).collect(Collectors.toList());
+                if (openTasks.isEmpty()) break;
+                if (time.isExpired()) {
+                    LOG.warn("Aborting "+openTasks.size()+" incomplete task(s) before rebinding again: "+openTasks);
+                    openTasks.forEach(t -> t.cancel(true));
+                }
+                if (time.getDurationElapsed().isShorterThan(Duration.millis(200))) {
+                    LOG.info("Waiting on " + openTasks.size() + " task(s) before rebinding again: " + openTasks);
+                } else {
+                    LOG.debug("Waiting on " + openTasks.size() + " task(s) before rebinding again: " + openTasks);
+                }
+                Time.sleep(Duration.millis(200));
+            } while (true);
+
+            entityTasks.forEach( ((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask );
+
+            List<Task<?>> otherDoneTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
+                    .stream().filter(Task::isDone).collect(Collectors.toList());
+            otherDoneTasks.forEach( ((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask );
+        }
+
         loadManifestFiles();
         initPlaneId();
         installBundlesAndRebuildCatalog();
@@ -263,7 +296,7 @@ public abstract class RebindIteration {
         instantiateMementos();
         // adjuncts depend on actual mementos; whereas entity works off special memento manifest, 
         // and location, bundles etc just take type and id
-        instantiateAdjuncts(instantiator); 
+        instantiateAdjuncts(instantiator);
         reconstructEverything();
         associateAdjunctsWithEntities();
         manageTheObjects();
@@ -654,7 +687,6 @@ public abstract class RebindIteration {
     }
 
     protected void associateAdjunctsWithEntities() {
-        
         checkEnteringPhase(7);
 
         logRebindingDebug("RebindManager associating adjuncts to entities");
@@ -684,8 +716,39 @@ public abstract class RebindIteration {
                 ((EntityInternal)entity).getExecutionContext().get(Tasks.<Void>builder()
                         .displayName("rebind-adjuncts-"+entity.getId())
                         .dynamic(false)
-                        .body(body)
+                        .body(new RebindAdjuncts(entityMemento, entity, rebindContext, exceptionHandler))
                         .build());
+            }
+        }
+    }
+
+    protected static class RebindAdjuncts implements Runnable {
+        private EntityMemento entityMemento;
+        private Entity entity;
+        private RebindContextImpl rebindContext;
+        private RebindExceptionHandler exceptionHandler;
+
+        public RebindAdjuncts(EntityMemento entityMemento, Entity entity, RebindContextImpl rebindContext, RebindExceptionHandler exceptionHandler) {
+            this.entityMemento = entityMemento;
+            this.entity = entity;
+            this.rebindContext = rebindContext;
+            this.exceptionHandler = exceptionHandler;
+        }
+
+        @Override
+        public void run() {
+            try {
+                entityMemento.injectTypeClass(entity.getClass());
+                // TODO these call to the entity which in turn sets the entity on the underlying feeds and enrichers;
+                // that is taken as the cue to start, but it should not be. start should be a separate call.
+                ((EntityInternal)entity).getRebindSupport().addPolicies(rebindContext, entityMemento);
+                ((EntityInternal)entity).getRebindSupport().addEnrichers(rebindContext, entityMemento);
+                ((EntityInternal)entity).getRebindSupport().addFeeds(rebindContext, entityMemento);
+
+                entityMemento = null;
+                entity = null;
+            } catch (Exception e) {
+                exceptionHandler.onRebindFailed(BrooklynObjectType.ENTITY, entity, e);
             }
         }
     }

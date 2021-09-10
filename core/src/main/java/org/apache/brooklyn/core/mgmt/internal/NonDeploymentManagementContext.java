@@ -591,7 +591,12 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         public void startReadOnly(ManagementNodeState state) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
-        
+
+        @Override
+        public boolean isReadOnly() {
+            return true;
+        }
+
         @Override
         public void stopReadOnly() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");

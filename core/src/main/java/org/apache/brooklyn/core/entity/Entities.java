@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
 
 import java.io.Closeable;
@@ -241,7 +243,7 @@ public class Entities {
     }
 
     /**
-     * @deprecated since 0.7; instead use {@link Sanitizer#IS_SECRET_PREDICATE.apply(Object)}
+     * @deprecated since 0.7; instead use {@link Sanitizer#IS_SECRET_PREDICATE}
      */
     @Deprecated
     public static boolean isSecret(String name) {

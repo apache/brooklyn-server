@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.mgmt.SubscriptionManager;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,6 +116,11 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
     /** @see SubscriptionManager#subscribe(Map, Entity, Sensor, SensorEventListener) */
     @Override
     public final  <T> SubscriptionHandle subscribeToChildren(Map<String, Object> flags, final Entity parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
+        if (parent!=null && Entities.isReadOnly(parent)) {
+            LOG.trace("Skipping subscription in read only mode, children of {} {} {}", parent, sensor, flags);
+            return new Subscription<>(null, null, null);
+        }
+
         Predicate<SensorEvent<T>> eventFilter = new Predicate<SensorEvent<T>>() {
             @Override
             public boolean apply(SensorEvent<T> input) {
@@ -134,6 +140,10 @@ public abstract class AbstractSubscriptionManager implements SubscriptionManager
     /** @see SubscriptionManager#subscribe(Map, Entity, Sensor, SensorEventListener) */
     @Override
     public final  <T> SubscriptionHandle subscribeToMembers(Map<String, Object> flags, final Group parent, Sensor<T> sensor, SensorEventListener<? super T> listener) {
+        if (parent!=null && Entities.isReadOnly(parent)) {
+            LOG.trace("Skipping subscription in read only mode, members of {} {} {}", parent, sensor, flags);
+            return new Subscription<>(null, null, null);
+        }
         Predicate<SensorEvent<T>> eventFilter = new Predicate<SensorEvent<T>>() {
             @Override
             public boolean apply(SensorEvent<T> input) {

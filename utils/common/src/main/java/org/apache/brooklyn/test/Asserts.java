@@ -1531,6 +1531,10 @@ public class Asserts {
         }
 
         public void assertUsedMemoryLessThan(String event, long max, boolean push) {
+            assertUsedMemoryLessThan(event, max, push, null);
+        }
+
+        public void assertUsedMemoryLessThan(String event, long max, boolean push, String extraFailMessage) {
             long nowUsed = pushUsedMemory(event);
             if (nowUsed > max) {
                 // aggressively try to force GC
@@ -1538,14 +1542,15 @@ public class Asserts {
                 popUsedMemory();
                 nowUsed = pushUsedMemory(event+" (extra GC)");
                 if (nowUsed > max) {
-                    fail("Too much memory used - "+ ByteSizeStrings.java().apply(nowUsed)+" > max "+ByteSizeStrings.java().apply(max));
+                    fail("Too much memory used - "+ ByteSizeStrings.java().apply(nowUsed)+" > max "+ByteSizeStrings.java().apply(max)+
+                            (extraFailMessage==null ? "" : " "+extraFailMessage));
                 }
             }
             if (!push) popUsedMemory();
         }
         public void assertUsedMemoryMaxDelta(String event, long deltaMegabytes, boolean push) {
             final long last = peekLastUsedMemory();
-            assertUsedMemoryLessThan(event, last + deltaMegabytes*1024*1024, push);
+            assertUsedMemoryLessThan(event, last + deltaMegabytes*1024*1024, push, "(prev was "+ByteSizeStrings.java().apply(last)+", delta limit was "+ByteSizeStrings.java().apply(deltaMegabytes*1024*1024)+")");
         }
     }
 }

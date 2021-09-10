@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Collection;
@@ -111,7 +112,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @SetFromFlag(value="uniqueTag")
     protected String uniqueTag;
 
-    private Map<String, HighlightTuple> highlights = new HashMap<>();
+    private Map<String, HighlightTuple> highlights = new ConcurrentHashMap<>();
 
     /** Name of a highlight that indicates the last action taken by this adjunct. */
     public static String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";

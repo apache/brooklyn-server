@@ -220,7 +220,12 @@ public class RebindManagerImpl implements RebindManager {
     public boolean isReadOnlyRunning() {
         return readOnlyRunning;
     }
-    
+
+    @Override
+    public boolean isReadOnly() {
+        return isReadOnlyRunning();
+    }
+
     public boolean isReadOnlyStopping() {
         return readOnlyTask!=null && !readOnlyRunning;
     }
@@ -251,6 +256,7 @@ public class RebindManagerImpl implements RebindManager {
         
         this.persistenceRealChangeListener = new PeriodicDeltaChangeListener(
                 new PlaneIdSupplier(),
+                this,
                 managementContext.getServerExecutionContext(),
                 persistenceStoreAccess,
                 exceptionHandler,
@@ -290,7 +296,9 @@ public class RebindManagerImpl implements RebindManager {
         persistenceRunning = true;
         readOnlyRebindCount.set(Integer.MIN_VALUE);
         persistenceStoreAccess.enableWriteAccess();
-        if (persistenceRealChangeListener != null) persistenceRealChangeListener.start();
+        if (persistenceRealChangeListener != null) {
+            persistenceRealChangeListener.start();
+        }
     }
 
     @Override

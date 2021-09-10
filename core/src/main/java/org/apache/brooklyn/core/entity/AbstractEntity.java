@@ -966,7 +966,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             if (LOG.isTraceEnabled())
                 LOG.trace(""+AbstractEntity.this+" setAttribute "+attribute+" "+val);
             
-            if (Boolean.TRUE.equals(getManagementSupport().isReadOnlyRaw())) {
+            if (Entities.isReadOnly(AbstractEntity.this)) {
                 T oldVal = getAttribute(attribute);
                 if (Equals.approximately(val, oldVal)) {
                     // ignore, probably an enricher resetting values or something on init
@@ -984,13 +984,18 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 }
             }
             T result = attributesInternal.update(attribute, val);
-            if (result == null) {
-                // could be this is a new sensor
-                entityType.addSensorIfAbsent(attribute);
-            }
-            
-            if (!Objects.equal(result, val)) {
-                getManagementSupport().getEntityChangeListener().onAttributeChanged(attribute);
+
+            if (!Entities.isReadOnly(AbstractEntity.this)) {
+                // suppress notifications if read only
+
+                if (result == null) {
+                    // could be this is a new sensor
+                    entityType.addSensorIfAbsent(attribute);
+                }
+
+                if (!Objects.equal(result, val)) {
+                    getManagementSupport().getEntityChangeListener().onAttributeChanged(attribute);
+                }
             }
             
             return result;

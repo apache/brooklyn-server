@@ -142,7 +142,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     private volatile CatalogDo manualAdditionsCatalog;
     private volatile LoadedClassLoader manualAdditionsClasses;
     private final AggregateClassLoader rootClassLoader = AggregateClassLoader.newInstanceWithNoLoaders();
-    
+
+    private static boolean WARNED_RE_DSL_PARSER = false;
+
     /**
      * Cache of specs (used by {@link #peekSpec(CatalogItem)}).
      * We assume that no-one is modifying the catalog items (once added) without going through the
@@ -649,7 +651,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             
         } else {
-            log.info("No Camp-YAML parser registered for parsing catalog item DSL; skipping DSL-parsing");
+            if (!WARNED_RE_DSL_PARSER) {
+                log.warn("No Camp-YAML parser registered for parsing catalog item DSL; skipping DSL-parsing (no further warnings)");
+                WARNED_RE_DSL_PARSER = true;
+            }
         }
 
         Map<Object,Object> catalogMetadata = MutableMap.<Object, Object>builder()
