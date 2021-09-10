@@ -66,6 +66,11 @@ import javax.annotation.Nullable;
  */
 public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Object>> {
 
+    private static final String TYPE_COERCION_TASK_NAME = "type coercion";
+    static {
+        BasicExecutionManager.registerUninterestingTaskName(TYPE_COERCION_TASK_NAME);
+    }
+
     // TODO most of these usages should be removed when we have
     // an ability to run resolution in a non-blocking mode
     // (i.e. running resolution tasks in the same thread,
@@ -658,7 +663,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                         ((v instanceof List) && !((List)v).isEmpty())) ) {
                     // do type coercion in a task to allow registered types
                     Object vf = v;
-                    Task<Maybe<T>> task = Tasks.create("type coercion", () -> TypeCoercions.tryCoerce(vf, typeT));
+                    Task<Maybe<T>> task = Tasks.create(TYPE_COERCION_TASK_NAME, () -> TypeCoercions.tryCoerce(vf, typeT));
                     BrooklynTaskTags.setTransient(task);
                     return exec.get(task);
                 } else {
