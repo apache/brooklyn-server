@@ -232,8 +232,6 @@ public class BrooklynGarbageCollector {
     }
 
     public void logUsage(String prefix) {
-        LOG.info(prefix+" - using "+getUsageString());
-
         if (LOG.isDebugEnabled())
             LOG.debug(prefix+" - using "+getUsageString());
     }
