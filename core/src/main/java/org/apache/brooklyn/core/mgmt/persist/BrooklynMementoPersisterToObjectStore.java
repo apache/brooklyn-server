@@ -336,21 +336,25 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                     Exceptions.propagateIfFatal(e);
                     exceptionHandler.onLoadMementoFailed(type, "memento "+id+" read error", e);
                 }
-                
-                String xmlId = (String) XmlUtil.xpathHandlingIllegalChars(contents, "/"+type.toCamelCase()+"/id");
-                String safeXmlId = Strings.makeValidFilename(xmlId);
-                if (!Objects.equal(id, safeXmlId))
-                    LOG.warn("ID mismatch on "+type.toCamelCase()+", "+id+" from path, "+safeXmlId+" from xml");
-                
-                if (type == BrooklynObjectType.MANAGED_BUNDLE) {
-                    // TODO could R/W to cache space directly, rather than memory copy then extra file copy
-                    byte[] jarData = readBytes(contentsSubpath+".jar");
-                    if (jarData==null) {
-                        throw new IllegalStateException("No bundle data for "+contentsSubpath);
+                if (contents==null) {
+                    LOG.warn("No contents for "+contentsSubpath+" in persistence store; ignoring");
+
+                } else {
+                    String xmlId = (String) XmlUtil.xpathHandlingIllegalChars(contents, "/" + type.toCamelCase() + "/id");
+                    String safeXmlId = Strings.makeValidFilename(xmlId);
+                    if (!Objects.equal(id, safeXmlId))
+                        LOG.warn("ID mismatch on " + type.toCamelCase() + ", " + id + " from path, " + safeXmlId + " from xml");
+
+                    if (type == BrooklynObjectType.MANAGED_BUNDLE) {
+                        // TODO could R/W to cache space directly, rather than memory copy then extra file copy
+                        byte[] jarData = readBytes(contentsSubpath + ".jar");
+                        if (jarData == null) {
+                            throw new IllegalStateException("No bundle data for " + contentsSubpath);
+                        }
+                        builder.bundleJar(id, ByteSource.wrap(jarData));
                     }
-                    builder.bundleJar(id, ByteSource.wrap(jarData));
+                    builder.put(type, xmlId, contents);
                 }
-                builder.put(type, xmlId, contents);
             }
         };
 
