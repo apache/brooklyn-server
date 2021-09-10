@@ -208,8 +208,9 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
                 try {
                     result = instantiator.from(decorationJson).prefix(typeKeyPrefix).newInstance(EntityInitializer.class);
                     if (type!=null) {
-                        // make a note of this because the new syntax should do everything the old one does except if the type is specified as 'initializerType'
-                        if (EntityInitializer.class.isInstance(type)) {
+                        // make a note of these because the new syntax should do everything the old one does except if the type is specified as 'initializerType'
+                        // which still need to be upgraded
+                        if (EntityInitializer.class.isInstance(result)) {
                             // expected for initializers still, to require the old style instantiation not beans often
                             /*
                             Initializer for type 'org.apache.brooklyn.core.sensor.http.HttpRequestSensor' instantiated via old syntax
@@ -219,9 +220,9 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
                             processing class org.apache.brooklyn.util.core.config.ConfigBag,
                             processing class org.apache.brooklyn.core.sensor.http.HttpRequestSensor)
                              */
-                            log.trace("Initializer for type '{}' instantiated via old syntax (due to {})", type, e);
+                            log.trace("Initializer for type {} instantiated via old syntax (due to {})", new Object[] { type, e });
                         } else {
-                            log.debug("Initializer for type '{}' instantiated via old syntax (due to {})", type, e);
+                            log.debug("Initializer for type {} instantiated via old syntax (due to {})", new Object[] { type, e });
                         }
                     }
                 } catch (Exception e2) {
