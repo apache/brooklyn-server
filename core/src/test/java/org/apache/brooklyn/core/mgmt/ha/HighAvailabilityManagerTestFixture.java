@@ -166,7 +166,7 @@ public abstract class HighAvailabilityManagerTestFixture {
         
         // Expect to be notified of our promotion, as the only other node
         promotionListener.assertCalledEventually();
-        stateListener.assertCalledEventually(ManagementNodeState.INITIALIZING, ManagementNodeState.STANDBY, ManagementNodeState.MASTER);
+        stateListener.assertCalledEventually(ManagementNodeState.INITIALIZING, ManagementNodeState.STANDBY, ManagementNodeState.INITIALIZING, ManagementNodeState.HOT_STANDBY, ManagementNodeState.MASTER);
     }
 
     @Test(groups="Integration") // because one second wait in succeedsContinually
@@ -187,7 +187,7 @@ public abstract class HighAvailabilityManagerTestFixture {
             @Override public void run() {
                 promotionListener.assertNotCalled();
             }});
-        stateListener.assertCalled(ManagementNodeState.INITIALIZING, ManagementNodeState.STANDBY);
+        stateListener.assertCalled(ManagementNodeState.INITIALIZING, ManagementNodeState.STANDBY, ManagementNodeState.INITIALIZING, ManagementNodeState.HOT_STANDBY);
     }
 
     @Test
