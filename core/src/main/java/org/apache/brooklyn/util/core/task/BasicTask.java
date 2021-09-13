@@ -553,8 +553,7 @@ public class BasicTask<T> implements TaskInternal<T> {
         else if (!isCancelled() && startTimeUtc <= 0) {
             rv = "Submitted for execution";
             if (verbosity>0) {
-                long elapsed = System.currentTimeMillis() - submitTimeUtc;
-                rv += " "+Time.makeTimeStringRoundedSince(elapsed)+" ago";
+                rv += " "+Time.makeTimeStringRoundedSince(submitTimeUtc)+" ago";
             }
             if (verbosity >= 2 && getExtraStatusText()!=null) {
                 rv += "\n\n"+getExtraStatusText();

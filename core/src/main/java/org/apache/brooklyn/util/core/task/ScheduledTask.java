@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
@@ -73,6 +74,7 @@ public class ScheduledTask extends BasicTask<Object> {
      */
     protected boolean cancelOnException = true;
 
+    protected ExecutionContext executionContext;
     protected int runCount=0;
     protected Task<?> recentRun, nextRun;
     Class<? extends Exception> lastThrownType;

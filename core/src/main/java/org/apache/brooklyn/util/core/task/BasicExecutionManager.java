@@ -50,6 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -69,6 +70,7 @@ import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
@@ -105,6 +107,8 @@ public class BasicExecutionManager implements ExecutionManager {
 
     public static final String LOGGING_MDC_KEY_ENTITY_IDS = "entity.ids";
     public static final String LOGGING_MDC_KEY_TASK_ID = "task.id";
+
+    private static final boolean SCHEDULED_TASKS_COUNT_AS_ACTIVE = false;
 
     private boolean jitterThreads = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_JITTER_THREADS);
     private int jitterThreadsMaxDelay = Integer.getInteger(JITTER_THREADS_MAX_DELAY_PROPERTY, 200);
@@ -525,10 +529,13 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     protected Task<?> submitNewScheduledTask(final Map<?,?> flags, final ScheduledTask task) {
-        beforeSubmitScheduledTaskAllIterations(flags, task);
-        
-        if (!submitSubsequentScheduledTask(flags, task)) {
-            afterEndScheduledTaskAllIterations(flags, task, null);
+        boolean result = false;
+        try {
+            result = submitSubsequentScheduledTask(flags, task);
+        } finally {
+            if (!result) {
+                afterEndScheduledTaskAllIterations(flags, task, null);
+            }
         }
         return task;
     }
@@ -555,27 +562,39 @@ public class BasicExecutionManager implements ExecutionManager {
         @Override
         @SuppressWarnings({ "rawtypes", "unchecked" })
         public Object call() {
-            if (task.startTimeUtc==-1) {
-                // this is overwritten on each run; not sure if that's best or not
-                task.startTimeUtc = System.currentTimeMillis();
-            }
-            TaskInternal<?> taskScheduled = null;
+            TaskInternal<?> taskIteration = null;
             Throwable error = null;
             try {
-                taskScheduled = (TaskInternal<?>) task.newTask();
-                taskScheduled.setSubmittedByTask(task);
-                beforeStartScheduledTaskSubmissionIteration(flags, task, taskScheduled);
-                final Callable<?> oldJob = taskScheduled.getJob();
-                final TaskInternal<?> taskScheduledF = taskScheduled;
-                taskScheduled.setJob(new Callable() { @Override public Object call() {
+                if (task.startTimeUtc==-1) {
+                    beforeSubmitScheduledTaskAllIterations(flags, task);
+                    beforeStartScheduledTaskAllIterations(flags, task);
+
+                    task.startTimeUtc = System.currentTimeMillis();
+                }
+
+                taskIteration = (TaskInternal<?>) task.newTask();
+                taskIteration.setSubmittedByTask(task);
+
+                beforeSubmitScheduledTaskSubmissionIteration(flags, task);
+
+                final Callable<?> oldJob = taskIteration.getJob();
+                final TaskInternal<?> taskIterationF = taskIteration;
+                taskIteration.setJob(new Callable() { @Override public Object call() {
                     if (task.isCancelled()) {
-                        afterEndScheduledTaskAllIterations(flags, task, new CancellationException("cancel detected"));
-                        throw new CancellationException("cancel detected");  // above throws, but for good measure
+                        CancellationException cancelDetected = new CancellationException("cancel detected");
+                        try {
+                            afterEndScheduledTaskSubmissionIteration(flags, task, taskIterationF, cancelDetected);
+                        } finally {
+                            // do in finally block so runs even if above throws cancelDetected
+                            afterEndScheduledTaskAllIterations(flags, task, cancelDetected);
+                        }
+                        throw cancelDetected;
                     }
                     Throwable lastError = null;
                     boolean shouldResubmit = true;
-                    task.recentRun = taskScheduledF;
-                    try (BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create(task).start()) {
+                    task.recentRun = taskIterationF;
+                    try (BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create(taskIterationF).start()) {
+                        beforeStartScheduledTaskSubmissionIteration(flags, task, taskIterationF);
                         synchronized (task) {
                             task.notifyAll();
                         }
@@ -590,26 +609,33 @@ public class BasicExecutionManager implements ExecutionManager {
                         }
                         return result;
                     } finally {
-                        // do in finally block in case we were interrupted
-                        if (shouldResubmit && resubmit()) {
-                            // resubmitted fine, no-op
-                        } else {
-                            // not resubmitted, note ending
-                            afterEndScheduledTaskAllIterations(flags, task, lastError);
+                        if (!task.isCancelled() || task.getEndTimeUtc()<=0) {
+                            // don't re-run on cancellation
+
+                            afterEndScheduledTaskSubmissionIteration(flags, task, taskIterationF, lastError);
+                            // do in finally block in case we were interrupted
+                            if (shouldResubmit && resubmit()) {
+                                // resubmitted fine, no-op
+                            } else {
+                                // not resubmitted, note ending
+                                afterEndScheduledTaskAllIterations(flags, task, lastError);
+                            }
                         }
                     }
                 }});
-                task.nextRun = taskScheduled;
-                BasicExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
-                if (ec!=null) return ec.submit(taskScheduled);
-                else return submit(taskScheduled);
+                task.nextRun = taskIteration;
+                ExecutionContext ec =
+                        // no longer associated the execution context on each execution;
+//                         BasicExecutionContext.getCurrentExecutionContext();
+                        // instead it is set on the task
+                        task.executionContext;
+                if (ec!=null) return ec.submit(taskIteration);
+                else return submit(taskIteration);
 
             } catch (Exception e) {
                 error = e;
+                afterEndScheduledTaskSubmissionIteration(flags, task, taskIteration, error);
                 throw Exceptions.propagate(e);
-                
-            } finally {
-                afterEndScheduledTaskSubmissionIteration(flags, task, taskScheduled, error);
             }
         }
 
@@ -804,8 +830,9 @@ public class BasicExecutionManager implements ExecutionManager {
             }
         }
         
-        if (task instanceof ScheduledTask)
-            return (Task<T>) submitNewScheduledTask(flags, (ScheduledTask)task);
+        if (task instanceof ScheduledTask) {
+            return (Task<T>) submitNewScheduledTask(flags, (ScheduledTask) task);
+        }
         
         beforeSubmitAtomicTask(flags, task);
         
@@ -850,6 +877,11 @@ public class BasicExecutionManager implements ExecutionManager {
     }
     
     protected void beforeSubmitScheduledTaskAllIterations(Map<?,?> flags, Task<?> task) {
+        // for these, beforeSubmitAtomicTask is not called,
+        // but beforeStartAtomic and afterSubmitAtomic _are_ called
+        internalBeforeSubmit(flags, task);
+    }
+    protected void beforeSubmitScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> task) {
         internalBeforeSubmit(flags, task);
     }
     protected void beforeSubmitAtomicTask(Map<?,?> flags, Task<?> task) {
@@ -916,20 +948,25 @@ public class BasicExecutionManager implements ExecutionManager {
         }
     }
 
-    protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Task<?> taskIteration) {
-        internalBeforeStart(flags, taskRepeatedlyScheduling, true);
+    /** normally (if not interrupted) called once for each call to {@link #beforeSubmitScheduledTaskAllIterations(Map, Task)} */
+    protected void beforeStartScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskDoingTheInitialSchedule) {
+        internalBeforeStart(flags, taskDoingTheInitialSchedule, !SCHEDULED_TASKS_COUNT_AS_ACTIVE, true, true);
+    }
+    protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskDoingTheScheduling, Task<?> taskIteration) {
+        // no-op, because handled as an atomic task
+        // internalBeforeStart(flags, taskIteration, true, false);
     }
     protected void beforeStartAtomicTask(Map<?,?> flags, Task<?> task) {
-        internalBeforeStart(flags, task, true);
+        internalBeforeStart(flags, task, false, true, false);
     }
     protected void beforeStartInSameThreadTask(Map<?,?> flags, Task<?> task) {
-        internalBeforeStart(flags, task, false);
+        internalBeforeStart(flags, task, false, false, false);
     }
     
     /** invoked in a task's thread when a task is starting to run (may be some time after submitted), 
      * but before doing any of the task's work, so that we can update bookkeeping and notify callbacks */
-    protected void internalBeforeStart(Map<?,?> flags, Task<?> task, boolean allowJitter) {
-        int count = activeTaskCount.incrementAndGet();
+    protected void internalBeforeStart(Map<?,?> flags, Task<?> task, boolean skipIncrementCounter, boolean allowJitter, boolean startingThisThreadMightEndElsewhere) {
+        int count = skipIncrementCounter ? activeTaskCount.get() : activeTaskCount.incrementAndGet();
         if (count % 1000==0) {
             log.warn("High number of active tasks: task #"+count+" is "+task);
         }
@@ -939,19 +976,21 @@ public class BasicExecutionManager implements ExecutionManager {
         if (!task.isCancelled()) {
             Thread thread = Thread.currentThread();
             ((TaskInternal<?>)task).setThread(thread);
-            if (RENAME_THREADS) {
-                threadOriginalName.set(thread.getName());
-                String newThreadName = "brooklyn-" + CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, task.getDisplayName().replace(" ", "")) + "-" + task.getId().substring(0, 8);
-                thread.setName(newThreadName);
+            if (!startingThisThreadMightEndElsewhere) {
+                if (RENAME_THREADS) {
+                    threadOriginalName.set(thread.getName());
+                    String newThreadName = "brooklyn-" + CaseFormat.LOWER_HYPHEN.to(CaseFormat.LOWER_CAMEL, task.getDisplayName().replace(" ", "")) + "-" + task.getId().substring(0, 8);
+                    thread.setName(newThreadName);
+                }
+                PerThreadCurrentTaskHolder.perThreadCurrentTask.set(task);
             }
-            PerThreadCurrentTaskHolder.perThreadCurrentTask.set(task);
             ((TaskInternal<?>)task).setStartTimeUtc(System.currentTimeMillis());
         }
 
         if (allowJitter) {
             jitterThreadStart(task);
         }
-        if (flags!=null) {
+        if (flags!=null && !startingThisThreadMightEndElsewhere) {
             invokeCallback(flags.get("newTaskStartCallback"), task);
         }
     }
@@ -992,23 +1031,33 @@ public class BasicExecutionManager implements ExecutionManager {
     }
     private static boolean loggedClosureDeprecatedInInvokeCallback;
     
-    /** normally (if not interrupted) called once for each call to {@link #beforeSubmitScheduledTaskAllIterations(Map, Task)} */
-    protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Throwable error) {
-        internalAfterEnd(flags, taskRepeatedlyScheduling, false, true, error);
+    /** normally (if not interrupted) called once for each call to {@link #beforeStartScheduledTaskAllIterations(Map, Task)}  */
+    protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskDoingTheInitialSchedule, Throwable error) {
+        boolean taskWasSubmittedAndNotYetEnded = true;
+        try {
+            taskWasSubmittedAndNotYetEnded = internalAfterEnd(flags, taskDoingTheInitialSchedule, !SCHEDULED_TASKS_COUNT_AS_ACTIVE, false, error);
+        } finally {
+            synchronized (taskDoingTheInitialSchedule) { taskDoingTheInitialSchedule.notifyAll(); }
+            if (taskWasSubmittedAndNotYetEnded) {
+                // prevent from running twice on cancellation after start
+                ((TaskInternal<?>) taskDoingTheInitialSchedule).runListeners();
+            }
+        }
     }
     /** called once for each call to {@link #beforeStartScheduledTaskSubmissionIteration(Map, Task, Task)},
      * with a per-iteration task generated by the surrounding scheduled task */
-    protected void afterEndScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskRepeatedlyScheduling, Task<?> taskIteration, Throwable error) {
-        internalAfterEnd(flags, taskRepeatedlyScheduling, true, false, error);
+    protected void afterEndScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskDoingTheInitialSchedule, Task<?> taskIteration, Throwable error) {
+        // no-op because handled as an atomic task
+        // internalAfterEnd(flags, taskIteration, false, true, error);
     }
     /** called once for each task on which {@link #beforeStartAtomicTask(Map, Task)} is invoked,
      * and normally (if not interrupted prior to start) 
      * called once for each task on which {@link #beforeSubmitAtomicTask(Map, Task)} */
     protected void afterEndAtomicTask(Map<?,?> flags, Task<?> task, Throwable error) {
-        internalAfterEnd(flags, task, true, true, error);
+        internalAfterEnd(flags, task, false, true, error);
     }
     protected void afterEndInSameThreadTask(Map<?,?> flags, Task<?> task, Throwable error) {
-        internalAfterEnd(flags, task, true, true, error);
+        internalAfterEnd(flags, task, false, true, error);
     }
     protected void afterEndForCancelBeforeStart(Map<?,?> flags, Task<?> task, boolean calledFromCanceller) {
         if (calledFromCanceller) {
@@ -1025,28 +1074,37 @@ public class BasicExecutionManager implements ExecutionManager {
                 // to ensure listeners and callback only invoked once
             }
         }
-        internalAfterEnd(flags, task, !calledFromCanceller, true, null);
+        internalAfterEnd(flags, task, true, !calledFromCanceller, null);
     }
     
     /** normally (if not interrupted) called once for each call to {@link #internalBeforeSubmit(Map, Task)},
      * and, for atomic tasks and scheduled-task submission iterations where 
-     * always called once if {@link #internalBeforeStart(Map, Task, boolean)} is invoked and in the same thread as that method */
-    protected void internalAfterEnd(Map<?,?> flags, Task<?> task, boolean startedInThisThread, boolean isEndingAllIterations, Throwable error) {
+     * always called once if {@link #internalBeforeStart(Map, Task, boolean, boolean, boolean)} is invoked and if possible
+     * (but not possible for isEndingAllIterations) in the same thread as that method */
+    protected boolean internalAfterEnd(Map<?,?> flags, Task<?> task, boolean skipDecrementCounter, boolean startedGuaranteedToEndInSameThreadAndEndingSameThread, Throwable error) {
         boolean taskWasSubmittedAndNotYetEnded = true;
         try {
             if (log.isTraceEnabled()) log.trace(this+" afterEnd, task: "+task);
-            if (startedInThisThread) {
+            taskWasSubmittedAndNotYetEnded = incompleteTaskIds.remove(task.getId());
+            // this method might be called more than once, eg if cancelled, so use the above as a guard where single invocation is needed (eg counts)
+
+            if (!skipDecrementCounter && taskWasSubmittedAndNotYetEnded) {
                 activeTaskCount.decrementAndGet();
             }
-            if (isEndingAllIterations) {
-                taskWasSubmittedAndNotYetEnded = incompleteTaskIds.remove(task.getId());
-                if (flags!=null && taskWasSubmittedAndNotYetEnded) {
-                    invokeCallback(flags.get("newTaskEndCallback"), task);
-                }
-                ((TaskInternal<?>)task).setEndTimeUtc(System.currentTimeMillis());
+
+            if (flags!=null && taskWasSubmittedAndNotYetEnded && startedGuaranteedToEndInSameThreadAndEndingSameThread) {
+                invokeCallback(flags.get("newTaskEndCallback"), task);
             }
-    
-            if (startedInThisThread) {
+            if (task.getEndTimeUtc()>0) {
+                if (taskWasSubmittedAndNotYetEnded) {
+                    // shouldn't happen
+                    log.debug("Task "+task+" has end time "+task.getEndTimeUtc()+" but was marked as incomplete");
+                }
+            } else {
+                ((TaskInternal<?>) task).setEndTimeUtc(System.currentTimeMillis());
+            }
+
+            if (startedGuaranteedToEndInSameThreadAndEndingSameThread) {
                 PerThreadCurrentTaskHolder.perThreadCurrentTask.remove();
                 //clear thread _after_ endTime set, so we won't get a null thread when there is no end-time
                 if (RENAME_THREADS) {
@@ -1058,15 +1116,18 @@ public class BasicExecutionManager implements ExecutionManager {
                         threadOriginalName.remove();
                     }
                 }
-                ((TaskInternal<?>)task).setThread(null);
             }
+            ((TaskInternal<?>)task).setThread(null);
+
         } finally {
             try {
                 if (error!=null) {
                     /* we throw, after logging debug.
                      * the throw means the error is available for task submitters to monitor.
                      * however it is possible no one is monitoring it, in which case we will have debug logging only for errors.
-                     * (the alternative, of warn-level logging in lots of places where we don't want it, seems worse!) 
+                     * (the alternative, of warn-level logging in lots of places where we don't want it, seems worse!)
+                     *
+                     * Note in particular that scheduled tasks will typically swallow this and simply re-submit
                      */
                     if (log.isDebugEnabled()) {
                         // debug only here, because most submitters will handle failures
@@ -1088,12 +1149,13 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             } finally {
                 synchronized (task) { task.notifyAll(); }
-                if (isEndingAllIterations && taskWasSubmittedAndNotYetEnded) {
+                if (taskWasSubmittedAndNotYetEnded) {
                     // prevent from running twice on cancellation after start
                     ((TaskInternal<?>)task).runListeners();
                 }
             }
         }
+        return taskWasSubmittedAndNotYetEnded;
     }
 
     public TaskScheduler getTaskSchedulerForTag(Object tag) {
