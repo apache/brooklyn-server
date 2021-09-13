@@ -28,6 +28,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -135,6 +136,7 @@ public class BasicExecutionManager implements ExecutionManager {
             return new BrooklynTaskLoggingMdc().withTask(task);
         }
 
+        boolean isRedundant = false;
         Task task;
         MDC.MDCCloseable taskMdc=null, entityMdc=null;
         String prevTaskMdc, prevEntityMdc;
@@ -155,6 +157,10 @@ public class BasicExecutionManager implements ExecutionManager {
             // can misleadingly point point to the task which triggered the executor
             if (task!=null) {
                 prevTaskMdc = MDC.get(LOGGING_MDC_KEY_TASK_ID);
+                if (Objects.equals(task.getId(), prevTaskMdc)) {
+                    isRedundant = true;
+                    return this;
+                }
                 taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
             }
             if (entity != null) {
@@ -162,7 +168,7 @@ public class BasicExecutionManager implements ExecutionManager {
                 entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
             }
 
-            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
+            if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()) {
                 String taskName = task.getDisplayName();
                 String message = "Starting task " + task.getId() +
                         (Strings.isNonBlank(taskName) ? " ("+taskName+")" : "") +
@@ -179,6 +185,9 @@ public class BasicExecutionManager implements ExecutionManager {
         }
 
         public void finish() {
+            if (isRedundant) {
+                return;
+            }
             if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()){
                 String taskName = task.getDisplayName();
                 BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG,
@@ -1088,7 +1097,7 @@ public class BasicExecutionManager implements ExecutionManager {
             taskWasSubmittedAndNotYetEnded = incompleteTaskIds.remove(task.getId());
             // this method might be called more than once, eg if cancelled, so use the above as a guard where single invocation is needed (eg counts)
 
-            if (!skipDecrementCounter && taskWasSubmittedAndNotYetEnded) {
+            if (taskWasSubmittedAndNotYetEnded) {
                 activeTaskCount.decrementAndGet();
             }
 
