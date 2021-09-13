@@ -108,7 +108,7 @@ public class BasicExecutionManager implements ExecutionManager {
     public static final String LOGGING_MDC_KEY_ENTITY_IDS = "entity.ids";
     public static final String LOGGING_MDC_KEY_TASK_ID = "task.id";
 
-    private static final boolean SCHEDULED_TASKS_COUNT_AS_ACTIVE = false;
+    private static final boolean SCHEDULED_TASKS_COUNT_AS_ACTIVE = true;
 
     private boolean jitterThreads = BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_JITTER_THREADS);
     private int jitterThreadsMaxDelay = Integer.getInteger(JITTER_THREADS_MAX_DELAY_PROPERTY, 200);
@@ -967,7 +967,7 @@ public class BasicExecutionManager implements ExecutionManager {
      * but before doing any of the task's work, so that we can update bookkeeping and notify callbacks */
     protected void internalBeforeStart(Map<?,?> flags, Task<?> task, boolean skipIncrementCounter, boolean allowJitter, boolean startingThisThreadMightEndElsewhere) {
         int count = skipIncrementCounter ? activeTaskCount.get() : activeTaskCount.incrementAndGet();
-        if (count % 1000==0) {
+        if (count % 1000==0 && count>0) {
             log.warn("High number of active tasks: task #"+count+" is "+task);
         }
         
@@ -1118,6 +1118,11 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             }
             ((TaskInternal<?>)task).setThread(null);
+
+            // if uninteresting and transient and scheduled, go ahead and remove from task tags also, so it won't be reported as GC'd
+            if (BrooklynTaskTags.isTransient(task) && UNINTERESTING_TASK_NAMES.contains(task.getDisplayName()) && task.getSubmittedByTask() instanceof ScheduledTask) {
+                deleteTask(task);
+            }
 
         } finally {
             try {

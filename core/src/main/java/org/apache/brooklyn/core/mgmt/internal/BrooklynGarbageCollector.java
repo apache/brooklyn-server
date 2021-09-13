@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,6 +36,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import java.util.stream.Collectors;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
@@ -154,6 +156,7 @@ public class BrooklynGarbageCollector {
             return (end1 < end2) ? -1 : ((end1 == end2) ? 0 : 1);
         }
     };
+    protected final static Comparator<Task<?>> TASKS_NEWEST_FIRST_COMPARATOR = (t1,t2) -> -TASKS_OLDEST_FIRST_COMPARATOR.compare(t1, t2);
     
     private final BasicExecutionManager executionManager;
     @SuppressWarnings("unused")  // TODO remove BrooklynStorage altogether?
@@ -330,7 +333,8 @@ public class BrooklynGarbageCollector {
      * Deletes old tasks. The age/number of tasks to keep is controlled by fields like 
      * {@link #MAX_TASKS_PER_TAG} and {@link #MAX_TASKS_PER_TAG}.
      */
-    protected synchronized int gcTasks() {
+    @VisibleForTesting
+    public synchronized int gcTasks() {
         // NB: be careful with memory usage here: have seen OOME if we get crazy lots of tasks.
         // hopefully the use new limits, filters, and use of live lists in some places (added Sep 2014) will help.
         // 
@@ -607,13 +611,19 @@ public class BrooklynGarbageCollector {
             LOG.debug("Got CME inspecting tasks, with "+tasksToConsiderDeleting.size()+" found for deletion: "+e);
         }
 
-        if (LOG.isDebugEnabled())
-            LOG.debug("brooklyn-gc detected "+taskTagsInCategoryOverCapacity.size()+" "+category+" "
-                    + "tags over capacity, expiring old tasks; "
-                    + tasksToConsiderDeleting.size()+" tasks under consideration; categories are: "
-                    + taskTagsInCategoryOverCapacity);
-
         Collections.sort(tasksToConsiderDeleting, TASKS_OLDEST_FIRST_COMPARATOR);
+
+        if (LOG.isDebugEnabled()) {
+            MutableList<Task<?>> tasksToConsiderDeletingNewest = MutableList.copyOf(tasksToConsiderDeleting);
+            Collections.sort(tasksToConsiderDeletingNewest, TASKS_NEWEST_FIRST_COMPARATOR);
+            LOG.debug("brooklyn-gc detected " + taskTagsInCategoryOverCapacity.size() + " " + category + " "
+                    + "tags over capacity, expiring old tasks; "
+                    + tasksToConsiderDeleting.size() + " tasks under consideration; categories are: "
+                    + taskTagsInCategoryOverCapacity + "; including "
+                    + tasksToConsiderDeleting.stream().limit(5).collect(Collectors.toList()) + " ... "
+                    + tasksToConsiderDeletingNewest.stream().limit(5).collect(Collectors.toList()) );
+        }
+
         // now try deleting tasks which are overcapacity for each (non-entity) tag
         int deleted = 0;
         for (Task<?> task: tasksToConsiderDeleting) {
