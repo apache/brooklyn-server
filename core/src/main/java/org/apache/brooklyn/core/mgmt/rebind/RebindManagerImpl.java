@@ -312,6 +312,7 @@ public class RebindManagerImpl implements RebindManager {
     
     @Override
     public void startReadOnly(final ManagementNodeState mode) {
+        LOG.debug("Starting RO rebind for "+mode+": "+this);
         if (!ManagementNodeState.isHotProxy(mode)) {
             throw new IllegalStateException("Read-only rebind thread only permitted for hot proxy modes; not "+mode);
         }
@@ -370,6 +371,7 @@ public class RebindManagerImpl implements RebindManager {
                     }}).build();
             }
         };
+        LOG.debug("Submitted scheduled RO rebind task for "+mode+": "+this);
         readOnlyTask = (ScheduledTask) managementContext.getServerExecutionContext().submit(
             ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-read-only-rebind]").period(periodicPersistPeriod).build() );
     }
@@ -409,6 +411,7 @@ public class RebindManagerImpl implements RebindManager {
 
     @Override
     public void stop() {
+        LOG.debug("Stopping rebind manager "+this);
         stopReadOnly();
         stopPersistence();
         if (persistenceStoreAccess != null) persistenceStoreAccess.stop(true);

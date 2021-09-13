@@ -288,6 +288,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     @VisibleForTesting
     @Beta
     public void changeMode(HighAvailabilityMode startMode, boolean preventElectionOnExplicitStandbyMode, boolean failOnExplicitModesIfUnusual) {
+        LOG.debug("Changing HA mode to "+startMode+", election prevention "+preventElectionOnExplicitStandbyMode+", fail on unusual "+failOnExplicitModesIfUnusual);
+
         if (!running) {
             // if was not running then start as disabled mode, then proceed as normal
             LOG.info("HA changing mode to "+startMode+" from "+getInternalNodeState()+" when not running, forcing an intermediate start as DISABLED then will convert to "+startMode);
@@ -471,7 +473,9 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                     throw Exceptions.propagate(e);
                 }
             } else {
+                LOG.debug("Management node "+ownNodeId+" in "+managementContext.getManagementPlaneIdMaybe().or("<new-plane>")+" restarting read only on transition to "+startMode+" (from "+oldState+" / "+getNodeState()+")");
                 // transitioning among hot proxy states - tell the rebind manager
+                // TODO i think we might have previously started _in_ this method, if so we should set a flag and suppress the stop-then-restart
                 managementContext.getRebindManager().stopReadOnly();
                 managementContext.getRebindManager().startReadOnly(ManagementNodeState.of(startMode).get());
                 setNodeStateTransitionComplete(true);
@@ -534,6 +538,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     }
     
     protected void setInternalNodeState(ManagementNodeState newState) {
+        LOG.debug("HA state internal "+nodeState+" -> "+newState);
         ManagementNodeState oldState = getInternalNodeState();
         synchronized (nodeStateHistory) {
             if (this.nodeState != newState) {
@@ -554,6 +559,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         if (ManagementNodeState.isHotProxy(oldState) && !ManagementNodeState.isHotProxy(newState)) {
             // could perhaps promote standby items on some transitions; but for now we stop the old read-only and re-load them
             // TODO ideally there'd be an incremental rebind as well as an incremental persist
+            LOG.debug("Resetting rebind on hot->cold transition, from "+oldState+" to "+newState);
             managementContext.getRebindManager().stopReadOnly();
             clearManagedItems(ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.LOADED_READ_ONLY, BrooklynObjectManagementMode.UNMANAGED_PERSISTED));
             managementContext.getRebindManager().reset();
@@ -564,7 +570,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
 
     private void setNodeStateTransitionComplete(boolean val) {
         nodeStateTransitionComplete = val;
-        
+        LOG.debug("HA state transition complete now "+val+" ("+nodeState+" / "+getNodeState()+")");
+
         // Can cause getNodeState() value to change, so notify listener
         stateListener.onStateChange(getNodeState());
     }
@@ -873,6 +880,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     }
 
     protected void promoteToMaster() {
+        LOG.debug("Promoting to master: "+this);
         if (!running) {
             LOG.warn("Ignoring promote-to-master request, as HighAvailabilityManager is not running");
             return;
@@ -907,12 +915,20 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     }
 
     protected void demoteTo(ManagementNodeState toState) {
+        LOG.debug("Management node "+ownNodeId+" in "+managementContext.getManagementPlaneIdMaybe().or("<new-plane>")+" demoting to "+toState+" (from "+nodeState+" / "+getNodeState()+")");
         if (toState!=ManagementNodeState.FAILED && !running) {
             LOG.warn("Ignoring demote-from-master request, as HighAvailabilityManager is no longer running");
             return;
         }
         boolean wasMaster = (getInternalNodeState() == ManagementNodeState.MASTER);
-        if (wasMaster) backupOnDemotionIfNeeded();
+        if (wasMaster) {
+            try {
+                backupOnDemotionIfNeeded();
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                LOG.error("Unable to create backup on demotion (ignoring): "+e, e);
+            }
+        }
         // TODO target may be RO ?
         ManagementTransitionMode mode = ManagementTransitionMode.transitioning(
             wasMaster ? BrooklynObjectManagementMode.MANAGED_PRIMARY : BrooklynObjectManagementMode.LOADED_READ_ONLY,
@@ -947,6 +963,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
     
     protected void onDemotionStopItems(ManagementTransitionMode mode) {
         // stop persistence and remove all apps etc
+        LOG.debug("Stopping rebind on demotion to "+mode+" (in state "+nodeState+")");
         managementContext.getRebindManager().stopPersistence();
         managementContext.getRebindManager().stopReadOnly();
         clearManagedItems(mode);
@@ -1002,6 +1019,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
      * (if not, errors should be stored elsewhere), callers may want to rethrow */
     protected ReferenceWithError<Boolean> activateHotProxy(ManagementNodeState toState) {
         try {
+            LOG.debug("Activating hot proxy for state "+toState);
             Preconditions.checkState(nodeStateTransitionComplete==false, "Must be in transitioning state to go into "+toState);
             setInternalNodeState(toState);
             managementContext.getRebindManager().startReadOnly(toState);

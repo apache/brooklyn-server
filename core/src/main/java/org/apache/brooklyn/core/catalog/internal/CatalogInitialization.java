@@ -241,19 +241,14 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
         synchronized (populatingCatalogMutex) {
             if (hasRunFinalInitialization()) {
-                log.warn("Catalog initialization called to add persisted catalog, even though it has already run the final 'master' initialization; mode="+mode+" (perhaps previously demoted from master?)");      
+                log.warn("Catalog initialization called to add persisted catalog, even though it has already run the final 'master' initialization; mode="+mode, new Throwable("Source of duplicate catalog initialization"));
                 hasRunFinalInitialization = false;
             }
             if (hasRunPersistenceInitialization()) {
                 // Multiple calls; will need to reset (only way to clear out the previous persisted state's catalog)
                 if (log.isDebugEnabled()) {
                     String message = "Catalog initialization repeated call to add persisted catalog, resetting catalog (including initial) to start from clean slate; mode="+mode;
-                    if (!ManagementNodeState.isHotProxy(mode)) {
-                        log.debug(message);
-                    } else {
-                        // in hot modes, make this message trace so we don't get too much output then
-                        log.trace(message);
-                    }
+                    log.debug(message);
                 }
             } else if (hasRunInitialCatalogInitialization()) {
                 throw new IllegalStateException("Catalog initialization already run for initial catalog by mechanism other than populating persisted state; mode="+mode);      
@@ -431,6 +426,12 @@ public class CatalogInitialization implements ManagementContextInjectable {
         
         hasRunFinalInitialization = true;
         confirmCatalog();
+    }
+
+    public void clearForSubsequentCatalogInit() {
+        hasRunInitialCatalogInitialization = false;
+        hasRunPersistenceInitialization = false;
+        hasRunFinalInitialization = false;
     }
 
     private void populateViaInitialBomImpl(BasicBrooklynCatalog catalog) {
