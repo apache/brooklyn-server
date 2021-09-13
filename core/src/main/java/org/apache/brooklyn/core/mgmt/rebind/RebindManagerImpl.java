@@ -114,7 +114,8 @@ public class RebindManagerImpl implements RebindManager {
     public static final Logger LOG = LoggerFactory.getLogger(RebindManagerImpl.class);
 
     private final ManagementContextInternal managementContext;
-    
+
+    // TODO separate times for persist and read-only rebind, allow configurable, default at least for RO rebind larger
     private volatile Duration periodicPersistPeriod = Duration.ONE_SECOND;
     
     private volatile boolean persistenceRunning = false;
@@ -340,7 +341,7 @@ public class RebindManagerImpl implements RebindManager {
         
         Callable<Task<?>> taskFactory = new Callable<Task<?>>() {
             @Override public Task<Void> call() {
-                return Tasks.<Void>builder().dynamic(false).displayName("rebind (periodic run").body(new Callable<Void>() {
+                return Tasks.<Void>builder().dynamic(false).displayName("rebind (periodic run)").body(new Callable<Void>() {
                     @Override
                     public Void call() {
                         try {

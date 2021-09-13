@@ -163,9 +163,12 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
                 taskMdc = MDC.putCloseable(LOGGING_MDC_KEY_TASK_ID, task.getId());
             }
+            prevEntityMdc = MDC.get(LOGGING_MDC_KEY_ENTITY_IDS);
             if (entity != null) {
-                prevEntityMdc = MDC.get(LOGGING_MDC_KEY_ENTITY_IDS);
                 entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "[" + entity.getApplicationId() + "," + entity.getId() + "]");
+            } else if (prevTaskMdc != null) {
+                // just in case some MDC logger leaked, make it explicit there is no entity here
+                entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "");
             }
 
             if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()) {
