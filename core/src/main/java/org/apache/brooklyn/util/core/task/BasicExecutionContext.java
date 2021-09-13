@@ -353,8 +353,9 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
 
         EntitlementContext entitlementContext = BrooklynTaskTags.getEntitlement(taskTags);
-        if (entitlementContext==null)
-        entitlementContext = Entitlements.getEntitlementContext();
+        if (entitlementContext==null) {
+            entitlementContext = Entitlements.getEntitlementContext();
+        }
         if (entitlementContext!=null) {
             taskTags.add(BrooklynTaskTags.tagForEntitlement(entitlementContext));
         }

@@ -56,6 +56,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -177,7 +178,12 @@ public class BasicExecutionManager implements ExecutionManager {
                         (Strings.isNonBlank(taskName) ? " ("+taskName+")" : "") +
                         (entity == null ? "" : " on entity " + entity.getId()) +
                         (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task " + task.getSubmittedByTaskId() : "") +
-                        Entitlements.getEntitlementContextUserMaybe().map(s -> " for user " + s).or("");
+                        Entitlements.getEntitlementContextUserMaybe().
+                                orMaybe(() -> Maybe.ofDisallowingNull(BrooklynTaskTags.getEntitlement(task))
+                                        // entitlements might not be set in thread context, so also look on task
+                                        .map(EntitlementContext::user)
+                                        .mapMaybe(s -> Strings.isNonBlank(s) ? Maybe.of(s) : Maybe.absent())
+                                ).map(s -> " for user " + s).or("");
                 BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG,
                         UNINTERESTING_TASK_NAMES.contains(taskName) ? BrooklynLogging.LoggingLevel.TRACE : BrooklynLogging.LoggingLevel.DEBUG,
                         message);
