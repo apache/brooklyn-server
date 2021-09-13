@@ -314,7 +314,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         // catch error in some tests where mgmt context has a different HA manager
         if (managementContext.getHighAvailabilityManager()!=this)
             throw new IllegalStateException("Cannot start an HA manager on a management context with a different HA manager!");
-        
+
+        boolean newModeApplied = false;
         if (weAreMasterLocally) {
             // demotion may be required; do this before triggering an election
             switch (startMode) {
@@ -326,13 +327,20 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             case HOT_STANDBY: 
             case HOT_BACKUP: 
             case STANDBY: 
-                demoteTo(ManagementNodeState.of(startMode).get()); break;
+                demoteTo(ManagementNodeState.of(startMode).get());
+                newModeApplied = true;
+                break;
             default:
                 throw new IllegalStateException("Unexpected high availability mode "+startMode+" requested for "+this);
             }
         }
         
         ManagementNodeState oldState = getInternalNodeState();
+        if (newModeApplied && Objects.equal(oldState, startMode)) {
+            // successfully applied new mode, as part of demoteTo call above;
+            // skip the duplicate logic below which re-applies it
+            return;
+        }
         
         // now do election
         switch (startMode) {
