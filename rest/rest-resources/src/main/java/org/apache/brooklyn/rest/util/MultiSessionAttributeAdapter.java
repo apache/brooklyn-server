@@ -152,7 +152,22 @@ public class MultiSessionAttributeAdapter {
         if (localSession==null) {
             preferredSession = FACTORY.findValidPreferredSession(null, r);
             if(preferredSession!=null) {
-                localSession = r.getSession();
+                // need to create a local session so the ID/session is registered with this ui module
+                if (r instanceof Request) {
+                // but synch on the session handler to avoid race conditions in the underlying code
+//                2021-09-13T08:12:33,186Z - WARN  254 o.e.j.s.session [p1568796312-1154]
+//                java.lang.IllegalStateException: Session node0171nuqxrc6qsf1tbrmxztok6xc4 already in cache
+//                at org.eclipse.jetty.server.session.AbstractSessionCache.add(AbstractSessionCache.java:467) ~[!/:9.4.39.v20210325]
+//                at org.eclipse.jetty.server.session.SessionHandler.newHttpSession(SessionHandler.java:770) ~[!/:9.4.39.v20210325]
+//                at org.eclipse.jetty.server.Request.getSession(Request.java:1628) ~[!/:9.4.39.v20210325]
+//                at org.eclipse.jetty.server.Request.getSession(Request.java:1602) ~[!/:9.4.39.v20210325]
+//                at org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter.of(MultiSessionAttributeAdapter.java:155) ~[!/:1.1.0-SNAPSHOT]
+                    synchronized (((Request)r).getSessionHandler()) {
+                        localSession = r.getSession();
+                    }
+                } else {
+                    localSession = r.getSession();
+                }
             }
         } else {
             preferredSession = FACTORY.findPreferredSession(r);
