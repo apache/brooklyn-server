@@ -84,7 +84,7 @@ public class SanitizerTest {
                 "  allowedOnNewLine"
             )), Strings.lines(
                 "public: password",
-                "private: <suppressed> (MD5 hash: " + hashPassword2 + ")",
+                "private: <suppressed> (MD5 hash: " + hashPassword2.substring(0, 8) + ")",
                 "private: ",
                 "  allowedOnNewLine"
             ));

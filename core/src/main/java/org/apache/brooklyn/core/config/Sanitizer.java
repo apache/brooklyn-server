@@ -18,33 +18,27 @@
  */
 package org.apache.brooklyn.core.config;
 
-import com.google.common.reflect.TypeToken;
-import java.io.ByteArrayInputStream;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import java.util.stream.Collectors;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.server.BrooklynServerConfig;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import java.io.ByteArrayInputStream;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.Osgis;
-import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.apache.brooklyn.util.internal.StringSystemProperty;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.ServiceReference;
 
 public final class Sanitizer {
 
@@ -145,7 +139,8 @@ public final class Sanitizer {
     }
 
     public static String suppress(Object value) {
-        String md5Checksum = Streams.getMd5Checksum(new ByteArrayInputStream(("" + value).getBytes()));
+        // only include the first few chars so that malicious observers can't uniquely brute-force discover the source
+        String md5Checksum = Strings.maxlen(Streams.getMd5Checksum(new ByteArrayInputStream(("" + value).getBytes())), 8);
         return "<suppressed> (MD5 hash: " + md5Checksum + ")";
     }
 
