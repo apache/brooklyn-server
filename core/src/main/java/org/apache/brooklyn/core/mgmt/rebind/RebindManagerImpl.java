@@ -47,7 +47,6 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
@@ -398,18 +397,18 @@ public class RebindManagerImpl implements RebindManager {
             }
             readOnlyTask = null;
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
+
+            // short waits when promoting
+            stopEntityTasksAndCleanUp("when stopping hot proxy read-only mode",
+                    Duration.seconds(2),
+                    Duration.seconds(5));
+            // note, items are subsequently unmanaged via:
+            // HighAvailabilityManagerImpl.clearManagedItems
         }
-        // short waits when promoting
-        stopEntityAndDoneTasksBeforeRebinding("when stopping hot proxy read-only mode",
-                Duration.seconds(2),
-                Duration.seconds(5));
-        // note, items are subsequently unmanaged via:
-        // HighAvailabilityManagerImpl.clearManagedItems
     }
 
-    public void stopEntityAndDoneTasksBeforeRebinding(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning) {
+    public void stopEntityTasksAndCleanUp(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning) {
         // TODO inputs should be configurable
-
         if (!managementContext.isRunning() || managementContext.getExecutionManager().isShutdown()) {
             return;
         }

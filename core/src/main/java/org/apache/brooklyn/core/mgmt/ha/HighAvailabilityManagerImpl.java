@@ -990,9 +990,6 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
      * (e.g. during the periodic rebind as hot_stanby we will not repeatedly clear the brooklyn-managed-bundles).
      */
     protected void clearManagedItems(ManagementTransitionMode mode) {
-        // note, tasks are cancelled prior to this, when coming from RO mode, via
-        // RebindManagerImpl.stopEntityAndDoneTasksBeforeRebinding
-
         // log this because it may be surprising, it is just HA transitions,
         // not symmetric with usual single-node start
         LOG.info("Clearing all managed items on transition to "+mode);
@@ -1022,7 +1019,11 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         ((BasicBrooklynTypeRegistry)managementContext.getTypeRegistry()).clear();
         managementContext.getCatalogInitialization().clearBrooklynManagedBundles();
 
-        ((LocalManagementContext)managementContext).getGarbageCollector().gcTasks();
+        // note, tasks are also cancelled prior to this when coming from RO mode, via
+        // RebindManagerImpl.stopReadOnly call to same method
+        managementContext.getRebindManager().stopEntityTasksAndCleanUp("when clearing mgmt on HA change",
+                Duration.millis(500),
+                Duration.seconds(2));
     }
     
     /** Starts hot standby or hot backup, in foreground

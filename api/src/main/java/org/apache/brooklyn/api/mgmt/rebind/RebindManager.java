@@ -97,6 +97,9 @@ public interface RebindManager {
      * Interrupts any current activity and waits for it to cease. */
     public void stopReadOnly();
 
+    @Beta
+    public void stopEntityTasksAndCleanUp(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning);
+
     public boolean isReadOnly();
 
     /**
