@@ -48,6 +48,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
@@ -395,7 +396,12 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             "up", isUp(),
             "shuttingDown", isShuttingDown(),
             "healthy", isHealthy(),
-            "ha", getHighAvailabilityPlaneStates());
+            "ha", getHighAvailabilityPlaneStates(),
+            "brooklyn.security.sensitive.fields",
+                MutableMap.of(
+                        "tokens", Sanitizer.getSensitiveFieldsTokens(),
+                        "plaintext.blocked", Sanitizer.isSensitiveFieldsPlaintextBlocked()
+                ));
     }
 
     @Override
