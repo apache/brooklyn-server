@@ -150,7 +150,7 @@ public class EntityConfigResourceTest extends BrooklynRestResourceTest {
                         .get(String.class);
 
         assertEquals(getSecretWithQueryParams.apply(""), JavaStringEscapes.wrapJavaString("hello-world"));
-        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), JavaStringEscapes.wrapJavaString("<suppressed> (MD5 hash: 2095312189753DE6AD47DFE20CBE97EC)"));
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), JavaStringEscapes.wrapJavaString("<suppressed> (MD5 hash: 20953121)"));
         assertEquals(getSecretWithQueryParams.apply("skipResolution=true"), JavaStringEscapes.wrapJavaString(HELLO_WORLD_DSL));
         assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), JavaStringEscapes.wrapJavaString(HELLO_WORLD_DSL));
     }
@@ -165,7 +165,7 @@ public class EntityConfigResourceTest extends BrooklynRestResourceTest {
                     .get(String.class);
 
         assertEquals(getSecretWithQueryParams.apply(""), "hello-world");
-        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), "<suppressed> (MD5 hash: 2095312189753DE6AD47DFE20CBE97EC)");
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), "<suppressed> (MD5 hash: 20953121)");
         assertEquals(getSecretWithQueryParams.apply("skipResolution=true"), HELLO_WORLD_DSL);
         assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), HELLO_WORLD_DSL);
     }
