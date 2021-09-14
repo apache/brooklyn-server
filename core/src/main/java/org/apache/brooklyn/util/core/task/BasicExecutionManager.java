@@ -172,9 +172,15 @@ public class BasicExecutionManager implements ExecutionManager {
                 entityMdc = MDC.putCloseable(LOGGING_MDC_KEY_ENTITY_IDS, "");
             }
 
+            logEvent("Starting task", task, entity);
+
+            return this;
+        }
+
+        public static void logEvent(String prefix, Task task, Entity entity) {
             if (BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isDebugEnabled() || BrooklynLoggingCategories.TASK_LIFECYCLE_LOG.isTraceEnabled()) {
                 String taskName = task.getDisplayName();
-                String message = "Starting task " + task.getId() +
+                String message = prefix + " " + task.getId() +
                         (Strings.isNonBlank(taskName) ? " ("+taskName+")" : "") +
                         (entity == null ? "" : " on entity " + entity.getId()) +
                         (Strings.isNonBlank(task.getSubmittedByTaskId()) ? " from task " + task.getSubmittedByTaskId() : "") +
@@ -189,8 +195,6 @@ public class BasicExecutionManager implements ExecutionManager {
                         message);
 
             }
-
-            return this;
         }
 
         public void finish() {
@@ -557,6 +561,7 @@ public class BasicExecutionManager implements ExecutionManager {
     protected Task<?> submitNewScheduledTask(final Map<?,?> flags, final ScheduledTask task) {
         boolean result = false;
         try {
+            BrooklynTaskLoggingMdc.logEvent("Submitting scheduled task", task, BrooklynTaskTags.getTargetOrContextEntity(Tasks.current()));
             result = submitSubsequentScheduledTask(flags, task);
         } finally {
             if (!result) {

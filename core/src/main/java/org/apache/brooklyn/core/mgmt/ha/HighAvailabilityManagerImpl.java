@@ -567,7 +567,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         if (ManagementNodeState.isHotProxy(oldState) && !ManagementNodeState.isHotProxy(newState)) {
             // could perhaps promote standby items on some transitions; but for now we stop the old read-only and re-load them
             // TODO ideally there'd be an incremental rebind as well as an incremental persist
-            LOG.debug("Resetting rebind on hot->cold transition, from "+oldState+" to "+newState);
+            LOG.debug("Resetting rebind on transition from hot proxy ("+oldState+") to "+newState);
             managementContext.getRebindManager().stopReadOnly();
             clearManagedItems(ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.LOADED_READ_ONLY, BrooklynObjectManagementMode.UNMANAGED_PERSISTED));
             managementContext.getRebindManager().reset();
@@ -781,7 +781,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
             // if failed or hot backup then we can't promote ourselves, so no point in checking who is master
             return;
         }
-        
+
+        ManagementNodeState ourPrevState = getNodeState();
         updateLocalPlaneId(memento);
         
         String currMasterNodeId = memento.getMasterNodeId();
@@ -852,7 +853,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
                 });
         }
         String message = "Management node "+ownNodeId+" detected ";
-        String currMasterSummary = currMasterNodeId + " (" + (currMasterNodeRecord==null ? "<none>" : timestampString(currMasterNodeRecord.getRemoteTimestamp())) + ")";
+        String currMasterSummary =
+                (Strings.isNonBlank(currMasterNodeId) ? currMasterNodeId+" " : "") + "(" + (currMasterNodeRecord==null ? "<none>" : timestampString(currMasterNodeRecord.getRemoteTimestamp())) + ")";
         if (weAreNewMaster && (ownNodeRecord.getStatus() == ManagementNodeState.MASTER)) {
             LOG.warn(message + "we must reassert master status, as we believe we should be master and other master "+
                 (currMasterNodeRecord==null ? "(a node which has gone away)" : currMasterSummary)+" has failed");
@@ -863,7 +865,7 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
         
         if (!initializing) {
             if (weAreNewMaster) {
-                message += "we should be master, changing from ";
+                message += "we should be master, promoting from "+ourPrevState+"; master changing from ";
             }
             else if (currMasterNodeRecord==null && newMasterNodeId==null) message += "master change attempted but no candidates ";
             else message += "master change, from ";
