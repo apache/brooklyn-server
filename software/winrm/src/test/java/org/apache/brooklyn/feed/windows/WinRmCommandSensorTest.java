@@ -22,9 +22,11 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.RecordingSensorEventListener;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
@@ -65,6 +67,12 @@ public class WinRmCommandSensorTest extends RebindTestFixtureWithApp {
         RecordingWinRmTool.clear();
     }
 
+    @Override
+    protected TestApplication rebind() throws Exception {
+        // trigger demotion to stop threads
+        return rebind(RebindOptions.create().clearOrigManagementContext(true));
+    }
+
     @Test
     public void testRebind() throws Exception {
         RecordingWinRmTool.setCustomResponse(".*mycommand.*", new RecordingWinRmTool.CustomResponse(0, "myval", ""));
@@ -81,9 +89,12 @@ public class WinRmCommandSensorTest extends RebindTestFixtureWithApp {
 
         TestApplication app2 = rebind();
 
-        entity = app2.getChildren().iterator().next();
+        Entity entity2 = app2.getChildren().iterator().next();
         RecordingWinRmTool.setCustomResponse(".*mycommand.*", new RecordingWinRmTool.CustomResponse(0, "myval2", ""));
-        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mysensor"), "myval2");
+        EntityAsserts.assertAttributeEqualsEventually(entity2, Sensors.newStringSensor("mysensor"), "myval2");
+
+        // entity is not updated
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("mysensor"), "myval");
     }
     
     // "Integration" because takes a second 

@@ -989,7 +989,8 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
      * which is comparatively more expensive, so we only do it when we stop being a hotProxy or when we are demoted 
      * (e.g. during the periodic rebind as hot_stanby we will not repeatedly clear the brooklyn-managed-bundles).
      */
-    protected void clearManagedItems(ManagementTransitionMode mode) {
+    @VisibleForTesting
+    public void clearManagedItems(ManagementTransitionMode mode) {
         // log this because it may be surprising, it is just HA transitions,
         // not symmetric with usual single-node start
         LOG.info("Clearing all managed items on transition to "+mode);
