@@ -18,11 +18,17 @@
  */
 package org.apache.brooklyn.core.config;
 
+import com.google.common.reflect.TypeToken;
 import java.io.ByteArrayInputStream;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import java.util.stream.Collectors;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
 import com.google.common.base.Predicate;
@@ -30,16 +36,26 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.osgi.Osgis;
+import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
+import org.apache.brooklyn.util.internal.StringSystemProperty;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.ServiceReference;
 
 public final class Sanitizer {
+
+    public static final ConfigKey<List<String>> SENSITIVE_FIELDS_TOKENS = BrooklynServerConfig.SENSITIVE_FIELDS_TOKENS;
+    public static final ConfigKey<Boolean> SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED;
 
     /**
      * Names that, if they appear anywhere in an attribute/config/field
      * indicates that it may be private, so should not be logged etc.
      */
-    public static final List<String> SECRET_NAMES = ImmutableList.of(
+    public static final List<String> DEFAULT_SENSITIVE_FIELDS_TOKENS = ImmutableList.of(
             "password", 
             "passwd", 
             "credential", 
@@ -47,6 +63,77 @@ public final class Sanitizer {
             "private",
             "access.cert", 
             "access.key");
+
+    /** @deprecated since 1.1 use {@link #DEFAULT_SENSITIVE_FIELDS_TOKENS} or {@link #getSensitiveFieldsTokens(Boolean)} */
+    public static final List<String> SECRET_NAMES = DEFAULT_SENSITIVE_FIELDS_TOKENS;
+
+    private static List<String> LAST_SENSITIVE_FIELDS_TOKENS = null;
+    private static Boolean LAST_SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = null;
+    private static long LAST_SENSITIVE_FIELDS_LOAD_TIME = -1;
+    private static long LAST_SENSITIVE_FIELDS_CACHE_MILLIS = 60*1000;
+
+    private static final void refreshProperties(Boolean refresh) {
+        if (Boolean.FALSE.equals(refresh) || LAST_SENSITIVE_FIELDS_LOAD_TIME + LAST_SENSITIVE_FIELDS_CACHE_MILLIS > System.currentTimeMillis()) {
+            return;
+        }
+        synchronized (Sanitizer.class) {
+            if (LAST_SENSITIVE_FIELDS_LOAD_TIME < 0) {
+                refresh = true;
+            }
+            if (refresh == null) {
+                refresh = LAST_SENSITIVE_FIELDS_LOAD_TIME + LAST_SENSITIVE_FIELDS_CACHE_MILLIS < System.currentTimeMillis();
+            }
+            if (refresh) {
+                ManagementContext mgmt = Osgis.getManagementContext();
+                List<String> tokens = null;
+                Boolean plaintextBlocked = null;
+                if (mgmt != null) {
+                    tokens = mgmt.getConfig().getConfig(SENSITIVE_FIELDS_TOKENS);
+                    plaintextBlocked = mgmt.getConfig().getConfig(SENSITIVE_FIELDS_PLAINTEXT_BLOCKED);
+                }
+
+                if (tokens==null) {
+                    StringSystemProperty tokensSP = new StringSystemProperty(SENSITIVE_FIELDS_TOKENS.getName());
+                    if (tokensSP.isNonEmpty()) {
+                        tokens = TypeCoercions.coerce(tokensSP.getValue(), SENSITIVE_FIELDS_TOKENS.getTypeToken());
+                    }
+                }
+                if (tokens==null) {
+                    tokens = DEFAULT_SENSITIVE_FIELDS_TOKENS;
+                }
+
+                if (plaintextBlocked==null) {
+                    StringSystemProperty plaintextSP = new StringSystemProperty(SENSITIVE_FIELDS_TOKENS.getName());
+                    if (plaintextSP.isNonEmpty()) {
+                        plaintextBlocked = TypeCoercions.coerce(plaintextSP.getValue(), SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getTypeToken());
+                    }
+                }
+                if (plaintextBlocked==null) {
+                    plaintextBlocked = Boolean.FALSE;
+                }
+
+                LAST_SENSITIVE_FIELDS_TOKENS = tokens.stream().map(String::toLowerCase).collect(Collectors.toList());
+                LAST_SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = plaintextBlocked;
+                LAST_SENSITIVE_FIELDS_LOAD_TIME = System.currentTimeMillis();
+            }
+        }
+    }
+
+    public static List<String> getSensitiveFieldsTokens() {
+        return getSensitiveFieldsTokens(null);
+    }
+    public static List<String> getSensitiveFieldsTokens(Boolean refresh) {
+        refreshProperties(refresh);
+        return LAST_SENSITIVE_FIELDS_TOKENS;
+    }
+
+    public static boolean isSensitiveFieldsPlaintextBlocked() {
+        return isSensitiveFieldsPlaintextBlocked(null);
+    }
+    public static boolean isSensitiveFieldsPlaintextBlocked(Boolean refresh) {
+        refreshProperties(refresh);
+        return LAST_SENSITIVE_FIELDS_PLAINTEXT_BLOCKED;
+    }
 
     public static final Predicate<Object> IS_SECRET_PREDICATE = new IsSecretPredicate();
 
@@ -69,6 +156,23 @@ public final class Sanitizer {
         return value;
     }
 
+    /** replace any line matching  'secret: value' or 'secret = value' with eg 'secret = <suppressed> [MD5 hash: ... ]' */
+    public static String sanitizeMultilineString(String input) {
+        if (input==null) return null;
+        return Arrays.stream(input.split("\n")).map(line -> {
+            Integer first = Arrays.asList(line.indexOf("="), line.indexOf(":")).stream().filter(x -> x>0).min(Integer::compare).orElse(null);
+            if (first!=null) {
+                String key = line.substring(0, first);
+                if (IS_SECRET_PREDICATE.apply(key)) {
+                    String value = line.substring(first+1);
+                    return key + line.substring(first, first+1) +
+                            (Strings.isBlank(value) ? value : " " + suppress(value.trim()));
+                }
+            }
+            return line;
+        }).collect(Collectors.joining("\n"));
+    }
+
     public static void sanitizeMapToString(Map<?, ?> env, StringBuilder sb) {
         if (env!=null) {
             for (Map.Entry<?, ?> kv : env.entrySet()) {
@@ -87,13 +191,13 @@ public final class Sanitizer {
         public boolean apply(Object name) {
             if (name == null) return false;
             String lowerName = name.toString().toLowerCase();
-            for (String secretName : SECRET_NAMES) {
+            for (String secretName : getSensitiveFieldsTokens()) {
                 if (lowerName.contains(secretName))
                     return true;
             }
             return false;
         }
-    };
+    }
 
     /**
      * Kept only in case this anonymous inner class has made it into any persisted state.
@@ -107,7 +211,7 @@ public final class Sanitizer {
         public boolean apply(Object name) {
             if (name == null) return false;
             String lowerName = name.toString().toLowerCase();
-            for (String secretName : SECRET_NAMES) {
+            for (String secretName : getSensitiveFieldsTokens()) {
                 if (lowerName.contains(secretName))
                     return true;
             }

@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.config;
 
+import java.io.ByteArrayInputStream;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Map;
@@ -69,5 +72,22 @@ public class SanitizerTest {
         assertEquals(Sanitizer.sanitize((ConfigBag)null), null);
         assertEquals(Sanitizer.sanitize((Map<?,?>)null), null);
         assertEquals(Sanitizer.newInstance().apply((Map<?,?>)null), null);
+    }
+
+    @Test
+    public void testSanitizeMultiline() throws Exception {
+        String hashPassword2 = "6CB75F652A9B52798EB6CF2201057C73";
+        assertEquals(Sanitizer.sanitizeMultilineString(Strings.lines(
+                "public: password",
+                "private: password2",
+                "private: ",
+                "  allowedOnNewLine"
+            )), Strings.lines(
+                "public: password",
+                "private: <suppressed> (MD5 hash: " + hashPassword2 + ")",
+                "private: ",
+                "  allowedOnNewLine"
+            ));
+        assertEquals(hashPassword2, Streams.getMd5Checksum(new ByteArrayInputStream(("password2").getBytes())));
     }
 }
