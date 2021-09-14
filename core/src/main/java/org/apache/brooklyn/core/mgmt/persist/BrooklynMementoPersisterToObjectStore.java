@@ -741,6 +741,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 throw new IllegalStateException("Cannot persist bundles without a management context");
             }
             final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
+            LOG.debug("Persisting managed bundle "+id+": "+mb);
             if (mb==null) {
                 LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring");
                 return;
