@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.entity.internal;
 
 import java.util.Collection;
 
+import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -84,6 +85,7 @@ public interface EntityTransientCopyInternal {
     GroupSupport groups();
     RelationSupport<Entity> relations();
     String getCatalogItemId();
+    List<String> getCatalogItemIdSearchPath();
 
     // from EntityInternal:
     
@@ -95,7 +97,7 @@ public interface EntityTransientCopyInternal {
     // for REST calls on read-only entities which want to resolve values
     ExecutionContext getExecutionContext();
     void setCatalogItemId(String id);
-    
+
     /** more methods, but which are only on selected entities */
     public interface SpecialEntityTransientCopyInternal {
         // from Group
