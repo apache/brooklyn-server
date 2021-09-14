@@ -81,10 +81,12 @@ public class WindowsPerformanceCounterSensorsTest extends RebindTestFixtureWithA
                                         "counter", "\\mycounter")))))));
         
         app().start(ImmutableList.of(loc));
-        
+        entity = app().getChildren().iterator().next();
+
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mysensor"), "myval");
-        
+
         rebind();
+        entity = app().getChildren().iterator().next();
         
         String response2 = generateCounterReponse("mycounter", "myval2");
         RecordingWinRmTool.setCustomResponse(".*mycounter.*", new RecordingWinRmTool.CustomResponse(0, response2, ""));

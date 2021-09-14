@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.core.sensor.windows.WinRmCommandSensor;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
@@ -77,9 +78,10 @@ public class WinRmCommandSensorTest extends RebindTestFixtureWithApp {
         app().start(ImmutableList.of(loc));
 
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mysensor"), "myval");
-        
-        rebind();
-        
+
+        TestApplication app2 = rebind();
+
+        entity = app2.getChildren().iterator().next();
         RecordingWinRmTool.setCustomResponse(".*mycommand.*", new RecordingWinRmTool.CustomResponse(0, "myval2", ""));
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mysensor"), "myval2");
     }
