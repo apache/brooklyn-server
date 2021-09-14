@@ -619,7 +619,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
-                    addPersistContentIfManagedBundle(type, entry.getKey(), futures, exceptionHandler);
+                    addPersistContentIfManagedBundle(type, entry.getKey(), entry.getValue(), futures, exceptionHandler);
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
                 }
             }
@@ -705,7 +705,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
-                        addPersistContentIfManagedBundle(type, item.getId(), futures, exceptionHandler);
+                        addPersistContentIfManagedBundle(type, item.getId(), ""+item.getCatalogItemId()+"/"+item.getDisplayName(), futures, exceptionHandler);
                         futures.add(asyncPersist(type.getSubPathName(), item, exceptionHandler));
                     }
                 }
@@ -735,15 +735,17 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return lastErrors;
     }
 
-    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
+    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, final String summaryOrContents, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
         if (type==BrooklynObjectType.MANAGED_BUNDLE) {
             if (mgmt==null) {
                 throw new IllegalStateException("Cannot persist bundles without a management context");
             }
             final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
-            LOG.debug("Persisting managed bundle "+id+": "+mb);
+            LOG.debug("Persisting managed bundle "+id+": "+mb+" - "+summaryOrContents);
             if (mb==null) {
-                LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring");
+                // previously happened on rebind because new osgi unique id was made; now it should use the same so we shouldn't see this,
+                // but if we do the log will contain a summary or contents for comparison which will help
+                LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring (probably uninstalled or reinstalled with another OSGi ID; see debug log for contents)");
                 return;
             }
             

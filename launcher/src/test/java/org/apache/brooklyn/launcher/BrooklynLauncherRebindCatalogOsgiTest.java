@@ -631,8 +631,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId2));
 
         if (isT1KeptRunningWhenT2Starts()) {
-            // would like if we could make them the same but currently code should _always_ change
-            Assert.assertNotEquals(bundlePersistenceId1, bundlePersistenceId2);
+            // now we keep these the same!
+            Assert.assertEquals(bundlePersistenceId1, bundlePersistenceId2);
         }
     }
     

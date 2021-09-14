@@ -862,8 +862,11 @@ public abstract class RebindIteration {
 
         if (!isEmpty) {
             BrooklynLogging.log(LOG, shouldLogRebinding() ? LoggingLevel.INFO : LoggingLevel.DEBUG,
-                    "Rebind complete " + "(" + mode + (readOnlyRebindCount.get() >= 0 ? ", iteration " + readOnlyRebindCount : "") + ")" +
-                            " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}, {} catalog bundle{}",
+                    "Rebind complete" +
+                    (!exceptionHandler.getExceptions().isEmpty() ? ", with errors" :
+                        !exceptionHandler.getWarnings().isEmpty() ? ", with warnings" : "") +
+                            " (" + mode + (readOnlyRebindCount.get() >= 0 ? ", iteration " + readOnlyRebindCount : "") + ")" +
+                            " in {}: {} app{}, {} entit{}, {} location{}, {} polic{}, {} enricher{}, {} feed{}, {} catalog item{}, {} catalog bundle{}{}{}",
                     Time.makeTimeStringRounded(timer), applications.size(), Strings.s(applications),
                     rebindContext.getEntities().size(), Strings.ies(rebindContext.getEntities()),
                     rebindContext.getLocations().size(), Strings.s(rebindContext.getLocations()),
@@ -871,7 +874,9 @@ public abstract class RebindIteration {
                     rebindContext.getEnrichers().size(), Strings.s(rebindContext.getEnrichers()),
                     rebindContext.getFeeds().size(), Strings.s(rebindContext.getFeeds()),
                     rebindContext.getCatalogItems().size(), Strings.s(rebindContext.getCatalogItems()),
-                    rebindContext.getBundles().size(), Strings.s(rebindContext.getBundles())
+                    rebindContext.getBundles().size(), Strings.s(rebindContext.getBundles()),
+                    (!exceptionHandler.getExceptions().isEmpty() ? "; errors="+exceptionHandler.getExceptions() : ""),
+                    (!exceptionHandler.getWarnings().isEmpty() ? "; warnings="+exceptionHandler.getWarnings() : "")
             );
         }
 
