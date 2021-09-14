@@ -418,13 +418,14 @@ public class BasicExecutionManager implements ExecutionManager {
             if (context != null && !Entities.isManaged(context)) {
                 log.debug("Deleting active task on unmanagement of " + context + ": " + removed);
             } else {
-                if (removed.isDone()) {
+                boolean debugOnly = removed.isDone();
+
+                if (debugOnly) {
                     log.debug("Deleting cancelled task before completion: " + removed + "; this task will continue to run in the background outwith " + this);
                 } else {
                     log.warn("Deleting submitted task before completion: " + removed + " (tags " + removed.getTags() + "); this task will continue to run in the background outwith " + this + ", but perhaps it should have been cancelled?");
-
+                    log.debug("Active task deletion trace", new Throwable("Active task deletion trace"));
                 }
-                log.debug("Active task deletion trace", new Throwable("Active task deletion trace"));
             }
         }
         task.getTags().forEach(t -> {
