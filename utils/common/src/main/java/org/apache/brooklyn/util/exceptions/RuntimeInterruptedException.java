@@ -38,17 +38,12 @@ public class RuntimeInterruptedException extends RuntimeException {
         Thread.currentThread().interrupt();
     }
 
-    public RuntimeInterruptedException(InterruptedException cause) {
+    public RuntimeInterruptedException(Throwable cause) {
         super(cause);
         Thread.currentThread().interrupt();
     }
 
-    public RuntimeInterruptedException(String msg, InterruptedException cause) {
-        super(msg, cause);
-        Thread.currentThread().interrupt();
-    }
-    
-    public RuntimeInterruptedException(String msg, RuntimeInterruptedException cause) {
+    public RuntimeInterruptedException(String msg, Throwable cause) {
         super(msg, cause);
         Thread.currentThread().interrupt();
     }

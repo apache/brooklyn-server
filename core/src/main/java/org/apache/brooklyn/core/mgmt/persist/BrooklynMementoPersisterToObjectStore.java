@@ -568,10 +568,17 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             @Override
             public void run() {
                 try {
-                    visitor.visit(type, objectIdAndData.getKey(), objectIdAndData.getValue());
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    exceptionHandler.onLoadMementoFailed(type, "memento "+objectIdAndData.getKey()+" "+phase+" error", e);
+                    try {
+                        visitor.visit(type, objectIdAndData.getKey(), objectIdAndData.getValue());
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        if (Thread.currentThread().isInterrupted()) {
+                            throw new RuntimeInterruptedException("Interruption discovered", e);
+                        }
+                        exceptionHandler.onLoadMementoFailed(type, "memento " + objectIdAndData.getKey() + " " + phase + " error", e);
+                    }
+                } catch (RuntimeInterruptedException e) {
+                    LOG.debug("Ending persistence on interruption, probably cancelled when server about to transition: "+e);
                 }
             }
         }
@@ -594,7 +601,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 if (future.isDone()) {
                     try {
                         future.get();
-                    } catch (InterruptedException e2) {
+                    } catch (InterruptedException|RuntimeInterruptedException e2) {
                         throw Exceptions.propagate(e2);
                     } catch (ExecutionException e2) {
                         LOG.warn("Problem loading memento ("+phase+"): "+e2, e2);

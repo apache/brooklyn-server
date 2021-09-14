@@ -186,7 +186,7 @@ public class Exceptions {
      */
     public static void propagateIfInterrupt(Throwable throwable) {
         if (throwable instanceof InterruptedException) {
-            throw new RuntimeInterruptedException((InterruptedException) throwable);
+            throw new RuntimeInterruptedException(throwable);
         } else if (throwable instanceof RuntimeInterruptedException) {
             Thread.currentThread().interrupt();
             throw (RuntimeInterruptedException) throwable;

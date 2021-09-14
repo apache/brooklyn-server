@@ -44,6 +44,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,6 +167,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
     @Override
     public void onLoadMementoFailed(BrooklynObjectType type, String msg, Exception e) {
         Exceptions.propagateIfFatal(e);
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when loading memento, "+msg);
+        }
+
         String errmsg = "problem loading memento: "+msg;
         
         switch (type) {
@@ -193,6 +198,9 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public Entity onDanglingEntityRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling entity "+id);
+        }
         missingEntities.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No entity found with id "+id);
@@ -204,6 +212,9 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public Location onDanglingLocationRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling location "+id);
+        }
         missingLocations.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No location found with id "+id);
@@ -215,6 +226,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public Policy onDanglingPolicyRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling policy "+id);
+        }
+
         missingPolicies.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No policy found with id "+id);
@@ -226,6 +241,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public Enricher onDanglingEnricherRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling enricher "+id);
+        }
+
         missingEnrichers.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No enricher found with id "+id);
@@ -237,6 +256,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public Feed onDanglingFeedRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling feed "+id);
+        }
+
         missingFeeds.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No feed found with id "+id);
@@ -248,6 +271,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public CatalogItem<?, ?> onDanglingCatalogItemRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling catalog item "+id);
+        }
+
         missingCatalogItems.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No catalog item found with id "+id);
@@ -264,6 +291,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
 
     @Override
     public BrooklynObject onDanglingUntypedItemRef(String id) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording dangling untyped item "+id);
+        }
+
         missingUntypedItems.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No item found with id "+id);
@@ -413,6 +444,10 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
     }
     
     protected void onErrorImpl(String errmsg, Exception e) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new RuntimeInterruptedException("Interruption discovered when recording error: "+errmsg);
+        }
+
         if (rebindFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("Rebind: aborting due to "+errmsg, e);
         } else {
