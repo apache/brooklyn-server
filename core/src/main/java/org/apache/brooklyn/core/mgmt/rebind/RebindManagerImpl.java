@@ -47,6 +47,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
@@ -398,29 +399,60 @@ public class RebindManagerImpl implements RebindManager {
             readOnlyTask = null;
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
         }
-        stopEntityAndDoneTasksBeforeRebinding();
+        // short waits when promoting
+        stopEntityAndDoneTasksBeforeRebinding("when stopping hot proxy read-only mode",
+                Duration.seconds(2),
+                Duration.seconds(5));
+        // note, items are subsequently unmanaged via:
+        // HighAvailabilityManagerImpl.clearManagedItems
     }
 
-    public void stopEntityAndDoneTasksBeforeRebinding() {
+    public void stopEntityAndDoneTasksBeforeRebinding(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning) {
+        // TODO inputs should be configurable
+
+        if (!managementContext.isRunning() || managementContext.getExecutionManager().isShutdown()) {
+            return;
+        }
+
         // wait for tasks
         Collection<Task<?>> entityTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
                 .stream().filter(t -> BrooklynTaskTags.getContextEntity(t) != null).collect(Collectors.toList());
         List<Task<?>> openTasksIncludingCancelled;
-        CountdownTimer time = CountdownTimer.newInstanceStarted(Duration.seconds(15));
+        CountdownTimer timeBeforeCancelling = CountdownTimer.newInstanceStarted(delayBeforeCancelling);
+        CountdownTimer timeBeforeAbandoning = CountdownTimer.newInstanceStarted(delayBeforeAbandoning);
+        Duration backoff = Duration.millis(10);
         do {
             openTasksIncludingCancelled = entityTasks.stream().filter(t -> !t.isDone(true)).collect(Collectors.toList());
-            List<Task<?>> openTasksCancellable = openTasksIncludingCancelled.stream().filter(t -> !t.isDone()).collect(Collectors.toList());
             if (openTasksIncludingCancelled.isEmpty()) break;
-            if (time.isExpired() && !openTasksCancellable.isEmpty()) {
-                LOG.warn("Aborting " + openTasksCancellable.size() + " incomplete task(s) before rebinding again: " + openTasksCancellable);
+
+            List<Task<?>> openTasksCancellable = openTasksIncludingCancelled.stream().filter(t -> !t.isDone()).collect(Collectors.toList());
+            List<Task<?>> openTasksScheduled = openTasksCancellable.stream().filter(t -> t instanceof ScheduledTask).collect(Collectors.toList());
+
+            if (!openTasksScheduled.isEmpty()) {
+                // stop scheduled tasks immediately
+                openTasksScheduled.forEach(t -> t.cancel(false));
+                continue;
+            }
+
+            if (timeBeforeCancelling!=null && timeBeforeCancelling.isExpired() && !openTasksCancellable.isEmpty()) {
+                LOG.warn("Aborting " + openTasksCancellable.size() + " incomplete task(s) "+reason+": " + openTasksCancellable);
                 openTasksCancellable.forEach(t -> t.cancel(true));
+                timeBeforeCancelling = null;
             }
-            if (time.getDurationElapsed().isShorterThan(Duration.millis(200))) {
-                LOG.info("Waiting on " + openTasksIncludingCancelled.size() + " task(s) before rebinding again: " + openTasksIncludingCancelled);
+
+            if (timeBeforeAbandoning.isExpired()) break;
+
+            if (timeBeforeAbandoning.getDurationElapsed().isShorterThan(backoff)) {
+                LOG.info("Waiting on " + openTasksIncludingCancelled.size() + " task(s) "+reason+": " + openTasksIncludingCancelled);
             }
-            LOG.debug("Waiting on " + openTasksIncludingCancelled.size() + " task(s) before rebinding again, details: " +
-                    openTasksIncludingCancelled.stream().map(t -> ""+t+"("+BrooklynTaskTags.getContextEntity(t)+")").collect(Collectors.toList()));
-            Time.sleep(Duration.millis(200));
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Waiting on " + openTasksIncludingCancelled.size() + " task(s) " + reason + ", details: " +
+                        openTasksIncludingCancelled.stream().map(t -> "" + t + "(" + BrooklynTaskTags.getContextEntity(t) + ")").collect(Collectors.toList()));
+            }
+
+            Time.sleep(Duration.min(timeBeforeAbandoning.getDurationRemaining(), backoff));
+            backoff = Duration.min(backoff.multiply(2), Duration.millis(200));
+
         } while (true);
 
         entityTasks.forEach(((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask);

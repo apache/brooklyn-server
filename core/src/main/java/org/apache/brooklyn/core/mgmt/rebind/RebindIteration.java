@@ -265,7 +265,7 @@ public abstract class RebindIteration {
     protected void doRun() throws Exception {
         if (readOnlyRebindCount.get() > 1) {
             // prevent leaking
-            rebindManager.stopEntityAndDoneTasksBeforeRebinding();
+            rebindManager.stopEntityAndDoneTasksBeforeRebinding("before next read-only rebind", Duration.seconds(10), Duration.seconds(20));
         }
 
         loadManifestFiles();
@@ -560,6 +560,7 @@ public abstract class RebindIteration {
                 try {
                     Feed feed = instantiator.newFeed(feedMemento);
                     rebindContext.registerFeed(feedMemento.getId(), feed);
+                    // started during associateAdjunctsWithEntities by RebindAdjuncts
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.FEED, feedMemento.getId(), feedMemento.getType(), e);
                 }
