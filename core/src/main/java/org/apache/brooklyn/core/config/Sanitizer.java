@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.Osgis;
@@ -181,6 +182,11 @@ public final class Sanitizer {
         }
     }
 
+    /** applies to strings, sets, lists, maps */
+    public static <K> K sanitizeJsonTypes(K obj) {
+        return Sanitizer.newInstance().apply(obj);
+    }
+
     private static class IsSecretPredicate implements Predicate<Object> {
         @Override
         public boolean apply(Object name) {
@@ -231,7 +237,7 @@ public final class Sanitizer {
     }
 
     static <K> Map<K, Object> sanitize(Map<K, ?> input, Set<Object> visited) {
-        return (input == null) ? null : newInstance().apply(input, visited);
+        return (input == null) ? null : (Map) newInstance().apply(input, visited);
     }
     
     private Predicate<Object> predicate;
@@ -240,35 +246,41 @@ public final class Sanitizer {
         predicate = sanitizingNeededCheck;
     }
 
-    public <K> Map<K, Object> apply(Map<K, ?> input) {
-        return (input == null) ? null : apply(input, Sets.newHashSet());
+    public <K> K apply(K input) {
+        return (input == null) ? null : apply(input, Sets.newLinkedHashSet());
     }
 
-    private <K> Map<K, Object> apply(Map<K, ?> input, Set<Object> visited) {
+    private <K> K apply(K input, Set<Object> visited) {
+        if (input==null) return null;
+
+        // avoid endless loops if object is self-referential
+        if (visited.contains(System.identityHashCode(input))) {
+            return input;
+        }
+
+        visited.add(System.identityHashCode(input));
+
+        if (input instanceof Map) {
+            return (K) applyMap((Map)input, visited);
+        } else if (input instanceof List) {
+            return (K) applyList((List<?>) input, visited);
+        } else if (input instanceof Set) {
+            return (K) applySet((Set) input, visited);
+        } else if (input instanceof String) {
+            return (K) sanitizeMultilineString((String) input);
+        } else {
+            return (K) input;
+        }
+    }
+
+    private <K> Map<K, Object> applyMap(Map<K, ?> input, Set<Object> visited) {
         Map<K, Object> result = Maps.newLinkedHashMap();
         for (Map.Entry<K, ?> e : input.entrySet()) {
             if (e.getKey() != null && predicate.apply(e.getKey())){
-                result.put(e.getKey(), "xxxxxxxx");
+                result.put(e.getKey(), suppress(e.getValue()));
                 continue;
             } 
-            
-            // need to compare object reference, not equality since we may miss some.
-            // not a perfect identifier, but very low probability of collision.
-            if (visited.contains(System.identityHashCode(e.getValue()))) {
-                result.put(e.getKey(), e.getValue());
-                continue;
-            }
-
-            visited.add(System.identityHashCode(e.getValue()));
-            if (e.getValue() instanceof Map) {
-                result.put(e.getKey(), apply((Map<?, ?>) e.getValue(), visited));
-            } else if (e.getValue() instanceof List) {
-                result.put(e.getKey(), applyList((List<?>) e.getValue(), visited));
-            } else if (e.getValue() instanceof Set) {
-                result.put(e.getKey(), applySet((Set<?>) e.getValue(), visited));
-            } else {
-                result.put(e.getKey(), e.getValue());
-            }
+            result.put(e.getKey(), apply(e.getValue(), visited));
         }
         return result;
     }
@@ -301,8 +313,6 @@ public final class Sanitizer {
     }
     
     private Set<Object> applySet(Set<?> input, Set<Object> visited) {
-        Set<Object> result = Sets.newLinkedHashSet();
-        result.addAll(applyIterable(input, visited));
-        return result;
+        return MutableSet.copyOf(applyIterable(input, visited));
     }
 }

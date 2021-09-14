@@ -49,7 +49,7 @@ public class SanitizerTest {
                 .put("mykey", "myval")
                 .build();
         Map<String, Object> expected = MutableMap.<String, Object>builder()
-                .putAll(Maps.transformValues(map, Functions.constant("xxxxxxxx")))
+                .putAll(Maps.transformValues(map, Sanitizer::suppress))
                 .put("mykey", "myval")
                 .build();
         
