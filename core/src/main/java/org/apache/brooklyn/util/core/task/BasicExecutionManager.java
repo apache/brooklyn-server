@@ -390,9 +390,15 @@ public class BasicExecutionManager implements ExecutionManager {
         if (removed!=null && removed.isSubmitted() && !removed.isDone(true)) {
             Entity context = BrooklynTaskTags.getContextEntity(removed);
             if (context!=null && !Entities.isManaged(context)) {
-                log.debug("Forgetting about active task on unmanagement of "+context+": "+removed);
+                log.debug("Deleting active task on unmanagement of "+context+": "+removed);
             } else {
-                log.warn("Deleting submitted task before completion: "+removed+" (tags "+removed.getTags()+"); this task will continue to run in the background outwith "+this+", but perhaps it should have been cancelled?");
+                if (removed.isDone()) {
+                    log.debug("Deleting cancelled task before completion: " + removed + "; this task will continue to run in the background outwith " + this);
+                } else {
+                    log.warn("Deleting submitted task before completion: " + removed + " (tags " + removed.getTags() + "); this task will continue to run in the background outwith " + this + ", but perhaps it should have been cancelled?");
+
+                }
+                log.debug("Active task deletion trace", new Throwable("Active task deletion trace"));
             }
         }
         task.getTags().forEach(t -> {

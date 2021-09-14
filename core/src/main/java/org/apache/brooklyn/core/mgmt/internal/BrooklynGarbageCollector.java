@@ -531,7 +531,7 @@ public class BrooklynGarbageCollector {
             return false;
         }
         Task<?> submitter = task.getSubmittedByTask();
-        if (submitter!=null && (!submitter.isDone() || executionManager.getTask(submitter.getId())!=null)) {
+        if (submitter!=null && (!submitter.isDone(true) || executionManager.getTask(submitter.getId())!=null)) {
             return false;
         }
         // submitter task is GC'd
@@ -679,13 +679,8 @@ public class BrooklynGarbageCollector {
             tasksLive = executionManager.getTasksWithAllTags(MutableList.of());
         }
 
-        MutableList<Task<?>> tasks = MutableList.of();
-        for (Task<?> task: tasksLive) {
-            if (task.isDone()) {
-                tasks.add(task);
-            }
-        }
-        
+        List<Task<?>> tasks = tasksLive.stream().filter(t -> t.isDone(true)).collect(Collectors.toList());
+
         int numToDelete = tasks.size() - brooklynProperties.getConfig(MAX_TASKS_GLOBAL);
         if (numToDelete <= 0) {
             LOG.debug("brooklyn-gc detected only "+tasks.size()+" completed tasks in memory, not over global limit, so not deleting any");

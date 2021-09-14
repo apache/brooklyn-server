@@ -267,27 +267,28 @@ public abstract class RebindIteration {
             // wait for tasks
             Collection<Task<?>> entityTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
                     .stream().filter(t -> BrooklynTaskTags.getContextEntity(t) != null).collect(Collectors.toList());
-            List<Task<?>> openTasks;
+            List<Task<?>> openTasksIncludingCancelled;
             CountdownTimer time = CountdownTimer.newInstanceStarted(Duration.seconds(15));
             do {
-                openTasks = entityTasks.stream().filter(t -> !t.isDone()).collect(Collectors.toList());
-                if (openTasks.isEmpty()) break;
-                if (time.isExpired()) {
-                    LOG.warn("Aborting " + openTasks.size() + " incomplete task(s) before rebinding again: " + openTasks);
-                    openTasks.forEach(t -> t.cancel(true));
+                openTasksIncludingCancelled = entityTasks.stream().filter(t -> !t.isDone(true)).collect(Collectors.toList());
+                List<Task<?>> openTasksCancellable = openTasksIncludingCancelled.stream().filter(t -> !t.isDone()).collect(Collectors.toList());
+                if (openTasksIncludingCancelled.isEmpty()) break;
+                if (time.isExpired() && !openTasksCancellable.isEmpty()) {
+                    LOG.warn("Aborting " + openTasksCancellable.size() + " incomplete task(s) before rebinding again: " + openTasksCancellable);
+                    openTasksCancellable.forEach(t -> t.cancel(true));
                 }
                 if (time.getDurationElapsed().isShorterThan(Duration.millis(200))) {
-                    LOG.info("Waiting on " + openTasks.size() + " task(s) before rebinding again: " + openTasks);
+                    LOG.info("Waiting on " + openTasksIncludingCancelled.size() + " task(s) before rebinding again: " + openTasksIncludingCancelled);
                 }
-                LOG.debug("Waiting on " + openTasks.size() + " task(s) before rebinding again, details: " +
-                        openTasks.stream().map(t -> ""+t+"("+BrooklynTaskTags.getContextEntity(t)+")").collect(Collectors.toList()));
+                LOG.debug("Waiting on " + openTasksIncludingCancelled.size() + " task(s) before rebinding again, details: " +
+                        openTasksIncludingCancelled.stream().map(t -> ""+t+"("+BrooklynTaskTags.getContextEntity(t)+")").collect(Collectors.toList()));
                 Time.sleep(Duration.millis(200));
             } while (true);
 
             entityTasks.forEach(((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask);
 
             List<Task<?>> otherDoneTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
-                    .stream().filter(Task::isDone).collect(Collectors.toList());
+                    .stream().filter(t -> t.isDone(true)).collect(Collectors.toList());
             otherDoneTasks.forEach(((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask);
         }
 
@@ -420,6 +421,7 @@ public abstract class RebindIteration {
             for (ManagedBundleMemento bundleMemento : mementoManifest.getBundles().values()) {
                 ManagedBundle managedBundle = instantiator.newManagedBundle(bundleMemento);
                 bundles.put(managedBundle.getVersionedName(), new InstallableManagedBundleImpl(bundleMemento, managedBundle));
+                logRebindingDebug("Registering bundle "+bundleMemento.getId()+": "+managedBundle);
                 rebindContext.registerBundle(bundleMemento.getId(), managedBundle);
             }
         } else {
