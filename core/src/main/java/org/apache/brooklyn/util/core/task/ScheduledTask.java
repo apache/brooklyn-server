@@ -18,7 +18,10 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.core.BrooklynLogging;
+import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
@@ -52,8 +55,6 @@ import com.google.common.base.Throwables;
 public class ScheduledTask extends BasicTask<Object> {
     
     final Callable<Task<?>> taskFactory;
-
-    protected BrooklynTaskLoggingMdc mdc;
 
     /**
      * Initial delay before running, set as flag in constructor; defaults to 0
@@ -266,6 +267,7 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     protected boolean doCancel(org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode mode) {
+        BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, LoggingLevel.DEBUG, "Cancelling scheduled task "+this);
         if (nextRun!=null) {
             ((TaskInternal<?>)nextRun).cancel(mode);
             try {

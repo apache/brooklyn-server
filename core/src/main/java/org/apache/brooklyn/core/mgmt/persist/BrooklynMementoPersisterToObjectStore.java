@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.LookupContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
@@ -71,6 +72,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -117,7 +119,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
     private final Map<String, StoreObjectAccessorWithLock> writers = new LinkedHashMap<String, PersistenceObjectStore.StoreObjectAccessorWithLock>();
 
-    private final ListeningExecutorService executor;
+    private ListeningExecutorService executor;
 
     private volatile boolean writesAllowed = false;
     private volatile boolean writesShuttingDown = false;
@@ -154,8 +156,6 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 .withClassLoader(classLoader).build();
         this.serializerWithStandardClassLoader = new RetryingMementoSerializer<Object>(rawSerializer, maxSerializationAttempts);
 
-        int maxThreadPoolSize = brooklynProperties.getConfig(PERSISTER_MAX_THREAD_POOL_SIZE);
-
         objectStore.createSubPath("entities");
         objectStore.createSubPath("locations");
         objectStore.createSubPath("policies");
@@ -166,11 +166,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         // FIXME does it belong here or to ManagementPlaneSyncRecordPersisterToObjectStore ?
         objectStore.createSubPath("plane");
         
-        executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(maxThreadPoolSize, new ThreadFactory() {
-            @Override public Thread newThread(Runnable r) {
-                // Note: Thread name referenced in logback-includes' ThreadNameDiscriminator
-                return new Thread(r, "brooklyn-persister");
-            }}));
+        resetExecutor();
+    }
+
+    private Integer maxThreadPoolSize() {
+        return brooklynProperties.getConfig(PERSISTER_MAX_THREAD_POOL_SIZE);
     }
 
     public MementoSerializer<Object> getMementoSerializer() {
@@ -210,8 +210,14 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         final ManagementContext managementContext = lookupContext.lookupManagementContext();
         RegisteredType catalogItem = managementContext.getTypeRegistry().get(catalogItemId);
         if (catalogItem == null) {
-            // TODO do we need to only log once, rather than risk log.warn too often? I think this only happens on rebind, so ok.
-            LOG.warn("Unable to load catalog item "+catalogItemId
+            // will happen on rebind if our execution should have ended
+            if (Thread.interrupted()) {
+                LOG.debug("Aborting (probably old) rebind iteration");
+                throw new RuntimeInterruptedException("Rebind iteration cancelled");
+            }
+
+            // might come here for other reasons too
+            LOG.debug("Unable to load registered type "+catalogItemId
                 +" for custom class loader of " + type + " " + objectId + "; will use default class loader");
             return null;
         } else {
@@ -245,7 +251,24 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     @Override 
     public void stop(boolean graceful) {
         disableWriteAccess(graceful);
-        
+        stopExecutor(graceful);
+    }
+
+    @Override
+    public void reset() {
+        resetExecutor();
+    }
+
+    public void resetExecutor() {
+        stopExecutor(false);
+        executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(maxThreadPoolSize(), new ThreadFactory() {
+            @Override public Thread newThread(Runnable r) {
+                // Note: Thread name referenced in logback-includes' ThreadNameDiscriminator
+                return new Thread(r, "brooklyn-persister");
+            }}));
+    }
+
+    public void stopExecutor(boolean graceful) {
         if (executor != null) {
             if (graceful) {
                 executor.shutdown();
@@ -473,6 +496,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     
     @Override
     public BrooklynMemento loadMemento(BrooklynMementoRawData mementoData, final LookupContext lookupContext, final RebindExceptionHandler exceptionHandler) throws IOException {
+        LOG.debug("Loading mementos");
+
         if (mementoData==null)
             mementoData = loadMementoRawData(exceptionHandler);
 

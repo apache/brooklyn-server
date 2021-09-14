@@ -891,6 +891,11 @@ public class HighAvailabilityManagerImpl implements HighAvailabilityManager {
 
     protected void promoteToMaster() {
         LOG.debug("Promoting to master: "+this);
+        if (Tasks.current()!=null) {
+            // let us check if promotion is happening in the right context
+            Task task = Tasks.current();
+            LOG.debug("Task context for master promotion: "+task+" ("+task.getTags()+"); "+task.getStatusSummary());
+        }
         if (!running) {
             LOG.warn("Ignoring promote-to-master request, as HighAvailabilityManager is not running");
             return;

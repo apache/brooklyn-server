@@ -396,6 +396,9 @@ public class RebindManagerImpl implements RebindManager {
                 LOG.warn("Rebind (read-only) tasks took too long to die after interrupt (ignoring): "+readOnlyTask);
             }
             readOnlyTask = null;
+            if (persistenceStoreAccess!=null) {
+                persistenceStoreAccess.reset();
+            }
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
 
             // short waits when promoting
@@ -404,6 +407,7 @@ public class RebindManagerImpl implements RebindManager {
                     Duration.seconds(5));
             // note, items are subsequently unmanaged via:
             // HighAvailabilityManagerImpl.clearManagedItems
+            readOnlyRebindCount.set(0);
         }
     }
 
@@ -467,6 +471,9 @@ public class RebindManagerImpl implements RebindManager {
     @Override
     public void reset() {
         if (persistenceRealChangeListener != null && !persistenceRealChangeListener.isActive()) persistenceRealChangeListener.reset();
+        if (persistenceStoreAccess!=null) {
+            persistenceStoreAccess.reset();
+        }
     }
     
     @Override

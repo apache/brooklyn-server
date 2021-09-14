@@ -109,6 +109,8 @@ public interface BrooklynMementoPersister {
     void disableWriteAccess(boolean graceful);
     /** permanently shuts down all access to the remote store */
     void stop(boolean graceful);
+    /** cancels/waits for all current tasks */
+    void reset();
 
     @VisibleForTesting
     void waitForWritesCompleted(Duration timeout) throws InterruptedException, TimeoutException;
