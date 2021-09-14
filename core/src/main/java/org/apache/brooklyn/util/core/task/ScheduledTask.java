@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -51,6 +52,8 @@ import com.google.common.base.Throwables;
 public class ScheduledTask extends BasicTask<Object> {
     
     final Callable<Task<?>> taskFactory;
+
+    protected BrooklynTaskLoggingMdc mdc;
 
     /**
      * Initial delay before running, set as flag in constructor; defaults to 0

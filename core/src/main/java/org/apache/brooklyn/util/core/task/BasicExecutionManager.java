@@ -206,10 +206,12 @@ public class BasicExecutionManager implements ExecutionManager {
             if (entityMdc != null) {
                 entityMdc.close();
                 if (prevEntityMdc!=null) MDC.put(LOGGING_MDC_KEY_ENTITY_IDS, prevEntityMdc);
+                prevEntityMdc = null;
             }
             if (taskMdc != null) {
                 taskMdc.close();
                 if (prevTaskMdc!=null) MDC.put(LOGGING_MDC_KEY_TASK_ID, prevTaskMdc);
+                prevTaskMdc = null;
             }
         }
 
@@ -967,7 +969,9 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     /** normally (if not interrupted) called once for each call to {@link #beforeSubmitScheduledTaskAllIterations(Map, Task)} */
-    protected void beforeStartScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskDoingTheInitialSchedule) {
+    protected void beforeStartScheduledTaskAllIterations(Map<?,?> flags, ScheduledTask taskDoingTheInitialSchedule) {
+        taskDoingTheInitialSchedule.mdc = BrooklynTaskLoggingMdc.create(taskDoingTheInitialSchedule).start();
+
         internalBeforeStart(flags, taskDoingTheInitialSchedule, !SCHEDULED_TASKS_COUNT_AS_ACTIVE, true, true);
     }
     protected void beforeStartScheduledTaskSubmissionIteration(Map<?,?> flags, Task<?> taskDoingTheScheduling, Task<?> taskIteration) {
@@ -1049,12 +1053,16 @@ public class BasicExecutionManager implements ExecutionManager {
     }
     private static boolean loggedClosureDeprecatedInInvokeCallback;
     
-    /** normally (if not interrupted) called once for each call to {@link #beforeStartScheduledTaskAllIterations(Map, Task)}  */
-    protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, Task<?> taskDoingTheInitialSchedule, Throwable error) {
+    /** normally (if not interrupted) called once for each call to {@link #beforeStartScheduledTaskAllIterations(Map, ScheduledTask)}  */
+    protected void afterEndScheduledTaskAllIterations(Map<?,?> flags, ScheduledTask taskDoingTheInitialSchedule, Throwable error) {
         boolean taskWasSubmittedAndNotYetEnded = true;
         try {
             taskWasSubmittedAndNotYetEnded = internalAfterEnd(flags, taskDoingTheInitialSchedule, !SCHEDULED_TASKS_COUNT_AS_ACTIVE, false, error);
         } finally {
+            if (taskDoingTheInitialSchedule.mdc!=null) {
+                taskDoingTheInitialSchedule.mdc.close();
+                taskDoingTheInitialSchedule.mdc = null;
+            }
             synchronized (taskDoingTheInitialSchedule) { taskDoingTheInitialSchedule.notifyAll(); }
             if (taskWasSubmittedAndNotYetEnded) {
                 // prevent from running twice on cancellation after start

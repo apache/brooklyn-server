@@ -611,17 +611,25 @@ public class BrooklynGarbageCollector {
             LOG.debug("Got CME inspecting tasks, with "+tasksToConsiderDeleting.size()+" found for deletion: "+e);
         }
 
+        if (tasksToConsiderDeleting.isEmpty()) {
+            return 0;
+        }
+
         Collections.sort(tasksToConsiderDeleting, TASKS_OLDEST_FIRST_COMPARATOR);
 
         if (LOG.isDebugEnabled()) {
-            MutableList<Task<?>> tasksToConsiderDeletingNewest = MutableList.copyOf(tasksToConsiderDeleting);
-            Collections.sort(tasksToConsiderDeletingNewest, TASKS_NEWEST_FIRST_COMPARATOR);
+            List<Object> tasksToLog = MutableList.copyOf(tasksToConsiderDeleting);
+            if (tasksToConsiderDeleting.size()>10) {
+                tasksToConsiderDeleting.stream().limit(5).forEach(tasksToLog::add);
+                tasksToLog.add("...");
+                tasksToConsiderDeleting.stream().skip(tasksToConsiderDeleting.size()-5).forEach(tasksToLog::add);
+            } else {
+                tasksToLog.addAll(tasksToConsiderDeleting);
+            }
             LOG.debug("brooklyn-gc detected " + taskTagsInCategoryOverCapacity.size() + " " + category + " "
-                    + "tags over capacity, expiring old tasks; "
+                    + "tag(s) over capacity, expiring old tasks; "
                     + tasksToConsiderDeleting.size() + " tasks under consideration; categories are: "
-                    + taskTagsInCategoryOverCapacity + "; including "
-                    + tasksToConsiderDeleting.stream().limit(5).collect(Collectors.toList()) + " ... "
-                    + tasksToConsiderDeletingNewest.stream().limit(5).collect(Collectors.toList()) );
+                    + taskTagsInCategoryOverCapacity + "; including " + tasksToConsiderDeleting);
         }
 
         // now try deleting tasks which are overcapacity for each (non-entity) tag
