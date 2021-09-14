@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -27,11 +29,14 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.brooklyn.util.javalang.Boxing;
 
 public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
@@ -104,8 +109,11 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
-            return decorateWithCommonTags(new CampResolver(mgmt, type, context).createSpec(), type, null, null,
-                    prevHeadSpecSummary -> "Based on "+prevHeadSpecSummary);
+            return decorateWithCommonTags(
+                    checkSecuritySensitiveFields(
+                            new CampResolver(mgmt, type, context).createSpec()
+                    ),
+                    type, null, null, prevHeadSpecSummary -> "Based on "+prevHeadSpecSummary);
 
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -130,6 +138,35 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
                 throw e;
             }
         }
+    }
+
+    @Beta
+    public static AbstractBrooklynObjectSpec<?,?> checkSecuritySensitiveFields(AbstractBrooklynObjectSpec<?,?> spec) {
+        if (Sanitizer.isSensitiveFieldsPlaintextBlocked()) {
+            // if blocking plaintext values, check them before instantiating
+            Predicate<Object> predicate = Sanitizer.IS_SECRET_PREDICATE;
+            spec.getConfig().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key.getName(), val) );
+            spec.getFlags().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key, val) );
+        }
+        return spec;
+    }
+
+    public static void failOnInsecureValueForSensitiveNamedField(Predicate<Object> tokens, String key, Object val) {
+        if (val instanceof BrooklynDslDeferredSupplier || val==null) {
+            // value allowed; key is irrelevant
+            return;
+        }
+        if (!tokens.apply(key)) {
+            // not a sensitive named key
+            return;
+        }
+
+        // sensitive named key
+        if (val instanceof String || Boxing.isPrimitiveOrBoxedClass(val.getClass()) || val instanceof Number) {
+            // value
+            throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers must be used here");
+        }
+        // complex values allowed
     }
 
     @Override
