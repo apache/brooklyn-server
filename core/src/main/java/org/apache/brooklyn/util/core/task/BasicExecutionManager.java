@@ -69,6 +69,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -373,7 +374,9 @@ public class BasicExecutionManager implements ExecutionManager {
      * <p>
      * Useful, for example, if an entity is being expunged so that we don't keep holding
      * a reference to it as a tag.
+     * @deprecated since 1.1 use deleteDoneInTag
      */
+    @Deprecated
     public void deleteTag(Object tag) {
         Set<Task<?>> tasks;
         synchronized (tasksByTag) {
@@ -384,6 +387,33 @@ public class BasicExecutionManager implements ExecutionManager {
                 deleteTask(task);
             }
         }
+    }
+
+    /**
+     * Deletes all truly done tasks in the given tag, and the tag also if empty when completed.
+     * @return if all tasks were done and the tag has been deleted
+     */
+    public boolean deleteDoneInTag(Object tag) {
+        Set<Task<?>> tasks;
+        boolean tagEmpty = true;
+        synchronized (tasksByTag) {
+            tasks = MutableSet.copyOf(tasksByTag.get(tag));
+        }
+        if (tasks != null) {
+            for (Task<?> task : tasks) {
+                if (task.isDone(true)) {
+                    deleteTask(task);
+                } else {
+                    tagEmpty = false;
+                }
+            }
+        }
+        if (tagEmpty) {
+            if (!tasksByTag.containsKey(tag)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void deleteTask(Task<?> task) {

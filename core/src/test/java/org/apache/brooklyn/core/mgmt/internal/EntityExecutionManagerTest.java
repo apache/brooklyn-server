@@ -314,18 +314,19 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         
         Entities.destroy(e);
         forceGc();
-        
-        Set<Object> tags2 = app.getManagementContext().getExecutionManager().getTaskTags();
-        for (Object tag : tags2) {
-            if (tag instanceof Entity && ((Entity)tag).getId().equals(eId)) {
-                fail("tags contains unmanaged entity "+tag);
+
+        Asserts.succeedsEventually(() -> {
+            Set<Object> tags2 = app.getManagementContext().getExecutionManager().getTaskTags();
+            for (Object tag : tags2) {
+                if (tag instanceof Entity && ((Entity) tag).getId().equals(eId)) {
+                    fail("tags contains unmanaged entity " + tag + "; tasks: " + app.getManagementContext().getExecutionManager().getTasksWithTag(tag));
+                }
+                if ((tag instanceof WrappedEntity) && ((WrappedEntity) tag).unwrap().getId().equals(eId)
+                        && ((WrappedItem<?>) tag).getWrappingType().equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
+                    fail("tags contains unmanaged entity (wrapped) " + tag + "; tasks: " + app.getManagementContext().getExecutionManager().getTasksWithTag(tag));
+                }
             }
-            if ((tag instanceof WrappedEntity) && ((WrappedEntity)tag).unwrap().getId().equals(eId) 
-                    && ((WrappedItem<?>)tag).getWrappingType().equals(BrooklynTaskTags.CONTEXT_ENTITY)) {
-                fail("tags contains unmanaged entity (wrapped) "+tag);
-            }
-        }
-        return;
+        });
     }
 
     @Test(groups="Integration")
