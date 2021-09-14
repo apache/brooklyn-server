@@ -244,13 +244,13 @@ public class CatalogUtils {
             if (itemBeingAdded.getCatalogItemId()==null) {
                 if (log.isDebugEnabled())
                     BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
-                        "Catalog item addition: "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
+                        "Entity "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
                 final BrooklynObjectInternal addInternal = (BrooklynObjectInternal) itemBeingAdded;
                 addInternal.setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
             } else {
                 if (!itemBeingAdded.getCatalogItemId().equals(entity.getCatalogItemId())) {
-                    // not a problem, but something to watch out for
-                    log.debug("Cross-catalog item detected: "+entity+" from "+entity.getCatalogItemId()+" has "+itemBeingAdded+" from "+itemBeingAdded.getCatalogItemId());
+                    // not a problem, but something worth noting
+                    log.debug("Blueprint for "+entity+" from "+entity.getCatalogItemId()+" includes "+itemBeingAdded+" from other catalog "+itemBeingAdded.getCatalogItemId());
                 }
             }
         } else if (itemBeingAdded.getCatalogItemId()!=null) {
@@ -270,7 +270,7 @@ public class CatalogUtils {
 
     /** @deprecated since 0.12.0 - the "version starts with number" test this does is hokey; use 
      * either {@link RegisteredTypeNaming#isUsableTypeColonVersion(String)} for weak enforcement
-     * or {@link RegisteredTypeNaming#isGoodTypeColonVersion(String)} for OSGi enforcement. */
+     * or {@link RegisteredTypeNaming#isUsableTypeColonVersion(String)} for OSGi enforcement. */
     // several references, but all deprecated, most safe to remove after a cycle or two and bad verisons have been warned
     @Deprecated
     public static boolean looksLikeVersionedId(String versionedId) {

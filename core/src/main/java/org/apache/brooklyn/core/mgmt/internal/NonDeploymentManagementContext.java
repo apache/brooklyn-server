@@ -603,6 +603,11 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         }
 
         @Override
+        public void stopEntityTasksAndCleanUp(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning) {
+            // no-op
+        }
+
+        @Override
         public void reset() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }

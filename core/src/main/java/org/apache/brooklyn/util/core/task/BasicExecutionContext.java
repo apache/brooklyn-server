@@ -353,41 +353,50 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
 
         EntitlementContext entitlementContext = BrooklynTaskTags.getEntitlement(taskTags);
-        if (entitlementContext==null)
-        entitlementContext = Entitlements.getEntitlementContext();
+        if (entitlementContext==null) {
+            entitlementContext = Entitlements.getEntitlementContext();
+        }
         if (entitlementContext!=null) {
             taskTags.add(BrooklynTaskTags.tagForEntitlement(entitlementContext));
         }
 
         taskTags.addAll(tags);
 
-        if (Tasks.current()!=null && BrooklynTaskTags.isTransient(Tasks.current()) 
+        if (Tasks.current()!=null && BrooklynTaskTags.isTransient(Tasks.current())
                 && !taskTags.contains(BrooklynTaskTags.NON_TRANSIENT_TASK_TAG) && !taskTags.contains(BrooklynTaskTags.TRANSIENT_TASK_TAG)) {
             // tag as transient if submitter is transient, unless explicitly tagged as non-transient
             taskTags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
         }
 
-        final Object startCallback = properties.get("newTaskStartCallback");
-        properties.put("newTaskStartCallback", new Function<Task<?>,Void>() {
-            @Override
-            public Void apply(Task<?> it) {
-                registerPerThreadExecutionContext();
-                if (startCallback!=null) BasicExecutionManager.invokeCallback(startCallback, it);
-                return null;
-            }});
-        
-        final Object endCallback = properties.get("newTaskEndCallback");
-        properties.put("newTaskEndCallback", new Function<Task<?>,Void>() {
-            @Override
-            public Void apply(Task<?> it) {
-                try {
-                    if (endCallback!=null) BasicExecutionManager.invokeCallback(endCallback, it);
-                } finally {
-                    clearPerThreadExecutionContext();
+        if (task instanceof ScheduledTask) {
+            // not run for scheduler
+            ((ScheduledTask)task).executionContext = this;
+
+        } else {
+            final Object startCallback = properties.get("newTaskStartCallback");
+            properties.put("newTaskStartCallback", new Function<Task<?>, Void>() {
+                @Override
+                public Void apply(Task<?> it) {
+                    registerPerThreadExecutionContext();
+                    if (startCallback != null) BasicExecutionManager.invokeCallback(startCallback, it);
+                    return null;
                 }
-                return null;
-            }});
-        
+            });
+
+            final Object endCallback = properties.get("newTaskEndCallback");
+            properties.put("newTaskEndCallback", new Function<Task<?>, Void>() {
+                @Override
+                public Void apply(Task<?> it) {
+                    try {
+                        if (endCallback != null) BasicExecutionManager.invokeCallback(endCallback, it);
+                    } finally {
+                        clearPerThreadExecutionContext();
+                    }
+                    return null;
+                }
+            });
+        }
+
         if (task instanceof Task) {
             return executionManager.submit(properties, (Task)task);
         } else if (task instanceof Callable) {

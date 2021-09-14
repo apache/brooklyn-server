@@ -161,4 +161,11 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
                 .add("url", getUrl())
                 .add("checksum", getChecksum());
     }
+
+    @Override
+    public String toString() {
+        // include more details on toString here, so we can see what/where it is being persisted
+        return toVerboseString();
+    }
+
 }

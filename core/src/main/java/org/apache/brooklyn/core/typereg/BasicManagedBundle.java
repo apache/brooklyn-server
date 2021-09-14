@@ -179,6 +179,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
                 .add("version", version)
                 .add("format", format)
                 .add("url", url)
+                .add("osgiUniqueUrl", osgiUniqueUrl)
                 .toString();
     }
 

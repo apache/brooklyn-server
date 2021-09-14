@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.test.entity.TestEntityImpl;
+import org.apache.brooklyn.util.collections.MutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -49,36 +53,37 @@ import com.google.common.collect.Lists;
 public class ScheduledExecutionTest {
 
     public static final Logger log = LoggerFactory.getLogger(ScheduledExecutionTest.class);
-    
+
     @Test
     public void testScheduledTask() throws Exception {
         Duration PERIOD = Duration.millis(20);
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger(0);
         ScheduledTask t = ScheduledTask.builder(() -> new BasicTask<Integer>(() -> {
-                        log.info("task running: "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
-                        return i.incrementAndGet();
-                    }))
+                    log.info("task running: " + Tasks.current() + " " + Tasks.current().getStatusDetail(false));
+                    return i.incrementAndGet();
+                }))
                 .displayName("test-1")
                 .delay(PERIOD.multiply(2))
                 .period(PERIOD)
                 .maxIterations(5)
                 .build();
-    
+
         log.info("submitting {} {}", t, t.getStatusDetail(false));
         m.submit(t);
         log.info("submitted {} {}", t, t.getStatusDetail(false));
         Integer interimResult = (Integer) t.get();
-        log.info("done one ({}) {} {}", new Object[] {interimResult, t, t.getStatusDetail(false)});
-        assertTrue(i.get() > 0, "i="+i);
+        log.info("done one ({}) {} {}", new Object[]{interimResult, t, t.getStatusDetail(false)});
+        assertTrue(i.get() > 0, "i=" + i);
         t.blockUntilEnded();
         Integer finalResult = (Integer) t.get();
-        log.info("ended ({}) {} {}", new Object[] {finalResult, t, t.getStatusDetail(false)});
-        assertEquals(finalResult, (Integer)5);
+        log.info("ended ({}) {} {}", new Object[]{finalResult, t, t.getStatusDetail(false)});
+        assertEquals(finalResult, (Integer) 5);
         assertEquals(i.get(), 5);
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
-    @Test
+    @Test(groups="Integration")
     public void testScheduledTaskCancelledIfExceptionThrown() throws Exception {
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger calls = new AtomicInteger(0);
@@ -90,12 +95,15 @@ public class ScheduledExecutionTest {
                     public Integer call() {
                         calls.incrementAndGet();
                         throw new RuntimeException("boo");
-                    }});
-            }});
+                    }
+                });
+            }
+        });
 
         m.submit(t);
         Runnable callsIsOne = new Runnable() {
-            @Override public void run() {
+            @Override
+            public void run() {
                 if (calls.get() != 1) {
                     throw new RuntimeException("not yet");
                 }
@@ -104,6 +112,7 @@ public class ScheduledExecutionTest {
         };
         Asserts.succeedsEventually(callsIsOne);
         Asserts.succeedsContinually(callsIsOne);
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
     @Test
@@ -118,44 +127,52 @@ public class ScheduledExecutionTest {
                     public Integer call() {
                         calls.incrementAndGet();
                         throw new RuntimeException("boo");
-                    }});
-            }});
+                    }
+                });
+            }
+        });
 
         m.submit(t);
         t.blockUntilEnded();
         assertEquals(calls.get(), 5, "Expected task to be resubmitted despite throwing an exception");
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
-    /** like testScheduledTask but the loop is terminated by the task itself adjusting the period */
+    /**
+     * like testScheduledTask but the loop is terminated by the task itself adjusting the period
+     */
     @Test
     public void testScheduledTaskSelfEnding() throws Exception {
         int PERIOD = 20;
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger(0);
-        ScheduledTask t = new ScheduledTask(MutableMap.of("delay", 2*PERIOD, "period", PERIOD), new Callable<Task<?>>() {
+        ScheduledTask t = new ScheduledTask(MutableMap.of("delay", 2 * PERIOD, "period", PERIOD), new Callable<Task<?>>() {
             @Override
             public Task<?> call() throws Exception {
                 return new BasicTask<Integer>(new Callable<Integer>() {
                     @Override
                     public Integer call() {
-                        ScheduledTask submitter = (ScheduledTask) ((BasicTask)Tasks.current()).getSubmittedByTask();
+                        ScheduledTask submitter = (ScheduledTask) ((BasicTask) Tasks.current()).getSubmittedByTask();
                         if (i.get() >= 4) submitter.period = null;
-                        log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
+                        log.info("task running (" + i + "): " + Tasks.current() + " " + Tasks.current().getStatusDetail(false));
                         return i.incrementAndGet();
-                    }});
-            }});
-    
+                    }
+                });
+            }
+        });
+
         log.info("submitting {} {}", t, t.getStatusDetail(false));
         m.submit(t);
         log.info("submitted {} {}", t, t.getStatusDetail(false));
         Integer interimResult = (Integer) t.get();
-        log.info("done one ({}) {} {}", new Object[] {interimResult, t, t.getStatusDetail(false)});
+        log.info("done one ({}) {} {}", new Object[]{interimResult, t, t.getStatusDetail(false)});
         assertTrue(i.get() > 0);
         t.blockUntilEnded();
         Integer finalResult = (Integer) t.get();
-        log.info("ended ({}) {} {}", new Object[] {finalResult, t, t.getStatusDetail(false)});
-        assertEquals(finalResult, (Integer)5);
+        log.info("ended ({}) {} {}", new Object[]{finalResult, t, t.getStatusDetail(false)});
+        assertEquals(finalResult, (Integer) 5);
         assertEquals(i.get(), 5);
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
     @Test
@@ -169,35 +186,38 @@ public class ScheduledExecutionTest {
                 return new BasicTask<Integer>(new Callable<Integer>() {
                     @Override
                     public Integer call() {
-                        log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
-                        ScheduledTask submitter = (ScheduledTask) ((BasicTask)Tasks.current()).getSubmittedByTask();
+                        log.info("task running (" + i + "): " + Tasks.current() + " " + Tasks.current().getStatusDetail(false));
+                        ScheduledTask submitter = (ScheduledTask) ((BasicTask) Tasks.current()).getSubmittedByTask();
                         i.incrementAndGet();
                         if (i.get() >= 5) submitter.cancel();
                         return i.get();
-                    }});
-            }});
-    
-        log.info(JavaClassNames.niceClassAndMethod()+" - submitting {} {}", t, t.getStatusDetail(false));
+                    }
+                });
+            }
+        });
+
+        log.info(JavaClassNames.niceClassAndMethod() + " - submitting {} {}", t, t.getStatusDetail(false));
         m.submit(t);
         log.info("submitted {} {}", t, t.getStatusDetail(false));
         Integer interimResult = (Integer) t.get();
-        log.info("done one ({}) {} {}", new Object[] {interimResult, t, t.getStatusDetail(false)});
+        log.info("done one ({}) {} {}", new Object[]{interimResult, t, t.getStatusDetail(false)});
         assertTrue(i.get() > 0);
         t.blockUntilEnded();
 //      int finalResult = t.get()
-        log.info("ended ({}) {} {}", new Object[] {i, t, t.getStatusDetail(false)});
+        log.info("ended ({}) {} {}", new Object[]{i, t, t.getStatusDetail(false)});
 //      assertEquals(finalResult, 5)
         assertEquals(i.get(), 5);
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testScheduledTaskCancelOuter() throws Exception {
         final Duration PERIOD = Duration.millis(20);
         final Duration CYCLE_DELAY = Duration.ONE_SECOND;
         // this should be enough to start the next cycle, but not so much that the cycle ends;
         // and enough that when a task is interrupted it terminates within this period
         final Duration SMALL_FRACTION_OF_CYCLE_DELAY = PERIOD.add(CYCLE_DELAY.multiply(0.1));
-        
+
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final AtomicInteger i = new AtomicInteger();
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", PERIOD.times(2), "period", PERIOD), new Callable<Task<?>>() {
@@ -206,48 +226,51 @@ public class ScheduledExecutionTest {
                 return new BasicTask<Integer>(new Callable<Integer>() {
                     @Override
                     public Integer call() {
-                        log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
+                        log.info("task running (" + i + "): " + Tasks.current() + " " + Tasks.current().getStatusDetail(false));
                         Time.sleep(CYCLE_DELAY);
                         i.incrementAndGet();
                         return i.get();
-                    }});
-            }});
-    
-        log.info(JavaClassNames.niceClassAndMethod()+" - submitting {} {}", t, t.getStatusDetail(false));
+                    }
+                });
+            }
+        });
+
+        log.info(JavaClassNames.niceClassAndMethod() + " - submitting {} {}", t, t.getStatusDetail(false));
         m.submit(t);
         log.info("submitted {} {}", t, t.getStatusDetail(false));
         Integer interimResult = (Integer) t.get();
-        log.info("done one ({}) {} {}", new Object[] {interimResult, t, t.getStatusDetail(false)});
+        log.info("done one ({}) {} {}", new Object[]{interimResult, t, t.getStatusDetail(false)});
         assertEquals(i.get(), 1);
-        
+
         Time.sleep(SMALL_FRACTION_OF_CYCLE_DELAY);
         assertEquals(t.get(), 2);
-        
+
         Time.sleep(SMALL_FRACTION_OF_CYCLE_DELAY);
         Stopwatch timer = Stopwatch.createUnstarted();
         t.cancel(true);
         t.blockUntilEnded();
 //      int finalResult = t.get()
-        log.info("blocked until ended ({}) {} {}, in {}", new Object[] {i, t, t.getStatusDetail(false), Duration.of(timer)});
+        log.info("blocked until ended ({}) {} {}, in {}", new Object[]{i, t, t.getStatusDetail(false), Duration.of(timer)});
         try {
             t.get();
-            Assert.fail("Should have failed getting result of cancelled "+t);
+            Assert.fail("Should have failed getting result of cancelled " + t);
         } catch (Exception e) {
             /* expected */
         }
         assertEquals(i.get(), 2);
-        log.info("ended ({}) {} {}, in {}", new Object[] {i, t, t.getStatusDetail(false), Duration.of(timer)});
+        log.info("ended ({}) {} {}, in {}", new Object[]{i, t, t.getStatusDetail(false), Duration.of(timer)});
         Assert.assertTrue(Duration.of(timer).isShorterThan(SMALL_FRACTION_OF_CYCLE_DELAY));
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testScheduledTaskCancelInterrupts() throws Exception {
         final Duration PERIOD = Duration.millis(20);
         final Duration CYCLE_DELAY = Duration.ONE_SECOND;
         // this should be enough to start the next cycle, but not so much that the cycle ends;
         // and enough that when a task is interrupted it terminates within this period
         final Duration SMALL_FRACTION_OF_CYCLE_DELAY = PERIOD.add(CYCLE_DELAY.multiply(0.1));
-        
+
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final Semaphore interruptedSemaphore = new Semaphore(0);
         final AtomicInteger i = new AtomicInteger();
@@ -258,7 +281,7 @@ public class ScheduledExecutionTest {
                     @Override
                     public Integer call() {
                         try {
-                            log.info("task running ("+i+"): "+Tasks.current()+" "+Tasks.current().getStatusDetail(false));
+                            log.info("task running (" + i + "): " + Tasks.current() + " " + Tasks.current().getStatusDetail(false));
                             Time.sleep(CYCLE_DELAY);
                             i.incrementAndGet();
                             return i.get();
@@ -266,45 +289,48 @@ public class ScheduledExecutionTest {
                             interruptedSemaphore.release();
                             throw Exceptions.propagate(e);
                         }
-                    }});
-            }});
-    
-        log.info(JavaClassNames.niceClassAndMethod()+" - submitting {} {}", t, t.getStatusDetail(false));
+                    }
+                });
+            }
+        });
+
+        log.info(JavaClassNames.niceClassAndMethod() + " - submitting {} {}", t, t.getStatusDetail(false));
         m.submit(t);
         log.info("submitted {} {}", t, t.getStatusDetail(false));
         Integer interimResult = (Integer) t.get();
-        log.info("done one ({}) {} {}", new Object[] {interimResult, t, t.getStatusDetail(false)});
+        log.info("done one ({}) {} {}", new Object[]{interimResult, t, t.getStatusDetail(false)});
         assertEquals(i.get(), 1);
-        
+
         Time.sleep(SMALL_FRACTION_OF_CYCLE_DELAY);
         assertEquals(t.get(), 2);
-        
+
         Time.sleep(SMALL_FRACTION_OF_CYCLE_DELAY);
         Stopwatch timer = Stopwatch.createUnstarted();
         t.cancel(true);
         t.blockUntilEnded();
 //      int finalResult = t.get()
-        log.info("blocked until ended ({}) {} {}, in {}", new Object[] {i, t, t.getStatusDetail(false), Duration.of(timer)});
+        log.info("blocked until ended ({}) {} {}, in {}", new Object[]{i, t, t.getStatusDetail(false), Duration.of(timer)});
         try {
             t.get();
-            Assert.fail("Should have failed getting result of cancelled "+t);
+            Assert.fail("Should have failed getting result of cancelled " + t);
         } catch (Exception e) {
             /* expected */
         }
         assertEquals(i.get(), 2);
         Assert.assertTrue(interruptedSemaphore.tryAcquire(1, SMALL_FRACTION_OF_CYCLE_DELAY.toMilliseconds(), TimeUnit.MILLISECONDS), "child thread was not interrupted");
-        log.info("ended ({}) {} {}, in {}", new Object[] {i, t, t.getStatusDetail(false), Duration.of(timer)});
+        log.info("ended ({}) {} {}, in {}", new Object[]{i, t, t.getStatusDetail(false), Duration.of(timer)});
         Assert.assertTrue(Duration.of(timer).isShorterThan(SMALL_FRACTION_OF_CYCLE_DELAY));
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
 
-    @Test(groups="Integration")
+    @Test(groups = "Integration")
     public void testScheduledTaskTakesLongerThanPeriod() throws Exception {
         final int PERIOD = 1;
         final int SLEEP_TIME = 100;
         final int EARLY_RETURN_GRACE = 10;
         BasicExecutionManager m = new BasicExecutionManager("mycontextid");
         final List<Long> execTimes = new CopyOnWriteArrayList<Long>();
-        
+
         ScheduledTask t = new ScheduledTask(MutableMap.of("delay", PERIOD, "period", PERIOD), new Callable<Task<?>>() {
             @Override
             public Task<?> call() throws Exception {
@@ -317,17 +343,20 @@ public class ScheduledExecutionTest {
                         } catch (InterruptedException e) {
                             throw Exceptions.propagate(e);
                         }
-                    }});
-            }});
-    
+                    }
+                });
+            }
+        });
+
         m.submit(t);
-        
+
         Asserts.succeedsEventually(new Runnable() {
             @Override
             public void run() {
-                assertTrue(execTimes.size() > 3, "size="+execTimes.size());
-            }});
-        
+                assertTrue(execTimes.size() > 3, "size=" + execTimes.size());
+            }
+        });
+
         List<Long> timeDiffs = Lists.newArrayList();
         long prevExecTime = -1;
         for (Long execTime : execTimes) {
@@ -338,9 +367,86 @@ public class ScheduledExecutionTest {
                 prevExecTime = execTime;
             }
         }
-        
+
         for (Long timeDiff : timeDiffs) {
-            if (timeDiff < (SLEEP_TIME - EARLY_RETURN_GRACE)) fail("timeDiffs="+timeDiffs+"; execTimes="+execTimes);
+            if (timeDiff < (SLEEP_TIME - EARLY_RETURN_GRACE))
+                fail("timeDiffs=" + timeDiffs + "; execTimes=" + execTimes);
         }
+
+        t.cancel();
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
     }
+
+    @Test(groups="Integration")  // because slow
+    public void testScheduledTaskInContextClearing() throws Exception {
+        Duration PERIOD = Duration.millis(50);
+        int COUNT = 10;
+        BasicExecutionManager m = new BasicExecutionManager("mycontextid");
+
+        final List<String> errors = MutableList.of();
+
+        final AtomicInteger i2 = new AtomicInteger();
+        // now start other task, in entity context
+        ScheduledTask t2 = new ScheduledTask(MutableMap.of("displayName", "t2", "period", PERIOD), new Callable<Task<?>>() {
+            @Override
+            public Task<?> call() throws Exception {
+                return new BasicTask<Integer>(MutableMap.of("displayName", "t2-i"), new Callable<Integer>() {
+                    @Override
+                    public Integer call() {
+                        Entity ce = BrooklynTaskTags.getContextEntity(Tasks.current());
+                        log.info("entity task t2 running (" + i2 + "): " + Thread.currentThread() + " " + Tasks.current() + " " + Tasks.current().getStatusDetail(false)+" - "+ce);
+                        if (ce==null) {
+                            errors.add("Scheduled task t2 missing context entity");
+                        }
+
+                        ScheduledTask submitter = (ScheduledTask) ((BasicTask) Tasks.current()).getSubmittedByTask();
+                        i2.incrementAndGet();
+                        if (i2.get() >= COUNT) submitter.cancel();
+                        return i2.get();
+                    }
+                });
+            }
+        });
+        Entity contextEntity = new TestEntityImpl();
+        BasicExecutionContext exec = new BasicExecutionContext(m, MutableList.of(BrooklynTaskTags.tagForContextEntity(contextEntity)));
+        exec.submit(t2);
+
+        final AtomicInteger i1 = new AtomicInteger();
+
+        ScheduledTask t1 = new ScheduledTask(MutableMap.of("displayName", "t1", "period", PERIOD), new Callable<Task<?>>() {
+            @Override
+            public Task<?> call() throws Exception {
+                return new BasicTask<Integer>(MutableMap.of("displayName", "t1-i"), new Callable<Integer>() {
+                    @Override
+                    public Integer call() {
+                        Entity ce = BrooklynTaskTags.getContextEntity(Tasks.current());
+                        log.info("non-entity task t1 running (" + i1 + "): " + Thread.currentThread() + " " + Tasks.current() + " " + Tasks.current().getStatusDetail(false)+" - "+ce);
+                        if (ce!=null) {
+                            errors.add("Scheduled task t1 has context entity "+ce);
+                        }
+
+                        ScheduledTask submitter = (ScheduledTask) ((BasicTask) Tasks.current()).getSubmittedByTask();
+                        i1.incrementAndGet();
+                        if (i1.get() >= COUNT) submitter.cancel();
+                        return i1.get();
+                    }
+                });
+            }
+        });
+
+        Time.sleep(70);
+        log.info(JavaClassNames.niceClassAndMethod() + " - submitting {} {}", t1, t1.getStatusDetail(false));
+        m.submit(t1);
+        log.info("submitted {} {}", t1, t1.getStatusDetail(false));
+        Integer interimResult = (Integer) t1.get();
+        log.info("done one ({}) {} {}", new Object[]{interimResult, t1, t1.getStatusDetail(false)});
+        assertTrue(i1.get() > 0);
+
+        t1.blockUntilEnded();
+        t2.blockUntilEnded();
+
+        Asserts.assertSize(errors, 0);
+        Asserts.eventually(m::getNumActiveTasks, l -> l==0);
+    }
+
 }

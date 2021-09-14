@@ -799,12 +799,17 @@ public class Entities {
 
     /** If entity is under management and the management node is the primary for this entity, i.e. not read-only. */
     public static boolean isManagedActive(Entity e) {
-        return ((EntityInternal)e).getManagementSupport().isDeployed() && ((EntityInternal)e).getManagementContext().isRunning() && !isReadOnly(e);
+        return ((EntityInternal)e).getManagementSupport().isActive() && ((EntityInternal)e).getManagementContext().isRunning() && !isReadOnly(e);
+    }
+
+    /** If entity is under management or coming up and the management node is the primary for this entity, i.e. not read-only. */
+    public static boolean isManagedActiveOrComingUp(Entity e) {
+        return (isManagedActive(e) || !((EntityInternal)e).getManagementSupport().wasDeployed()) && !isReadOnly(e);
     }
 
     /** If entity is under management either as primary or in read-only (hot-standby) state. */
     public static boolean isManagedOrReadOnly(Entity e) {
-        return ((EntityInternal)e).getManagementSupport().isDeployed() && ((EntityInternal)e).getManagementContext().isRunning();
+        return ((EntityInternal)e).getManagementSupport().isActive() && ((EntityInternal)e).getManagementContext().isRunning();
     }
 
     public static boolean isNoLongerManaged(Entity e) {

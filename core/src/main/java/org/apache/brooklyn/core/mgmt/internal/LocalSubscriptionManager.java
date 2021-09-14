@@ -331,7 +331,14 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             }
             @Override
             public void run() {
-                BasicExecutionContext oldEC = ec instanceof BasicExecutionContext ? BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext)ec) : null;
+                BasicExecutionContext oldEC = null;
+                boolean setEC;
+                if (ec instanceof BasicExecutionContext) {
+                    oldEC = BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext) ec);
+                    setEC = true;
+                } else {
+                    setEC = false;
+                }
                 try {
                     
                     if (isEntityStarting) {
@@ -362,7 +369,9 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                         LOG.warn("Error processing subscriptions to "+this+": "+t, t);
                     }
                 } finally {
-                    BasicExecutionContext.setPerThreadExecutionContext(oldEC);
+                    if (setEC) {
+                        BasicExecutionContext.setPerThreadExecutionContext(oldEC);
+                    }
                 }
             }};
         if (!isInitialPublicationOfOldValueInCorrectScheduledThread) {

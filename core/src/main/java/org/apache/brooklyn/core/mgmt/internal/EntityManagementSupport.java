@@ -91,6 +91,7 @@ public class EntityManagementSupport {
     protected transient volatile ExecutionContext executionContext;
     
     protected final AtomicBoolean managementContextUsable = new AtomicBoolean(false);
+    protected final AtomicBoolean currentlyStopping = new AtomicBoolean(false);
     protected final AtomicBoolean currentlyDeployed = new AtomicBoolean(false);
     protected final AtomicBoolean everDeployed = new AtomicBoolean(false);
     protected Boolean readOnly = null;
@@ -107,11 +108,16 @@ public class EntityManagementSupport {
     }
 
     /**
-     * Use this instead of !Entities.isManaged(entity) to avoid skipping publishing ov values that to be published before the entity starts.
+     * Use this instead of negating {@link Entities#isManaged(Entity)} to avoid skipping publishing of values that to be published before the entity is deployed;
+     * or (better) see {@link Entities#isManagedActiveOrComingUp(Entity)}
      */
     public boolean isNoLongerManaged() {
         return wasDeployed() && !isDeployed();
     }
+
+    public boolean isActive() { return !isUnmanaging() && isDeployed(); }
+
+    public boolean isUnmanaging() { return currentlyStopping.get(); }
 
     /** whether entity has ever been deployed (managed) */
     public boolean wasDeployed() {
@@ -304,6 +310,7 @@ public class EntityManagementSupport {
     @SuppressWarnings("deprecation")
     public void onManagementStopping(ManagementTransitionInfo info, boolean wasDryRun) {
         synchronized (this) {
+            currentlyStopping.set(true);
             if (!wasDryRun) {
                 if (managementContext != info.getManagementContext()) {
                     throw new IllegalStateException("onManagementStopping encountered different management context for " + entity +
@@ -383,6 +390,7 @@ public class EntityManagementSupport {
             entityChangeListener = EntityChangeListener.NOOP;
             managementContextUsable.set(false);
             currentlyDeployed.set(false);
+            currentlyStopping.set(false);
             executionContext = null;
             subscriptionContext = null;
         }

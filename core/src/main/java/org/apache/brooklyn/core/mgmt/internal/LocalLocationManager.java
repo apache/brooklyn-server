@@ -153,8 +153,11 @@ public class LocalLocationManager implements LocationManagerInternal {
     
     synchronized void prePreManage(Location loc) {
         if (isPreRegistered(loc)) {
-            log.warn(""+this+" redundant call to pre-pre-manage location "+loc+"; skipping", 
-                    new Exception("source of duplicate pre-pre-manage of "+loc));
+            if (log.isTraceEnabled()) {
+                // seems to occur regularly on rebind, and not be a problem; ignore
+                log.trace("" + this + " redundant call to pre-pre-manage location " + loc + "; skipping",
+                        new Exception("source of duplicate pre-pre-manage of " + loc));
+            }
             return;
         }
         preRegisteredLocationsById.put(loc.getId(), loc);

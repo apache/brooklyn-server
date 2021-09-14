@@ -43,6 +43,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.LookupContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
@@ -71,6 +72,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -117,7 +119,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
     private final Map<String, StoreObjectAccessorWithLock> writers = new LinkedHashMap<String, PersistenceObjectStore.StoreObjectAccessorWithLock>();
 
-    private final ListeningExecutorService executor;
+    private ListeningExecutorService executor;
 
     private volatile boolean writesAllowed = false;
     private volatile boolean writesShuttingDown = false;
@@ -154,8 +156,6 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 .withClassLoader(classLoader).build();
         this.serializerWithStandardClassLoader = new RetryingMementoSerializer<Object>(rawSerializer, maxSerializationAttempts);
 
-        int maxThreadPoolSize = brooklynProperties.getConfig(PERSISTER_MAX_THREAD_POOL_SIZE);
-
         objectStore.createSubPath("entities");
         objectStore.createSubPath("locations");
         objectStore.createSubPath("policies");
@@ -166,11 +166,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         // FIXME does it belong here or to ManagementPlaneSyncRecordPersisterToObjectStore ?
         objectStore.createSubPath("plane");
         
-        executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(maxThreadPoolSize, new ThreadFactory() {
-            @Override public Thread newThread(Runnable r) {
-                // Note: Thread name referenced in logback-includes' ThreadNameDiscriminator
-                return new Thread(r, "brooklyn-persister");
-            }}));
+        resetExecutor();
+    }
+
+    private Integer maxThreadPoolSize() {
+        return brooklynProperties.getConfig(PERSISTER_MAX_THREAD_POOL_SIZE);
     }
 
     public MementoSerializer<Object> getMementoSerializer() {
@@ -210,8 +210,14 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         final ManagementContext managementContext = lookupContext.lookupManagementContext();
         RegisteredType catalogItem = managementContext.getTypeRegistry().get(catalogItemId);
         if (catalogItem == null) {
-            // TODO do we need to only log once, rather than risk log.warn too often? I think this only happens on rebind, so ok.
-            LOG.warn("Unable to load catalog item "+catalogItemId
+            // will happen on rebind if our execution should have ended
+            if (Thread.interrupted()) {
+                LOG.debug("Aborting (probably old) rebind iteration");
+                throw new RuntimeInterruptedException("Rebind iteration cancelled");
+            }
+
+            // might come here for other reasons too
+            LOG.debug("Unable to load registered type "+catalogItemId
                 +" for custom class loader of " + type + " " + objectId + "; will use default class loader");
             return null;
         } else {
@@ -245,7 +251,24 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     @Override 
     public void stop(boolean graceful) {
         disableWriteAccess(graceful);
-        
+        stopExecutor(graceful);
+    }
+
+    @Override
+    public void reset() {
+        resetExecutor();
+    }
+
+    public void resetExecutor() {
+        stopExecutor(false);
+        executor = MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(maxThreadPoolSize(), new ThreadFactory() {
+            @Override public Thread newThread(Runnable r) {
+                // Note: Thread name referenced in logback-includes' ThreadNameDiscriminator
+                return new Thread(r, "brooklyn-persister");
+            }}));
+    }
+
+    public void stopExecutor(boolean graceful) {
         if (executor != null) {
             if (graceful) {
                 executor.shutdown();
@@ -473,6 +496,8 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     
     @Override
     public BrooklynMemento loadMemento(BrooklynMementoRawData mementoData, final LookupContext lookupContext, final RebindExceptionHandler exceptionHandler) throws IOException {
+        LOG.debug("Loading mementos");
+
         if (mementoData==null)
             mementoData = loadMementoRawData(exceptionHandler);
 
@@ -543,10 +568,17 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             @Override
             public void run() {
                 try {
-                    visitor.visit(type, objectIdAndData.getKey(), objectIdAndData.getValue());
-                } catch (Exception e) {
-                    Exceptions.propagateIfFatal(e);
-                    exceptionHandler.onLoadMementoFailed(type, "memento "+objectIdAndData.getKey()+" "+phase+" error", e);
+                    try {
+                        visitor.visit(type, objectIdAndData.getKey(), objectIdAndData.getValue());
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        if (Thread.currentThread().isInterrupted()) {
+                            throw new RuntimeInterruptedException("Interruption discovered", e);
+                        }
+                        exceptionHandler.onLoadMementoFailed(type, "memento " + objectIdAndData.getKey() + " " + phase + " error", e);
+                    }
+                } catch (RuntimeInterruptedException e) {
+                    LOG.debug("Ending persistence on interruption, probably cancelled when server about to transition: "+e);
                 }
             }
         }
@@ -569,7 +601,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 if (future.isDone()) {
                     try {
                         future.get();
-                    } catch (InterruptedException e2) {
+                    } catch (InterruptedException|RuntimeInterruptedException e2) {
                         throw Exceptions.propagate(e2);
                     } catch (ExecutionException e2) {
                         LOG.warn("Problem loading memento ("+phase+"): "+e2, e2);
@@ -619,7 +651,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
-                    addPersistContentIfManagedBundle(type, entry.getKey(), futures, exceptionHandler);
+                    addPersistContentIfManagedBundle(type, entry.getKey(), entry.getValue(), futures, exceptionHandler);
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
                 }
             }
@@ -705,7 +737,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
-                        addPersistContentIfManagedBundle(type, item.getId(), futures, exceptionHandler);
+                        addPersistContentIfManagedBundle(type, item.getId(), ""+item.getCatalogItemId()+"/"+item.getDisplayName(), futures, exceptionHandler);
                         futures.add(asyncPersist(type.getSubPathName(), item, exceptionHandler));
                     }
                 }
@@ -735,14 +767,17 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return lastErrors;
     }
 
-    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
+    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, final String summaryOrContents, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
         if (type==BrooklynObjectType.MANAGED_BUNDLE) {
             if (mgmt==null) {
                 throw new IllegalStateException("Cannot persist bundles without a management context");
             }
             final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
+            LOG.debug("Persisting managed bundle "+id+": "+mb+" - "+summaryOrContents);
             if (mb==null) {
-                LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring");
+                // previously happened on rebind because new osgi unique id was made; now it should use the same so we shouldn't see this,
+                // but if we do the log will contain a summary or contents for comparison which will help
+                LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring (probably uninstalled or reinstalled with another OSGi ID; see debug log for contents)");
                 return;
             }
             

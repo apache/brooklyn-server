@@ -261,7 +261,7 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             }
         } catch (Throwable e) {
             Exceptions.propagateIfFatal(e);
-            if (Entities.isNoLongerManaged(entity)) throw Exceptions.propagate(e);
+            if (!Entities.isManagedActive(entity)) throw Exceptions.propagate(e);
             
             Throwable root = Throwables.getRootCause(e);
             if (root instanceof UserFacingException) {

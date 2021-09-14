@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import java.util.stream.Collectors;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -48,7 +50,9 @@ import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
@@ -61,11 +65,14 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,7 +121,8 @@ public class RebindManagerImpl implements RebindManager {
     public static final Logger LOG = LoggerFactory.getLogger(RebindManagerImpl.class);
 
     private final ManagementContextInternal managementContext;
-    
+
+    // TODO separate times for persist and read-only rebind, allow configurable, default at least for RO rebind larger
     private volatile Duration periodicPersistPeriod = Duration.ONE_SECOND;
     
     private volatile boolean persistenceRunning = false;
@@ -147,7 +155,7 @@ public class RebindManagerImpl implements RebindManager {
     private PersistenceActivityMetrics persistMetrics = new PersistenceActivityMetrics();
 
     Integer firstRebindAppCount, firstRebindEntityCount, firstRebindItemCount;
-    
+
     /**
      * For tracking if rebinding, for {@link AbstractEnricher#isRebinding()} etc.
      *  
@@ -312,6 +320,7 @@ public class RebindManagerImpl implements RebindManager {
     
     @Override
     public void startReadOnly(final ManagementNodeState mode) {
+        LOG.debug("Starting RO rebind for "+mode+": "+this);
         if (!ManagementNodeState.isHotProxy(mode)) {
             throw new IllegalStateException("Read-only rebind thread only permitted for hot proxy modes; not "+mode);
         }
@@ -339,7 +348,7 @@ public class RebindManagerImpl implements RebindManager {
         
         Callable<Task<?>> taskFactory = new Callable<Task<?>>() {
             @Override public Task<Void> call() {
-                return Tasks.<Void>builder().dynamic(false).displayName("rebind (periodic run").body(new Callable<Void>() {
+                return Tasks.<Void>builder().dynamic(false).displayName("rebind (periodic run)").body(new Callable<Void>() {
                     @Override
                     public Void call() {
                         try {
@@ -370,6 +379,7 @@ public class RebindManagerImpl implements RebindManager {
                     }}).build();
             }
         };
+        LOG.debug("Submitted scheduled RO rebind task for "+mode+": "+this);
         readOnlyTask = (ScheduledTask) managementContext.getServerExecutionContext().submit(
             ScheduledTask.builder(taskFactory).displayName("scheduled:[periodic-read-only-rebind]").period(periodicPersistPeriod).build() );
     }
@@ -386,13 +396,84 @@ public class RebindManagerImpl implements RebindManager {
                 LOG.warn("Rebind (read-only) tasks took too long to die after interrupt (ignoring): "+readOnlyTask);
             }
             readOnlyTask = null;
+            if (persistenceStoreAccess!=null) {
+                persistenceStoreAccess.reset();
+            }
             LOG.debug("Stopped read-only rebinding ("+this+"), mgmt "+managementContext.getManagementNodeId());
+
+            // short waits when promoting
+            stopEntityTasksAndCleanUp("when stopping hot proxy read-only mode",
+                    Duration.seconds(2),
+                    Duration.seconds(5));
+            // note, items are subsequently unmanaged via:
+            // HighAvailabilityManagerImpl.clearManagedItems
+            readOnlyRebindCount.set(0);
         }
+    }
+
+    public void stopEntityTasksAndCleanUp(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning) {
+        // TODO inputs should be configurable
+        if (!managementContext.isRunning() || managementContext.getExecutionManager().isShutdown()) {
+            return;
+        }
+
+        // wait for tasks
+        Collection<Task<?>> entityTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
+                .stream().filter(t -> BrooklynTaskTags.getContextEntity(t) != null).collect(Collectors.toList());
+        List<Task<?>> openTasksIncludingCancelled;
+        CountdownTimer timeBeforeCancelling = CountdownTimer.newInstanceStarted(delayBeforeCancelling);
+        CountdownTimer timeBeforeAbandoning = CountdownTimer.newInstanceStarted(delayBeforeAbandoning);
+        Duration backoff = Duration.millis(10);
+        do {
+            openTasksIncludingCancelled = entityTasks.stream().filter(t -> !t.isDone(true)).collect(Collectors.toList());
+            if (openTasksIncludingCancelled.isEmpty()) break;
+
+            List<Task<?>> openTasksCancellable = openTasksIncludingCancelled.stream().filter(t -> !t.isDone()).collect(Collectors.toList());
+            List<Task<?>> openTasksScheduled = openTasksCancellable.stream().filter(t -> t instanceof ScheduledTask).collect(Collectors.toList());
+
+            if (!openTasksScheduled.isEmpty()) {
+                // stop scheduled tasks immediately
+                openTasksScheduled.forEach(t -> t.cancel(false));
+                continue;
+            }
+
+            if (timeBeforeCancelling!=null && timeBeforeCancelling.isExpired() && !openTasksCancellable.isEmpty()) {
+                LOG.warn("Aborting " + openTasksCancellable.size() + " incomplete task(s) "+reason+": " + openTasksCancellable);
+                openTasksCancellable.forEach(t -> t.cancel(true));
+                timeBeforeCancelling = null;
+            }
+
+            if (timeBeforeAbandoning.isExpired()) break;
+
+            if (timeBeforeAbandoning.getDurationElapsed().isShorterThan(backoff)) {
+                LOG.info("Waiting on " + openTasksIncludingCancelled.size() + " task(s) "+reason+": " + openTasksIncludingCancelled);
+            }
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Waiting on " + openTasksIncludingCancelled.size() + " task(s) " + reason + ", details: " +
+                        openTasksIncludingCancelled.stream().map(t -> "" + t + "(" + BrooklynTaskTags.getContextEntity(t) + ")").collect(Collectors.toList()));
+            }
+
+            Time.sleep(Duration.min(timeBeforeAbandoning.getDurationRemaining(), backoff));
+            backoff = Duration.min(backoff.multiply(2), Duration.millis(200));
+
+        } while (true);
+
+        entityTasks.forEach(((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask);
+
+        List<Task<?>> otherDoneTasks = ((BasicExecutionManager) managementContext.getExecutionManager()).allTasksLive()
+                .stream().filter(t -> t.isDone(true)).collect(Collectors.toList());
+        otherDoneTasks.forEach(((BasicExecutionManager) managementContext.getExecutionManager())::deleteTask);
+
+        // also collect tasks, so that unmanaged entities are cleared before next run
+        ((LocalManagementContext)managementContext).getGarbageCollector().gcTasks();
     }
 
     @Override
     public void reset() {
         if (persistenceRealChangeListener != null && !persistenceRealChangeListener.isActive()) persistenceRealChangeListener.reset();
+        if (persistenceStoreAccess!=null) {
+            persistenceStoreAccess.reset();
+        }
     }
     
     @Override
@@ -409,6 +490,7 @@ public class RebindManagerImpl implements RebindManager {
 
     @Override
     public void stop() {
+        LOG.debug("Stopping rebind manager "+this);
         stopReadOnly();
         stopPersistence();
         if (persistenceStoreAccess != null) persistenceStoreAccess.stop(true);

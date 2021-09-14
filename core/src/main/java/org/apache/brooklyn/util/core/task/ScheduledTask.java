@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.core.BrooklynLogging;
+import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
@@ -33,6 +37,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -73,6 +78,7 @@ public class ScheduledTask extends BasicTask<Object> {
      */
     protected boolean cancelOnException = true;
 
+    protected ExecutionContext executionContext;
     protected int runCount=0;
     protected Task<?> recentRun, nextRun;
     Class<? extends Exception> lastThrownType;
@@ -261,6 +267,7 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     protected boolean doCancel(org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode mode) {
+        BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, LoggingLevel.DEBUG, "Cancelling scheduled task "+this);
         if (nextRun!=null) {
             ((TaskInternal<?>)nextRun).cancel(mode);
             try {

@@ -185,7 +185,7 @@ public class ServiceStateLogic {
     private static void waitBrieflyForServiceUpIfStateIsRunning(Entity entity, Lifecycle state) {
         if (state==Lifecycle.RUNNING) {
             Boolean up = entity.getAttribute(Attributes.SERVICE_UP);
-            if (!Boolean.TRUE.equals(up) && !Entities.isReadOnly(entity)) {
+            if (!Boolean.TRUE.equals(up) && Entities.isManagedActive(entity)) {
                 // pause briefly to allow any recent problem-clearing processing to complete
                 Stopwatch timer = Stopwatch.createStarted();
                 boolean nowUp = Repeater.create()
@@ -196,8 +196,10 @@ public class ServiceStateLogic {
                 if (nowUp) {
                     log.debug("Had to wait "+Duration.of(timer)+" for "+entity+" "+Attributes.SERVICE_UP+" to be true before setting "+state);
                 } else {
-                    log.warn("Service is not up when setting "+state+" on "+entity+"; delayed "+Duration.of(timer)+" "
-                            + "but "+Attributes.SERVICE_UP+" did not recover from "+up+"; not-up-indicators="+entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
+                    if (Entities.isManagedActive(entity)) {
+                        log.warn("Service is not up when setting " + state + " on " + entity + "; delayed " + Duration.of(timer) + " "
+                                + "but " + Attributes.SERVICE_UP + " did not recover from " + up + "; not-up-indicators=" + entity.getAttribute(Attributes.SERVICE_NOT_UP_INDICATORS));
+                    }
                 }
             }
         }
@@ -322,6 +324,9 @@ public class ServiceStateLogic {
             if (Boolean.TRUE.equals(serviceUp) && (problems==null || problems.isEmpty())) {
                 return Maybe.of(Lifecycle.RUNNING);
             } else {
+                if (!Entities.isManagedActive(entity)) {
+                    return Maybe.absent("entity not managed active");
+                }
                 if (!Lifecycle.ON_FIRE.equals(entity.getAttribute(SERVICE_STATE_ACTUAL))) {
                     Lifecycle.Transition serviceExpected = entity.getAttribute(SERVICE_STATE_EXPECTED);
                     // very occasional race here; might want to give a grace period if entity has just transitioned,
