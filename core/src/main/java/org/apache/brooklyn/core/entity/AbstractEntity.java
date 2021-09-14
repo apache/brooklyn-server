@@ -924,7 +924,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         return sensors().get(attribute);
     }
 
-    static Set<String> WARNED_READ_ONLY_ATTRIBUTES = Collections.synchronizedSet(MutableSet.<String>of());
+    private static Set<String> LOGGED_PROMINENT_READ_ONLY_ATTRIBUTES = Collections.synchronizedSet(MutableSet.<String>of());
     
     
     // -------- CONFIGURATION --------------
@@ -971,33 +971,33 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 if (Equals.approximately(val, oldVal)) {
                     // ignore, probably an enricher resetting values or something on init
                 } else {
-                    String message = AbstractEntity.this+" setting "+attribute+" = "+val+" (was "+oldVal+") in read only mode; will have very little effect"; 
+                    String message = AbstractEntity.this+" setting "+attribute+" = "+val+" (was "+oldVal+") in read only mode; will not be persisted or published";
                     if (!getManagementSupport().isDeployed()) {
                         if (getManagementSupport().wasDeployed()) message += " (no longer deployed)"; 
                         else message += " (not yet deployed)";
                     }
-                    if (WARNED_READ_ONLY_ATTRIBUTES.add(attribute.getName())) {
-                        LOG.warn(message + " (future messages for this sensor logged at trace)");
+                    if (LOGGED_PROMINENT_READ_ONLY_ATTRIBUTES.add(attribute.getName())) {
+                        LOG.info(message + " (future messages for this sensor logged at trace)");
                     } else if (LOG.isTraceEnabled()) {
                         LOG.trace(message);
                     }
                 }
+
+                // suppress notifications if read only
+                return attributesInternal.updateInternalWithoutLockOrPublish(attribute, val);
             }
+
             T result = attributesInternal.update(attribute, val);
 
-            if (!Entities.isReadOnly(AbstractEntity.this)) {
-                // suppress notifications if read only
-
-                if (result == null) {
-                    // could be this is a new sensor
-                    entityType.addSensorIfAbsent(attribute);
-                }
-
-                if (!Objects.equal(result, val)) {
-                    getManagementSupport().getEntityChangeListener().onAttributeChanged(attribute);
-                }
+            if (result == null) {
+                // could be this is a new sensor
+                entityType.addSensorIfAbsent(attribute);
             }
-            
+
+            if (!Objects.equal(result, val)) {
+                getManagementSupport().getEntityChangeListener().onAttributeChanged(attribute);
+            }
+
             return result;
         }
 
@@ -1032,7 +1032,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                     if (getManagementSupport().wasDeployed()) message += " (no longer deployed)"; 
                     else message += " (not yet deployed)";
                 }
-                if (WARNED_READ_ONLY_ATTRIBUTES.add(attribute.getName())) {
+                if (LOGGED_PROMINENT_READ_ONLY_ATTRIBUTES.add(attribute.getName())) {
                     LOG.warn(message + " (future messages for this sensor logged at trace)");
                 } else if (LOG.isTraceEnabled()) {
                     LOG.trace(message);
