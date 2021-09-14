@@ -154,7 +154,9 @@ public class MultiSessionAttributeAdapter {
             if(preferredSession!=null) {
                 // need to create a local session so the ID/session is registered with this ui module
                 if (r instanceof Request) {
-                // but synch on the session handler to avoid race conditions in the underlying code
+
+                // synch and own lookup to avoid the following warning
+
 //                2021-09-13T08:12:33,186Z - WARN  254 o.e.j.s.session [p1568796312-1154]
 //                java.lang.IllegalStateException: Session node0171nuqxrc6qsf1tbrmxztok6xc4 already in cache
 //                at org.eclipse.jetty.server.session.AbstractSessionCache.add(AbstractSessionCache.java:467) ~[!/:9.4.39.v20210325]
@@ -163,7 +165,15 @@ public class MultiSessionAttributeAdapter {
 //                at org.eclipse.jetty.server.Request.getSession(Request.java:1602) ~[!/:9.4.39.v20210325]
 //                at org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter.of(MultiSessionAttributeAdapter.java:155) ~[!/:1.1.0-SNAPSHOT]
                     synchronized (((Request)r).getSessionHandler()) {
-                        localSession = r.getSession();
+                        try {
+                            String id = ((Request) r).getSessionHandler().getSessionIdManager().newSessionId(r, System.currentTimeMillis());
+                            localSession = ((Request) r).getSessionHandler().getSession(id);
+                        } catch (Exception e) {
+                            log.debug("Unable to retrieve session via safe override, falling back to default: "+e);
+                        }
+                        if (localSession==null) {
+                            localSession = r.getSession();
+                        }
                     }
                 } else {
                     localSession = r.getSession();
