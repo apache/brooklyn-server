@@ -269,6 +269,8 @@ public final class Sanitizer {
             return (K) applySet((Set) input, visited);
         } else if (input instanceof String) {
             return (K) sanitizeMultilineString((String) input);
+        } else if (input instanceof ConfigBag) {
+            return (K) ConfigBag.newInstance( applyMap( ((ConfigBag)input).getAllConfig(), visited) );
         } else {
             return (K) input;
         }
