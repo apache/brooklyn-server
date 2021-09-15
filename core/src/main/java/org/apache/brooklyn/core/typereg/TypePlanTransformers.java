@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
@@ -159,7 +160,7 @@ public class TypePlanTransformers {
             String prefix = Strings.isBlank(type.getPlan().getPlanFormat()) ? "Invalid plan" : "Invalid '"+type.getPlan().getPlanFormat()+"' plan";
             if (transformers.isEmpty()) {
                 result = new UnsupportedTypePlanException(prefix + "; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+
-                    (type.getId()!=null ? type.getId() : "plan:\n"+type.getPlan().getPlanData()));
+                    (type.getId()!=null ? type.getId() : "plan:\n"+ Sanitizer.sanitizeJsonTypes(type.getPlan().getPlanData())));
             } else {
                 result = new UnsupportedTypePlanException(prefix + "; potentially applicable transformers "+transformers+" do not support it, and other available transformers "+
 //                    // the removeAll call below won't work until "all" caches it

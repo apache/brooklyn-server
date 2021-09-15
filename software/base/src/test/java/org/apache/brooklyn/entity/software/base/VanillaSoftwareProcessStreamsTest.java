@@ -71,7 +71,7 @@ public class VanillaSoftwareProcessStreamsTest extends AbstractSoftwareProcessSt
         // Prepare expected environment variables, secret names are keys with values that should be masked in env stream
         Map<String, String> expectedEnv = new ImmutableMap.Builder<String, String>()
                 .put("KEY1", "VAL1")
-                .putAll(Sanitizer.SECRET_NAMES.stream().collect(Collectors.toMap(item -> item, item -> item)))
+                .putAll(Sanitizer.DEFAULT_SENSITIVE_FIELDS_TOKENS.stream().collect(Collectors.toMap(item -> item, item -> item)))
                 .build();
 
         // Create configuration
@@ -115,9 +115,9 @@ public class VanillaSoftwareProcessStreamsTest extends AbstractSoftwareProcessSt
         // Calculate MD5 hash for all keys that are expected to be masked and verify them displayed masked in env stream
         Map<String, String> expectedMaskedEnv = new ImmutableMap.Builder<String, String>()
                 .put("KEY1", "VAL1") // this key must appear unmasked, it is not in the list of SECRET NAMES to mask
-                .putAll(Sanitizer.SECRET_NAMES.stream().collect(Collectors.toMap(
+                .putAll(Sanitizer.DEFAULT_SENSITIVE_FIELDS_TOKENS.stream().collect(Collectors.toMap(
                         item -> item, // key and expected masked (suppressed) value for a SECRET NAME with MD5 hash
-                        item -> "<suppressed> (MD5 hash: " + Streams.getMd5Checksum(new ByteArrayInputStream(item.getBytes())) + ")")))
+                        Sanitizer::suppress)))
                 .build();
         assertEnvStream(entity, expectedMaskedEnv);
     }

@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import com.google.common.reflect.TypeToken;
+import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 import java.util.List;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -29,12 +30,15 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -206,6 +210,8 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
             addDepthTagsWhereMissing( ((EntitySpec<?>)spec).getChildren(), 1 );
         }
 
+        checkSecuritySensitiveFields(spec);
+
         return spec;
     }
 
@@ -217,6 +223,35 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
                 addDepthTagsWhereMissing(c.getChildren(), depth+1);
             }
         });
+    }
+
+    @Beta
+    public static AbstractBrooklynObjectSpec<?,?> checkSecuritySensitiveFields(AbstractBrooklynObjectSpec<?,?> spec) {
+        if (Sanitizer.isSensitiveFieldsPlaintextBlocked()) {
+            // if blocking plaintext values, check them before instantiating
+            Predicate<Object> predicate = Sanitizer.IS_SECRET_PREDICATE;
+            spec.getConfig().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key.getName(), val) );
+            spec.getFlags().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key, val) );
+        }
+        return spec;
+    }
+
+    public static void failOnInsecureValueForSensitiveNamedField(Predicate<Object> tokens, String key, Object val) {
+        if (val instanceof DeferredSupplier || val==null) {
+            // value allowed; key is irrelevant
+            return;
+        }
+        if (!tokens.apply(key)) {
+            // not a sensitive named key
+            return;
+        }
+
+        // sensitive named key
+        if (val instanceof String || Boxing.isPrimitiveOrBoxedClass(val.getClass()) || val instanceof Number) {
+            // value
+            throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers must be used here");
+        }
+        // complex values allowed
     }
 
 }

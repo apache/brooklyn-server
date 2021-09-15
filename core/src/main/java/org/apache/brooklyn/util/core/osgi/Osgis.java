@@ -18,6 +18,11 @@
  */
 package org.apache.brooklyn.util.core.osgi;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,8 +33,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.jar.JarInputStream;
 import java.util.jar.Manifest;
-
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -45,17 +50,12 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.VersionComparator;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleException;
+import org.osgi.framework.ServiceReference;
 import org.osgi.framework.Version;
 import org.osgi.framework.VersionRange;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 
 /** 
  * utilities for working with osgi.
@@ -407,4 +407,13 @@ public class Osgis {
         Bundle bundle = org.osgi.framework.FrameworkUtil.getBundle(clazz);
         return Optional.fromNullable(bundle);
     }
+
+    public static ManagementContext getManagementContext() {
+        Bundle bundle = Osgis.getBundleOf(Osgis.class).orNull();
+        if (bundle == null) return null;
+        ServiceReference<ManagementContext> svc = bundle.getBundleContext().getServiceReference(ManagementContext.class);
+        if (svc == null) return null;
+        return bundle.getBundleContext().getService(svc);
+    }
+
 }

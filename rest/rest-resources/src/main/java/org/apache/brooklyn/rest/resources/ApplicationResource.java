@@ -23,6 +23,7 @@ import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.config.Sanitizer;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -444,7 +445,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             }
         }
 
-        log.debug("Creating app from yaml:\n{}", yaml);
+        log.debug("Creating app from yaml:\n{}", Sanitizer.sanitizeMultilineString(yaml));
 
         EntitySpec<? extends Application> spec;
         try {
@@ -498,7 +499,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             CreationResult<Application,Void> result = EntityManagementUtils.start(app);
             waitForStart(app, Duration.millis(100));
 
-            log.info("Launched from plan: " + planForReference + " -> " + app + " (" + result.task() + ")");
+            log.info("Launched from plan: " + Sanitizer.sanitizeMultilineString(planForReference) + " -> " + app + " (" + result.task() + ")");
 
             URI ref = serviceAbsoluteUriBuilder(ui.getBaseUriBuilder(), ApplicationApi.class, "get").build(app.getApplicationId());
             ResponseBuilder response = created(ref);

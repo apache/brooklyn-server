@@ -53,6 +53,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -562,7 +563,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
         Map<?,?> catalogMetadata = getFirstAsMap(itemDef, "brooklyn.catalog").orNull();
         if (catalogMetadata==null)
-            log.warn("No `brooklyn.catalog` supplied in catalog request; using legacy mode for "+itemDef);
+            log.warn("No `brooklyn.catalog` supplied in catalog request; using legacy mode for "+Sanitizer.sanitize(itemDef));
         catalogMetadata = MutableMap.copyOf(catalogMetadata);
 
         collectCatalogItemsFromItemMetadataBlock(Yamls.getTextOfYamlAtPath(yaml, "brooklyn.catalog").getMatchedYamlTextOrWarn(), 
@@ -812,7 +813,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // TODO we should let the plan transformer give us this
                 symbolicName = setFromItemIfUnset(symbolicName, itemAsMap, "template_name");
                 if (Strings.isBlank(symbolicName)) {
-                    log.error("Can't infer catalog item symbolicName from the following plan:\n" + sourceYaml);
+                    log.error("Can't infer catalog item symbolicName from the following plan:\n" + Sanitizer.sanitizeJsonTypes(sourceYaml));
                     throw new IllegalStateException("Can't infer catalog item symbolicName from catalog item metadata");
                 }
             }
@@ -870,7 +871,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (Strings.isNonBlank(symbolicName)) {
                     id = symbolicName;
                 } else {
-                    log.error("Can't infer catalog item id from the following plan:\n" + sourceYaml);
+                    log.error("Can't infer catalog item id from the following plan:\n" + Sanitizer.sanitizeJsonTypes(sourceYaml));
                     throw new IllegalStateException("Can't infer catalog item id from catalog item metadata");
                 }
             }
@@ -1686,7 +1687,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override
     public List<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate) {
-        log.debug("Adding catalog item to "+mgmt+": "+yaml);
+        log.debug("Adding catalog item to "+mgmt+": "+Sanitizer.sanitizeJsonTypes(yaml));
         checkNotNull(yaml, "yaml");
         List<CatalogItemDtoAbstract<?, ?>> result = MutableList.of();
         collectCatalogItemsFromCatalogBomRoot("caller-supplied YAML", yaml, bundle, result, null, true, ImmutableMap.of(), 0, forceUpdate, true);
@@ -1717,7 +1718,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override @Beta
     public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result) {
-        log.debug("Catalog load, adding registered types to "+mgmt+" for bundle "+bundle+": "+yaml);
+        log.debug("Catalog load, adding registered types to "+mgmt+" for bundle "+bundle+": "+Sanitizer.sanitizeJsonTypes(yaml));
         checkNotNull(yaml, "yaml");
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot("bundle BOM in "+bundle, yaml, bundle, null, result, false, MutableMap.of(), 0, forceUpdate, false);
@@ -1736,7 +1737,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         // often in tests we don't have osgi and so it acts as follows
-        log.debug("Catalog load, adding registered types to "+mgmt+": "+catalogYaml);
+        log.debug("Catalog load, adding registered types to "+mgmt+": "+ Sanitizer.sanitizeMultilineString(catalogYaml));
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot("unbundled catalog definition", catalogYaml, null, null, result, false, MutableMap.of(), 0, forceUpdate, true);
 

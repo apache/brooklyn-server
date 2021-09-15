@@ -170,5 +170,10 @@ public class BrooklynServerConfig {
     public static Maybe<URI> getBrooklynWebUri(ManagementContext mgmt) {
         return mgmt.getManagementNodeUri();
     }
-    
+
+    public static final ConfigKey<List<String>> SENSITIVE_FIELDS_TOKENS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "brooklyn.security.sensitive.fields.tokens",
+            "List of tokens which get treated as sensitive-named fields and suppressed in many places");
+    public static final ConfigKey<Boolean> SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = ConfigKeys.newBooleanConfigKey("brooklyn.security.sensitive.fields.plaintext.blocked",
+            "Whether plaintext values for sensitive-named fields are blocked");
+
 }

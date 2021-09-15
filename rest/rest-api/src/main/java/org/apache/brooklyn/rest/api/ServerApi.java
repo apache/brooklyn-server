@@ -108,7 +108,8 @@ public interface ServerApi {
     @GET
     @Path("/up/extended")
     @ApiOperation(value = "Returns extended server-up information, a map including up (/up), shuttingDown (/shuttingDown), healthy (/healthy), and ha (/ha/states) (qv)"
-        + "; also forces a session, so a useful general-purpose call for a UI client to do when starting")
+            + " as well as selected settings such as sensitive field treatment"
+            + "; also forces a session, so a useful general-purpose call for a UI client to do when starting")
     public Map<String,Object> getUpExtended();
 
     @GET
