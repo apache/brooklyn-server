@@ -32,7 +32,6 @@ node(label: 'ubuntu') {
         def dockerTag = env.BUILD_TAG.replace('%2F', '-')
 
         withEnv(["DOCKER_TAG=${dockerTag}"]) {
-          docker.withRegistry('https://registry.hub.docker.com') {
             stage('Clone repository') {
                 checkout scm
             }
@@ -41,6 +40,7 @@ node(label: 'ubuntu') {
                 echo 'Creating maven cache ...'
                 sh 'mkdir -p ${WORKSPACE}/.m2'
                 echo 'Building docker image for test environment ...'
+                sh 'docker logout'
                 environmentDockerImage = docker.build('brooklyn:${DOCKER_TAG}')
             }
 
@@ -49,7 +49,6 @@ node(label: 'ubuntu') {
                     sh 'mvn clean install -Duser.home=/var/maven -Duser.name=jenkins'
                 }
             }
-          }
         }
     }
 
