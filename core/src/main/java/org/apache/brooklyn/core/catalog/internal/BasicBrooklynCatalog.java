@@ -53,6 +53,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.CatalogPredicates;
 import org.apache.brooklyn.core.catalog.internal.CatalogClasspathDo.CatalogScanningModes;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -1736,7 +1737,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
 
         // often in tests we don't have osgi and so it acts as follows
-        log.debug("Catalog load, adding registered types to "+mgmt+": "+catalogYaml);
+        log.debug("Catalog load, adding registered types to "+mgmt+": "+ Sanitizer.sanitizeMultilineString(catalogYaml));
         if (result==null) result = MutableMap.of();
         collectCatalogItemsFromCatalogBomRoot("unbundled catalog definition", catalogYaml, null, null, result, false, MutableMap.of(), 0, forceUpdate, true);
 

@@ -109,10 +109,7 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
-            return decorateWithCommonTags(
-                    checkSecuritySensitiveFields(
-                            new CampResolver(mgmt, type, context).createSpec()
-                    ),
+            return decorateWithCommonTags(new CampResolver(mgmt, type, context).createSpec(),
                     type, null, null, prevHeadSpecSummary -> "Based on "+prevHeadSpecSummary);
 
         } catch (Exception e) {
@@ -138,35 +135,6 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
                 throw e;
             }
         }
-    }
-
-    @Beta
-    public static AbstractBrooklynObjectSpec<?,?> checkSecuritySensitiveFields(AbstractBrooklynObjectSpec<?,?> spec) {
-        if (Sanitizer.isSensitiveFieldsPlaintextBlocked()) {
-            // if blocking plaintext values, check them before instantiating
-            Predicate<Object> predicate = Sanitizer.IS_SECRET_PREDICATE;
-            spec.getConfig().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key.getName(), val) );
-            spec.getFlags().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key, val) );
-        }
-        return spec;
-    }
-
-    public static void failOnInsecureValueForSensitiveNamedField(Predicate<Object> tokens, String key, Object val) {
-        if (val instanceof BrooklynDslDeferredSupplier || val==null) {
-            // value allowed; key is irrelevant
-            return;
-        }
-        if (!tokens.apply(key)) {
-            // not a sensitive named key
-            return;
-        }
-
-        // sensitive named key
-        if (val instanceof String || Boxing.isPrimitiveOrBoxedClass(val.getClass()) || val instanceof Number) {
-            // value
-            throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers must be used here");
-        }
-        // complex values allowed
     }
 
     @Override

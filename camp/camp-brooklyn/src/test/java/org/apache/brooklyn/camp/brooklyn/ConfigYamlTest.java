@@ -18,10 +18,15 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.annotations.Beta;
 import java.util.Map;
+import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -552,4 +557,41 @@ public class ConfigYamlTest extends AbstractYamlTest {
                 e -> e.toString().contains("1.5"));
     }
 
+    @Test
+    public void testSensitiveConfigFailsIfConfigured() throws Exception {
+        Asserts.assertFailsWith(() -> {
+            return withSensitiveFieldsBlocked(() -> {
+                String yaml = Joiner.on("\n").join(
+                        "services:",
+                        "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                        "  brooklyn.config:",
+                        "    secret1: myval");
+
+                return createStartWaitAndLogApplication(yaml);
+            });
+        }, e -> {
+            Asserts.expectedFailureContainsIgnoreCase(e, "secret1");
+            Asserts.expectedFailureDoesNotContain(e, "myval");
+            return true;
+        });
+    }
+
+    @Beta
+    public static <T> T withSensitiveFieldsBlocked(Callable<T> r) throws Exception {
+        String oldValue =
+                //((BrooklynProperties) mgmt().getConfig()).put(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED, true);
+                System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getName(), "true");
+        Sanitizer.getSensitiveFieldsTokens(true);
+        Assert.assertTrue( Sanitizer.isSensitiveFieldsPlaintextBlocked() );
+
+        try {
+
+            return r.call();
+
+        } finally {
+            //((BrooklynProperties) mgmt().getConfig()).put(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED, oldValue);
+            System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getName(), oldValue!=null ? oldValue : "");
+            Sanitizer.getSensitiveFieldsTokens(true);
+        }
+    }
 }

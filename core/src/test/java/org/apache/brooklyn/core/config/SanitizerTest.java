@@ -18,20 +18,16 @@
  */
 package org.apache.brooklyn.core.config;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import java.io.ByteArrayInputStream;
+import java.util.Map;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import static org.testng.Assert.assertEquals;
-
-import java.util.Map;
-
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.annotations.Test;
-
-import com.google.common.base.Functions;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 
 public class SanitizerTest {
 

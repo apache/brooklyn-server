@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -148,6 +149,9 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
                 spec = classFactory.apply((Class<DTInterface>)type).parameters(BasicSpecParameter.fromClass(mgmt, type));
             }
             spec.configure(decoLoader.getConfigMap());
+
+            AbstractTypePlanTransformer.checkSecuritySensitiveFields(spec);
+
             return spec;
         }
 

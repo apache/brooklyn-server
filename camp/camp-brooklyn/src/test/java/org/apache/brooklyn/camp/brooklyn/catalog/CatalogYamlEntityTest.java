@@ -24,10 +24,13 @@ import java.util.Collection;
 import java.util.Set;
 
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.camp.brooklyn.ConfigYamlTest;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -66,7 +69,9 @@ import com.google.common.collect.Iterables;
 public class CatalogYamlEntityTest extends AbstractYamlTest {
 
     protected static final String TEST_VERSION_SNAPSHOT = TEST_VERSION + "-SNAPSHOT";
-    
+
+    private static final Logger LOG = LoggerFactory.getLogger(CatalogYamlEntityTest.class);
+
     @Test
     public void testAddCatalogItemVerySimple() throws Exception {
         String symbolicName = "my.catalog.app.id.load";
@@ -202,6 +207,30 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
         assertEquals(catalogItem.getVersion(), TEST_VERSION);
         mgmt().getCatalog().deleteCatalogItem(id, TEST_VERSION);
     }
+
+    @Test
+    public void testAddCatalogItemWithPlaintextValueForSensitiveNamedFieldBlocked() throws Exception {
+        String id = "sensitive-fields-1";
+        Asserts.assertFailsWith(() -> {
+            return ConfigYamlTest.withSensitiveFieldsBlocked(() -> {
+                addCatalogItems(
+                        "brooklyn.catalog:",
+                        "  name: " + id,
+                        "  itemType: entity",
+                        "  item:",
+                        "    type: "+ BasicEntity.class.getName(),
+                        "    brooklyn.config:",
+                        "      secret1: myval");
+                return null;
+            });
+        }, e -> {
+            LOG.info("Got error (as expected): "+e);
+            Asserts.expectedFailureContainsIgnoreCase(e, "secret1");
+            Asserts.expectedFailureDoesNotContain(e, "myval");
+            return true;
+        });
+    }
+
 
     @Test
     public void testLaunchApplicationReferencingCatalog() throws Exception {

@@ -89,7 +89,7 @@ public class EffectorUtilsRestTest extends BrooklynAppUnitTestSupport {
         assertEquals(
                 summary.getDescription(),
                 "Invoking effector resetPassword on "+TestEntityWithEffectors.class.getSimpleName()+":"+entity.getId().substring(0,4)
-                    +" with parameters {"+sensitiveField1+"=xxxxxxxx, "+sensitiveField2+"=xxxxxxxx}",
+                    +" with parameters {"+sensitiveField1+"=<suppressed> (MD5 hash: 5E70B271), "+sensitiveField2+"=<suppressed> (MD5 hash: 81DC9BDB)}",
                 "Task summary must hide sensitive parameters");
     }
 

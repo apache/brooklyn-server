@@ -63,6 +63,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -283,6 +284,13 @@ public class BrooklynComponentTemplateResolver {
         new BrooklynEntityDecorationResolver.TagsResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
 
         configureEntityConfig(spec, encounteredRegisteredTypeIds);
+
+        // check security. we probably used the catalog resolver which will have delegated to the transformer;
+        // but if we used the java resolver or one of the others, then:
+        // - we won't have all the right source tags, but that's okay
+        // - depth will come from the containing transformer and so be ignored here (which is fine, none of them should have children)
+        // - secure fields won't be scanned - need to fix that; just check again here on the spec, and above on the spec decorations
+        AbstractTypePlanTransformer.checkSecuritySensitiveFields(spec);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })

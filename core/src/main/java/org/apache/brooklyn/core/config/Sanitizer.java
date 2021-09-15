@@ -68,7 +68,8 @@ public final class Sanitizer {
     private static long LAST_SENSITIVE_FIELDS_CACHE_MILLIS = 60*1000;
 
     private static final void refreshProperties(Boolean refresh) {
-        if (Boolean.FALSE.equals(refresh) || LAST_SENSITIVE_FIELDS_LOAD_TIME + LAST_SENSITIVE_FIELDS_CACHE_MILLIS > System.currentTimeMillis()) {
+        if (Boolean.FALSE.equals(refresh) ||
+                (refresh==null && (LAST_SENSITIVE_FIELDS_LOAD_TIME + LAST_SENSITIVE_FIELDS_CACHE_MILLIS > System.currentTimeMillis()))) {
             return;
         }
         synchronized (Sanitizer.class) {
@@ -98,7 +99,7 @@ public final class Sanitizer {
                 }
 
                 if (plaintextBlocked==null) {
-                    StringSystemProperty plaintextSP = new StringSystemProperty(SENSITIVE_FIELDS_TOKENS.getName());
+                    StringSystemProperty plaintextSP = new StringSystemProperty(SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getName());
                     if (plaintextSP.isNonEmpty()) {
                         plaintextBlocked = TypeCoercions.coerce(plaintextSP.getValue(), SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getTypeToken());
                     }
