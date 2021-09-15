@@ -32,6 +32,7 @@ node(label: 'ubuntu') {
         def dockerTag = env.BUILD_TAG.replace('%2F', '-')
 
         withEnv(["DOCKER_TAG=${dockerTag}"]) {
+          docker.withRegistry('https://registry.hub.docker.com') {
             stage('Clone repository') {
                 checkout scm
             }
@@ -48,6 +49,7 @@ node(label: 'ubuntu') {
                     sh 'mvn clean install -Duser.home=/var/maven -Duser.name=jenkins'
                 }
             }
+          }
         }
     }
 
