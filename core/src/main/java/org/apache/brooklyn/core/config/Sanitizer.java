@@ -134,20 +134,21 @@ public final class Sanitizer {
     public static final Predicate<Object> IS_SECRET_PREDICATE = new IsSecretPredicate();
 
     public static Object suppressIfSecret(Object key, Object value) {
-        if (Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
+        if (value!=null && Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
             return suppress(value);
         }
         return value;
     }
 
     public static String suppress(Object value) {
+        if (value==null) return null;
         // only include the first few chars so that malicious observers can't uniquely brute-force discover the source
         String md5Checksum = Strings.maxlen(Streams.getMd5Checksum(new ByteArrayInputStream(("" + value).getBytes())), 8);
         return "<suppressed> (MD5 hash: " + md5Checksum + ")";
     }
 
     public static String suppressIfSecret(Object key, String value) {
-        if (Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
+        if (value!=null && Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
             return suppress(value);
         }
         return value;
