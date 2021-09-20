@@ -379,6 +379,15 @@ public class BrooklynVersion implements BrooklynVersionService {
             return newFeature(headers);
         }
 
+        private static void ifHeaderAddKey(Dictionary<String, String> headers, String header, Map<String, String> additionalData, String key) {
+            if (!additionalData.containsKey(key)) {
+                String v = headers.get(header);
+                if (v!=null && !v.toLowerCase().equals("unknown")) {
+                    additionalData.put(key, headers.get(header));
+                }
+            }
+        }
+
         /** @return Present if any attribute name begins with {@link #BROOKLYN_FEATURE_PREFIX}, absent otherwise. */
         private static Optional<BrooklynFeature> newFeature(Dictionary<String,String> headers) {
             Map<String, String> additionalData = Maps.newHashMap();
@@ -400,6 +409,9 @@ public class BrooklynVersion implements BrooklynVersionService {
             String name = Optional.fromNullable(additionalData.remove(nameKey))
                     .or(Optional.fromNullable(Constants.BUNDLE_NAME))
                     .or(headers.get(Constants.BUNDLE_SYMBOLICNAME));
+
+            ifHeaderAddKey(headers, "Implementation-SHA-1", additionalData, "buildSha1");
+            ifHeaderAddKey(headers, "Implementation-Branch", additionalData, "buildBranch");
 
             return Optional.of(new BrooklynFeature(
                     name,
