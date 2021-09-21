@@ -67,7 +67,7 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return decorateWithCommonTags(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
+        return decorateWithCommonTagsModifyingSpecSummary(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
             isApplicationExpected(type, context) ? 0 : 1), type, "example-xml", null, null);
     }
 

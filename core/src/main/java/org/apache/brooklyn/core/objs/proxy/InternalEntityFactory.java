@@ -50,6 +50,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.AggregateClassLoader;
@@ -303,7 +304,12 @@ public class InternalEntityFactory extends InternalFactory {
                 entity.tags().addTags(spec.getTags());
                 addSpecParameters(spec, theEntity.getMutableEntityType());
 
-                theEntity.configure(MutableMap.copyOf(spec.getFlags()));
+                Map<String, ?> flags = MutableMap.copyOf(spec.getFlags());
+                Object extraTags = flags.remove("tags");
+                if (extraTags!=null) {
+                    theEntity.tags().addTags(TypeCoercions.coerce(extraTags, Iterable.class));
+                }
+                theEntity.configure(flags);
                 for (Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
                     entity.config().set((ConfigKey) entry.getKey(), entry.getValue());
                 }

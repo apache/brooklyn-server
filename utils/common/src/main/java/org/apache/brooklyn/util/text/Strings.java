@@ -668,6 +668,11 @@ public class Strings {
         return value.substring(0, 1).toUpperCase(Locale.ENGLISH) + value.substring(1).toLowerCase(Locale.ENGLISH);
     }
 
+    public static String toInitialLowerCase(String value) {
+        if (value==null || value.length()==0) return value;
+        return value.substring(0, 1).toLowerCase(Locale.ENGLISH) + value.substring(1);
+    }
+
     public static String reverse(String name) {
         return new StringBuffer(name).reverse().toString();
     }

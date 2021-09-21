@@ -15,6 +15,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import org.apache.brooklyn.entity.stock.BasicEntity;
 import static org.testng.Assert.assertTrue;
 
 import javax.annotation.Nullable;
@@ -131,6 +132,39 @@ public class TagsYamlTest extends AbstractYamlTest {
                 "  brooklyn.tags:",
                 "  - $brooklyn:formatString(\"myval\")");
         assertTrue(app.tags().getTags().contains("myval"));
+    }
+
+    @Test
+    public void testBrooklynCampApplicationTag() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "tags:",
+                "- oldStyle",
+                "brooklyn.tags:",
+                "- newStyle");
+        assertTrue(app.tags().getTags().contains("oldStyle"));
+        assertTrue(app.tags().getTags().contains("newStyle"));
+    }
+
+    @Test
+    public void testBrooklynCampApplicationNewStyleOnlyTag() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "brooklyn.tags:",
+                "- newStyle");
+        assertTrue(app.tags().getTags().contains("newStyle"));
+    }
+
+    @Test
+    public void testBrooklynCampApplicationOldStyleOnlyTag() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "tags:",
+                "- oldStyle");
+        assertTrue(app.tags().getTags().contains("oldStyle"));
     }
 
     public static class TagsTestObject {

@@ -304,11 +304,15 @@ public class BrooklynTags {
             return specList.remove(0);
         }
 
+        @Beta @Deprecated /** @deprecated since 1.1 use {@link #modifyHeadSpecSummary(List, java.util.function.Function)} */
         public static boolean modifyHeadSummary(List<SpecSummary> specList, java.util.function.Function<String, String> previousSummaryModification) {
+            return modifyHeadSpecSummary(specList, s -> previousSummaryModification.apply(s.summary));
+        }
+        public static boolean modifyHeadSpecSummary(List<SpecSummary> specList, java.util.function.Function<SpecSummary, String> previousSummaryModification) {
             if (!specList.isEmpty() && previousSummaryModification!=null) {
                 SpecSummary oldHead = popFromList(specList);
                 SpecSummary newPrevHead = SpecSummary.builder(oldHead).summary(
-                        previousSummaryModification.apply(oldHead.summary)).build();
+                        previousSummaryModification.apply(oldHead)).build();
                 pushToList(specList, newPrevHead);
                 return true;
             }

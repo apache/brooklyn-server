@@ -113,7 +113,10 @@ public class TypeTransformer {
         List<SpecSummary> specList = MutableList.of(currentSpec);
         if(specTag!= null){
             // put the original spec tags first
-            SpecSummary.modifyHeadSummary(specList, s -> "Converted to "+s);
+            SpecSummary.modifyHeadSpecSummary(specList, s ->
+                    s.summary.startsWith(s.format) ? "Converted to "+s :
+                    s.summary.contains(s.format) ? s.summary + ", converted" :
+                    s.summary + ", converted to "+s.format);
             SpecSummary.pushToList(specList, specTag);
         }
         result.setExtraField("specList", specList);

@@ -172,9 +172,18 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
     protected abstract Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
 
+    @Beta
+    @Deprecated /** @deprecated since 1.1.0 when introduced */
     protected AbstractBrooklynObjectSpec<?,?> decorateWithCommonTags(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
                                                                      @Nullable String format, @Nullable String summary,
                                                                      @Nullable Function<String,String> previousSummaryModification) {
+        return decorateWithCommonTagsModifyingSpecSummary(spec, type, format, summary,
+                previousSummaryModification==null ? null : s -> previousSummaryModification.apply(s.summary));
+    }
+    @Beta
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithCommonTagsModifyingSpecSummary(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
+                                                                     @Nullable String format, @Nullable String summary,
+                                                                     @Nullable Function<SpecSummary,String> previousSummaryModification) {
         if (Strings.isBlank(format)) format = getFormatCode();
         final String specSummaryText = Strings.isNonBlank(summary)
                 ? summary
@@ -193,7 +202,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
         List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
         if (specTag != null) {
-            SpecSummary.modifyHeadSummary(specTag, previousSummaryModification);
+            SpecSummary.modifyHeadSpecSummary(specTag, previousSummaryModification);
             SpecSummary.pushToList(specTag, specSummary);
         } else {
             specTag = MutableList.of(specSummary);
@@ -201,7 +210,10 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
         List<SpecSummary> sources = BrooklynTags.findSpecHierarchyTag(type.getTags());
         if (sources != null) {
-            SpecSummary.modifyHeadSummary(specTag, s -> "Converted for catalog to "+s);
+            SpecSummary.modifyHeadSpecSummary(specTag, s ->
+                    s.summary.startsWith(s.format) ? "Converted for catalog to "+s.summary :
+                    s.summary.contains(s.format) ? s.summary + ", converted for catalog" :
+                    s.summary + ", converted to "+s.format+" for catalog");
             SpecSummary.pushToList(specTag, sources);
         }
         BrooklynTags.upsertSingleKeyMapValueTag(spec, BrooklynTags.SPEC_HIERARCHY, specTag);

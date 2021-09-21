@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.text.Strings;
 
 public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
@@ -109,8 +110,10 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
-            return decorateWithCommonTags(new CampResolver(mgmt, type, context).createSpec(),
-                    type, null, null, prevHeadSpecSummary -> "Based on "+prevHeadSpecSummary);
+            return decorateWithCommonTagsModifyingSpecSummary(new CampResolver(mgmt, type, context).createSpec(),
+                    type, null, null, prevHeadSpecSummary ->
+                            prevHeadSpecSummary.summary.startsWith(prevHeadSpecSummary.format) ? "Based on "+prevHeadSpecSummary.summary :
+                                    prevHeadSpecSummary.summary);
 
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
