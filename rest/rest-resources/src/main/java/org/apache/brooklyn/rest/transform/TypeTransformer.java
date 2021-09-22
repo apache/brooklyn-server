@@ -114,7 +114,7 @@ public class TypeTransformer {
         if(specTag!= null){
             // put the original spec tags first
             SpecSummary.modifyHeadSpecSummary(specList, s ->
-                    s.summary.startsWith(s.format) ? "Converted to "+s :
+                    s.summary.startsWith(s.format) ? "Converted to "+s.summary :
                     s.summary.contains(s.format) ? s.summary + ", converted" :
                     s.summary + ", converted to "+s.format);
             SpecSummary.pushToList(specList, specTag);
