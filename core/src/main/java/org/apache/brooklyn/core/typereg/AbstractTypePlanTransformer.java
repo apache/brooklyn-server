@@ -259,8 +259,16 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
         }
 
         // sensitive named key
+
+        if (val instanceof String) {
+            if (((String) val).startsWith("$brooklyn:")) {
+                // DSL expression, allow
+                return;
+            }
+        }
+
         if (val instanceof String || Boxing.isPrimitiveOrBoxedClass(val.getClass()) || val instanceof Number) {
-            // value
+            // non-DSL plaintext value
             throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers must be used here");
         }
         // complex values allowed
