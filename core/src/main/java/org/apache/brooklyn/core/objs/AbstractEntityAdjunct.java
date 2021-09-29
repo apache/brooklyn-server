@@ -115,13 +115,13 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     private Map<String, HighlightTuple> highlights = new ConcurrentHashMap<>();
 
     /** Name of a highlight that indicates the last action taken by this adjunct. */
-    public static String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
+    public static final String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
     /** Name of a highlight that indicates the last confirmation detected by this adjunct. */
-    public static String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
+    public static final String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
     /** Name of a highlight that indicates the last violation detected by this adjunct. */
-    public static String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
+    public static final String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
     /** Name of a highlight that indicates the triggers for this adjunct. */
-    public static String HIGHLIGHT_NAME_TRIGGERS = "triggers";
+    public static final String HIGHLIGHT_NAME_TRIGGERS = "triggers";
 
     public AbstractEntityAdjunct() {
         this(Collections.emptyMap());

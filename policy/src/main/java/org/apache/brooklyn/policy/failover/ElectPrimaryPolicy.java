@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -254,7 +255,7 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             if (result instanceof Map) code = Strings.toString( ((Map<?,?>)result).get("code") );
             
             if (ElectPrimaryEffector.ResultCode.NEW_PRIMARY_ELECTED.name().equalsIgnoreCase(code)) {
-                highlightAction("New primary elected: "+((Map<?,?>)result).get("primary"), null);
+                highlightAction("New primary elected: "+niceName(((Map<?,?>)result).get("primary")), null);
             }
             if (ElectPrimaryEffector.ResultCode.NO_PRIMARY_AVAILABLE.name().equalsIgnoreCase(code)) {
                 highlightViolation("No primary available");
@@ -281,5 +282,18 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             rescanInProgress = false;
         }
     }
-    
+
+    private String niceName(Object primary) {
+        if (primary instanceof BrooklynObject) {
+            if (Strings.isNonBlank( ((BrooklynObject)primary).getDisplayName() )) {
+                String name = ((BrooklynObject)primary).getDisplayName();
+                if (!name.contains( ((BrooklynObject)primary).getId() )) {
+                    name += " ("+((BrooklynObject)primary).getId()+")";
+                }
+                return name;
+            }
+        }
+        return ""+primary;
+    }
+
 }
