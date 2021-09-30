@@ -18,9 +18,11 @@
  */
 package org.apache.brooklyn.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.Set;
 import org.apache.brooklyn.rest.resources.*;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.FormMapProvider;
@@ -29,6 +31,7 @@ import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
 import com.google.common.collect.Iterables;
 
 import io.swagger.jaxrs.listing.SwaggerSerializers;
+import org.apache.brooklyn.util.collections.MutableSet;
 
 public class BrooklynRestApi {
 
@@ -71,7 +74,22 @@ public class BrooklynRestApi {
         return resources;
     }
 
+    static Set<Object> extraResources = MutableSet.of();
+
+    @VisibleForTesting
+    public static void addExtraResource(Object resource) {
+        extraResources.add(resource);
+    }
+    @VisibleForTesting
+    public static Set<Object> getExtraResourcesMutable() {
+        return extraResources;
+    }
+
+    public static Set<Object> getExtraResources() {
+        return MutableSet.copyOf(extraResources);
+    }
+
     public static Iterable<Object> getAllResources() {
-        return Iterables.concat(getBrooklynRestResources(), getApidocResources(), getMiscResources());
+        return Iterables.concat(getBrooklynRestResources(), getApidocResources(), getMiscResources(), getExtraResources());
     }
 }

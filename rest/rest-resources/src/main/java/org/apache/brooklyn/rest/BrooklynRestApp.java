@@ -30,7 +30,7 @@ public class BrooklynRestApp extends Application {
     private Set<Object> singletons;
 
     public BrooklynRestApp() {
-        singletons = Sets.newHashSet(BrooklynRestApi.getAllResources());
+        singletons = Sets.newLinkedHashSet(BrooklynRestApi.getAllResources());
     }
 
     public BrooklynRestApp singleton(Object singleton) {
