@@ -47,11 +47,17 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
+import static org.apache.brooklyn.util.core.logbook.LogbookConfig.LOGBOOK_LOG_STORE_CLASSNAME;
 
 /**
  * Implementation for expose log from an existing file to the logbook API
  */
 public class FileLogStore implements LogStore {
+
+    // Added for having an early warning in case the default configuration is changed and also to detect changes in  future refactors
+    static {
+        assert FileLogStore.class.getName().equals(LOGBOOK_LOG_STORE_CLASSNAME.getDefaultValue());
+    }
 
     /*
     # Example config for local default implementation

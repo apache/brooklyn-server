@@ -61,13 +61,13 @@ public class DelegatingLogStore implements LogStore {
         String className = brooklynProperties.getConfig(LogbookConfig.LOGBOOK_LOG_STORE_CLASSNAME);
         try {
             // TODO implement logic to allow to inject the implementation from other bundle.
-            log.info("Brooklyn Logbook: using log store " + className);
             ClassLoaderUtils clu = new ClassLoaderUtils(this, mgmt);
             Class<? extends LogStore> clazz = (Class<? extends LogStore>) clu.loadClass(className);
             delegate = createLogStoreProviderInstance(mgmt, clazz);
+            log.info("Brooklyn Logbook: using log store " + className);
         } catch (Exception e) {
             log.warn("Brooklyn Logbook: unable to instantiate Log Store '" + className + "'. Fall back on FileLogStore", e.getMessage());
-            log.debug("", e);
+            log.debug("Exception thrown trying to instantiate {} as LogStore:", className, e);
             delegate = new FileLogStore(mgmt);
         }
 

@@ -25,7 +25,7 @@ public class LogbookConfig {
     public final static String BASE_NAME_LOGBOOK = "brooklyn.logbook";
 
     public final static ConfigKey<String> LOGBOOK_LOG_STORE_CLASSNAME = ConfigKeys.newStringConfigKey(
-            BASE_NAME_LOGBOOK + ".logStore", "Log store implementation class name");
+            BASE_NAME_LOGBOOK + ".logStore", "Log store implementation class name","org.apache.brooklyn.util.core.logbook.file.FileLogStore");
 
     public final static ConfigKey<LogStore> LOGBOOK_LOG_STORE_INSTANCE = ConfigKeys.newConfigKey(LogStore.class,
             LOGBOOK_LOG_STORE_CLASSNAME.getName() + ".internal.instance", "instance of a pre-configured log store");
