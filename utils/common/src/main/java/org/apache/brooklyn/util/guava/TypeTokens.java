@@ -19,6 +19,7 @@
 package org.apache.brooklyn.util.guava;
 
 import com.fasterxml.jackson.databind.type.ArrayType;
+import com.google.common.annotations.Beta;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
@@ -183,6 +184,41 @@ public class TypeTokens {
 
     public static <T> TypeToken<?>[] getGenericParameterTypeTokensWhenUpcastToClassRaw(TypeToken<?> t, Class<?> clazz) {
         return getGenericParameterTypeTokensWhenUpcastToClass(t, (Class)clazz);
+    }
+
+    /** find the lowest common ancestor of the two types, filling in generics info, and ignoring Object; but that's hard so this does some heuristics for common cases */
+    @Beta
+    public static TypeToken<?> union(TypeToken<?> t1, TypeToken<?> t2, boolean ignoreObject) {
+        if (t1.equals(t2)) return t1;
+
+        if (ignoreObject) {
+            if (t1.getRawType().equals(Object.class)) return t2;
+            if (t2.getRawType().equals(Object.class)) return t1;
+        }
+
+        if (t1.getRawType().equals(t2.getRawType())) {
+            // if equal, prefer one whose generics are more specific
+            TypeToken<?>[] tokens1 = getGenericParameterTypeTokens(t1);
+            TypeToken<?>[] tokens2 = getGenericParameterTypeTokens(t1);
+            if (tokens1.length>0 && tokens2.length>0) {
+                // just look at first one to see who wins
+                TypeToken<?> union0 = union(tokens1[0], tokens2[0], true);
+                if (union0==tokens2[0]) return t2;
+                return t1;
+            } else if (tokens2.length>0) {
+                return t2;
+            }
+            return t1;
+        }
+
+        // prefer an ancestor (ideally we'd infer generics if needed at the parent, but skip for now)
+        if (t1.isAssignableFrom(t2)) return t1;
+        if (t2.isAssignableFrom(t1)) return t2;
+        if (t1.getRawType().isAssignableFrom(t2.getRawType())) return t1;
+        if (t2.getRawType().isAssignableFrom(t1.getRawType())) return t2;
+
+        // can't figure anything out, just pick one
+        return t1;
     }
 
 }

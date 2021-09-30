@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -35,6 +36,12 @@ public class TypeTokensTest {
         TypeToken<?> t = new TypeToken<Map<String,Integer>>() {};
         List<TypeToken<?>> genericArguments = TypeTokens.getGenericArguments(t);
         Assert.assertEquals(genericArguments, MutableList.of(TypeToken.of(String.class), TypeToken.of(Integer.class)));
+    }
+
+    @Test
+    public void testLowestCommonAncestor() {
+        TypeToken<?> map1 = new TypeToken<Map<String,Integer>>() {};
+        Assert.assertEquals( TypeTokens.union(TypeToken.of(MutableMap.class), map1, true), map1);
     }
 
 }
