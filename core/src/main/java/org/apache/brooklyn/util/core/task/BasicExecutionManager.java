@@ -70,6 +70,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
+import org.apache.brooklyn.util.core.task.BasicTask.PlaceholderTask;
 import org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -1083,15 +1084,7 @@ public class BasicExecutionManager implements ExecutionManager {
         }
 
         private <T> Task<T> gone() {
-            Task<T> t = Tasks.<T>builder().dynamic(false).displayName(displayName + " (placeholder for " + id + ")")
-                    .description("Details of the original task have been forgotten.")
-                    .body(Callables.returning((T) null)).build();
-            // don't really want anyone executing the "gone" task...
-            // also if we are GC'ing tasks then cancelled may help with cleanup 
-            // of sub-tasks that have lost their submitted-by-task reference ?
-            // also don't want warnings when it's finalized, this means we don't need ignoreIfNotRun()
-            ((BasicTask<T>) t).cancelled = true;
-            return t;
+            return PlaceholderTask.newPlaceholderForForgottenTask(id, displayName);
         }
     }
 
