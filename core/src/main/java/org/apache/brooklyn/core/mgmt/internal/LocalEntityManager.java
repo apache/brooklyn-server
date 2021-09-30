@@ -629,17 +629,17 @@ public class LocalEntityManager implements EntityManagerInternal {
         Collection<Exception> exceptions = MutableSet.of();
         try {
             boolean inTaskForThisEntity = entity.equals(BrooklynTaskTags.getContextEntity(Tasks.current()));
-            Task rootTask = null;
+            Set<String> currentAncestorIds = null;
             Set<Task<?>> tasksCancelled = MutableSet.of();
             for (Task<?> t: managementContext.getExecutionContext(entity).getTasks()) {
                 if (inTaskForThisEntity) {
-                    if (rootTask==null) {
-                        rootTask = getRootTask(Tasks.current());
+                    if (currentAncestorIds==null) {
+                        currentAncestorIds = getAncestorTaskIds(Tasks.current());
                     }
-                    if (Objects.equals(rootTask, getRootTask(t))) {
+                    if (getAncestorTaskIds(t).stream().anyMatch(currentAncestorIds::contains)) {
                         // don't cancel the task if:
                         // - the current task is against this entity, and
-                        // - the current task and target task are part of the same root true
+                        // - the current task and target task are part of the same root tree
                         // e.g. on "stop" don't cancel ourselves, don't cancel things our ancestors have submitted
                         // (direct ancestry check is not good enough, because we might be in a subtask of a deletion which has a DST manager,
                         // and cancelling the DST manager is almost as bad as cancelling ourselves);
@@ -696,13 +696,14 @@ public class LocalEntityManager implements EntityManagerInternal {
         return hasTaskAsAncestor(t.getSubmittedByTask(), potentialAncestor);
     }
 
-    private Task<?> getRootTask(Task<?> t) {
-        Task<?> result = t;
+    private Set<String> getAncestorTaskIds(Task<?> t) {
+        List<String> ancestorIds = MutableList.of();
         while (t!=null) {
-            result = t;
+            ancestorIds.add(t.getId());
             t = t.getSubmittedByTask();
         }
-        return result;
+        Collections.reverse(ancestorIds);
+        return MutableSet.copyOf(ancestorIds);
     }
 
     /**
