@@ -355,6 +355,8 @@ public class MementosGenerators {
         builder.url(bundle.getUrl())
             .symbolicName(bundle.getSymbolicName())
             .version(bundle.getSuppliedVersionString())
+            .checksum(bundle.getChecksum())
+            .deleteable(bundle.getDeleteable())
             .format(bundle.getFormat());
         return builder.build();
     }
