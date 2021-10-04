@@ -249,12 +249,19 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     }
 
     public static void failOnInsecureValueForSensitiveNamedField(Predicate<Object> tokens, String key, Object val) {
-        if (val instanceof DeferredSupplier || val==null) {
-            // value allowed; key is irrelevant
+        if (val==null) {
+            // not set; key is irrelevant
             return;
         }
+
         if (!tokens.apply(key)) {
             // not a sensitive named key
+            return;
+        }
+
+        if (val instanceof DeferredSupplier || val==null) {
+            // allows unless phrase blocked
+            failOnExtBlockedPhraseInValueForSensitiveNamedField(key, val);
             return;
         }
 
@@ -262,16 +269,30 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
 
         if (val instanceof String) {
             if (((String) val).startsWith("$brooklyn:")) {
-                // DSL expression, allow
+                // DSL expression, allow unless phrase blocked
+                failOnExtBlockedPhraseInValueForSensitiveNamedField(key, val);
                 return;
             }
         }
 
         if (val instanceof String || Boxing.isPrimitiveOrBoxedClass(val.getClass()) || val instanceof Number) {
             // non-DSL plaintext value
-            throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers must be used here");
+            throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers should be used here");
         }
-        // complex values allowed
+
+        // complex values allowed unless phrase blocked
+        failOnExtBlockedPhraseInValueForSensitiveNamedField(key, val);
+    }
+
+    private static void failOnExtBlockedPhraseInValueForSensitiveNamedField(String key, Object value) {
+        List<String> blockedPhrases = Sanitizer.getSensitiveFieldsExtBlockedPhrases();
+        if (blockedPhrases==null || blockedPhrases.isEmpty()) return;
+        String valS = ""+value;
+        for (String blockedPhrase: blockedPhrases) {
+            if (valS.contains(blockedPhrase)) {
+                throw new IllegalStateException("Improperly secured value supplied for '"+key+"'; value must not contain '"+blockedPhrase+"'");
+            }
+        }
     }
 
 }
