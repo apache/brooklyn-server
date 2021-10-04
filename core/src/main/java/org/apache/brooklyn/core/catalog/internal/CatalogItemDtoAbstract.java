@@ -441,7 +441,8 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
                         bwu.getSymbolicName(),
                         bwu.getSuppliedVersionString(),
                         bwu.getUrl(),
-                        bwu.getUrlCredential()));
+                        bwu.getUrlCredential(),
+                        bwu.getDeleteable()));
             } else if (object instanceof VersionedName) {
                 dto.add(new CatalogBundleDto(((VersionedName) object).getSymbolicName(), ((VersionedName) object).getVersionString(), null));
             } else {

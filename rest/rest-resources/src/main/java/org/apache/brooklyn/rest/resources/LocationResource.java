@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
@@ -192,6 +193,8 @@ public class LocationResource extends AbstractBrooklynRestResource implements Lo
 
         // TODO make all locations be part of the catalog, then flip the JS GUI to use catalog api
         if (deleteAllVersions(locationId)>0) return;
+        ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
+
         throw WebResourceUtils.notFound("No catalog item location matching %s; only catalog item locations can be deleted", locationId);
     }
     

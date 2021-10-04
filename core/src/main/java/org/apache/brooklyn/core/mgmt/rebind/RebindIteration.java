@@ -1379,7 +1379,7 @@ public abstract class RebindIteration {
 
         protected ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
             ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(),
-                    memento.getFormat(), null, memento.getChecksum());
+                    memento.getFormat(), null, memento.getChecksum(), memento.getDeleteable());
             FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
             return result;
         }

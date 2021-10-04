@@ -576,6 +576,39 @@ public class ConfigYamlTest extends AbstractYamlTest {
         });
     }
 
+    @Test
+    public void testSensitiveConfigDslWorksOrFailsDependingHowConfigured() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    secret1: $brooklyn:literal(\"myval\")");
+
+        // allowed
+        withSensitiveFieldsBlocked(() -> {
+            return createStartWaitAndLogApplication(yaml);
+        });
+
+        Asserts.assertFailsWith(() -> {
+            return withSensitiveFieldsBlocked(() -> {
+                String oldValue =
+                        //((BrooklynProperties) mgmt().getConfig()).put(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED, true);
+                        System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES.getName(), "[ \"$brooklyn:literal\" ]");
+                Sanitizer.getSensitiveFieldsTokens(true);
+                try {
+                    return createStartWaitAndLogApplication(yaml);
+                } finally {
+                    System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES.getName(), oldValue!=null ? oldValue : "");
+                    Sanitizer.getSensitiveFieldsTokens(true);
+                }
+            });
+        }, e -> {
+            Asserts.expectedFailureContainsIgnoreCase(e, "literal");
+            Asserts.expectedFailureDoesNotContain(e, "myval");
+            return true;
+        });
+    }
+
     @Beta
     public static <T> T withSensitiveFieldsBlocked(Callable<T> r) throws Exception {
         String oldValue =

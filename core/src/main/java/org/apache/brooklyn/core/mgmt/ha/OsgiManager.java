@@ -443,10 +443,15 @@ public class OsgiManager {
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, options);
     }
 
+    @Deprecated /** @deprecated since 1.1 use larger variant of method */
     public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, String format, boolean force) {
+        return install(input, format, force, null);
+    }
+    public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, String format, boolean force, Boolean deleteable) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setFormat(format);
         options.setForceUpdateOfNonSnapshots(force);
+        options.setDeleteable(deleteable);
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), input, options);
     }
 

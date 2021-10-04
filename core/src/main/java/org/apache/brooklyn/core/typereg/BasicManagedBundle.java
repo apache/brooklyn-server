@@ -42,6 +42,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String symbolicName;
     private String version;
     private String checksum;
+    private Boolean deleteable;
     private String osgiUniqueUrl;
     private String format;
     private String url;
@@ -60,11 +61,16 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this(name, version, url, null, credentials, checksum);
     }
 
+    /** @deprecated since 1.1 use larger constructor */ @Deprecated
     public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
-        init(name, version, url, format, credentials, checksum);
+        init(name, version, url, format, credentials, checksum, null);
     }
 
-    private void init(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
+    public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
+        init(name, version, url, format, credentials, checksum, deleteable);
+    }
+
+    private void init(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -77,18 +83,19 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.format = format;
         this.credentials = credentials;
         this.checksum = checksum;
+        this.deleteable = deleteable;
     }
 
-    private BasicManagedBundle(String id, String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
+    private BasicManagedBundle(String id, String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
         super(id);
-        init(name, version, url, format, credentials, checksum);
+        init(name, version, url, format, credentials, checksum, deleteable);
     }
 
     /** used when updating a persisted bundle, we want to use the coords (ID and OSGI unique URL) of the second with the checksum of the former;
      * the other fields should be the same between the two but if in doubt use the first argument
      */
     public static BasicManagedBundle copyFirstWithCoordsOfSecond(ManagedBundle update, ManagedBundle oldOneForCoordinates) {
-        BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum());
+        BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum(), update.getDeleteable());
         // we have secondary logic which should accept a change in the OSGi unique URL,
         // but more efficient if we use the original URL
         result.osgiUniqueUrl = oldOneForCoordinates.getOsgiUniqueUrl();
@@ -99,7 +106,12 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     public boolean isNameResolved() {
         return symbolicName != null && version != null;
     }
-    
+
+    @Override
+    public Boolean getDeleteable() {
+        return deleteable;
+    }
+
     @Override
     public String getSymbolicName() {
         return symbolicName;
@@ -264,7 +276,8 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
                 bundle.getUrl(),
                 null,
                 bundle.getUrlCredential(),
-                checksum);
+                checksum,
+                bundle instanceof ManagedBundle ? ((ManagedBundle)bundle).getDeleteable() : null);
     }
 
     public void setPersistenceNeeded(boolean val) {

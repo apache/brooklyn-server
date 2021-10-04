@@ -34,6 +34,7 @@ import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
@@ -152,7 +153,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-                .install(source, format, forceUpdate);
+                .install(source, format, forceUpdate, true);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
@@ -208,6 +209,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not an entity", symbolicName, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -228,6 +230,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not a policy", policyId, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -248,6 +251,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not a location", locationId, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -449,6 +453,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not an enricher", enricherId, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 

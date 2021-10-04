@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -45,6 +46,7 @@ public final class Sanitizer {
 
     public static final ConfigKey<List<String>> SENSITIVE_FIELDS_TOKENS = BrooklynServerConfig.SENSITIVE_FIELDS_TOKENS;
     public static final ConfigKey<Boolean> SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED;
+    public static final ConfigKey<List<String>> SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES = BrooklynServerConfig.SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES;
 
     /**
      * Names that, if they appear anywhere in an attribute/config/field
@@ -64,6 +66,8 @@ public final class Sanitizer {
 
     private static List<String> LAST_SENSITIVE_FIELDS_TOKENS = null;
     private static Boolean LAST_SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = null;
+    private static List<String> LAST_SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES = null;
+
     private static long LAST_SENSITIVE_FIELDS_LOAD_TIME = -1;
     private static long LAST_SENSITIVE_FIELDS_CACHE_MILLIS = 60*1000;
 
@@ -83,9 +87,11 @@ public final class Sanitizer {
                 ManagementContext mgmt = Osgis.getManagementContext();
                 List<String> tokens = null;
                 Boolean plaintextBlocked = null;
+                List<String> extPhrases = null;
                 if (mgmt != null) {
                     tokens = mgmt.getConfig().getConfig(SENSITIVE_FIELDS_TOKENS);
                     plaintextBlocked = mgmt.getConfig().getConfig(SENSITIVE_FIELDS_PLAINTEXT_BLOCKED);
+                    extPhrases = mgmt.getConfig().getConfig(SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES);
                 }
 
                 if (tokens==null) {
@@ -108,8 +114,19 @@ public final class Sanitizer {
                     plaintextBlocked = Boolean.FALSE;
                 }
 
+                if (extPhrases==null) {
+                    StringSystemProperty extPhrasesSP = new StringSystemProperty(SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES.getName());
+                    if (extPhrasesSP.isNonEmpty()) {
+                        extPhrases = TypeCoercions.coerce(extPhrasesSP.getValue(), SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES.getTypeToken());
+                    }
+                }
+                if (extPhrases==null) {
+                    extPhrases = MutableList.of();
+                }
+
                 LAST_SENSITIVE_FIELDS_TOKENS = tokens.stream().map(String::toLowerCase).collect(Collectors.toList());
                 LAST_SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = plaintextBlocked;
+                LAST_SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES = extPhrases;
                 LAST_SENSITIVE_FIELDS_LOAD_TIME = System.currentTimeMillis();
             }
         }
@@ -130,6 +147,15 @@ public final class Sanitizer {
         refreshProperties(refresh);
         return LAST_SENSITIVE_FIELDS_PLAINTEXT_BLOCKED;
     }
+
+    public static List<String> getSensitiveFieldsExtBlockedPhrases() {
+        return getSensitiveFieldsExtBlockedPhrases(null);
+    }
+    public static List<String> getSensitiveFieldsExtBlockedPhrases(Boolean refresh) {
+        refreshProperties(refresh);
+        return LAST_SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES;
+    }
+
 
     public static final Predicate<Object> IS_SECRET_PREDICATE = new IsSecretPredicate();
 

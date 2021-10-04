@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
 import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller.PrepareInstallResult;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
@@ -109,7 +110,7 @@ public class BrooklynCatalogBundleResolvers {
 
     public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, Supplier<InputStream> input,
                                                                            BundleInstallationOptions options) {
-        LOG.debug("Installing bundle {} / {}", input, (options==null ? null : options.knownBundleMetadata));
+        LOG.debug("Installing bundle {} / {} for {}", input, (options==null ? null : options.knownBundleMetadata), Entitlements.getEntitlementContextUser());
         File fileToDelete = null;
         if (input==null && options.knownBundleMetadata==null) {
             return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or reference must be supplied"));
@@ -152,7 +153,7 @@ public class BrooklynCatalogBundleResolvers {
                         firstResult = result.getWithoutError();
                     }
                     result.get();  // assert there is no error
-                    LOG.debug("Installed bundle {} / {}: {}: {}", input, (options==null ? null : options.knownBundleMetadata), result.get().getCode(), result.get().getMessage());
+                    LOG.debug("Installed bundle {} / {} for {}: {}: {}", input, (options==null ? null : options.knownBundleMetadata), Entitlements.getEntitlementContextUser(), result.get().getCode(), result.get().getMessage());
                     return result;
                 } catch (@SuppressWarnings("deprecation") UnsupportedCatalogBundleException e) {
                     resolversWhoDontSupport.add(t.getFormatCode() +
