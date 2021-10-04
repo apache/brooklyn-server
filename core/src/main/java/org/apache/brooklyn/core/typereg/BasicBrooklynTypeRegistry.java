@@ -515,7 +515,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         // if not osgi, everything is treated as a wrapper bundle
         if (osgi.isAbsent()) return true;
         VersionedName vn = VersionedName.fromString(bundleNameVersion);
-        Maybe<Bundle> b = osgi.get().findBundle(new BasicOsgiBundleWithUrl(vn.getSymbolicName(), vn.getOsgiVersionString(), null));
+        Maybe<Bundle> b = osgi.get().findBundle(new BasicOsgiBundleWithUrl(vn.getSymbolicName(), vn.getOsgiVersionString(), null, null, null));
         // if bundle not found it is an error or a race; we don't fail, but we shouldn't treat it as a wrapper
         if (b.isAbsent()) return false;
         

@@ -44,7 +44,8 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         protected String format;
         protected String url;
         protected String checksum;
-        
+        protected Boolean deleteable;
+
         public Builder symbolicName(String symbolicName) {
             this.symbolicName = symbolicName;
             return self();
@@ -70,6 +71,11 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
             return self();
         }
 
+        public Builder deleteable(Boolean deleteable) {
+            this.deleteable = deleteable;
+            return self();
+        }
+
         public Builder from(ManagedBundleMemento other) {
             super.from(other);
             symbolicName = other.getSymbolicName();
@@ -77,6 +83,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
             format = other.getFormat();
             url = other.getUrl();
             checksum = other.getChecksum();
+            deleteable = other.getDeleteable();
             return self();
         }
 
@@ -90,6 +97,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     private String format;
     private String url;
     private String checksum;
+    private Boolean deleteable;
     transient private ByteSource jarContent;
 
     @SuppressWarnings("unused") // For deserialisation
@@ -102,6 +110,7 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
         this.format = builder.format;
         this.url = builder.url;
         this.checksum = builder.checksum;
+        this.deleteable = builder.deleteable;
     }
 
     @Override
@@ -130,10 +139,13 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
     }
 
     @Override
+    public Boolean getDeleteable() { return deleteable; }
+
+    @Override
     public ByteSource getJarContent() {
         return jarContent;
     }
-    
+
     @Override
     public void setJarContent(ByteSource byteSource) {
         this.jarContent = byteSource;
@@ -159,7 +171,8 @@ public class BasicManagedBundleMemento extends AbstractMemento implements Manage
                 .add("version", getVersion())
                 .add("format", getFormat())
                 .add("url", getUrl())
-                .add("checksum", getChecksum());
+                .add("checksum", getChecksum())
+                .add("deleteable", getDeleteable());
     }
 
     @Override

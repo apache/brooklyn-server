@@ -49,7 +49,10 @@ public class BundleSummary implements Comparable<BundleSummary> {
 
     @JsonInclude(value=Include.ALWAYS)
     private final List<TypeSummary> types = MutableList.of();
-    
+
+    @JsonInclude(value=Include.NON_NULL)
+    private final Boolean deleteable;
+
     // not exported directly, but used to provide other top-level json fields
     // for specific types
     @JsonIgnore
@@ -59,11 +62,13 @@ public class BundleSummary implements Comparable<BundleSummary> {
     BundleSummary() {
         symbolicName = null;
         version = null;
+        deleteable = null;
     }
     
     public BundleSummary(OsgiBundleWithUrl bundle) {
         symbolicName = bundle.getSymbolicName();
         version = bundle.getSuppliedVersionString();
+        deleteable = bundle.getDeleteable();
     }
     
     /** Mutable map of other top-level metadata included on this DTO (eg listing config keys or effectors) */ 
@@ -98,7 +103,9 @@ public class BundleSummary implements Comparable<BundleSummary> {
     public List<TypeSummary> getTypes() {
         return types;
     }
-    
+
+    public Boolean getDeleteable() { return deleteable; }
+
     @Override
     public String toString() {
         return JavaClassNames.cleanSimpleClassName(this)+"["+symbolicName+":"+version+"]";

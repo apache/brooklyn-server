@@ -39,14 +39,20 @@ public class CatalogBundleDto implements CatalogBundle {
     private String version;
     private String url;
     private Credentials credential;
+    private Boolean deleteable;
 
     public CatalogBundleDto() {}
 
+    @Deprecated /** @deprecated since 1.1 use larger constructor */
     public CatalogBundleDto(String name, String version, String url) {
         this(name, version, url, null);
     }
 
+    @Deprecated /** @deprecated since 1.1 use larger constructor */
     public CatalogBundleDto(String name, String version, String url, @Nullable Credentials credential) {
+        this(name, version, url, credential, null);
+    }
+    public CatalogBundleDto(String name, String version, String url, @Nullable Credentials credential, @Nullable Boolean deleteable) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "url to an OSGi bundle is required");
         } else {
@@ -58,6 +64,7 @@ public class CatalogBundleDto implements CatalogBundle {
         this.version = version==null ? null : BrooklynVersionSyntax.toValidOsgiVersion(version);
         this.url = url;
         this.credential = credential;
+        this.deleteable = deleteable;
     }
 
     @Override
@@ -97,6 +104,11 @@ public class CatalogBundleDto implements CatalogBundle {
     }
 
     @Override
+    public Boolean getDeleteable() {
+        return deleteable;
+    }
+
+    @Override
     public String toString() {
         return MoreObjects.toStringHelper(this)
                 .add("symbolicName", symbolicName)
@@ -128,7 +140,7 @@ public class CatalogBundleDto implements CatalogBundle {
         if (osgi==null) return Maybe.absent("No OSGi manager");
         Maybe<Bundle> b2 = osgi.findBundle(b);
         if (b2.isAbsent()) return Maybe.absent("Nothing installed for "+b);
-        return Maybe.of(new CatalogBundleDto(b2.get().getSymbolicName(), b2.get().getVersion().toString(), b.getUrl()));
+        return Maybe.of(new CatalogBundleDto(b2.get().getSymbolicName(), b2.get().getVersion().toString(), b.getUrl(), b.getUrlCredential(), b.getDeleteable()));
     }
     
 }

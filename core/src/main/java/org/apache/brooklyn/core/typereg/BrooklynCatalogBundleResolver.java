@@ -99,6 +99,7 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
         protected boolean deferredStart = false;
         protected boolean start = true;
         protected boolean loadCatalogBom = true;
+        protected Boolean deleteable = null;
         protected ManagedBundle knownBundleMetadata = null;
 
         public void setFormat(String format) {
@@ -155,6 +156,12 @@ public interface BrooklynCatalogBundleResolver extends ManagementContextInjectab
 
         public boolean isValidateTypes() {
             return validateTypes;
+        }
+
+        public Boolean getDeleteable() { return deleteable; }
+
+        public void setDeleteable(Boolean deleteable) {
+            this.deleteable = deleteable;
         }
     }
 

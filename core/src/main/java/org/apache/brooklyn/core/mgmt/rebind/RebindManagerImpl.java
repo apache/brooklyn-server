@@ -504,15 +504,7 @@ public class RebindManagerImpl implements RebindManager {
         // failure at various points should leave proxies in a sensible state,
         // either pointing at old or at new, though this is relatively untested,
         // and some things e.g. policies might not be properly started
-        final RebindExceptionHandler exceptionHandler = 
-            RebindExceptionHandlerImpl.builder()
-                .danglingRefFailureMode(danglingRefFailureMode)
-                .danglingRefQuorumRequiredHealthy(danglingRefsQuorumRequiredHealthy)
-                .rebindFailureMode(rebindFailureMode)
-                .addConfigFailureMode(addConfigFailureMode)
-                .addPolicyFailureMode(addPolicyFailureMode)
-                .loadPolicyFailureMode(loadPolicyFailureMode)
-                .build();
+        final RebindExceptionHandler exceptionHandler = newExceptionHandler();
         final ManagementNodeState mode = getRebindMode();
 
         ActivePartialRebindIteration iteration = new ActivePartialRebindIteration(this, mode, classLoader, exceptionHandler,
@@ -597,14 +589,7 @@ public class RebindManagerImpl implements RebindManager {
         final ClassLoader classLoader = classLoaderO!=null ? classLoaderO :
             managementContext.getCatalogClassLoader();
         final RebindExceptionHandler exceptionHandler = exceptionHandlerO!=null ? exceptionHandlerO :
-            RebindExceptionHandlerImpl.builder()
-                .danglingRefFailureMode(danglingRefFailureMode)
-                .danglingRefQuorumRequiredHealthy(danglingRefsQuorumRequiredHealthy)
-                .rebindFailureMode(rebindFailureMode)
-                .addConfigFailureMode(addConfigFailureMode)
-                .addPolicyFailureMode(addPolicyFailureMode)
-                .loadPolicyFailureMode(loadPolicyFailureMode)
-                .build();
+                newExceptionHandler();
         final ManagementNodeState mode = modeO!=null ? modeO : getRebindMode();
         
         if (mode!=ManagementNodeState.MASTER && mode!=ManagementNodeState.HOT_STANDBY && mode!=ManagementNodeState.HOT_BACKUP)
@@ -619,7 +604,19 @@ public class RebindManagerImpl implements RebindManager {
             return rebindImpl(classLoader, exceptionHandler, mode);
         }
     }
-    
+
+    @Beta
+    public RebindExceptionHandler newExceptionHandler() {
+        return RebindExceptionHandlerImpl.builder()
+                .danglingRefFailureMode(danglingRefFailureMode)
+                .danglingRefQuorumRequiredHealthy(danglingRefsQuorumRequiredHealthy)
+                .rebindFailureMode(rebindFailureMode)
+                .addConfigFailureMode(addConfigFailureMode)
+                .addPolicyFailureMode(addPolicyFailureMode)
+                .loadPolicyFailureMode(loadPolicyFailureMode)
+                .build();
+    }
+
     @Override
     public BrooklynMementoRawData retrieveMementoRawData() {
         RebindExceptionHandler exceptionHandler = RebindExceptionHandlerImpl.builder()

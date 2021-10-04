@@ -44,7 +44,9 @@ import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -61,6 +63,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.rest.api.ServerApi;
 import org.apache.brooklyn.rest.domain.*;
@@ -588,16 +591,18 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
             // create raw memento of persisted state to be imported
             BrooklynMementoRawData newMementoRawData = tempMgmt.getRebindManager().retrieveMementoRawData();
+            BrooklynMementoManifest mementoManifest = persister.loadMementoManifest(newMementoRawData,
+                    ((RebindManagerImpl)rebindManager).newExceptionHandler());
 
             // install bundles to active management context
             for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()){
+                ManagedBundleMemento memento = mementoManifest.getBundle(bundleJar.getKey());
+                log.debug("Installing "+memento+" as part of persisted state import");
                 ReferenceWithError<OsgiBundleInstallationResult> bundleInstallResult = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-                        .install(InputStreamSource.of("Persistence import - bundle install", bundleJar.getValue().read()), "", false);
+                        .install(InputStreamSource.of("Persistence import - bundle install - "+memento, bundleJar.getValue().read()), "", false, memento.getDeleteable());
 
                 if (bundleInstallResult.hasError()) {
-                    if (log.isTraceEnabled()) {
-                        log.trace("Unable to create, format '', returning 400: "+bundleInstallResult.getError().getMessage(), bundleInstallResult.getError());
-                    }
+                    log.debug("Unable to create "+memento+", format '', throwing: "+bundleInstallResult.getError().getMessage(), bundleInstallResult.getError());
                     String errorMsg = "";
                     if (bundleInstallResult.getWithoutError()!=null) {
                         errorMsg = bundleInstallResult.getWithoutError().getMessage();
@@ -607,19 +612,25 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     throw new Exception(errorMsg);
                 }
                 if (!OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(bundleInstallResult.get().getCode()) && !OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE.equals(bundleInstallResult.get().getCode())) {
-                    TypeTransformer.bundleInstallationResult(bundleInstallResult.get(), mgmt(), brooklyn(), ui);
+                    BundleInstallationRestResult result = TypeTransformer.bundleInstallationResult(bundleInstallResult.get(), mgmt(), brooklyn(), ui);
+                    log.debug("Installed "+memento+" as part of persisted state import: "+result);
+                } else {
+                    log.debug("Installation of " + memento + " reported: " + bundleInstallResult.get());
                 }
             }
 
 
-            // write persisted items and rebind to load applications
+            // store persisted items and rebind to load applications
             BrooklynMementoRawData.Builder result = BrooklynMementoRawData.builder();
+
+            // bundles already initialized
+//            result.bundles(newMementoRawData.getBundles());
+
             result.planeId(mgmt().getManagementPlaneIdMaybe().orNull());
             result.entities(newMementoRawData.getEntities());
             result.locations(newMementoRawData.getLocations());
             result.policies(newMementoRawData.getPolicies());
             result.enrichers(newMementoRawData.getEnrichers());
-            result.feeds(newMementoRawData.getFeeds());
             result.feeds(newMementoRawData.getFeeds());
             result.catalogItems(newMementoRawData.getCatalogItems());
 
