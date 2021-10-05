@@ -141,7 +141,9 @@ public class BrooklynCatalogBundleResolvers {
             Map<BrooklynCatalogBundleResolver, Double> resolvers = forBundleWithScore(mgmt, input, options);
             Collection<String> resolversWhoDontSupport = new ArrayList<String>();
             Map<BrooklynCatalogBundleResolver, Exception> failuresFromResolvers = MutableMap.of();
-            for (BrooklynCatalogBundleResolver t : resolvers.keySet()) {
+            Double highestFailedScore = null;
+            for (Entry<BrooklynCatalogBundleResolver,Double> ti : resolvers.entrySet()) {
+                BrooklynCatalogBundleResolver t = ti.getKey();
                 try {
                     ReferenceWithError<OsgiBundleInstallationResult> result = t.install(input, options);
                     if (result == null) {
@@ -154,6 +156,17 @@ public class BrooklynCatalogBundleResolvers {
                     }
                     result.get();  // assert there is no error
                     LOG.debug("Installed bundle {} / {} for {}: {}: {}", input, (options==null ? null : options.knownBundleMetadata), Entitlements.getEntitlementContextUser(), result.get().getCode(), result.get().getMessage());
+                    if (highestFailedScore!=null) {
+                        if (highestFailedScore > 0.9 && (ti.getValue() == null || highestFailedScore > ti.getValue() + 0.1)) {
+                            // if there was an error from a high scoring resolver and a lower-scoring resolver accepted it, log a warning
+                            LOG.warn("Bundle {} was installed by fallback resolver {} because preferred resolver(s) reported issues: {} / {} (scores {})",
+                                    t, result.get().getMetadata(), resolversWhoDontSupport, failuresFromResolvers, resolvers);
+                        } else {
+                            // if there was an error from a high scoring resolver and a lower-scoring resolver accepted it, log a warning
+                            LOG.debug("Bundle {} was installed by resolver {} after other resolver(s) reported issues: {} / {} (scores {})",
+                                    t, result.get().getMetadata(), resolversWhoDontSupport, failuresFromResolvers, resolvers);
+                        }
+                    }
                     return result;
                 } catch (@SuppressWarnings("deprecation") UnsupportedCatalogBundleException e) {
                     resolversWhoDontSupport.add(t.getFormatCode() +
@@ -167,6 +180,7 @@ public class BrooklynCatalogBundleResolvers {
                             (t.getFormatCode() + " bundle installation error") + ": " +
                                     Exceptions.collapseText(e), e));
                 }
+                if (highestFailedScore==null) highestFailedScore = ti.getValue();
             }
 
             if (LOG.isDebugEnabled()) {
