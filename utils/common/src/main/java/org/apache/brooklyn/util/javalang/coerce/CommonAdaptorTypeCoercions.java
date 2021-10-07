@@ -19,11 +19,14 @@
 package org.apache.brooklyn.util.javalang.coerce;
 
 import com.google.common.annotations.Beta;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -37,7 +40,6 @@ import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
-import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
@@ -317,6 +319,12 @@ public class CommonAdaptorTypeCoercions {
                 case "notNull" :     return Predicates.notNull();
                 default: throw new IllegalArgumentException("Cannot convert string '" + input + "' to predicate");
                 }
+            }
+        });
+        registerAdapter(String.class, Path.class, new Function<String,Path>() {
+            @Override
+            public Path apply(final String input) {
+                return Paths.get(input);
             }
         });
     }
