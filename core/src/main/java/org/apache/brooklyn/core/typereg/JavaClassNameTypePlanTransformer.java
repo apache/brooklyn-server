@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
 
 /**
  * Instantiates classes from a registered type which simply
@@ -80,7 +81,14 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     }
 
     private Class<?> getType(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return RegisteredTypes.loadActualJavaType((String)type.getPlan().getPlanData(), mgmt, type, context);
+        String planData = ((String)type.getPlan().getPlanData()).trim();
+
+        // if catalog, or user, makes it look like yaml type: ... then remove that prefix
+        if (!Strings.isMultiLine(planData) && planData.startsWith("type: ")) {
+            planData = Strings.removeFromStart(planData, "type:").trim();
+        }
+
+        return RegisteredTypes.loadActualJavaType(planData, mgmt, type, context);
     }
     
     

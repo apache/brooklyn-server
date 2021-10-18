@@ -1262,7 +1262,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
             if (itemDefinitionParsedToStringOrMap instanceof String) {
                 if (((String)itemDefinitionParsedToStringOrMap).trim().indexOf("\n")<0) {
-                    // if just a one-line string supplied, treat at type unless it parses as a map
+                    // if just a one-line string supplied, treat as type unless it parses as a map
                     Object reparsed = null;
                     try {
                         reparsed = Iterables.getOnlyElement( Yamls.parseAll( (String) itemDefinitionParsedToStringOrMap ) );

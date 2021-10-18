@@ -526,7 +526,8 @@ public class InternalEntityFactory extends InternalFactory {
                 .map(className -> managementContext.getTypeRegistry()
                         .getMaybe(className, null)
                         .map(registeredType -> (EntityInitializer) managementContext.getTypeRegistry().create(registeredType, null, null))
-                        .or(JavaBrooklynClassLoadingContext.create(managementContext)
+                        .or(() ->
+                                JavaBrooklynClassLoadingContext.create(managementContext)
                                 .tryLoadClass(className)
                                 .map(aClass -> {
                                     try {
@@ -534,8 +535,12 @@ public class InternalEntityFactory extends InternalFactory {
                                     } catch (InstantiationException | IllegalAccessException e) {
                                         throw new IllegalStateException(e);
                                     }
+                                })
+                                .or(() -> {
+                                    log.warn("Cannot find initializer '"+className+"'; not in type registry and not found on default classpath; ignoring");
+                                    return null;
                                 }))
-                        .orNull())
+                        )
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
     }
