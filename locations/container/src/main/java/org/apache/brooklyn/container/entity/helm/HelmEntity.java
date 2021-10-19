@@ -50,44 +50,44 @@ import org.apache.brooklyn.core.sensor.Sensors;
 @ImplementedBy(HelmEntityImpl.class)
 public interface HelmEntity extends Entity, Startable {
 
-   public static final ConfigKey<String> REPO_NAME = ConfigKeys.newStringConfigKey(
-           "repo.name",
-           "Name for the Helm repository");
+    ConfigKey<String> REPO_NAME = ConfigKeys.newStringConfigKey(
+            "repo.name",
+            "Name for the Helm repository");
 
-   public static final ConfigKey<String> REPO_URL = ConfigKeys.newStringConfigKey(
-           "repo.url",
-           "URL of a Helm repository");
+    ConfigKey<String> REPO_URL = ConfigKeys.newStringConfigKey(
+            "repo.url",
+            "URL of a Helm repository");
 
-   public static final ConfigKey<String> HELM_TEMPLATE = ConfigKeys.newStringConfigKey(
-           "helm.template",
-           "The name of the Helm template to be deployed");
+    ConfigKey<String> HELM_TEMPLATE = ConfigKeys.newStringConfigKey(
+            "helm.template",
+            "The name of the Helm template to be deployed");
 
-   public static final ConfigKey<String> HELM_DEPLOYMENT_NAME = ConfigKeys.newStringConfigKey(
-           "helm.deployment.name",
-           "The name to use for the Helm deployment");
+    ConfigKey<String> HELM_DEPLOYMENT_NAME = ConfigKeys.newStringConfigKey(
+            "helm.deployment.name",
+            "The name to use for the Helm deployment");
 
-   public static final ConfigKey<String> HELM_INSTALL_VALUES = ConfigKeys.newStringConfigKey(
-           "helm.install.values",
-           "A file or URL with a set of Helm config values to use at install time");
+    ConfigKey<String> HELM_INSTALL_VALUES = ConfigKeys.newStringConfigKey(
+            "helm.install.values",
+            "A file or URL with a set of Helm config values to use at install time");
 
-   AttributeSensor<String> STATUS = Sensors.newStringSensor(
-           "helm.status",
-           "The status of the Helm deployment");
+    AttributeSensor<String> STATUS = Sensors.newStringSensor(
+            "helm.status",
+            "The status of the Helm deployment");
 
-   AttributeSensor<Boolean> DEPLOYMENT_READY = Sensors.newBooleanSensor(
-           "kube.deployment.status",
-           "The status of the Kubernetes Deployment resource");
+    AttributeSensor<Boolean> DEPLOYMENT_READY = Sensors.newBooleanSensor(
+            "kube.deployment.status",
+            "The status of the Kubernetes Deployment resource");
 
-   AttributeSensor<List<String>> DEPLOYMENTS = Sensors.newSensor(
-            new TypeToken<List<String>>() {},
-           "kube.deployments",
+    AttributeSensor<List<String>> DEPLOYMENTS = Sensors.newSensor(
+            new TypeToken<List<String>>() { },
+            "kube.deployments",
             "List of Kubernetes Deployment resources");
 
-   AttributeSensor<List<String>> SERVICES = Sensors.newSensor(
-            new TypeToken<List<String>>() {},
-           "kube.services",
-           "List of Kubernetes Service resources");
+    AttributeSensor<List<String>> SERVICES = Sensors.newSensor(
+            new TypeToken<List<String>>() { },
+            "kube.services",
+            "List of Kubernetes Service resources");
 
-   @Effector(description="Resize Helm deployment")
-   Integer resize(@EffectorParam(name="deploymentName") String name, @EffectorParam(name="desiredSize") Integer desiredSize);
+    @Effector(description = "Resize Helm deployment")
+    Integer resize(@EffectorParam(name = "deploymentName") String name, @EffectorParam(name = "desiredSize") Integer desiredSize);
 }
