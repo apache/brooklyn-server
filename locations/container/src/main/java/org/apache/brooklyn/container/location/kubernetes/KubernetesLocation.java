@@ -205,7 +205,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         super(properties);
     }
 
-    protected KubernetesClient getClient() {
+    public KubernetesClient getClient() {
         if(currentConfig != null) {
             return getClient(currentConfig);
         }
