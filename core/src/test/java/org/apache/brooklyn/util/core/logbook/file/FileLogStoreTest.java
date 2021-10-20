@@ -19,12 +19,12 @@
 package org.apache.brooklyn.util.core.logbook.file;
 
 import com.google.common.collect.ImmutableList;
-import junit.framework.TestCase;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
-import org.junit.Test;
 import org.testng.annotations.*;
 
 import java.io.File;
@@ -35,8 +35,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.brooklyn.util.core.logbook.file.FileLogStore.LOGBOOK_LOG_STORE_DATEFORMAT;
 import static org.apache.brooklyn.util.core.logbook.file.FileLogStore.LOGBOOK_LOG_STORE_PATH;
+import static org.apache.brooklyn.test.Asserts.assertNull;
+import static org.junit.Assert.assertEquals;  // deliberately junit due to order of arguments
 
-public class FileLogStoreTest extends TestCase {
+public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
 
     private final String UNEXPECTED_DATE_TIME_FORMAT = "yyyy-MM-dd HH:mm:ss,SSS";
     private final String JAVA_LOG_SAMPLE_PATH = "brooklyn/util/core/logbook/file/log-sample.txt";
@@ -51,8 +53,10 @@ public class FileLogStoreTest extends TestCase {
 
     private final AtomicInteger lineCount = new AtomicInteger();
 
-    @BeforeTest
-    public void setUp() {
+    @Override
+    @BeforeMethod(alwaysRun=true)
+    public void setUp() throws Exception {
+        // don't call super - we don't always need a mgmt context
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
     }
 
@@ -137,7 +141,7 @@ public class FileLogStoreTest extends TestCase {
 
     @Test
     public void testParseLogWithDateTimeFormatMismatch() {
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_DATEFORMAT.getName(), UNEXPECTED_DATE_TIME_FORMAT);
         FileLogStore cut = new FileLogStore(mgmt);
         BrooklynLogEntry brooklynLogEntry = cut.parseLogLine(JAVA_LOG_LINE, lineCount);
@@ -156,7 +160,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSample() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
@@ -203,7 +207,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithDateTimeFormatMismatch() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_DATEFORMAT.getName(), UNEXPECTED_DATE_TIME_FORMAT);
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
@@ -220,7 +224,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryTailOfLogSample() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(4); // Request 4 records.
@@ -241,7 +245,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithSearchSinglePhrase() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
@@ -269,7 +273,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithTaskId() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(5); // Request first five only, only three expected.
@@ -285,7 +289,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithTaskIdAndPhase() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
@@ -302,7 +306,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithEntityId() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(10); // Request first two only.
@@ -318,7 +322,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithEntityIdAndPhase() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
@@ -335,7 +339,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithEntityIdInMessageAndPhase() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(2); // Request first two only.
@@ -352,7 +356,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithZeroNumberOfLInes() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(0); // Request zero lines.
@@ -366,7 +370,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithDateTimeRange() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(1000); // Request all.
@@ -392,7 +396,7 @@ public class FileLogStoreTest extends TestCase {
     @Test
     public void testQueryLogSampleWithLogLevels() {
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
-        ManagementContextInternal mgmt = LocalManagementContextForTests.newInstance();
+        mgmt = LocalManagementContextForTests.newInstance();
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
         LogBookQueryParams logBookQueryParams = new LogBookQueryParams();
         logBookQueryParams.setNumberOfItems(1000); // Request all.
