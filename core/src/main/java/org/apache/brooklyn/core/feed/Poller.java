@@ -156,7 +156,8 @@ public class Poller<V> {
                                     pollJob.wrappedJob.run();
                                     return null; 
                                 } } );
-                            BrooklynTaskTags.setTransient(task);
+                            // don't set transient -- it is good to be able to see these in the UI
+                            //BrooklynTaskTags.setTransient(task);
                             return task;
                         })
                         .displayName("scheduled:" + scheduleName)
