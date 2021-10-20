@@ -155,7 +155,7 @@ public class ScheduledTask extends BasicTask<Object> {
         }
         
         public Builder displayName(String val) { this.displayName = val; return this; }
-        public Builder tag(Object val) { this.tags.add(val); return this; }
+        public Builder tag(Object val) { if (val!=null) this.tags.add(val); return this; }
         public Builder tagTransient() { return tag(BrooklynTaskTags.TRANSIENT_TASK_TAG); }
         public Builder delay(Duration val) { this.delay = val; return this; }
         public Builder period(Duration val) { this.period = val; return this; }

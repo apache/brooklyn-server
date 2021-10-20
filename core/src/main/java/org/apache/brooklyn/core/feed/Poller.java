@@ -162,6 +162,7 @@ public class Poller<V> {
                         .displayName("scheduled:" + scheduleName)
                         .period(pollJob.pollPeriod)
                         .cancelOnException(false)
+                        .tag(feed!=null ? BrooklynTaskTags.tagForContextAdjunct(feed) : null)
                         .build();
                 tasks.add(Entities.submit(entity, t));
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {
