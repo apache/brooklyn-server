@@ -18,21 +18,18 @@
  */
 package org.apache.brooklyn.util.time;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import static com.google.common.base.Preconditions.checkNotNull;
-
+import com.google.common.base.Stopwatch;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
-
 import org.apache.brooklyn.util.text.Strings;
-
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 
 /** simple class determines a length of time */
 public class Duration implements Comparable<Duration>, Serializable {
@@ -295,10 +292,12 @@ public class Duration implements Comparable<Duration>, Serializable {
         return CountdownTimer.newInstanceStarted(this);
     }
 
+    @JsonIgnore
     public boolean isPositive() {
         return nanos() > 0;
     }
 
+    @JsonIgnore
     public boolean isNegative() {
         return nanos() < 0;
     }
@@ -330,4 +329,5 @@ public class Duration implements Comparable<Duration>, Serializable {
         if (isLongerThan(alternateMaximumValue)) return alternateMaximumValue;
         return this;
     }
+
 }
