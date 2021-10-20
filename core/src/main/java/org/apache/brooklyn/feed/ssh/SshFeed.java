@@ -20,10 +20,16 @@ package org.apache.brooklyn.feed.ssh;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskStub.ScriptReturnType;
+import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -111,24 +117,26 @@ public class SshFeed extends org.apache.brooklyn.feed.AbstractCommandFeed {
     @Override
     protected SshPollValue exec(String command, Map<String,String> env) throws IOException {
         SshMachineLocation machine = (SshMachineLocation)getMachine();
-        Boolean execAsCommand = config().get(EXEC_AS_COMMAND);
         if (log.isTraceEnabled()) log.trace("Ssh polling for {}, executing {} with env {}", new Object[] {machine, command, env});
-        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+        ProcessTaskFactory<String> tf = new PlainSshExecTaskFactory<String>(machine, command)
+                .environmentVariables(env)
+                .summary("ssh-feed")
+                .<String>returning(ScriptReturnType.STDOUT_STRING)
+                .allowingNonZeroExitCode()
+                .configure(SshTool.PROP_NO_EXTRA_OUTPUT, true);
 
-        int exitStatus;
-        ConfigBag flags = ConfigBag.newInstanceExtending(config().getBag())
-            .configure(SshTool.PROP_NO_EXTRA_OUTPUT, true)
-            .configure(SshTool.PROP_OUT_STREAM, stdout)
-            .configure(SshTool.PROP_ERR_STREAM, stderr);
+        Boolean execAsCommand = config().get(EXEC_AS_COMMAND);
         if (Boolean.TRUE.equals(execAsCommand)) {
-            exitStatus = machine.execCommands(flags.getAllConfig(),
-                    "ssh-feed", ImmutableList.of(command), env);
+            tf.runAsCommand();
         } else {
-            exitStatus = machine.execScript(flags.getAllConfig(),
-                    "ssh-feed", ImmutableList.of(command), env);
+            tf.runAsScript();
         }
+        tf.configure(config().getBag().getAllConfig());
 
-        return new SshPollValue(machine, exitStatus, new String(stdout.toByteArray()), new String(stderr.toByteArray()));
+        ProcessTaskWrapper<String> task = tf.newTask();
+        DynamicTasks.queueIfPossible(task).orSubmitAndBlock(entity).andWaitForSuccess();
+
+        return new SshPollValue(machine, task.getExitCode(), task.getStdout(), task.getStderr());
     }
+
 }
