@@ -57,6 +57,7 @@ import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -173,46 +174,57 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
             if (!Objects.equal(o1.isSubmitted(), o2.isSubmitted())) {
                 return o1.isSubmitted() ? -1 : 1;
             }
+            // followed by absolute pref for active items
+            if (!Objects.equal(o1.isDone(), o2.isDone())) {
+                return !o1.isDone() ? -1 : 1;
+            }
 
-            // big pref for top-level tasks (manual operations), where submitter null
-            int weight = 0;
-            Task<?> o1s = o1.getSubmittedByTask();
-            Task<?> o2s = o2.getSubmittedByTask();
-            if ("start".equals(o1.getDisplayName()) ||"start".equals(o2.getDisplayName())) {
-                weight = 0;
+            // followed by absolute pref for things not started yet
+            if (!Objects.equal(o1.isBegun(), o2.isBegun())) {
+                return !o1.isBegun() ? -1 : 1;
             }
-            if (!Objects.equal(o1s==null, o2s==null))
-                weight += 2*60*60 * (o1s==null ? -1 : 1);
-            
-            // pretty big pref for things invoked by other entities
-            if (context!=null && o1s!=null && o2s!=null) {
-                boolean o1se = context.equals(BrooklynTaskTags.getContextEntity(o1s));
-                boolean o2se = context.equals(BrooklynTaskTags.getContextEntity(o2s));
-                if (!Objects.equal(o1se, o2se))
-                    weight += 10*60 *  (o2se ? -1 : 1);
-            }
-            // slight pref for things in progress
-            if (!Objects.equal(o1.isBegun() && !o1.isDone(), o2.isBegun() && !o2.isDone()))
-                weight += 60 * (o1.isBegun() && !o1.isDone() ? -1 : 1);
-            // and very slight pref for things not begun
-            if (!Objects.equal(o1.isBegun(), o2.isBegun())) 
-                weight += 10 * (!o1.isBegun() ? -1 : 1);
-            
-            // sort based on how recently the task changed state
+
+//            if (!o1.isDone()) {
+//                // among active items, scheduled ones
+//                if (!Objects.equal(o1 instanceof ScheduledTask, o2 instanceof ScheduledTask)) {
+//                    return !(o1 instanceof ScheduledTask) ? -1 : 1;
+//                }
+//            }
+
+//            // if all else is equal:
+//            // big pref for top-level tasks (manual operations), where submitter null, or submitted by other entities
+//            int weight = 0;
+//            Task<?> o1s = o1.getSubmittedByTask();
+//            Task<?> o2s = o2.getSubmittedByTask();
+//            if (!Objects.equal(o1s==null, o2s==null)) {
+//                weight += 20 * 60 * (o1s == null ? -1 : 1);
+//            }
+//            // then pref for things invoked by other entities
+//            if (context!=null && o1s!=null && o2s!=null) {
+//                boolean o1se = context.equals(BrooklynTaskTags.getContextEntity(o1s));
+//                boolean o2se = context.equals(BrooklynTaskTags.getContextEntity(o2s));
+//                if (!Objects.equal(o1se, o2se)) {
+//                    weight += 10 * 60 * (o2se ? -1 : 1);
+//                }
+//            }
+
+            // then sort based on how recently the task changed state
             long now = System.currentTimeMillis();
             long t1 = o1.isDone() ? o1.getEndTimeUtc() : o1.isBegun() ? o1.getStartTimeUtc() : o1.getSubmitTimeUtc();
             long t2 = o2.isDone() ? o2.getEndTimeUtc() : o2.isBegun() ? o2.getStartTimeUtc() : o2.getSubmitTimeUtc();
             long u1 = now - t1;
             long u2 = now - t2;
-            // so smaller = more recent
-            // and if there is a weight, increase the other side so it is de-emphasised
-            // IE if weight was -10 that means T1 is "10 times more interesting"
-            // or more precisely, a task T1 from 10 mins ago equals a task T2 from 1 min ago
-            if (weight<0) u2 *= -weight;
-            else if (weight>0) u1 *= weight;
+//            // so smaller = more recent
+//            // and if there is a weight, increase the other side so it is de-emphasised
+//            // IE if weight was -10 that means T1 is "10 times more interesting"
+//            // or more precisely, a task T1 from 10 mins ago equals a task T2 from 1 min ago
+//            if (weight<0) u2 *= -weight;
+//            else if (weight>0) u1 *= weight;
             if (u1!=u2) return u1 > u2 ? 1 : -1;
-            // if equal under mapping, use weight
-            if (weight!=0) return weight < 0 ? -1 : 1;
+
+//            // if equal under mapping, use weight
+//            if (weight!=0) return weight < 0 ? -1 : 1;
+
             // lastly use ID to ensure canonical order
             return o1.getId().compareTo(o2.getId());
         }
