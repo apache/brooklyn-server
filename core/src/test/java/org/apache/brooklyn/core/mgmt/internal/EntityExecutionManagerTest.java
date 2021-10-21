@@ -18,6 +18,11 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.feed.function.FunctionFeed;
+import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
@@ -146,29 +151,38 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
             }});
     }
 
+    static Set<String> SYSTEM_TASK_WORDS = ImmutableSet.of("initialize model", "entity init", "management start");
+
     static Set<Task<?>> removeSystemTasks(Iterable<Task<?>> tasks) {
         Set<Task<?>> result = MutableSet.of();
         for (Task<?> t: tasks) {
             if (t instanceof ScheduledTask) continue;
             if (t.getTags().contains(BrooklynTaskTags.SENSOR_TAG)) continue;
-            if (t.getDisplayName().contains("Validating")) continue;
+            if (SYSTEM_TASK_WORDS.stream().anyMatch(t.getDisplayName().toLowerCase()::contains)) continue;
             result.add(t);
         }
         return result;
     }
 
     // Needed because of https://issues.apache.org/jira/browse/BROOKLYN-401
-    protected void assertTaskMaxCountForEntityEventually(final Entity entity, final int expectedMaxCount) {
+    protected void assertNonSystemTaskCountForEntityEventuallyEquals(final Entity entity, final int expectedCount) {
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(entity, expectedCount, expectedCount);
+    }
+
+    protected void assertNonSystemTaskCountForEntityEventuallyIsInRange(final Entity entity, final int expectedMinCount, final int expectedMaxCount) {
         // Dead task (and initialization task) should have been GC'd on completion.
         // However, the GC'ing happens in a listener, executed in a different thread - the task.get()
         // doesn't block for it. Therefore can't always guarantee it will be GC'ed by now.
-        Asserts.succeedsEventually(new Runnable() {
+        Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.seconds(3)), new Runnable() {
             @Override public void run() {
                 forceGc();
                 Collection<Task<?>> tasks = removeSystemTasks( BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity) );
-                Assert.assertTrue(tasks.size() <= expectedMaxCount,
-                        "Expected tasks count max of " + expectedMaxCount + ". Tasks were "+tasks);
+                Assert.assertTrue(tasks.size() >= expectedMinCount && tasks.size() <= expectedMaxCount,
+                        "Expected tasks count [" + expectedMinCount+","+expectedMaxCount + "]. Tasks were:\n"+tasks.stream().map(t -> ""+t+": "+t.getTags()+"\n").collect(Collectors.joining()));
             }});
+
+        Collection<Task<?>> tasks = removeSystemTasks( BrooklynTaskTags.getTasksInEntityContext(((EntityInternal)entity).getManagementContext().getExecutionManager(), entity) );
+        LOG.info("Expected tasks count [" + expectedMinCount+","+expectedMaxCount + "] satisfied; tasks were:\n"+tasks.stream().map(t -> ""+t+": "+t.getTags()+"\n").collect(Collectors.joining()));
     }
 
     public void testGetTasksAndGcBoringTags() throws Exception {
@@ -200,7 +214,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
 
         stopCondition.set(true);
 
-        assertTaskMaxCountForEntityEventually(e, 2);
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(e, 0, 2);
     }
 
     public void testGcTaskAtEntityLimit() throws Exception {
@@ -224,15 +238,24 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         forceGc();
         stopCondition.set(true);
 
-        assertTaskMaxCountForEntityEventually(app, 2);
-        assertTaskMaxCountForEntityEventually(e, 2);
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(app, 0, 2);
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(e, 0, 2);
+
+        for (int count=0; count<5; count++)
+            runEmptyTaskWithNameAndTags(e, "task-e-"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
+        for (int count=0; count<5; count++)
+            runEmptyTaskWithNameAndTags(app, "task-app-"+count, ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag");
+
+        forceGc();
+        assertNonSystemTaskCountForEntityEventuallyEquals(app, 2);
+        assertNonSystemTaskCountForEntityEventuallyEquals(e, 2);
     }
 
     public void testGcTaskWithTagAndEntityLimit() throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
-            BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 6);
+            BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 8);
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
 
@@ -254,13 +277,17 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag", "another-tag-e");
         runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "boring-tag", "another-tag-e");
         // should keep both the above
-        
+
         runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag");
         runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag");
+        runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-e");
+        runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-e");
         Time.sleep(Duration.ONE_MILLISECOND);
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag");
-        // should keep the below since they have unique tags, but remove one of the e tasks above 
+
+        // should keep the below since they have unique tags, plus 4 to 6 of the above, depending which of boring-tags are kept, but might remove 1 of the above
         runEmptyTaskWithNameAndTags(e, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag", "and-another-tag");
+
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-app", "another-tag");
         runEmptyTaskWithNameAndTags(app, "task-"+(count++), ManagementContextInternal.NON_TRANSIENT_TASK_TAG, "another-tag-app", "another-tag");
         
@@ -268,36 +295,54 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         forceGc();
         stopCondition.set(true);
 
-        assertTaskMaxCountForEntityEventually(e, 6);
-        assertTaskMaxCountForEntityEventually(app, 3);
-        
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(e, 4, 7);
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(app, 2, 3);
+
         // now with a lowered limit, we should remove one more e
         ((BrooklynProperties)app.getManagementContext().getConfig()).put(
             BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, 5);
-        assertTaskMaxCountForEntityEventually(e, 5);
+        forceGc();
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(e, 4, 5);
     }
 
     public void testGcDynamicTaskAtNormalTagLimit() throws Exception {
+        TestEntity e = doTestGcDynamicTaskAtNormalTagLimit(false);
+        // can go to zero if just one tag, shared by the transient flooding tasks
+        assertNonSystemTaskCountForEntityEventuallyIsInRange(e, 0, 2);
+    }
+
+    public void testGcDynamicTaskAtNormalTagLimitWithExtraTag() throws Exception {
+        TestEntity e = doTestGcDynamicTaskAtNormalTagLimit(true);
+        // should keep two of our task-N tasks if that has a unique tag
+        assertNonSystemTaskCountForEntityEventuallyEquals(e, 2);
+    }
+
+    public TestEntity doTestGcDynamicTaskAtNormalTagLimit(boolean addExtraTag) throws Exception {
         TestEntity e = app.createAndManageChild(EntitySpec.create(TestEntity.class));
-        
-        ((BrooklynProperties)app.getManagementContext().getConfig()).put(
-            BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
+
+        ((BrooklynProperties) app.getManagementContext().getConfig()).put(
+                BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
 
         AtomicBoolean stopCondition = new AtomicBoolean();
         scheduleRecursiveTemporaryTask(stopCondition, e, "foo");
         scheduleRecursiveTemporaryTask(stopCondition, e, "foo");
 
-        for (int count=0; count<5; count++) {
-            TaskBuilder<Object> tb = Tasks.builder().displayName("task-"+count).dynamic(true).body(new Runnable() { @Override public void run() {}})
-                .tag(ManagementContextInternal.NON_TRANSIENT_TASK_TAG).tag("foo");
-            ((EntityInternal)e).getExecutionContext().submit(tb.build()).getUnchecked();
+        for (int count = 0; count < 5; count++) {
+            TaskBuilder<Object> tb = Tasks.builder().displayName("task-" + count).dynamic(true).body(new Runnable() {
+                        @Override
+                        public void run() {
+                        }
+                    })
+                    .tag(ManagementContextInternal.NON_TRANSIENT_TASK_TAG).tag("foo");
+            if (addExtraTag) tb.tag("bar");
+            ((EntityInternal) e).getExecutionContext().submit(tb.build()).getUnchecked();
         }
 
         // Makes sure there's a GC while the transient tasks are running
         forceGc();
         stopCondition.set(true);
 
-        assertTaskMaxCountForEntityEventually(e, 2);
+        return e;
     }
 
     public void testUnmanagedEntityCanBeGcedEvenIfPreviouslyTagged() throws Exception {
@@ -426,7 +471,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         int maxNumTasks = 2;
         BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
         brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.ONE_SECOND);
-        brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, 2);
+        brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, maxNumTasks);
 
         replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
         setUpApp();
@@ -466,6 +511,102 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
                 assertEquals(storedTasks2, ImmutableSet.copyOf(recentTasks), "storedTasks="+storedTasks2Str+"; expected="+recentTasks);
             }});
     }
+
+    static class IncrementingCallable implements Callable<Integer> {
+        private final AtomicInteger next = new AtomicInteger(0);
+
+        @Override public Integer call() {
+            return next.getAndIncrement();
+        }
+    }
+
+    @Test(groups={"Integration"})
+    public void testEffectorTasksTwoEntitiesPreferByName() throws Exception {
+        int maxNumTasksPerName = 4;
+        int maxNumTasksPerTag = 5;
+        int maxNumTasksPerEntity = 15;  // no more than 5 of each
+        BrooklynProperties brooklynProperties = BrooklynProperties.Factory.newEmpty();
+        brooklynProperties.put(BrooklynGarbageCollector.GC_PERIOD, Duration.seconds(3));
+        brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_TAG, maxNumTasksPerTag);
+        brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_ENTITY, maxNumTasksPerEntity);
+        brooklynProperties.put(BrooklynGarbageCollector.MAX_TASKS_PER_NAME, maxNumTasksPerName);
+
+        replaceManagementContext(LocalManagementContextForTests.newInstance(brooklynProperties));
+        setUpApp();
+        final TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        final TestEntity entity2 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        List<Task<?>> tasks = Lists.newArrayList();
+
+        Set<Task<?>> storedTasks1 = app.getManagementContext().getExecutionManager().getTasksWithAnyTag( app.getManagementContext().getExecutionManager().getTaskTags() );
+        String storedTasks1Str = storedTasks1.stream().map(EntityExecutionManagerTest.this::taskToVerboseString).collect(Collectors.joining("\n"));
+        LOG.info("TASKS BEFORE RUN:\n"+storedTasks1Str);
+
+        FunctionFeed feed = FunctionFeed.builder()
+                .entity(entity)
+                .poll(new FunctionPollConfig<Integer, Integer>(TestEntity.SEQUENCE)
+                                .period(Duration.millis(20))
+                                .callable(new IncrementingCallable())
+                        //.onSuccess((Function<Object,Integer>)(Function)Functions.identity()))
+                )
+                .build();
+
+        for (int i = 0; i < (2*maxNumTasksPerEntity+1); i++) {
+            Task<?> task = entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of());
+            task.get();
+            tasks.add(task);
+            // see testEffectorTasksGcedForMaxPerTag
+            Thread.sleep(10);
+        }
+
+        for (int i = 0; i < (4*maxNumTasksPerEntity+1); i++) {
+            Task<?> task = entity.invoke(TestEntity.IDENTITY_EFFECTOR, ImmutableMap.<String,Object>of("arg", "id-"+i));
+            task.get();
+            tasks.add(task);
+            entity2.invoke(TestEntity.IDENTITY_EFFECTOR, ImmutableMap.<String,Object>of("arg", "id-"+i));
+            Thread.sleep(10);
+        }
+
+        // and add some context-only (the above have a target entity, so don't interfere with the below):
+
+        for (int i = 0; i < (2*maxNumTasksPerEntity+1); i++) {
+            entity.getExecutionContext().submit(
+                    Tasks.fail("failure-flood-1", null)).blockUntilEnded();
+        }
+        // normally flood-2 will remove the flood 1
+        for (int i = 0; i < (2*maxNumTasksPerEntity+1); i++) {
+            entity.getExecutionContext().submit(
+                    Tasks.fail("failure-flood-2", null)).blockUntilEnded();
+        }
+
+        Dumper.dumpInfo(app);
+
+        // Should initially have all tasks
+        feed.stop();
+
+
+        // oldest should be GC'ed to leave only maxNumTasks
+        Set<Task<?>> storedTasks2 = app.getManagementContext().getExecutionManager().getTasksWithAnyTag( app.getManagementContext().getExecutionManager().getTaskTags() );
+        String storedTasks2Str = storedTasks2.stream().map(EntityExecutionManagerTest.this::taskToVerboseString).collect(Collectors.joining("\n"));
+        LOG.info("TASKS AFTER RUN:\n"+storedTasks2Str);
+
+        ((LocalManagementContext)mgmt).getGarbageCollector().gcIteration();
+
+        Set<Task<?>> storedTasks3 = app.getManagementContext().getExecutionManager().getTasksWithAnyTag( app.getManagementContext().getExecutionManager().getTaskTags() );
+        String storedTasks3Str = storedTasks3.stream().map(EntityExecutionManagerTest.this::taskToVerboseString).collect(Collectors.joining("\n"));
+        LOG.info("TASKS AFTER GC:\n"+storedTasks3Str);
+
+        assertTrue(!storedTasks3.containsAll(storedTasks2), "some tasks should have been GC'd");
+        assertTrue(storedTasks3.size() <= maxNumTasksPerEntity*2 /* number of TestEntity instances */ *2 /* target and context */ + 10 /* grace for tasks on the app root node */, "too many tasks: "+storedTasks3.size());
+        // and should keep some in each category
+        Asserts.assertThat(storedTasks3.stream().filter(t -> taskToVerboseString(t).contains("EFFECTOR@"+entity.getId()+":myEffector")).count(), n -> n==maxNumTasksPerName);
+        Asserts.assertThat(storedTasks3.stream().filter(t -> taskToVerboseString(t).contains("EFFECTOR@"+entity.getId()+":identityEffector")).count(), n -> n==maxNumTasksPerName);
+        Asserts.assertThat(storedTasks3.stream().filter(t -> taskToVerboseString(t).contains("EFFECTOR@"+entity2.getId()+":identityEffector")).count(), n -> n==maxNumTasksPerName);
+        Asserts.assertThat(storedTasks3.stream().filter(t -> taskToVerboseString(t).contains("test.sequence")).count(), n -> n>0 && n<=maxNumTasksPerName + 3);  // might be still running
+        Asserts.assertThat(storedTasks3.stream().filter(t -> taskToVerboseString(t).contains("failure-flood-1")).count(), n -> n==maxNumTasksPerName);
+        Asserts.assertThat(storedTasks3.stream().filter(t -> taskToVerboseString(t).contains("failure-flood-2")).count(), n -> n==maxNumTasksPerName);
+    }
+
 
     private String taskToVerboseString(Task<?> t) {
         return MoreObjects.toStringHelper(t)
