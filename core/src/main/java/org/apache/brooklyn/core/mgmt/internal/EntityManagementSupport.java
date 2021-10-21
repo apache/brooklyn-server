@@ -175,7 +175,7 @@ public class EntityManagementSupport {
     public void onManagementStarting(ManagementTransitionInfo info) {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management starting")
             .dynamic(false)
-            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+//            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
             .body(() -> { try { synchronized (this) {
                 boolean alreadyManaging = isDeployed();
                 
@@ -234,7 +234,7 @@ public class EntityManagementSupport {
     public void onManagementStarted(ManagementTransitionInfo info) {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management started")
             .dynamic(false)
-            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+//            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
             .body(() -> { try { synchronized (this) {
                 boolean alreadyManaged = isFullyManaged();
                 

@@ -36,7 +36,7 @@ public class TaskTags {
     /** marks a task which is a subtask of another */
     public static final String SUB_TASK_TAG = "SUB-TASK";
 
-    public static void addTagDynamically(TaskAdaptable<?> task, final Object tag) {
+    public static <TT, TA extends TaskAdaptable<TT>> TA addTagDynamically(TA task, final Object tag) {
         ((BasicTask<?>)task.asTask()).applyTagModifier(new Function<Set<Object>, Void>() {
             @Override
             public Void apply(@Nullable Set<Object> input) {
@@ -44,6 +44,7 @@ public class TaskTags {
                 return null;
             }
         });
+        return task;
     }
     
     public static void addTagsDynamically(TaskAdaptable<?> task, final Object tag1, final Object ...tags) {

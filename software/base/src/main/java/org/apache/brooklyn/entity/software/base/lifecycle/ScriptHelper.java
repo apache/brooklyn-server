@@ -270,8 +270,8 @@ public class ScriptHelper {
         return this;
     }
     
-    /** indicates explicitly that the task can be safely forgotten about after it runs; useful for things like
-     * check_running which run repeatedly */
+    /** indicates explicitly that the task can be safely forgotten about after it runs;
+     * possibly useful for things like check_running which run repeatedly, though improved task GC heuristics (name-based limits) mean this is often unnecessary */
     public void setTransient() {
         isTransient = true;
     }

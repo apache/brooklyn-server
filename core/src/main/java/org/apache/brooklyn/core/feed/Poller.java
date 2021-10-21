@@ -156,8 +156,8 @@ public class Poller<V> {
                                     pollJob.wrappedJob.run();
                                     return null; 
                                 } } );
-                            // don't set transient -- it is good to be able to see these in the UI
-                            //BrooklynTaskTags.setTransient(task);
+                            // explicitly make non-transient -- we want to see its execution, even if parent is transient
+                            BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                             return task;
                         })
                         .displayName("scheduled:" + scheduleName)

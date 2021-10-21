@@ -386,8 +386,8 @@ public class BrooklynTaskTags extends TaskTags {
 
     // ------ misc
     
-    public static void setInessential(Task<?> task) { addTagDynamically(task, INESSENTIAL_TASK); }
-    public static void setTransient(Task<?> task) { addTagDynamically(task, TRANSIENT_TASK_TAG); }
+    public static <TR,T extends Task<TR>> T setInessential(T task) { return addTagDynamically(task, INESSENTIAL_TASK); }
+    public static <TR,T extends Task<TR>> T setTransient(T task) { return addTagDynamically(task, TRANSIENT_TASK_TAG); }
     public static boolean isTransient(Task<?> task) { 
         if (hasTag(task, TRANSIENT_TASK_TAG)) return true;
         if (hasTag(task, NON_TRANSIENT_TASK_TAG)) return false;

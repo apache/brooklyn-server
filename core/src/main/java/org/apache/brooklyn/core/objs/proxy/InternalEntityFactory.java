@@ -292,7 +292,7 @@ public class InternalEntityFactory extends InternalFactory {
     protected <T extends Entity> T loadUnitializedEntity(final T entity, final EntitySpec<T> spec, EntityManager.
         EntityCreationOptions options) {
         try {
-            Task<T> initialize = Tasks.create("initialize", () -> {
+            Task<T> initialize = Tasks.create("Initialize model classes", () -> {
                 final AbstractEntity theEntity = (AbstractEntity) entity;
                 if (spec.getDisplayName() != null)
                     theEntity.setDisplayName(spec.getDisplayName());
@@ -321,7 +321,7 @@ public class InternalEntityFactory extends InternalFactory {
                 }
                 return entity;
             });
-            BrooklynTaskTags.setTransient(initialize);
+//            BrooklynTaskTags.setTransient(initialize);  // don't set this transient; we might want to be able to see what it does, eg adding scheduled tasks
             return ((AbstractEntity) entity).getExecutionContext().get(initialize);
 
         } catch (Exception e) {
@@ -381,21 +381,9 @@ public class InternalEntityFactory extends InternalFactory {
         // than in manageRecursive so that rebind is unaffected.
         validateDescendantConfig(entity, options);
 
-        /* Marked transient so that the task is not needlessly kept around at the highest level.
-         * Note that the task is not normally visible in the GUI, because
-         * (a) while it is running, the entity is often parentless (and so not in the tree);
-         * and (b) when it is completed it is GC'd, as it is transient.
-         * However task info is available via the API if you know its ID,
-         * and if better subtask querying is available it will be picked up as a background task
-         * of the parent entity creating this child entity
-         * (note however such subtasks are currently filtered based on parent entity so is excluded).
-         * <p>
-         * Some of these (initializers and enrichers) submit background scheduled tasks,
-         * which currently show up at the top level once the initializer task completes.
-         * TODO It would be nice if these schedule tasks were grouped in a bucket!
-         */
         ((EntityInternal)entity).getExecutionContext().get(Tasks.builder().dynamic(false).displayName("Entity initialization")
-                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                // no longer transient because the UI groups these more nicely now
+//                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .body(new Runnable() {
             @Override
             public void run() {
