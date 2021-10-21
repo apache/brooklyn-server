@@ -231,10 +231,12 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     public boolean isDone(boolean andTaskNoLongerRunning) {
+        boolean done = isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
         if (andTaskNoLongerRunning) {
-            return super.isDone(true);
+            return done && super.isDone(true);
+        } else {
+            return done;
         }
-        return isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
     }
     
     public synchronized void blockUntilFirstScheduleStarted() {
