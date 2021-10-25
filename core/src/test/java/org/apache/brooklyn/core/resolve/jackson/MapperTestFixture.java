@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 
 public interface MapperTestFixture {
@@ -41,7 +42,11 @@ public interface MapperTestFixture {
 
     default <T> String ser(T v, Class<T> type) {
         try {
-            return mapper().writerFor(type).writeValueAsString(v);
+            String result = mapper().writerFor(type).writeValueAsString(v);
+            // don't care about document separator
+            result = Strings.removeFromStart(result, "---");
+            // or whitespace
+            return result.trim();
         } catch (JsonProcessingException e) {
             throw Exceptions.propagate(e);
         }

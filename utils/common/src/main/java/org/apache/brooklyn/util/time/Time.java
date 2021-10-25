@@ -22,6 +22,9 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -83,12 +86,22 @@ public class Time {
         return makeDateString(date, DATE_FORMAT_PREFERRED);
     }
     /** as {@link #makeDateString(Date, String, TimeZone)} for the local time zone */
-    public static String makeDateString(Date date, String format) {
+    public static String makeDateString(Date date, @Nullable String format) {
         return makeDateString(date, format, null);
     }
-    /** as {@link #makeDateString(Date, String, TimeZone)} for the given time zone; consider {@link TimeZone#GMT} */
-    public static String makeDateString(Date date, String format, @Nullable TimeZone tz) {
-        SimpleDateFormat fmt = new SimpleDateFormat(format);
+    public static String makeDateStringUtc(Date date, String format) {
+        return makeDateString(date, format, TimeZone.getTimeZone("UTC"));
+    }
+    public static String makeDateStringUtc(Date date) {
+        return makeDateString(date, TimeZone.getTimeZone("UTC"));
+    }
+    public static String makeDateString(Date date, @Nullable TimeZone tz) {
+        return makeDateString(date, null, null);
+    }
+    /** as {@link #makeDateString(Date, String, TimeZone)} for the given time zone; consider {@link TimeZone#getTimeZone(String)} with "GMT" */
+    public static String makeDateString(Date date, @Nullable String format, @Nullable TimeZone tz) {
+        SimpleDateFormat fmt = new SimpleDateFormat(format!=null ? format :
+                tz==null ? DATE_FORMAT_PREFERRED : DATE_FORMAT_PREFERRED_W_TZ);
         if (tz!=null) fmt.setTimeZone(tz);
         return fmt.format(date);
     }
@@ -100,6 +113,20 @@ public class Time {
     public static String makeDateString(Calendar date, String format) {
         return makeDateString(date.getTime(), format, date.getTimeZone());
     }
+
+    /** as {@link #makeDateString(Date)} with the given format*/
+    public static String makeDateString(Instant date, String format, Locale locale, ZoneId zone) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern(format).withLocale(locale==null ? Locale.ROOT : locale).withZone(zone==null ? ZoneId.of("UTC") : zone);
+        return fmt.format(date);
+    }
+    /** as {@link #makeDateString(Date)} with the simple preferred format (no TZ), dropping trailing zero millis and seconds */
+    public static String makeDateString(Instant date) {
+        String result = makeDateString(date, DATE_FORMAT_PREFERRED, null, null);
+        result = Strings.removeFromEnd(result, ".000");
+        result = Strings.removeFromEnd(result, ":00");
+        return result;
+    }
+
 
     public static Function<Long, String> toDateString() {
         return dateString;
@@ -118,6 +145,60 @@ public class Time {
     public static String makeDateStampString() {
         return makeDateStampString(System.currentTimeMillis());
     }
+
+    /** as {@link #makeDateStampString()} with 'Z' at the end to indicate UTC */
+    public static String makeDateStampStringZ() {
+        return makeDateStampString(System.currentTimeMillis())+"Z";
+    }
+
+    /** as {@link #makeDateStampString()}, with millis and possibly seconds removed if 0, with 'Z' at the end to indicate UTC */
+    public static String makeDateStampStringZ(Instant instant) {
+        String s = makeDateStampString(instant.toEpochMilli());
+        if (s.endsWith("000")) {
+            s = Strings.removeFromEnd(s, "000");
+            s = Strings.removeFromEnd(s, "00");
+        }
+        return s+"Z";
+    }
+
+    /** as {@link #makeDateStampString()}, with millis and possibly seconds removed if 0, with 'Z' at the end to indicate UTC */
+    public static String makeDateStampStringZ(Date date) {
+        String s = makeDateStampString(date.getTime());
+        if (s.endsWith("000")) {
+            s = Strings.removeFromEnd(s, "000");
+            s = Strings.removeFromEnd(s, "00");
+        }
+        return s+"Z";
+    }
+
+    public static String makeIso8601DateString() {
+        return replaceZeroZoneWithZ(makeIso8601DateStringLocal(Instant.now()));
+    }
+
+    /** ISO 8601 format for UTC */
+    public static String makeIso8601DateStringZ(Instant instant) {
+        return replaceZeroZoneWithZ(makeDateString(instant, DATE_FORMAT_ISO8601, null, null));
+    }
+
+    private static String replaceZeroZoneWithZ(String s) {
+        if (s==null) return s;
+        String sz = null;
+        if (s.endsWith("+0000")) sz = Strings.removeFromEnd(s, "+0000");
+        else if (s.endsWith("+00:00")) sz = Strings.removeFromEnd(s, "+00:00");
+        if (sz==null) return s;
+        return sz+"Z";
+    }
+
+    /** ISO 8601 format for local */
+    public static String makeIso8601DateStringLocal(Instant instant) {
+        return makeDateString(instant, DATE_FORMAT_ISO8601, Locale.getDefault(), ZoneId.systemDefault());
+    }
+
+    /** ISO 8601 format for UTC */
+    public static String makeIso8601DateString(Date date) {
+        return replaceZeroZoneWithZ(makeDateStringUtc(date, DATE_FORMAT_ISO8601));
+    }
+
 
     /** returns the time in {@value #DATE_FORMAT_STAMP} format, given a long (e.g. returned by System.currentTimeMillis);
      * cf {@link #makeDateStampString()} */
@@ -571,6 +652,10 @@ public class Time {
     public static Date parseDate(@Nullable String input) {
         if (input==null) return null;
         return parseCalendarMaybe(input).get().getTime();
+    }
+
+    public static Instant parseInstant(@Nullable String input) {
+        return parseCalendarMaybe(input).get().toInstant();
     }
 
     /** Parses dates from string, accepting many formats including ISO-8601 and http://yaml.org/type/timestamp.html, 

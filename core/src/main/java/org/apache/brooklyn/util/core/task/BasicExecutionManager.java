@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.task;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.Iterables;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -418,18 +419,32 @@ public class BasicExecutionManager implements ExecutionManager {
     }
 
     public void deleteTask(Task<?> task) {
-        boolean removed = deleteTaskNonRecursive(task);
-        if (!removed) return;
+        deleteTask(task, true);
+    }
+    /** removes all exec manager records of a task, except, if second argument is true (usually is) keep the pointer to ID
+     * if its submitter is a parent with an active record to this child */
+    public void deleteTask(Task<?> task, boolean keepByIdIfParentPresentById) {
+        Boolean removed = deleteTaskNonRecursive(task, keepByIdIfParentPresentById);
+        if (Boolean.FALSE.equals(removed)) return;
 
         if (task instanceof HasTaskChildren) {
             List<Task<?>> children = ImmutableList.copyOf(((HasTaskChildren) task).getChildren());
             for (Task<?> child : children) {
-                deleteTask(child);
+                deleteTask(child, keepByIdIfParentPresentById);
             }
         }
     }
 
-    protected boolean deleteTaskNonRecursive(Task<?> task) {
+    protected Boolean deleteTaskNonRecursive(Task<?> task) {
+        return deleteTaskNonRecursive(task, true);
+    }
+    /**  true if removed; false if not found; null if partially removed but kept by id; this is because:
+         if the parent task is still present, we usually want to keep the ID-based record of the task;
+         otherwise weird things happen when we try to look up the children,
+         and we're not going to save memory by deleting it because the parent has a pointer to it.
+         (but we _do_ remove it from the "by-tag" lists, so it won't show up in other views);
+         in this case it will of course get deleted when its parent/ancestor is deleted. */
+    protected Boolean deleteTaskNonRecursive(Task<?> task, boolean keepByIdIfParentPresentById) {
         Set<?> tags = TaskTags.getTagsFast(checkNotNull(task, "task"));
         for (Object tag : tags) {
             synchronized (tasksByTag) {
@@ -442,7 +457,29 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             }
         }
-        Task<?> removed = tasksById.remove(task.getId());
+
+        boolean removeById = true;
+        if (keepByIdIfParentPresentById) {
+            String submittedById = task.getSubmittedByTaskId();
+            if (submittedById!=null) {
+                Task<?> submittedBy = tasksById.get(submittedById);
+                if (submittedBy != null && submittedBy instanceof HasTaskChildren) {
+                    if (Iterables.contains(((HasTaskChildren) submittedBy).getChildren(), task)) {
+                        removeById = false;
+                    }
+                }
+            }
+        }
+        Boolean result;
+        Task<?> removed;
+        if (removeById) {
+            removed = tasksById.remove(task.getId());
+            result = removed != null;
+        } else {
+            removed = null;
+            result = null;
+        }
+
         incompleteTaskIds.remove(task.getId());
         if (removed != null && removed.isSubmitted() && !removed.isDone(true)) {
             Entity context = BrooklynTaskTags.getContextEntity(removed);
@@ -459,14 +496,16 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             }
         }
-        task.getTags().forEach(t -> {
-            // remove tags which might have references to entities etc (help out garbage collector)
-            if (t instanceof TaskInternal) {
-                Set<Object> tagsM = ((TaskInternal) t).getMutableTags();
-                tagsM.removeAll(tagsM.stream().filter(tag -> tag instanceof WrappedStream || tag instanceof WrappedEntity).collect(Collectors.toList()));
-            }
-        });
-        return removed != null;
+        if (removed != null) {
+            task.getTags().forEach(t -> {
+                // remove tags which might have references to entities etc (help out garbage collector)
+                if (t instanceof TaskInternal) {
+                    Set<Object> tagsM = ((TaskInternal) t).getMutableTags();
+                    tagsM.removeAll(tagsM.stream().filter(tag -> tag instanceof WrappedStream || tag instanceof WrappedEntity).collect(Collectors.toList()));
+                }
+            });
+        }
+        return result;
     }
 
     @Override

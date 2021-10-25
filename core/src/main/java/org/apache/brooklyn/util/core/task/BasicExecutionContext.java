@@ -219,8 +219,15 @@ public class BasicExecutionContext extends AbstractExecutionContext {
      * seeing how the two work (as opposed to this method being designed as something
      * more generally useful). */
     private <T> Maybe<T> runInSameThread(final Task<T> task, Callable<Maybe<T>> job) {
-        ((TaskInternal<T>)task).getMutableTags().addAll(tags);
-        
+        Set<Object> mutableTags = ((TaskInternal<T>) task).getMutableTags();
+        mutableTags.addAll(tags);
+
+        if (Tasks.current()!=null && BrooklynTaskTags.isTransient(Tasks.current())
+                && !mutableTags.contains(BrooklynTaskTags.NON_TRANSIENT_TASK_TAG) && !mutableTags.contains(BrooklynTaskTags.TRANSIENT_TASK_TAG)) {
+            // tag as transient if submitter is transient, unless explicitly tagged as non-transient
+            mutableTags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
+        }
+
         Task<?> previousTask = BasicExecutionManager.getPerThreadCurrentTask().get();
         BasicExecutionContext oldExecutionContext = getCurrentExecutionContext();
         registerPerThreadExecutionContext();

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.sensor.ssh;
 
+import com.google.common.collect.Iterables;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
@@ -43,10 +44,14 @@ import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,6 +82,13 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
     public static final ConfigKey<Object> VALUE_ON_ERROR = ConfigKeys.newConfigKey(Object.class, "value.on.error",
             "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
+    public static final ConfigKey<String> FORMAT = ConfigKeys.newStringConfigKey("format",
+                    "Format to expect for the output; default to auto which will attempt a yaml/json parse for complex types, falling back to string, then coerce; " +
+                    "other options are just 'string' (previous default) or 'yaml'", "auto");
+    public static final ConfigKey<Boolean> LAST_YAML_DOCUMENT = ConfigKeys.newBooleanConfigKey("useLastYaml",
+                    "Whether to trim the output ignoring everything up to and before the last `---` line if present when expecting yaml; " +
+                    "useful if the script has quite a lot of output which should be ignored prior, with the value to be used for the sensor output last; " +
+                    "default true (ignored if format is 'string')", true);
 
     protected SshCommandSensor() {}
     public SshCommandSensor(ConfigBag params) {
@@ -109,10 +121,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
                 .onFailureOrException(Functions.constant((T)params.get(VALUE_ON_ERROR)))
-                .onSuccess(Functionals.chain(
-                        SshValueFunctions.stdout(),
-                        StringFunctions.trimEnd(),
-                        TypeCoercions.function((Class<T>) sensor.getType())))
+                .onSuccess(Functionals.chain(SshValueFunctions.stdout(), new CoerceOutputFunction<>(sensor.getTypeToken(), initParam(FORMAT), initParam(LAST_YAML_DOCUMENT))))
                 .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
                 .logWarningGraceTime(logWarningGraceTime);
 
@@ -168,6 +177,57 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
             }
         };
+    }
+
+    @Beta
+    public static class CoerceOutputFunction<T> implements Function<String,T> {
+        final TypeToken<T> typeToken;
+        final String format;
+        final Boolean useLastYamlDocument;
+
+        public CoerceOutputFunction(TypeToken<T> typeToken, String format, Boolean useLastYamlDocument) {
+            this.typeToken = typeToken;
+            this.format = format;
+            this.useLastYamlDocument = useLastYamlDocument;
+        }
+
+        public T apply(String input) {
+            boolean doYaml = !"string".equalsIgnoreCase(format);
+            boolean doString = !"yaml".equalsIgnoreCase(format);
+
+            if ("auto".equalsIgnoreCase(format)) {
+                if (String.class.equals(typeToken.getRawType()) || Boxing.isPrimitiveOrBoxedClass(typeToken.getRawType())) {
+                    // don't do yaml if we want a string or a primitive
+                    doYaml = false;
+                }
+            }
+
+            Maybe<T> result1 = null;
+
+            if (doYaml) {
+                try {
+                    String yamlInS = input;
+                    if (!Boolean.FALSE.equals(useLastYamlDocument)) {
+                        yamlInS = Yamls.lastDocumentFunction().apply(yamlInS);
+                    }
+                    Object yamlInO = Iterables.getOnlyElement(Yamls.parseAll(yamlInS));
+                    result1 = TypeCoercions.tryCoerce(yamlInO, typeToken);
+                    if (result1.isPresent()) doString = false;
+                } catch (Exception e) {
+                    if (result1==null) result1 = Maybe.absent(e);
+                }
+            }
+
+            if (doString) {
+                try {
+                    return (T) Functionals.chain(StringFunctions.trimEnd(), TypeCoercions.function(typeToken.getRawType())).apply(input);
+                } catch (Exception e) {
+                    if (result1==null) result1 = Maybe.absent(e);
+                }
+            }
+
+            return result1.get();
+        }
     }
 
     @Beta

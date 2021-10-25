@@ -52,7 +52,6 @@ public class Range extends MutableList<Object> {
         l.forEach(this::add);
     }
 
-    // TODO this could be replaced by a ConstructorMatchingSymbolDependentDeserializer
     public static class RangeDeserializer extends JsonSymbolDependentDeserializer {
         @Override
         protected Object deserializeArray(JsonParser p) throws IOException {

@@ -166,6 +166,8 @@ public class TaskTransformer {
         int sizeRemaining = limit;
         if (limit>0) {
             tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).leastOf(tasksToScan, limit));
+        } else {
+            tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).sortedCopy(tasksToScan));
         }
         Map<String,Task<?>> tasksLoaded = MutableMap.of();
         

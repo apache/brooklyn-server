@@ -155,7 +155,7 @@ public class ScheduledTask extends BasicTask<Object> {
         }
         
         public Builder displayName(String val) { this.displayName = val; return this; }
-        public Builder tag(Object val) { this.tags.add(val); return this; }
+        public Builder tag(Object val) { if (val!=null) this.tags.add(val); return this; }
         public Builder tagTransient() { return tag(BrooklynTaskTags.TRANSIENT_TASK_TAG); }
         public Builder delay(Duration val) { this.delay = val; return this; }
         public Builder period(Duration val) { this.period = val; return this; }
@@ -231,10 +231,12 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     public boolean isDone(boolean andTaskNoLongerRunning) {
+        boolean done = isCancelled() || (maxIterations!=null && maxIterations > runCount) || (period==null && nextRun!=null && nextRun.isDone());
         if (andTaskNoLongerRunning) {
-            return super.isDone(true);
+            return done && super.isDone(true);
+        } else {
+            return done;
         }
-        return isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
     }
     
     public synchronized void blockUntilFirstScheduleStarted() {

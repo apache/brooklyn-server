@@ -345,9 +345,11 @@ public class BasicTask<T> implements TaskInternal<T> {
     @Override
     public boolean isDone(boolean andTaskNotRunning) {
         if (!cancelled && !(internalFuture!=null && internalFuture.isDone()) && endTimeUtc<=0) {
+            // done if the internal future is done and end time is set
             return false;
         }
         if (andTaskNotRunning && cancelled && isBegun() && endTimeUtc<=0) {
+            // if not-running confirmation requested, for cancelled tasks, if begun, wait for endTime to be set
             return false;
         }
         return true;

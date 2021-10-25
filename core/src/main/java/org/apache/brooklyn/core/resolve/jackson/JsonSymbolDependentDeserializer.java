@@ -22,12 +22,25 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
 import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
+import com.fasterxml.jackson.databind.deser.DeserializerFactory;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
+import java.util.Set;
 import java.util.function.Function;
+import org.apache.brooklyn.util.core.xstream.ImmutableSetConverter;
 
 public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
 
+    public static final Set<JsonToken> SIMPLE_TOKENS = ImmutableSet.of(
+            JsonToken.VALUE_STRING,
+            JsonToken.VALUE_NUMBER_FLOAT,
+            JsonToken.VALUE_NUMBER_INT,
+            JsonToken.VALUE_TRUE,
+            JsonToken.VALUE_FALSE,
+            JsonToken.VALUE_NULL
+    );
     protected DeserializationContext ctxt;
     protected BeanProperty beanProp;
     private BeanDescription beanDesc;
@@ -60,9 +73,11 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
 
         if (p.getCurrentToken() == JsonToken.START_ARRAY) {
             return deserializeArray(p);
+        } else if (SIMPLE_TOKENS.contains(p.getCurrentToken())) {
+            // string
+            return deserializeToken(p);
         } else {
-            // (primitives, string, etc not yet supported)
-
+            // other primitives not yet supported
             // assume object
             return deserializeObject(p);
         }
@@ -83,11 +98,24 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
         throw new IllegalStateException("List input not supported for "+type);
     }
 
+    protected Object deserializeToken(JsonParser p) throws IOException, JsonProcessingException {
+        return contextualize(getTokenDeserializer()).deserialize(p, ctxt);
+    }
+    protected JsonDeserializer<?> getTokenDeserializer() throws IOException, JsonProcessingException {
+        return getObjectDeserializer();
+    }
+
     protected Object deserializeObject(JsonParser p) throws IOException, JsonProcessingException {
         return contextualize(getObjectDeserializer()).deserialize(p, ctxt);
     }
     protected JsonDeserializer<?> getObjectDeserializer() throws IOException, JsonProcessingException {
-        return ctxt.getFactory().createBeanDeserializer(ctxt, type, getBeanDescription());
+        DeserializerFactory f = ctxt.getFactory();
+        if (f instanceof BeanDeserializerFactory) {
+            // don't recurse, we're likely to just return ourselves
+            return ((BeanDeserializerFactory)f).buildBeanDeserializer(ctxt, type, getBeanDescription());
+        }
+        // will probably cause endless loop; we don't know how to deserialize
+        return f.createBeanDeserializer(ctxt, type, getBeanDescription());
     }
 
 }

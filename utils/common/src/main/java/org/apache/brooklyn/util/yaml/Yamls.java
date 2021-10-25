@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yaml;
 
+import com.google.common.base.Function;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.Jsonya;
@@ -587,7 +590,7 @@ b: 1
      * this will find the YAML text for that element
      * <p>
      * If not found this will return a {@link YamlExtract} 
-     * where {@link YamlExtract#isMatch()} is false and {@link YamlExtract#getError()} is set. */
+     * where {@link YamlExtract#found()} is false and {@link YamlExtract#getError()} is set. */
     public static YamlExtract getTextOfYamlAtPath(String yaml, Object ...path) {
         YamlExtract result = new YamlExtract();
         if (yaml==null) return result;
@@ -608,4 +611,24 @@ b: 1
             return result;
         }
     }
+
+    static class LastDocumentFunction implements Function<String,String> {
+
+        @Override
+        public String apply(String input) {
+            if (input==null) return null;
+            Matcher match = Pattern.compile("^---$[\\n\\r]?", Pattern.MULTILINE).matcher(input);
+            int lastEnd = 0;
+            while (match.find()) {
+                lastEnd = match.end();
+            }
+            return input.substring(lastEnd);
+        }
+    }
+    private static final LastDocumentFunction LAST_DOCUMENT_FUNCTION_INSTANCE = new LastDocumentFunction();
+
+    public static Function<String,String> lastDocumentFunction() {
+        return LAST_DOCUMENT_FUNCTION_INSTANCE;
+    }
+
 }

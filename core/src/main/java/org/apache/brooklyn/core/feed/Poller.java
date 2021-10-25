@@ -156,12 +156,14 @@ public class Poller<V> {
                                     pollJob.wrappedJob.run();
                                     return null; 
                                 } } );
-                            BrooklynTaskTags.setTransient(task);
+                            // explicitly make non-transient -- we want to see its execution, even if parent is transient
+                            BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                             return task;
                         })
                         .displayName("scheduled:" + scheduleName)
                         .period(pollJob.pollPeriod)
                         .cancelOnException(false)
+                        .tag(feed!=null ? BrooklynTaskTags.tagForContextAdjunct(feed) : null)
                         .build();
                 tasks.add(Entities.submit(entity, t));
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {

@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.time;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.util.GregorianCalendar;
+import java.util.Locale;
 import static org.testng.Assert.assertTrue;
 
 import java.util.Date;
@@ -304,7 +308,10 @@ public class TimeTest {
         assertDatesParseToEqual("20150604-080012.345", "2015-06-04-080012.345");
         assertDatesParseToEqual("2015-12-1", "2015-12-01-0000");
         assertDatesParseToEqual("1066-12-1", "1066-12-01-0000");
-        
+
+        assertDatesParseToEqual("20150604-0800", "2015-06-04 08:00:00");
+        assertDatesParseToEqual("20150604-0800Z", "2015-06-04 08:00:00 +0000");
+
         assertDatesParseToEqual("20150604T080012.345", "2015-06-04-080012.345");
         assertDatesParseToEqual("20150604T080012.345Z", "2015-06-04-080012.345+0000");
         assertDatesParseToEqual("20150604t080012.345 Z", "2015-06-04-080012.345+0000");
@@ -405,4 +412,23 @@ public class TimeTest {
             prev = val;
         }
     }
+
+    @Test
+    public void testInstantString() {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"), Locale.ROOT);
+        calendar.set(2020, 0, 1, 12, 0, 0);
+        calendar.set(GregorianCalendar.MILLISECOND, 0);
+        Instant instant = calendar.toInstant();
+        Assert.assertEquals(Time.makeDateString(instant), "2020-01-01 12:00");
+
+        Assert.assertEquals(Time.makeDateStampStringZ(instant), "20200101-1200Z");
+        Assert.assertEquals(Time.parseInstant("20200101-1200Z"), instant);
+    }
+
+    @Test
+    public void testIso() {
+        Instant noon = Time.parseInstant("20200101-1200Z");
+        Assert.assertEquals(Time.makeIso8601DateStringZ(noon), "2020-01-01T12:00:00.000Z");
+    }
+
 }

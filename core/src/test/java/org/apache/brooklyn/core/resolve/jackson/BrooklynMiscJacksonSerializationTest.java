@@ -19,16 +19,31 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.reflect.TypeToken;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.util.Date;
+import java.util.GregorianCalendar;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
@@ -40,6 +55,11 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
     public ObjectMapper mapper() {
         if (mapper==null) mapper = BeanWithTypeUtils.newMapper(null, false, null, true);
         return mapper;
+    }
+
+    @BeforeMethod(alwaysRun = true)
+    public void setUp() throws Exception {
+        mapper = null;
     }
 
     // baseline
@@ -100,4 +120,78 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         Asserts.assertTrue(f1==f2, "different instances for "+f1+" and "+f2);
     }
 
+
+    @Test
+    public void testDurationCustomSerialization() throws Exception {
+        mapper = BeanWithTypeUtils.newSimpleYamlMapper();
+
+        // need these two to get the constructor stuff we want (but _not_ the default duration support)
+        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, null, false, null, true);
+        WrappedValuesSerialization.apply(mapper, null);
+
+        Assert.assertEquals(ser(Duration.FIVE_SECONDS, Duration.class), "nanos: 5000000000");
+        Assert.assertEquals(deser("nanos: 5000000000", Duration.class), Duration.FIVE_SECONDS);
+
+        Asserts.assertFailsWith(() -> deser("5s", Duration.class),
+                e -> e.toString().contains("Duration"));
+
+
+        // custom serializer added as part of standard mapper construction
+
+        mapper = BeanWithTypeUtils.newYamlMapper(null, false, null, true);
+
+        Assert.assertEquals(deser("5s", Duration.class), Duration.FIVE_SECONDS);
+        Assert.assertEquals(deser("nanos: 5000000000", Duration.class), Duration.FIVE_SECONDS);
+
+        Assert.assertEquals(ser(Duration.FIVE_SECONDS, Duration.class), JavaStringEscapes.wrapJavaString("5s"));
+    }
+
+
+    public static class DateTimeBean {
+        String x;
+        Date juDate;
+//        LocalDateTime localDateTime;
+        GregorianCalendar calendar;
+        Instant instant;
+    }
+
+    @Test
+    public void testDateTimeInRegisteredTypes() throws Exception {
+        mapper = BeanWithTypeUtils.newYamlMapper(null, false, null, true);
+//        customMapper.findAndRegisterModules();
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        DateTimeBean impl = new DateTimeBean();
+        Asserts.assertEquals(ser(impl, DateTimeBean.class), "{}" );
+
+        impl.x = "foo";
+
+        impl.juDate = new Date(60*1000);
+//        impl.localDateTime = LocalDateTime.of(2020, 1, 1, 12, 0, 0, 0);
+        impl.calendar = new GregorianCalendar(TimeZone.getTimeZone("GMT"), Locale.ROOT);
+        impl.calendar.set(2020, 0, 1, 12, 0, 0);
+        impl.calendar.set(GregorianCalendar.MILLISECOND, 0);
+        impl.instant = impl.calendar.toInstant();
+        Asserts.assertEquals(ser(impl, DateTimeBean.class), Strings.lines(
+                "x: \"foo\"",
+                "juDate: \"1970-01-01T00:01:00.000Z\"",
+//                "localDateTime: \"2020-01-01T12:00:00\"",
+                "calendar: \"2020-01-01T12:00:00.000+00:00\"",
+                "instant: \"2020-01-01T12:00:00.000Z\""));
+
+        // ones commented out cannot be parsed
+        DateTimeBean impl2 = deser(Strings.lines(
+                "x: foo",
+                "juDate: 1970-01-01T00:01:00.000+00:00",
+//                "localDateTime: \"2020-01-01T12:00:00\"",
+//                "calendar: \"2020-01-01T12:00:00.000+00:00\"",
+                "instant: 2020-01-01T12:00:00Z",
+                ""
+        ), DateTimeBean.class);
+        Assert.assertEquals( impl2.x, impl.x );
+        Assert.assertEquals( impl2.juDate, impl.juDate );
+//        Assert.assertEquals( impl2.localDateTime, impl.localDateTime );
+//        Assert.assertEquals( impl2.calendar, impl.calendar );
+        Assert.assertEquals( impl2.instant, impl.instant );
+    }
 }
