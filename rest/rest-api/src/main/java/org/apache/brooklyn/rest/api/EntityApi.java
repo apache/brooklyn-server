@@ -167,6 +167,63 @@ public interface EntityApi {
             @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
             @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId);
 
+    // this feels too dangerous; see other items
+//    @POST
+//    @Path("/{entity}/tags")
+//    @ApiOperation(value = "Set the tags on this entity (replaces all, use with care)")
+//    @ApiResponses(value = {
+//            @ApiResponse(code = 404, message = "Could not find application or entity")
+//    })
+//    public void setTags(
+//            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+//            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+//            @ApiParam(value = "Tags to set", required = true) List<Object> tags);
+
+    @POST
+    @Path("/{entity}/tag/add")
+    @ApiOperation(value = "Add a tag on this entity")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find application or entity")
+    })
+    public void addTag(
+            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+            @ApiParam(value = "Tag to add", required = true) Object tag);
+
+    @POST
+    @Path("/{entity}/tag/delete")
+    @ApiOperation(value = "Delete a tag on this entity, returning whether the tag was found (and deleted)")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find application or entity")
+    })
+    public boolean deleteTag(
+            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+            @ApiParam(value = "Tag to delete", required = true) Object tag);
+
+    @POST
+    @Path("/{entity}/tag/upsert/{tagKey}")
+    @ApiOperation(value = "Inserts a tag which is a single-key map with the given key (path parameter) and value (post body), removing any existing tag matching the key")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find application or entity")
+    })
+    public void upsertTag(
+            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("tagKey") String tagKey,
+            @ApiParam(value = "Tag map value to upsert for the given key", required = true) Object tagValue);
+
+    @GET
+    @Path("/{entity}/tag/get/{tagKey}")
+    @ApiOperation(value = "Returns the tag value for a tag which is a single-key map with the given key, or null (not 404 for missing tag key)")
+    @ApiResponses(value = {
+            @ApiResponse(code = 404, message = "Could not find application or entity")
+    })
+    public Object getTag(
+            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,
+            @ApiParam(value = "Entity ID or name", required = true) @PathParam("tagKey") String tagKey);
+
     @POST
     @ApiOperation(
             value = "Rename an entity"

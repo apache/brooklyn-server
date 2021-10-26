@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Collection;
@@ -227,5 +229,44 @@ public class EntityResourceTest extends BrooklynRestResourceTest {
         Assert.assertEquals( ((Entity)appTag).getId(), entity.getApplicationId(), "Wrong ID: "+appTag);
         Assert.assertTrue(appTag instanceof BasicApplication, "Should have deserialized BasicApplication: "+appTag);
     }
-    
+
+    @Test
+    public void testTagsChangingViaRest() throws Exception {
+        entity.tags().addTag("foo");
+
+        Response response;
+
+        response = client().path(entityEndpoint + "/tag/add").accept(MediaType.APPLICATION_JSON).post(toJsonEntity("bar"));
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+
+        response = client().path(entityEndpoint + "/tag/add").accept(MediaType.APPLICATION_JSON).post(toJsonEntity(MutableMap.of("baz_key", "baz_value")));
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+
+        String raw;
+        response = client().path(entityEndpoint + "/tags").accept(MediaType.APPLICATION_JSON).get();
+        raw = response.readEntity(String.class);
+        log.info("TAGS raw: "+raw);
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+        Asserts.assertStringContains(raw, "foo");
+        Asserts.assertStringContains(raw, "bar");
+        Asserts.assertStringContains(raw, "baz_key", "baz_value");
+
+        response = client().path(entityEndpoint + "/tag/upsert/baz_key").accept(MediaType.APPLICATION_JSON).post(toJsonEntity("baz2_value"));
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+        response = client().path(entityEndpoint + "/tags").accept(MediaType.APPLICATION_JSON).get();
+        raw = response.readEntity(String.class);
+        Asserts.assertStringContains(raw, "baz_key", "baz2_value");
+        Asserts.assertStringDoesNotContain(raw, "baz_value");
+
+        response = client().path(entityEndpoint + "/tag/delete").accept(MediaType.APPLICATION_JSON).post(toJsonEntity("bar"));
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+        response = client().path(entityEndpoint + "/tag/delete").accept(MediaType.APPLICATION_JSON).post(toJsonEntity(MutableMap.of("baz_key", "baz2_value")));
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+        response = client().path(entityEndpoint + "/tags").accept(MediaType.APPLICATION_JSON).get();
+        raw = response.readEntity(String.class);
+        Asserts.assertStringDoesNotContain(raw, "bar");
+        Asserts.assertStringDoesNotContain(raw, "baz_key");
+        Asserts.assertStringContains(raw, "foo");
+    }
+
 }

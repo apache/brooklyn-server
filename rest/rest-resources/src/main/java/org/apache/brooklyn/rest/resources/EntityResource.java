@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
@@ -254,6 +255,30 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public List<Object> listTags(String applicationId, String entityId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         return (List<Object>) resolving(MutableList.copyOf(entity.tags().getTags())).preferJson(true).resolve();
+    }
+
+    @Override
+    public void addTag(String applicationId, String entityId, Object tag) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        entity.tags().addTag(tag);
+    }
+
+    @Override
+    public boolean deleteTag(String applicationId, String entityId, Object tag) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        return entity.tags().removeTag(tag);
+    }
+
+    @Override
+    public void upsertTag(String applicationId, String entityId, String tagKey, Object tagValue) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        BrooklynTags.upsertSingleKeyMapValueTag(entity.tags(), tagKey, tagValue);
+    }
+
+    @Override
+    public Object getTag(String applicationId, String entityId, String tagKey) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        return BrooklynTags.findSingleKeyMapValue(tagKey, Object.class, entity.tags().getTags());
     }
 
     @Override

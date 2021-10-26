@@ -25,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.objs.BrooklynObject.TagSupport;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 
@@ -102,6 +103,17 @@ public class BrooklynTags {
         } else {
             spec.tag(MutableMap.of(key, value));
         }
+    }
+
+    public static <T> void upsertSingleKeyMapValueTag(TagSupport tagS, String key, T value) {
+        MutableList<Object> matchingKeyTags = MutableList.of();
+        tagS.getTags().stream().forEach(t -> {
+            if (isTagSingleKeyMap(t, key)) {
+                matchingKeyTags.add(t);
+            }
+        });
+        matchingKeyTags.forEach(tagS::removeTag);
+        tagS.addTag(MutableMap.of(key, value));
     }
 
     public static NamedStringTag findFirstNamedStringTag(String kind, Iterable<Object> tags) {
