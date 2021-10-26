@@ -231,7 +231,7 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     public boolean isDone(boolean andTaskNoLongerRunning) {
-        boolean done = isCancelled() || (maxIterations!=null && maxIterations > runCount) || (period==null && nextRun!=null && nextRun.isDone());
+        boolean done = isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
         if (andTaskNoLongerRunning) {
             return done && super.isDone(true);
         } else {
