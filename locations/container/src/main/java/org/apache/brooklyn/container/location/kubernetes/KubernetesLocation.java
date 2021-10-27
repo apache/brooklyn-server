@@ -181,14 +181,14 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         return getClient(MutableMap.of());
     }
 
-    protected KubernetesClient getClient(Map<?, ?> flags) {
+    public KubernetesClient getClient(Map<?, ?> flags) {
         ConfigBag conf = (flags == null || flags.isEmpty())
                 ? config().getBag()
                 : ConfigBag.newInstanceExtending(config().getBag(), flags);
         return getClient(conf);
     }
 
-    protected KubernetesClient getClient(ConfigBag config) {
+    public KubernetesClient getClient(ConfigBag config) {
         currentConfig = config;
         KubernetesClientRegistry registry = getConfig(KUBERNETES_CLIENT_REGISTRY);
         KubernetesClient client = registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config));

@@ -67,7 +67,7 @@ public class OpenShiftLocation extends KubernetesLocation implements OpenShiftLo
     }
 
     @Override
-    protected KubernetesClient getClient(ConfigBag config) {
+    public KubernetesClient getClient(ConfigBag config) {
         if (client == null) {
             KubernetesClientRegistry registry = getConfig(OPENSHIFT_CLIENT_REGISTRY);
             client = (OpenShiftClient) registry.getKubernetesClient(ResolvingConfigBag.newInstanceExtending(getManagementContext(), config));
