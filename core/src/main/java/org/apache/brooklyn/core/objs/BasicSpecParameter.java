@@ -248,6 +248,7 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             boolean hasTypeInheritance = inputDef.containsKey("inheritance.type");
             ConfigInheritance typeInheritance = parseInheritance(inputDef.get("inheritance.type"), loader);
 
+            boolean isReconfigurable = inputDef.containsKey("reconfigurable") && inputDef.get("reconfigurable").equals(true);
             if (name == null) {
                 throw new IllegalArgumentException("'name' value missing from input definition " + obj + " but is required. Check for typos.");
             }
@@ -267,7 +268,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     .defaultValue(immutableDefaultValue)
                     .constraint(constraint)
                     .runtimeInheritance(runtimeInheritance)
-                    .typeInheritance(typeInheritance);
+                    .typeInheritance(typeInheritance)
+                    .reconfigurable(isReconfigurable);
 
             if (TypeTokens.equalsRaw(PortRange.class, typeToken)) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
