@@ -26,8 +26,12 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
+import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.policy.Policies;
 import org.apache.brooklyn.rest.api.PolicyApi;
@@ -40,6 +44,7 @@ import org.apache.brooklyn.rest.transform.PolicyTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,18 +97,28 @@ public class PolicyResource extends AbstractBrooklynRestResource implements Poli
                     Entitlements.getEntitlementContext().user());
         }
 
-        Class<? extends Policy> policyType;
+        PolicySpec policySpec;
         try {
-            policyType = (Class<? extends Policy>) new ClassLoaderUtils(this, mgmt()).loadClass(policyTypeName);
-        } catch (ClassNotFoundException e) {
-            throw WebResourceUtils.badRequest("No policy with type %s found", policyTypeName);
+            ManagementContext managementContext = mgmt();
+            Maybe<RegisteredType> maybePolicy = managementContext.getTypeRegistry()
+                    .getMaybe(policyTypeName, null)
+                    .map(registeredType -> managementContext.getTypeRegistry().get(policyTypeName));
+
+            if(maybePolicy.isPresent()){
+                RegisteredType registeredType = maybePolicy.get();
+                policySpec = managementContext.getTypeRegistry().createSpec(registeredType, null, PolicySpec.class);
+            }else{
+                Class<? extends Policy> policyType;
+                policyType = (Class<? extends Policy>) new ClassLoaderUtils(this, mgmt()).loadClass(policyTypeName);
+                policySpec = PolicySpec.create(policyType);
+            }
         } catch (ClassCastException e) {
             throw WebResourceUtils.badRequest("No policy with type %s found", policyTypeName);
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }
-
-        Policy policy = entity.policies().add(PolicySpec.create(policyType).configure(config));
+        policySpec.configure(config);
+        Policy policy = entity.policies().add(policySpec);
         log.debug("REST API added policy " + policy + " to " + entity);
 
         return PolicyTransformer.policySummary(entity, policy, ui.getBaseUriBuilder());
