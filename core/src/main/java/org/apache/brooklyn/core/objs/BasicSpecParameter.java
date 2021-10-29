@@ -270,8 +270,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     .defaultValue(immutableDefaultValue)
                     .constraint(constraint)
                     .runtimeInheritance(runtimeInheritance)
-                    .typeInheritance(typeInheritance)
-                    .reconfigurable((isReconfigurable!=null) ? isReconfigurable : false);
+                    .typeInheritance(typeInheritance);
+            if (isReconfigurable!=null) builder.reconfigurable(isReconfigurable);
 
             if (TypeTokens.equalsRaw(PortRange.class, typeToken)) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
