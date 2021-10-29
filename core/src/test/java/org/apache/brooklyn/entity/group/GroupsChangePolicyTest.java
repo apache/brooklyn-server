@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -36,11 +37,10 @@ import static org.apache.brooklyn.test.Asserts.assertEqualsIgnoringOrder;
 import static org.testng.Assert.assertEquals;
 
 
-// TODO these tests fail as no osgi when running tests
 
 public class GroupsChangePolicyTest extends BrooklynAppLiveTestSupport {
 
-    @Test(enabled = false)
+    @Test(groups = "Live")
     public void testAddInitializers() {
 
         DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
@@ -50,21 +50,29 @@ public class GroupsChangePolicyTest extends BrooklynAppLiveTestSupport {
                         .configure(GroupsChangePolicy.INITIALIZERS,
                                 ImmutableList.of(
                                         ImmutableMap.of(
-                                                "type", "org.apache.brooklyn.core.sensor.StaticSensor",
+                                                "type", StaticSensor.class.getName(),
                                                 "brooklyn.config", ImmutableMap.of(
                                                         "name", "mytestsensor",
                                                         "target.type", "string",
-                                                        "static.value",  "$brooklyn:formatString(\"%s%s\",\"test\",\"sensor\")")
+                                                        "static.value",  "testsensor")
 )));
         TestEntity myTestEntity = app.addChild(EntitySpec.create(TestEntity.class).configure(LocationConfigKeys.DISPLAY_NAME, "mytestentity"));
         dynamicGroup.policies().add(policySpec);
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(myTestEntity.getId()));
 
         assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(myTestEntity));
-        assertEquals(myTestEntity.policies().size(), 1);
+
+        Asserts.eventually(new Supplier<String>() {
+            @Override
+            public String get() {
+                return myTestEntity.getAttribute(Sensors.newStringSensor("mytestsensor"));
+            }
+        }, Predicates.<String> equalTo("testsensor"));
+
     }
 
-    @Test(enabled = false)
+    //Test fails without OSGi
+    @Test(enabled = false, groups = "Live")
     public void testAddPolicies() {
 
         DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
@@ -88,11 +96,6 @@ public class GroupsChangePolicyTest extends BrooklynAppLiveTestSupport {
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(myTestEntity.getId()));
 
         assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(myTestEntity));
-        Asserts.eventually(new Supplier<String>() {
-            @Override
-            public String get() {
-                return myTestEntity.getAttribute(Sensors.newStringSensor("mytestsensor"));
-            }
-        }, Predicates.<String> equalTo("testsensor"));
+        assertEquals(myTestEntity.policies().size(), 1);
     }
 }

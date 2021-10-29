@@ -19,7 +19,9 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -117,6 +119,14 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
         Object impl3 = deser("[3]", rt);
         Assert.assertEquals( ((ListExtended)impl3).size(), 1 );
+    }
+
+    @Test
+    public void testDeserializeEntityInitializer() throws Exception {
+        Object impl = deser("{\"type\":\""+ StaticSensor.class.getName()+"\""
+                +",\"brooklyn.config\":{\"name\":\"mytestsensor\"}"
+                +"}");
+        Asserts.assertInstanceOf(impl, EntityInitializer.class);
     }
 
 }
