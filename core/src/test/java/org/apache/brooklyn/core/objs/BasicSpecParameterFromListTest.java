@@ -198,6 +198,17 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertFalse(type.isReconfigurable());
     }
 
+    @Test
+    public void testReconfigurableCoercedFromString() {
+        String name = "reconfigurable coerced from string";
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
+                "name", name,
+                "reconfigurable","true"));
+
+        ConfigKey<?> type = input.getConfigKey();
+        assertTrue(type.isReconfigurable());
+    }
+
     private SpecParameter<?> parseSpecParameterDefinition(Object def) {
         BrooklynClassLoadingContext loader = JavaBrooklynClassLoadingContext.create(mgmt);
         List<SpecParameter<?>> inputs = BasicSpecParameter.parseParameterDefinitionList(ImmutableList.of(def), null, loader);
