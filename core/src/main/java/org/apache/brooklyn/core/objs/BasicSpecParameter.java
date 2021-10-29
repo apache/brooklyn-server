@@ -52,6 +52,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
 import org.slf4j.Logger;
@@ -248,7 +249,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
             boolean hasTypeInheritance = inputDef.containsKey("inheritance.type");
             ConfigInheritance typeInheritance = parseInheritance(inputDef.get("inheritance.type"), loader);
 
-            boolean isReconfigurable = inputDef.containsKey("reconfigurable") && inputDef.get("reconfigurable").equals(true);
+            Boolean isReconfigurable = TypeCoercions.coerce(inputDef.get("reconfigurable"), Boolean.class);
+
             if (name == null) {
                 throw new IllegalArgumentException("'name' value missing from input definition " + obj + " but is required. Check for typos.");
             }
@@ -268,8 +270,8 @@ public class BasicSpecParameter<T> implements SpecParameter<T>{
                     .defaultValue(immutableDefaultValue)
                     .constraint(constraint)
                     .runtimeInheritance(runtimeInheritance)
-                    .typeInheritance(typeInheritance)
-                    .reconfigurable(isReconfigurable);
+                    .typeInheritance(typeInheritance);
+            if (isReconfigurable!=null) builder.reconfigurable(isReconfigurable);
 
             if (TypeTokens.equalsRaw(PortRange.class, typeToken)) {
                 sensorType = new PortAttributeSensorAndConfigKey(builder);
