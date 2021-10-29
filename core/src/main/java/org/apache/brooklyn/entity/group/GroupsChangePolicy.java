@@ -33,13 +33,11 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
@@ -50,6 +48,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
 
     public static final ConfigKey<List<Map<String, Object>>> POLICIES = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>(){})
             .name("member.policies")
+            .description("List of policies of the form [{type: policyType, brooklyn.config: {configKey: configValue}}]")
             .defaultValue(ImmutableList.of())
             .build();
 
@@ -69,8 +68,8 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
         ManagementContext mgmt = getManagementContext();
 
         Maybe<Object> rawPolicies = config().getRaw(POLICIES);
-        List<Map<String, Object>> maps = rawPolicies.isPresent() ? (List<Map<String, Object>>) rawPolicies.get() : ImmutableList.of();
-        maps.forEach(
+        List<Map<String, Object>> policyDefinitions = rawPolicies.isPresent() ? (List<Map<String, Object>>) rawPolicies.get() : ImmutableList.of();
+        policyDefinitions.forEach(
                 stringObjectMap -> {
                     String type = (String) stringObjectMap.get("type");
 
@@ -80,7 +79,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     if (!item.isNull()) {
                         policySpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<PolicySpec<Policy>>) BrooklynObjectType.POLICY.getSpecType());
                     } else {
-                        policySpec = PolicySpec.create(ImmutableMap.of(), (Class) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
+                        policySpec = PolicySpec.create(ImmutableMap.of(), (Class<Policy>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
                     }
                     policySpec.configure((Map<String, Object>) stringObjectMap.get("brooklyn.config"));
 
@@ -104,8 +103,8 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
         );
 
         Maybe<Object> rawEnrichers = config().getRaw(ENRICHERS);
-        List<Map<String, Object>> enricherMaps = rawEnrichers.isPresent() ? (List<Map<String, Object>>) rawEnrichers.get() : ImmutableList.of();
-        enricherMaps.forEach(
+        List<Map<String, Object>> enricherDefinitions = rawEnrichers.isPresent() ? (List<Map<String, Object>>) rawEnrichers.get() : ImmutableList.of();
+        enricherDefinitions.forEach(
                 stringObjectMap -> {
                     String type = (String) stringObjectMap.get("type");
                     Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(type), RegisteredTypeLoadingContexts.spec(BrooklynObjectType.ENRICHER.getInterfaceType()));
@@ -114,7 +113,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     if (!item.isNull()) {
                         enricherSpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<EnricherSpec<Enricher>>) BrooklynObjectType.ENRICHER.getSpecType());
                     } else {
-                        enricherSpec = EnricherSpec.create(ImmutableMap.of(), (Class) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
+                        enricherSpec = EnricherSpec.create(ImmutableMap.of(), (Class<Enricher>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
                     }
                     enricherSpec.configure((Map<String, Object>) stringObjectMap.get("brooklyn.config"));
 
