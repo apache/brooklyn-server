@@ -44,6 +44,38 @@ import org.apache.brooklyn.util.guava.Maybe;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Policy for adding policies, enrichers, and initializers to entities as the join dynamic groups.
+ *
+ * Example usage:
+ *     - type: org.apache.brooklyn.entity.group.DynamicGroup
+ *       name: Empty Software Processes
+ *       brooklyn.policies:
+ *       - type: org.apache.brooklyn.entity.group.GroupsChangePolicy
+ *         brooklyn.config:
+ *           group: $brooklyn:self()
+ *           member.policies: kdjsldl
+ *           member.initializers:
+ *           - type: org.apache.brooklyn.core.sensor.StaticSensor
+ *             brooklyn.config:
+ *               name: testsensor
+ *               target.type: string
+ *               static.value: $brooklyn:formatString("%s%s","test","sensor")
+ *           member.enrichers:
+ *           - type: org.apache.brooklyn.policy.enricher.HttpLatencyDetector
+ *             brooklyn.config:
+ *               latencyDetector.url: http://localost:8081
+ *               latencyDetector.period: 10s
+ *               latencyDetector.requireServiceUp: false
+ *
+ *       brooklyn.config:
+ *         dynamicgroup.entityfilter:
+ *           $brooklyn:object:
+ *             type: org.apache.brooklyn.core.entity.EntityPredicates
+ *             factoryMethod.name: displayNameEqualTo
+ *             factoryMethod.args:
+ *             - "Empty Software Process"
+ */
 public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
 
     public static final ConfigKey<List<Map<String, Object>>> POLICIES = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>(){})
