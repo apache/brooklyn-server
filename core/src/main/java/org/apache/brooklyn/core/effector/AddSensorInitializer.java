@@ -91,7 +91,7 @@ public class AddSensorInitializer<T> extends EntityInitializers.InitializerPatte
     private Duration period;
     private String type;
     private AttributeSensor<T> sensor;
-    private Object params;
+    private ConfigBag params;
     // introduced in 1.1 for legacy compatibility
     protected Object readResolve() {
         super.readResolve();
