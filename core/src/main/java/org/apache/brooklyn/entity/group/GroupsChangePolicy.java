@@ -99,9 +99,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
         super.onEntityAdded(member);
         ManagementContext mgmt = getManagementContext();
 
-        Maybe<Object> rawPolicies = config().getRaw(POLICIES);
-        List<Map<String, Object>> policyDefinitions = rawPolicies.isPresent() ? (List<Map<String, Object>>) rawPolicies.get() : ImmutableList.of();
-        policyDefinitions.forEach(
+        getMaps(POLICIES).forEach(
                 stringObjectMap -> {
                     String type = (String) stringObjectMap.get("type");
 
@@ -121,22 +119,19 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                 }
         );
 
-        config().get(INITIALIZERS).forEach(
+        getMaps(INITIALIZERS).forEach(
                 stringObjectMap -> {
                     try {
-                        OsgiBrooklynClassLoadingContext loader = entity != null ? new OsgiBrooklynClassLoadingContext(entity) : null;
+                        OsgiBrooklynClassLoadingContext loader = member != null ? new OsgiBrooklynClassLoadingContext(member) : null;
                         EntityInitializer initializer = BeanWithTypeUtils.tryConvertOrAbsent(mgmt,Maybe.of(stringObjectMap), TypeToken.of(EntityInitializer.class), true, loader, true).get();
                         initializer.apply((EntityInternal) member);
                     }catch(Throwable e){
-                        e.printStackTrace();
                         throw Exceptions.propagate(e);
                     }
                 }
         );
 
-        Maybe<Object> rawEnrichers = config().getRaw(ENRICHERS);
-        List<Map<String, Object>> enricherDefinitions = rawEnrichers.isPresent() ? (List<Map<String, Object>>) rawEnrichers.get() : ImmutableList.of();
-        enricherDefinitions.forEach(
+        getMaps(ENRICHERS).forEach(
                 stringObjectMap -> {
                     String type = (String) stringObjectMap.get("type");
                     Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(type), RegisteredTypeLoadingContexts.spec(BrooklynObjectType.ENRICHER.getInterfaceType()));
@@ -153,5 +148,10 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     member.enrichers().add(enricherSpec);
                 }
         );
+    }
+
+    private List<Map<String, Object>> getMaps(ConfigKey<List<Map<String, Object>>> key) {
+        Maybe<Object> rawInitializers = config().getRaw(key);
+        return rawInitializers.isPresent() ? (List<Map<String, Object>>) rawInitializers.get() : ImmutableList.of();
     }
 }
