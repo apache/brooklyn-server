@@ -166,4 +166,9 @@ brooklyn.catalog:
         type: org.apache.brooklyn.enricher.stock.reducer.Reducer
         name: Reducer
         description: Applies a transformation to a sensor
-        
+    - id: org.apache.brooklyn.entity.group.GroupsChangePolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.entity.group.GroupsChangePolicy
+        name: GroupsChangePolicy
+        description: Applies policies to entities as they are added to DynamicGroups

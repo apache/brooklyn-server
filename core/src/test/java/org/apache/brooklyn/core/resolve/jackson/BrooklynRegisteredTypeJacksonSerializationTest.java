@@ -19,7 +19,10 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -27,6 +30,7 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -117,6 +121,31 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
         Object impl3 = deser("[3]", rt);
         Assert.assertEquals( ((ListExtended)impl3).size(), 1 );
+    }
+
+    @Test
+    public void testDeserializeEntityInitializer() throws Exception {
+        Object impl = deser("{\"type\":\""+ StaticSensor.class.getName()+"\""
+                +",\"brooklyn.config\":{\"name\":\"mytestsensor\"}"
+                +"}");
+        Asserts.assertInstanceOf(impl, EntityInitializer.class);
+    }
+
+    @Test
+    public void testConfigBagSerialization() throws Exception {
+        ConfigBag bag = ConfigBag.newInstance();
+        bag.put(ConfigKeys.newConfigKey(String.class, "stringTypedKey"), "foo");
+        bag.putStringKey("stringUntypedKey", "bar");
+        bag.putStringKey("intUntypedKey", 2);
+        bag.getStringKey("stringUntypedKey");
+
+        String out = ser(bag);
+        Assert.assertEquals(out, "{\"type\":\"org.apache.brooklyn.util.core.config.ConfigBag\",\"config\":{\"stringTypedKey\":\"foo\",\"stringUntypedKey\":\"bar\",\"intUntypedKey\":2},\"unusedConfig\":{\"stringTypedKey\":\"foo\",\"intUntypedKey\":2},\"live\":false,\"sealed\":false}");
+
+        ConfigBag in = (ConfigBag) deser(out);
+        // used and unused is serialized
+        Asserts.assertSize(in.getUnusedConfig(), 2);
+        Asserts.assertEquals(in.getAllConfig(), bag.getAllConfig());
     }
 
 }

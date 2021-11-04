@@ -28,6 +28,8 @@ import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -55,6 +57,7 @@ import com.google.common.collect.Sets;
  * <p>
  * @author alex
  */
+@JsonAutoDetect(fieldVisibility = Visibility.ANY, isGetterVisibility = Visibility.NONE, getterVisibility = Visibility.NONE, setterVisibility = Visibility.NONE)
 public class ConfigBag {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigBag.class);
