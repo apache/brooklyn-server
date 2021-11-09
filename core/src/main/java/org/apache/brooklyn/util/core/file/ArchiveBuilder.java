@@ -332,7 +332,7 @@ public class ArchiveBuilder {
                 if (!source.isDirectory()) {
                     throw new IllegalStateException("Cannot add multiple items at a path in archive unless they are directories: "+sources+" at "+path+" is not valid.");
                 }
-                Iterable<File> children = Files.fileTreeTraverser().children(source);
+                Iterable<File> children = Files.fileTraverser().breadthFirst(source);
                 for (File child : children) {
                     addToArchive(Os.mergePaths(name, child.getName()), Collections.singleton(child), target);
                 }

@@ -308,7 +308,7 @@ public abstract class AbstractOnNetworkEnricher extends AbstractEnricher {
             }
             URI result;
             try {
-                result = new URI(uri.getScheme(), uri.getUserInfo(), mappedEndpoint.get().getHostText(), mappedEndpoint.get().getPort(), uri.getPath(), uri.getQuery(), uri.getFragment());
+                result = new URI(uri.getScheme(), uri.getUserInfo(), mappedEndpoint.get().getHost(), mappedEndpoint.get().getPort(), uri.getPath(), uri.getQuery(), uri.getFragment());
             } catch (URISyntaxException e) {
                 LOG.debug("Error transforming URI "+uri+", using target "+mappedEndpoint+"; rethrowing");
                 throw Exceptions.propagateAnnotated("Error transforming URI "+uri+", using target "+mappedEndpoint, e);

@@ -1168,7 +1168,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
                         "Waiting for permit then running " + effector.getName() + " on " + target,
                         obtainMutex, effectorTask);
             }
-            toSubmit.addListener(new ReleasePermit(getChildTaskSemaphore(), permitObtained), MoreExecutors.sameThreadExecutor());
+            toSubmit.addListener(new ReleasePermit(getChildTaskSemaphore(), permitObtained), /* same thread */ r -> r.run());
         } else {
             toSubmit = effectorTask;
         }
