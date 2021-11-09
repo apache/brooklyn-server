@@ -308,7 +308,6 @@
         <bundle>mvn:org.apache.jclouds/jclouds-core/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds/jclouds-scriptbuilder/${jclouds.version}</bundle>
-        <bundle>mvn:org.apache.jclouds.labs/vcac/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/aws-ec2/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/azureblob/${jclouds.version}</bundle>
@@ -333,16 +332,11 @@
         <bundle>mvn:org.apache.jclouds.provider/skalicloud-sdg-my/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/softlayer/${jclouds.version}</bundle>
 
-        <!-- As at jclouds 2.1.0 this pulls in snakeyaml 1.17 via jclouds-api-byon;
-             I cannot see any way to prevent this, short of not using the jclouds feature
-             definitions. Things we have tried include redeclaring that feature here
-             with our preferred bundle and it works most places but at least one runtime
-             (an RPM build of a downstream project installed to Docker) won't start as
-             it seems to read the other feature definition.  We also tried the etc/overrides.properties
-             but that did not prevent it from pulling in 1.17 at build, or if we built correctly,
-             it did not prevent it from needing the 1.17 at runtime. Luckily having the two
-             snakeyaml versions doesn't seem to be a problem. -->
-        <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.17</bundle>
+        <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.26</bundle> <!-- jclouds uses this version now; we might not need to include it, but trying for good measure -->
+
+<!--    exclude vcac; not available in 2.4.0, and not widely used or tested.
+        <bundle>mvn:org.apache.jclouds.labs/vcac/${jclouds.version}</bundle>
+-->
 
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
         <feature>brooklyn-software-winrm</feature>
