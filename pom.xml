@@ -112,6 +112,7 @@
             For example jclouds is sensitive, as might be jackson-datatype-guava (might want 16-20?).
         -->
         <guava-swagger.version>${guava.version}</guava-swagger.version>
+        <animal-sniffer.version>1.17</animal-sniffer.version>  <!-- guava version; overridden when pulling in felix -->
         <failureaccess.version>1.0.1</failureaccess.version>
 
         <!-- xstream -->
