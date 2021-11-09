@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.effector;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
+import java.time.Instant;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
@@ -45,7 +46,10 @@ public class AddDeploySensorsInitializer implements EntityInitializer {
         ((EntityInternal) entity).getMutableEntityType().addSensor(sensor);
         entity.sensors().set(sensor, ImmutableMap.of(
                 "user", entitlementContext != null ? entitlementContext.user() : "Unknown",
-                "deploy_time", System.currentTimeMillis()
+
+                "created", Instant.now()
+                // previously used the below instead
+//                "deploy_time", System.currentTimeMillis()
         ));
 
     }
