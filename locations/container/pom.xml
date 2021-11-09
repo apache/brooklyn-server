@@ -48,6 +48,10 @@
                     <artifactId>jsr305</artifactId>
                 </exclusion>
                 <!-- okio was here, but now we use the right version -->
+                <exclusion> <!--jclouds pulls in 3.14.9 now -->
+                    <groupId>com.squareup.okhttp3</groupId>
+                    <artifactId>okhttp</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>com.fasterxml.jackson.datatype</groupId>
                     <artifactId>jackson-datatype-jsr310</artifactId>
