@@ -22,7 +22,6 @@
           xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.4.0">
 
     <repository>mvn:org.apache.karaf.features/standard/${karaf.version}/xml/features</repository>
-    <repository>mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/xml/features</repository>
     <repository>mvn:org.apache.cxf.karaf/apache-cxf/${cxf.version}/xml/features</repository>
     <repository>mvn:io.fabric8.kubernetes/kubernetes-karaf/${kubernetes-client.version}/xml/features</repository>
 
@@ -276,13 +275,64 @@
     </feature>
 
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
-        <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <feature>brooklyn-core</feature>
-        <feature>jclouds-services</feature>
-        <feature>jclouds-driver-sshj</feature>
-        <feature>jclouds-driver-slf4j</feature>
 
-        <!-- Same as allcompute -->
+        <bundle>mvn:org.apache.jclouds.api/atmos/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/byon/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/cloudstack/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/docker/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/ec2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/elasticstack/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-cinder/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-keystone/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-neutron/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-nova-ec2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-nova/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-swift/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/rackspace-cloudfiles/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/rackspace-cloudidentity/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/route53/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/s3/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/sts/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.common/googlecloud/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.common/openstack-common/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-bouncycastle/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-jsch/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-log4j/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-okhttp/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-slf4j/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-blobstore/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-compute/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-core/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-scriptbuilder/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.labs/vcac/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/aws-ec2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/azureblob/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/azurecompute-arm/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/b2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/digitalocean2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/elastichosts-lon-b/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/elastichosts-lon-p/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/elastichosts-sat-p/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/go2cloud-jhb1/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/gogrid/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/google-cloud-storage/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/openhosting-east1/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/packet/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/profitbricks/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudfiles-uk/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudfiles-us/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudservers-uk/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudservers-us/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/serverlove-z1-man/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/skalicloud-sdg-my/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/softlayer/${jclouds.version}</bundle>
+
         <!-- As at jclouds 2.1.0 this pulls in snakeyaml 1.17 via jclouds-api-byon;
              I cannot see any way to prevent this, short of not using the jclouds feature
              definitions. Things we have tried include redeclaring that feature here
@@ -292,11 +342,7 @@
              but that did not prevent it from pulling in 1.17 at build, or if we built correctly,
              it did not prevent it from needing the 1.17 at runtime. Luckily having the two
              snakeyaml versions doesn't seem to be a problem. -->
-        <feature>jclouds-all-compute</feature>
         <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.17</bundle>
-
-        <!-- Same as allblobstore -->
-        <feature>jclouds-all-blobstore</feature>
 
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
         <feature>brooklyn-software-winrm</feature>
