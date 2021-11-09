@@ -49,7 +49,7 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
             .id("ID")
             .loginPort(ALLOWED_HOST_AND_PORT.getPort())
             .status(NodeMetadata.Status.RUNNING)
-            .privateAddresses(ImmutableList.of(ALLOWED_HOST_AND_PORT.getHostText()))
+            .privateAddresses(ImmutableList.of(ALLOWED_HOST_AND_PORT.getHost()))
             .build();
 
     @BeforeMethod
@@ -64,7 +64,7 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
         ConfigBag predicateConfig = new ConfigBag();
         predicateConfig.put(CloudLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE, hostAndPortPredicate);
         jcloudsLocation.getFirstReachableAddress(node, predicateConfig);
-        Assert.assertTrue(hostsMatchedHolder.contains(ALLOWED_HOST_AND_PORT.getHostText()));
+        Assert.assertTrue(hostsMatchedHolder.contains(ALLOWED_HOST_AND_PORT.getHost()));
     }
 
     @Test
@@ -94,7 +94,7 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
         List<String> hostsMatchedHolder = new ArrayList<>();
         predicateConfig.putStringKey(CloudLocationConfig.POLL_FOR_FIRST_REACHABLE_ADDRESS_PREDICATE.getName() + ".hostsMatchedHolder", hostsMatchedHolder);
         jcloudsLocation.getFirstReachableAddress(node, predicateConfig);
-        Assert.assertTrue(hostsMatchedHolder.contains(ALLOWED_HOST_AND_PORT.getHostText()));
+        Assert.assertTrue(hostsMatchedHolder.contains(ALLOWED_HOST_AND_PORT.getHost()));
     }
 
     @Test
@@ -163,7 +163,7 @@ public class JcloudsLocationReachabilityPredicateInstantiationTest {
 
         @Override
         public boolean apply(@Nullable HostAndPort input) {
-            ((List<String>) flags.get("hostsMatchedHolder")).add(input.getHostText());
+            ((List<String>) flags.get("hostsMatchedHolder")).add(input.getHost());
             return true;
         }
     }

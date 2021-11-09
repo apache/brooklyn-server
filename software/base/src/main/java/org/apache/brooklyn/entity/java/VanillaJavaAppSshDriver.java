@@ -113,7 +113,7 @@ public class VanillaJavaAppSshDriver extends JavaSoftwareProcessSshDriver implem
             getEntity().sensors().set(VanillaJavaApp.CLASSPATH_FILES, ImmutableList.of(Os.mergePaths(getRunDir(), "lib")));
         } else {
             // FIXME Cannot handle spaces in paths properly
-            Iterable<String> lines = Splitter.on(CharMatcher.BREAKING_WHITESPACE).omitEmptyStrings().trimResults().split(stdout);
+            Iterable<String> lines = Splitter.on(CharMatcher.breakingWhitespace()).omitEmptyStrings().trimResults().split(stdout);
             Iterable<String> files = Iterables.transform(lines, new Function<String, String>() {
                         @Override
                         public String apply(@Nullable String input) {

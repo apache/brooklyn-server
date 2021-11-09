@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import java.util.jar.Attributes;
@@ -332,7 +333,11 @@ public class ArchiveBuilder {
                 if (!source.isDirectory()) {
                     throw new IllegalStateException("Cannot add multiple items at a path in archive unless they are directories: "+sources+" at "+path+" is not valid.");
                 }
-                Iterable<File> children = Files.fileTraverser().breadthFirst(source);
+                Iterable<File> children = Arrays.asList(source.listFiles());
+                // previously was:
+                    //Files.fileTreeTraverser().children(source);
+                // updating to this causes overflow:
+                    //Files.fileTraverser().breadthFirst(source);
                 for (File child : children) {
                     addToArchive(Os.mergePaths(name, child.getName()), Collections.singleton(child), target);
                 }

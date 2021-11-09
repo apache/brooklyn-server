@@ -271,7 +271,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
     }
     
     private void assertMachine(SshMachineLocation machine, UserAndHostAndPort conn, Map<String, ?> config) {
-        assertEquals(machine.getAddress().getHostAddress(), conn.getHostAndPort().getHostText());
+        assertEquals(machine.getAddress().getHostAddress(), conn.getHostAndPort().getHost());
         assertEquals(machine.getPort(), conn.getHostAndPort().getPort());
         assertEquals(machine.getUser(), conn.getUser());
         for (Map.Entry<String, ?> entry : config.entrySet()) {
@@ -281,7 +281,7 @@ public class ByonLocationsYamlTest extends AbstractYamlTest {
     }
     
     private void assertMachine(WinRmMachineLocation machine, UserAndHostAndPort conn, Map<String, ?> config) {
-        assertEquals(machine.getAddress().getHostAddress(), conn.getHostAndPort().getHostText());
+        assertEquals(machine.getAddress().getHostAddress(), conn.getHostAndPort().getHost());
         assertEquals(machine.getPort(), conn.getHostAndPort().getPort());
         assertEquals(machine.getUser(), conn.getUser());
         for (Map.Entry<String, ?> entry : config.entrySet()) {
