@@ -70,5 +70,5 @@
             <artifactId>geronimo-ws-metadata_2.0_spec</artifactId>
         </dependency>
     </dependencies>
-    
+
 </project>

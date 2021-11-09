@@ -1480,7 +1480,17 @@
                                     In time we should minimize our export lists to
                                     what is really needed.
                                 -->
-                                <Export-Package>brooklyn.*,org.apache.brooklyn.*</Export-Package>
+                                <Export-Package>
+                                    brooklyn.*,
+                                    org.apache.brooklyn.*
+                                </Export-Package>
+                                <!-- By default import automatically, but constrain some versions which confuse karaf at runtime -->
+                                <Import-Package>
+                                    <!-- force this version to exclude servicemix which provides this at 1.1; but which we need as it provides others eg .meta -->
+                                    javax.annotation;version="[1.2,2)",
+                                    *
+                                </Import-Package>
+
                                 <Implementation-SHA-1>${buildNumber}</Implementation-SHA-1>
                                 <Implementation-Branch>${scmBranch}</Implementation-Branch>
                                 <Brooklyn-Catalog-Force-Remove-Bundles>*</Brooklyn-Catalog-Force-Remove-Bundles>
