@@ -82,7 +82,7 @@ public class Strings {
      * @see #isNonBlank(CharSequence)
      */
     public static boolean isBlank(CharSequence s) {
-        return isEmpty(s) || CharMatcher.WHITESPACE.matchesAllOf(s);
+        return isEmpty(s) || CharMatcher.whitespace().matchesAllOf(s);
     }
 
     /**
@@ -331,7 +331,7 @@ public class Strings {
     public static String makeValidFilename(String s) {
         Preconditions.checkNotNull(s, "Cannot make valid filename from null string");
         Preconditions.checkArgument(isNonBlank(s), "Cannot make valid filename from blank string");
-        return CharMatcher.anyOf(VALID_NON_ALPHANUM_FILE_CHARS).or(CharMatcher.JAVA_LETTER_OR_DIGIT)
+        return CharMatcher.anyOf(VALID_NON_ALPHANUM_FILE_CHARS).or(CharMatcher.javaLetterOrDigit())
                 .negate()
                 .trimAndCollapseFrom(s, '_');
     }

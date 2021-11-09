@@ -212,8 +212,8 @@ public class TypeTokens {
         }
 
         // prefer an ancestor (ideally we'd infer generics if needed at the parent, but skip for now)
-        if (t1.isAssignableFrom(t2)) return t1;
-        if (t2.isAssignableFrom(t1)) return t2;
+        if (t1.isSupertypeOf(t2)) return t1;
+        if (t2.isSupertypeOf(t1)) return t2;
         if (t1.getRawType().isAssignableFrom(t2.getRawType())) return t1;
         if (t2.getRawType().isAssignableFrom(t1.getRawType())) return t2;
 
