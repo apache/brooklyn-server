@@ -276,13 +276,38 @@
 
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
         <feature>brooklyn-core</feature>
+        <feature>jclouds-feature-brooklyn</feature>
+
+        <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
+        <feature>brooklyn-software-winrm</feature>
+        <feature>brooklyn-locations-jclouds-labs</feature>
+    </feature>
+
+    <feature name="jclouds-feature-brooklyn" version="${project.version}" description="Jclouds and Dependencies">
+        <!-- upstreams which seem needed -->
+        <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
+        <!-- (3) -->
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
 
         <!-- upstream dependencies, needed -->
-        <bundle>mvn:com.google.inject/guice/${guice.version}</bundle>
-        <bundle>mvn:com.google.inject.extensions/guice-assistedinject/${guice.version}</bundle>
-        <bundle>mvn:com.google.inject.extensions/guice-multibindings/${guice.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.inject/guice/${guice.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.inject.extensions/guice-assistedinject/${guice.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.inject.extensions/guice-multibindings/${guice.version}</bundle>
         <bundle dependency='true'>mvn:com.google.code.gson/gson/${gson.version}</bundle>
         <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
+
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch/${jsch.bundle.version}</bundle>
+        <bundle dependency="true">mvn:net.i2p.crypto/eddsa/${eddsa.version}</bundle>
+        <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>
+        <!-- <bundle dependency='true'>mvn:org.apache.jclouds.karaf.bundles/jsch-agentproxy-jsch/${project.version}</bundle> -->
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.core/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.connector-factory/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.usocket-nc/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.sshagent/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.bundle.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/${jsch.agentproxy.bundle.version}</bundle>
+ 
 
         <!-- upstream dependencies, maybe not needed --> 
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
@@ -352,10 +377,6 @@
 <!--    exclude vcac; not available in 2.4.0, and not widely used or tested.
         <bundle>mvn:org.apache.jclouds.labs/vcac/${jclouds.version}</bundle>
 -->
-
-        <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
-        <feature>brooklyn-software-winrm</feature>
-        <feature>brooklyn-locations-jclouds-labs</feature>
     </feature>
 
     <feature name="brooklyn-locations-jclouds-labs" version="${project.version}" description="Brooklyn JClouds Labs Location Targets">
