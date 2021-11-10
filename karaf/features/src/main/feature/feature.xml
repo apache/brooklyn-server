@@ -383,24 +383,23 @@
     </feature>
 
     <feature name="brooklyn-container-service" version="${project.version}" description="Brooklyn Container Service and Location Targets">
-        <feature>brooklyn-core</feature>
+        <feature prerequisite="true">brooklyn-core</feature>
 
         <!-- shared dependencies -->
         <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.datatype/jackson-datatype-jsr310/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
 
-        <!-- new dependencies -->
-        <!-- provides javax.annotation.meta etc but also javax.annotation which we don't want -->
+        <!-- new dependencies for this (but sometimes these don't seem to get installed even though they are listed?!) -->
+        <!-- note jsr305 provides javax.annotation.meta which is? needed but also javax.annotation at 1.1 which confuses other things -->
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
-        <bundle dependency='true'>mvn:com.squareup.okio/okio/1.15.0</bundle>
-        <bundle dependency='true'>mvn:com.squareup.okhttp3/okhttp/3.12.6</bundle>
-        <bundle dependency='true'>mvn:com.squareup.okhttp3/logging-interceptor/3.12.6</bundle>
-<!--        <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>-->
-<!--        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>-->
-<!--        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>-->
+        <!-- these need wrapped because they define Bundle-ManifestVersion: 1 -->
+        <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
 
         <!-- these are the main required bundles for these features above -->
         <bundle>mvn:io.fabric8/zjsonpatch/0.3.0</bundle>
@@ -408,7 +407,6 @@
         <bundle>mvn:io.fabric8/kubernetes-client/${kubernetes-client.version}/jar/bundle</bundle>
         <bundle>mvn:io.fabric8/openshift-client/${kubernetes-client.version}/jar/bundle</bundle>
 
-        <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-container/${project.version}</bundle>
     </feature>
 
@@ -424,10 +422,10 @@
     </feature>
 
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
-        <feature>brooklyn-core</feature>
-        <feature>brooklyn-server-software-all</feature>
-        <feature>brooklyn-locations-jclouds</feature>
-<!--        <feature>brooklyn-container-service</feature>-->
+        <feature prerequisite="true">brooklyn-core</feature>
+        <feature prerequisite="true">brooklyn-server-software-all</feature>
+        <feature prerequisite="true">brooklyn-locations-jclouds</feature>
+        <feature>brooklyn-container-service</feature>  <!-- install this after the above so servicemix jsr305 doesn't interfere -->
         <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-start/${project.version}</bundle>
