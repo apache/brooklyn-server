@@ -307,7 +307,6 @@
         <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.sshagent/${jsch.agentproxy.version}</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.bundle.version}</bundle>
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/${jsch.agentproxy.bundle.version}</bundle>
- 
 
         <!-- upstream dependencies, maybe not needed --> 
         <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
@@ -315,6 +314,9 @@
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.aopalliance/1.0_5</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.oauth-commons/20100527_1</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jersey-core/1.11_1</bundle>
+        <!-- jclouds uses this version; but probably not needed
+        <bundle dependency='true'>mvn:org.yaml/snakeyaml/${snakeyaml.jclouds.version}</bundle>
+         -->
 
         <!-- jclouds bundles -->
         <bundle>mvn:org.apache.jclouds.api/atmos/${jclouds.version}</bundle>
@@ -372,8 +374,6 @@
         <bundle>mvn:org.apache.jclouds.provider/skalicloud-sdg-my/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/softlayer/${jclouds.version}</bundle>
 
-        <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.26</bundle> <!-- jclouds uses this version now; we might not need to include it, but trying for good measure -->
-
 <!--    exclude vcac; not available in 2.4.0, and not widely used or tested.
         <bundle>mvn:org.apache.jclouds.labs/vcac/${jclouds.version}</bundle>
 -->
@@ -385,20 +385,23 @@
     <feature name="brooklyn-container-service" version="${project.version}" description="Brooklyn Container Service and Location Targets">
         <feature>brooklyn-core</feature>
 
+        <!-- shared dependencies -->
         <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.fasterxml.jackson.datatype/jackson-datatype-jsr310/${fasterxml.jackson.version}</bundle>
 
-        <!-- (1) -->
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/3.0.2_1</bundle>
+        <!-- new dependencies -->
+        <!-- provides javax.annotation.meta etc but also javax.annotation which we don't want -->
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
-        <!-- (2) -->
-        <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
-        <!-- (3) -->
-        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
-        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
-        <!-- (4) -->
+        <bundle dependency='true'>mvn:com.squareup.okio/okio/1.15.0</bundle>
+        <bundle dependency='true'>mvn:com.squareup.okhttp3/okhttp/3.12.6</bundle>
+        <bundle dependency='true'>mvn:com.squareup.okhttp3/logging-interceptor/3.12.6</bundle>
+<!--        <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>-->
+<!--        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>-->
+<!--        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>-->
+
         <!-- these are the main required bundles for these features above -->
         <bundle>mvn:io.fabric8/zjsonpatch/0.3.0</bundle>
         <bundle>mvn:io.fabric8/kubernetes-model/${kubernetes-client.version}</bundle>
@@ -424,7 +427,7 @@
         <feature>brooklyn-core</feature>
         <feature>brooklyn-server-software-all</feature>
         <feature>brooklyn-locations-jclouds</feature>
-        <feature>brooklyn-container-service</feature>
+<!--        <feature>brooklyn-container-service</feature>-->
         <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-start/${project.version}</bundle>
