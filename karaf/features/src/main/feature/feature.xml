@@ -42,21 +42,28 @@
         <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
     </feature>
 
-    <feature name="brooklyn-utils-common" version="${project.version}" description="Brooklyn Common Utils">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-utils-common/${project.version}</bundle>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-logback-includes/${project.version}</bundle>
+    <feature name="brooklyn-essential-deps" version="${project.version}" description="Brooklyn Common Utils">
+        <bundle dependency="true">mvn:jakarta.annotation/jakarta.annotation-api/${jakarta.annotation-api.version}</bundle>
+
+        <bundle dependency="true">mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
+        <bundle dependency="true">mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
+        <bundle dependency="true">mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
 
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
         <bundle dependency="true">mvn:org.codehaus.groovy/groovy-all/${groovy.version}</bundle>
         <bundle dependency="true">mvn:commons-io/commons-io/${commons-io.version}</bundle>
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
-        <bundle dependency="true">mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
         <bundle dependency="true">mvn:org.yaml/snakeyaml/${snakeyaml.version}</bundle>
+
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpcore-osgi/${httpcomponents.httpcore.version}</bundle>
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpcomponents.httpclient.version}</bundle>
+    </feature>
 
-        <bundle dependency="true">mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
-        <bundle dependency="true">mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
+    <feature name="brooklyn-utils-common" version="${project.version}" description="Brooklyn Common Utils">
+        <feature prerequisite="true">brooklyn-essential-deps</feature>
+
+        <bundle>mvn:org.apache.brooklyn/brooklyn-utils-common/${project.version}</bundle>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-logback-includes/${project.version}</bundle>
     </feature>
 
     <feature name="brooklyn-utils-groovy" version="${project.version}" description="Brooklyn Groovy Utils">
@@ -391,8 +398,10 @@
         <bundle dependency='true'>mvn:com.fasterxml.jackson.datatype/jackson-datatype-jsr310/${fasterxml.jackson.version}</bundle>
         <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
 
-        <!-- new dependencies for this (but sometimes these don't seem to get installed even though they are listed?!) -->
-        <!-- note jsr305 provides javax.annotation.meta which is? needed but also javax.annotation at 1.1 which confuses other things -->
+        <!-- new dependencies for this -->
+        <!-- note jsr305 provides javax.annotation.meta which is needed we think;
+             but also javax.annotation at 1.1 which confuses other things;
+             however it seems not to get installed at runtime now, even though it is listed as part of the feature which is installed -->
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
@@ -422,6 +431,7 @@
     </feature>
 
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
+        <feature prerequisite="true">brooklyn-essential-deps</feature>
         <feature prerequisite="true">brooklyn-core</feature>
         <feature prerequisite="true">brooklyn-server-software-all</feature>
         <feature prerequisite="true">brooklyn-locations-jclouds</feature>
