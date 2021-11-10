@@ -1469,6 +1469,7 @@
                         <configuration>
                             <supportedProjectTypes>
                                 <supportedProjectType>jar</supportedProjectType>
+                                <supportedProjectType>bundle</supportedProjectType>
                             </supportedProjectTypes>
                             <instructions>
                                 <!-- OSGi specific instruction -->
