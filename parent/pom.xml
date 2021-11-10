@@ -1486,11 +1486,6 @@
                                     org.apache.brooklyn.*
                                 </Export-Package>
                                 <!-- By default import automatically, but constrain some versions which confuse karaf at runtime -->
-                                <Import-Package>
-                                    <!-- force this version to exclude servicemix -->
-                                    javax.annotation;version="[1.2,2)",
-                                    *
-                                </Import-Package>
 
                                 <Implementation-SHA-1>${buildNumber}</Implementation-SHA-1>
                                 <Implementation-Branch>${scmBranch}</Implementation-Branch>
