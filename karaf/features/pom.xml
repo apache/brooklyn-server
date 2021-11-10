@@ -36,8 +36,6 @@
       <jsch.bundle.version>${jsch.version}_1</jsch.bundle.version>
       <jsch.agentproxy.version>0.0.9</jsch.agentproxy.version>
       <jsch.agentproxy.bundle.version>${jsch.agentproxy.version}_1</jsch.agentproxy.bundle.version>
-      <jzlib.version>1.0.7</jzlib.version>
-      <jzlib.bundle.version>${jzlib.version}_1</jzlib.bundle.version>
     </properties>
 
     <build>

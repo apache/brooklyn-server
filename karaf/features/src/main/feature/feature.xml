@@ -312,7 +312,7 @@
         <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.connector-factory/${jsch.agentproxy.version}</bundle>
         <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.usocket-nc/${jsch.agentproxy.version}</bundle>
         <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.sshagent/${jsch.agentproxy.version}</bundle>
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.bundle.version}</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/${jsch.agentproxy.bundle.version}</bundle>
 
         <!-- upstream dependencies, maybe not needed --> 
