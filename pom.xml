@@ -121,7 +121,8 @@
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
         <jaxb-api-2.2.servicemix.version>2.9.0</jaxb-api-2.2.servicemix.version> <!-- servicemix -->
-        <jaxb-api.version>2.3.3</jaxb-api.version> <!-- servicemix - old, not used -->
+        <jaxb-api.version>2.3.3</jaxb-api.version> <!-- jaxb and old servicemix - excluded from dependencies -->
+        <jaxb-runtime.version>${jaxb-api.version}</jaxb-runtime.version>   <!-- excluded -->
         <activator.servicemix.version>2.9.0</activator.servicemix.version>
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <!-- double-check downstream projects before changing jackson version -->
@@ -337,6 +338,7 @@
             <dependency>
                 <groupId>org.glassfish.jaxb</groupId>
                 <artifactId>jaxb-runtime</artifactId>
+                <version>${jaxb-runtime.version}</version>
                 <scope>provided</scope>
             </dependency>
 
