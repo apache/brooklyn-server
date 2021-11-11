@@ -73,17 +73,6 @@
             <groupId>${jclouds.groupId}.api</groupId>
             <artifactId>docker</artifactId>
             <version>${jclouds.version}</version>
-            <exclusions>
-                <exclusion>
-                    <!-- Conflicts with javax.ws.rs-api -->
-                    <groupId>javax.ws.rs</groupId>
-                    <artifactId>jsr311-api</artifactId>
-                </exclusion>
-                <exclusion>
-                   <groupId>com.squareup.okio</groupId>
-                   <artifactId>okio</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
