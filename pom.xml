@@ -635,11 +635,6 @@
                 <version>${httpcomponents.httpcore.version}</version>
             </dependency>
             <dependency>
-                <groupId>xml-apis</groupId>
-                <artifactId>xml-apis</artifactId>
-                <version>${xml-apis.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>javax.annotation</groupId>
                 <artifactId>jsr250-api</artifactId>
                 <version>${jsr250-api.version}</version>
