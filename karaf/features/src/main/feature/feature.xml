@@ -57,6 +57,18 @@
 
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpcore-osgi/${httpcomponents.httpcore.version}</bundle>
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpcomponents.httpclient.version}</bundle>
+
+        <bundle dependency="true">mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
+        <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
+        <!-- wrapped to import and export eddsa.math subpackage which sshj seems to need to compare equality on the Curve class;
+             i can't tell what magic made this work in the past; sshj in Ed25519PublicKey does a `xxx.getCurve().equals(yyy.getCurve())`,
+             so doesn't need to import it, but with OSGi we get a NoClassDefFound if we don't export that package from eddsa then import it into sshj :( -->
+<!--        <bundle dependency="true">mvn:net.i2p.crypto/eddsa/${eddsa.version}</bundle>-->
+<!--        <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>-->
+        <bundle dependency="true">wrap:mvn:net.i2p.crypto/eddsa/${eddsa.version}$overwrite=merge&amp;Bundle-SymbolicName=net.i2p.crypto.eddsa_wrapped&amp;Bundle-Version=${eddsa.version}&amp;Export-Package=*;version="${eddsa.version}"</bundle>
+        <bundle dependency="true">wrap:mvn:com.hierynomus/sshj/${sshj.version}$overwrite=merge&amp;Bundle-SymbolicName=com.hierynomus.sshj_wrapped&amp;Bundle-Version=${sshj.version}&amp;Import-Package=net.i2p.crypto.eddsa.math,javax.crypto,javax.crypto.interfaces,javax.crypto.spec,net.i2p.crypto.eddsa;version="[0.2,1)",net.i2p.crypto.eddsa.spec;version="[0.2,1)",com.jcraft.jzlib;version="[1.1,2)";resolution:=optional,org.slf4j;version="[1.7,5)",org.bouncycastle.asn1;resolution:=optional;version="[1.60,2)",org.bouncycastle.asn1.nist;resolution:=optional;version="[1.60,2)",org.bouncycastle.asn1.x9;resolution:=optional;version="[1.60,2)",org.bouncycastle.crypto.ec;resolution:=optional;version="[1.60,2)",org.bouncycastle.crypto.prng;resolution:=optional;version="[1.60,2)",org.bouncycastle.jce.spec;resolution:=optional;version="[1.60,2)",org.bouncycastle.math.ec;resolution:=optional;version="[1.60,2)",org.bouncycastle.openssl;resolution:=optional;version="[1.60,2)",org.bouncycastle.openssl.jcajce;resolution:=optional;version="[1.60,2)",org.bouncycastle.util.encoders;resolution:=optional;version="[1.60,2)",javax.net,javax.security.auth,javax.security.auth.login,org.ietf.jgss,org.bouncycastle.jce.provider;resolution:=optional;version="[1.60,2)"</bundle>
+
     </feature>
 
     <feature name="brooklyn-utils-common" version="${project.version}" description="Brooklyn Common Utils">
@@ -164,17 +176,6 @@
         <bundle dependency="true">mvn:org.apache.geronimo.specs/geronimo-ws-metadata_2.0_spec/${geronimo-ws-metadata_2.0_spec.version}</bundle>
         <bundle dependency="true">mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
         <bundle dependency="true">mvn:org.freemarker/freemarker/${freemarker.version}</bundle>
-
-        <bundle dependency="true">mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
-        <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
-        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
-        <!-- wrapped to import and export eddsa.math subpackage which sshj seems to need to compare equality on the Curve class;
-             i can't tell what magic made this work in the past; sshj in Ed25519PublicKey does a `xxx.getCurve().equals(yyy.getCurve())`,
-             so doesn't need to import it, but with OSGi we get a NoClassDefFound if we don't export that package from eddsa then import it into sshj :( -->
-<!--        <bundle dependency="true">mvn:net.i2p.crypto/eddsa/${eddsa.version}</bundle>-->
-<!--        <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>-->
-        <bundle dependency="true">wrap:mvn:net.i2p.crypto/eddsa/${eddsa.version}$overwrite=merge&amp;Bundle-SymbolicName=net.i2p.crypto.eddsa_wrapped&amp;Bundle-Version=${eddsa.version}&amp;Export-Package=*;version="${eddsa.version}"</bundle>
-        <bundle dependency="true">wrap:mvn:com.hierynomus/sshj/${sshj.version}$overwrite=merge&amp;Bundle-SymbolicName=com.hierynomus.sshj_wrapped&amp;Bundle-Version=${sshj.version}&amp;Import-Package=net.i2p.crypto.eddsa.math,javax.crypto,javax.crypto.interfaces,javax.crypto.spec,net.i2p.crypto.eddsa;version="[0.2,1)",net.i2p.crypto.eddsa.spec;version="[0.2,1)",com.jcraft.jzlib;version="[1.1,2)";resolution:=optional,org.slf4j;version="[1.7,5)",org.bouncycastle.asn1;resolution:=optional;version="[1.60,2)",org.bouncycastle.asn1.nist;resolution:=optional;version="[1.60,2)",org.bouncycastle.asn1.x9;resolution:=optional;version="[1.60,2)",org.bouncycastle.crypto.ec;resolution:=optional;version="[1.60,2)",org.bouncycastle.crypto.prng;resolution:=optional;version="[1.60,2)",org.bouncycastle.jce.spec;resolution:=optional;version="[1.60,2)",org.bouncycastle.math.ec;resolution:=optional;version="[1.60,2)",org.bouncycastle.openssl;resolution:=optional;version="[1.60,2)",org.bouncycastle.openssl.jcajce;resolution:=optional;version="[1.60,2)",org.bouncycastle.util.encoders;resolution:=optional;version="[1.60,2)",javax.net,javax.security.auth,javax.security.auth.login,org.ietf.jgss,org.bouncycastle.jce.provider;resolution:=optional;version="[1.60,2)"</bundle>
 
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
