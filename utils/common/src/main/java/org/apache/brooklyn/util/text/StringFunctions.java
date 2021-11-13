@@ -18,17 +18,15 @@
  */
 package org.apache.brooklyn.util.text;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import javax.annotation.Nullable;
-
 import com.google.common.base.CaseFormat;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.collect.Iterables;
+import javax.annotation.Nullable;
 
 public class StringFunctions {
 
@@ -144,7 +142,7 @@ public class StringFunctions {
             public String apply(@Nullable String input) {
                 if (input == null) return null;
                 if (Strings.isBlank(input)) return Strings.EMPTY;
-                return CharMatcher.BREAKING_WHITESPACE.trimFrom(input);
+                return CharMatcher.breakingWhitespace().trimFrom(input);
             }
         };
     }
@@ -362,7 +360,7 @@ public class StringFunctions {
         public String apply(@Nullable String input) {
             if (input == null) return null;
             if (Strings.isBlank(input)) return Strings.EMPTY;
-            return CharMatcher.BREAKING_WHITESPACE.trimFrom(input);
+            return CharMatcher.breakingWhitespace().trimFrom(input);
         }
     }
 

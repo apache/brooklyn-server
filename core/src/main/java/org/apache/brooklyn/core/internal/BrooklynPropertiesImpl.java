@@ -268,7 +268,7 @@ public class BrooklynPropertiesImpl implements BrooklynProperties {
                 if (Strings.isBlank(s)) {
                     s = Strings.EMPTY;
                 } else {
-                    s = CharMatcher.BREAKING_WHITESPACE.trimFrom(s);
+                    s = CharMatcher.breakingWhitespace().trimFrom(s);
                 }
                 return BrooklynPropertiesImpl.this.put(key, s);
             }

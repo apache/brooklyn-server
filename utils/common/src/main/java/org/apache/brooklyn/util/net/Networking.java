@@ -440,7 +440,7 @@ public class Networking {
 
     /** returns local IP address, or 127.0.0.1 if it cannot be parsed
      * @deprecated since 0.12.0, as this method has bad defaults (fails on some machines);
-     * use {@link #getLocalHost(boolean, boolean, boolean, int)} for full control or
+     * use {@link #getLocalHost(boolean, boolean, boolean, boolean, int)} for full control or
      * {@link #getReachableLocalHost()} for a method with better defaults and errors */
     public static InetAddress getLocalHost() {
         return getLocalHost(false, true, true, false, 0);
@@ -602,7 +602,7 @@ public class Networking {
             if (timeout>0) {
                 s.setSoTimeout(timeout);
             }
-            s.connect(new InetSocketAddress(endpoint.getHostText(), endpoint.getPort()), timeout);
+            s.connect(new InetSocketAddress(endpoint.getHost(), endpoint.getPort()), timeout);
             closeQuietly(s);
             return true;
         } catch (Exception e) {

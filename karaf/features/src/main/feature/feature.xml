@@ -22,7 +22,6 @@
           xsi:noNamespaceSchemaLocation="http://karaf.apache.org/xmlns/features/v1.4.0">
 
     <repository>mvn:org.apache.karaf.features/standard/${karaf.version}/xml/features</repository>
-    <repository>mvn:org.apache.jclouds.karaf/jclouds-karaf/${jclouds.version}/xml/features</repository>
     <repository>mvn:org.apache.cxf.karaf/apache-cxf/${cxf.version}/xml/features</repository>
     <repository>mvn:io.fabric8.kubernetes/kubernetes-karaf/${kubernetes-client.version}/xml/features</repository>
 
@@ -43,21 +42,42 @@
         <bundle dependency='true'>mvn:com.fasterxml.jackson.jaxrs/jackson-jaxrs-json-provider/${fasterxml.jackson.version}</bundle>
     </feature>
 
-    <feature name="brooklyn-utils-common" version="${project.version}" description="Brooklyn Common Utils">
-        <bundle>mvn:org.apache.brooklyn/brooklyn-utils-common/${project.version}</bundle>
-        <bundle>mvn:org.apache.brooklyn/brooklyn-logback-includes/${project.version}</bundle>
+    <feature name="brooklyn-essential-deps" version="${project.version}" description="Brooklyn Common Utils">
+        <bundle dependency="true">mvn:jakarta.annotation/jakarta.annotation-api/${jakarta.annotation-api.version}</bundle>
+
+        <bundle dependency="true">mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
+        <bundle dependency="true">mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
+        <bundle dependency="true">mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
 
         <bundle dependency="true">mvn:com.google.guava/guava/${guava.version}</bundle>
         <bundle dependency="true">mvn:org.codehaus.groovy/groovy-all/${groovy.version}</bundle>
         <bundle dependency="true">mvn:commons-io/commons-io/${commons-io.version}</bundle>
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
-        <bundle dependency="true">mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
         <bundle dependency="true">mvn:org.yaml/snakeyaml/${snakeyaml.version}</bundle>
+
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpcore-osgi/${httpcomponents.httpcore.version}</bundle>
         <bundle dependency="true">mvn:org.apache.httpcomponents/httpclient-osgi/${httpcomponents.httpclient.version}</bundle>
 
-        <bundle dependency="true">mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
-        <bundle dependency="true">mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
+        <feature prerequisite="true">wrap</feature>
+
+        <bundle dependency="true">mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
+        <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
+        <!-- wrapped to import and export eddsa.math subpackage which sshj seems to need to compare equality on the Curve class;
+             i can't tell what magic made this work in the past; sshj in Ed25519PublicKey does a `xxx.getCurve().equals(yyy.getCurve())`,
+             so doesn't need to import it, but with OSGi we get a NoClassDefFound if we don't export that package from eddsa then import it into sshj :( -->
+<!--        <bundle dependency="true">mvn:net.i2p.crypto/eddsa/${eddsa.version}</bundle>-->
+<!--        <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>-->
+        <bundle dependency="true">wrap:mvn:net.i2p.crypto/eddsa/${eddsa.version}$overwrite=merge&amp;Bundle-SymbolicName=net.i2p.crypto.eddsa_wrapped&amp;Bundle-Version=${eddsa.version}&amp;Export-Package=*;version="${eddsa.version}"</bundle>
+        <bundle dependency="true">wrap:mvn:com.hierynomus/sshj/${sshj.version}$overwrite=merge&amp;Bundle-SymbolicName=com.hierynomus.sshj_wrapped&amp;Bundle-Version=${sshj.version}&amp;Import-Package=net.i2p.crypto.eddsa.math,javax.crypto,javax.crypto.interfaces,javax.crypto.spec,net.i2p.crypto.eddsa;version="[0.2,1)",net.i2p.crypto.eddsa.spec;version="[0.2,1)",com.jcraft.jzlib;version="[1.1,2)";resolution:=optional,org.slf4j;version="[1.7,5)",org.bouncycastle.asn1;resolution:=optional;version="[1.60,2)",org.bouncycastle.asn1.nist;resolution:=optional;version="[1.60,2)",org.bouncycastle.asn1.x9;resolution:=optional;version="[1.60,2)",org.bouncycastle.crypto.ec;resolution:=optional;version="[1.60,2)",org.bouncycastle.crypto.prng;resolution:=optional;version="[1.60,2)",org.bouncycastle.jce.spec;resolution:=optional;version="[1.60,2)",org.bouncycastle.math.ec;resolution:=optional;version="[1.60,2)",org.bouncycastle.openssl;resolution:=optional;version="[1.60,2)",org.bouncycastle.openssl.jcajce;resolution:=optional;version="[1.60,2)",org.bouncycastle.util.encoders;resolution:=optional;version="[1.60,2)",javax.net,javax.security.auth,javax.security.auth.login,org.ietf.jgss,org.bouncycastle.jce.provider;resolution:=optional;version="[1.60,2)"</bundle>
+
+    </feature>
+
+    <feature name="brooklyn-utils-common" version="${project.version}" description="Brooklyn Common Utils">
+        <feature prerequisite="true">brooklyn-essential-deps</feature>
+
+        <bundle>mvn:org.apache.brooklyn/brooklyn-utils-common/${project.version}</bundle>
+        <bundle>mvn:org.apache.brooklyn/brooklyn-logback-includes/${project.version}</bundle>
     </feature>
 
     <feature name="brooklyn-utils-groovy" version="${project.version}" description="Brooklyn Groovy Utils">
@@ -158,11 +178,7 @@
         <bundle dependency="true">mvn:org.apache.geronimo.specs/geronimo-ws-metadata_2.0_spec/${geronimo-ws-metadata_2.0_spec.version}</bundle>
         <bundle dependency="true">mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
         <bundle dependency="true">mvn:org.freemarker/freemarker/${freemarker.version}</bundle>
-        <bundle dependency="true">mvn:com.hierynomus/sshj/${sshj.version}</bundle>
-        <bundle dependency="true">mvn:net.i2p.crypto/eddsa/${eddsa.version}</bundle><!-- from com.hierynomous/sshj -->
-        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
-        <bundle dependency="true">mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
-        <bundle dependency="true">mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
+
         <bundle dependency="true">mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle dependency="true">mvn:org.apache.commons/commons-lang3/${commons-lang3.version}</bundle>
         <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.xpp3/${xpp3.servicemix.version}</bundle> <!-- from com.thoughtworks.xstream/xstream -->
@@ -276,60 +292,138 @@
     </feature>
 
     <feature name="brooklyn-locations-jclouds" version="${project.version}" description="Brooklyn Jclouds Location Targets">
-        <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <feature>brooklyn-core</feature>
-        <feature>jclouds-services</feature>
-        <feature>jclouds-driver-sshj</feature>
-        <feature>jclouds-driver-slf4j</feature>
-
-        <!-- Same as allcompute -->
-        <!-- As at jclouds 2.1.0 this pulls in snakeyaml 1.17 via jclouds-api-byon;
-             I cannot see any way to prevent this, short of not using the jclouds feature
-             definitions. Things we have tried include redeclaring that feature here
-             with our preferred bundle and it works most places but at least one runtime
-             (an RPM build of a downstream project installed to Docker) won't start as
-             it seems to read the other feature definition.  We also tried the etc/overrides.properties
-             but that did not prevent it from pulling in 1.17 at build, or if we built correctly,
-             it did not prevent it from needing the 1.17 at runtime. Luckily having the two
-             snakeyaml versions doesn't seem to be a problem. -->
-        <feature>jclouds-all-compute</feature>
-        <bundle dependency='true'>mvn:org.yaml/snakeyaml/1.17</bundle>
-
-        <!-- Same as allblobstore -->
-        <feature>jclouds-all-blobstore</feature>
+        <feature>jclouds-feature-brooklyn</feature>
 
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-jclouds/${project.version}</bundle>
         <feature>brooklyn-software-winrm</feature>
         <feature>brooklyn-locations-jclouds-labs</feature>
     </feature>
 
-    <feature name="brooklyn-locations-jclouds-labs" version="${project.version}" description="Brooklyn JClouds Labs Location Targets">
-    </feature>
-
-    <feature name="brooklyn-container-service" version="${project.version}" description="Brooklyn Container Service and Location Targets">
-        <feature>brooklyn-core</feature>
-
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/${fasterxml.jackson.version}</bundle>
-        <bundle dependency='true'>mvn:com.fasterxml.jackson.datatype/jackson-datatype-jsr310/${fasterxml.jackson.version}</bundle>
-
-        <!-- (1) -->
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/3.0.2_1</bundle>
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
-        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
-        <!-- (2) -->
+    <feature name="jclouds-feature-brooklyn" version="${project.version}" description="Jclouds and Dependencies">
+        <!-- upstreams which seem needed -->
         <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
         <!-- (3) -->
         <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
         <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
-        <!-- (4) -->
+
+        <!-- upstream dependencies, needed -->
+        <bundle dependency='true'>mvn:com.google.inject/guice/${guice.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.inject.extensions/guice-assistedinject/${guice.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.inject.extensions/guice-multibindings/${guice.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.code.gson/gson/${gson.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
+
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch/${jsch.bundle.version}</bundle>
+        <!-- <bundle dependency='true'>mvn:org.apache.jclouds.karaf.bundles/jsch-agentproxy-jsch/${project.version}</bundle> -->
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.core/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.connector-factory/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.usocket-nc/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:com.jcraft/jsch.agentproxy.sshagent/${jsch.agentproxy.version}</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
+        <bundle dependency="true">mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/${jsch.agentproxy.bundle.version}</bundle>
+
+        <!-- upstream dependencies, maybe not needed --> 
+        <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.javax-inject/1_1</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.aopalliance/1.0_5</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.oauth-commons/20100527_1</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jersey-core/1.11_1</bundle>
+        <!-- jclouds uses this version; but probably not needed
+        <bundle dependency='true'>mvn:org.yaml/snakeyaml/${snakeyaml.jclouds.version}</bundle>
+         -->
+
+        <!-- jclouds bundles -->
+        <bundle>mvn:org.apache.jclouds.api/atmos/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/byon/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/cloudstack/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/docker/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/ec2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/elasticstack/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/oauth/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-cinder/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-keystone/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-neutron/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-nova-ec2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-nova/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/openstack-swift/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/rackspace-cloudfiles/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/rackspace-cloudidentity/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/route53/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/s3/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.api/sts/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.common/googlecloud/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.common/openstack-common/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-bouncycastle/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-jsch/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-log4j/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-okhttp/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-slf4j/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-blobstore/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-compute/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-core/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds/jclouds-scriptbuilder/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/aws-ec2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/azureblob/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/azurecompute-arm/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/b2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/digitalocean2/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/elastichosts-lon-b/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/elastichosts-lon-p/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/elastichosts-sat-p/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/go2cloud-jhb1/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/gogrid/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/google-cloud-storage/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/google-compute-engine/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/openhosting-east1/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/packet/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/profitbricks/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudfiles-uk/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudfiles-us/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudservers-uk/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/rackspace-cloudservers-us/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/serverlove-z1-man/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/skalicloud-sdg-my/${jclouds.version}</bundle>
+        <bundle>mvn:org.apache.jclouds.provider/softlayer/${jclouds.version}</bundle>
+
+<!--    exclude vcac; not available in 2.4.0, and not widely used or tested.
+        <bundle>mvn:org.apache.jclouds.labs/vcac/${jclouds.version}</bundle>
+-->
+    </feature>
+
+    <feature name="brooklyn-locations-jclouds-labs" version="${project.version}" description="Brooklyn JClouds Labs Location Targets">
+    </feature>
+
+    <feature name="brooklyn-container-service" version="${project.version}" description="Brooklyn Container Service and Location Targets">
+        <feature prerequisite="true">brooklyn-core</feature>
+
+        <!-- shared dependencies -->
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.fasterxml.jackson.datatype/jackson-datatype-jsr310/${fasterxml.jackson.version}</bundle>
+        <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
+
+        <!-- new dependencies for this -->
+        <!-- note jsr305 provides javax.annotation.meta which is needed we think;
+             but also javax.annotation at 1.1 which confuses other things;
+             however it seems not to get installed at runtime now, even though it is listed as part of the feature which is installed -->
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.generex/1.0.2_1</bundle>
+        <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
+        <!-- these need wrapped because they define Bundle-ManifestVersion: 1 -->
+        <bundle dependency='true'>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
+        <bundle dependency='true'>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
+
         <!-- these are the main required bundles for these features above -->
         <bundle>mvn:io.fabric8/zjsonpatch/0.3.0</bundle>
         <bundle>mvn:io.fabric8/kubernetes-model/${kubernetes-client.version}</bundle>
         <bundle>mvn:io.fabric8/kubernetes-client/${kubernetes-client.version}/jar/bundle</bundle>
         <bundle>mvn:io.fabric8/openshift-client/${kubernetes-client.version}/jar/bundle</bundle>
 
-        <bundle dependency='true'>mvn:com.google.guava/guava/${guava.version}</bundle>
         <bundle start-level="85">mvn:org.apache.brooklyn/brooklyn-locations-container/${project.version}</bundle>
     </feature>
 
@@ -345,10 +439,11 @@
     </feature>
 
     <feature name="brooklyn-osgi-launcher" version="${project.version}" description="Brooklyn init">
-        <feature>brooklyn-core</feature>
-        <feature>brooklyn-server-software-all</feature>
-        <feature>brooklyn-locations-jclouds</feature>
-        <feature>brooklyn-container-service</feature>
+        <feature prerequisite="true">brooklyn-essential-deps</feature>
+        <feature prerequisite="true">brooklyn-core</feature>
+        <feature prerequisite="true">brooklyn-server-software-all</feature>
+        <feature prerequisite="true">brooklyn-locations-jclouds</feature>
+        <feature>brooklyn-container-service</feature>  <!-- install this after the above so servicemix jsr305 doesn't interfere -->
         <bundle dependency="true">mvn:org.apache.brooklyn/brooklyn-launcher-common/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-init/${project.version}</bundle>
         <bundle start-level="90">mvn:org.apache.brooklyn/brooklyn-karaf-start/${project.version}</bundle>

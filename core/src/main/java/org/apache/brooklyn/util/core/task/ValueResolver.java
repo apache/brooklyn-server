@@ -215,7 +215,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     
     <S> ValueResolver<S> cloneReplacingValueAndType(Object newValue, TypeToken<S> superType) {
         // superType expected to be either type or Object.class
-        if (!superType.isAssignableFrom(typeT)) {
+        if (!superType.isSupertypeOf(typeT)) {
             throw new IllegalStateException("superType must be assignable from " + typeT);
         }
         ValueResolver<S> result = new ValueResolver<S>(newValue, superType);

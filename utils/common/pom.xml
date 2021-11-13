@@ -60,7 +60,6 @@
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-            <version>${commons-codec.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
@@ -117,8 +116,8 @@
         </dependency>
         
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId> <!-- for javax.annotation.Nullable etc -->
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId> <!-- for javax.annotation.Nullable etc -->
         </dependency>
         <dependency>
             <groupId>org.osgi</groupId>

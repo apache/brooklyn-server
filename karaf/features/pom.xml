@@ -31,6 +31,13 @@
     <name>Brooklyn Karaf Features</name>
     <packaging>pom</packaging>
 
+    <properties>
+      <jsch.version>0.1.55</jsch.version>
+      <jsch.bundle.version>${jsch.version}_1</jsch.bundle.version>
+      <jsch.agentproxy.version>0.0.9</jsch.agentproxy.version>
+      <jsch.agentproxy.bundle.version>${jsch.agentproxy.version}_1</jsch.agentproxy.bundle.version>
+    </properties>
+
     <build>
         <resources>
             <resource>

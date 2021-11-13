@@ -47,7 +47,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
 /**
- * Adds a {@link SSHFeed feed} with sensors returning details about the machine the entity is running on.
+ * Adds an {@link SshFeed} feed with sensors returning details about the machine the entity is running on.
  * <p>
  * The machine must be SSHable and running Linux.
  *
@@ -121,7 +121,7 @@ public class AddMachineMetrics implements EntityInitializer {
                             @Override
                             public Double apply(SshPollValue input) {
                                 Double cpu = 0d;
-                                Iterable<String> stdout = Splitter.on(CharMatcher.BREAKING_WHITESPACE).omitEmptyStrings().split(input.getStdout());
+                                Iterable<String> stdout = Splitter.on(CharMatcher.breakingWhitespace()).omitEmptyStrings().split(input.getStdout());
                                 for (Double each : FluentIterable.from(stdout).skip(1).transform(Doubles.stringConverter())) { cpu += each; }
                                 return cpu / 100d;
                             }

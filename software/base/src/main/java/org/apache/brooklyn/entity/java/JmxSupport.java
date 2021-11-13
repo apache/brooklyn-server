@@ -160,14 +160,14 @@ public class JmxSupport implements UsesJmx {
         HostAndPort jmx = BrooklynAccessUtils.getBrooklynAccessibleAddress(entity, entity.getAttribute(JMX_PORT));
 
         if (EnumSet.of(JmxAgentModes.JMXMP, JmxAgentModes.JMXMP_AND_RMI).contains(getJmxAgentMode())) {
-            return JmxHelper.toJmxmpUrl(jmx.getHostText(), jmx.getPort());
+            return JmxHelper.toJmxmpUrl(jmx.getHost(), jmx.getPort());
         } else {
             if (getJmxAgentMode() == JmxAgentModes.NONE) {
                 fixPortsForModeNone();
             }
             // this will work for agent or agentless
             HostAndPort rmi = BrooklynAccessUtils.getBrooklynAccessibleAddress(entity, entity.getAttribute(RMI_REGISTRY_PORT));
-            return JmxHelper.toRmiJmxUrl(jmx.getHostText(), jmx.getPort(), rmi.getPort(),
+            return JmxHelper.toRmiJmxUrl(jmx.getHost(), jmx.getPort(), rmi.getPort(),
                     entity.getAttribute(JMX_CONTEXT));
         }
     }
@@ -274,7 +274,7 @@ public class JmxSupport implements UsesJmx {
         Integer jmxPort = Preconditions.checkNotNull(entity.getAttribute(JMX_PORT), "jmx port must not be null for %s", entity);
         HostAndPort jmx = BrooklynAccessUtils.getBrooklynAccessibleAddress(entity, jmxPort);
         Integer jmxRemotePort = getEntity().getAttribute(JMX_PORT);
-        String hostName = jmx.getHostText();
+        String hostName = jmx.getHost();
 
         result.put("com.sun.management.jmxremote", null);
         result.put("java.rmi.server.hostname", hostName);
