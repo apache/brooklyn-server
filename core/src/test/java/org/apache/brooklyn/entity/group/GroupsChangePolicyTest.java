@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.LocationConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.StaticSensor;
+import org.apache.brooklyn.core.sensor.password.CreatePasswordSensor;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -68,6 +69,40 @@ public class GroupsChangePolicyTest extends BrooklynAppLiveTestSupport {
                 return myTestEntity.getAttribute(Sensors.newStringSensor("mytestsensor"));
             }
         }, Predicates.<String> equalTo("testsensor"));
+
+    }
+
+    @Test(groups = "Live")
+    public void testAddInitializersPassword() {
+
+        DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
+        String name = CreatePasswordSensor.class.getName();
+        System.out.println(name);
+        PolicySpec<GroupsChangePolicy> policySpec =
+                PolicySpec.create(GroupsChangePolicy.class)
+                        .configure(GroupsChangePolicy.GROUP, dynamicGroup)
+                        .configure(GroupsChangePolicy.INITIALIZERS,
+                                ImmutableList.of(
+                                        ImmutableMap.of(
+                                                "type", name,
+                                                "brooklyn.config", ImmutableMap.of(
+                                                        "name", "mytestsensor",
+                                                        "password.length",  15)
+                                        )));
+        TestEntity myTestEntity = app.addChild(EntitySpec.create(TestEntity.class).configure(LocationConfigKeys.DISPLAY_NAME, "mytestentity"));
+        dynamicGroup.policies().add(policySpec);
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(myTestEntity.getId()));
+
+        assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(myTestEntity));
+
+        Asserts.eventually(new Supplier<String>() {
+            @Override
+            public String get() {
+                String mytestsensor = myTestEntity.getAttribute(Sensors.newStringSensor("mytestsensor"));
+                if(mytestsensor!=null) System.out.println(mytestsensor);
+                return mytestsensor;
+            }
+        }, input -> input!=null &&input.length()==15);
 
     }
 

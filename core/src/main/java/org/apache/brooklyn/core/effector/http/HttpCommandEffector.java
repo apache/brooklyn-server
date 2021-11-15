@@ -105,7 +105,7 @@ public final class HttpCommandEffector extends AddEffectorInitializerAbstract {
         GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS, TRACE
     }
 
-    private HttpCommandEffector() {}
+    public HttpCommandEffector() {}
     public HttpCommandEffector(ConfigBag params) { super(params); }
 
     public EffectorBuilder<String> newEffectorBuilder() {
