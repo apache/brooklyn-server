@@ -123,7 +123,7 @@ brooklyn.catalog:
           based on the delta between consecutive values and the elapsed time between those values.
     - id: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
       item:
-        type: org.apache.brooklyn.enricher.stock.TimeWeightedDeltaEnricher
+        type: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
         name: "Time Weighted Delta"
         description: "Converts an absolute count sensor into a delta sensor"
     - id: org.apache.brooklyn.policy.ha.ServiceFailureDetector
