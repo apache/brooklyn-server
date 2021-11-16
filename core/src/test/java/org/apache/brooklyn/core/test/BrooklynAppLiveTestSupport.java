@@ -36,17 +36,10 @@ public class BrooklynAppLiveTestSupport extends BrooklynMgmtUnitTestSupport {
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-
         if (mgmt!=null) {
             app = mgmt.getEntityManager().createEntity(newAppSpec());
         } else {
-
-            LocalManagementContextForTests.Builder builder = LocalManagementContextForTests.builder(true).
-                    setOsgiEnablementAndReuse(true, true);
-            if (true) {
-                builder.useDefaultProperties();
-            }
-            mgmt = builder.build();
+            mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
             app = mgmt.getEntityManager().createEntity(newAppSpec());
         }
     }
