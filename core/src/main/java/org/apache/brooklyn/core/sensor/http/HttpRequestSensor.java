@@ -58,7 +58,7 @@ import net.minidev.json.JSONObject;
  * @see SshCommandSensor
  */
 @Beta
-public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
+public class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpRequestSensor.class);
 
@@ -73,7 +73,7 @@ public final class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
             "Whether to pre-emptively including a basic-auth header of the username:password (rather than waiting for a challenge)",
             Boolean.FALSE);
 
-    protected HttpRequestSensor() {}
+    public HttpRequestSensor() {}
     public HttpRequestSensor(final ConfigBag params) {
         super(params);
     }

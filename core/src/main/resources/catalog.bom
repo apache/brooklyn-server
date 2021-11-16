@@ -172,3 +172,38 @@ brooklyn.catalog:
         type: org.apache.brooklyn.entity.group.GroupsChangePolicy
         name: GroupsChangePolicy
         description: Applies policies to entities as they are added to DynamicGroups
+    - id: org.apache.brooklyn.core.sensor.StaticSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.StaticSensor
+    - id: org.apache.brooklyn.core.sensor.password.CreatePasswordSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.password.CreatePasswordSensor
+    - id: org.apache.brooklyn.core.sensor.http.HttpRequestSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.http.HttpRequestSensor
+    - id: org.apache.brooklyn.core.sensor.function.FunctionSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.function.FunctionSensor
+    - id: org.apache.brooklyn.entity.java.JmxAttributeSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.entity.java.JmxAttributeSensor
+    - id: org.apache.brooklyn.core.sensor.DurationSinceSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.DurationSinceSensor
+    - id: org.apache.brooklyn.core.effector.http.HttpCommandEffector
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.effector.http.HttpCommandEffector

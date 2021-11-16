@@ -57,7 +57,7 @@ public class DurationSinceSensor extends AddSensorInitializer<Duration> {
             .defaultValue(CURRENT_TIME_SUPPLIER)
             .build();
 
-    private DurationSinceSensor() {}
+    public DurationSinceSensor() {}
     public DurationSinceSensor(ConfigBag params) { super(params); }
 
     @Override

@@ -40,7 +40,7 @@ public class CreatePasswordSensor extends AddSensorInitializer<String> {
     public static final ConfigKey<String> ACCEPTABLE_CHARS = ConfigKeys.newStringConfigKey("password.chars", "The characters allowed in password");
     public static final ConfigKey<List<String>> CHARACTER_GROUPS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "password.character.groups", "A list of strings, where each string is a character group (such as letters, or numbers). The password will be constructed using only characters from these strings, and will use at least one character from each group. When using this option, `password.length` must be at least as long as the number of character groups given.");
 
-    private CreatePasswordSensor() {}
+    public CreatePasswordSensor() {}
     public CreatePasswordSensor(Map<String, String> params) { this(ConfigBag.newInstance(params)); }
     public CreatePasswordSensor(ConfigBag params) { super(params); }
 

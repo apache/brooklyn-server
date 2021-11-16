@@ -40,6 +40,8 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -77,6 +79,8 @@ import java.util.Map;
  *             - "Empty Software Process"
  */
 public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
+
+    private static final Logger LOG = LoggerFactory.getLogger(GroupsChangePolicy.class);
 
     public static final ConfigKey<List<Map<String, Object>>> POLICIES = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>(){})
             .name("member.policies")
@@ -123,8 +127,13 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                 stringObjectMap -> {
                     try {
                         OsgiBrooklynClassLoadingContext loader = member != null ? new OsgiBrooklynClassLoadingContext(member) : null;
-                        EntityInitializer initializer = BeanWithTypeUtils.tryConvertOrAbsent(mgmt,Maybe.of(stringObjectMap), TypeToken.of(EntityInitializer.class), true, loader, true).get();
-                        initializer.apply((EntityInternal) member);
+                        Maybe<EntityInitializer> entityInitializerMaybe = BeanWithTypeUtils.tryConvertOrAbsent(mgmt, Maybe.of(stringObjectMap), TypeToken.of(EntityInitializer.class), true, loader, true);
+                        if(entityInitializerMaybe.isPresent()) {
+                            EntityInitializer initializer = entityInitializerMaybe.get();
+                            initializer.apply((EntityInternal) member);
+                        } else {
+                            LOG.debug("Unable to initialize {} due to {}", stringObjectMap.get("type"), Maybe.getException(entityInitializerMaybe));
+                        }
                     }catch(Throwable e){
                         throw Exceptions.propagate(e);
                     }

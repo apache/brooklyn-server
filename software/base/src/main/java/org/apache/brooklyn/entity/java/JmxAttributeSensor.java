@@ -63,7 +63,7 @@ public final class JmxAttributeSensor<T> extends AbstractAddSensorFeed<T> {
     public static final ConfigKey<String> ATTRIBUTE = ConfigKeys.newStringConfigKey("attribute", "JMX attribute to poll in object");
     public static final ConfigKey<Object> DEFAULT_VALUE = ConfigKeys.newConfigKey(Object.class, "defaultValue", "Default value for sensor; normally null");
 
-    protected JmxAttributeSensor() {}
+    public JmxAttributeSensor() {}
     public JmxAttributeSensor(final ConfigBag params) { super(params); }
 
     @Override

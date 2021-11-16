@@ -58,7 +58,7 @@ public final class FunctionSensor<T> extends AbstractAddSensorFeed<T> {
     public FunctionSensor(final ConfigBag params) {
         super(params);
     }
-    protected FunctionSensor() {}
+    public FunctionSensor() {}
 
     @Override
     public void apply(final EntityLocal entity) {
@@ -69,7 +69,7 @@ public final class FunctionSensor<T> extends AbstractAddSensorFeed<T> {
         }
 
         final ConfigBag allConfig = ConfigBag.newInstanceCopying(initParams());
-        
+
         final Callable<?> function = EntityInitializers.resolve(allConfig, FUNCTION);
         final Boolean suppressDuplicates = EntityInitializers.resolve(allConfig, SUPPRESS_DUPLICATES);
         final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(allConfig, LOG_WARNING_GRACE_TIME_ON_STARTUP);
