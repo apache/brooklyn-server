@@ -124,7 +124,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
         assertTrue(runDuration.isLongerThan(Duration.millis(40)), "runDuration="+runDuration);
     }
     
-    @Test
+    @Test(groups="WIP", enabled = false)
     public void testInvokeEffectorWithTimeoutTimesOut() throws Exception {
         /*
          * The effector is invoked via:
@@ -137,6 +137,9 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
          * 
          * The response returned is a snapshot of the task's state/stacktrace at the time
          * of the timeout.
+         *
+         * As of 17 Nov 2021, this test is periodically failing as the `detailedStatus` reads
+         * "Submitted for execution 2ms ago"
          */
         String path = "/applications/"+app.getId()+"/entities/"+entity.getId()+"/effectors/"+"sleepEffector";
 
