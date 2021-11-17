@@ -148,18 +148,6 @@ brooklyn.catalog:
         type: org.apache.brooklyn.enricher.stock.UpdatingMap
         name: Map Updater
         description: Updates an entry in a sensor Map
-    - id: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
-      itemType: enricher
-      item:
-        type: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
-        name: YAML Rolling Average
-        description: Transforms sensor data into a rolling average based on a time window.")
-    - id: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
-      itemType: enricher
-      item:
-        type: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
-        name: YAML Time-weighted Delta
-        description: Converts an absolute count sensor into a delta sensor
     - id: org.apache.brooklyn.enricher.stock.reducer.Reducer
       itemType: enricher
       item:
