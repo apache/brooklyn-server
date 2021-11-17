@@ -44,7 +44,8 @@
 
     <feature name="brooklyn-essential-deps" version="${project.version}" description="Brooklyn Essential Dependencies, to load early">
         <bundle>mvn:jakarta.annotation/jakarta.annotation-api/${jakarta.annotation-api.version}</bundle>
-        <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
+        <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>  <!-- complementary to above, but split packages; excluded by karaf.features.xml as not needed, confuses things -->
+        <bundle>mvn:jakarta.xml.bind/jakarta.xml.bind-api/${jakarta.xml.bind-api.version}</bundle>  <!-- preferred over servicemix jaxb (identical) -->
 
         <bundle>mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
         <bundle>mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
@@ -94,7 +95,7 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-rest-swagger/${project.version}</bundle>
 
         <bundle>mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
-        <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
+        <bundle dependency="true">mvn:jakarta.ws.rs/jakarta.ws.rs-api/${jax-rs-api.version}</bundle>
 
         <bundle>wrap:mvn:javax.validation/validation-api/${validation-api.version}</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.reflections/${reflections.bundle.version}</bundle>
@@ -235,7 +236,7 @@
 
         <!-- should be deps of jax-rs-2.0 rest-api project -->
         <bundle dependency="true">mvn:javax.servlet/javax.servlet-api/${javax-servlet.version}</bundle>
-        <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
+        <bundle dependency="true">mvn:jakarta.ws.rs/jakarta.ws.rs-api/${jax-rs-api.version}</bundle>
 
         <config name="org.apache.cxf.osgi">
             org.apache.cxf.servlet.context = /v1
@@ -331,7 +332,7 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch-agentproxy-sshj/${jsch.agentproxy.bundle.version}</bundle>
 
         <!-- upstream dependencies, maybe not needed --> 
-        <bundle dependency="true">mvn:javax.ws.rs/javax.ws.rs-api/${jax-rs-api.version}</bundle>
+        <bundle dependency="true">mvn:jakarta.ws.rs/jakarta.ws.rs-api/${jax-rs-api.version}</bundle>  <!-- was javax; mapped to jakarta -->
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.javax-inject/1_1</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.aopalliance/1.0_5</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.oauth-commons/20100527_1</bundle>

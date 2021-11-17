@@ -191,8 +191,8 @@
                 For tests running in the module still need to use a specific dependency - use JAX-RS 2.0 as
                 that's what is used in standard build.
             -->
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
