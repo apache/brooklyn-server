@@ -58,6 +58,10 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId> <!-- for javax.annotation.Nullable etc; declare here, and a few places, to help bnd get the right package version -->
+        </dependency>
+        <dependency>
             <groupId>com.hierynomus</groupId>
             <artifactId>sshj</artifactId>
             <exclusions>
@@ -296,7 +300,6 @@
                         <Import-Package>
                             !org.apache.brooklyn.rt.felix,
                             !org.apache.felix.framework,
-                            javax.annotation;version="[1.2,2)",
                             *
                         </Import-Package>
                     </instructions>
