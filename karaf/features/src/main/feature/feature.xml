@@ -53,7 +53,6 @@
 
         <bundle>mvn:com.google.guava/failureaccess/${failureaccess.version}</bundle>
         <bundle>mvn:com.google.guava/guava/${guava.version}</bundle>
-        <bundle>mvn:org.codehaus.groovy/groovy-all/${groovy.version}</bundle>
         <bundle>mvn:commons-io/commons-io/${commons-io.version}</bundle>
         <bundle>mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
         <bundle>mvn:org.yaml/snakeyaml/${snakeyaml.version}</bundle>
@@ -166,6 +165,8 @@
         <bundle>mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
         <bundle>mvn:com.fasterxml.jackson.dataformat/jackson-dataformat-yaml/${fasterxml.jackson.version}</bundle>
         <bundle>mvn:com.fasterxml.jackson.core/jackson-annotations/${fasterxml.jackson.version}</bundle>
+        <bundle>mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
+        <bundle>mvn:org.codehaus.groovy/groovy-all/${groovy.version}</bundle>
 
         <bundle>mvn:net.minidev/json-smart/${jsonSmart.version}</bundle>
         <bundle>mvn:net.minidev/accessors-smart/${minidev.accessors-smart.version}</bundle>
@@ -178,7 +179,6 @@
 
         <bundle>mvn:org.ops4j.pax.web/pax-web-spi/${pax-web.version}</bundle>
         <bundle>mvn:org.apache.geronimo.specs/geronimo-ws-metadata_2.0_spec/${geronimo-ws-metadata_2.0_spec.version}</bundle>
-        <bundle>mvn:com.thoughtworks.xstream/xstream/${xstream.version}</bundle>
         <bundle>mvn:org.freemarker/freemarker/${freemarker.version}</bundle>
 
         <bundle>mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
@@ -314,6 +314,7 @@
         <bundle>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
         <!-- <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle> --> <!-- see note in dist; complements javax.annotation -->
         <!-- <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/3.12.1_1</bundle> --> <!-- note this is okhttp3 -->
+        <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.conscrypt-openjdk/1.4.2_1</bundle> <!-- optional to okhttp, but wire in now to avoid refresh when fabric8 pulls it in -->
 
         <!-- upstream dependencies, needed -->
         <bundle dependency="true">mvn:com.google.inject/guice/${guice.version}</bundle>
