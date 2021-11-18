@@ -310,7 +310,7 @@
         <!-- note fabric8/kubernetes pulls servicemix ones so need to be excluded; note servicemix okhttp includes logging interceptors -->
         <bundle>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
         <!-- <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okio/1.15.0_1</bundle> -->
-        <bundle>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
+        <bundle>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,javax.annotation;version=1.3,*;resolution:=optional</bundle>
         <bundle>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
         <!-- <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle> --> <!-- see note in dist; complements javax.annotation -->
         <!-- <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.okhttp/3.12.1_1</bundle> --> <!-- note this is okhttp3 -->
@@ -423,7 +423,7 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.automaton/1.11-8_1</bundle>
      - these need wrapped because they define Bundle-ManifestVersion: 1 
         <bundle>wrap:mvn:com.squareup.okio/okio/1.15.0$Bundle-SymbolicName=squareup-okio&amp;Bundle-Version=1.15.0&amp;Export-Package=okio;version=1.15.0</bundle>
-        <bundle>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,*;resolution:=optional</bundle>
+        <bundle>wrap:mvn:com.squareup.okhttp3/okhttp/3.12.6$Bundle-SymbolicName=squareup-okhttp3&amp;Bundle-Version=3.12.6&amp;Import-Package=okio;version=1.15,javax.annotation;version=1.3,*;resolution:=optional</bundle>
         <bundle>wrap:mvn:com.squareup.okhttp3/logging-interceptor/3.12.6$Bundle-SymbolicName=squareup-okhttp3-logging-interceptor&amp;Bundle-Version=3.12.6&amp;Import-Package=*;resolution:=mandatory</bundle>
         <bundle>mvn:io.fabric8/kubernetes-model/${kubernetes-client.version}</bundle>
         <bundle>mvn:io.fabric8/kubernetes-client/${kubernetes-client.version}/jar/bundle</bundle>
