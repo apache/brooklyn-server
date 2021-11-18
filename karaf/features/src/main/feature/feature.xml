@@ -48,7 +48,6 @@
         <bundle>mvn:jakarta.xml.bind/jakarta.xml.bind-api/${jakarta.xml.bind-api.version}</bundle>  <!-- preferred over servicemix jaxb (identical) -->
 
         <bundle>mvn:org.slf4j/jul-to-slf4j/${slf4j.version}</bundle>
-        <bundle>mvn:ch.qos.logback/logback-classic/${logback.version}</bundle>
         <bundle>mvn:ch.qos.logback/logback-core/${logback.version}</bundle>
 
         <bundle>mvn:com.google.guava/failureaccess/${failureaccess.version}</bundle>
@@ -159,6 +158,7 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-groovy/${project.version}</bundle>
 
+        <bundle>mvn:ch.qos.logback/logback-classic/${logback.version}</bundle> <!-- has an optional dep on groovy-all so refreshes when it is installed; just delay install till when it is -->
         <bundle>mvn:com.google.code.gson/gson/${gson.version}</bundle>
         <bundle>mvn:com.jayway.jsonpath/json-path/${jsonPath.version}</bundle>
         <bundle>mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
