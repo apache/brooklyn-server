@@ -453,6 +453,7 @@
     - pulled in by openshift-client
         <feature>kubernetes-client</feature>
 -->
+        <bundle>mvn:org.apache.aries.spifly/org.apache.aries.spifly.dynamic.bundle/${spifly.version}</bundle>  <!-- we bump from 1.3.0 to avoid activator NPE -->
 
         <feature>openshift-client</feature>
 
