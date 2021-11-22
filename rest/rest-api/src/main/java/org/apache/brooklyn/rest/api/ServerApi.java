@@ -163,7 +163,7 @@ public interface ServerApi {
     @GET
     @Path("/ha/priority")
     @ApiOperation(value = "Returns the HA node priority for MASTER failover")
-    public long getHighAvailabitlityPriority();
+    public long getHighAvailabilityPriority();
     
     @POST
     @Path("/ha/priority")
