@@ -338,7 +338,8 @@
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.aopalliance/1.0_5</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.oauth-commons/20100527_1</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jersey-core/1.11_1</bundle>
-        <bundle>mvn:org.yaml/snakeyaml/${snakeyaml.jclouds.version}</bundle>
+        <!-- <bundle>mvn:org.yaml/snakeyaml/${snakeyaml.jclouds.version}</bundle> --> <!-- prefer our version -->
+        <bundle>mvn:org.yaml/snakeyaml/${snakeyaml.version}</bundle>
 
         <!-- jclouds bundles -->
         <bundle>mvn:org.apache.jclouds.api/atmos/${jclouds.version}</bundle>
