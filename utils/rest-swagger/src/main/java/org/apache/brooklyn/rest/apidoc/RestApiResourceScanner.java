@@ -114,7 +114,7 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     @Override
     public Swagger configure(Swagger swagger) {
         swagger.setBasePath("/v1");
-        swagger.setSchemes(Arrays.asList(new Scheme[]{Scheme.HTTPS, Scheme.HTTP}));
+        swagger.setSchemes(Arrays.asList(new Scheme[]{Scheme.HTTPS}));  // only advertise https
 
         swagger.info(getSwaggerInfo());
 
