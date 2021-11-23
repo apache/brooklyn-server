@@ -94,7 +94,7 @@ public class JcloudsByonLocationResolverStubbedRebindTest extends AbstractJcloud
         
         super.setUp();
         
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
     }
 
     @Override

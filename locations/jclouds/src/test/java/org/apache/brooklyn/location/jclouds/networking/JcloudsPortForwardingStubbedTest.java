@@ -77,7 +77,7 @@ public class JcloudsPortForwardingStubbedTest extends AbstractJcloudsStubbedUnit
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
     }
     
     protected AbstractNodeCreator getNodeCreator() {

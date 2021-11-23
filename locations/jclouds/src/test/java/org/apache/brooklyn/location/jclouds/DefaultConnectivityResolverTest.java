@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.jclouds.compute.domain.NodeMetadata;
 import org.jclouds.compute.domain.NodeMetadataBuilder;
 import org.jclouds.domain.LoginCredentials;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -49,7 +50,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
 
     @Test
     public void testRespectsHostAndPortOverride() throws Exception {
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
         // ideally would confirm that no credentials are tested either.
         ConnectivityResolverOptions options = newResolveOptions()
                 .portForwardSshOverride(HostAndPort.fromParts("10.1.1.4", 4361))
@@ -65,7 +66,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
     public void testObtainsHostnameFromAwsMachine() throws Exception {
         final String expectedHostname = "ec2-awshostname";
         RecordingSshTool.setCustomResponse(".*curl.*169.254.169.254.*", new RecordingSshTool.CustomResponse(0, expectedHostname, ""));
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of(
                 JcloudsLocationConfig.LOOKUP_AWS_HOSTNAME, true));
         ConnectivityResolverOptions options = newResolveOptions()
                 .waitForConnectable(true)
@@ -90,7 +91,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 return new RecordingSshTool.CustomResponse(valid ? 0 : 1, "", "");
             }
         });
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
         final ConfigBag config = ConfigBag.newInstanceExtending(jcloudsLocation.config().getBag(), ImmutableMap.of(
                 JcloudsLocationConfig.WAIT_FOR_SSHABLE, "1ms",
@@ -113,7 +114,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 return new RecordingWinRmTool.CustomResponse(valid ? 0 : 1, "", "");
             }
         });
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
         final ConfigBag config = ConfigBag.newInstanceExtending(jcloudsLocation.config().getBag(), ImmutableMap.of(
                 JcloudsLocationConfig.WAIT_FOR_WINRM_AVAILABLE, "1ms",
@@ -131,7 +132,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
      */
     @Test
     public void testResolveChecksCredentials() throws Exception {
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of());
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of());
         final HostAndPort authorisedHostAndPort = HostAndPort.fromParts("10.0.0.2", 22);
         final HostAndPort otherHostAndPort = HostAndPort.fromParts("10.0.0.1", 22);
         final Set<HostAndPort> reachableIps = Sets.newHashSet(authorisedHostAndPort, otherHostAndPort);
@@ -191,7 +192,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 DefaultConnectivityResolver.NETWORK_MODE, mode,
                 DefaultConnectivityResolver.CHECK_CREDENTIALS, false));
 
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of(
                 JcloudsLocationConfig.CONNECTIVITY_RESOLVER, customizer));
 
         ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.millis(100)).build();
@@ -220,7 +221,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
                 DefaultConnectivityResolver.NETWORK_MODE, mode,
                 DefaultConnectivityResolver.CHECK_CREDENTIALS, false));
 
-        initNodeCreatorAndJcloudsLocation(newNodeCreator(), ImmutableMap.of(
+        jcloudsLocation = initStubbedJcloudsLocation(ImmutableMap.of(
                 JcloudsLocationConfig.CONNECTIVITY_RESOLVER, customizer));
 
         ConnectivityResolverOptions options = newResolveOptionsForIps(reachableIps, Duration.ONE_MILLISECOND).build();

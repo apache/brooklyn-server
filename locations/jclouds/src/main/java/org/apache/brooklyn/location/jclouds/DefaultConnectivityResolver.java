@@ -308,7 +308,10 @@ public class DefaultConnectivityResolver extends InitializerPatternForConfigurab
             LOG.debug("Using reachable addresses for management candidates of {}", location);
             try {
                 final Predicate<? super HostAndPort> predicate = options.reachableAddressPredicate();
-                return getReachableAddresses(node, predicate, options.reachableAddressTimeout());
+                Iterable<HostAndPort> reachableAddresses = getReachableAddresses(node, predicate, options.reachableAddressTimeout());
+                if (!Iterables.isEmpty(reachableAddresses)) {
+                    return reachableAddresses;
+                }
             } catch (RuntimeException e) {
                 if (options.propagatePollForReachableFailure()) {
                     throw Exceptions.propagate(e);
