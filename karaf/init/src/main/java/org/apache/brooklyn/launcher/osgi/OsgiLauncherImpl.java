@@ -16,18 +16,20 @@
 package org.apache.brooklyn.launcher.osgi;
 
 import com.google.common.base.Stopwatch;
-import java.util.Arrays;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.core.BrooklynVersionService;
 import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.BrooklynShutdownHooks;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
-import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver;
 import org.apache.brooklyn.launcher.common.BasicLauncher;
 import org.apache.brooklyn.launcher.common.BrooklynPropertiesFactoryHelper;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
@@ -41,18 +43,20 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
-import org.osgi.framework.*;
+import org.osgi.framework.Bundle;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.Constants;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.InvalidSyntaxException;
+import org.osgi.framework.ServiceEvent;
+import org.osgi.framework.ServiceListener;
+import org.osgi.framework.ServiceReference;
 import org.osgi.framework.launch.Framework;
 import org.osgi.framework.startlevel.FrameworkStartLevel;
 import org.osgi.service.cm.Configuration;
 import org.osgi.service.cm.ConfigurationAdmin;
-import org.osgi.util.tracker.ServiceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.util.Map;
 
 /**
  * Initializer for brooklyn-core when running in an OSGi environment.
@@ -94,6 +98,8 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
         // make sure brooklyn-core bundle is started
         brooklynVersion.getVersion();
 
+        if (getManagementContext()!=null) ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put(OsgiManager.OSGI_STARTUP_COMPLETE, false);
+
         Configuration brooklynConfig = getConfiguration(BROOKLYN_CONFIG_PID);
         // Note that this doesn't check whether the files exist, just that there are potential alternative sources for configuration.
         if (brooklynConfig == null && Strings.isEmpty(globalBrooklynProperties) && Strings.isEmpty(localBrooklynProperties)) {
@@ -121,9 +127,16 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
         }
     }
 
+    @Override
+    protected void initManagementContext() {
+        super.initManagementContext();
+        ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put(OsgiManager.OSGI_STARTUP_COMPLETE, false);
+    }
+
     // init-method can't find the start method for some reason, provide an alternative.
     @Override
     public void initOsgi() {
+        if (getManagementContext()!=null) ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put(OsgiManager.OSGI_STARTUP_COMPLETE, false);
         synchronized (reloadLock) {
             final Stopwatch startupTimer = Stopwatch.createStarted();
             BrooklynShutdownHooks.resetShutdownFlag();
@@ -289,6 +302,7 @@ public class OsgiLauncherImpl extends BasicLauncher<OsgiLauncherImpl> implements
             final Stopwatch startupTimer = Stopwatch.createStarted();
             LOG.debug("OsgiLauncher catalog/rebind running initialization (part two)");
             startPartTwo();
+            ((ManagementContextInternal)getManagementContext()).getBrooklynProperties().put(OsgiManager.OSGI_STARTUP_COMPLETE, true);
             startupTimer.stop();
             LOG.info("Brooklyn initialization (part two) complete after {}", startupTimer.toString());
         }

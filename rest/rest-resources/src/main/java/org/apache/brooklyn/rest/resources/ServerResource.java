@@ -59,6 +59,7 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
@@ -369,11 +370,22 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public boolean isUp() {
+        return isRestUp() && isOsgiUp(false);
+    }
+
+    public boolean isRestUp() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
             throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
 
         Maybe<ManagementContext> mm = mgmtMaybe();
         return !mm.isAbsent() && mm.get().isStartupComplete() && mm.get().isRunning();
+    }
+
+    /** returns whether up if known to be starting or up; else returns false if required and true if not */
+    public boolean isOsgiUp(boolean osgiRequired) {
+        Boolean up = mgmtInternal().getBrooklynProperties().getConfig(OsgiManager.OSGI_STARTUP_COMPLETE);
+        if (up!=null) return up;
+        return !osgiRequired;
     }
     
     @Override
@@ -399,6 +411,8 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             "shuttingDown", isShuttingDown(),
             "healthy", isHealthy(),
             "ha", getHighAvailabilityPlaneStates(),
+            "osgiUp", isOsgiUp(true),
+
             "brooklyn.security.sensitive.fields",
                 MutableMap.of(
                         "tokens", Sanitizer.getSensitiveFieldsTokens(),

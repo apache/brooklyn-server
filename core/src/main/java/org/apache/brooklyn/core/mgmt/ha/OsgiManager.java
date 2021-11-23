@@ -92,7 +92,9 @@ public class OsgiManager {
      * a start from scratch; however if we leave it running, uninstalling any extra bundles, then tests are fast and don't leak.
      * See OsgiTestingLeaksAndSpeedTest. */
     protected static final boolean REUSED_FRAMEWORKS_ARE_KEPT_RUNNING = true;
-    
+
+    public static final ConfigKey<Boolean> OSGI_STARTUP_COMPLETE = ConfigKeys.newBooleanConfigKey("brooklyn.osgi.startup.complete");
+
     /* see `Osgis` class for info on starting framework etc */
     
     final ManagementContext mgmt;
