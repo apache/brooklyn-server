@@ -1506,8 +1506,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Template template = null;
         Image image;
         try {
+            // in AWS, hardware types A1, T4g, M6g, C6g, and R6g use arm64 which is not compatible with the usual x86_64;
+            // so don't pick those hardware types by default; would be nice to have a hardwareChooser on TemplateBuilder akin to
+            // imageChooser, but we don't; and would be nice if AWSEC2 used org.jclouds.ec2.domain.Image, rather than org.jclouds.compute.domain.Image,
+            // and Hardware stored org.jclouds.ec2.domain.Image.Architecture, so that TemplateBuilderImpl.resolveHardware / supportsImage did the
+            // right thing with images selected (noting that OperatingSystem.arch is different (eg "HVM");
+            // in the absence of that, in AWS we cheat and if min cores is not set, we set it to 2 to cause the good t3.micro to come back instead of a1.large;
+            // to see more details, step in to templateBuilder.build and inspect the hardwareSorter.sortedCopy(hardwares) and filter(..., hardwarePredicate)
+            if ("aws-ec2".equals(getProvider()) && Strings.isBlank(config.get(HARDWARE_ID)) && config.get(MIN_CORES)==null) {
+                templateBuilder.minCores(2);
+            }
+
             template = templateBuilder.build();
             if (template==null) throw new IllegalStateException("No matching template; check image and hardware constraints (e.g. OS, RAM); using "+templateBuilder);
+
             image = template.getImage();
             LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+getCreationString(config));
             if (image==null) throw new IllegalStateException("No matching image in template at "+toStringNice()+"; check image constraints (OS, providers, ID); using "+templateBuilder);
