@@ -18,7 +18,7 @@
  */
 package org.apache.brooklyn.location.jclouds;
 
-import static org.jclouds.ec2.compute.domain.EC2HardwareBuilder.t2_micro;
+import static org.jclouds.ec2.compute.domain.EC2HardwareBuilder.t3_small;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -206,7 +206,7 @@ public class JcloudsStubTemplateBuilder {
         switch (providerName) {
         case "aws-ec2" :
         case "ec2" :
-            return t2_micro().id("supporting-bogus")
+            return t3_small().id("supporting-bogus")
                     .supportsImageIds(ImmutableSet.of("us-east-1/bogus-image"))
                     .virtualizationType(VirtualizationType.PARAVIRTUAL)
                     .rootDeviceType(RootDeviceType.EBS)
