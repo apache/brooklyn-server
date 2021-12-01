@@ -374,7 +374,8 @@
         <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds/jclouds-scriptbuilder/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/aws-ec2/${jclouds.version}</bundle>
-        <bundle>mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}</bundle>
+        <!-- <bundle>mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}</bundle> add visibility to options so guice can resolve, below -->
+        <bundle>wrap:mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}$overwrite=merge&amp;Import-Package=org.jclouds.http.options,*</bundle>
         <bundle>mvn:org.apache.jclouds.provider/azureblob/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/azurecompute-arm/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/b2/${jclouds.version}</bundle>
