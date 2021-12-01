@@ -159,8 +159,9 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
         assertTrue((""+responseMap.get("displayName")).contains("sleepEffector"), "responseMap="+responseMap);
         
         String detailedStatus = ""+responseMap.get("detailedStatus");
+        boolean taskSubmitted = detailedStatus.contains("Submitted") && detailedStatus.contains("TestEntityImpl.sleepEffector");
         boolean taskSleeping = detailedStatus.contains("In progress, thread waiting") && detailedStatus.contains("TestEntityImpl.sleepEffector");
         boolean taskPreparing = detailedStatus.contains("In progress (RUNNABLE)") && detailedStatus.contains("EffectorUtils.invokeMethodEffector");
-        assertTrue(taskSleeping || taskPreparing, "responseMap="+responseMap);
+        assertTrue(taskSubmitted || taskSleeping || taskPreparing, "responseMap="+responseMap);
     }
 }
