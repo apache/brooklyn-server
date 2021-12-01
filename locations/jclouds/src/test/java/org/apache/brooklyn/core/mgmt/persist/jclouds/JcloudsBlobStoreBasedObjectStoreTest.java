@@ -82,14 +82,14 @@ public class JcloudsBlobStoreBasedObjectStoreTest {
     
     @Test(groups={"Live", "Live-sanity"})
     public void testJclouds() throws Exception {
-        doTestWithStore( newObjectStore(BlobStoreTest.PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC, 
-            BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(4)) );
+        doTestWithStore( newObjectStore(BlobStoreTest.PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC,
+                (BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(4)).toLowerCase()) );
     }
     
     @Test(groups={"Live", "Live-sanity"})
     public void testJcloudsWithSubPathInContainerName() throws Exception {
         doTestWithStore( newObjectStore(BlobStoreTest.PERSIST_TO_OBJECT_STORE_FOR_TEST_SPEC, 
-            BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(4)+"/subpath1/subpath2") );
+            BlobStoreTest.CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(4).toLowerCase()+"/subpath1/subpath2") );
     }
     
     protected void doTestWithStore(PersistenceObjectStore objectStore) {
