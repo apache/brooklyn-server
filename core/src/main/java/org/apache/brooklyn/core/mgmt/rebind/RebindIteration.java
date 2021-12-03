@@ -1069,8 +1069,16 @@ public abstract class RebindIteration {
                 for (String searchItemId : searchPath) {
                     String fixedSearchItemId = null;
                     OsgiManager osgi = managementContext.getOsgiManager().orNull();
+
+                    VersionedName bundleVN = VersionedName.fromString(searchItemId);
+                    String bundleUpgraded = CatalogUpgrades.getBundleUpgradedIfNecessary(managementContext, searchItemId);
+                    if (bundleUpgraded!=null && !bundleUpgraded.equals(searchItemId)) {
+                        logRebindingDebug("Upgrading search path entry of " + bType.getSimpleName().toLowerCase() + " " + contextSuchAsId + " from " + searchItemId + " to bundle " + bundleUpgraded);
+                        bundleVN = VersionedName.fromString(bundleUpgraded);
+                    }
+
                     if (osgi != null) {
-                        ManagedBundle bundle = osgi.getManagedBundle(VersionedName.fromString(searchItemId));
+                        ManagedBundle bundle = osgi.getManagedBundle(bundleVN);
                         if (bundle != null) {
                             // found as bundle
                             reboundSearchPath.add(searchItemId);
@@ -1078,12 +1086,14 @@ public abstract class RebindIteration {
                         }
                     }
 
+
+
                     // look for as a type now
                     RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);
                     if (t1 == null) {
                         String newSearchItemId = CatalogUpgrades.getTypeUpgradedIfNecessary(managementContext, searchItemId);
                         if (!newSearchItemId.equals(searchItemId)) {
-                            logRebindingDebug("Upgrading search path entry of " + bType.getSimpleName().toLowerCase() + " " + contextSuchAsId + " from " + searchItemId + " to " + newSearchItemId);
+                            logRebindingDebug("Upgrading search path entry of " + bType.getSimpleName().toLowerCase() + " " + contextSuchAsId + " from " + searchItemId + " to type " + newSearchItemId);
                             searchItemId = newSearchItemId;
                             t1 = managementContext.getTypeRegistry().get(newSearchItemId);
                         }
