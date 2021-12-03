@@ -258,6 +258,9 @@ public class CatalogInitialization implements ManagementContextInjectable {
             // so that OSGi unique IDs might be picked up when initial catalog is populated
             Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(persistedState.getBundles(), exceptionHandler, rebindLogger);
 
+            // now we install and start the bundles from the catalog;
+            // 2021-12-03 now this only will look for classes in active bundles, so it won't resolve persisted bundles
+            // and we can safely filter them out later
             populateInitialCatalogImpl(true);
 
             final Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
@@ -274,7 +277,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
 
             PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
 
-            // previously we effectively installed here, after populating; but now we do it before and then uninstall if needed, to preserve IDs
+            // 2021-09-14 previously we effectively installed here, after populating; but now we do it earlier and then uninstall if needed, to preserve IDs
 //            Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(filteredPersistedState.getBundles(), exceptionHandler, rebindLogger);
 
             try {

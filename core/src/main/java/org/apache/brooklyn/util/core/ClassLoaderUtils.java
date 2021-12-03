@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ClassLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.MultipleResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ResourceLoaderDispatcher;
@@ -457,14 +458,26 @@ public class ClassLoaderUtils {
         }
         List<Bundle> bundles = Osgis.bundleFinder(framework)
             .satisfying(createBundleMatchingPredicate())
+            .satisfying(b -> b.getState() == Bundle.ACTIVE)  // 2021-12-03 we now require them to be started, to prevent activation of persisted bundles too early
             .findAll();
+        Map<Bundle,Throwable> errors = MutableMap.of();
         for (Bundle b : bundles) {
-            Maybe<T> item = dispatcher.tryLoadFrom(b, className);
-            if (item.isPresent()) {
-                return item;
+            try {
+                Maybe<T> item = dispatcher.tryLoadFrom(b, className);
+                if (item.isPresent()) {
+                    return item;
+                }
+            } catch (Exception e) {
+                // silently ignore
+                log.debug("Skipping bundle "+b+" for search of "+className+" due to: "+e);
+                if (log.isTraceEnabled()) log.trace("Stack trace details", e);
+                errors.put(b, e);
             }
         }
-        return Maybe.absentNull();
+        return Maybe.absent(() -> {
+            if (errors.isEmpty()) return new IllegalStateException("Unable to find class '"+className+"' in whitelisted bundles");
+            return Exceptions.propagate("Unable to find class '"+className+"' in whitelisted bundles, with errors in bundles "+errors.keySet(), errors.values());
+        });
     }
 
     protected WhiteListBundlePredicate createBundleMatchingPredicate() {
