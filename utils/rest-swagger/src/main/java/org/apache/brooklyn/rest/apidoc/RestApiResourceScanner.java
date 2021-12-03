@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 The Apache Software Foundation.
+ * Copyright 2015-2021 The Apache Software Foundation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,25 +15,31 @@
  */
 package org.apache.brooklyn.rest.apidoc;
 
-
-import io.swagger.config.Scanner;
-import io.swagger.config.ScannerFactory;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 import javax.servlet.ServletConfig;
 import javax.ws.rs.core.Application;
 
 import io.swagger.annotations.Api;
+import io.swagger.config.Scanner;
+import io.swagger.config.ScannerFactory;
 import io.swagger.config.SwaggerConfig;
 import io.swagger.jaxrs.config.AbstractScanner;
 import io.swagger.jaxrs.config.JaxrsScanner;
+import io.swagger.jaxrs.config.SwaggerContextService;
+import io.swagger.jaxrs.config.SwaggerScannerLocator;
 import io.swagger.models.Info;
 import io.swagger.models.Scheme;
 import io.swagger.models.Swagger;
 import io.swagger.models.auth.ApiKeyAuthDefinition;
 import io.swagger.models.auth.BasicAuthDefinition;
 import io.swagger.models.auth.In;
-
 
 /**
  * Scans resources for Swagger API resources. Makes them available to the Swagger scanner.
@@ -57,9 +63,9 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
 
     private final Map<Application,Set<Class<?>>> appCache = new WeakHashMap<>();
 
-    public RestApiResourceScanner() {}
+    private RestApiResourceScanner() {}
 
-    public RestApiResourceScanner(Collection<Class<?>> resourceClasses) {
+    private RestApiResourceScanner(Collection<Class<?>> resourceClasses) {
         addAnnotatedClasses(globalClasses, resourceClasses);
     }
 
@@ -68,7 +74,7 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     }
 
     private void addAnnotatedClasses(Set<Class<?>> output, Collection<Class<?>> classes) {
-        if (classes!=null) {
+        if (classes != null) {
             for (Class<?> clz : classes) {
                 if (clz.getAnnotation(Api.class) != null) {
                     output.add(clz);
@@ -114,7 +120,7 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     @Override
     public Swagger configure(Swagger swagger) {
         swagger.setBasePath("/v1");
-        swagger.setSchemes(Arrays.asList(new Scheme[]{Scheme.HTTPS}));  // only advertise https
+        swagger.setSchemes(Collections.singletonList(Scheme.HTTPS)); // only advertise https
 
         swagger.info(getSwaggerInfo());
 
@@ -134,7 +140,7 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
     private Info getSwaggerInfo() {
         Info info = new Info();
         info.setTitle("Apache Brooklyn API");
-        info.setVersion(this.getClass().getPackage()!=null?this.getClass().getPackage().getImplementationVersion():"");
+        info.setVersion(getClass().getPackage() != null ? getClass().getPackage().getImplementationVersion() : "");
         info.setDescription("API specification for Apache Brooklyn");
         return info;
     }
@@ -144,8 +150,8 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
         return null;
     }
 
-    /** install this as the scanner which Swagger will use, with the given class also installed */
-    public static void install(Collection<Class<?>> resourceClasses) {
+    /** install this as the scanner which Swagger will use, with the given classes also installed */
+    public static synchronized void install(Collection<Class<?>> resourceClasses) {
         Scanner scanner = ScannerFactory.getScanner();
         if (scanner instanceof RestApiResourceScanner) {
             ((RestApiResourceScanner)scanner).addAnnotatedClasses(resourceClasses);
@@ -153,6 +159,12 @@ public class RestApiResourceScanner extends AbstractScanner implements JaxrsScan
             scanner = new RestApiResourceScanner(resourceClasses);
         }
         ScannerFactory.setScanner(scanner);
+        // Above method broken in Swagger 1.6.2:
+        // In Swagger 1.6.2 the method SwaggerContextService.getScanner calls to ScannerFactory.getScanner() only
+        // when SwaggerScannerLocator.getInstance().getScanner(scannerIdKey) == null, but seeing its implementations,
+        // it's impossible to get a null value, so we need to use SwaggerScannerLocator instead.
+        SwaggerScannerLocator.getInstance().putScanner(SwaggerContextService.SCANNER_ID_DEFAULT, scanner);
+
         ((RestApiResourceScanner)ScannerFactory.getScanner()).scannerDirty = true;
     }
 
