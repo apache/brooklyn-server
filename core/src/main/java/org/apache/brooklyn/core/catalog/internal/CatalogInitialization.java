@@ -663,6 +663,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (Map.Entry<VersionedName, InstallableManagedBundle> entry : persistedState.getBundles().entrySet()) {
             if (catalogUpgrades.isBundleRemoved(entry.getKey())) {
                 rebindLogger.debug("Filtering out persisted bundle "+entry.getKey());
+                getManagementContext().getRebindManager().getChangeListener().onUnmanaged(entry.getValue().getManagedBundle());
             } else {
                 bundles.put(entry.getKey(), entry.getValue());
             }
@@ -672,6 +673,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
             if (catalogUpgrades.isLegacyItemRemoved(legacyCatalogItem)) {
                 rebindLogger.debug("Filtering out persisted legacy catalog item "+legacyCatalogItem.getId());
+                getManagementContext().getRebindManager().getChangeListener().onUnmanaged(legacyCatalogItem);
             } else {
                 legacyCatalogItems.add(legacyCatalogItem);
             }
