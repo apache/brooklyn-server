@@ -107,6 +107,15 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
         mf.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), BasicBrooklynCatalog.OSGI_MANIFEST_VERSION_VALUE);
         mf.getMainAttributes().putValue(BasicBrooklynCatalog.BROOKLYN_WRAPPED_BOM_BUNDLE, Boolean.TRUE.toString());
 
+        Object impliedHeaders = cm.get(BasicBrooklynCatalog.CATALOG_OSGI_WRAP_HEADERS);
+        if (impliedHeaders instanceof Map) {
+            ((Map<?, ?>) impliedHeaders).forEach((k,v)->{
+                mf.getMainAttributes().putValue(Strings.toString(k), Strings.toString(v));
+            });
+        } else if (impliedHeaders!=null) {
+            throw new IllegalStateException("Must contain map of OSGi headers to insert in "+BasicBrooklynCatalog.CATALOG_OSGI_WRAP_HEADERS);
+        }
+
         BundleMaker bm = new BundleMaker(mgmt);
         File bf = bm.createTempBundle(vn.getSymbolicName(), mf, MutableMap.of(
                 new ZipEntry(BasicBrooklynCatalog.CATALOG_BOM), (InputStream) new ByteArrayInputStream(yaml.getBytes())));

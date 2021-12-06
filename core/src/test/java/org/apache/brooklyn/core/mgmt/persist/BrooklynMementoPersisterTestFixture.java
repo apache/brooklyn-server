@@ -164,7 +164,7 @@ public abstract class BrooklynMementoPersisterTestFixture {
             
             // And test persisting
             PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
-            ((BrooklynMementoPersisterToObjectStore) persister).checkpoint(rawMemento, exceptionHandler);
+            ((BrooklynMementoPersisterToObjectStore) persister).checkpoint(rawMemento, exceptionHandler, "test", null);
         } else {
             throw new SkipException("Persister "+persister+" not a "+BrooklynMementoPersisterToObjectStore.class.getSimpleName());
         }

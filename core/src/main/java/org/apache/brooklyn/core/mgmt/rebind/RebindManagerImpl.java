@@ -555,6 +555,10 @@ public class RebindManagerImpl implements RebindManager {
         return persistenceRealChangeListener.hasPending() || persistenceStoreAccess.isWriting();
     }
 
+    public boolean isBundleIdUnmanaged(String id) {
+        return persistenceRealChangeListener.isBundleIdUnmanaged(id);
+    }
+
     @Override
     @VisibleForTesting
     public void forcePersistNow(boolean full, PersistenceExceptionHandler exceptionHandler) {
@@ -567,7 +571,7 @@ public class RebindManagerImpl implements RebindManager {
             if (exceptionHandler == null) {
                 exceptionHandler = persistenceRealChangeListener.getExceptionHandler();
             }
-            persistenceStoreAccess.checkpoint(memento, exceptionHandler);
+            persistenceStoreAccess.checkpoint(memento, exceptionHandler, "manual forced persistence", null);
         } else {
             if (!persistenceRealChangeListener.persistNowSafely()) {
                 throw new IllegalStateException("Forced persistence failed; see logs for more detail");

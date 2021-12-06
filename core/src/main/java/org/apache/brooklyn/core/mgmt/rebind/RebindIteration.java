@@ -1068,25 +1068,25 @@ public abstract class RebindIteration {
             if (searchPath != null && !searchPath.isEmpty()) {
                 for (String searchItemId : searchPath) {
                     String fixedSearchItemId = null;
+                    VersionedName searchItemVersionedName = VersionedName.fromString(searchItemId);
+
                     OsgiManager osgi = managementContext.getOsgiManager().orNull();
 
-                    VersionedName bundleVN = VersionedName.fromString(searchItemId);
                     String bundleUpgraded = CatalogUpgrades.getBundleUpgradedIfNecessary(managementContext, searchItemId);
                     if (bundleUpgraded!=null && !bundleUpgraded.equals(searchItemId)) {
                         logRebindingDebug("Upgrading search path entry of " + bType.getSimpleName().toLowerCase() + " " + contextSuchAsId + " from " + searchItemId + " to bundle " + bundleUpgraded);
-                        bundleVN = VersionedName.fromString(bundleUpgraded);
+                        searchItemVersionedName = VersionedName.fromString(bundleUpgraded);
                     }
 
                     if (osgi != null) {
-                        ManagedBundle bundle = osgi.getManagedBundle(bundleVN);
+                        ManagedBundle bundle = osgi.getManagedBundle(searchItemVersionedName);
                         if (bundle != null) {
                             // found as bundle
-                            reboundSearchPath.add(searchItemId);
+                            fixedSearchItemId = searchItemVersionedName.toOsgiString();
+                            reboundSearchPath.add(fixedSearchItemId);
                             continue;
                         }
                     }
-
-
 
                     // look for as a type now
                     RegisteredType t1 = managementContext.getTypeRegistry().get(searchItemId);

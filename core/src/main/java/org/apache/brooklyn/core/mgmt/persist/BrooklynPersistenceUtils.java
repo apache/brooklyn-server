@@ -54,6 +54,7 @@ import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -106,13 +107,18 @@ public class BrooklynPersistenceUtils {
 
     public static void writeMemento(ManagementContext managementContext, BrooklynMementoRawData memento,
             PersistenceObjectStore destinationObjectStore) {
+        writeMemento(managementContext, memento, destinationObjectStore, "explicit memento write (no details)");
+    }
+
+    public static void writeMemento(ManagementContext managementContext, BrooklynMementoRawData memento,
+                                    PersistenceObjectStore destinationObjectStore, String context) {
         BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
             destinationObjectStore,
             managementContext);
         try {
             PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
             persister.enableWriteAccess();
-            persister.checkpoint(memento, exceptionHandler);
+            persister.checkpoint(memento, exceptionHandler, context, managementContext.getRebindManager());
         } finally {
             persister.stop(true);
         }
@@ -218,7 +224,7 @@ public class BrooklynPersistenceUtils {
         BrooklynMementoRawData dataRecord = newStateMemento(mgmt, source); 
         ManagementPlaneSyncRecord mgmtRecord = newManagerMemento(mgmt, source);
 
-        writeMemento(mgmt, dataRecord, targetStore);
+        writeMemento(mgmt, dataRecord, targetStore, "copy being written (for "+ JavaClassNames.callerNiceClassAndMethod(1)+")");
         writeManagerMemento(mgmt, mgmtRecord, targetStore);
         
         log.debug("Wrote full memento to "+targetStore+" in "+Time.makeTimeStringRounded(Duration.of(timer)));
@@ -258,7 +264,7 @@ public class BrooklynPersistenceUtils {
                     .location(backupSpec).nonBackupLocation(nonBackupSpec).resolveWithSubpathFor(managementContext, mode.toString());
                 destinationObjectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(managementContext, backupSpec, backupContainer);
                 log.debug("Backing up persisted state on "+mode+", to "+destinationObjectStore.getSummaryName());
-                BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore);
+                BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore, "backup for '"+mode+"'");
                 BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, destinationObjectStore);
                 if (!memento.isEmpty()) {
                     log.info("Back-up of persisted state created on "+mode+", in "+destinationObjectStore.getSummaryName());
@@ -278,7 +284,7 @@ public class BrooklynPersistenceUtils {
                         +" failed with "+e, e);
                     
                     log.debug("Backing up persisted state on "+mode+", locally because remote failed, to "+destinationObjectStore.getSummaryName());
-                    BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore);
+                    BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore, "secondary local backup for 'mode");
                     BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, destinationObjectStore);
                     log.info("Back-up of persisted state created on "+mode+", locally because remote failed, in "+destinationObjectStore.getSummaryName());
                 }

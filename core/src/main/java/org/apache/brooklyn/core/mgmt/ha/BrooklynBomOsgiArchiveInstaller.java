@@ -653,10 +653,6 @@ public class BrooklynBomOsgiArchiveInstaller {
                 osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
-                if (!isBlacklistedForPersistence(result.getMetadata())) {
-                    ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                    mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
-                }
             } else {
                 Pair<File, ManagedBundle> olds = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile);
                 oldZipFile = olds.getLeft();
@@ -664,10 +660,6 @@ public class BrooklynBomOsgiArchiveInstaller {
 
                 result.code = OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE;
                 result.message = "Updated Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" as existing ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
-                if (!isBlacklistedForPersistence(result.getMetadata())) {
-                    ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
-                    mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
-                }
             }
             log.debug(result.message + " (partial): OSGi bundle installed, with bundle start and Brooklyn management to follow");
             // can now delete and close (copy has been made and is available from OsgiManager)
@@ -722,6 +714,14 @@ public class BrooklynBomOsgiArchiveInstaller {
                     if (start) {
                         try {
                             log.debug("Starting bundle "+result.getVersionedName());
+                            if (!isBlacklistedForPersistence(result.getMetadata())) {
+                                ((BasicManagedBundle)result.getMetadata()).setPersistenceNeeded(true);
+                                if (updating) {
+                                    mgmt().getRebindManager().getChangeListener().onChanged(result.getMetadata());
+                                } else {
+                                    mgmt().getRebindManager().getChangeListener().onManaged(result.getMetadata());
+                                }
+                            }
                             result.bundle.start();
                         } catch (BundleException e) {
                             log.warn("Error starting bundle "+result.getVersionedName()+", uninstalling, restoring any old bundle, then re-throwing error: "+e);

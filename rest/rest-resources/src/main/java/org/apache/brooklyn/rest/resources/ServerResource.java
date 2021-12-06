@@ -648,7 +648,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             result.catalogItems(newMementoRawData.getCatalogItems());
 
             PersistenceObjectStore currentPersistenceStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
-            BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentPersistenceStore);
+            BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentPersistenceStore, "persist for REST call");
 
             mgmt().getRebindManager().rebind(mgmt().getCatalogClassLoader(),null, mgmt().getHighAvailabilityManager().getNodeState());
 

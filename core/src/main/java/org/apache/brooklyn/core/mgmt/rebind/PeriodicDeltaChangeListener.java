@@ -385,6 +385,10 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
     boolean isStopped() {
         return state == ListenerState.STOPPING || state == ListenerState.STOPPED || executionContext.isShutdown();
     }
+
+    boolean isBundleIdUnmanaged(String id) {
+        return deltaCollector.removedBundleIds.contains(id);
+    }
     
     /**
      * @deprecated since 1.0.0; its use is enabled via BrooklynFeatureEnablement.FEATURE_REFERENCED_OBJECTS_PERSISTENCE_PROPERTY,

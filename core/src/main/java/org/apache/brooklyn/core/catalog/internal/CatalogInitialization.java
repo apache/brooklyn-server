@@ -559,7 +559,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             if (b.getBundle().getState() >= Bundle.INSTALLED && b.getBundle().getState() < Bundle.STARTING) {
                 // we installed it, catalog did not start it, so let's uninstall it
                 OsgiBundleInstallationResult result = getManagementContext().getOsgiManager().get().uninstallUploadedBundle(b.getMetadata());
-                log.debug("Result of uninstalling "+b+" due to due to catalog upgrade metadata instructions: "+result);
+                log.debug("Result of uninstalling "+b+" due to catalog upgrade metadata instructions: "+result);
             }
         });
 
@@ -663,6 +663,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (Map.Entry<VersionedName, InstallableManagedBundle> entry : persistedState.getBundles().entrySet()) {
             if (catalogUpgrades.isBundleRemoved(entry.getKey())) {
                 rebindLogger.debug("Filtering out persisted bundle "+entry.getKey());
+                // will skip persistence while not yet installed, and will remove when uninstalled
             } else {
                 bundles.put(entry.getKey(), entry.getValue());
             }
@@ -672,6 +673,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
             if (catalogUpgrades.isLegacyItemRemoved(legacyCatalogItem)) {
                 rebindLogger.debug("Filtering out persisted legacy catalog item "+legacyCatalogItem.getId());
+                // will skip persistence while not yet installed, and will remove when uninstalled
             } else {
                 legacyCatalogItems.add(legacyCatalogItem);
             }
