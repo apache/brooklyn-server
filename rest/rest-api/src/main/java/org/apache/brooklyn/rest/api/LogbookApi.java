@@ -18,9 +18,7 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.*;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 
 import javax.servlet.http.HttpServletRequest;
@@ -38,6 +36,12 @@ public interface LogbookApi {
     @POST
     @ApiOperation(value = "Execute query for getting log data",
             response = org.apache.brooklyn.rest.domain.SensorSummary.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     // todo document query params model
     Response logbookQuery(
             @Context HttpServletRequest request,
