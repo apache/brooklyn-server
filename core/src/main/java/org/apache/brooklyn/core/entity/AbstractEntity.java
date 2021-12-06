@@ -672,10 +672,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 
                 if (changed) {
                     getManagementSupport().getEntityChangeListener().onChildrenChanged();
-                }
-            
-                if (changed) {
                     sensors().emit(AbstractEntity.CHILD_REMOVED, child);
+                    Entities.unmanage(child);
                 }
                 return changed;
             }
