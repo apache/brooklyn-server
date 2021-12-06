@@ -116,9 +116,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
     /** Header on bundle indicating it is a wrapped BOM with no other resources */
     public static final String BROOKLYN_WRAPPED_BOM_BUNDLE = "Brooklyn-Wrapped-BOM";
+
     @VisibleForTesting
     public static final boolean AUTO_WRAP_CATALOG_YAML_AS_BUNDLE = true;
-    
+
+    /** key within brooklyn.catalog containing a map of items used to generate headers if an OSGi bundle is being produced by wrapping the YAML */
+    public static final String CATALOG_OSGI_WRAP_HEADERS = "catalog.osgi.wrap.headers";
+
     private static final Logger log = LoggerFactory.getLogger(BasicBrooklynCatalog.class);
 
     public static class BrooklynLoaderTracker {
