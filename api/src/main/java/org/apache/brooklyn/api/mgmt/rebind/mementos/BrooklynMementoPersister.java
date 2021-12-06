@@ -98,8 +98,8 @@ public interface BrooklynMementoPersister {
     Set<String> getLastErrors();
 
     /** applies a full checkpoint (write) of all state; returns true on success or false on error, with {@link #getLastErrors()} available to get the last errors */
-    boolean checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler);
-    /** applies a partial write of state delta; result and errors as per {@link #checkpoint(BrooklynMementoRawData, PersistenceExceptionHandler)} */
+    boolean checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler, String context, @Nullable RebindManager deltaDetails);
+    /** applies a partial write of state delta; result and errors as per {@link #checkpoint(BrooklynMementoRawData, PersistenceExceptionHandler, String, RebindManager)} */
     boolean delta(Delta delta, PersistenceExceptionHandler exceptionHandler);
     /** inserts an additional delta to be written on the next delta request */
     @Beta

@@ -40,10 +40,10 @@ import javax.xml.xpath.XPathConstants;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.LookupContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
@@ -63,6 +63,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectA
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.PeriodicDeltaChangeListener;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoImpl;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BrooklynMementoManifestImpl;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
@@ -633,7 +634,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
     /** See {@link BrooklynPersistenceUtils} for conveniences for using this method. */
     @Override
     @Beta
-    public boolean checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler) {
+    public boolean checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler, String context, @Nullable RebindManager contextDetails) {
         checkWritesAllowed();
         try {
             lock.writeLock().lockInterruptibly();
@@ -642,6 +643,16 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
         
         try {
+            if (LOG.isDebugEnabled()) {
+                if (contextDetails!=null && !contextDetails.hasPending()) {
+                    if (LOG.isTraceEnabled()) {
+                        LOG.trace("Checkpointing memento for {}", context);
+                    }
+                } else {
+                    LOG.debug("Checkpointing memento for {}", context);
+                }
+            }
+
             exceptionHandler.clearRecentErrors();
             objectStore.prepareForMasterUse();
             
@@ -651,7 +662,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
-                    addPersistContentIfManagedBundle(type, entry.getKey(), entry.getValue(), futures, exceptionHandler);
+                    addPersistContentIfManagedBundle(type, entry.getKey(), entry.getValue(), futures, exceptionHandler, contextDetails);
                     futures.add(asyncPersist(type.getSubPathName(), type, entry.getKey(), entry.getValue(), exceptionHandler));
                 }
             }
@@ -664,7 +675,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
-            if (LOG.isDebugEnabled()) LOG.debug("Checkpointed entire memento in {}", Time.makeTimeStringRounded(stopwatch));
+            if (LOG.isDebugEnabled()) LOG.debug("Checkpointed memento in {} (for {})", Time.makeTimeStringRounded(stopwatch), context);
         } finally {
             lastErrors = exceptionHandler.getRecentErrors();
             lock.writeLock().unlock();
@@ -737,7 +748,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Memento item : delta.getObjectsOfType(type)) {
                     if (!deletedIds.contains(item.getId())) {
-                        addPersistContentIfManagedBundle(type, item.getId(), ""+item.getCatalogItemId()+"/"+item.getDisplayName(), futures, exceptionHandler);
+                        addPersistContentIfManagedBundle(type, item.getId(), ""+item.getCatalogItemId()+"/"+item.getDisplayName(), futures, exceptionHandler, null);
                         futures.add(asyncPersist(type.getSubPathName(), item, exceptionHandler));
                     }
                 }
@@ -767,7 +778,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         return lastErrors;
     }
 
-    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, final String summaryOrContents, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler) {
+    private void addPersistContentIfManagedBundle(final BrooklynObjectType type, final String id, final String summaryOrContents, List<ListenableFuture<?>> futures, final PersistenceExceptionHandler exceptionHandler, final @Nullable RebindManager deltaContext) {
         if (type==BrooklynObjectType.MANAGED_BUNDLE) {
             if (mgmt==null) {
                 throw new IllegalStateException("Cannot persist bundles without a management context");
@@ -775,9 +786,12 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             final ManagedBundle mb = ((ManagementContextInternal)mgmt).getOsgiManager().get().getManagedBundles().get(id);
             LOG.debug("Persisting managed bundle "+id+": "+mb+" - "+summaryOrContents);
             if (mb==null) {
-                // previously happened on rebind because new osgi unique id was made; now it should use the same so we shouldn't see this,
-                // but if we do the log will contain a summary or contents for comparison which will help
-                LOG.warn("Cannot find managed bundle for added bundle "+id+"; ignoring (probably uninstalled or reinstalled with another OSGi ID; see debug log for contents)");
+                if (deltaContext!=null && deltaContext instanceof RebindManagerImpl && ((RebindManagerImpl)deltaContext).isBundleIdUnmanaged(id)) {
+                    // known to happen if we add then remove something, because it is still listed
+                    LOG.trace("Skipipng absent managed bundle for added and removed bundle {}; ignoring (probably uninstalled or reinstalled with another OSGi ID; see debug log for contents)", id);
+                } else {
+                    LOG.warn("Cannot find managed bundle for added bundle {}; ignoring (probably uninstalled or reinstalled with another OSGi ID; see debug log for contents)", id);
+                }
                 return;
             }
             

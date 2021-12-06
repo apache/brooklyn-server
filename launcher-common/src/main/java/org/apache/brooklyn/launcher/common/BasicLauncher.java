@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.launcher.common;
 
+import com.google.common.annotations.VisibleForTesting;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.File;
@@ -333,7 +334,7 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
             LOG.info("Copying persisted state to "+destinationDir+(destinationLocationSpec!=null ? " @ "+destinationLocationSpec : ""));
             PersistenceObjectStore destinationObjectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(
                 managementContext, destinationLocationSpec, destinationDir);
-            BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore);
+            BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore, "copy on launch");
             BrooklynPersistenceUtils.writeManagerMemento(managementContext, planeState, destinationObjectStore);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -364,11 +365,12 @@ public class BasicLauncher<T extends BasicLauncher<T>> {
      */
     // Make private after deprecation
     @Deprecated
+    @VisibleForTesting
     public void persistState(BrooklynMementoRawData memento, String destinationDir, @Nullable String destinationLocationSpec) {
         initManagementContext();
         PersistenceObjectStore destinationObjectStore = BrooklynPersistenceUtils.newPersistenceObjectStore(
             managementContext, destinationLocationSpec, destinationDir);
-        BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore);
+        BrooklynPersistenceUtils.writeMemento(managementContext, memento, destinationObjectStore, "persist on launch (for testing only)");
     }
 
     /**

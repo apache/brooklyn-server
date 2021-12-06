@@ -559,7 +559,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             if (b.getBundle().getState() >= Bundle.INSTALLED && b.getBundle().getState() < Bundle.STARTING) {
                 // we installed it, catalog did not start it, so let's uninstall it
                 OsgiBundleInstallationResult result = getManagementContext().getOsgiManager().get().uninstallUploadedBundle(b.getMetadata());
-                log.debug("Result of uninstalling "+b+" due to due to catalog upgrade metadata instructions: "+result);
+                log.debug("Result of uninstalling "+b+" due to catalog upgrade metadata instructions: "+result);
             }
         });
 
