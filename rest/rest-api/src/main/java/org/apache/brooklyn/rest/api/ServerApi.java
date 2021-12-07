@@ -58,12 +58,24 @@ public interface ServerApi {
     @POST
     @Path("/properties/reload")
     @ApiOperation(value = "Reload brooklyn.properties")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public void reloadBrooklynProperties();
 
     @POST
     @Path("/shutdown")
     @ApiOperation(value = "Terminate this Brooklyn server instance")
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public void shutdown(
             @ApiParam(name = "stopAppsFirst", value = "Whether to stop running applications before shutting down")
             @FormParam("stopAppsFirst") @DefaultValue("false") boolean stopAppsFirst,
@@ -83,26 +95,56 @@ public interface ServerApi {
     @ApiOperation(value = "Return version identifier information for this Brooklyn instance", 
             response = String.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public VersionSummary getVersion();
 
     @GET
     @Path("/planeid")
     @ApiOperation(value = "Return the plane id (an identifier that is stable across restarts and HA failovers)")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public String getPlaneId();
 
     @GET
     @Path("/up")
     @ApiOperation(value = "Returns whether this server is up - fully started, and not stopping, though it may have errors")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public boolean isUp();
     
     @GET
     @Path("/shuttingDown")
     @ApiOperation(value = "Returns whether this server is shutting down")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public boolean isShuttingDown();
     
     @GET
     @Path("/healthy")
     @ApiOperation(value = "Returns whether this node is healthy - fully started, not stopping, and no errors")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public boolean isHealthy();
 
     @GET
@@ -110,6 +152,12 @@ public interface ServerApi {
     @ApiOperation(value = "Returns extended server-up information, a map including up (/up), shuttingDown (/shuttingDown), healthy (/healthy), and ha (/ha/states) (qv)"
             + " as well as selected settings such as sensitive field treatment"
             + "; also forces a session, so a useful general-purpose call for a UI client to do when starting")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String,Object> getUpExtended();
 
     @GET
@@ -118,26 +166,48 @@ public interface ServerApi {
     @ApiResponses(value = {
             // TODO: This should probably return a 404 if the key is not present, and should return a predictable
             // value if the value is not set. Behaviour should be consistent with EntityConfigApi.get()
-            @ApiResponse(code = 204, message = "Could not find config key")
+            @ApiResponse(code = 204, message = "Could not find config key"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Config key not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public String getConfig(
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("configKey") String configKey);
-    
+
     @GET
     @Path("/ha/state")
     @ApiOperation(value = "Returns the HA state of this management node")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public ManagementNodeState getHighAvailabilityNodeState();
     
     @GET
     @Path("/ha/metrics")
     @ApiOperation(value = "Returns a collection of HA metrics")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String,Object> getHighAvailabilityMetrics();
     
     @POST
     @Path("/ha/state")
     @ApiOperation(value = "Changes the HA state of this management node")
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public ManagementNodeState setHighAvailabilityNodeState(
             @ApiParam(name = "mode", value = "The state to change to")
             @FormParam("mode") HighAvailabilityMode mode);
@@ -146,16 +216,34 @@ public interface ServerApi {
     @Path("/ha/states")
     @ApiOperation(value = "Returns the HA states and detail for all nodes in this management plane",
             response = org.apache.brooklyn.rest.domain.HighAvailabilitySummary.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public HighAvailabilitySummary getHighAvailabilityPlaneStates();
 
     @POST
     @Path("/ha/states/clear")
     @ApiOperation(value = "Clears HA node information for non-master nodes; active nodes will repopulate and other records will be erased")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response clearHighAvailabilityPlaneStates();
 
     @POST
     @Path("/ha/states/clear/node")
     @ApiOperation(value = "Clears HA node information for a particular non-master node; other nodes will repopulate and selected node will be erased")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response clearHighAvailabilityPlaneStates(
             @ApiParam(name = "nodeId", value = "ID of node to be removed")
             @FormParam("nodeId") String nodeId);
@@ -163,12 +251,24 @@ public interface ServerApi {
     @GET
     @Path("/ha/priority")
     @ApiOperation(value = "Returns the HA node priority for MASTER failover")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public long getHighAvailabilityPriority();
     
     @POST
     @Path("/ha/priority")
     @ApiOperation(value = "Sets the HA node priority for MASTER failover")
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public long setHighAvailabilityPriority(
             @ApiParam(name = "priority", value = "The priority to be set")
             @FormParam("priority") long priority);
@@ -177,16 +277,27 @@ public interface ServerApi {
     @Produces(MIME_TYPE_ZIP)
     @Path("/ha/persist/export")
     @ApiOperation(value = "Retrieves the persistence store data, as an archive")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response exportPersistenceData(
         @ApiParam(name = "origin", value = "Whether to take from LOCAL or REMOTE state; default to AUTO detect, "
                 + "using LOCAL as master and REMOTE for other notes")
         @QueryParam("origin") @DefaultValue("AUTO") String origin);
 
-
     @POST
     @Path("/ha/persist/import")
     @Consumes
     @ApiOperation(value = "Imports a persistence export to a file-based store, moving catalog items, locations and managed applications (merged with the current persistence).")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response importPersistenceData(
         @ApiParam(name = "persistenceData", value = "Archived data", required = true) byte[] persistenceData);
 
@@ -199,6 +310,12 @@ public interface ServerApi {
                 + "; also forces a session, so a useful general-purpose call for a UI client to do when starting", 
             response = String.class,
             responseContainer = "List")
-    public String getUser(); 
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public String getUser();
 
 }
