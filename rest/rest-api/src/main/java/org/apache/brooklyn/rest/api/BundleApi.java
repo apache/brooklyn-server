@@ -54,6 +54,12 @@ public interface BundleApi {
     @ApiOperation(value = "List bundles registered in the system including their types", 
             response = BundleSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<BundleSummary> list(
         @ApiParam(name = "versions", value = "Whether to list 'latest' for each symbolic-name or 'all' versions", 
         required = false, defaultValue = "latest")
@@ -69,6 +75,13 @@ public interface BundleApi {
     @ApiOperation(value = "Get summaries for all versions of the given bundle, with more recent ones first (preferring non-SNAPSHOTs)", 
             response = BundleSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<BundleSummary> listVersions(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -82,6 +95,13 @@ public interface BundleApi {
     @GET
     @ApiOperation(value = "Get detail on a specific bundle given its symbolic name and version", 
             response = BundleSummary.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public BundleSummary detail(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -93,6 +113,13 @@ public interface BundleApi {
     @Path("/{symbolicName}/{version}/download")
     @GET
     @ApiOperation(value = "Download a ZIP archive of a specific bundle given its symbolic name and version")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Cannot find Zip archive or bundle"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response download(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -105,6 +132,13 @@ public interface BundleApi {
     @GET
     @ApiOperation(value = "Get all types declared in a given bundle", 
             response = TypeDetail.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<TypeSummary> getTypes(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -117,6 +151,13 @@ public interface BundleApi {
     @GET
     @ApiOperation(value = "Get detail on a given type in a given bundle", 
             response = TypeDetail.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name or type not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public TypeDetail getType(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -132,6 +173,13 @@ public interface BundleApi {
     @GET
     @ApiOperation(value = "Get detail on a given type and version in a bundle (special method for unusual cases where type has different version)", 
             response = TypeDetail.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name, type or version not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public TypeDetail getTypeExplicitVersion(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -146,6 +194,13 @@ public interface BundleApi {
         @PathParam("typeVersion")
         String typeVersion);
 
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name, type or version not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     @Path("/{symbolicName}/{version}/types/{typeSymbolicName}/{typeVersion}/icon")
     @GET
     @ApiOperation(value = "Returns the icon image registered for this type")
@@ -168,6 +223,13 @@ public interface BundleApi {
     @DELETE
     @ApiOperation(value = "Removes a bundle, unregistering all the types it declares", 
             response = BundleInstallationRestResult.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name, type, or version not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public BundleInstallationRestResult remove(
         @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
         @PathParam("symbolicName")
@@ -184,6 +246,13 @@ public interface BundleApi {
     @POST
     @Consumes("application/deprecated-yaml")
     @ApiOperation(value = "(deprecated; use same endpoint accepting optional format)", hidden = true, response = BundleInstallationRestResult.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "BOM YAML declaring the types to be installed", required = true)
             @Valid String yaml,
@@ -196,6 +265,13 @@ public interface BundleApi {
     @POST
     @Consumes({"application/deprecated-zip"})
     @ApiOperation(value = "(deprecated; use same endpoint accepting optional format)", hidden = true, response = BundleInstallationRestResult.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response createFromArchive(
             @ApiParam(
                     name = "archive",
@@ -215,8 +291,10 @@ public interface BundleApi {
                     + "a ZIP/JAR containing a catalog.bom and optional other items",
             response = BundleInstallationRestResult.class)
     @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Catalog items added successfully"),
             @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response create(
             @ApiParam(
