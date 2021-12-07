@@ -52,7 +52,12 @@ public interface UsageApi {
             value = "Retrieve usage information about all applications",
             response = org.apache.brooklyn.rest.domain.UsageStatistics.class
     )
-    @ApiResponses(value = {})
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<UsageStatistics> listApplicationsUsage(
             @ApiParam(
                     name = "start",
@@ -74,7 +79,11 @@ public interface UsageApi {
             response = org.apache.brooklyn.rest.domain.UsageStatistics.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Application not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public UsageStatistics getApplicationUsage(
             @ApiParam(
@@ -103,7 +112,11 @@ public interface UsageApi {
             response = org.apache.brooklyn.rest.domain.UsageStatistics.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Application not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<UsageStatistics> listMachinesUsage(
             @ApiParam(
@@ -132,7 +145,11 @@ public interface UsageApi {
             response = org.apache.brooklyn.rest.domain.UsageStatistics.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Machine not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Machine not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public UsageStatistics getMachineUsage(
             @ApiParam(
