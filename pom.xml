@@ -80,6 +80,13 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
+        <repository>
+            <id>testKaraf434</id>
+            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1165/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
     </repositories>
 
     <properties>
@@ -181,7 +188,7 @@
         <kubernetes-client.version>5.8.0</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.3.0</karaf.version>
+        <karaf.version>4.3.4</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <jetty.version>9.4.39.v20210325</jetty.version> <!-- 9.4.31.v20200723 from Karaf 4.3.0 -->
         <commons-collections.version>3.2.2</commons-collections.version>
