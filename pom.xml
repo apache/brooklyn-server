@@ -138,8 +138,8 @@
         <activator.servicemix.version>2.9.0</activator.servicemix.version>
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
-        <cxf.version>3.3.9</cxf.version>
+        <fasterxml.jackson.version>2.12.5</fasterxml.jackson.version>
+        <cxf.version>3.4.0</cxf.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version> <!-- To match cxf -->
         <!-- @deprecated since 0.11 -->
@@ -151,7 +151,7 @@
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.6.2</swagger.version>
         <mx4j.version>3.0.1</mx4j.version>
-        <bouncycastle.version>1.67</bouncycastle.version>  <!-- beyond this gives asn1 errors, needs a new dep probably -->
+        <bouncycastle.version>1.69</bouncycastle.version>  <!-- beyond this gives asn1 errors, needs a new dep probably -->
         <eddsa.version>0.2.0</eddsa.version>  <!-- eddsa 0.3.0 needs sun x509 -->
         <sshj.version>0.27.0</sshj.version>  <!-- jclouds 2.4 uses 0.27; 0.32 needs eddsa 0.3.0 -->
         <!-- jzlib osgi version is 1.1.3.2, but bundle is 1.1.3_2 ; JClouds 2.2.0 pulls in 1.0.7_1 but is happy with 1.1.3.2 -->
@@ -161,9 +161,9 @@
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
         <freemarker.version>2.3.31</freemarker.version>
-        <commons-io.version>2.4</commons-io.version>
+        <commons-io.version>2.11.0</commons-io.version>
         <jsonPath.version>2.4.0</jsonPath.version>
-        <commons-compress.version>1.20</commons-compress.version>
+        <commons-compress.version>1.21</commons-compress.version>
         <validation-api.version>1.1.0.Final</validation-api.version>
         <geronimo-jms_1.1_spec.version>1.1.1</geronimo-jms_1.1_spec.version>
         <geronimo-jta_1.1_spec.version>1.1.1</geronimo-jta_1.1_spec.version>
@@ -195,14 +195,14 @@
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.3.4</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.39.v20210325</jetty.version> <!-- 9.4.31.v20200723 from Karaf 4.3.0 -->
+        <jetty.version>9.4.41.v20210516</jetty.version> <!-- 9.4.41.v20210516 from Karaf 4.3.4 -->
         <commons-collections.version>3.2.2</commons-collections.version>
-        <pax-web.version>7.3.9</pax-web.version>
+        <pax-web.version>7.3.17</pax-web.version>
         <spifly.version>1.3.2</spifly.version> <!-- 1.3.0 from kubernetes; 1.2.4 from pax-jetty; v1.3.2 from erstwhile jetty feature; but 1.3.2 fixes an NPE bug in 1.3.0 so use it -->
         <felix.framework.version>6.0.3</felix.framework.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
-        <jna.version>4.1.0</jna.version>
+        <jna.version>5.9.0</jna.version>
         <objenesis.version>2.5</objenesis.version>
         <clojure.version>1.4.0</clojure.version>
         <clj-time.version>0.4.1</clj-time.version>
@@ -245,7 +245,7 @@
 
         <!-- Seemingly unused dependencies! -->
         <ivy.version>2.2.0</ivy.version>
-        <jline.version>2.12</jline.version>
+        <jline.version>3.21.0</jline.version>
         <jansi.version>1.2.1</jansi.version> <!-- Also shipped in vanilla karaf, v1.17.1 in karaf:4.1.6 -->
         <sleepycat-je.version>5.0.34</sleepycat-je.version>
         <jcommander.version>1.27</jcommander.version>
@@ -417,7 +417,7 @@
                 <version>${ow2.asm.version.jsonpath}</version>
             </dependency>
             <dependency>
-                <groupId>jline</groupId> <!-- when removing this, replace uses with org.jline -->
+                <groupId>org.jline</groupId> <!-- when removing this, replace uses with org.jline -->
                 <artifactId>jline</artifactId>
                 <version>${jline.version}</version>
             </dependency>

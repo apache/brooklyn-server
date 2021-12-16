@@ -178,7 +178,7 @@ public class AsPropertyIfAmbiguous {
             }
         }
 
-        @Override
+//        @Override
         protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt,
                                                 TokenBuffer tb) throws IOException
         {
