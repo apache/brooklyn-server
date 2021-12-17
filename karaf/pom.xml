@@ -140,7 +140,7 @@
             <version>0.12</version>
             <configuration>
                 <consoleOutput>true</consoleOutput>
-                <excludes combine.children="append">q
+                <excludes combine.children="append">
                     <!-- Exclude sandbox because not part of distribution: not in tgz, and not uploaded to maven-central -->
                     <exclude>sandbox/**</exclude>
                     <!-- Exclude release because not part of distribution: not in tgz, and not uploaded to maven-central -->
