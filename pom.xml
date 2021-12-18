@@ -114,7 +114,7 @@
 
         <!-- Dependency Versions -->
         <jclouds.version>2.4.0</jclouds.version> <!-- JCLOUDS_VERSION -->
-        <logback.version>1.2.3</logback.version>
+        <logback.version>1.2.9</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 2.4.0 it is 27 by default but might use any. -->
         <guava.version>27.1-jre</guava.version>
