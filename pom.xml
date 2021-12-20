@@ -86,6 +86,8 @@
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
+        </repository>
+    </repositories>
     <pluginRepositories>
         <pluginRepository>
             <id>testKaraf435-plugin</id>
