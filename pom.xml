@@ -81,8 +81,8 @@
             </snapshots>
         </repository>
         <repository>
-            <id>testKaraf434</id>
-            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1165/</url>
+            <id>testKaraf435</id>
+            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1167/</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
@@ -90,8 +90,8 @@
     </repositories>
     <pluginRepositories>
         <pluginRepository>
-            <id>testKaraf434-plugin</id>
-            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1165/</url>
+            <id>testKaraf435-plugin</id>
+            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1167/</url>
         </pluginRepository>
     </pluginRepositories>
     <properties>
@@ -114,7 +114,7 @@
 
         <!-- Dependency Versions -->
         <jclouds.version>2.4.0</jclouds.version> <!-- JCLOUDS_VERSION -->
-        <logback.version>1.2.3</logback.version>
+        <logback.version>1.2.9</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
         <!-- Must match jclouds' version. From jclouds 2.4.0 it is 27 by default but might use any. -->
         <guava.version>27.1-jre</guava.version>
@@ -193,7 +193,7 @@
         <kubernetes-client.version>5.8.0</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.3.4</karaf.version>
+        <karaf.version>4.3.5</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <jetty.version>9.4.41.v20210516</jetty.version> <!-- 9.4.41.v20210516 from Karaf 4.3.4 -->
         <commons-collections.version>3.2.2</commons-collections.version>
