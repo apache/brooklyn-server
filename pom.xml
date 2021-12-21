@@ -81,8 +81,8 @@
             </snapshots>
         </repository>
         <repository>
-            <id>testKaraf434</id>
-            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1165/</url>
+            <id>testKaraf435</id>
+            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1167/</url>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
@@ -90,8 +90,8 @@
     </repositories>
     <pluginRepositories>
         <pluginRepository>
-            <id>testKaraf434-plugin</id>
-            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1165/</url>
+            <id>testKaraf435-plugin</id>
+            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1167/</url>
         </pluginRepository>
     </pluginRepositories>
     <properties>
