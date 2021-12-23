@@ -133,6 +133,7 @@ public class XmlSerializer<T> {
         // not ideal that we map both 7 and 9 to the value tansformer, but okay as 7 is not used for other serialized things
         // (fortunately, as otherwise hard to deserialize!)
         addAliasForInnerClass(xstream, "com.google.common.collect.Maps$7", valueTransformer);
+        addAliasForInnerClass(xstream, "com.google.guava:com.google.common.collect.Maps$7", valueTransformer);
         // preferred alias
         addAliasForInnerClass(xstream, "com.google.common.collect.Maps._inners.valueTransformer", valueTransformer);
 

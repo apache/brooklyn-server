@@ -55,7 +55,7 @@ public class ConverterTestFixture {
                 T outO = (T)xstream.fromXML(other);
                 if (!equals.test(outO, obj)) Asserts.fail("Objects not equal:\n"+outO+"\n---\n"+obj);
             } catch (Throwable e) {
-                Assert.fail("Deserializable output does not produce identical result:\n"+other, e);
+                Assert.fail("Expected deserialization fails or produces non-equal object:\n"+other, e);
             }
         }
         return out1;

@@ -70,11 +70,12 @@ public class TransformedMapConverterTest extends ConverterTestFixture {
 
         // IMPORTANT! for backwards compatibility
         String guava18 = xml.apply("com.google.common.collect.Maps$7");
+        String guava18osgi = xml.apply("com.google.guava:com.google.common.collect.Maps$7");
 
         // NOT IMPORTANT - for reference; should not be written, so if guava changes this can be changed
         String guava27 = xml.apply("com.google.common.collect.Maps$9");
 
-        assertX(out, preferred, guava18, guava27);
+        assertX(out, preferred, guava18, guava18osgi, guava27);
     }
 
     @Test
