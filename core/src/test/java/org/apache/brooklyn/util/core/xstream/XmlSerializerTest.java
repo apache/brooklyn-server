@@ -27,8 +27,13 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.function.Supplier;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper.LambdaPersistenceMode;
+import org.omg.CORBA.ObjectHolder;
+import org.omg.CORBA.StringHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
@@ -58,6 +63,32 @@ public class XmlSerializerTest {
         assertSerializeAndDeserialize(new ObjectHolder(123));
         assertSerializeAndDeserialize(new IntHolder(123));
         assertSerializeAndDeserialize(new IntegerHolder(123));
+    }
+
+    @Test
+    public void testXmlOutput() throws Exception {
+        Asserts.assertEquals(serializer.toString(MutableMap.of("a", 1)),
+                "<MutableMap>\n" +
+                "  <a type=\"int\">1</a>\n" +
+                "</MutableMap>");
+
+        Asserts.assertEquals(serializer.toString(MutableSet.of(1)),
+                "<MutableSet>\n" +
+                "  <int>1</int>\n" +
+                "</MutableSet>");
+
+        // no nice serializer for this yet
+        Asserts.assertEquals(serializer.toString(MutableList.of(1)),
+                "<MutableList serialization=\"custom\">\n" +
+                "  <unserializable-parents/>\n" +
+                "  <list>\n" +
+                "    <default>\n" +
+                "      <size>1</size>\n" +
+                "    </default>\n" +
+                "    <int>1</int>\n" +
+                "    <int>1</int>\n" +
+                "  </list>\n" +
+                "</MutableList>");
     }
     
     @Test

@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -40,8 +43,15 @@ import com.thoughtworks.xstream.converters.extended.JavaClassConverter;
 import com.thoughtworks.xstream.mapper.DefaultMapper;
 import com.thoughtworks.xstream.mapper.Mapper;
 import com.thoughtworks.xstream.mapper.MapperWrapper;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class XmlSerializer<T> {
+
+    private static final Logger LOG = LoggerFactory.getLogger(XmlSerializer.class);
 
     private final Map<String, String> deserializingClassRenames;
     protected final XStream xstream;
@@ -64,7 +74,7 @@ public class XmlSerializer<T> {
             @Override
             protected MapperWrapper wrapMapper(MapperWrapper next) {
                 MapperWrapper result = XmlSerializer.this.wrapMapperForNormalUsage(super.wrapMapper(next));
-                if (mapperCustomizer!=null) {
+                if (mapperCustomizer != null) {
                     result = mapperCustomizer.apply(result);
                 }
                 return result;
@@ -73,12 +83,17 @@ public class XmlSerializer<T> {
 
         allowAllTypes(xstream);
 
-        if (loader!=null) {
+        if (loader != null) {
             xstream.setClassLoader(loader);
         }
-        
+
         xstream.registerConverter(newCustomJavaClassConverter(), XStream.PRIORITY_NORMAL);
-        
+        addStandardHelpers(xstream);
+    }
+
+    @VisibleForTesting
+    public static void addStandardHelpers(XStream xstream) {
+
         // list as array list is default
         xstream.alias("map", Map.class, LinkedHashMap.class);
         xstream.alias("set", Set.class, LinkedHashSet.class);
@@ -87,7 +102,7 @@ public class XmlSerializer<T> {
         xstream.alias("MutableMap", MutableMap.class);
         xstream.alias("MutableSet", MutableSet.class);
         xstream.alias("MutableList", MutableList.class);
-        
+
         // Needs an explicit MutableSet converter!
         // Without it, the alias for "set" seems to interfere with the MutableSet.map field, so it gets
         // a null field on deserialization.
@@ -103,10 +118,43 @@ public class XmlSerializer<T> {
         xstream.registerConverter(new EnumCaseForgivingConverter());
         xstream.registerConverter(new Inet4AddressConverter());
 
+        addStandardInnerClassHelpers(xstream);
+
         // See ObjectWithDefaultStringImplConverter (and its usage) for why we want to auto-detect 
         // annotations (usages of this is in the camp project, so we can't just list it statically
         // here unfortunately).
         xstream.autodetectAnnotations(true);
+    }
+
+    @VisibleForTesting
+    public static void addStandardInnerClassHelpers(XStream xstream) {
+        Maybe<Object> valueTransformer = Reflections.getFieldValueMaybe(Maps.transformValues(MutableMap.of(), x -> x), "transformer");
+        // add old aliases first, these will be deserialized but not serialized!
+        // not ideal that we map both 7 and 9 to the value tansformer, but okay as 7 is not used for other serialized things
+        // (fortunately, as otherwise hard to deserialize!)
+        addAliasForInnerClass(xstream, "com.google.common.collect.Maps$7", valueTransformer);
+        // preferred alias
+        addAliasForInnerClass(xstream, "com.google.common.collect.Maps._inners.valueTransformer", valueTransformer);
+
+        Maybe<Iterable<Object>> iterableTransformer = Maybe.of(Iterables.transform(MutableSet.of(), x -> x));
+        // we don't seem to serialize iterables, not surprisingly; but if we do this is useful, and if legacy are found they can be added here
+        // preferred alias
+        addAliasForInnerClass(xstream, "com.google.common.collect.Iterables._inners.transform", iterableTransformer);
+    }
+
+    private static Set<String> LOGGED_ALIASES = MutableSet.of();
+
+    private static <T> void addAliasForInnerClass(XStream xstream, String alias, Maybe<T> object) {
+        if (object.isAbsent()) {
+            if (LOGGED_ALIASES.add(alias)) {
+                LOG.warn("No object found to register serialization alias for " + alias + "; ignoring");
+            }
+        } else {
+            xstream.alias(alias, object.get().getClass());
+            if (LOGGED_ALIASES.add(alias)) {
+                LOG.debug("XStream alias for "+object.get().getClass()+": "+alias+" ("+object+")");
+            }
+        }
     }
 
     public static void allowAllTypes(final XStream xstream) {
