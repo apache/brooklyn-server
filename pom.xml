@@ -80,20 +80,8 @@
                 <enabled>true</enabled>
             </snapshots>
         </repository>
-        <repository>
-            <id>testKaraf435</id>
-            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1167/</url>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-        </repository>
     </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <id>testKaraf435-plugin</id>
-            <url>https://repository.apache.org/content/repositories/orgapachekaraf-1167/</url>
-        </pluginRepository>
-    </pluginRepositories>
+
     <properties>
         <brooklyn.version>1.1.0-SNAPSHOT</brooklyn.version>  <!-- BROOKLYN_VERSION -->
 
