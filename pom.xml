@@ -183,10 +183,12 @@
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.3.5</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.41.v20210516</jetty.version> <!-- 9.4.41.v20210516 from Karaf 4.3.4 -->
+        <pax-web.version>7.3.23</pax-web.version> <!-- karaf 4.3 -->
+        <jetty.version>9.4.43.v20210629</jetty.version> <!-- pax 7.3.23 from karaf 4.3 -->
         <commons-collections.version>3.2.2</commons-collections.version>
-        <pax-web.version>7.3.17</pax-web.version>
         <spifly.version>1.3.2</spifly.version> <!-- 1.3.0 from kubernetes; 1.2.4 from pax-jetty; v1.3.2 from erstwhile jetty feature; but 1.3.2 fixes an NPE bug in 1.3.0 so use it -->
+        <jaxb-api.version>2.3.3</jaxb-api.version>
+        <spifly.version>1.3.2</spifly.version> <!-- v1.3.2 from jetty feature; v1.2.4 from pax-jetty -->
         <felix.framework.version>6.0.5</felix.framework.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
