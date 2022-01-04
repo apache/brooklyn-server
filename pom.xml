@@ -127,7 +127,7 @@
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
-        <cxf.version>3.4.0</cxf.version>
+        <cxf.version>3.4.1</cxf.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version> <!-- To match cxf -->
         <!-- @deprecated since 0.11 -->
