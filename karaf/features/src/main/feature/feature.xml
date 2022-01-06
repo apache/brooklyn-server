@@ -131,7 +131,7 @@
         <bundle dependency='true'>mvn:commons-codec/commons-codec/${commons-codec.version}</bundle>
 
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsr305/${jsr305.bundle.version}</bundle>
-        <bundle dependency='true'>mvn:com.google.code.gson/gson/${gson.version}</bundle>
+        <bundle dependency='true'>wrap:mvn:com.google.code.gson/gson/${gson.version}$overwrite=merge&amp;Export-Package=*;version=${gson.version}</bundle>
 
         <bundle dependency="true">mvn:commons-io/commons-io/${commons-io.version}</bundle>
         <bundle dependency='true'>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jcip-annotations/${jcip-annotations.bundle.version}</bundle>
@@ -159,7 +159,10 @@
         <bundle>mvn:org.apache.brooklyn/brooklyn-utils-groovy/${project.version}</bundle>
 
         <bundle>mvn:ch.qos.logback/logback-classic/${logback.version}</bundle> <!-- has an optional dep on groovy-all so refreshes when it is installed; just delay install till when it is -->
-        <bundle>mvn:com.google.code.gson/gson/${gson.version}</bundle>
+
+        <!-- export internal packages for use by jclouds -->
+        <bundle>wrap:mvn:com.google.code.gson/gson/${gson.version}$overwrite=merge&amp;Export-Package=*;version=${gson.version}</bundle>
+
         <bundle>mvn:com.jayway.jsonpath/json-path/${jsonPath.version}</bundle>
         <bundle>mvn:com.fasterxml.jackson.core/jackson-core/${fasterxml.jackson.version}</bundle>
         <bundle>mvn:com.fasterxml.jackson.core/jackson-databind/${fasterxml.jackson.version}</bundle>
@@ -320,7 +323,8 @@
         <bundle dependency="true">mvn:com.google.inject/guice/${guice.version}</bundle>
         <bundle dependency="true">mvn:com.google.inject.extensions/guice-assistedinject/${guice.version}</bundle>
         <bundle dependency="true">mvn:com.google.inject.extensions/guice-multibindings/${guice.version}</bundle>
-        <bundle>mvn:com.google.code.gson/gson/${gson.version}</bundle>
+        <!-- jclouds _embeds_ 2.8.5 but we ignore that and pull this in -->
+        <bundle>wrap:mvn:com.google.code.gson/gson/${gson.version}$overwrite=merge&amp;Export-Package=*;version=${gson.version}</bundle>
         <bundle>mvn:com.google.guava/guava/${guava.version}</bundle>
 
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jsch/${jsch.bundle.version}</bundle>
@@ -373,12 +377,18 @@
         <bundle>mvn:org.apache.jclouds.driver/jclouds-sshj/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds/jclouds-blobstore/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds/jclouds-compute/${jclouds.version}</bundle>
-        <bundle>mvn:org.apache.jclouds/jclouds-core/${jclouds.version}</bundle>
+
+        <!-- <bundle>mvn:org.apache.jclouds/jclouds-core/${jclouds.version}</bundle> -->
+        <!-- jclouds-core embeds gson 2.8.5 which conflicts with our use of 2.8.9; we want to load gson earlier, and later version, so suppress jclouds' classpath access and export; extra needed as . is default and so ignored -->
+        <bundle>wrap:mvn:org.apache.jclouds/jclouds-core/${jclouds.version}$overwrite=merge&amp;Export-Package=org.jclouds.*;version=${jclouds.version};-noimport:=true&amp;Bundle-ClassPath=.,extra</bundle>
+
         <bundle>mvn:org.apache.jclouds/jclouds-loadbalancer/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds/jclouds-scriptbuilder/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/aws-ec2/${jclouds.version}</bundle>
+
         <!-- <bundle>mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}</bundle> add visibility to options so guice can resolve, below -->
         <bundle>wrap:mvn:org.apache.jclouds.provider/aws-s3/${jclouds.version}$overwrite=merge&amp;Import-Package=org.jclouds.http.options,*</bundle>
+
         <bundle>mvn:org.apache.jclouds.provider/azureblob/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/azurecompute-arm/${jclouds.version}</bundle>
         <bundle>mvn:org.apache.jclouds.provider/b2/${jclouds.version}</bundle>
