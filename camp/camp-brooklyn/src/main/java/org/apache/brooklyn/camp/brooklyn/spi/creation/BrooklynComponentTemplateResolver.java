@@ -199,15 +199,17 @@ public class BrooklynComponentTemplateResolver {
             }
             throw new IllegalStateException("Unable to create spec for type " + type + ". " + msgDetails);
         }
-        spec = EntityManagementUtils.unwrapEntity(spec);
+        try {
+            spec = EntityManagementUtils.unwrapEntity(spec);
+            CampResolver.fixScopeRootAtRoot(mgmt, spec);
+            populateSpec(spec, encounteredRegisteredTypeSymbolicNames);
 
-        CampResolver.fixScopeRootAtRoot(mgmt, spec);
-
-        populateSpec(spec, encounteredRegisteredTypeSymbolicNames);
-
-        @SuppressWarnings("unchecked")
-        EntitySpec<T> typedSpec = (EntitySpec<T>) spec;
-        return typedSpec;
+            @SuppressWarnings("unchecked")
+            EntitySpec<T> typedSpec = (EntitySpec<T>) spec;
+            return typedSpec;
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("Error populating spec "+spec, e);
+        }
     }
 
     private List<EntitySpecResolver> getServiceTypeResolverOverrides() {

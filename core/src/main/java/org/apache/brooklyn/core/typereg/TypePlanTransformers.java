@@ -138,14 +138,20 @@ public class TypePlanTransformers {
         }
         
         if (log.isDebugEnabled()) {
-            Supplier<String> s = () -> "Failure transforming plan; returning summary failure, but for reference "
+            Supplier<String> s = () -> "Interim failure transforming plan "
+                + BasicBrooklynCatalog.currentlyResolvingType.get()+"/"+BasicBrooklynCatalog.currentlyValidatingType.get()
+                + "; will throw/return summary failure and catalog routines often wrap and retry, "
+                + "but for reference in the event this failure is unexpected: "
                 + "potentially applicable transformers were "+transformers+", "
                 + "available ones are "+MutableList.builder().addAll(all(mgmt)).build()+"; "
-                + "failures: "+failuresFromTransformers +"; "
-                + "unsupported by: "+transformersWhoDontSupport;
-            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                + "unsupported by: "+transformersWhoDontSupport+"; "
+                + "failures: "+failuresFromTransformers
+                ;
+            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null && BasicBrooklynCatalog.currentlyValidatingType.get()==null) {
+                // if both are null, we don't know who is calling us, so log it as debug
                 log.debug(s.get());
             } else if (log.isTraceEnabled()) {
+                // trace can be enabled to get more information if this is occurring unexpectedly
                 log.trace(s.get());
             }
         }

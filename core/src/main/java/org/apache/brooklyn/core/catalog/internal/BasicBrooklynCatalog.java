@@ -843,7 +843,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // if version not set, infer from: id, then from name, then item version
         if (versionFromId!=null) {
             if (Strings.isNonBlank(version) && !versionFromId.equals(version)) {
-                throw new IllegalArgumentException("Discrepency between version set in id " + versionFromId + " and version property " + version);
+                throw new IllegalArgumentException("Discrepancy between version set in id " + versionFromId + " and version property " + version);
             }
             version = versionFromId;
         }
@@ -857,8 +857,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             if (Strings.isBlank(version)) {
                 version = setFromItemIfUnset(version, itemAsMap, "version");
                 version = setFromItemIfUnset(version, itemAsMap, "template_version");
-                if (version==null) {
-                    log.debug("No version specified for catalog item " + symbolicName + ". Using default value.");
+                if (Strings.isBlank(version)) {
+                    if (log.isTraceEnabled()) log.trace("No version specified for catalog item " + symbolicName + " or BOM ancestors. Using default/bundle value.");
                     version = null;
                 }
             }
@@ -958,6 +958,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
                 if (version==null) {
                     // use this as default version when nothing specified or inferrable from containing bundle
+                    log.debug("No version specified for catalog item " + symbolicName + " or BOM ancestors and not available from bundle. Using default value "+BasicBrooklynCatalog.NO_VERSION+".");
                     version = BasicBrooklynCatalog.NO_VERSION;
                 }
             }
@@ -1605,7 +1606,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * primarily used to downgrade log messages when trying to resolve with different strategies.
      * can also be used to say which item is being currently resolved.
      */
-    public static ThreadLocal<String> currentlyResolvingType = new ThreadLocal<String>();
+    public static ThreadLocal<String> currentlyResolvingType = new ThreadLocal<>();
+    public static ThreadLocal<RegisteredType> currentlyValidatingType = new ThreadLocal<>();
 
     private String makeAsIndentedList(String yaml) {
         String[] lines = yaml.split("\n");
@@ -1790,20 +1792,25 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     
     @Override @Beta
     public Collection<Throwable> validateType(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint, boolean allowUnresolved) {
-        ReferenceWithError<RegisteredType> result = validateResolve(typeToValidate, constraint);
-        if (result.hasError()) {
-            if (allowUnresolved && RegisteredTypes.isTemplate(typeToValidate)) {
-                // ignore for templates
-                return Collections.emptySet();
+        try {
+            currentlyValidatingType.set(typeToValidate);
+            ReferenceWithError<RegisteredType> result = validateResolve(typeToValidate, constraint);
+            if (result.hasError()) {
+                if (allowUnresolved && RegisteredTypes.isTemplate(typeToValidate)) {
+                    // ignore for templates
+                    return Collections.emptySet();
+                }
+                if (result.getError() instanceof CompoundRuntimeException) {
+                    return ((CompoundRuntimeException)result.getError()).getAllCauses();
+                }
+                return Collections.singleton(result.getError());
             }
-            if (result.getError() instanceof CompoundRuntimeException) {
-                return ((CompoundRuntimeException)result.getError()).getAllCauses();
-            }
-            return Collections.singleton(result.getError());
+            // replace what's in catalog with resolved+validated version
+            ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(result.get(), true);
+            return Collections.emptySet();
+        } finally {
+            currentlyValidatingType.set(null);
         }
-        // replace what's in catalog with resolved+validated version
-        ((BasicBrooklynTypeRegistry) mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(result.get(), true);
-        return Collections.emptySet();
     }
 
     /** 
