@@ -125,6 +125,7 @@
         <jaxb-runtime.version>${jaxb-api.version}</jaxb-runtime.version>   <!-- excluded -->
         <activator.servicemix.version>2.9.0</activator.servicemix.version>
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
+        <jakarta.mail.version>1.6.5</jakarta.mail.version> <!-- used by karaf -->
         <!-- double-check downstream projects before changing jackson version -->
         <fasterxml.jackson.version>2.11.3</fasterxml.jackson.version>
         <cxf.version>3.4.1</cxf.version>

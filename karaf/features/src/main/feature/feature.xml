@@ -61,6 +61,7 @@
 
         <feature prerequisite="true">wrap</feature>
 
+        <bundle>mvn:org.bouncycastle/bcutil-jdk15on/${bouncycastle.version}</bundle>
         <bundle>mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
         <bundle>mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
@@ -152,7 +153,8 @@
     </feature>
 
     <feature name="brooklyn-core" version="${project.version}" description="Brooklyn Core">
-        <feature>pax-jetty</feature>
+        <feature prerequisite="true">brooklyn-essential-deps</feature>
+
         <feature>brooklyn-api</feature>
 
         <bundle>mvn:org.apache.brooklyn/brooklyn-core/${project.version}</bundle>
@@ -225,12 +227,9 @@
 -->
 
     <feature name="brooklyn-rest-resources-prereqs" version="${project.version}" description="Brooklyn REST Resources Prerequisites">
-        <feature>brooklyn-core</feature>
-        <feature>brooklyn-rest-api</feature>
-        <feature>brooklyn-camp-brooklyn</feature>
-        <feature>brooklyn-camp-base</feature>
-
+        <feature>pax-jetty</feature>
         <feature>cxf-jaxrs-with-optional-dependencies</feature>
+
         <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-rs-security-cors/${cxf.version}</bundle>
         <bundle dependency="true">mvn:org.apache.cxf/cxf-rt-frontend-jaxrs/${cxf.version}</bundle>
         <bundle dependency="true">mvn:org.apache.cxf.karaf/cxf-karaf-commands/${cxf.version}</bundle>
@@ -244,12 +243,17 @@
         <config name="org.apache.cxf.osgi">
             org.apache.cxf.servlet.context = /v1
         </config>
+
+        <feature>brooklyn-core</feature>
+        <feature>brooklyn-rest-api</feature>
+        <feature>brooklyn-camp-brooklyn</feature>
+        <feature>brooklyn-camp-base</feature>
     </feature>
 
     <feature name="cxf-jaxrs-with-optional-dependencies" version="${project.version}" description="cxf-jaxrs with optional dependencies">
         <feature>cxf-jaxrs</feature>
         
-        <!-- otherwise causes jackson-jaxrs-json-provider to be rewired when this optional dep is installed -->
+        <!-- do this here otherwise causes jackson-jaxrs-json-provider to be rewired when this optional dep is installed -->
         <bundle dependency="true" start-level="35">mvn:com.fasterxml.jackson.module/jackson-module-jaxb-annotations/${fasterxml.jackson.version}</bundle>
     </feature>
 
