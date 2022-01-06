@@ -19,6 +19,7 @@
 package org.apache.brooklyn.policy;
 
 import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -54,6 +55,11 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
             .constraint(Predicates.notNull())
             .build();
 
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.builder(Entity.class)
+            .name("sensor.producer")
+            .description("The entity with the trigger sensor (defaults to the policy's entity)")
+            .build();
+
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
             .name("effector")
             .description("Name of effector to invoke")
@@ -62,12 +68,18 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
 
     private AttributeSensor<Object> sensor;
 
+
     @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         Preconditions.checkNotNull(getConfig(EFFECTOR), EFFECTOR);
         sensor = getSensor();
-        subscriptions().subscribe(entity, sensor, this);
+        Entity producer = getConfig(PRODUCER);
+        if (producer == null) {
+            LOG.debug("Defaulting to producer==self for {}, on entity {}", this, entity);
+            producer = entity;
+        }
+        subscriptions().subscribe(producer, sensor, this);
         LOG.debug("{} subscribed to {} events on {}", new Object[]{this, sensor, entity});
     }
 
