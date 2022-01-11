@@ -136,6 +136,12 @@ brooklyn.catalog:
         type: org.apache.brooklyn.enricher.stock.Propagator
         name: Propagator
         description: Propagates sensors from one entity to another
+    - id: org.apache.brooklyn.enricher.stock.PropagateToMembers
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.PropagateToMembers
+        name: PropagateToMembers
+        description: Propagates sensors from entity to members
     - id: org.apache.brooklyn.enricher.stock.Transformer
       itemType: enricher
       item:
