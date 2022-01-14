@@ -120,16 +120,28 @@ public class HaHotCheckResourceFilter implements ContainerRequestFilter {
     }
 
     private boolean isMasterRequiredForRequest(ContainerRequestContext requestContext) {
-        // gets usually okay
+        // GETs are allowed (unless flagged later by the caller) usually okay
         if (SAFE_STANDBY_METHODS.contains(requestContext.getMethod())) return false;
         
-        String uri = requestContext.getUriInfo().getPath();
-        // explicitly allow calls to shutdown
-        // (if stopAllApps is specified, the method itself will fail; but we do not want to consume parameters here, that breaks things!)
-        // TODO use an annotation HaAnyStateAllowed or HaHotCheckRequired(false) or similar
-        if ("server/shutdown".equals(uri)) return false;
-        
+        if (isCallAllowedInAnyState(requestContext.getUriInfo().getPath())) return false;
+
         return true;
+    }
+
+    protected boolean isCallAllowedInAnyState(String uri) {
+        // TODO use an annotation HaAnyStateAllowed or HaHotCheckRequired(false) instead of these ad hoc checks
+
+        if (uri !=null) {
+            uri = Strings.removeAllFromStart(uri, "/", "v1/");
+
+            // user can log out anywhere they log in
+            if (uri.startsWith("logout")) return true;
+
+            // explicitly allow calls to shutdown
+            // (if stopAllApps is specified, the method itself will fail; but we do not want to consume parameters here, that breaks things!)
+            if ("server/shutdown".equals(uri)) return true;
+        }
+        return false;
     }
 
     protected boolean isHaHotStateRequired() {

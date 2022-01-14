@@ -106,18 +106,13 @@ public class HaMasterCheckFilter implements Filter {
     private boolean isMasterRequiredForRequest(ServletRequest request) {
         if (request instanceof HttpServletRequest) {
             HttpServletRequest httpRequest = (HttpServletRequest) request;
-            
-            String method = httpRequest.getMethod().toUpperCase();
-            // gets usually okay
-            if (SAFE_STANDBY_METHODS.contains(method)) return false;
-            
-            // explicitly allow calls to shutdown
-            // (if stopAllApps is specified, the method itself will fail; but we do not want to consume parameters here, that breaks things!)
-            // TODO combine with HaHotCheckResourceFilter and use an annotation HaAnyStateAllowed or similar
-            if ("/v1/server/shutdown".equals(httpRequest.getRequestURI()) ||
-                    "/server/shutdown".equals(httpRequest.getRequestURI())) return false;
-            
-            // master required for everything else
+
+            // GETs are never master-specific; they might be restricted to HaHotCheck, see HaHotCheckResourceFilter
+            if (SAFE_STANDBY_METHODS.contains(httpRequest.getMethod().toUpperCase())) return false;
+
+            if (HaHotCheckHelperAbstract.isCallAllowedInAnyState(httpRequest.getRequestURI())) return false;
+
+            // master is required for everything else
             return true;
         }
         // previously non-HttpServletRequests were allowed but I don't think they should be
