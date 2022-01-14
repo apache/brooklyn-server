@@ -606,7 +606,7 @@ b: 1
                 + "which is an older version, dragging in an older version of SnakeYAML which does not support Mark.getIndex.", e);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            log.debug("Unable to find element in yaml (setting in result): "+e);
+            if (log.isTraceEnabled()) log.trace("Unable to find element in yaml (setting in result): "+e);
             result.error = e;
             return result;
         }
