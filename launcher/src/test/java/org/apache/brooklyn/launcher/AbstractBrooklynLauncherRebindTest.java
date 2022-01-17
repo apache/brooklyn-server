@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.launcher;
 
+import java.util.jar.Attributes;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -179,7 +180,8 @@ public abstract class AbstractBrooklynLauncherRebindTest {
         if (bundleName != null || manifestLines.size() > 0) {
             Map<String, String> manifestAllLines = MutableMap.<String, String>builder()
                     .putAll(manifestLines)
-                    .putIfAbsent("Manifest-Version", "2.0")
+                    .putIfAbsent(java.util.jar.Attributes.Name.MANIFEST_VERSION.toString(), BasicBrooklynCatalog.OSGI_MANIFEST_VERSION_VALUE)
+                    .putIfAbsent(Constants.BUNDLE_MANIFESTVERSION, "2")
                     .build();
             if (bundleName != null) {
                 manifestAllLines.putIfAbsent(Constants.BUNDLE_SYMBOLICNAME, bundleName.getSymbolicName());

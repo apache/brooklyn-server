@@ -431,6 +431,12 @@ public class BrooklynBomOsgiArchiveInstaller {
         }
         if (discoveredManifest.getMainAttributes().getValue(Attributes.Name.MANIFEST_VERSION)==null) {
             discoveredManifest.getMainAttributes().putValue(Attributes.Name.MANIFEST_VERSION.toString(), BasicBrooklynCatalog.OSGI_MANIFEST_VERSION_VALUE);
+            manifestNeedsUpdating = true;
+        }
+        if (discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_MANIFESTVERSION)==null ||
+                (""+discoveredManifest.getMainAttributes().getValue(Constants.BUNDLE_MANIFESTVERSION)).startsWith("1")) {
+            // manifest version must be 2 otherwise cannot install to osgi
+            discoveredManifest.getMainAttributes().putValue(Constants.BUNDLE_MANIFESTVERSION, "2");
             manifestNeedsUpdating = true;                
         }
         if (manifestNeedsUpdating) {

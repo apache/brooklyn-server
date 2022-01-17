@@ -1361,9 +1361,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // as we parse using CAMP and need that
             // so prefer those for now (may change with YOML)
 
-            attemptLegacySpecTransformersForType(POLICIES_KEY, CatalogItemType.POLICY);
-            attemptLegacySpecTransformersForType(ENRICHERS_KEY, CatalogItemType.ENRICHER);
-            attemptLegacySpecTransformersForType(LOCATIONS_KEY, CatalogItemType.LOCATION);
+            attemptLegacySpecTransformersForType(POLICIES_KEY, CatalogItemType.POLICY, true);
+            attemptLegacySpecTransformersForType(ENRICHERS_KEY, CatalogItemType.ENRICHER, true);
+            attemptLegacySpecTransformersForType(LOCATIONS_KEY, CatalogItemType.LOCATION, true);
         }
 
         boolean suspicionOfABean = false;
@@ -1496,18 +1496,29 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
         
         private boolean attemptLegacySpecTransformersForType(String key, CatalogItemType candidateCiType) {
+            return attemptLegacySpecTransformersForType(key, candidateCiType, false);
+        }
+
+        private boolean attemptLegacySpecTransformersForType(String key, CatalogItemType candidateCiType, boolean requireKeyAdded) {
             if (resolved) return false;
             if (catalogItemType!=null && catalogItemType!=candidateCiType) return false;
 
             final String candidateYaml;
-            if (key==null) candidateYaml = itemYaml;
-            else {
-                if (item.containsKey(key))
-                    candidateYaml = itemYaml;
-                else
-                    candidateYaml = key + ":\n" + makeAsIndentedList(itemYaml);
+            boolean keyAdded = false;
+            if (key==null) {
+                candidateYaml = itemYaml;
+            } else if (item.containsKey(key)) {
+                candidateYaml = itemYaml;
+            } else {
+                candidateYaml = key + ":\n" + makeAsIndentedList(itemYaml);
+                keyAdded = true;
             }
+
             String type = (String) item.get("type");
+            if (type!=null && requireKeyAdded && !keyAdded) {
+                return false;
+            }
+
             if (itemsDefinedSoFar!=null) {
                 // first look in collected items, if a key is given
                 
