@@ -185,7 +185,7 @@
         <kubernetes-client.version>5.8.0</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.3.5</karaf.version>
+        <karaf.version>4.3.6</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
         <pax-web.version>7.3.23</pax-web.version> <!-- karaf 4.3 -->
         <jetty.version>9.4.43.v20210629</jetty.version> <!-- pax 7.3.23 from karaf 4.3 -->
