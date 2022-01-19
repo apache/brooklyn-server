@@ -535,7 +535,7 @@ public class BrooklynComponentTemplateResolver {
         @Override
         public Object apply(Object input) {
             if (input instanceof Map)
-                return transformSpecialFlags((Map<?, ?>)input);
+                return MutableMap.copyOf(transformSpecialFlags((Map<?, ?>)input));
             else if (input instanceof Set<?>)
                 return MutableSet.copyOf(transformSpecialFlags((Iterable<?>)input));
             else if (input instanceof List<?>)
@@ -574,7 +574,7 @@ public class BrooklynComponentTemplateResolver {
                 // TODO: This should called from BrooklynAssemblyTemplateInstantiator.configureEntityConfig
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
                 @SuppressWarnings("unchecked")
-                Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(flag.getSpecConfiguration());
+                Map<String, Object> resolvedConfig = (Map<String, Object>)apply(flag.getSpecConfiguration());
                 EntitySpec<?> entitySpec;
                 try {
                     // first parse as a CAMP entity
