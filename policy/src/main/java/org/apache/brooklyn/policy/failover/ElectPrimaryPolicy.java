@@ -147,7 +147,9 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             // effector not defined
             if (config().getRaw(EFFECTOR_NAME).isAbsent()) {
                 log.debug("No effector '"+effName+"' present at "+entity+"; creating default");
-                // if not set, we can create the default
+                // if not set, we can create the default; passing more config than is strictly necessary,
+                // wasteful as this config will be passed to the ssh commands,
+                // but that shouldn't normally be a problem; and if it is, caller can create the effector themselves
                 new ElectPrimaryEffector(config().getBag()).apply(entity);
                 
             } else {
@@ -246,6 +248,10 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             if (log.isTraceEnabled()) {
                 log.trace("Policy "+this+" got event: "+contextString+"; triggering rescan with "+effName);
             }
+
+            // TODO as with during create, would be good to filter what is getting passed, or have another config key to allow it to be restricted/changed
+            // (there is no way to prevent these paramters from all being applied, and filtered down through all calls, being serialized for ssh etc;
+            // ineffieicnt, and could be a risk of leaking details)
             Task<?> task = Effectors.invocation(entity, Preconditions.checkNotNull( ((EntityInternal)entity).getEffector(effName) ), config().getBag()).asTask();
             BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
             
