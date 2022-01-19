@@ -27,7 +27,7 @@ import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.entity.group.DynamicGroup;
+import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.junit.Assert;
@@ -65,7 +65,7 @@ public class PropagateToMembersTest extends BrooklynAppUnitTestSupport {
         final BasicEntity memberEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
 
         // Create group entity, configure enricher and set member to test propagation at.
-        final DynamicGroup groupEntity = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
+        final BasicGroup groupEntity = app.createAndManageChild(EntitySpec.create(BasicGroup.class)
                 .members(ImmutableList.of(memberEntity))
                 .addInitializer(new StaticSensor<String>(ConfigBag.newInstance(ImmutableMap.of(
                         StaticSensor.SENSOR_NAME, "sensor-being-modified",
@@ -93,7 +93,7 @@ public class PropagateToMembersTest extends BrooklynAppUnitTestSupport {
         final BasicEntity memberEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
 
         // Create group entity, configure enricher and set member to test propagation at.
-        final DynamicGroup groupEntity = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
+        final BasicGroup groupEntity = app.createAndManageChild(EntitySpec.create(BasicGroup.class)
                 .addInitializer(new StaticSensor<String>(ConfigBag.newInstance(ImmutableMap.of(
                         StaticSensor.SENSOR_NAME, "sensor-being-modified",
                         StaticSensor.STATIC_VALUE, sensorInitialValue))))
@@ -124,7 +124,7 @@ public class PropagateToMembersTest extends BrooklynAppUnitTestSupport {
         final BasicEntity memberEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
 
         // Create group entity, configure enricher and set member to test propagation at.
-        final DynamicGroup groupEntity = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
+        final BasicGroup groupEntity = app.createAndManageChild(EntitySpec.create(BasicGroup.class)
                 .members(ImmutableList.of(memberEntity))
                 .enricher(EnricherSpec.create(PropagateToMembers.class)
                         .configure(PropagateToMembers.PROPAGATING, ImmutableList.of(sensorToPropagate))));
@@ -158,7 +158,7 @@ public class PropagateToMembersTest extends BrooklynAppUnitTestSupport {
         final BasicEntity memberEntityB = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
 
         // Create group entity, configure enricher and set member to test propagation at.
-        final DynamicGroup groupEntity = app.createAndManageChild(EntitySpec.create(DynamicGroup.class)
+        final BasicGroup groupEntity = app.createAndManageChild(EntitySpec.create(BasicGroup.class)
                 .members(ImmutableList.of(memberEntityA, memberEntityB))
                 .enricher(EnricherSpec.create(PropagateToMembers.class)
                         .configure(PropagateToMembers.PROPAGATING, ImmutableList.of(sensorToPropagateX, sensorToPropagateY))));
@@ -171,9 +171,11 @@ public class PropagateToMembersTest extends BrooklynAppUnitTestSupport {
         groupEntity.sensors().set(sensorToPropagateX, sensorModifiedValue);
         groupEntity.sensors().set(sensorToPropagateY, sensorModifiedValue);
 
-        // Verify that sensors of the group entity and members have expected values.
+        // Verify that sensors of the group entity has expected values.
         EntityAsserts.assertAttributeEqualsEventually(groupEntity, sensorToPropagateX, sensorModifiedValue);
         EntityAsserts.assertAttributeEqualsEventually(groupEntity, sensorToPropagateY, sensorModifiedValue);
+
+        // Verify that sensors of the group members have expected values.
         EntityAsserts.assertAttributeEqualsEventually(memberEntityA, sensorToPropagateX, sensorModifiedValue);
         EntityAsserts.assertAttributeEqualsEventually(memberEntityA, sensorToPropagateY, sensorModifiedValue);
         EntityAsserts.assertAttributeEqualsEventually(memberEntityB, sensorToPropagateX, sensorModifiedValue);
