@@ -107,7 +107,8 @@ public class XmlSerializer<T> {
         // Without it, the alias for "set" seems to interfere with the MutableSet.map field, so it gets
         // a null field on deserialization.
         xstream.registerConverter(new MutableSetConverter(xstream.getMapper()));
-        
+        xstream.registerConverter(new MutableListConverter(xstream.getMapper(), xstream.getReflectionProvider(), xstream.getClassLoaderReference()));
+
         xstream.aliasType("ImmutableList", ImmutableList.class);
         xstream.registerConverter(new ImmutableListConverter(xstream.getMapper()));
         xstream.registerConverter(new ImmutableSetConverter(xstream.getMapper()));

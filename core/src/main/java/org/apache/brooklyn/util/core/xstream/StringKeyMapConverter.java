@@ -18,22 +18,20 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
-import java.util.Map;
-import java.util.Map.Entry;
-
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Identifiers;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.thoughtworks.xstream.converters.MarshallingContext;
 import com.thoughtworks.xstream.converters.UnmarshallingContext;
 import com.thoughtworks.xstream.io.ExtendedHierarchicalStreamWriterHelper;
 import com.thoughtworks.xstream.io.HierarchicalStreamReader;
 import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import com.thoughtworks.xstream.mapper.Mapper;
+import java.util.Map;
+import java.util.Map.Entry;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Identifiers;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** converter which simplifies representation of a map for string-based keys,
  * to <key>value</key>, or <entry key="key" type="string">value</entry> 
@@ -62,6 +60,13 @@ public class StringKeyMapConverter extends MapConverter {
     @Override
     public boolean canConvert(Class type) {
         return super.canConvert(type) || type.getName().equals(MutableMap.class.getName());
+    }
+
+    @Override
+    @SuppressWarnings({ "rawtypes" })
+    public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
+        // marshall a copy to minimise CMEs
+        super.marshal(MutableMap.copyOf((Map) source), writer, context);
     }
     
     @Override

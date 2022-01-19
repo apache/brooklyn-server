@@ -79,16 +79,21 @@ public class XmlSerializerTest {
 
         // no nice serializer for this yet
         Asserts.assertEquals(serializer.toString(MutableList.of(1)),
-                "<MutableList serialization=\"custom\">\n" +
-                "  <unserializable-parents/>\n" +
-                "  <list>\n" +
-                "    <default>\n" +
-                "      <size>1</size>\n" +
-                "    </default>\n" +
-                "    <int>1</int>\n" +
-                "    <int>1</int>\n" +
-                "  </list>\n" +
-                "</MutableList>");
+                "<MutableList>\n" +
+                "  <int>1</int>\n" +
+                "</MutableList>"
+                // old (also accepted as input)
+//                "<MutableList serialization=\"custom\">\n" +
+//                "  <unserializable-parents/>\n" +
+//                "  <list>\n" +
+//                "    <default>\n" +
+//                "      <size>1</size>\n" +
+//                "    </default>\n" +
+//                "    <int>1</int>\n" +
+//                "    <int>1</int>\n" +
+//                "  </list>\n" +
+//                "</MutableList>"
+                );
     }
     
     @Test
