@@ -222,6 +222,8 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
     @Override
     public void distributeEntities() {
         synchronized (memberChangeMutex) {
+            if (Entities.isNoLongerManaged(this)) return;
+
             Function<Entity, String> bucketFunction = getConfig(BUCKET_FUNCTION);
             EntitySpec<? extends BasicGroup> bucketSpec = getConfig(BUCKET_SPEC);
             if (bucketFunction == null || bucketSpec == null) return;
