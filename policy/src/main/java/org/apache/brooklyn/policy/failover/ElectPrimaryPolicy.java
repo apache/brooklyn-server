@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.DynamicGroup;
+import org.apache.brooklyn.policy.failover.ElectPrimaryEffector.ResultCode;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -255,7 +256,7 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             Task<?> task = Effectors.invocation(entity, Preconditions.checkNotNull( ((EntityInternal)entity).getEffector(effName) ), config().getBag()).asTask();
             BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
             
-            highlight("lastScan", "Running "+effName+" on "+contextString, task);
+            highlight("lastScan", "Running "+effName+"; triggered by "+contextString, task);
             
             Object result = DynamicTasks.get(task);
             if (result instanceof Map) code = Strings.toString( ((Map<?,?>)result).get("code") );
@@ -265,6 +266,9 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             }
             if (ElectPrimaryEffector.ResultCode.NO_PRIMARY_AVAILABLE.name().equalsIgnoreCase(code)) {
                 highlightViolation("No primary available");
+            }
+            if (ResultCode.PRIMARY_UNCHANGED.name().equalsIgnoreCase(code)) {
+                highlightConfirmation("Primary re-elected: "+niceName(((Map<?,?>)result).get("primary")));
             }
         } catch (Throwable e) {
             Exceptions.propagateIfFatal(e);
@@ -289,7 +293,7 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
         }
     }
 
-    private String niceName(Object primary) {
+    protected String niceName(Object primary) {
         if (primary instanceof BrooklynObject) {
             if (Strings.isNonBlank( ((BrooklynObject)primary).getDisplayName() )) {
                 String name = ((BrooklynObject)primary).getDisplayName();
