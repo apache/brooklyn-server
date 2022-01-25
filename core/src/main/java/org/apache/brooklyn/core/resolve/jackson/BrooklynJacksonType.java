@@ -61,7 +61,7 @@ public class BrooklynJacksonType extends SimpleType implements TypeVariable<Gene
 
     @Override
     public Type[] getBounds() {
-        return new Type[0];
+        return new Type[] { getRawClass() };
     }
 
     @Override
