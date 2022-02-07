@@ -33,6 +33,8 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.checkerframework.checker.units.qual.A;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class InvokeEffectorOnSensorChangeIntegrationTest extends BrooklynAppUnitTestSupport {
@@ -131,8 +133,10 @@ public class InvokeEffectorOnSensorChangeIntegrationTest extends BrooklynAppUnit
         final AttributeSensor<String> sensorBeingModifiedByEffector = Sensors.newStringSensor("sensor-being-modified");
 
         // Prepare effector to call, set value 'B' to sensor-being-watched.
+        AtomicInteger effectorCalledCount = new AtomicInteger(0);
         Effector<Void> effector = Effectors.effector(Void.class, "my-effector")
                 .impl((entity, _effector, parameters) -> {
+                    effectorCalledCount.incrementAndGet();
                     entity.sensors().set(sensorBeingModifiedByEffector, sensorModifiedValue);
                     return null;
                 })
@@ -153,5 +157,56 @@ public class InvokeEffectorOnSensorChangeIntegrationTest extends BrooklynAppUnit
         EntityAsserts.assertAttributeContinuallyNotEqualTo(thisEntity, sensorBeingModifiedByEffector, sensorModifiedValue);
         otherEntity.sensors().set(sensorBeingWatched, "Something changed in sensor (at other entity) that triggers policy!");
         EntityAsserts.assertAttributeEqualsEventually(thisEntity, sensorBeingModifiedByEffector, sensorModifiedValue);
+    }
+
+    /**
+     * Tests {@link InvokeEffectorOnSensorChange} to watch configured {@link InvokeEffectorOnSensorChange#SENSOR} on a
+     * configured {@link InvokeEffectorOnSensorChange#PRODUCER} and call effector only when sensor changes the value.
+     * Overriding the same value at the sensor must be ignored by this policy.
+     */
+    @Test
+    public void testCallEffectorOnSensorChange_CallEffectorIfSensorValueChanges() {
+
+        // Prepare sensor for policy to watch.
+        final AttributeSensor<String> sensorBeingWatched = Sensors.newStringSensor("sensor-being-watched");
+        final AttributeSensor<Integer> sensorBeingModifiedByEffector = Sensors.newIntegerSensor("sensor-being-modified");
+
+        // Prepare effector to call, set value 'B' to sensor-being-watched.
+        AtomicInteger effectorCalledCount = new AtomicInteger(0);
+        Effector<Void> effector = Effectors.effector(Void.class, "my-effector")
+                .impl((entity, _effector, parameters) -> {
+                    int count = effectorCalledCount.incrementAndGet();
+                    entity.sensors().set(sensorBeingModifiedByEffector, count);
+                    return null;
+                })
+                .build();
+
+        // Create 'other' entity where sensor is being watched from 'this' entity.
+        final BasicEntity otherEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class));
+
+        // Create 'this' entity, configure effector and policy to test.
+        final BasicEntity thisEntity = app.createAndManageChild(EntitySpec.create(BasicEntity.class)
+                .addInitializer(new AddEffector(effector))
+                .policy(PolicySpec.create(InvokeEffectorOnSensorChange.class)
+                        .configure(InvokeEffectorOnSensorChange.SENSOR, sensorBeingWatched)
+                        .configure(InvokeEffectorOnSensorChange.PRODUCER, otherEntity)
+                        .configure(InvokeEffectorOnSensorChange.EFFECTOR, "my-effector")));
+
+        // Run the test - change sensor on 'other' entity and expect effector called on 'this' entity.
+        EntityAsserts.assertAttributeContinuallyNotEqualTo(thisEntity, sensorBeingModifiedByEffector, 0);
+        otherEntity.sensors().set(sensorBeingWatched, "Something changed in sensor (at other entity) that triggers policy!");
+
+        // Expect effector called to change sensor value.
+        EntityAsserts.assertAttributeEqualsEventually(thisEntity, sensorBeingModifiedByEffector, 1);
+
+        // Override same sensor value on 'other' entity, expect no new effector calls.
+        otherEntity.sensors().set(sensorBeingWatched, "Something changed in sensor (at other entity) that triggers policy!");
+        EntityAsserts.assertAttributeEqualsEventually(thisEntity, sensorBeingModifiedByEffector, 1);
+        EntityAsserts.assertAttributeContinuallyNotEqualTo(thisEntity, sensorBeingModifiedByEffector, 2);
+
+        // Set another sensor value on 'other' entity, expect expect effector called on 'this' entity.
+        otherEntity.sensors().set(sensorBeingWatched, "Something else has changed!");
+        EntityAsserts.assertAttributeEqualsEventually(thisEntity, sensorBeingModifiedByEffector, 2);
+        EntityAsserts.assertAttributeContinuallyNotEqualTo(thisEntity, sensorBeingModifiedByEffector, 3);
     }
 }

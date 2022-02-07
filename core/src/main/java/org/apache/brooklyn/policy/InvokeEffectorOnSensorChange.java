@@ -46,7 +46,7 @@ import com.google.common.reflect.TypeToken;
  * * allow to be triggered by sensors on members
  */
 public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy implements SensorEventListener<Object> {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(InvokeEffectorOnSensorChange.class);
 
     public static final ConfigKey<Object> SENSOR = ConfigKeys.builder(Object.class)
@@ -67,7 +67,7 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
             .build();
 
     private AttributeSensor<Object> sensor;
-
+    private Object lastValue;
 
     @Override
     public void setEntity(EntityLocal entity) {
@@ -79,18 +79,26 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
             LOG.debug("Defaulting to producer==self for {}, on entity {}", this, entity);
             producer = entity;
         }
+        lastValue = entity.sensors().get(sensor);
         subscriptions().subscribe(producer, sensor, this);
         LOG.debug("{} subscribed to {} events on {}", new Object[]{this, sensor, entity});
     }
 
     @Override
     public void onEvent(SensorEvent<Object> event) {
-        final Effector<?> eff = getEffectorNamed(getConfig(EFFECTOR)).get();
+        final Object newValue = event.getValue();
+        LOG.debug("lastValue='{}', newValue='{}'", lastValue, newValue);
+        if (String.valueOf(newValue).equals(lastValue)) {
+            return;
+        }
+        lastValue = newValue;
+
         if (isBusySensorEnabled()) {
             final Object currentSensorValue = entity.sensors().get(sensor);
             setMoreUpdatesComing(event.getTimestamp(), event.getValue(), currentSensorValue);
         }
-        invoke(eff, MutableMap.<String, Object>of());
+        final Effector<?> eff = getEffectorNamed(getConfig(EFFECTOR)).get();
+        invoke(eff, MutableMap.of());
     }
 
     private AttributeSensor<Object> getSensor() {
@@ -107,5 +115,5 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
         }
         return sensor;
     }
-    
+
 }
