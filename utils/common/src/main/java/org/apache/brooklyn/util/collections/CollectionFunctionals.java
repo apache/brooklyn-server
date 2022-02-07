@@ -115,6 +115,11 @@ public class CollectionFunctionals {
         @Override public String toString() { return "firstElementFunction"; }
     }
 
+    /**
+     * {@code function::apply} returns {@code true} if every element in {@link Iterable} equals to a supplied
+     * {@link Comparable}. If {@link Iterable} is {@code null} or empty, {@code null} is returned - there is nothing to
+     * compare yet. A non-null {@link Comparable} must be defined beforehand.
+     */
     public static class AllEqualsFunction implements Function<Iterable<?>, Comparable<?>> {
         private final Comparable<?> value;
 
