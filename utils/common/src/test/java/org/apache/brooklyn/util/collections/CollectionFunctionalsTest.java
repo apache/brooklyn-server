@@ -112,5 +112,31 @@ public class CollectionFunctionalsTest {
             MutableList.of(0, 0, 0)), false);
         
     }
-    
+
+    @Test
+    public void testAllEquals() {
+        Comparable<?> comparable = "Hello";
+        Assert.assertNull(new CollectionFunctionals.AllEqualsFunction(comparable).apply(null));
+        Assert.assertNull(new CollectionFunctionals.AllEqualsFunction(comparable).apply(ImmutableList.of()));
+        Assert.assertTrue(new CollectionFunctionals.AllEqualsFunction(comparable).apply(ImmutableList.of("Hello")));
+        Assert.assertTrue(new CollectionFunctionals.AllEqualsFunction(comparable).apply(ImmutableList.of("Hello", "Hello")));
+        Assert.assertFalse(new CollectionFunctionals.AllEqualsFunction(comparable).apply(ImmutableList.of("Hello", "Bye")));
+        Assert.assertFalse(new CollectionFunctionals.AllEqualsFunction(comparable).apply(ImmutableList.of("Bye")));
+    }
+
+    @Test(expectedExceptions = {IllegalArgumentException.class})
+    public void testAllEquals_NullComparable() {
+        Assert.assertTrue(new CollectionFunctionals.AllEqualsFunction(null).apply(ImmutableList.of("Hello", "Hello")));
+    }
+
+    @Test
+    public void testAllTrue() {
+        Assert.assertNull(new CollectionFunctionals.AllTrueFunction().apply(null));
+        Assert.assertNull(new CollectionFunctionals.AllTrueFunction().apply(ImmutableList.of()));
+        Assert.assertTrue(new CollectionFunctionals.AllTrueFunction().apply(ImmutableList.of(Boolean.TRUE)));
+        Assert.assertTrue(new CollectionFunctionals.AllTrueFunction().apply(ImmutableList.of(Boolean.TRUE, Boolean.TRUE)));
+        Assert.assertFalse(new CollectionFunctionals.AllTrueFunction().apply(ImmutableList.of("true", Boolean.TRUE)));
+        Assert.assertFalse(new CollectionFunctionals.AllTrueFunction().apply(ImmutableList.of(Boolean.TRUE, Boolean.FALSE)));
+        Assert.assertFalse(new CollectionFunctionals.AllTrueFunction().apply(ImmutableList.of(Boolean.FALSE)));
+    }
 }

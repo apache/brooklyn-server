@@ -18,11 +18,7 @@
  */
 package org.apache.brooklyn.util.collections;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import javax.annotation.Nullable;
 
@@ -117,6 +113,35 @@ public class CollectionFunctionals {
         }
 
         @Override public String toString() { return "firstElementFunction"; }
+    }
+
+    public static class AllEqualsFunction implements Function<Iterable<?>, Comparable<?>> {
+        private final Comparable<?> value;
+
+        public AllEqualsFunction(Comparable<?> value) {
+            if (Objects.isNull(value)) {
+                throw new IllegalArgumentException("The value to compare all to must be defined");
+            }
+            this.value = value;
+        }
+
+        @Override
+        public Boolean apply(@Nullable Iterable<?> input) {
+            if (Objects.isNull(input) || Iterables.isEmpty(input)) return null;
+            return Iterables.all(input, value::equals);
+        }
+
+        @Override
+        public String toString() { return "AllEqualsFunction"; }
+    }
+
+    public static final class AllTrueFunction extends AllEqualsFunction {
+        public AllTrueFunction() {
+            super(Boolean.TRUE);
+        }
+
+        @Override
+        public String toString() { return "AllTrueFunction"; }
     }
 
     public static <T> Function<Iterable<? extends T>, T> firstElement() {
