@@ -88,7 +88,7 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
     public void onEvent(SensorEvent<Object> event) {
         final Object newValue = event.getValue();
         LOG.debug("lastValue='{}', newValue='{}'", lastValue, newValue);
-        if (String.valueOf(newValue).equals(lastValue)) {
+        if (newValue instanceof Comparable && newValue.equals(lastValue)) {
             return;
         }
         lastValue = newValue;
