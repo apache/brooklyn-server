@@ -66,6 +66,7 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
             .constraint(StringPredicates.isNonBlank())
             .build();
 
+    private final transient Object lock = new Object[0];
     private AttributeSensor<Object> sensor;
     private Object lastValue;
 
@@ -87,11 +88,14 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
     @Override
     public void onEvent(SensorEvent<Object> event) {
         final Object newValue = event.getValue();
-        LOG.debug("lastValue='{}', newValue='{}'", lastValue, newValue);
-        if (newValue instanceof Comparable && newValue.equals(lastValue)) {
-            return;
+
+        synchronized (lock) {
+            LOG.debug("lastValue='{}', newValue='{}'", lastValue, newValue);
+            if (newValue instanceof Comparable && newValue.equals(lastValue)) {
+                return;
+            }
+            lastValue = newValue;
         }
-        lastValue = newValue;
 
         if (isBusySensorEnabled()) {
             final Object currentSensorValue = entity.sensors().get(sensor);
