@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.entity.group;
+package org.apache.brooklyn.camp.brooklyn.policy;
 
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
@@ -31,6 +31,8 @@ import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.sensor.password.CreatePasswordSensor;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.entity.group.DynamicGroup;
+import org.apache.brooklyn.entity.group.GroupsChangePolicy;
 import org.apache.brooklyn.test.Asserts;
 import org.testng.annotations.Test;
 
