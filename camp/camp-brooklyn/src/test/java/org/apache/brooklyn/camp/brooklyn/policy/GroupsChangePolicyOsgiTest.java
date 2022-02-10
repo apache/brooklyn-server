@@ -18,19 +18,19 @@
  */
 package org.apache.brooklyn.camp.brooklyn.policy;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.effector.CompositeEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.*;
+import org.apache.brooklyn.core.objs.AdjunctType;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.sensor.password.CreatePasswordSensor;
@@ -42,22 +42,38 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.policy.InvokeEffectorOnSensorChange;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import java.io.Serializable;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.apache.brooklyn.test.Asserts.*;
 
+/**
+ *  Tests for adding {@link GroupsChangePolicy#INITIALIZERS}, {@link GroupsChangePolicy#LOCATIONS},
+ *  {@link GroupsChangePolicy#ENRICHERS} and {@link GroupsChangePolicy#POLICIES} to members once joined. Config keys and
+ *  attributes are expected to be resolved in the member context in all cases.
+ */
 public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
 
-    private TestApplication app;
+    private ExecutorService executor;
 
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
-        app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+        executor = Executors.newCachedThreadPool();
+    }
+
+
+    @AfterMethod(alwaysRun = true)
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
+        if (executor != null) executor.shutdownNow();
     }
 
     @Override
@@ -84,106 +100,142 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         }
     }
 
+    /**
+     * Tests {@link GroupsChangePolicy#INITIALIZERS} of the member while joining the {@link DynamicGroup},
+     * {@link StaticSensor} in particular.
+     */
     @Test
-    public void testAddInitializers() {
+    public void testAddInitializers() throws Exception {
 
-        final String STATIC_SENSOR_VALUE = "staticSensorValue";
+        // Member properties, these are expected to be resolved with DSL in the member context.
+        final String MEMBER_SENSOR_VALUE = "member-sensor-value";
 
-        // Create a dynamic group.
-        DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
+        // Group properties, these should not preempt member properties.
+        final String GROUP_SENSOR_VALUE = "group-sensor-value";
 
-        // Create a GroupsChangePolicy policy spec for the dynamic group.
-        PolicySpec<GroupsChangePolicy> policySpec =
-                PolicySpec.create(GroupsChangePolicy.class)
-                        .configure(GroupsChangePolicy.GROUP, dynamicGroup)
-                        .configure(GroupsChangePolicy.INITIALIZERS,
-                                ImmutableList.of(
-                                        ImmutableMap.of(
-                                                "type", StaticSensor.class.getName(),
-                                                "brooklyn.config", ImmutableMap.of(
-                                                        "name", "member-sensor",
-                                                        "target.type", "string",
-                                                        "static.value", STATIC_SENSOR_VALUE))));
+        // Config names.
+        final String SENSOR_TO_COPY_FROM = "sensor-to-copy-from";
+        final String MEMBER_SENSOR_TO_CREATE = "sensor-to-create";
 
-        // Add GroupsChangePolicy to the dynamic group.
-        dynamicGroup.policies().add(policySpec);
+        // Blueprint to test.
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + DynamicGroup.class.getName(),
+                "  brooklyn.policies:",
+                "  - type: " + GroupsChangePolicy.class.getName(),
+                "    brooklyn.config:",
+                "      group: $brooklyn:self()",
+                "      member.initializers:",
+                "      - type: " + StaticSensor.class.getName(),
+                "        brooklyn.config:",
+                "          name: " + MEMBER_SENSOR_TO_CREATE,
+                "          target.type: string",
+                "          static.value: $brooklyn:attributeWhenReady(\"" + SENSOR_TO_COPY_FROM + "\")",
+                "- type: " + TestEntity.class.getName());
 
-        // Create an entity to add as a dynamic group member to test GroupsChangePolicy.
-        TestEntity member = app.addChild(EntitySpec.create(TestEntity.class));
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
 
-        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
 
-        assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(member));
-
-        Asserts.eventually(() -> member.getAttribute(Sensors.newStringSensor("member-sensor")), STATIC_SENSOR_VALUE::equals);
-    }
-
-    @Test
-    public void testAddInitializersPassword() {
-
-        // Create a dynamic group.
-        DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
-
-        // Create a GroupsChangePolicy policy spec for the dynamic group.
-        PolicySpec<GroupsChangePolicy> policySpec =
-                PolicySpec.create(GroupsChangePolicy.class)
-                        .configure(GroupsChangePolicy.GROUP, dynamicGroup)
-                        .configure(GroupsChangePolicy.INITIALIZERS,
-                                ImmutableList.of(
-                                        ImmutableMap.of(
-                                                "type", CreatePasswordSensor.class.getName(),
-                                                "brooklyn.config", ImmutableMap.of(
-                                                        "name", "member-sensor",
-                                                        "password.length", 15))));
-
-        // Add GroupsChangePolicy to the dynamic group.
-        dynamicGroup.policies().add(policySpec);
-
-        // Create an entity to add as a dynamic group member to test GroupsChangePolicy.
-        TestEntity member = app.addChild(EntitySpec.create(TestEntity.class));
-
-        // Set a dynamic group entity filter so that member entity can join.
-        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
 
         // Verify that member has joined.
-        assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(member));
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
 
-        Asserts.eventually(() -> member.getAttribute(Sensors.newStringSensor("member-sensor")), input -> input != null && input.length() == 15);
+        // Emmit dynamic attributes for both: group and its member.
+        executor.submit(() -> dynamicGroup.sensors().set(Sensors.newStringSensor(SENSOR_TO_COPY_FROM), GROUP_SENSOR_VALUE));
+        executor.submit(() -> member.sensors().set(Sensors.newStringSensor(SENSOR_TO_COPY_FROM), MEMBER_SENSOR_VALUE));
+
+        // Verify that location is added to the group member with expected member properties.
+        Asserts.eventually(() -> member.getAttribute(Sensors.newStringSensor(MEMBER_SENSOR_TO_CREATE)), MEMBER_SENSOR_VALUE::equals);
     }
 
+    /**
+     * Tests {@link GroupsChangePolicy#INITIALIZERS} of the member while joining the {@link DynamicGroup},
+     * {@link CreatePasswordSensor} in particular.
+     */
     @Test
-    public void testAddCompositeEffectorInitializer() {
+    public void testAddInitializers_CreatePasswordSensor() throws Exception {
 
-        final String COMPOSITE_EFFECTOR_NAME = "compositeEffector";
+        // Config names.
+        final Integer SENSOR_VALUE = 127;
+        final String MEMBER_SENSOR_TO_CREATE = "sensor-to-create";
 
-        // Create a dynamic group.
-        DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
+        // Blueprint to test.
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + DynamicGroup.class.getName(),
+                "  brooklyn.policies:",
+                "  - type: " + GroupsChangePolicy.class.getName(),
+                "    brooklyn.config:",
+                "      group: $brooklyn:self()",
+                "      member.initializers:",
+                "      - type: " + CreatePasswordSensor.class.getName(),
+                "        brooklyn.config:",
+                "          name: " + MEMBER_SENSOR_TO_CREATE,
+                "          password.length: " + SENSOR_VALUE,
+                "- type: " + TestEntity.class.getName());
 
-        // Create a GroupsChangePolicy policy spec for the dynamic group.
-        PolicySpec<GroupsChangePolicy> policySpec =
-                PolicySpec.create(GroupsChangePolicy.class)
-                        .configure(GroupsChangePolicy.GROUP, dynamicGroup)
-                        .configure(GroupsChangePolicy.INITIALIZERS,
-                                ImmutableList.of(
-                                        ImmutableMap.of(
-                                                "type", EffectorForThisTest.class.getName()),
-                                        ImmutableMap.of(
-                                                "type", CompositeEffector.class.getName(),
-                                                "brooklyn.config", ImmutableMap.of(
-                                                        "name", COMPOSITE_EFFECTOR_NAME, // <--- THIS IS THE EFFECTOR TO CALL IN THIS TEST
-                                                        "effectors", ImmutableList.of(EffectorForThisTest.NAME)))));
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
 
-        // Add GroupsChangePolicy to the dynamic group.
-        dynamicGroup.policies().add(policySpec);
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
 
-        // Create an entity to add as a dynamic group member to test GroupsChangePolicy.
-        TestEntity member = app.addChild(EntitySpec.create(TestEntity.class));
-
-        // Set a dynamic group entity filter so that member entity can join.
-        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
 
         // Verify that member has joined.
-        assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(member));
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
+
+        // Verify expected length of the generated password.
+        Asserts.eventually(() -> member.getAttribute(Sensors.newStringSensor(MEMBER_SENSOR_TO_CREATE)), input -> input != null && input.length() == SENSOR_VALUE);
+    }
+
+    /**
+     * Tests {@link GroupsChangePolicy#INITIALIZERS} of the member while joining the {@link DynamicGroup},
+     * {@link CompositeEffector} in particular since it has a peculiar way to resolve effectors to call together.
+     */
+    @Test
+    public void testAddInitializers_CompositeEffector() throws Exception {
+
+        // Config names.
+        final String COMPOSITE_EFFECTOR_NAME = "composite-effector";
+
+        // Blueprint to test.
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + DynamicGroup.class.getName(),
+                "  brooklyn.policies:",
+                "  - type: " + GroupsChangePolicy.class.getName(),
+                "    brooklyn.config:",
+                "      group: $brooklyn:self()",
+                "      member.initializers:",
+                "      - type: " + EffectorForThisTest.class.getName(),
+                "      - type: " + CompositeEffector.class.getName(),
+                "        brooklyn.config:",
+                "          name: " + COMPOSITE_EFFECTOR_NAME, // <--- THIS IS THE EFFECTOR TO CALL IN THIS TEST
+                "          effectors:",
+                "            - " + EffectorForThisTest.NAME,
+                "- type: " + TestEntity.class.getName());
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
+
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
+
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
+
+        // Verify that member has joined.
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
 
         // Wait for sensor that is expected to be added by EffectorForThisTest, which is expected to be called by CompositeEffector configured above.
         Asserts.eventually(() -> {
@@ -191,15 +243,19 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
             // Call the composite effector as member got it from the GroupsChangePolicy.
             Effector<?> helloEffector = member.getEffector(COMPOSITE_EFFECTOR_NAME);
             if (!Objects.isNull(helloEffector)) {
-                invokeEffector(member, helloEffector);
+                invokeEffector(member, helloEffector); // <-- THE EFFECTOR TO CALL IN THIS TEST
             }
 
             return member.getAttribute(Sensors.newStringSensor(EffectorForThisTest.SENSOR));
         }, EffectorForThisTest.SENSOR_VALUE::equals);
     }
 
+    /**
+     * Tests {@link GroupsChangePolicy#POLICIES} of the member while joining the {@link DynamicGroup},
+     * {@link InvokeEffectorOnSensorChange} in particular.
+     */
     @Test
-    public void testAddPolicies() {
+    public void testAddPolicies() throws Exception {
 
         // Load types for OSGI to resolve on member addition in GroupsChangePolicy
         addCatalogItems("brooklyn.catalog:",
@@ -209,80 +265,144 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
                 "    item:",
                 "      type: " + InvokeEffectorOnSensorChange.class.getName());
 
-        // Add GroupsChangePolicy to the dynamic group.
-        DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
-        PolicySpec<GroupsChangePolicy> policySpec =
-                PolicySpec.create(GroupsChangePolicy.class)
-                        .configure(GroupsChangePolicy.GROUP, dynamicGroup)
-                        .configure(GroupsChangePolicy.POLICIES,
-                                ImmutableList.of(
-                                        ImmutableMap.of(
-                                                "type", InvokeEffectorOnSensorChange.class.getName(),
-                                                "brooklyn.config", ImmutableMap.of(
-                                                        "sensor.producer", dynamicGroup,
-                                                        "sensor", "service.isUp",
-                                                        "effector", "stop"))));
+        // Member properties, these are expected to be resolved with DSL in the member context.
+        final String MEMBER_SENSOR_TO_WATCH = "member-sensor";
+        final String MEMBER_EFFECTOR_TO_CALL = "member-effector";
 
-        // Add GroupsChangePolicy to the dynamic group.
-        dynamicGroup.policies().add(policySpec);
+        // Group properties, these should not preempt member properties.
+        final String GROUP_SENSOR_TO_WATCH = "group-sensor";
+        final String GROUP_EFFECTOR_TO_CALL = "group-effector";
 
-        // Create an entity to add as a dynamic group member to test GroupsChangePolicy.
-        TestEntity member = app.addChild(EntitySpec.create(TestEntity.class));
+        // Config names.
+        final String CONFIG_EFFECTOR = "effector";
+        final String CONFIG_SENSOR = "sensor";
+        final String CONFIG_SENSOR_PRODUCER = "sensor.producer";
+        final String EFFECTOR_TO_CALL = "effector-to-call";
+        final String SENSOR_TO_WATCH = "sensor-to-watch";
 
-        // Set a dynamic group entity filter so that member entity can join.
-        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        // Blueprint to test.
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + DynamicGroup.class.getName(),
+                "  brooklyn.config:",
+                "    " + SENSOR_TO_WATCH + ": " + GROUP_SENSOR_TO_WATCH,
+                "  brooklyn.policies:",
+                "  - type: " + GroupsChangePolicy.class.getName(),
+                "    brooklyn.config:",
+                "      group: $brooklyn:self()",
+                "      member.policies:",
+                "      - type: " + InvokeEffectorOnSensorChange.class.getName(),
+                "        brooklyn.config:",
+                "          " + CONFIG_SENSOR_PRODUCER + ": $brooklyn:self()", // $brooklyn:self() is referring to member entity
+                "          " + CONFIG_SENSOR + ": $brooklyn:config(\"" + SENSOR_TO_WATCH + "\")",
+                "          " + CONFIG_EFFECTOR + ": $brooklyn:attributeWhenReady(\"" + EFFECTOR_TO_CALL + "\")",
+                "- type: " + TestEntity.class.getName(),
+                "  brooklyn.config:",
+                "    " + SENSOR_TO_WATCH + ": " + MEMBER_SENSOR_TO_WATCH);
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
+
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
+
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
 
         // Verify that member has joined.
-        assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(member));
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
 
-        // Verify that policy is added to the group member.
-        Asserts.eventually(() -> member.policies().size(), size -> size == 1);
+        // Emmit dynamic attributes for both: group and its member.
+        executor.submit(() -> dynamicGroup.sensors().set(Sensors.newStringSensor(EFFECTOR_TO_CALL), GROUP_EFFECTOR_TO_CALL));
+        executor.submit(() -> member.sensors().set(Sensors.newStringSensor(EFFECTOR_TO_CALL), MEMBER_EFFECTOR_TO_CALL));
+
+        // Verify that location is added to the group member with expected member properties.
+        eventually(member::policies, policies -> {
+            if (policies.size() != 1) return false;
+            InvokeEffectorOnSensorChange policy = (InvokeEffectorOnSensorChange) policies.iterator().next();
+            AdjunctType policyAdjunctType = policy.getAdjunctType();
+            final Object sensor = policy.config().get(policyAdjunctType.getConfigKey(CONFIG_SENSOR));
+            final Object sensorProducer = policy.config().get(policyAdjunctType.getConfigKey(CONFIG_SENSOR_PRODUCER));
+            final Object effector = policy.config().get(policyAdjunctType.getConfigKey(CONFIG_EFFECTOR));
+            return member.equals(sensorProducer) && MEMBER_SENSOR_TO_WATCH.equals(sensor) && MEMBER_EFFECTOR_TO_CALL.equals(effector);
+        });
     }
 
+    /**
+     * Tests {@link GroupsChangePolicy#LOCATIONS} of the member while joining the {@link DynamicGroup},
+     * {@link SshMachineLocation} in particular since this likely to be the most common use-case to add to a member.
+     */
     @Test
-    public void testAddLocations() {
+    public void testAddLocations() throws Exception {
 
         // Load types for OSGI to resolve on member addition in GroupsChangePolicy
-        addCatalogItems("brooklyn.catalog:",
+        addCatalogItems(
+                "brooklyn.catalog:",
                 "  items:",
                 "  - id: " + SshMachineLocation.class.getName(),
                 "    itemType: location",
                 "    item:",
                 "      type: " + SshMachineLocation.class.getName());
 
-        // Add GroupsChangePolicy to the dynamic group.
-        DynamicGroup dynamicGroup = app.addChild(EntitySpec.create(DynamicGroup.class));
-        PolicySpec<GroupsChangePolicy> policySpec =
-                PolicySpec.create(GroupsChangePolicy.class)
-                        .configure(GroupsChangePolicy.GROUP, dynamicGroup)
-                        .configure(GroupsChangePolicy.LOCATIONS,
-                                ImmutableList.of(
-                                        ImmutableMap.of(
-                                                "type", SshMachineLocation.class.getName(),
-                                                "brooklyn.config", ImmutableMap.of(
-                                                        "user", "user",
-                                                        "address", "127.0.0.1",
-                                                        "privateKeyData", "-----BEGIN RSA PRIVATE KEY-----etc.."))));
+        // Member properties, these are expected to be resolved with DSL in the member context.
+        final String MEMBER_OS_USER = "member-os-user";
+        final String MEMBER_IP_ADDRESS = "127.1.2.3";
 
-        // Add GroupsChangePolicy to the dynamic group.
-        dynamicGroup.policies().add(policySpec);
+        // Group properties, these should not preempt member properties.
+        final String GROUP_OS_USER = "group-os-user";
+        final String GROUP_IP_ADDRESS = "127.1.2.4";
 
-        // Create an entity to add as a dynamic group member to test GroupsChangePolicy.
-        TestEntity member = app.addChild(EntitySpec.create(TestEntity.class));
+        // Config names.
+        final String OS_USER = "os-user";
+        final String IP_ADDRESS = "ip-address";
 
-        // Set a dynamic group entity filter so that member entity can join.
+        // Blueprint to test.
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + DynamicGroup.class.getName(),
+                "  brooklyn.config:",
+                "    " + OS_USER + ": " + GROUP_OS_USER,
+                "  brooklyn.policies:",
+                "  - type: " + GroupsChangePolicy.class.getName(),
+                "    brooklyn.config:",
+                "      group: $brooklyn:self()",
+                "      member.locations:",
+                "      - type: " + SshMachineLocation.class.getName(),
+                "        brooklyn.config:",
+                "          user: $brooklyn:config(\"" + OS_USER + "\")",
+                "          address: $brooklyn:attributeWhenReady(\"" + IP_ADDRESS + "\")",
+                "          privateKeyData: -----BEGIN RSA PRIVATE KEY-----etc..",
+                "- type: " + TestEntity.class.getName(),
+                "  brooklyn.config:",
+                "    " + OS_USER + ": " + MEMBER_OS_USER);
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
+
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
+
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
+
+        // Emmit dynamic attributes for both: group and its member.
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
 
-        // Verify that member has joined.
-        assertEqualsIgnoringOrder(dynamicGroup.getMembers(), ImmutableList.of(member));
+        // Emmit host address attribute for both: group and its member.
+        executor.submit(() -> dynamicGroup.sensors().set(Sensors.newStringSensor(IP_ADDRESS), GROUP_IP_ADDRESS));
+        executor.submit(() -> member.sensors().set(Sensors.newStringSensor(IP_ADDRESS), MEMBER_IP_ADDRESS));
 
-        // Verify that location is added to the group member.
-        eventually(() -> member.getLocations().size(), size -> size == 1);
+        // Verify that location is added to the group member with expected member properties.
+        eventually(member::getLocations, locations -> {
+            if (locations.size() != 1) return false;
+            SshMachineLocation location = (SshMachineLocation) locations.stream().findFirst().get();
+            return MEMBER_IP_ADDRESS.equals(location.getAddress().getHostAddress()) && MEMBER_OS_USER.equals(location.getUser());
+        });
     }
 
-    /**
-     * Helper to invoke effector on entity.
-     */
+    /** Helper to invoke effector on entity. */
     private void invokeEffector(final Entity entity, final Effector<?> effector) {
         final TaskAdaptable<?> stop = Entities.submit(entity, Effectors.invocation(entity, effector, ConfigBag.EMPTY));
         stop.asTask().blockUntilEnded();
