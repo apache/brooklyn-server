@@ -41,6 +41,7 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.policy.InvokeEffectorOnSensorChange;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.commons.lang3.tuple.Pair;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -66,7 +67,6 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         super.setUp();
         executor = Executors.newCachedThreadPool();
     }
-
 
     @AfterMethod(alwaysRun = true)
     @Override
@@ -117,7 +117,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         final String MEMBER_SENSOR_TO_CREATE = "sensor-to-create";
 
         // Blueprint to test.
-        String yaml = Joiner.on("\n").join(
+        Pair<DynamicGroup, Entity> pair = createAppAndGetGroupAndMember(Joiner.on("\n").join(
                 "services:",
                 "- type: " + DynamicGroup.class.getName(),
                 "  brooklyn.policies:",
@@ -130,16 +130,10 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
                 "          name: " + MEMBER_SENSOR_TO_CREATE,
                 "          target.type: string",
                 "          static.value: $brooklyn:attributeWhenReady(\"" + SENSOR_TO_COPY_FROM + "\")",
-                "- type: " + TestEntity.class.getName());
+                "- type: " + TestEntity.class.getName()));
 
-        final Entity app = createStartWaitAndLogApplication(yaml);
-        Asserts.assertNotNull(app);
-
-        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
-        Asserts.assertNotNull(dynamicGroup);
-
-        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
-        Asserts.assertNotNull(member);
+        DynamicGroup dynamicGroup = pair.getLeft();
+        Entity member = pair.getRight();
 
         // Verify that member has joined.
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
@@ -165,7 +159,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         final String MEMBER_SENSOR_TO_CREATE = "sensor-to-create";
 
         // Blueprint to test.
-        String yaml = Joiner.on("\n").join(
+        Pair<DynamicGroup, Entity> pair = createAppAndGetGroupAndMember(Joiner.on("\n").join(
                 "services:",
                 "- type: " + DynamicGroup.class.getName(),
                 "  brooklyn.policies:",
@@ -177,16 +171,10 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
                 "        brooklyn.config:",
                 "          name: " + MEMBER_SENSOR_TO_CREATE,
                 "          password.length: " + SENSOR_VALUE,
-                "- type: " + TestEntity.class.getName());
+                "- type: " + TestEntity.class.getName()));
 
-        final Entity app = createStartWaitAndLogApplication(yaml);
-        Asserts.assertNotNull(app);
-
-        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
-        Asserts.assertNotNull(dynamicGroup);
-
-        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
-        Asserts.assertNotNull(member);
+        DynamicGroup dynamicGroup = pair.getLeft();
+        Entity member = pair.getRight();
 
         // Verify that member has joined.
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
@@ -207,7 +195,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         final String COMPOSITE_EFFECTOR_NAME = "composite-effector";
 
         // Blueprint to test.
-        String yaml = Joiner.on("\n").join(
+        Pair<DynamicGroup, Entity> pair = createAppAndGetGroupAndMember(Joiner.on("\n").join(
                 "services:",
                 "- type: " + DynamicGroup.class.getName(),
                 "  brooklyn.policies:",
@@ -221,16 +209,10 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
                 "          name: " + COMPOSITE_EFFECTOR_NAME, // <--- THIS IS THE EFFECTOR TO CALL IN THIS TEST
                 "          effectors:",
                 "            - " + EffectorForThisTest.NAME,
-                "- type: " + TestEntity.class.getName());
+                "- type: " + TestEntity.class.getName()));
 
-        final Entity app = createStartWaitAndLogApplication(yaml);
-        Asserts.assertNotNull(app);
-
-        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
-        Asserts.assertNotNull(dynamicGroup);
-
-        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
-        Asserts.assertNotNull(member);
+        DynamicGroup dynamicGroup = pair.getLeft();
+        Entity member = pair.getRight();
 
         // Verify that member has joined.
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
@@ -240,7 +222,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         Asserts.eventually(() -> {
 
             // Call the composite effector as member got it from the GroupsChangePolicy.
-            Effector<?> helloEffector = member.getEffector(COMPOSITE_EFFECTOR_NAME);
+            Effector<?> helloEffector = ((EntityInternal) member).getEffector(COMPOSITE_EFFECTOR_NAME);
             if (!Objects.isNull(helloEffector)) {
                 invokeEffector(member, helloEffector); // <-- THE EFFECTOR TO CALL IN THIS TEST
             }
@@ -257,12 +239,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
     public void testAddPolicies() throws Exception {
 
         // Load types for OSGI to resolve on member addition in GroupsChangePolicy
-        addCatalogItems("brooklyn.catalog:",
-                "  items:",
-                "  - id: " + InvokeEffectorOnSensorChange.class.getName(),
-                "    itemType: policy",
-                "    item:",
-                "      type: " + InvokeEffectorOnSensorChange.class.getName());
+        addClassNameType(InvokeEffectorOnSensorChange.class, "policy");
 
         // Member properties, these are expected to be resolved with DSL in the member context.
         final String MEMBER_SENSOR_TO_WATCH = "member-sensor";
@@ -280,33 +257,27 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         final String SENSOR_TO_WATCH = "sensor-to-watch";
 
         // Blueprint to test.
-        String yaml = Joiner.on("\n").join(
-                "services:",
-                "- type: " + DynamicGroup.class.getName(),
-                "  brooklyn.config:",
-                "    " + SENSOR_TO_WATCH + ": " + GROUP_SENSOR_TO_WATCH,
-                "  brooklyn.policies:",
-                "  - type: " + GroupsChangePolicy.class.getName(),
-                "    brooklyn.config:",
-                "      group: $brooklyn:self()",
-                "      member.policies:",
-                "      - type: " + InvokeEffectorOnSensorChange.class.getName(),
-                "        brooklyn.config:",
-                "          " + CONFIG_SENSOR_PRODUCER + ": $brooklyn:self()", // $brooklyn:self() is referring to member entity
-                "          " + CONFIG_SENSOR + ": $brooklyn:config(\"" + SENSOR_TO_WATCH + "\")",
-                "          " + CONFIG_EFFECTOR + ": $brooklyn:attributeWhenReady(\"" + EFFECTOR_TO_CALL + "\")",
-                "- type: " + TestEntity.class.getName(),
-                "  brooklyn.config:",
-                "    " + SENSOR_TO_WATCH + ": " + MEMBER_SENSOR_TO_WATCH);
+        Pair<DynamicGroup, Entity> pair = createAppAndGetGroupAndMember(Joiner.on("\n").join(
+                        "services:",
+                        "- type: " + DynamicGroup.class.getName(),
+                        "  brooklyn.config:",
+                        "    " + SENSOR_TO_WATCH + ": " + GROUP_SENSOR_TO_WATCH,
+                        "  brooklyn.policies:",
+                        "  - type: " + GroupsChangePolicy.class.getName(),
+                        "    brooklyn.config:",
+                        "      group: $brooklyn:self()",
+                        "      member.policies:",
+                        "      - type: " + InvokeEffectorOnSensorChange.class.getName(),
+                        "        brooklyn.config:",
+                        "          " + CONFIG_SENSOR_PRODUCER + ": $brooklyn:self()", // $brooklyn:self() is referring to member entity
+                        "          " + CONFIG_SENSOR + ": $brooklyn:config(\"" + SENSOR_TO_WATCH + "\")",
+                        "          " + CONFIG_EFFECTOR + ": $brooklyn:attributeWhenReady(\"" + EFFECTOR_TO_CALL + "\")",
+                        "- type: " + TestEntity.class.getName(),
+                        "  brooklyn.config:",
+                        "    " + SENSOR_TO_WATCH + ": " + MEMBER_SENSOR_TO_WATCH));
 
-        final Entity app = createStartWaitAndLogApplication(yaml);
-        Asserts.assertNotNull(app);
-
-        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
-        Asserts.assertNotNull(dynamicGroup);
-
-        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
-        Asserts.assertNotNull(member);
+        DynamicGroup dynamicGroup = pair.getLeft();
+        Entity member = pair.getRight();
 
         // Verify that member has joined.
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
@@ -336,13 +307,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
     public void testAddLocations() throws Exception {
 
         // Load types for OSGI to resolve on member addition in GroupsChangePolicy
-        addCatalogItems(
-                "brooklyn.catalog:",
-                "  items:",
-                "  - id: " + SshMachineLocation.class.getName(),
-                "    itemType: location",
-                "    item:",
-                "      type: " + SshMachineLocation.class.getName());
+        addClassNameType(SshMachineLocation.class, "location");
 
         // Member properties, these are expected to be resolved with DSL in the member context.
         final String MEMBER_OS_USER = "member-os-user";
@@ -357,7 +322,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         final String IP_ADDRESS = "ip-address";
 
         // Blueprint to test.
-        String yaml = Joiner.on("\n").join(
+        Pair<DynamicGroup, Entity> pair = createAppAndGetGroupAndMember(Joiner.on("\n").join(
                 "services:",
                 "- type: " + DynamicGroup.class.getName(),
                 "  brooklyn.config:",
@@ -374,16 +339,10 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
                 "          privateKeyData: -----BEGIN RSA PRIVATE KEY-----etc..",
                 "- type: " + TestEntity.class.getName(),
                 "  brooklyn.config:",
-                "    " + OS_USER + ": " + MEMBER_OS_USER);
+                "    " + OS_USER + ": " + MEMBER_OS_USER));
 
-        final Entity app = createStartWaitAndLogApplication(yaml);
-        Asserts.assertNotNull(app);
-
-        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
-        Asserts.assertNotNull(dynamicGroup);
-
-        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
-        Asserts.assertNotNull(member);
+        DynamicGroup dynamicGroup = pair.getLeft();
+        Entity member = pair.getRight();
 
         // Emmit dynamic attributes for both: group and its member.
         dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
@@ -409,13 +368,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
     public void testAddEnrichers() throws Exception {
 
         // Load types for OSGI to resolve on member addition in GroupsChangePolicy
-        addCatalogItems(
-                "brooklyn.catalog:",
-                "  items:",
-                "  - id: " + Transformer.class.getName(),
-                "    itemType: enricher",
-                "    item:",
-                "      type: " + Transformer.class.getName());
+        addClassNameType(Transformer.class, "enricher");
 
         // Member properties, these are expected to be resolved with DSL in the member context.
         final String MEMBER_IP_ADDRESS = "127.1.2.3";
@@ -428,7 +381,7 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         final String TARGET_IP_ADDRESS = "target-ip-address";
 
         // Blueprint to test.
-        String yaml = Joiner.on("\n").join(
+        Pair<DynamicGroup, Entity> pair = createAppAndGetGroupAndMember(Joiner.on("\n").join(
                 "services:",
                 "- type: " + DynamicGroup.class.getName(),
                 "  brooklyn.policies:",
@@ -441,20 +394,10 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
                 "          enricher.sourceSensor: $brooklyn:sensor(\"" + SOURCE_IP_ADDRESS + "\")",
                 "          enricher.targetSensor: $brooklyn:sensor(\"" + TARGET_IP_ADDRESS + "\")",
                 "          enricher.targetValue: $brooklyn:attributeWhenReady(\"" + SOURCE_IP_ADDRESS + "\")",
-                "- type: " + TestEntity.class.getName());
+                "- type: " + TestEntity.class.getName()));
 
-        final Entity app = createStartWaitAndLogApplication(yaml);
-        Asserts.assertNotNull(app);
-
-        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
-        Asserts.assertNotNull(dynamicGroup);
-
-        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
-        Asserts.assertNotNull(member);
-
-        // Emmit dynamic attributes for both: group and its member.
-        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
-        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
+        DynamicGroup dynamicGroup = pair.getLeft();
+        Entity member = pair.getRight();
 
         // Emmit host address attribute for both: group and its member.
         executor.submit(() -> dynamicGroup.sensors().set(Sensors.newStringSensor(SOURCE_IP_ADDRESS), GROUP_IP_ADDRESS));
@@ -468,5 +411,35 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
     private void invokeEffector(final Entity entity, final Effector<?> effector) {
         final TaskAdaptable<?> stop = Entities.submit(entity, Effectors.invocation(entity, effector, ConfigBag.EMPTY));
         stop.asTask().blockUntilEnded();
+    }
+
+    /** Helper to add required items to catalog. */
+    public void addClassNameType(Class<?> type, String itemType) {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + type.getName(),
+                "    itemType: " + itemType,
+                "    item:",
+                "      type: " + type.getName());
+    }
+
+    /** Creates app from a blueprint that expects a {@link DynamicGroup} member and {@link TestEntity} in services */
+    Pair<DynamicGroup, Entity> createAppAndGetGroupAndMember(String yaml) throws Exception {
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
+
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
+
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
+
+        // Verify that member has joined.
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
+
+        return Pair.of(dynamicGroup, member);
     }
 }
