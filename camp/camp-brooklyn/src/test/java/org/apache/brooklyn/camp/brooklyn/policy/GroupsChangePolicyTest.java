@@ -57,7 +57,7 @@ import static org.apache.brooklyn.test.Asserts.*;
  *  {@link GroupsChangePolicy#ENRICHERS} and {@link GroupsChangePolicy#POLICIES} to members once joined. Config keys and
  *  attributes are expected to be resolved in the member context in all cases.
  */
-public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
+public class GroupsChangePolicyTest extends AbstractYamlTest {
 
     private ExecutorService executor;
 
@@ -73,11 +73,6 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
     public void tearDown() throws Exception {
         super.tearDown();
         if (executor != null) executor.shutdownNow();
-    }
-
-    @Override
-    protected boolean disableOsgi() {
-        return false; // enable OSGI
     }
 
     /** Test effector that adds a sensor with a test value. */
