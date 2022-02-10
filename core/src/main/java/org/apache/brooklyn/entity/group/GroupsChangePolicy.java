@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -35,12 +36,14 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -136,9 +139,18 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                         if (!item.isNull()) {
                             locationSpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<LocationSpec<Location>>) BrooklynObjectType.LOCATION.getSpecType());
                         } else {
-                            locationSpec = LocationSpec.create(ImmutableMap.of(), (Class<Location>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
+                            locationSpec = LocationSpec.create(ImmutableMap.of(), (Class<Location>) new OsgiBrooklynClassLoadingContext(member).tryLoadClass(type).get());
                         }
-                        locationSpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
+
+                        // NOTE, it is important to resolve all DSL expressions in the context of the member, e.g.
+                        // retrieving member specific properties like IP address or credentials.
+                        ExecutionContext memberExecutionContext = ((EntityInternal) member).getExecutionContext();
+                        Map<String, Object> brooklynConfig = ((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
+                        ConfigBag configBag = ConfigBag.newInstance(brooklynConfig);
+                        brooklynConfig.forEach((key, value) -> {
+                            Object resolvedValueFromMember = EntityInitializers.resolve(configBag, ConfigKeys.newConfigKey(Object.class, key), memberExecutionContext);
+                            locationSpec.configure(key, resolvedValueFromMember);
+                        });
 
                         AbstractTypePlanTransformer.checkSecuritySensitiveFields(locationSpec);
                         Location location = ((EntityInternal) member).getManagementContext().getLocationManager().createLocation(locationSpec);
