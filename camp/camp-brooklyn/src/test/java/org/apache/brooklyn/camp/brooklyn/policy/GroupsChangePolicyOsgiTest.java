@@ -23,7 +23,6 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.effector.CompositeEffector;
@@ -34,8 +33,8 @@ import org.apache.brooklyn.core.objs.AdjunctType;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.core.sensor.password.CreatePasswordSensor;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.enricher.stock.Transformer;
 import org.apache.brooklyn.entity.group.DynamicGroup;
 import org.apache.brooklyn.entity.group.GroupsChangePolicy;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -395,11 +394,74 @@ public class GroupsChangePolicyOsgiTest extends AbstractYamlTest {
         executor.submit(() -> member.sensors().set(Sensors.newStringSensor(IP_ADDRESS), MEMBER_IP_ADDRESS));
 
         // Verify that location is added to the group member with expected member properties.
-        eventually(member::getLocations, locations -> {
+        Asserts.eventually(member::getLocations, locations -> {
             if (locations.size() != 1) return false;
             SshMachineLocation location = (SshMachineLocation) locations.stream().findFirst().get();
             return MEMBER_IP_ADDRESS.equals(location.getAddress().getHostAddress()) && MEMBER_OS_USER.equals(location.getUser());
         });
+    }
+
+    /**
+     * Tests {@link GroupsChangePolicy#ENRICHERS} of the member while joining the {@link DynamicGroup},
+     * {@link Transformer} in particular.
+     */
+    @Test
+    public void testAddEnrichers() throws Exception {
+
+        // Load types for OSGI to resolve on member addition in GroupsChangePolicy
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: " + Transformer.class.getName(),
+                "    itemType: enricher",
+                "    item:",
+                "      type: " + Transformer.class.getName());
+
+        // Member properties, these are expected to be resolved with DSL in the member context.
+        final String MEMBER_IP_ADDRESS = "127.1.2.3";
+
+        // Group properties, these should not preempt member properties.
+        final String GROUP_IP_ADDRESS = "127.1.2.4";
+
+        // Config names.
+        final String SOURCE_IP_ADDRESS = "source-ip-address";
+        final String TARGET_IP_ADDRESS = "target-ip-address";
+
+        // Blueprint to test.
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: " + DynamicGroup.class.getName(),
+                "  brooklyn.policies:",
+                "  - type: " + GroupsChangePolicy.class.getName(),
+                "    brooklyn.config:",
+                "      group: $brooklyn:self()",
+                "      member.enrichers:",
+                "      - type: " + Transformer.class.getName(),
+                "        brooklyn.config:",
+                "          enricher.sourceSensor: $brooklyn:sensor(\"" + SOURCE_IP_ADDRESS + "\")",
+                "          enricher.targetSensor: $brooklyn:sensor(\"" + TARGET_IP_ADDRESS + "\")",
+                "          enricher.targetValue: $brooklyn:attributeWhenReady(\"" + SOURCE_IP_ADDRESS + "\")",
+                "- type: " + TestEntity.class.getName());
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        Asserts.assertNotNull(app);
+
+        final DynamicGroup dynamicGroup = (DynamicGroup) Iterables.getFirst(app.getChildren(), null);
+        Asserts.assertNotNull(dynamicGroup);
+
+        final TestEntity member = (TestEntity) Iterables.getLast(app.getChildren());
+        Asserts.assertNotNull(member);
+
+        // Emmit dynamic attributes for both: group and its member.
+        dynamicGroup.setEntityFilter(EntityPredicates.idEqualTo(member.getId()));
+        Asserts.assertEquals(dynamicGroup.getMembers().size(), 1);
+
+        // Emmit host address attribute for both: group and its member.
+        executor.submit(() -> dynamicGroup.sensors().set(Sensors.newStringSensor(SOURCE_IP_ADDRESS), GROUP_IP_ADDRESS));
+        executor.submit(() -> member.sensors().set(Sensors.newStringSensor(SOURCE_IP_ADDRESS), MEMBER_IP_ADDRESS));
+
+        // Verify expected sensor value copied with the Transformer.
+        Asserts.eventually(() -> member.getAttribute(Sensors.newStringSensor(TARGET_IP_ADDRESS)), MEMBER_IP_ADDRESS::equals);
     }
 
     /** Helper to invoke effector on entity. */
