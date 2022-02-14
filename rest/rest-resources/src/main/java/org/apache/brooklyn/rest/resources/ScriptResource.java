@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.rest.api.ScriptApi;
 import org.apache.brooklyn.rest.domain.ScriptExecutionSummary;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.stream.ThreadLocalPrintStream;

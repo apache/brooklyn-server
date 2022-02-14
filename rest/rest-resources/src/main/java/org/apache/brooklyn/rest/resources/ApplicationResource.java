@@ -82,6 +82,7 @@ import org.apache.brooklyn.rest.transform.ApplicationTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -129,9 +130,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 MutableMap.of("self", EntityTransformer.entityUri(entity, ui.getBaseUriBuilder())) );
         }
 
-        Boolean serviceUp = entity.getAttribute(Attributes.SERVICE_UP);
+        Boolean serviceUp = EntityAttributesUtils.tryGetAttribute(entity, Attributes.SERVICE_UP);
 
-        Lifecycle serviceState = entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+        Lifecycle serviceState = EntityAttributesUtils.tryGetAttribute(entity, Attributes.SERVICE_STATE_ACTUAL);
 
         String iconUrl = RegisteredTypes.getIconUrl(entity);
         if (iconUrl!=null) {
@@ -162,7 +163,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         List<Map<String, String>> members = Lists.newArrayList();
         if (entity instanceof Group) {
             // use attribute instead of method in case it is read-only
-            Collection<Entity> memberEntities = entity.getAttribute(AbstractGroup.GROUP_MEMBERS);
+            Collection<Entity> memberEntities = EntityAttributesUtils.tryGetAttribute(entity, AbstractGroup.GROUP_MEMBERS);
             if (memberEntities != null && !memberEntities.isEmpty())
                 members.addAll(entitiesIdAndNameAsList(memberEntities));
         }
@@ -521,7 +522,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             new Callable<Boolean>() {
                 @Override
                 public Boolean call() throws Exception {
-                    Lifecycle state = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                    Lifecycle state = EntityAttributesUtils.tryGetAttribute(app, Attributes.SERVICE_STATE_ACTUAL);
                     if (state==Lifecycle.CREATED || state==Lifecycle.STOPPED) return false;
                     return true;
                 }
@@ -710,13 +711,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             return result;
         }
         for (Entity e: descs) {
-            Object v = null;
-            try {
-                v = e.getAttribute((AttributeSensor<?>)s);
-            } catch (Exception exc) {
-                Exceptions.propagateIfFatal(exc);
-                log.warn("Error retrieving sensor "+s+" for "+e+" (ignoring): "+exc);
-            }
+            Object v = EntityAttributesUtils.tryGetAttribute(e, (AttributeSensor<?>)s);
             if (v!=null)
                 result.put(e.getId(), v);
         }

@@ -33,6 +33,7 @@ import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.api.SensorApi;
 import org.apache.brooklyn.rest.domain.SensorSummary;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -70,7 +71,7 @@ public class SensorTransformer {
     }
 
     private static <T> void addNamedAction(MutableMap.Builder<String, URI> lb, RendererHints.NamedAction na , Entity entity, Sensor<T> sensor) {
-        addNamedAction(lb, na, entity.getAttribute( ((AttributeSensor<T>) sensor) ), sensor, entity);
+        addNamedAction(lb, na, EntityAttributesUtils.tryGetAttribute(entity, (AttributeSensor<T>) sensor), sensor, entity);
     }
     
     @SuppressWarnings("unchecked")
