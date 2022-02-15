@@ -23,7 +23,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
@@ -32,12 +36,15 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -56,7 +63,18 @@ import java.util.Map;
  *       - type: org.apache.brooklyn.entity.group.GroupsChangePolicy
  *         brooklyn.config:
  *           group: $brooklyn:self()
- *           member.policies: kdjsldl
+ *           member.locations:
+ *            - type: org.apache.brooklyn.location.ssh.SshMachineLocation
+ *              brooklyn.config:
+ *                user: $brooklyn:config("os-user")
+ *                address: $brooklyn:attributeWhenReady("host.address")
+ *                privateKeyData: $brooklyn:config("ssh-private-key")
+ *           member.policies:
+ *           - type: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+ *             brooklyn.config:
+ *               sensor.producer: $brooklyn:self()
+ *               sensor: host.isCrashed
+ *               effector: stop
  *           member.initializers:
  *           - type: org.apache.brooklyn.core.sensor.StaticSensor
  *             brooklyn.config:
@@ -81,8 +99,15 @@ import java.util.Map;
 public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(GroupsChangePolicy.class);
+    private static final String TYPE = "type";
+    private static final String BROOKLYN_CONFIG = "brooklyn.config";
 
-    public static final ConfigKey<List<Map<String, Object>>> POLICIES = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>(){})
+    public static final ConfigKey<List<Map<String, Object>>> LOCATIONS = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>() {})
+            .name("member.locations")
+            .defaultValue(ImmutableList.of())
+            .build();
+
+    public static final ConfigKey<List<Map<String, Object>>> POLICIES = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>() {})
             .name("member.policies")
             .description("List of policies of the form [{type: policyType, brooklyn.config: {configKey: configValue}}]")
             .defaultValue(ImmutableList.of())
@@ -103,9 +128,65 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
         super.onEntityAdded(member);
         ManagementContext mgmt = getManagementContext();
 
+        getMaps(LOCATIONS).forEach(
+                stringObjectMap -> {
+                    try {
+                        String type = (String) stringObjectMap.get(TYPE);
+
+                        Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(type), RegisteredTypeLoadingContexts.spec(BrooklynObjectType.LOCATION.getInterfaceType()));
+                        LocationSpec locationSpec;
+
+                        if (!item.isNull()) {
+                            locationSpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<LocationSpec<Location>>) BrooklynObjectType.LOCATION.getSpecType());
+                        } else {
+                            locationSpec = LocationSpec.create(ImmutableMap.of(), (Class<Location>) new OsgiBrooklynClassLoadingContext(member).tryLoadClass(type).get());
+                        }
+
+                        // NOTE, it is important to resolve all DSL expressions in the context of the member, e.g.
+                        // retrieving member specific properties like IP address or credentials.
+                        ExecutionContext memberExecutionContext = ((EntityInternal) member).getExecutionContext();
+                        Map<String, Object> brooklynConfig = ((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
+                        ConfigBag configBag = ConfigBag.newInstance(brooklynConfig);
+                        brooklynConfig.forEach((key, value) -> {
+                            Object resolvedValueFromMember = EntityInitializers.resolve(configBag, ConfigKeys.newConfigKey(Object.class, key), memberExecutionContext);
+                            locationSpec.configure(key, resolvedValueFromMember);
+                        });
+
+                        AbstractTypePlanTransformer.checkSecuritySensitiveFields(locationSpec);
+                        Location location = ((EntityInternal) member).getManagementContext().getLocationManager().createLocation(locationSpec);
+
+                        LOG.info("Applying location '{}' to member '{}'", location, member);
+                        ((EntityInternal) member).addLocations(ImmutableList.of(location));
+                    } catch (Throwable e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+        );
+
+        getMaps(INITIALIZERS).forEach(
+                stringObjectMap -> {
+                    try {
+                        String type = (String) stringObjectMap.get(TYPE);
+
+                        OsgiBrooklynClassLoadingContext loader = member != null ? new OsgiBrooklynClassLoadingContext(member) : null;
+                        TypeToken<? extends EntityInitializer> typeToken = getType(loader, type);
+                        LOG.debug("type='{}', typeToken='{}'",type, typeToken);
+                        Maybe<? extends EntityInitializer> entityInitializerMaybe = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(stringObjectMap), typeToken);
+                        if (entityInitializerMaybe.isPresent()) {
+                            EntityInitializer initializer = entityInitializerMaybe.get();
+                            initializer.apply((EntityInternal) member);
+                        } else {
+                            LOG.debug("Unable to initialize {} due to {}", type, Maybe.getException(entityInitializerMaybe));
+                        }
+                    } catch (Throwable e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+        );
+
         getMaps(POLICIES).forEach(
                 stringObjectMap -> {
-                    String type = (String) stringObjectMap.get("type");
+                    String type = (String) stringObjectMap.get(TYPE);
 
                     Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(type), RegisteredTypeLoadingContexts.spec(BrooklynObjectType.POLICY.getInterfaceType()));
                     PolicySpec policySpec;
@@ -115,7 +196,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     } else {
                         policySpec = PolicySpec.create(ImmutableMap.of(), (Class<Policy>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
                     }
-                    policySpec.configure((Map<String, Object>) stringObjectMap.get("brooklyn.config"));
+                    policySpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
 
 
                     AbstractTypePlanTransformer.checkSecuritySensitiveFields(policySpec);
@@ -123,26 +204,9 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                 }
         );
 
-        getMaps(INITIALIZERS).forEach(
-                stringObjectMap -> {
-                    try {
-                        OsgiBrooklynClassLoadingContext loader = member != null ? new OsgiBrooklynClassLoadingContext(member) : null;
-                        Maybe<EntityInitializer> entityInitializerMaybe = BeanWithTypeUtils.tryConvertOrAbsent(mgmt, Maybe.of(stringObjectMap), TypeToken.of(EntityInitializer.class), true, loader, true);
-                        if(entityInitializerMaybe.isPresent()) {
-                            EntityInitializer initializer = entityInitializerMaybe.get();
-                            initializer.apply((EntityInternal) member);
-                        } else {
-                            LOG.debug("Unable to initialize {} due to {}", stringObjectMap.get("type"), Maybe.getException(entityInitializerMaybe));
-                        }
-                    }catch(Throwable e){
-                        throw Exceptions.propagate(e);
-                    }
-                }
-        );
-
         getMaps(ENRICHERS).forEach(
                 stringObjectMap -> {
-                    String type = (String) stringObjectMap.get("type");
+                    String type = (String) stringObjectMap.get(TYPE);
                     Maybe<RegisteredType> item = RegisteredTypes.tryValidate(mgmt.getTypeRegistry().get(type), RegisteredTypeLoadingContexts.spec(BrooklynObjectType.ENRICHER.getInterfaceType()));
                     EnricherSpec enricherSpec;
 
@@ -151,12 +215,17 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     } else {
                         enricherSpec = EnricherSpec.create(ImmutableMap.of(), (Class<Enricher>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
                     }
-                    enricherSpec.configure((Map<String, Object>) stringObjectMap.get("brooklyn.config"));
+                    enricherSpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
 
                     AbstractTypePlanTransformer.checkSecuritySensitiveFields(enricherSpec);
                     member.enrichers().add(enricherSpec);
                 }
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> TypeToken<T> getType(BrooklynClassLoadingContext loader, String className) {
+        return (TypeToken<T>) new BrooklynTypeNameResolution.BrooklynTypeNameResolver("", loader, true, true).getTypeToken(className);
     }
 
     private List<Map<String, Object>> getMaps(ConfigKey<List<Map<String, Object>>> key) {
