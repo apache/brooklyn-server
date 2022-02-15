@@ -71,6 +71,7 @@ import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
 import org.apache.brooklyn.rest.transform.TypeTransformer;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -173,7 +174,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                         int allStoppableApps = 0;
                         for (Application app: mgmt.getApplications()) {
                             allStoppableApps++;
-                            Lifecycle appState = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                            Lifecycle appState = EntityAttributesUtils.tryGetAttribute(app, Attributes.SERVICE_STATE_ACTUAL);
                             if (app instanceof StartableApplication &&
                                     // Don't try to stop an already stopping app. Subsequent stops will complete faster
                                     // cancelling the first stop task.
@@ -257,7 +258,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             private boolean hasStoppableApps(ManagementContext mgmt) {
                 for (Application app : mgmt.getApplications()) {
                     if (app instanceof StartableApplication) {
-                        Lifecycle state = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                        Lifecycle state = EntityAttributesUtils.tryGetAttribute(app, Attributes.SERVICE_STATE_ACTUAL);
                         if (state != Lifecycle.STOPPING && state != Lifecycle.STOPPED) {
                             log.warn("Shutting down, expecting all apps to be in stopping state, but found application " + app + " to be in state " + state + ". Just started?");
                         }

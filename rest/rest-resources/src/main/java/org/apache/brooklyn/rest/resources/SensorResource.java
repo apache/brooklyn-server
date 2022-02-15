@@ -34,6 +34,7 @@ import org.apache.brooklyn.rest.api.SensorApi;
 import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.SensorTransformer;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -91,8 +92,8 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
                 continue;
             }
 
-            Object value = entity.getAttribute(findSensor(entity, sensor.getName()));
-            sensorMap.put(sensor.getName(), 
+            Object value = EntityAttributesUtils.tryGetAttribute(entity, findSensor(entity, sensor.getName()));
+            sensorMap.put(sensor.getName(),
                 resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(useDisplayHints).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor).resolve());
         }
         return sensorMap;
@@ -111,7 +112,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
                     Entitlements.getEntitlementContext().user(), entity, sensor.getName());
         }
         
-        Object value = entity.getAttribute(sensor);
+        Object value = EntityAttributesUtils.tryGetAttribute(entity, sensor);
         return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).useDisplayHints(useDisplayHints).raw(raw).context(entity).immediately(true).renderAs(sensor).resolve();
     }
 
