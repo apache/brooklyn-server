@@ -86,7 +86,7 @@ public class StreamGobbler extends Thread implements Closeable {
         char[] utfSymbol = new char[2];
         try {
             ByteBuffer bb = ByteBuffer.allocate(4);
-            while ((c = stream.read()) >= 0) {
+            while (running.get() && (c = stream.read()) >= 0) {
 
                 if (bytes == 0) {
                     // Identify utf symbol size by Unicode page.
@@ -120,9 +120,9 @@ public class StreamGobbler extends Thread implements Closeable {
         } catch (IOException e) {
             onClose();
             //TODO parametrise log level, for this error, and for normal messages
-            if (log != null && log.isTraceEnabled()) log.trace(logPrefix + "exception reading from stream (" + e + ")");
+            if (log!=null && log.isTraceEnabled()) log.trace(logPrefix+"exception reading from stream ("+e+")");
         } finally {
-            if (out != null) out.flush();
+            if (out!=null) out.flush();
         }
     }
 
@@ -132,52 +132,44 @@ public class StreamGobbler extends Thread implements Closeable {
         if (c == REPLACEMENT_CHARACTER) return;
         if (c == '\n' || c == '\r') {
             if (lineSoFar.length() > 0)
-                //suppress blank lines, so that we can treat either newline char as a line separator
-                //(eg to show curl updates frequently)
+                // suppress blank lines, so that we can treat either newline char as a line separator
+                // (e.g. to show curl updates frequently)
                 onLine(lineSoFar.toString());
             lineSoFar.setLength(0);
         } else {
-            lineSoFar.append((char) c);
+            lineSoFar.append(c);
         }
     }
 
     public void onLine(String line) {
         //right trim, in case there is \r or other funnies
-        while (line.length() > 0 && Character.isWhitespace(line.charAt(line.length() - 1)))
-            line = line.substring(0, line.length() - 1);
+        while (line.length()>0 && Character.isWhitespace(line.charAt(line.length()-1)))
+            line = line.substring(0, line.length()-1);
         //right trim, in case there is \r or other funnies
-        while (line.length() > 0 && (line.charAt(0) == '\n' || line.charAt(0) == '\r'))
+        while (line.length()>0 && (line.charAt(0)=='\n' || line.charAt(0)=='\r'))
             line = line.substring(1);
         if (!line.isEmpty()) {
-            if (out != null) out.println(printPrefix + line);
-            if (log != null && log.isDebugEnabled()) log.debug(logPrefix + line);
+            if (out!=null) out.println(printPrefix+line);
+            if (log!=null && log.isDebugEnabled()) log.debug(logPrefix+line);
         }
     }
 
     public void onClose() {
         onLine(lineSoFar.toString());
-        if (out != null) out.flush();
+        if (out!=null) out.flush();
         lineSoFar.setLength(0);
         finished = true;
-        synchronized (this) {
-            notifyAll();
-        }
+        synchronized (this) { notifyAll(); }
     }
 
     private volatile boolean finished = false;
 
-    /**
-     * convenience -- equivalent to calling join()
-     */
+    /** convenience -- equivalent to calling join() */
     public void blockUntilFinished() throws InterruptedException {
-        synchronized (this) {
-            while (!finished) wait();
-        }
+        synchronized (this) { while (!finished) wait(); }
     }
 
-    /**
-     * convenience -- similar to !Thread.isAlive()
-     */
+    /** convenience -- similar to !Thread.isAlive() */
     public boolean isFinished() {
         return finished;
     }

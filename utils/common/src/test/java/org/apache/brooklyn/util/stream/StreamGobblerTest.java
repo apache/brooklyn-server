@@ -65,7 +65,7 @@ public class StreamGobblerTest {
         // single chars
         testStreamGobbler(" "); // 1 byte char
         testStreamGobbler("ß"); // 2 bytes char
-        testStreamGobbler("﷽"); // 3 bytes char
+        testStreamGobbler("√"); // 3 bytes char
         testStreamGobbler("𑱣"); // 4 bytes char
 
         // duplicate chars
@@ -80,9 +80,9 @@ public class StreamGobblerTest {
         testStreamGobbler("옖ʧ񆑮\t롬㟦密䕎孓");
         testStreamGobbler("їїх\rхфт шф9в 0-ф");
         testStreamGobbler("їїх\t\rхфт шф9в 0-ф");
-        testStreamGobbler("a ßßa√√aˆa©aƒa∫a˚\na˙a¬a∆a¥a®a†a.  ﷽");
+        testStreamGobbler("a ßßa√√aˆa©aƒa∫a˚\na˙a¬a∆a¥a®a†a.  √");
         testStreamGobbler("å¨¨∫√çˆˆø¨¨\0iubxo𑱣qpihbpπ∫ˆ¨¨øß†a");
-        testStreamGobbler(" oubibosu√bfhf иіашвщ, гирф𑱣ііззфххіхіїїх. цйїхзуйї звохй отв 90320к4590е- †a");
+        testStreamGobbler(" oubibosu√bfhf иіашвщ, гирф𑱣ііззфххіхіїїх. цйїхз/йї звохй отв 90320к4590е- †a");
 
         // random text
         testStreamGobbler(RandomStringUtils.random(999));
