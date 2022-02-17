@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 
 public class StreamGobbler extends Thread implements Closeable {
 
+    private static char REPLACEMENT_CHARACTER = 0xfffd;
     protected final InputStream stream;
     protected final PrintStream out;
     protected final Logger log;
@@ -78,15 +79,6 @@ public class StreamGobbler extends Thread implements Closeable {
         logPrefix = prefix;
         return this;
     }
-
-    private static int getChar(ByteBuffer bb) {
-        bb.rewind();
-        int ch = StandardCharsets.UTF_8.decode(bb).get();
-        bb.clear();
-        return ch;
-    }
-
-    private static char REPLACEMENT_CHARACTER = 0xfffd;
 
     @Override
     public void run() {
