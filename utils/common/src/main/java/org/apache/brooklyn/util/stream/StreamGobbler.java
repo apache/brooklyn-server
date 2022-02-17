@@ -23,17 +23,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 
 public class StreamGobbler extends Thread implements Closeable {
-    
+
     protected final InputStream stream;
     protected final PrintStream out;
     protected final Logger log;
     private final AtomicBoolean running = new AtomicBoolean(true);
-    
+
     public StreamGobbler(InputStream stream, OutputStream out, Logger log) {
         this(stream, out != null ? new PrintStream(out) : null, log);
     }
@@ -43,7 +45,7 @@ public class StreamGobbler extends Thread implements Closeable {
         this.out = out;
         this.log = log;
     }
-    
+
     @Override
     public void close() {
         running.set(false);
@@ -60,79 +62,130 @@ public class StreamGobbler extends Thread implements Closeable {
 
     String logPrefix = "";
     String printPrefix = "";
+
     public StreamGobbler setPrefix(String prefix) {
         setLogPrefix(prefix);
         setPrintPrefix(prefix);
         return this;
     }
+
     public StreamGobbler setPrintPrefix(String prefix) {
         printPrefix = prefix;
         return this;
     }
+
     public StreamGobbler setLogPrefix(String prefix) {
         logPrefix = prefix;
         return this;
-    }    
-    
+    }
+
+    private static int getChar(ByteBuffer bb) {
+        bb.rewind();
+        int ch = StandardCharsets.UTF_8.decode(bb).get();
+        bb.clear();
+        return ch;
+    }
+
+    private static char REPLACEMENT_CHARACTER = 0xfffd;
+
     @Override
     public void run() {
-        int c = -1;
+        int c, bytes = 0;
+        char[] utfSymbol = new char[2];
         try {
-            while (running.get() && (c=stream.read())>=0) {
-                onChar(c);
+            ByteBuffer bb = ByteBuffer.allocate(4);
+            while ((c = stream.read()) >= 0) {
+
+                if (bytes == 0) {
+                    // Identify utf symbol size by Unicode page.
+                    if (c >= 0xF0) {
+                        bytes = 4;
+                    } else if (c >= 0xE0) {
+                        bytes = 3;
+                    } else if (c >= 0xC2) {
+                        bytes = 2;
+                    } else {
+                        bytes = 1;
+                    }
+                }
+
+                //System.out.println(" [" + bb.position() + "] " + Integer.toHexString(c)); // for DEBUG
+                bb.put((byte) c);
+                bytes--;
+
+                if (bytes == 0) {
+                    bb.rewind();
+                    StandardCharsets.UTF_8.decode(bb).get(utfSymbol);
+                    bb.clear();
+                    //System.out.println("[ch] 0x" + Integer.toHexString(utfSymbol[0]) + " 0x" + Integer.toHexString(utfSymbol[1])); // for DEBUG
+                    onChar(utfSymbol[0]);
+                    if (utfSymbol[1] != 0) {
+                        onChar(utfSymbol[1]);
+                    }
+                }
             }
             onClose();
         } catch (IOException e) {
             onClose();
             //TODO parametrise log level, for this error, and for normal messages
-            if (log!=null && log.isTraceEnabled()) log.trace(logPrefix+"exception reading from stream ("+e+")");
+            if (log != null && log.isTraceEnabled()) log.trace(logPrefix + "exception reading from stream (" + e + ")");
         } finally {
             if (out != null) out.flush();
         }
     }
-    
+
     private final StringBuilder lineSoFar = new StringBuilder(16);
-    public void onChar(int c) {
-        if (c=='\n' || c=='\r') {
-            if (lineSoFar.length()>0)
+
+    public void onChar(char c) {
+        if (c == REPLACEMENT_CHARACTER) return;
+        if (c == '\n' || c == '\r') {
+            if (lineSoFar.length() > 0)
                 //suppress blank lines, so that we can treat either newline char as a line separator
                 //(eg to show curl updates frequently)
                 onLine(lineSoFar.toString());
             lineSoFar.setLength(0);
         } else {
-            lineSoFar.append((char)c);
+            lineSoFar.append((char) c);
         }
     }
-    
+
     public void onLine(String line) {
         //right trim, in case there is \r or other funnies
-        while (line.length()>0 && Character.isWhitespace(line.charAt(line.length()-1)))
-            line = line.substring(0, line.length()-1);
+        while (line.length() > 0 && Character.isWhitespace(line.charAt(line.length() - 1)))
+            line = line.substring(0, line.length() - 1);
         //right trim, in case there is \r or other funnies
-        while (line.length()>0 && (line.charAt(0)=='\n' || line.charAt(0)=='\r'))
+        while (line.length() > 0 && (line.charAt(0) == '\n' || line.charAt(0) == '\r'))
             line = line.substring(1);
         if (!line.isEmpty()) {
-            if (out!=null) out.println(printPrefix+line);
-            if (log!=null && log.isDebugEnabled()) log.debug(logPrefix+line);
+            if (out != null) out.println(printPrefix + line);
+            if (log != null && log.isDebugEnabled()) log.debug(logPrefix + line);
         }
     }
-    
+
     public void onClose() {
         onLine(lineSoFar.toString());
-        if (out!=null) out.flush();
+        if (out != null) out.flush();
         lineSoFar.setLength(0);
         finished = true;
-        synchronized (this) { notifyAll(); }
+        synchronized (this) {
+            notifyAll();
+        }
     }
-    
+
     private volatile boolean finished = false;
 
-    /** convenience -- equivalent to calling join() */
+    /**
+     * convenience -- equivalent to calling join()
+     */
     public void blockUntilFinished() throws InterruptedException {
-        synchronized (this) { while (!finished) wait(); }
+        synchronized (this) {
+            while (!finished) wait();
+        }
     }
 
-    /** convenience -- similar to !Thread.isAlive() */
+    /**
+     * convenience -- similar to !Thread.isAlive()
+     */
     public boolean isFinished() {
         return finished;
     }
