@@ -18,15 +18,6 @@
  */
 package org.apache.brooklyn.util.stream;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.PipedInputStream;
-import java.io.PipedOutputStream;
-
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.text.Strings;
@@ -36,11 +27,16 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.*;
+
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+
 public class StreamGobblerTest {
 
     private static final Logger LOG = LoggerFactory.getLogger(StreamGobblerTest.class);
 
-    private String NL = Os.LINE_SEPARATOR;
+    private final String NL = Os.LINE_SEPARATOR;
 
     private void testStreamGobbler(String text) throws Exception {
         LOG.info("Processing text: '{}'", text);

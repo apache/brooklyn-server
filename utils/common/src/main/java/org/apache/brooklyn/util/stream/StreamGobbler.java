@@ -18,20 +18,16 @@
  */
 package org.apache.brooklyn.util.stream;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
+import org.slf4j.Logger;
+
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.slf4j.Logger;
-
 public class StreamGobbler extends Thread implements Closeable {
 
-    private static char REPLACEMENT_CHARACTER = 0xfffd;
+    private static final char REPLACEMENT_CHARACTER = 0xfffd;
     protected final InputStream stream;
     protected final PrintStream out;
     protected final Logger log;
@@ -101,7 +97,6 @@ public class StreamGobbler extends Thread implements Closeable {
                     }
                 }
 
-                //System.out.println(" [" + bb.position() + "] " + Integer.toHexString(c)); // for DEBUG
                 bb.put((byte) c);
                 bytes--;
 
@@ -109,7 +104,6 @@ public class StreamGobbler extends Thread implements Closeable {
                     bb.rewind();
                     StandardCharsets.UTF_8.decode(bb).get(utfSymbol);
                     bb.clear();
-                    //System.out.println("[ch] 0x" + Integer.toHexString(utfSymbol[0]) + " 0x" + Integer.toHexString(utfSymbol[1])); // for DEBUG
                     onChar(utfSymbol[0]);
                     if (utfSymbol[1] != 0) {
                         onChar(utfSymbol[1]);
