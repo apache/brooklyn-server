@@ -38,6 +38,7 @@ node(label: 'ubuntu') {
 
             stage('Prepare environment') {
                 echo 'Creating maven cache ...'
+                echo "Using docker tag ...DOCKER_TAG=${dockerTag} OR ${DOCKER_TAG}  "
                 sh 'mkdir -p ${WORKSPACE}/.m2'
                 sh 'docker logout'   // needed because sometimes cached credentials break the following step (creds aren't needed)
                 sh 'echo DOCKER_TAG=${DOCKER_TAG}'
