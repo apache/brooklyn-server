@@ -125,7 +125,7 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
         }
     }
 
-    @Test(groups="Broken")  // bug we are fixing
+    @Test
     public void testSimplestMultiGroupRebindAndDelete() throws Exception {
         DynamicMultiGroup dmg = origApp.createAndManageChild(EntitySpec.create(DynamicMultiGroup.class)
                 .configure(DynamicMultiGroup.ENTITY_FILTER, Predicates.alwaysFalse())
@@ -156,7 +156,7 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
                 if ( MutableSet.of("planeId").contains(f.getName()) ) {
                     // expect these
                 } else {
-                    Assert.fail("At least one file exists after deployment: " + f);
+                    Assert.fail("At least one unexpected file exists after app stopped: " + f);
                 }
             }
         });

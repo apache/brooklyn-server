@@ -432,6 +432,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         destroyed.set(true);
         SubscriptionTracker tracker = getSubscriptionTracker();
         if (tracker != null) tracker.unsubscribeAll();
+        getManagementContext().getRebindManager().getChangeListener().onUnmanaged(this);
     }
     
     @Override
