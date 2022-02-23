@@ -155,10 +155,12 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     /** terminates the original management context (not destroying items) and points it at the new one (and same for apps); 
      * then clears the variables for the new one, so you can re-rebind */
     protected void switchOriginalToNewManagementContext() {
-        origManagementContext.getRebindManager().stopPersistence();
-        for (Application e: origManagementContext.getApplications()) ((Startable)e).stop();
-        waitForTaskCountToBecome(origManagementContext, 0, true);
-        origManagementContext.terminate();
+        if (origManagementContext!=null && origManagementContext.isRunning()) {
+            origManagementContext.getRebindManager().stopPersistence();
+            for (Application e : origManagementContext.getApplications()) ((Startable) e).stop();
+            waitForTaskCountToBecome(origManagementContext, 0, true);
+            origManagementContext.terminate();
+        }
         origManagementContext = (LocalManagementContext) newManagementContext;
         origApp = newApp;
         newManagementContext = null;
