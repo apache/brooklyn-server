@@ -18,13 +18,18 @@
  */
 package org.apache.brooklyn.core.sensor.ssh;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Functions;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -32,22 +37,26 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.apache.brooklyn.feed.ssh.SshValueFunctions;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -55,13 +64,10 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Functions;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -76,6 +82,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandSensor.class);
 
     public static final ConfigKey<String> SENSOR_COMMAND = ConfigKeys.newStringConfigKey("command", "SSH command to execute for sensor");
+    public static final ConfigKey<String> SENSOR_COMMAND_URL = ConfigKeys.newStringConfigKey("commandUrl", "Remote SSH command to execute for sensor (takes precedence over command)");
     public static final ConfigKey<String> SENSOR_EXECUTION_DIR = ConfigKeys.newStringConfigKey("executionDir", "Directory where the command should run; "
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
@@ -90,6 +97,8 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                     "useful if the script has quite a lot of output which should be ignored prior, with the value to be used for the sensor output last; " +
                     "default true (ignored if format is 'string')", true);
 
+    final private AtomicBoolean commandUrlInstalled = new AtomicBoolean(false);
+
     protected SshCommandSensor() {}
     public SshCommandSensor(ConfigBag params) {
         super(params);
@@ -97,9 +106,44 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
     @Override
     public void apply(final EntityLocal entity) {
+        ConfigBag params = initParams();
+
+        String commandUrl = EntityInitializers.resolve(initParams(), SENSOR_COMMAND_URL);
+        if (Objects.nonNull(commandUrl)) {
+
+            entity.subscriptions().subscribe(entity, BrooklynConfigKeys.INSTALL_DIR, booleanSensorEvent -> {
+                if (Strings.isNonBlank(booleanSensorEvent.getValue()) && !commandUrlInstalled.get()) {
+
+                    // Prepare path for a remote command script.
+                    // Take into account possibility of multiple ssh commands initialized at the same entity.
+                    String commandUrlPath = booleanSensorEvent.getValue() + "/command-url-" + Identifiers.makeRandomId(4)+ ".sh";
+
+                    // Look for SshMachineLocation and install remote command script.
+                    Maybe<SshMachineLocation> locationMaybe = Locations.findUniqueSshMachineLocation(entity.getLocations());
+                    if (locationMaybe.isPresent()) {
+                        TaskFactory<?> install = SshTasks.installFromUrl(locationMaybe.get(), commandUrl, commandUrlPath);
+                        Object ret = DynamicTasks.queueIfPossible(install.newTask()).orSubmitAsync(entity).andWaitForSuccess();
+
+                        // Prevent command duplicates in case if INSTALL_DIR changed from the outside.
+                        commandUrlInstalled.set(true);
+                    } else {
+                        throw new IllegalStateException("Could not find SshMachineLocation to run 'commandUrl'");
+                    }
+
+                    // Run a deferred command.
+                    params.putStringKey(SENSOR_COMMAND.getName(), "bash " + commandUrlPath);
+                    apply(entity, params);
+                }
+            });
+        } else {
+            apply(entity, params);
+        }
+    }
+
+    private void apply(final EntityLocal entity, final ConfigBag params) {
+
         AttributeSensor<T> sensor = addSensor(entity);
 
-        ConfigBag params = initParams();
         String name = initParam(SENSOR_NAME);
 
         if (LOG.isDebugEnabled()) {
@@ -111,7 +155,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
         final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
 
         Supplier<Map<String,String>> envSupplier = new EnvSupplier(entity, params);
-        
+
         Supplier<String> commandSupplier = new CommandSupplier(entity, params);
 
         CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
