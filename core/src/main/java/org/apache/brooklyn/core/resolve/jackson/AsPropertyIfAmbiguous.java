@@ -179,12 +179,10 @@ public class AsPropertyIfAmbiguous {
         }
 
         @Override
-        protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt,
-                                                TokenBuffer tb) throws IOException
+        protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt, TokenBuffer tb, String typeId) throws IOException
         {
             // first part copied from parent
 
-            String typeId = p.getText();
             JsonDeserializer<Object> deser = _findDeserializer(ctxt, typeId);
             if (_typeIdVisible) { // need to merge id back in JSON input?
                 if (tb == null) {
