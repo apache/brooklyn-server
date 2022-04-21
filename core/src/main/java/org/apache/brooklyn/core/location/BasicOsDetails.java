@@ -34,6 +34,7 @@ public class BasicOsDetails implements OsDetails {
     final boolean is64bit;
     // (?i) forces matches to be case insensitive
     public static final String UNIX_OS_NAME_PATTERNS = "(?i).*linux.*|centos|debian|fedora|gentoo|rhel|slackware|solaris|suse|ubuntu|coreos";
+    public static final String MACOS_OS_NAME_PATTERNS = "macOS|Mac OS X";
 
     /** Sets is64Bit according to value of arch parameter. */
     public BasicOsDetails(String name, String arch, String version) {
@@ -77,7 +78,7 @@ public class BasicOsDetails implements OsDetails {
 
     @Override
     public boolean isMac() {
-        return getName()!=null && getName().equals(OsNames.MAC_OS_X);
+        return getName()!=null && Pattern.matches(MACOS_OS_NAME_PATTERNS, getName());
     }
 
     @Override
