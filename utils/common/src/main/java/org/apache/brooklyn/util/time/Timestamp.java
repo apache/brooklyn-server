@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.time;
 
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -26,6 +27,7 @@ public class Timestamp extends Date {
 
     public Timestamp(Date d) { super(d.getTime()); }
     public Timestamp(Calendar d) { this(d.getTime()); }
+    public Timestamp(Instant d) { this(d.toEpochMilli()); }
     /** takes milliseconds since epoch */
     public Timestamp(long l) {
         this(new Calendar.Builder().setInstant(l).build());

@@ -27,6 +27,7 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -261,6 +262,12 @@ public class CommonAdaptorTypeCoercions {
                 return Time.parseDate(input);
             }
         });
+        registerAdapter(String.class, Instant.class, new Function<String,Instant>() {
+            @Override
+            public Instant apply(final String input) {
+                return Time.parseDate(input).toInstant();
+            }
+        });
         registerAdapter(String.class, Timestamp.class, new Function<String,Timestamp>() {
             @Override
             public Timestamp apply(final String input) {
@@ -270,6 +277,12 @@ public class CommonAdaptorTypeCoercions {
         registerAdapter(Date.class, Timestamp.class, new Function<Date,Timestamp>() {
             @Override
             public Timestamp apply(final Date input) {
+                return new Timestamp(input);
+            }
+        });
+        registerAdapter(Instant.class, Timestamp.class, new Function<Instant,Timestamp>() {
+            @Override
+            public Timestamp apply(final Instant input) {
                 return new Timestamp(input);
             }
         });

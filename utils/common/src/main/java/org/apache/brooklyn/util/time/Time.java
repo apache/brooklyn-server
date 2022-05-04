@@ -678,6 +678,8 @@ public class Time {
         input = input.trim();
         Maybe<Calendar> result;
 
+        if (input.equalsIgnoreCase("now")) return Maybe.of(Calendar.getInstance());
+
         result = parseCalendarUtc(input);
         if (result.isPresent()) return result;
 
