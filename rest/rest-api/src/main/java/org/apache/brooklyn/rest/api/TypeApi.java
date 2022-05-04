@@ -84,17 +84,20 @@ public interface TypeApi {
         @ApiParam(name = "version", value = "Version to query", required = true)
         @PathParam("version")
         String version);
-    
+
     @Path("/{symbolicName}/{version}/icon")
     @GET
     @ApiOperation(value = "Returns the icon image registered for this item")
     @Produces("application/image")
     public Response icon(
-        @ApiParam(name = "symbolicName", value = "Type name to query", required = true)
-        @PathParam("symbolicName")
-        String symbolicName,
-        @ApiParam(name = "version", value = "Version to query", required = true)
-        @PathParam("version")
-        String version);
+            @ApiParam(name = "symbolicName", value = "Type name to query", required = true)
+            @PathParam("symbolicName")
+                    String symbolicName,
+            @ApiParam(name = "version", value = "Version to query (or 'latest')", required = true)
+            @PathParam("version")
+                    String version,
+            @ApiParam(name = "iconUrl", value = "URL or path to icon to load with respect to this entity", required = false)
+            @QueryParam("iconUrl")
+            String iconUrl);
     
 }
