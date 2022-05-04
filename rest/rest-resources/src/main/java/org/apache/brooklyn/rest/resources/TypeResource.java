@@ -160,14 +160,22 @@ public class TypeResource extends AbstractBrooklynRestResource implements TypeAp
         return item;
     }
 
-    @Override
+    @Deprecated /** @deprecated since 1.1, include iconUrl */
     public Response icon(String symbolicName, String version) {
+        return icon(symbolicName, version, null);
+    }
+
+    @Override
+    public Response icon(String symbolicName, String version, String iconUrl) {
         RegisteredType item = lookup(symbolicName, version);
-        return produceIcon(mgmt(), brooklyn(), item);
+        return produceIcon(mgmt(), brooklyn(), item, iconUrl);
     }
 
     static Response produceIcon(ManagementContext mgmt, BrooklynRestResourceUtils brooklyn, RegisteredType result) {
-        String url = result.getIconUrl();
+        return produceIcon(mgmt, brooklyn, result, null);
+    }
+    static Response produceIcon(ManagementContext mgmt, BrooklynRestResourceUtils brooklyn, RegisteredType result, String url) {
+        if (Strings.isBlank(url)) url = result.getIconUrl();
         if (url==null) {
             log.debug("No icon available for "+result+"; returning "+Status.NO_CONTENT);
             return Response.status(Status.NO_CONTENT).build();
