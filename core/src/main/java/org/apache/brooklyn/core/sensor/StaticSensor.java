@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.sensor;
 
 import java.util.concurrent.Callable;
 
+import com.google.common.base.Stopwatch;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -75,9 +76,18 @@ public class StaticSensor<T> extends AddSensorInitializer<T> {
         class SetValue implements Callable<T> {
             @Override
             public T call() throws Exception {
+                Stopwatch sw = Stopwatch.createStarted();
                 Maybe<T> v = resolveValue.get();
                 if (!v.isPresent()) {
-                    log.debug(this+" not setting sensor "+sensor+" on "+entity+"; cannot resolve "+initParam(STATIC_VALUE)+" after timeout " + initParam(TIMEOUT));
+                    Duration timeout = initParam(TIMEOUT);
+                    if (timeout==null || Duration.of(sw.elapsed()).isShorterThan(timeout)) {
+                        // timed out early
+                        log.warn(this+" not setting sensor "+sensor+" on "+entity+"; cannot resolve "+initParam(STATIC_VALUE)+": "+Maybe.Absent.getException(v));
+                        log.trace("Trace of exception", Maybe.Absent.getException(v));
+                    } else {
+                        log.debug(this+" not setting sensor "+sensor+" on "+entity+"; cannot resolve "+initParam(STATIC_VALUE)+", after timeout " + timeout + ": "+Maybe.Absent.getException(v));
+                        log.trace("Trace of exception", Maybe.Absent.getException(v));
+                    }
                     return null;
                 }
                 log.debug(this+" setting sensor "+sensor+" to "+v.get()+" on "+entity);

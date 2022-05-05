@@ -71,6 +71,7 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     @Override
     public String toString() {
+        if (equals(PRACTICALLY_FOREVER)) return "forever";
         return Time.makeTimeStringExact(this);
     }
 
@@ -220,6 +221,7 @@ public class Duration implements Comparable<Duration>, Serializable {
     public static Duration of(Object o) {
         if (o == null) return null;
         if (o instanceof Duration) return (Duration)o;
+        if (o instanceof java.time.Duration) return Duration.millis( ((java.time.Duration)o).toMillis() );
         if (o instanceof String) return parse((String)o);
         if (o instanceof Number) return millis((Number)o);
         if (o instanceof Stopwatch) return millis(((Stopwatch)o).elapsed(TimeUnit.MILLISECONDS));

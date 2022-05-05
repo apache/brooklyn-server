@@ -27,6 +27,7 @@ import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -182,6 +183,16 @@ public class TypeCoercionsTest {
     public void testCoerceNumberToDate() {
         assertEquals(coerce(1000L, Date.class), new Date(1000));
         assertEquals(coerce(1000, Date.class), new Date(1000));
+        Date d0 = new Date(2022 - 1900, 0, 1);
+        assertEquals(coerce("2022.01.01", Date.class), d0);
+
+        Date d1 = new Date();
+        Date d2 = coerce("now", Date.class);
+        Date d3 = new Date();
+        Assert.assertFalse(d2.before(d1));
+        Assert.assertFalse(d3.before(d2));
+
+        assertEquals(coerce("2022.jan-1", Instant.class), d0.toInstant());
     }
 
     @Test
