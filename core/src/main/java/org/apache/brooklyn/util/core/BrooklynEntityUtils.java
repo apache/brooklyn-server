@@ -63,6 +63,7 @@ public class BrooklynEntityUtils {
 
     @SuppressWarnings("unchecked")
     public static List<String> addChildrenToEntity(Entity entity, ConfigBag entityParams, String blueprint, Boolean autostart) {
+
         if (!entityParams.isEmpty()) {
             Map<?, ?> m = ((Map<?, ?>) Iterables.getOnlyElement(Yamls.parseAll(blueprint)));
             if (m.containsKey("brooklyn.config")) {
@@ -80,8 +81,7 @@ public class BrooklynEntityUtils {
                     ((Map<Object, Object>) m).put("brooklyn.config", entityParams.getAllConfig());
                     blueprint = toJson(m);
                 } else {
-                    blueprint = blueprint + "\n" + "brooklyn.config: " +
-                            toJson(entityParams.getAllConfig());
+                    blueprint = blueprint + "\n" + "brooklyn.config: " + toJson(entityParams.getAllConfig());
                 }
             }
         }
@@ -89,6 +89,7 @@ public class BrooklynEntityUtils {
         LOG.debug("Adding children to " + entity + ":\n" + blueprint);
         EntityManagementUtils.CreationResult<List<Entity>, List<String>> result = EntityManagementUtils.addChildren(entity, blueprint, autostart);
         LOG.debug("Added children to " + entity + ": " + result.get());
+
         return result.task().getUnchecked();
     }
 
