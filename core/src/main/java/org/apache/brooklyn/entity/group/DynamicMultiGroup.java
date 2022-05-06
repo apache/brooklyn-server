@@ -52,6 +52,14 @@ public interface DynamicMultiGroup extends DynamicGroup {
             "Implements the mapping from entity to bucket (name)"
     );
 
+    @SetFromFlag("bucketIdFunction")
+    ConfigKey<Function<Entity, String>> BUCKET_ID_FUNCTION = ConfigKeys.newConfigKey(
+            new TypeToken<Function<Entity, String>>(){},
+            "brooklyn.multigroup.bucketIdFunction",
+            "Implements the mapping from entity to bucket ID; if supplied, the ids of entities E1 and E2 should be the same if and only if the name returned by bucketFunction are the same; " +
+                    "if not supplied, no ID is set"
+    );
+
     /**
      * Determines the type of {@link Group} used for the buckets.
      *

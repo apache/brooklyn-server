@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
@@ -225,8 +226,11 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
             if (Entities.isNoLongerManaged(this)) return;
 
             Function<Entity, String> bucketFunction = getConfig(BUCKET_FUNCTION);
+            Function<Entity, String> bucketIdFunction = getConfig(BUCKET_ID_FUNCTION);
+
             EntitySpec<? extends BasicGroup> bucketSpec = getConfig(BUCKET_SPEC);
             if (bucketFunction == null || bucketSpec == null) return;
+
             Map<String, BasicGroup> buckets = MutableMap.copyOf(getAttribute(BUCKETS));
 
             // Bucketize the members where the function gives a non-null bucket
@@ -239,7 +243,12 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
                 BasicGroup bucket = buckets.get(name);
                 if (bucket == null) {
                     try {
-                        bucket = addChild(EntitySpec.create(bucketSpec).displayName(name));
+                        EntitySpec<? extends BasicGroup> spec = EntitySpec.create(bucketSpec).displayName(name);
+                        if (bucketIdFunction!=null) {
+                            spec.configure(BrooklynConfigKeys.PLAN_ID, bucketIdFunction.apply(entityMapping.get(name).iterator().next()));
+                        }
+
+                        bucket = addChild(spec);
                     } catch (Exception e) {
                         Exceptions.propagateIfFatal(e);
                         ServiceProblemsLogic.updateProblemsIndicator(this, "children", "Could not add child; removing all new children for now: "+Exceptions.collapseText(e));

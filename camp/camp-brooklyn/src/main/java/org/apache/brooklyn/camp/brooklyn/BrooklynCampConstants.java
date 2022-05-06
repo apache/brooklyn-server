@@ -26,16 +26,13 @@ import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 
 import com.google.common.collect.ImmutableSet;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 
 public class BrooklynCampConstants {
 
     public static final String PLAN_ID_FLAG = "planId";
 
-    public static final ConfigKey<String> PLAN_ID = ConfigKeys.builder(String.class, "camp.plan.id")
-            .description("Identifier supplied in the deployment plan for component to which this entity corresponds "
-                        + "(human-readable, for correlating across plan, template, and instance)")
-            .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
-            .build();
+    public static final ConfigKey<String> PLAN_ID = BrooklynConfigKeys.PLAN_ID;
 
     public static final ConfigKey<String> TEMPLATE_ID = ConfigKeys.builder(String.class, "camp.template.id")
             .description("UID of the component in the CAMP template from which this entity was created")

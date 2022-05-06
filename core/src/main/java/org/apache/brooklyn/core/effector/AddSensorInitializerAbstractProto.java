@@ -45,7 +45,8 @@ public interface AddSensorInitializerAbstractProto<T> extends EntityInitializer 
     public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
 
     @SuppressWarnings("unchecked")
-    static <T> TypeToken<T> getType(Entity entity, String className, String name) {
+    @Beta
+    public static <T> TypeToken<T> getType(Entity entity, String className, String name) {
         return (TypeToken<T>)(TypeToken) new BrooklynTypeNameResolver("sensor "+name+" on "+entity, new OsgiBrooklynClassLoadingContext(entity), true, true).getTypeToken(className);
     }
 }
