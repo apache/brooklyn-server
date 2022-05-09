@@ -446,6 +446,10 @@ public class BasicLocationRegistry implements LocationRegistry {
                     LocationSpec<? extends Location> specO = resolver.newLocationSpecFromString(spec, locationFlags, this);
                     specO.configure(LocationInternal.ORIGINAL_SPEC, spec);
                     specO.configure(LocationInternal.NAMED_SPEC_NAME, spec);
+                    Object tags = locationFlags.get("brooklyn.tags");
+                    if (tags instanceof Iterable) {
+                        specO.tagsAdd((Iterable<?>)tags);
+                    }
                     return (Maybe) Maybe.of(specO);
                 } catch (RuntimeException e) {
                      return Maybe.absent(Suppliers.ofInstance(e));

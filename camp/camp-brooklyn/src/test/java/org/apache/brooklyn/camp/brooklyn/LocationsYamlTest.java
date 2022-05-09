@@ -22,6 +22,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.brooklyn.api.entity.Entity;
@@ -29,9 +30,11 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.multi.MultiLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -289,6 +292,55 @@ public class LocationsYamlTest extends AbstractYamlTest {
                 "    tags: [ foo ]\n"+
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
+        assertNotNull(loc);
+        Assert.assertTrue(loc.tags().containsTag("foo"), "location tags missing: "+loc.tags().getTags());
+    }
+
+
+    @Test
+    public void testJcloudsLocationWithTagsDoesntWork() throws Exception {
+        // NOTE: 'tags' on jclouds is used to set a config, NOT brooklyn object tags
+        String yaml =
+                "location:\n"+
+                "  jclouds:aws-ec2:\n"+
+                "    tags: [ foo ]\n"+
+                "services:\n"+
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        JcloudsLocation loc = (JcloudsLocation) Iterables.getOnlyElement(app.getLocations());
+        assertNotNull(loc);
+        Assert.assertFalse(loc.tags().containsTag("foo"), "location tags for jclouds shouldn't support 'tags' flag: "+loc.tags().getTags());
+        Asserts.assertThat(loc.config().get(JcloudsLocation.STRING_TAGS), r -> r instanceof Collection && ((Collection)r).contains("foo"));
+    }
+
+    @Test
+    public void testJcloudsLocationWithBrooklynTags() throws Exception {
+        // but now (2022-05) all location support 'brooklyn.tags' - this makes it consistent with tags elsewhere
+        String yaml =
+                "location:\n"+
+                        "  jclouds:aws-ec2:\n"+
+                        "    brooklyn.tags: [ foo ]\n"+
+                        "services:\n"+
+                        "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
+
+        Entity app = createStartWaitAndLogApplication(yaml);
+        JcloudsLocation loc = (JcloudsLocation) Iterables.getOnlyElement(app.getLocations());
+        assertNotNull(loc);
+        Assert.assertTrue(loc.tags().containsTag("foo"), "location tags missing: "+loc.tags().getTags());
+    }
+
+    @Test
+    public void testLocalhostLocationWithBrooklynTags() throws Exception {
+        String yaml =
+                "location:\n"+
+                        "  localhost:\n"+
+                        "    brooklyn.tags: [ foo ]\n"+
+                        "services:\n"+
+                        "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
 
         Entity app = createStartWaitAndLogApplication(yaml);
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
