@@ -42,7 +42,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.time.Instant;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -79,6 +81,11 @@ public class TemplateProcessor {
             if (o instanceof Map) {
                 // use our map recursively, so a map with `a.b` as a single key can be referenced as` ${a.b}` in the freemarker template
                 return new DotSplittingTemplateModel((Map<?,?>)o);
+            }
+
+            if (o instanceof Instant) {
+                // Freemarker doesn't support Instant, so we add
+                return super.wrap(Date.from( (Instant)o ));
             }
 
             return super.wrap(o);
