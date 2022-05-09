@@ -16,6 +16,7 @@
 package org.apache.brooklyn.util.core.json;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.fasterxml.jackson.core.Version;
@@ -23,6 +24,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public class BrooklynObjectsJsonMapper {
+
+    /** TODO {@link org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils#newMapper(ManagementContext, boolean, BrooklynClassLoadingContext, boolean)}
+     * is better in most ways; ideally that and this should be combined */
     public static ObjectMapper newMapper(ManagementContext mgmt) {
         ConfigurableSerializerProvider sp = new ConfigurableSerializerProvider();
         sp.setUnknownTypeSerializer(new ErrorAndToStringUnknownTypeSerializer());

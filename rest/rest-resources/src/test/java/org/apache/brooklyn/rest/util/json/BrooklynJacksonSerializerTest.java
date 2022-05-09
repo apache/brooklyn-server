@@ -19,22 +19,34 @@
 package org.apache.brooklyn.rest.util.json;
 
 import java.io.NotSerializableException;
+import java.time.Instant;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.BidiSerialization;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -169,6 +181,103 @@ public class BrooklynJacksonSerializerTest {
         String result = checkSerializesAs( MutableList.of(new EmptyClassWithSerialize()), null );
         result = result.replaceAll(" ", "").trim();
         Assert.assertEquals(result, "[{}]");
+    }
+
+    @Test
+    public void testInstantReadWrite() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        Instant now = Instant.now();
+        String nowYaml = mapper.writerFor(Instant.class).writeValueAsString(now);
+        Asserts.assertEquals(nowYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString(Time.makeIso8601DateStringZ(now)));
+
+        Object now2 = mapper.readerFor(Instant.class).readValue( Time.makeIso8601DateStringZ(now) );
+        Asserts.assertEquals(now2, now);
+
+        final String asMap = "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(Instant.class.getName())+"\n"+
+                "value: "+StringEscapes.JavaStringEscapes.wrapJavaString(Time.makeIso8601DateStringZ(now));
+        nowYaml = mapper.writerFor(Object.class).writeValueAsString(now);
+        Asserts.assertEquals(nowYaml.trim(), "---\n" + asMap);
+
+        now2 = mapper.readerFor(Object.class).readValue( asMap );
+        Asserts.assertEquals(now2, now);
+    }
+
+    @Test
+    public void testDurationReadWrite() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        String vYaml = mapper.writerFor(Duration.class).writeValueAsString(Duration.minutes(90));
+        Asserts.assertEquals(vYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString("1h 30m"));
+
+        Object v2 = mapper.readerFor(Duration.class).readValue( "1h  30 m" );
+        Asserts.assertEquals(v2, Duration.minutes(90));
+
+        final String asMap = "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(Duration.class.getName())+"\n"+
+                "value: \"1h 30m\"";
+        vYaml = mapper.writerFor(Object.class).writeValueAsString(Duration.minutes(90));
+        Asserts.assertEquals(vYaml.trim(), "---\n" + asMap);
+
+        v2 = mapper.readerFor(Object.class).readValue( asMap );
+        Asserts.assertEquals(v2, Duration.minutes(90));
+    }
+
+    @Test
+    public void testManagementContextReadWrite() throws JsonProcessingException {
+        ManagementContext mgmt = null;
+        try {
+            mgmt = LocalManagementContextForTests.newInstance();
+            ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true);
+
+            Object mgmt2 = mapper.readerFor(ManagementContext.class).readValue(BrooklynJacksonSerializationUtils.DEFAULT);
+            Asserts.assertEquals(mgmt2, mgmt);
+
+            String mgmtYaml = mapper.writerFor(ManagementContext.class).writeValueAsString(mgmt);
+            Asserts.assertEquals(mgmtYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString(BrooklynJacksonSerializationUtils.DEFAULT));
+
+            final String asMap = "type: \"org.apache.brooklyn.api.mgmt.ManagementContext\"\n"+
+                    "value: "+ StringEscapes.JavaStringEscapes.wrapJavaString(BrooklynJacksonSerializationUtils.DEFAULT);
+            mgmtYaml = mapper.writerFor(Object.class).writeValueAsString(mgmt);
+            Asserts.assertEquals(mgmtYaml.trim(), "---\n" +
+                    asMap);
+
+            mgmt2 = mapper.readerFor(Object.class).readValue(asMap);
+            Asserts.assertEquals(mgmt2, mgmt);
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
+
+    @Test
+    public void testEntityReadWrite() throws JsonProcessingException {
+        ManagementContext mgmt = null;
+        try {
+            mgmt = LocalManagementContextForTests.newInstance();
+            ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true);
+
+            BasicApplication e1 = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+            Object e2 = mapper.readerFor(BrooklynObject.class).readValue(e1.getId());
+            Asserts.assertEquals(e2, e1);
+
+            String eYaml = mapper.writerFor(Entity.class).writeValueAsString(e1);
+            Asserts.assertEquals(eYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString(e1.getId()));
+
+            final String asMap = "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(BrooklynObject.class.getName())+"\n"+
+                    "value: "+ StringEscapes.JavaStringEscapes.wrapJavaString(e1.getId());
+            eYaml = mapper.writerFor(Object.class).writeValueAsString(e1);
+            Asserts.assertEquals(eYaml.trim(), "---\n" +
+                    asMap);
+
+            e2 = mapper.readerFor(Object.class).readValue(asMap);
+            Asserts.assertEquals(e2, e1);
+
+            e2 = mapper.readerFor(Entity.class).readValue(e1.getId());
+            Asserts.assertEquals(e2, e1);
+
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
     }
 
     @Test

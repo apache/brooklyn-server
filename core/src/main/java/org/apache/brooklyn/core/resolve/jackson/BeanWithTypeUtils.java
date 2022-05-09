@@ -54,7 +54,9 @@ public class BeanWithTypeUtils {
 
     public static final String FORMAT = "bean-with-type";
 
-    /** also see {@link org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper#newMapper(ManagementContext)} */
+    /** also see {@link org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper#newMapper(ManagementContext)}
+     * which isn't as powerful in most ways, but has a few extra things it supports
+     * TODO ideally that and this would be combined */
     public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
         return applyCommonMapperConfig(newSimpleMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
     }
@@ -63,15 +65,15 @@ public class BeanWithTypeUtils {
         return applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
     }
 
-    public static ObjectMapper applyCommonMapperConfig(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
-        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+    public static ObjectMapper applyCommonMapperConfig(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
+        BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
         WrappedValuesSerialization.apply(mapper, mgmt);
         mapper = new ConfigurableBeanDeserializerModifier()
                 .addDeserializerWrapper(
                         d -> new JsonDeserializerForCommonBrooklynThings(mgmt, d)
                         // see note below, on convert()
                 ).apply(mapper);
-        CommonTypesSerialization.apply(mapper);
+        CommonTypesSerialization.apply(mapper, mgmt);
         return mapper;
     }
 
@@ -183,7 +185,7 @@ public class BeanWithTypeUtils {
                 fallback = (Maybe<T>) inputMap;
 
                 // there isn't a 'type' key so little obvious point in converting .. might make a difference _inside_ a map or list, but we've not got any generics so it won't
-                if (!(o instanceof Map) || !((Map<?, ?>) o).containsKey("type")) return fallback;
+                if (!(o instanceof Map) || !((Map<?, ?>) o).containsKey(BrooklynJacksonSerializationUtils.TYPE)) return fallback;
             } else if (type.isSupertypeOf(Map.class)) {
                 // skip conversion for a map if it isn't an object
                 return (Maybe<T>) inputMap;

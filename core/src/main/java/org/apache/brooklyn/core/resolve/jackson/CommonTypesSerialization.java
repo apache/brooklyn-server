@@ -18,62 +18,228 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.databind.JsonDeserializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
+import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
+import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.ser.std.NonTypedScalarSerializerBase;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
+
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Date;
-import org.apache.brooklyn.util.core.json.DurationSerializer;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 public class CommonTypesSerialization {
 
     public static void apply(ObjectMapper mapper) {
-        mapper.registerModule(new SimpleModule()
-                .addSerializer(Duration.class, new DurationSerializer())
-
-                .addSerializer(Date.class, new DateSerializer())
-                .addDeserializer(Date.class, (JsonDeserializer) new DateDeserializer())
-                .addSerializer(Instant.class, new InstantSerializer())
-                .addDeserializer(Instant.class, (JsonDeserializer) new InstantDeserializer())
-        );
+        apply(mapper, null);
     }
 
-    public static class DateSerializer extends NonTypedScalarSerializerBase<Date> {
-        protected DateSerializer() { super(Date.class); }
-        @Override
-        public void serialize(Date value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-            gen.writeString(Time.makeIso8601DateString(value));
-        }
+    public static void apply(ObjectMapper mapper, ManagementContext mgmt) {
+        SimpleModule m = new SimpleModule();
+        InterceptibleDeserializers interceptible = new InterceptibleDeserializers();
+        m.setDeserializers(interceptible);
+        new DurationSerialization().apply(m);
+        new DateSerialization().apply(m);
+        new InstantSerialization().apply(m);
+        new ManagementContextSerialization(mgmt).apply(m);
+        new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
+        mapper.registerModule(m);
     }
-    public static class DateDeserializer extends JsonSymbolDependentDeserializer {
+
+    public static class InterceptibleDeserializers extends SimpleDeserializers {
+        final List<Function<JavaType,JsonDeserializer<?>>> interceptors = MutableList.of();
         @Override
-        protected Object deserializeToken(JsonParser p) throws IOException {
-            Object v = p.readValueAs(Object.class);
-            if (v instanceof String) return Time.parseDate((String)v);
-            throw new IllegalArgumentException("Cannot deserialize '"+v+"' as Date");
+        public JsonDeserializer<?> findBeanDeserializer(JavaType type, DeserializationConfig config, BeanDescription beanDesc) throws JsonMappingException {
+            if (type!=null) {
+                for (Function<JavaType,JsonDeserializer<?>> ic: interceptors) {
+                    JsonDeserializer<?> interception = ic.apply(type);
+                    if (interception != null) return interception;
+                }
+            }
+            return super.findBeanDeserializer(type, config, beanDesc);
+        }
+
+        public void addInterceptor(Function<JavaType,JsonDeserializer<?>> typeRewriter) {
+            interceptors.add(typeRewriter);
+        }
+        public void addSubtypeInterceptor(Class<?> type, JsonDeserializer<?> deserializer) {
+            interceptors.add(jt -> jt.findSuperType(type)!=null ? deserializer : null);
         }
     }
 
-    public static class InstantSerializer extends NonTypedScalarSerializerBase<Instant> {
-        protected InstantSerializer() { super(Instant.class); }
-        @Override
-        public void serialize(Instant value, JsonGenerator gen, SerializerProvider serializers) throws IOException {
-            gen.writeString(Time.makeIso8601DateStringZ(value));
+    public static abstract class ObjectAsStringSerializerAndDeserializer<T> {
+
+        public abstract Class<T> getType();
+        public abstract String convertObjectToString(T value, JsonGenerator gen, SerializerProvider provider) throws IOException;
+        public abstract T convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException;
+
+        public T convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            throw new IllegalStateException(getType()+" should be supplied as map with 'value'; instead had " + value);
+        }
+
+        protected T doConvertSpecialMapViaNewSimpleMapper(Map value) throws IOException {
+            // a hack to support default bean deserialization as a fallback; we could deprecate, but some tests support eg nanos: xx for duration
+            ObjectMapper m = BeanWithTypeUtils.newSimpleYamlMapper();
+            m.setVisibility(new VisibilityChecker.Std(JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY));
+            return m.readerFor(getType()).readValue(m.writeValueAsString(value));
+        }
+
+        public <T extends SimpleModule> T apply(T module) {
+            module.addSerializer(getType(), new Serializer());
+            module.addDeserializer(getType(), new Deserializer());
+            return module;
+        }
+
+        protected class Serializer extends JsonSerializer<T> {
+            @Override
+            public void serialize(T value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+                gen.writeString( convertObjectToString(value, gen, provider) );
+            }
+            @Override
+            public void serializeWithType(T value, JsonGenerator gen, SerializerProvider serializers, TypeSerializer typeSer) throws IOException {
+                if (value==null) {
+                    gen.writeNull();
+                    return;
+                }
+
+                if (typeSer.getTypeIdResolver() instanceof AsPropertyIfAmbiguous.HasBaseType) {
+                    if (((AsPropertyIfAmbiguous.HasBaseType)typeSer.getTypeIdResolver()).getBaseType().findSuperType(getType())!=null) {
+                        gen.writeString(convertObjectToString(value, gen, serializers));
+                        return;
+                    }
+                }
+
+                // write as object with type and value if type is ambiguous
+                gen.writeStartObject();
+                gen.writeStringField(BrooklynJacksonSerializationUtils.TYPE, getType().getName());
+                gen.writeStringField(BrooklynJacksonSerializationUtils.VALUE, convertObjectToString(value, gen, serializers));
+                gen.writeEndObject();
+            }
+        }
+
+        protected class Deserializer extends JsonDeserializer<T> {
+            @Override
+            public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+                try {
+                    Object value = p.readValueAs(Object.class);
+                    if (value instanceof Map) {
+                        if (((Map)value).size()==1 && ((Map)value).containsKey(BrooklynJacksonSerializationUtils.VALUE)) {
+                            value = ((Map) value).get(BrooklynJacksonSerializationUtils.VALUE);
+                        } else {
+                            return convertSpecialMapToObject((Map)value, p, ctxt);
+                        }
+                    }
+
+                    if (value==null) {
+                        return null;
+                    } else if (value instanceof String || Boxing.isPrimitiveOrBoxedClass(value.getClass())) {
+                        return convertStringToObject(value.toString(), p, ctxt);
+                    } else {
+                        throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
+                    }
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
         }
     }
-    public static class InstantDeserializer extends JsonSymbolDependentDeserializer {
-        @Override
-        protected Object deserializeToken(JsonParser p) throws IOException {
-            Object v = p.readValueAs(Object.class);
-            if (v instanceof String) return Time.parseInstant((String)v);
-            throw new IllegalArgumentException("Cannot deserialize '"+v+"' as Instant");
+
+    public static class DurationSerialization extends ObjectAsStringSerializerAndDeserializer<Duration> {
+        @Override public Class<Duration> getType() { return Duration.class; }
+        @Override public String convertObjectToString(Duration value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return value.toString();
+        }
+        @Override public Duration convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            return Time.parseDuration(value);
+        }
+        @Override public Duration convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            return doConvertSpecialMapViaNewSimpleMapper(value);
+        }
+    }
+
+    public static class DateSerialization extends ObjectAsStringSerializerAndDeserializer<Date> {
+        @Override public Class<Date> getType() { return Date.class; }
+        @Override public String convertObjectToString(Date value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return Time.makeIso8601DateString(value);
+        }
+        @Override public Date convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            return Time.parseDate(value);
+        }
+        @Override public Date convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            return doConvertSpecialMapViaNewSimpleMapper(value);
+        }
+    }
+
+    public static class InstantSerialization extends ObjectAsStringSerializerAndDeserializer<Instant> {
+        @Override public Class<Instant> getType() { return Instant.class; }
+        @Override public String convertObjectToString(Instant value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return Time.makeIso8601DateStringZ(value);
+        }
+        @Override public Instant convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            return Time.parseInstant(value);
+        }
+        @Override public Instant convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            return doConvertSpecialMapViaNewSimpleMapper(value);
+        }
+    }
+
+    public static class ManagementContextSerialization extends ObjectAsStringSerializerAndDeserializer<ManagementContext> {
+        private final ManagementContext mgmt;
+
+        public ManagementContextSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
+        @Override public Class<ManagementContext> getType() { return ManagementContext.class; }
+
+        @Override public String convertObjectToString(ManagementContext value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return BrooklynJacksonSerializationUtils.DEFAULT;
+        }
+        @Override public ManagementContext convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            if (BrooklynJacksonSerializationUtils.DEFAULT.equals(value)) {
+                if (mgmt!=null) return mgmt;
+                throw new IllegalArgumentException("ManagementContext cannot be deserialized here");
+            }
+            throw new IllegalStateException("ManagementContext should be recorded as 'default' to be deserialized correctly");
+        }
+    }
+
+    public static class BrooklynObjectSerialization extends ObjectAsStringSerializerAndDeserializer<BrooklynObject> {
+        private final ManagementContext mgmt;
+
+        public BrooklynObjectSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
+
+        public <T extends SimpleModule> T apply(T module, InterceptibleDeserializers interceptable) {
+            // apply to all subtypes of BO
+            interceptable.addSubtypeInterceptor(getType(), new Deserializer());
+
+            return apply(module);
+        }
+
+        @Override public Class<BrooklynObject> getType() { return BrooklynObject.class; }
+
+        @Override public String convertObjectToString(BrooklynObject value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return value.getId();
+        }
+        @Override public BrooklynObject convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            if (mgmt==null) {
+                throw new IllegalArgumentException("BrooklynObject cannot be deserialized here");
+            }
+            // we could support 'current' to use tasks to resolve, which might be handy
+            BrooklynObject result = mgmt.lookup(value);
+            if (result!=null) return result;
+            throw new IllegalStateException("Entity or other BrooklynObject '"+value+"' is not known here");
         }
     }
 
