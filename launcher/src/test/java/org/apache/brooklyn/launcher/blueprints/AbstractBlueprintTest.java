@@ -18,11 +18,19 @@
  */
 package org.apache.brooklyn.launcher.blueprints;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
@@ -50,8 +58,10 @@ import org.apache.brooklyn.launcher.BrooklynViewerLauncher;
 import org.apache.brooklyn.launcher.SimpleYamlLauncherForTests;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -97,6 +107,8 @@ public abstract class AbstractBlueprintTest {
         };
     }
 
+    /** starts a REST API to explore details; a UI can be created pointing at this API to view details graphically.
+     * typical usage is for a thread-only breakpoint to be set at the point in the test where you want to explore. */
     protected void startViewer(boolean killCurrent) {
         if (isViewerEnabled()) {
             if (killCurrent) {
@@ -246,6 +258,10 @@ public abstract class AbstractBlueprintTest {
     }
 
     protected Application rebind(RebindOptions options) throws Exception {
+        if (!isRebindEnabled()) {
+            throw new IllegalStateException("Rebind not enabled for this test; override isRebindEnabled");
+        }
+
         ManagementContext origMgmt = mgmt;
         ManagementContext newMgmt = createNewManagementContext();
         Collection<Application> origApps = origMgmt.getApplications();
@@ -278,21 +294,72 @@ public abstract class AbstractBlueprintTest {
         return false;
     }
 
-    /** @return A started management context */
-    protected LocalManagementContext createOrigManagementContext() {
-        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
-                .persistPeriodMillis(1)
+    protected RebindTestUtils.ManagementContextBuilder createBuilderForRebindingManagementContext() {
+        return RebindTestUtils.managementContextBuilder(this.mementoDir, this.classLoader)
+                .persistPeriodMillis(1L)
                 .forLive(true)
-                .emptyCatalog(true)
-                .buildStarted();
+                .emptyCatalog(true);
     }
 
     /** @return An unstarted management context */
-    protected LocalManagementContext createNewManagementContext() {
-        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
-                .persistPeriodMillis(1)
-                .forLive(true)
-                .emptyCatalog(true)
-                .buildUnstarted();
+    protected ManagementContext createNewManagementContext() {
+        if (isRebindEnabled()) {
+            return createBuilderForRebindingManagementContext().buildUnstarted();
+        } else {
+            return LocalManagementContextForTests.newInstance();
+        }
     }
+
+    // -----
+
+
+    protected boolean isRebindEnabled() {
+        return true;
+    }
+
+    /** @return A started management context -- with or without rebind depending on the value of {@link #isRebindEnabled()} */
+    protected ManagementContext createOrigManagementContext() {
+        if (isRebindEnabled()) {
+            return createBuilderForRebindingManagementContext().buildStarted();
+        } else {
+            return LocalManagementContextForTests.newInstance();
+        }
+    }
+
+    protected Application createAndStartApplication(String input) throws Exception {
+        Application app = this.createApplicationUnstarted(input);
+        app.invoke(Startable.START, MutableMap.of()).get();
+        return app;
+    }
+
+    protected Application createApplicationUnstarted(String yaml) throws Exception {
+        EntitySpec<Application> spec = this.createAppEntitySpec(yaml);
+        Entity app = this.mgmt.getEntityManager().createEntity(spec);
+        return (Application)app;
+    }
+
+    protected <T extends Application> EntitySpec<T> createAppEntitySpec(String yaml) {
+        return (EntitySpec) EntityManagementUtils.createEntitySpecForApplication(this.mgmt, CampTypePlanTransformer.FORMAT, yaml);
+    }
+
+    protected void addCatalogItems(String catalogYaml) {
+        mgmt.getCatalog().addTypesAndValidateAllowInconsistent(catalogYaml, (Map)null, false);
+    }
+
+    /** read the given item from the classpath, relative to this class */
+    protected String read(String filenameOnClasspath) {
+        // first try relative
+        try {
+            if (!filenameOnClasspath.startsWith("/")) {
+                String absolute = Strings.replaceAllNonRegex(getClass().getPackage().getName(), ".", "/") + "/" + filenameOnClasspath;
+                return ResourceUtils.create(this).getResourceAsString("classpath:"+"/"+absolute);
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // otherwise ignore, try as non-relative
+        }
+
+        return ResourceUtils.create(this).getResourceAsString("classpath:"+filenameOnClasspath);
+    }
+
 }

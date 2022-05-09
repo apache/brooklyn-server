@@ -254,6 +254,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
         Assert.assertEquals(tasks.size(), children(leafGrandparent).size()+1);
         tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
         Assert.assertTrue(tasksContain(tasks, leafParent), "count+1 limited recursive tasks should have included leaf parent "+leafParent+"; was "+tasks);
+        // 2022-05-09 - race can cause this to fail occasionally?
         Assert.assertTrue(tasksContain(tasks, leaf), "count+1 limited recursive tasks should have included leaf "+leaf+"; was "+tasks);
     }
 

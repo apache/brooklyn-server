@@ -19,7 +19,9 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.lang.reflect.Constructor;
+import java.util.Map;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -27,6 +29,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 
 /**
  * Instantiates classes from a registered type which simply
@@ -83,9 +86,22 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     private Class<?> getType(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         String planData = ((String)type.getPlan().getPlanData()).trim();
 
-        // if catalog, or user, makes it look like yaml type: ... then remove that prefix
-        if (!Strings.isMultiLine(planData) && planData.startsWith("type: ")) {
-            planData = Strings.removeFromStart(planData, "type:").trim();
+        // expects a string; caller might have given us 'type: xxx' yaml, or automatically wrapped;
+        // in those simple cases, unpack it
+        try {
+            Iterable<Object> yaml = Yamls.parseAll(planData);
+            if (Iterables.size(yaml) == 1) {
+                Object ym = yaml.iterator().next();
+                if (ym instanceof Map) {
+                    Object yt = ((Map) ym).get("type");
+                    if (yt instanceof String) {
+                        planData = (String) yt;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // swallow if not parseable yaml; treat as string
         }
 
         return RegisteredTypes.loadActualJavaType(planData, mgmt, type, context);
