@@ -163,7 +163,7 @@ public class BeanWithTypeUtils {
         Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
         ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
         OsgiBrooklynClassLoadingContext loader = entity != null ? new OsgiBrooklynClassLoadingContext(entity) : null;
-        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false);
+        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, true);
     }
 
     public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) {
