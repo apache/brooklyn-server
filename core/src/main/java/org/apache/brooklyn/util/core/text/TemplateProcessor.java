@@ -540,10 +540,11 @@ public class TemplateProcessor {
 
 //            // getters work for these
 //            if ("id".equals(key)) return wrapAsTemplateModel(entity.getId());
-//            if ("displayName".equals(key) || "name".equals(key)) return wrapAsTemplateModel(entity.getDisplayName());
+//            if ("displayName".equals(key)) return wrapAsTemplateModel(entity.getDisplayName());
 //            if ("parent".equals(key)) return wrapAsTemplateModel(entity.getParent());
 //            if ("application".equals(key)) return wrapAsTemplateModel(entity.getApplication());
 
+            if ("name".equals(key)) return wrapAsTemplateModel(entity.getDisplayName());
             if ("tags".equals(key)) return wrapAsTemplateModel(entity.tags().getTags());
 
             return null;
