@@ -165,7 +165,13 @@ brooklyn.catalog:
       item:
         type: org.apache.brooklyn.entity.group.GroupsChangePolicy
         name: GroupsChangePolicy
-        description: Applies policies to entities as they are added to DynamicGroups
+        description: Applies policies (or enrichers, adjuncts, etc) to entities as they are added to DynamicGroups
+    - id: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+        name: Invoke Effector on Sensor Change
+        description: Invokes an effector whenever the indicated sensor changes
     - id: org.apache.brooklyn.core.sensor.StaticSensor
       format: java-type-name
       itemType: bean
