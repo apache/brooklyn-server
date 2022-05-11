@@ -20,10 +20,17 @@ package org.apache.brooklyn.util.core.logbook.file;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 import org.apache.brooklyn.util.core.logbook.LogStore;
@@ -48,9 +55,16 @@ import java.util.stream.Stream;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.LOGBOOK_LOG_STORE_CLASSNAME;
+import static org.apache.brooklyn.util.core.logbook.LogbookConfig.LOGBOOK_MAX_RECURSIVE_TASKS;
 
 /**
- * Implementation for expose log from an existing file to the logbook API
+ * Exposes log from an existing file to the logbook API.
+ *
+ * Example config for local default implementation
+ * {@code <pre>
+ * brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.file.FileLogStore
+ * brooklyn.logbook.fileLogStore.path = /var/log/brooklyn/brooklyn.debug.log
+ * </pre>}
  */
 public class FileLogStore implements LogStore {
 
@@ -59,22 +73,20 @@ public class FileLogStore implements LogStore {
         assert FileLogStore.class.getName().equals(LOGBOOK_LOG_STORE_CLASSNAME.getDefaultValue());
     }
 
-    /*
-    # Example config for local default implementation
-    brooklyn.logbook.logStore = org.apache.brooklyn.util.core.logbook.file.FileLogStore
-    brooklyn.logbook.fileLogStore.path = /var/log/brooklyn/brooklyn.debug.log
-    */
     public final static String BASE_NAME_FILE_LOG_STORE = BASE_NAME_LOGBOOK + ".fileLogStore";
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_PATH = ConfigKeys.newStringConfigKey(
-            BASE_NAME_FILE_LOG_STORE + ".path", "Log file path", "data/log/brooklyn.debug.log");
-
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_REGEX = ConfigKeys.newStringConfigKey(
-            BASE_NAME_FILE_LOG_STORE + ".regexPattern",
-            "Log entry regex pattern",
-            "^(?<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z) (?<taskId>\\S+)?-(?<entityIds>\\S+)? (?<level>\\w{4} |\\w{5})\\W{1,4}(?<bundleId>\\d{1,3}) (?<class>(?:\\S\\.)*\\S*) \\[(?<threadName>\\S+)\\] (?<message>[\\s\\S]*?)\\n*(?=^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}|\\z)");
-
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_DATEFORMAT = ConfigKeys.newStringConfigKey(
-            BASE_NAME_FILE_LOG_STORE + ".dateFormat", "Date format", "yyyy-MM-dd'T'HH:mm:ss,SSS'Z'");
+    public final static ConfigKey<String> LOGBOOK_LOG_STORE_PATH = ConfigKeys.builder(String.class, BASE_NAME_FILE_LOG_STORE + ".path")
+            .description("Log file path")
+            .defaultValue("data/log/brooklyn.debug.log")
+            .constraint(Predicates.notNull())
+            .build();
+    public final static ConfigKey<String> LOGBOOK_LOG_STORE_REGEX = ConfigKeys.builder(String.class, BASE_NAME_FILE_LOG_STORE + ".regexPattern")
+            .description("Log entry regex pattern")
+            .defaultValue("^(?<timestamp>\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z) (?<taskId>\\S+)?-(?<entityIds>\\S+)? (?<level>\\w{4} |\\w{5})\\W{1,4}(?<bundleId>\\d{1,3}) (?<class>(?:\\S\\.)*\\S*) \\[(?<threadName>\\S+)\\] (?<message>[\\s\\S]*?)\\n*(?=^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}|\\z)")
+            .build();
+    public final static ConfigKey<String> LOGBOOK_LOG_STORE_DATEFORMAT = ConfigKeys.builder(String.class, BASE_NAME_FILE_LOG_STORE + ".dateFormat")
+            .description("Date format")
+            .defaultValue("yyyy-MM-dd'T'HH:mm:ss,SSS'Z'")
+            .build();
 
     public final static TimeZone UTC_TIMEZONE = TimeZone.getTimeZone("UTC");
 
@@ -82,24 +94,57 @@ public class FileLogStore implements LogStore {
     private final Path path;
     private final String logLinePattern;
     private final DateFormat dateFormat;
+    private final ManagementContext mgmt;
+    private final Integer maxTasks;
 
 
     @VisibleForTesting
     public FileLogStore() {
+        this.mgmt = null;
+        this.maxTasks = LOGBOOK_MAX_RECURSIVE_TASKS.getDefaultValue();
         this.path = null;
         this.filePath = "";
         this.logLinePattern = LOGBOOK_LOG_STORE_REGEX.getDefaultValue();
-        dateFormat = new SimpleDateFormat(LOGBOOK_LOG_STORE_DATEFORMAT.getDefaultValue());
-        dateFormat.setTimeZone(UTC_TIMEZONE);
+        this.dateFormat = new SimpleDateFormat(LOGBOOK_LOG_STORE_DATEFORMAT.getDefaultValue());
+        this.dateFormat.setTimeZone(UTC_TIMEZONE);
     }
 
     public FileLogStore(ManagementContext mgmt) {
+        this.mgmt = Preconditions.checkNotNull(mgmt);
+        this.maxTasks = mgmt.getConfig().getConfig(LOGBOOK_MAX_RECURSIVE_TASKS);
         this.filePath = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_PATH);
         this.logLinePattern = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_REGEX);
-        dateFormat = new SimpleDateFormat(mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_DATEFORMAT));
-        dateFormat.setTimeZone(UTC_TIMEZONE);
+        this.dateFormat = new SimpleDateFormat(mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_DATEFORMAT));
+        this.dateFormat.setTimeZone(UTC_TIMEZONE);
         Preconditions.checkNotNull(filePath, "Log file path must be set: " + LOGBOOK_LOG_STORE_PATH.getName());
-        this.path = Paths.get(this.filePath);
+        this.path = Paths.get(filePath);
+    }
+
+    /** Breadth-first recursive enumeration of tasks up to {@code maxTasks} */
+    private Set<String> enumerateTaskIds(Task<?> parent) {
+        Set<Task<?>> tasks = MutableSet.of(), current = MutableSet.of(parent), children;
+
+        enumerate: do {
+            children = MutableSet.of();
+            for (Task<?> task : current) {
+                if (task instanceof HasTaskChildren) {
+                    Iterables.addAll(children, ((HasTaskChildren) task).getChildren());
+                    Iterables.addAll(tasks, Iterables.limit(children, maxTasks - tasks.size()));
+
+                    if (tasks.size() == maxTasks) {
+                        break enumerate; // Limit reached
+                    }
+                }
+            }
+            current = children;
+        } while (children.size() > 0);
+
+        // Collect and return only the task ids
+        if (tasks.size() > 0) {
+            return tasks.stream()
+                    .map(Task::getId)
+                    .collect(Collectors.toSet());
+        } else return ImmutableSet.of();
     }
 
     @Override
@@ -108,6 +153,15 @@ public class FileLogStore implements LogStore {
         // TODO: the read of the file needs to be improved, specially to implement reading the file backwards and
         //  do a correct multiline log reading
         try (Stream<String> stream = Files.lines(path)) {
+
+            // Only enumerate child tasks once before preparing predicate
+            final Set<String> childTaskIds = MutableSet.of();
+            if (Strings.isNonBlank(params.getTaskId()) && params.isRecursive()) {
+                if (mgmt != null) {
+                    Task<?> parent = mgmt.getExecutionManager().getTask(params.getTaskId());
+                    childTaskIds.addAll(enumerateTaskIds(parent));
+                }
+            }
 
             Date dateTimeFrom = Strings.isNonBlank(params.getDateTimeFrom()) ? Time.parseDate(params.getDateTimeFrom()) : null;
             Date dateTimeTo = Strings.isNonBlank(params.getDateTimeTo()) ? Time.parseDate(params.getDateTimeTo()) : null;
@@ -153,8 +207,7 @@ public class FileLogStore implements LogStore {
                 {
                     isSearchEntityIdMatch =
                             (Strings.isNonBlank(brooklynLogEntry.getEntityIds()) && brooklynLogEntry.getEntityIds().contains(params.getEntityId())) ||
-                                    (Strings.isNonBlank(brooklynLogEntry.getMessage()) && brooklynLogEntry.getMessage().contains(params.getEntityId()))
-                    ;
+                                    (Strings.isNonBlank(brooklynLogEntry.getMessage()) && brooklynLogEntry.getMessage().contains(params.getEntityId()));
                 }
 
                 // Check search taskId as field or part of the message.
@@ -164,13 +217,19 @@ public class FileLogStore implements LogStore {
                     isSearchTaskIdMatch =
                             params.getTaskId().equals(brooklynLogEntry.getTaskId()) ||
                                     (Strings.isNonBlank(brooklynLogEntry.getMessage()) && brooklynLogEntry.getMessage().contains(params.getTaskId()));
+
+                    // Check child taskIds
+                    if (params.isRecursive() && !isSearchTaskIdMatch && !childTaskIds.isEmpty()) {
+                        isSearchTaskIdMatch = childTaskIds.stream().anyMatch(id ->
+                                    id.equals(brooklynLogEntry.getTaskId()) ||
+                                            (Strings.isNonBlank(brooklynLogEntry.getMessage()) && brooklynLogEntry.getMessage().contains(id)));
+                    }
                 }
 
                 // Check search phrases.
                 if (Strings.isNonBlank(params.getSearchPhrase()) && Strings.isNonBlank(brooklynLogEntry.getMessage())) {
                     isSearchPhraseMatch = brooklynLogEntry.getMessage().contains(params.getSearchPhrase());
                 }
-
 
                 return isLogLevelMatch
                         && isDateTimeFromMatch
