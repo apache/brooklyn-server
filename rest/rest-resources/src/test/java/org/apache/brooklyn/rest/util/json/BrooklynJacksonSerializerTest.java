@@ -223,6 +223,14 @@ public class BrooklynJacksonSerializerTest {
     }
 
     @Test
+    public void testEmptyDurationCreation() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        Object v2 = mapper.readerFor(Object.class).readValue(  "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(Duration.class.getName()) );
+        Asserts.assertEquals(v2, Duration.of(0));
+    }
+
+    @Test
     public void testManagementContextReadWrite() throws JsonProcessingException {
         ManagementContext mgmt = null;
         try {

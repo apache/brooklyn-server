@@ -36,6 +36,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -87,6 +88,18 @@ public class CommonTypesSerialization {
         public abstract String convertObjectToString(T value, JsonGenerator gen, SerializerProvider provider) throws IOException;
         public abstract T convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException;
 
+        public T newEmptyInstance() {
+            try {
+                Class<T> t = getType();
+                Constructor<T> tc = t.getDeclaredConstructor();
+                tc.setAccessible(true);
+                return tc.newInstance();
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                throw new IllegalArgumentException("Empty instances of " + getType() + " are not supported; provide a 'value:' indicating the value", e);
+            }
+        }
+
         public T convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
             throw new IllegalStateException(getType()+" should be supplied as map with 'value'; instead had " + value);
         }
@@ -135,7 +148,8 @@ public class CommonTypesSerialization {
             @Override
             public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
                 try {
-                    Object value = p.readValueAs(Object.class);
+                    Object valueO = p.readValueAs(Object.class);
+                    Object value = valueO;
                     if (value instanceof Map) {
                         if (((Map)value).size()==1 && ((Map)value).containsKey(BrooklynJacksonSerializationUtils.VALUE)) {
                             value = ((Map) value).get(BrooklynJacksonSerializationUtils.VALUE);
@@ -145,9 +159,12 @@ public class CommonTypesSerialization {
                     }
 
                     if (value==null) {
+                        if (valueO==null) return newEmptyInstance();
                         return null;
                     } else if (value instanceof String || Boxing.isPrimitiveOrBoxedClass(value.getClass())) {
                         return convertStringToObject(value.toString(), p, ctxt);
+                    } else if (value instanceof Map) {
+                        return convertSpecialMapToObject((Map)value, p, ctxt);
                     } else {
                         throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
                     }
