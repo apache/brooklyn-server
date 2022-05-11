@@ -154,10 +154,14 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
 
         // but access with the strongly typed key does work
         assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_TYPED, "foo", null);
-        // access with a marker-typed key also fail - coercion detects Map is not of the Marker interface, so tries bean-with-type conversion, but can't convert pure java type
-        // (the registered type variant does work)
-        assertLastDeployedKeysValueIs_NOT_OurCustomTypeWithFieldValues(CONF1_MARKER, "foo", null);
-        assertLastThrowableContainsIgnoreCase("cannot resolve", "beanwithtype", "marker");
+
+//        // access with a marker-typed key also fail - coercion detects Map is not of the Marker interface, so tries bean-with-type conversion, but can't convert pure java type
+//        // (the registered type variant does work)
+//        assertLastDeployedKeysValueIs_NOT_OurCustomTypeWithFieldValues(CONF1_MARKER, "foo", null);
+//        assertLastThrowableContainsIgnoreCase("cannot resolve", "beanwithtype", "marker");
+        // if tryConvertOrAbsentUsingContext doesn't allow java types this fails per above; however if we do allow java types, which we now do, it works
+        // due to the type above; however of course WithoutType (below) fails
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_MARKER, "foo", null);
     }
     @Test
     public void testJavaTypeDeclaredWithTypeInTypedParameter_TypeRetrievedOfCourse() throws Exception {

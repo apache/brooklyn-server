@@ -1762,7 +1762,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         if (Iterables.concat(validation.values()).iterator().hasNext()) {
             throw new IllegalStateException("Could not validate one or more items: "+validation);
         }
-        return validation.keySet();
+        return result.keySet();
     }
 
     @Override @Beta

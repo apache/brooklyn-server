@@ -49,6 +49,10 @@ public class BrooklynJacksonSerializationUtils {
 
     private static final Logger log = LoggerFactory.getLogger(BrooklynJacksonSerializationUtils.class);
 
+    public static final String TYPE = "type";
+    public static final String VALUE = "value";
+    public static final String DEFAULT = "default";
+
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
         List<Function<JsonDeserializer<?>,JsonDeserializer<?>>> deserializerWrappers = MutableList.of();
         List<Function<Object,Object>> postConstructFunctions = MutableList.of();
@@ -163,6 +167,21 @@ public class BrooklynJacksonSerializationUtils {
         protected Object deserializeWrapper(JsonParser jp, DeserializationContext ctxt, BiFunctionThrowsIoException<JsonParser, DeserializationContext, Object> nestedDeserialize) throws IOException {
             String v = jp.getCurrentToken()==JsonToken.VALUE_STRING ? jp.getValueAsString() : null;
             try {
+//                // TODO remove; not needed
+//                if (v!=null && _valueClass!=null) {
+//                    if (ManagementContext.class.isAssignableFrom(_valueClass)) {
+//                        if (DEFAULT.equals(v)) {
+//                            if (mgmt!=null) {
+//                                return mgmt;
+//                            } else {
+//                                throw new IllegalArgumentException("Deserialization of " + _valueClass + " not permitted here (no management context available)");
+//                            }
+//                        } else {
+//                            throw new IllegalArgumentException("Deserialization of " + _valueClass + " from '"+v+"' not supported; only 'default' is allowed");
+//                        }
+//                    }
+//                }
+
                 Object result = nestedDeserialize.apply(jp, ctxt);
 
                 if (BROOKLYN_PARSE_DSL_FUNCTION!=null && mgmt!=null && result instanceof Map) {
