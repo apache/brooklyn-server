@@ -120,33 +120,6 @@ public class FileLogStore implements LogStore {
         this.path = Paths.get(filePath);
     }
 
-    /** Breadth-first recursive enumeration of tasks up to {@code maxTasks} */
-    private Set<String> enumerateTaskIds(Task<?> parent) {
-        Set<Task<?>> tasks = MutableSet.of(), current = MutableSet.of(parent), children;
-
-        enumerate: do {
-            children = MutableSet.of();
-            for (Task<?> task : current) {
-                if (task instanceof HasTaskChildren) {
-                    Iterables.addAll(children, ((HasTaskChildren) task).getChildren());
-                    Iterables.addAll(tasks, Iterables.limit(children, maxTasks - tasks.size()));
-
-                    if (tasks.size() == maxTasks) {
-                        break enumerate; // Limit reached
-                    }
-                }
-            }
-            current = children;
-        } while (children.size() > 0);
-
-        // Collect and return only the task ids
-        if (tasks.size() > 0) {
-            return tasks.stream()
-                    .map(Task::getId)
-                    .collect(Collectors.toSet());
-        } else return ImmutableSet.of();
-    }
-
     @Override
     public List<BrooklynLogEntry> query(LogBookQueryParams params) {
 
@@ -159,7 +132,7 @@ public class FileLogStore implements LogStore {
             if (Strings.isNonBlank(params.getTaskId()) && params.isRecursive()) {
                 if (mgmt != null) {
                     Task<?> parent = mgmt.getExecutionManager().getTask(params.getTaskId());
-                    childTaskIds.addAll(enumerateTaskIds(parent));
+                    childTaskIds.addAll(enumerateTaskIds(parent, maxTasks));
                 }
             }
 

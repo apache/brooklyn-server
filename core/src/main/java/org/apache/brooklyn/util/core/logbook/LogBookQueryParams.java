@@ -32,7 +32,7 @@ public class LogBookQueryParams {
     private Boolean tail;
 
     /** The indicator whether to list sub-task items (recursively) or not */
-    private Boolean recursive;
+    private Boolean recursive = false;
 
     /** The log levels: INFO, FATAL, ERROR, DEBUG or WARNING */
     private List<String> levels;
