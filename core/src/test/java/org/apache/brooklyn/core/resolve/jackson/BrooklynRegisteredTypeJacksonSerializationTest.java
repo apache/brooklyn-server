@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -146,6 +147,13 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         // used and unused is serialized
         Asserts.assertSize(in.getUnusedConfig(), 2);
         Asserts.assertEquals(in.getAllConfig(), bag.getAllConfig());
+    }
+
+    @Test
+    public void testEmptyDuration() {
+        Object impl = mgmt().getTypeRegistry().createBeanFromPlan(BeanWithTypePlanTransformer.FORMAT,
+                "type: "+ Duration.class.getName(), null, null);
+        Asserts.assertInstanceOf(impl, Duration.class);
     }
 
 }
