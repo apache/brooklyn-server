@@ -104,6 +104,7 @@ import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriB
 public class ApplicationResource extends AbstractBrooklynRestResource implements ApplicationApi {
 
     private static final Logger log = LoggerFactory.getLogger(ApplicationResource.class);
+    private static final String AUTHORIZATION_ERR_MSG = "User '%s' is not authorized to start application %s";
 
     @Context
     private UriInfo uriInfo;
@@ -368,8 +369,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     /** @deprecated since 0.7.0 see #create */ @Deprecated
     protected Response createFromAppSpec(ApplicationSpec applicationSpec) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, applicationSpec)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                Entitlements.getEntitlementContext().user(), applicationSpec);
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), applicationSpec);
         }
 
         checkApplicationTypesAreValid(applicationSpec);
@@ -453,8 +453,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                Entitlements.getEntitlementContext().user(), yaml);
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), yaml);
         }
 
         try {
@@ -483,8 +482,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     EntityAndItem.of(app, StringAndArgument.of(Startable.START.getName(), null)));
 
             if (!isEntitled) {
-                throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                    Entitlements.getEntitlementContext().user(), spec.getType());
+                throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), spec.getType());
             }
 
             CreationResult<Application,Void> result = EntityManagementUtils.start(app);
@@ -582,8 +580,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
         if (spec != null) {
             if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
-                throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                        Entitlements.getEntitlementContext().user(), potentialYaml);
+                throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), potentialYaml);
             }
             try {
                 return launch(potentialYaml, spec, Optional.absent());
