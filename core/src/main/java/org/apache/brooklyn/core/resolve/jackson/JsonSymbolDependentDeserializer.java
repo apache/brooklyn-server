@@ -109,13 +109,9 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
         return contextualize(getObjectDeserializer()).deserialize(p, ctxt);
     }
     protected JsonDeserializer<?> getObjectDeserializer() throws IOException, JsonProcessingException {
-        DeserializerFactory f = ctxt.getFactory();
-        if (f instanceof BeanDeserializerFactory) {
-            // don't recurse, we're likely to just return ourselves
-            return ((BeanDeserializerFactory)f).buildBeanDeserializer(ctxt, type, getBeanDescription());
-        }
-        // will probably cause endless loop; we don't know how to deserialize
-        return f.createBeanDeserializer(ctxt, type, getBeanDescription());
+        return CommonTypesSerialization.createBeanDeserializer(ctxt, type, getBeanDescription(),
+                /** try to do low level build so we don't recreate ourselves and loop endlessly */ true,
+                true);
     }
 
 }

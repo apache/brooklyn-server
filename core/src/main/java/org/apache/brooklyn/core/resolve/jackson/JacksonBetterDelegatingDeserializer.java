@@ -20,8 +20,10 @@ package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.JsonTokenId;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.BeanDeserializerBase;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
 import com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializer;
@@ -118,9 +120,15 @@ public abstract class JacksonBetterDelegatingDeserializer extends DelegatingDese
 
     @Override
     public Object deserialize(JsonParser jp1, DeserializationContext ctxt1) throws IOException {
-        return deserializeWrapper(jp1, ctxt1, (jp2, ctxt2) -> _delegatee instanceof CollectionDelegatingUntypedObjectDeserializer
+        return deserializeWrapper(jp1, ctxt1, (jp2, ctxt2) ->
+                _delegatee instanceof CollectionDelegatingUntypedObjectDeserializer
                     ? ((CollectionDelegatingUntypedObjectDeserializer)_delegatee).deserializeReal(jp2, ctxt2)
-                    : _delegatee.deserialize(jp2, ctxt2));
+
+                        // might be necessary to do this if we've started to analyse the type; but impls seems to be flexible enough to adapt as eneded
+//                    : jp2.currentTokenId() == JsonTokenId.ID_FIELD_NAME && (_delegatee instanceof BeanDeserializerBase)
+//                        ? ((BeanDeserializerBase)_delegatee).deserializeFromObject(jp2, ctxt2)
+
+                        : _delegatee.deserialize(jp2, ctxt2));
     }
 
     @Override

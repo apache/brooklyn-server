@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
@@ -194,12 +195,18 @@ public class BrooklynTypeNameResolution {
         return new BetterToStringParameterizedTypeImpl(raw, null, types.toArray(new Type[0]));
     }
 
-    private static final class BetterToStringParameterizedTypeImpl implements ParameterizedType {
+    @Beta
+    public static ParameterizedType parameterizedType(ParameterizedType t) {
+        return new BetterToStringParameterizedTypeImpl(t);
+    }
+
+    @Beta
+    public static final class BetterToStringParameterizedTypeImpl implements ParameterizedType {
         // because Apache Commons ParameterizedTypeImpl toString is too rigid
 
-        private final Class<?> raw;
-        private final Type useOwner;
-        private final Type[] typeArguments;
+        private Type raw;
+        private Type useOwner;
+        private Type[] typeArguments;
 
         /**
          * Constructor
@@ -211,6 +218,17 @@ public class BrooklynTypeNameResolution {
             this.raw = raw;
             this.useOwner = useOwner;
             this.typeArguments = typeArguments;
+        }
+
+        // JSON deserializer constructor
+        private BetterToStringParameterizedTypeImpl() {
+            this(null, null, null);
+        }
+
+        private BetterToStringParameterizedTypeImpl(ParameterizedType t) {
+            this.raw = t.getRawType();
+            this.useOwner = t.getOwnerType();
+            this.typeArguments = t.getActualTypeArguments();
         }
 
         /**
@@ -291,6 +309,19 @@ public class BrooklynTypeNameResolution {
             result <<= 8;
             result |= Arrays.hashCode(typeArguments);
             return result;
+        }
+
+        // compatibility setters to match sun ParameterizedTypeImpl
+        private void setActualTypeArguments(Type[] typeArguments) {
+            this.typeArguments = typeArguments;
+        }
+        private void setOwnerType(Type useOwner) {
+            this.useOwner = useOwner;
+        }
+        private void setRawType(Type raw) {
+            this.raw = raw;
+        }
+        private void setTypeName(Object ignored) {
         }
     }
 

@@ -18,13 +18,13 @@
  */
 package org.apache.brooklyn.rest.util.json;
 
-import java.io.NotSerializableException;
-import java.time.Instant;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -52,11 +52,11 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
+import java.io.NotSerializableException;
+import java.time.Instant;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 public class BrooklynJacksonSerializerTest {
 
@@ -340,6 +340,37 @@ public class BrooklynJacksonSerializerTest {
         String result = checkSerializesAs(BrooklynTaskTags.tagForStream("TEST", Streams.byteArrayOfString("x")), null);
         log.info("WRAPPED STREAM json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+    }
+
+    @Test
+    public void testGuavaTypeTokenSerialization() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        // fails with SO if we haven't intercepted
+        String out = mapper.writerFor(Object.class).writeValueAsString(TypeToken.of(Object.class));
+
+        Asserts.assertStringContains(out, Object.class.getName());
+
+        Object tt2 = mapper.readerFor(Object.class).readValue(out);
+        Asserts.assertInstanceOf(tt2, TypeToken.class);
+        Asserts.assertEquals(((TypeToken)tt2).getRawType(), Object.class);
+        Asserts.assertEquals(tt2.toString(), "java.lang.Object");
+    }
+
+    @Test
+    public void testComplexGuavaTypeTokenSerialization() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        TypeToken<List<List<String>>> tt = new TypeToken<List<List<String>>>() {};
+        // fails with SO if we haven't intercepted
+        String out = mapper.writerFor(Object.class).writeValueAsString(tt);
+
+        Asserts.assertStringContains(out, List.class.getName());
+        Asserts.assertStringContains(out, String.class.getName());
+
+        Object tt2 = mapper.readerFor(Object.class).readValue(out);
+        Asserts.assertInstanceOf(tt2, TypeToken.class);
+        Asserts.assertEquals(tt2.toString(), "java.util.List<java.util.List<java.lang.String>>");
     }
 
     @SuppressWarnings("unchecked")
