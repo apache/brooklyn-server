@@ -46,6 +46,7 @@ public class OsgiBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
         this.hasBundles = bundles!=null && !bundles.isEmpty();
         this.catalogItemId = catalogItemId;
     }
+    /** classloader using _only_ the things in view of this entity. for broader loader, use RegisteredTypes.getClassLoadingContext(entity). */
     public OsgiBrooklynClassLoadingContext(Entity entity) {
         this(((EntityInternal)entity).getManagementContext(), entity.getCatalogItemId(), null);
     }

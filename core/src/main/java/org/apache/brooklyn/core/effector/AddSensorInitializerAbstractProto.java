@@ -24,8 +24,10 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.BrooklynTypeNameResolver;
@@ -47,6 +49,7 @@ public interface AddSensorInitializerAbstractProto<T> extends EntityInitializer 
     @SuppressWarnings("unchecked")
     @Beta
     public static <T> TypeToken<T> getType(Entity entity, String className, String name) {
-        return (TypeToken<T>)(TypeToken) new BrooklynTypeNameResolver("sensor "+name+" on "+entity, new OsgiBrooklynClassLoadingContext(entity), true, true).getTypeToken(className);
+        return (TypeToken<T>)(TypeToken) new BrooklynTypeNameResolver("sensor "+name+" on "+entity,
+                RegisteredTypes.getClassLoadingContext(entity), true, true).getTypeToken(className);
     }
 }

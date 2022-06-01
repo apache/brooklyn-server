@@ -822,7 +822,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testEntitySpecConfig() throws Exception {
+    public void testEntitySpecConfigDsl() throws Exception {
         String yaml =
                 "services:\n"+
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestEntity\n"+
@@ -836,6 +836,25 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
+        TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
+        assertEquals(child.getConfig(TestEntity.CONF_NAME), "inchildspec");
+    }
+
+    @Test
+    public void testEntitySpecConfigCoerced() throws Exception {
+        String yaml =
+                "services:\n"+
+                        "- serviceType: org.apache.brooklyn.core.test.entity.TestEntity\n"+
+                        "  brooklyn.config:\n"+
+                        "   test.childSpec:\n"+
+                        //"     $brooklyn:entitySpec:\n"+
+                        "       type: org.apache.brooklyn.core.test.entity.TestEntity\n"+
+                        "       brooklyn.config:\n"+
+                        "         test.confName: inchildspec\n";
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
         assertEquals(child.getConfig(TestEntity.CONF_NAME), "inchildspec");
     }

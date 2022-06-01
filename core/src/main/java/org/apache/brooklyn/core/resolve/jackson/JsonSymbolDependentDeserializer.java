@@ -31,7 +31,7 @@ import java.util.Set;
 import java.util.function.Function;
 import org.apache.brooklyn.util.core.xstream.ImmutableSetConverter;
 
-public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
+public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
 
     public static final Set<JsonToken> SIMPLE_TOKENS = ImmutableSet.of(
             JsonToken.VALUE_STRING,
@@ -48,7 +48,8 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
 
     public BeanDescription getBeanDescription() {
         if (beanDesc!=null) return beanDesc;
-        return beanDesc = ctxt.getConfig().introspect(type);
+        if (type!=null) return beanDesc = ctxt.getConfig().introspect(type);
+        return null;
     }
 
     @Override
@@ -62,9 +63,14 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
             // this is normally set during contextualization but not during deserialization (although not if we're the ones contextualizing it)
             type = ctxt.getContextualType();
         }
+        if (type==null) {
+            type = getDefaultType();
+        }
 
         return this;
     }
+
+    public abstract JavaType getDefaultType();
 
     @Override
     public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
