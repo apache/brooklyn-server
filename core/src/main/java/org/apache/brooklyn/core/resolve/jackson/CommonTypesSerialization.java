@@ -32,15 +32,11 @@ import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -57,9 +53,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class CommonTypesSerialization {
@@ -80,10 +74,9 @@ public class CommonTypesSerialization {
         new InstantSerialization().apply(m);
         new ManagementContextSerialization(mgmt).apply(m);
         new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
-        new BrooklynSpecSerialization(mgmt).apply(m, interceptible);
         new GuavaTypeTokenSerialization().apply(mapper, m, interceptible);
 
-        // see also JsonDeserializerForCommonBrooklynThings
+        // see also JsonDeserializerForCommonBrooklynThings, and BrooklynDslCommon coercion of Spec
 
         mapper.registerModule(m);
     }
@@ -285,58 +278,6 @@ public class CommonTypesSerialization {
             BrooklynObject result = mgmt.lookup(value);
             if (result!=null) return result;
             throw new IllegalStateException("Entity or other BrooklynObject '"+value+"' is not known here");
-        }
-    }
-
-    public static class BrooklynSpecSerialization {
-        private final ManagementContext mgmt;
-
-        public BrooklynSpecSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
-
-        public <T extends SimpleModule> T apply(T module, InterceptibleDeserializers interceptable) {
-            // no-op - does not work (TODO - delete)
-//            // apply to all subtypes of BOSpec
-//            // (deserialization only)
-//            interceptable.addSubtypeInterceptor(getType(), new Deserializer());
-//            module.addDeserializer(getType(), (JsonDeserializer) new Deserializer());
-            return module;
-        }
-
-        public Class<AbstractBrooklynObjectSpec> getType() { return AbstractBrooklynObjectSpec.class; }
-
-        protected class Deserializer extends JsonSymbolDependentDeserializer {
-            @Override
-            public JavaType getDefaultType() {
-                // TODO assume EntitySpec
-                return ctxt.constructType(EntitySpec.class);
-            }
-
-            @Override
-            protected Object deserializeObject(JsonParser p) throws IOException {
-                BiFunction<ManagementContext, Object, Object> dslParse = BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION;
-                if (dslParse!=null) {
-                    TokenBuffer b = TokenBuffer.asCopyOfValue(p);
-                    try {
-                        Object obj =
-                                b.asParser().readValueAsTree();
-                                // b.asParser().readValueAs(Map.class);
-                                 ctxt.findRootValueDeserializer(ctxt.constructType(Map.class)).deserialize(p, ctxt);
-                        if (obj instanceof Map) {
-                            // TODO what about other spec types?
-                            return dslParse.apply(mgmt, MutableMap.of("$brooklyn:entitySpec", obj));
-                        }
-                        if (obj instanceof Supplier || obj instanceof AbstractBrooklynObjectSpec) {
-                            return obj;
-                        }
-                        LOG.trace("Could not parse spec using custom deserializer, trying normal deserializer; obj {}", obj);
-                    } catch (Exception e) {
-                        Exceptions.propagateIfFatal(e);
-                        LOG.trace("Could not parse spec using custom deserializer, trying normal deserializer; error: "+e, e);
-                    }
-                    p = b.asParserOnFirstToken();
-                }
-                return super.deserializeObject(p);
-            }
         }
     }
 
