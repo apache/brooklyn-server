@@ -799,6 +799,26 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
     }
 
     @Test
+    public void addInvalidTypeFails() throws Exception {
+        try {
+            List<String> lines = MutableList.of(
+                    "brooklyn.catalog:",
+                    "  items:",
+                    "  - ",
+                    "    id: missing",
+                    "    version: " + TEST_VERSION_SNAPSHOT,
+                    "    item: " + "DeliberatelyMissing");
+            addCatalogItems(lines);
+            // should have failed above
+            RegisteredType missing = mgmt().getTypeRegistry().get("missing");
+            Asserts.shouldHaveFailedPreviously("Instead had: "+missing+" "+(missing==null ? "" : missing.getKind()+"/"+missing.getSuperTypes()));
+
+        } catch (Exception e) {
+            Asserts.expectedFailure(e);
+        }
+    }
+
+    @Test
     public void testReplacementFailureLeavesPreviousNamedBundleIntact() throws Exception {
         doTestReplacementFailureLeavesPreviousIntact(true);
     }

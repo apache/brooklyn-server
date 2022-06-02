@@ -1430,8 +1430,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     try {
                         triedBean = true;
                         t = mgmt.getTypeRegistry().createBeanFromPlan(format, itemYaml, constraint, null);
-                        if (format==null && (t instanceof Map || t instanceof Collection)) {
+                        if (format==null && isDubiousBeanType(t)) {
                             // doesn't look like a bean
+                            // probably we want to set this - but was omitted previously; added 2022-05
+                            t = null;
                         } else {
                             catalogItemType = CatalogItemType.BEAN;
                         }
@@ -1611,6 +1613,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             this.itemId = itemId;
             return this;
         }
+    }
+
+    private static boolean isDubiousBeanType(Object t) {
+        return t instanceof Map || t instanceof Collection;
     }
 
     /** records the type this catalog is currently trying to resolve items being added to the catalog, if it is trying to resolve.
@@ -1883,6 +1889,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate);
             try {
                 resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, constraint, superJ);
+                if (typeToValidate.getKind()!=RegisteredTypeKind.BEAN && isDubiousBeanType(resultO)) {
+                    // 2022-05 previously we would set this, and it would get re-resolved better later on; but now we don't; if it's a dubious bean
+                    // (ie a map or collection) you have to specify that is a bean
+                    resultO = null;
+                    throw new IllegalStateException("Dubious resolution of "+typeToValidate+" as "+resultO.getClass().getName()+" "+resultO+"; if this is intended, specify kind as bean");
+                }
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 beanError = e;

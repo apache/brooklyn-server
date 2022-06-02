@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -61,6 +62,16 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         Object impl = deser("{\"type\":\""+SampleBean.class.getName()+"\",\"x\":\"hello\"}");
         Asserts.assertInstanceOf(impl, SampleBean.class);
         Asserts.assertEquals(((SampleBean)impl).x, "hello");
+    }
+
+    @Test
+    public void testDeserializeUnknownTypeFails() throws JsonProcessingException {
+        try {
+            Object x = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true).readValue("type: DeliberatelyMissing", Object.class);
+            Asserts.shouldHaveFailedPreviously("Should have failed due to unknown type; instead got "+x);
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "DeliberatelyMissing");
+        }
     }
 
     @Test
