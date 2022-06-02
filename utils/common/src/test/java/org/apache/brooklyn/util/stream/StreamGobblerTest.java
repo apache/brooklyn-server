@@ -39,6 +39,8 @@ public class StreamGobblerTest {
     private final String NL = Os.LINE_SEPARATOR;
 
     private void testStreamGobbler(String text) throws Exception {
+        text = text.replace(""+StreamGobbler.REPLACEMENT_CHARACTER, "_");
+
         LOG.info("Processing text: '{}'", text);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayInputStream in = new ByteArrayInputStream(text.getBytes());
@@ -48,7 +50,8 @@ public class StreamGobblerTest {
         streamGobbler.close();
         out.close();
 
-        String expected = Strings.isBlank(text) ? "" : text.replace("\t\r","\r").replace("\r","\n") + NL;
+        // approximate regex-- might not work for all whitespace combos
+        String expected = Strings.isBlank(text) ? "" : text.replace("\t\r","\r").replaceAll("\r","\n") + NL;
         Assert.assertEquals(out.toString(), expected);
     }
 

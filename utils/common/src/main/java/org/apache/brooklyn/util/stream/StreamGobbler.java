@@ -25,9 +25,12 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/** eagerly consumes a stream, writing to another stream; applies some whitespace and replacement character filtering */
 public class StreamGobbler extends Thread implements Closeable {
 
-    private static final char REPLACEMENT_CHARACTER = 0xfffd;
+    /** this character is omitted from the stream */
+    public static final char REPLACEMENT_CHARACTER = 0xfffd;
+
     protected final InputStream stream;
     protected final PrintStream out;
     protected final Logger log;
