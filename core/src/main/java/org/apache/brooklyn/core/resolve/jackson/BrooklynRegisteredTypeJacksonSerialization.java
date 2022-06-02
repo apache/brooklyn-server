@@ -123,19 +123,30 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                     return new BrooklynJacksonType(rt);
                 }
             }
-            if (loader!=null) {
-                Maybe<Class<?>> fromLoader = loader.tryLoadClass(id);
-                if (fromLoader.isPresent()) {
-                    return context.constructType(fromLoader.get());
-                }
-            }
             // TODO - this would be nice to support complex types
 //            if (type is present in a registered type) {
 //                get the bundle of registered type
 //                use that classloader to instantiate the type
 //            }
             if (allowPojoJavaTypes) {
-                return super.typeFromId(context, id);
+                if (loader!=null) {
+                    Maybe<Class<?>> fromLoader = loader.tryLoadClass(id);
+                    if (fromLoader.isPresent()) {
+                        // contextual base type ignored; more sophisticated handling is done by jackson but this seems good enough
+                        return context.constructType(fromLoader.get());
+                    }
+                }
+
+                // this will validate id is a subtype of expected type, and take most specific
+                try {
+                    return super.typeFromId(context, id);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    // loader-based registered types logic does not validate, so for consistency we proceed even if unvalidated;
+                    // note if the type is not a subtype, we will typically get an error when validating the deserializer or using it
+                    // (coercion could be attempted for both by extending in AsPropertyIfAmbiguous)
+                    return context.resolveAndValidateSubType(context.constructType(Object.class), id, _subTypeValidator);
+                }
             }
 
             // even if we aren't allowed to load java types, if the expected type matches, then we will allow it
@@ -157,6 +168,15 @@ public class BrooklynRegisteredTypeJacksonSerialization {
         @Override
         public JavaType getBaseType() {
             return _baseType;
+        }
+
+        @Override
+        public String idFromBaseType() {
+            if (_baseType instanceof BrooklynJacksonType) {
+                return ((BrooklynJacksonType)_baseType).getTypeName();
+            }
+            // fall back to the raw class name
+            return super.idFromBaseType();
         }
     }
 

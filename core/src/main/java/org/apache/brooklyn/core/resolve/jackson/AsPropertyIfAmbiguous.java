@@ -34,22 +34,21 @@ import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
-import java.lang.reflect.AccessibleObject;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.function.Supplier;
-import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseType;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 
 import java.io.IOException;
+import java.lang.reflect.AccessibleObject;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.brooklyn.util.text.Strings;
 
 public class AsPropertyIfAmbiguous {
+
+    public static final String CONFLICTING_TYPE_NAME_PROPERTY_PREFIX = "@";
+
     public interface HasBaseType {
         JavaType getBaseType();
     }
@@ -100,6 +99,13 @@ public class AsPropertyIfAmbiguous {
                 }
                 return idMetadata;
             }
+            String tpn = idMetadata.asProperty;
+            if (tpn==null) tpn = _typePropertyName;
+            if (currentClass!=null && Reflections.findFieldMaybe(currentClass, tpn).isPresent()) {
+                // the class has a field called 'type'; prefix with an '@'
+                tpn = CONFLICTING_TYPE_NAME_PROPERTY_PREFIX+tpn;
+                idMetadata.asProperty = tpn;
+            }
             return super.writeTypePrefix(g, idMetadata);
         }
 
@@ -110,7 +116,7 @@ public class AsPropertyIfAmbiguous {
         }
     }
 
-    /** Type deserializer which ignores the 'type' property if it conflicts with a field on the class and which uses the base type if no type is specified */
+    /** Type deserializer which undersrtands a '@type' property if 'type' conflicts with a field on the class and which uses the base type if no type is specified */
     public static class AsPropertyButNotIfFieldConflictTypeDeserializer extends AsPropertyTypeDeserializer {
         public AsPropertyButNotIfFieldConflictTypeDeserializer(JavaType bt, TypeIdResolver idRes, String typePropertyName, boolean typeIdVisible, JavaType defaultImpl, As inclusion) {
             super(bt, idRes, typePropertyName, typeIdVisible, defaultImpl, inclusion);
@@ -125,6 +131,10 @@ public class AsPropertyIfAmbiguous {
             return super.deserializeTypedFromArray(jp, ctxt);
         }
 
+        AsPropertyButNotIfFieldConflictTypeDeserializer cloneWithNewTypePropertyName(String newTypePropertyName) {
+            return new AsPropertyButNotIfFieldConflictTypeDeserializer(_baseType, _idResolver, newTypePropertyName, _typeIdVisible, _defaultImpl, _inclusion);
+        }
+
         @Override
         public Object deserializeTypedFromObject(JsonParser p, DeserializationContext ctxt) throws IOException {
             if (_idResolver instanceof HasBaseType) {
@@ -133,11 +143,15 @@ public class AsPropertyIfAmbiguous {
                         || // or object has getter with same name as the type property
                         presentAndNotJsonIgnored(Reflections.findMethodMaybe(((HasBaseType)_idResolver).getBaseType().getRawClass(), "get"+ Strings.toInitialCapOnly(_typePropertyName)))
                 ) {
-                    // don't read type id, just deserialize
-                    JsonDeserializer<Object> deser = ctxt.findContextualValueDeserializer(((HasBaseType)_idResolver).getBaseType(), _property);
-                    return deser.deserialize(p, ctxt);
+                    // look for an '@' type
+                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX+_typePropertyName).deserializeTypedFromObject(p, ctxt);
+
+                    // previous behaviour:
+//                    // don't read type id, just deserialize
+//                    JsonDeserializer<Object> deser = ctxt.findContextualValueDeserializer(((HasBaseType)_idResolver).getBaseType(), _property);
+//                    return deser.deserialize(p, ctxt);
                 }
-                // TODO MapperFeature.USE_BASE_TYPE_AS_DEFAULT_IMPL should do this
+                // ? - MapperFeature.USE_BASE_TYPE_AS_DEFAULT_IMPL should do this
                 if (!Objects.equals(_defaultImpl, ((HasBaseType) _idResolver).getBaseType())) {
                     AsPropertyButNotIfFieldConflictTypeDeserializer delegate = new AsPropertyButNotIfFieldConflictTypeDeserializer(_baseType, _idResolver, _typePropertyName, _typeIdVisible, ((HasBaseType) _idResolver).getBaseType(), _inclusion);
                     return delegate.deserializeTypedFromObject(p, ctxt);
@@ -166,6 +180,8 @@ public class AsPropertyIfAmbiguous {
                 // when we suppress types for collections, the deserializer
                 // doesn't differentiate and so expects another array start.
                 // we assume the default impl
+
+                // previously for RTs this downcasted to java class; now it remains as RT name
                 String typeId = _idResolver.idFromBaseType();
                 JsonDeserializer<Object> deser = _findDeserializer(ctxt, typeId);
 

@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
 import com.fasterxml.jackson.databind.deser.DeserializerFactory;
@@ -32,10 +33,13 @@ import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -56,6 +60,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createBeanDeserializer;
+
 public class CommonTypesSerialization {
 
     private static final Logger LOG = LoggerFactory.getLogger(CommonTypesSerialization.class);
@@ -74,6 +80,7 @@ public class CommonTypesSerialization {
         new InstantSerialization().apply(m);
         new ManagementContextSerialization(mgmt).apply(m);
         new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
+        new ConfigKeySerialization(mgmt).apply(m);
         new GuavaTypeTokenSerialization().apply(mapper, m, interceptible);
 
         // see also JsonDeserializerForCommonBrooklynThings, and BrooklynDslCommon coercion of Spec
@@ -169,7 +176,7 @@ public class CommonTypesSerialization {
             @Override
             public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
                 try {
-                    Object valueO = p.readValueAs(Object.class);
+                    Object valueO = p.readValueAs(Object.class); // if using a token buffer, see BJSUtils.createBufferForParserCurrentObject
                     Object value = valueO;
                     if (value instanceof Map) {
                         if (((Map)value).size()==1 && ((Map)value).containsKey(BrooklynJacksonSerializationUtils.VALUE)) {
@@ -281,6 +288,21 @@ public class CommonTypesSerialization {
         }
     }
 
+    public static class ConfigKeySerialization {
+        private final ManagementContext mgmt;
+        public ConfigKeySerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
+        public void apply(SimpleModule m) {
+            m.addKeyDeserializer(ConfigKey.class, new CKKeyDeserializer());
+        }
+        static class CKKeyDeserializer extends KeyDeserializer {
+            @Override
+            public Object deserializeKey(String key, DeserializationContext ctxt) throws IOException {
+                // ignores type, but allows us to serialize entity specs etc
+                return ConfigKeys.newConfigKey(Object.class, key);
+            }
+        }
+    }
+
     /** Serializing TypeTokens is annoying; basically we wrap the Type, and intercept 3 things specially */
     public static class GuavaTypeTokenSerialization extends BeanSerializerModifier {
 
@@ -355,32 +377,6 @@ public class CommonTypesSerialization {
                 return createBeanDeserializer(ctxt, getDefaultType());
             }
         }
-    }
-
-    @Beta
-    public static JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt, JavaType t) throws JsonMappingException {
-        return createBeanDeserializer(ctxt, t, null, false, true);
-    }
-
-    /** Do what ctxt.findRootValueDeserializer does, except don't get special things we've registered, so we can get actual bean deserializers back,
-     * e.g. as fallback impls in our custom deserializers */
-    @Beta
-    public static JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt, JavaType t, BeanDescription optionalBeanDescription,
-                                                                          boolean beanFactoryBuildPossible, boolean resolve) throws JsonMappingException {
-        if (optionalBeanDescription==null) optionalBeanDescription = ctxt.getConfig().introspect(t);
-
-        DeserializerFactory f = ctxt.getFactory();
-        JsonDeserializer<Object> deser;
-        if (beanFactoryBuildPossible || f instanceof BeanDeserializerFactory) {
-            // go directly to builder to avoid returning ones based on annotations etc
-            deser = ((BeanDeserializerFactory)f).buildBeanDeserializer(ctxt, t, optionalBeanDescription);
-        } else {
-            deser = ctxt.getFactory().createBeanDeserializer(ctxt, t, optionalBeanDescription);
-        }
-        if (resolve && deser instanceof ResolvableDeserializer) {
-            ((ResolvableDeserializer) deser).resolve(ctxt);
-        }
-        return deser;
     }
 
 }

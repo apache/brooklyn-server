@@ -31,6 +31,8 @@ import java.util.Set;
 import java.util.function.Function;
 import org.apache.brooklyn.util.core.xstream.ImmutableSetConverter;
 
+import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createBeanDeserializer;
+
 public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
 
     public static final Set<JsonToken> SIMPLE_TOKENS = ImmutableSet.of(
@@ -115,7 +117,7 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
         return contextualize(getObjectDeserializer()).deserialize(p, ctxt);
     }
     protected JsonDeserializer<?> getObjectDeserializer() throws IOException, JsonProcessingException {
-        return CommonTypesSerialization.createBeanDeserializer(ctxt, type, getBeanDescription(),
+        return createBeanDeserializer(ctxt, type, getBeanDescription(),
                 /** try to do low level build so we don't recreate ourselves and loop endlessly */ true,
                 true);
     }

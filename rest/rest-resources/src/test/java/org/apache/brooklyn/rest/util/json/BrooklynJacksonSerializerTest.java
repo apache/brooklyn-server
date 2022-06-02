@@ -34,11 +34,14 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.BidiSerialization;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
@@ -54,6 +57,7 @@ import org.testng.annotations.Test;
 
 import java.io.NotSerializableException;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -371,6 +375,73 @@ public class BrooklynJacksonSerializerTest {
         Object tt2 = mapper.readerFor(Object.class).readValue(out);
         Asserts.assertInstanceOf(tt2, TypeToken.class);
         Asserts.assertEquals(tt2.toString(), "java.util.List<java.util.List<java.lang.String>>");
+    }
+
+    static class SpecHolder {
+        String label;
+        WrappedValue<EntitySpec> specT;
+        WrappedValue<Object> specU;
+    }
+    @Test
+    public void testEntitySpecSerialization() throws JsonProcessingException {
+        ObjectMapper mapperY = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+        ObjectMapper mapperJ = BeanWithTypeUtils.newMapper(null, true, null, true);
+
+        SpecHolder in = mapperY.readerFor(SpecHolder.class).readValue(Strings.lines(
+                "label: foo",
+                "specT:",
+                "  $brooklyn:entitySpec:",
+                "    type: "+ TestEntity.class.getName()));
+        // above creates a map because the DSL isn't recognised
+        Asserts.assertInstanceOf(in.specT.get(), Map.class);
+
+        String out;
+        SpecHolder in2;
+
+        in.specT = WrappedValue.of( EntitySpec.create(TestEntity.class) );
+        out = mapperJ.writerFor(Object.class).writeValueAsString(in);
+        // strongly typed - not contained
+        Asserts.assertStringDoesNotContain(out, EntitySpec.class.getName());
+        in2 = mapperJ.readerFor(SpecHolder.class).readValue(out);
+        Asserts.assertEquals(in2.specT.get().getType(), TestEntity.class);
+        // and same with yaml
+        out = mapperY.writerFor(Object.class).writeValueAsString(in);
+        Asserts.assertStringDoesNotContain(out, EntitySpec.class.getName());
+        in2 = mapperY.readerFor(SpecHolder.class).readValue(out);
+        Asserts.assertEquals(in2.specT.get().getType(), TestEntity.class);
+
+        in.specT = null;
+        in.specU = WrappedValue.of( EntitySpec.create(TestEntity.class) );
+        out = mapperJ.writerFor(Object.class).writeValueAsString(in);
+        // not strongly typed typed - type is contained, but we get a map which still we need to coerce
+        Asserts.assertStringContains(out, EntitySpec.class.getName());
+        in2 = mapperJ.readerFor(SpecHolder.class).readValue(out);
+        // and we get a map
+        Map map;
+        map = (Map) in2.specU.get();
+        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+        // and same with yaml
+        out = mapperY.writerFor(Object.class).writeValueAsString(in);
+        Asserts.assertStringContains(out, EntitySpec.class.getName());
+        in2 = mapperY.readerFor(SpecHolder.class).readValue(out);
+        map = (Map) in2.specU.get();
+        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+
+
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            in.specT = WrappedValue.of( EntitySpec.create(TestEntity.class) );
+            // and in a list, our deep conversion also works
+            List<SpecHolder> inL = BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true);
+            // TODO would be nice to avoid the serialization cycle in the above
+
+            in2 = inL.iterator().next();
+            Asserts.assertEquals(in2.specT.get().getType(), TestEntity.class);
+            // management mappers don't have the map artifice
+            Asserts.assertEquals( ((EntitySpec) in2.specU.get()).getType(), TestEntity.class);
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
     }
 
     @SuppressWarnings("unchecked")

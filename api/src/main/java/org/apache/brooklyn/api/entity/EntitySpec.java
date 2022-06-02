@@ -26,6 +26,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -126,6 +127,10 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     public EntitySpec(Class<T> type) {
         super(type);
     }
+    // JSON constructor
+    private EntitySpec() {
+        this(null);
+    }
 
     @Override
     protected Object readResolve() {
@@ -200,6 +205,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     }
 
     /** @return {@link EntityInitializer} objects which customize the entity to be created */
+    @JsonIgnore
     public List<EntityInitializer> getInitializers() {
         return entityInitializers;
     }

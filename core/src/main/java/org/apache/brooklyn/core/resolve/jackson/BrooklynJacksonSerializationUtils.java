@@ -23,9 +23,14 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
+import com.fasterxml.jackson.databind.deser.DeserializerFactory;
+import com.fasterxml.jackson.databind.deser.ResolvableDeserializer;
 import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.util.TokenBuffer;
+import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import java.io.Closeable;
 import java.io.IOException;
@@ -52,6 +57,43 @@ public class BrooklynJacksonSerializationUtils {
     public static final String TYPE = "type";
     public static final String VALUE = "value";
     public static final String DEFAULT = "default";
+
+
+    @Beta
+    public static JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt, JavaType t) throws JsonMappingException {
+        return createBeanDeserializer(ctxt, t, null, false, true);
+    }
+
+    /** Do what ctxt.findRootValueDeserializer does, except don't get special things we've registered, so we can get actual bean deserializers back,
+     * e.g. as fallback impls in our custom deserializers */
+    @Beta
+    public static JsonDeserializer<Object> createBeanDeserializer(DeserializationContext ctxt, JavaType t, BeanDescription optionalBeanDescription,
+                                                                  boolean beanFactoryBuildPossible, boolean resolve) throws JsonMappingException {
+        if (optionalBeanDescription==null) optionalBeanDescription = ctxt.getConfig().introspect(t);
+
+        DeserializerFactory f = ctxt.getFactory();
+        JsonDeserializer<Object> deser;
+        if (beanFactoryBuildPossible || f instanceof BeanDeserializerFactory) {
+            // go directly to builder to avoid returning ones based on annotations etc
+            deser = ((BeanDeserializerFactory)f).buildBeanDeserializer(ctxt, t, optionalBeanDescription);
+        } else {
+            deser = ctxt.getFactory().createBeanDeserializer(ctxt, t, optionalBeanDescription);
+        }
+        if (resolve && deser instanceof ResolvableDeserializer) {
+            ((ResolvableDeserializer) deser).resolve(ctxt);
+        }
+        return deser;
+    }
+
+    @Beta
+    public static TokenBuffer createBufferForParserCurrentObject(JsonParser parser, DeserializationContext optionalCtxtForFeatures) throws IOException {
+        TokenBuffer pb = new TokenBuffer(parser, optionalCtxtForFeatures);
+        while (parser.currentToken()!=JsonToken.END_OBJECT && parser.currentToken()!=JsonToken.END_ARRAY && parser.currentToken()!=null) {
+            pb.copyCurrentStructure(parser);
+            parser.nextToken();
+        }
+        return pb;
+    }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
         List<Function<JsonDeserializer<?>,JsonDeserializer<?>>> deserializerWrappers = MutableList.of();
@@ -167,21 +209,6 @@ public class BrooklynJacksonSerializationUtils {
         protected Object deserializeWrapper(JsonParser jp, DeserializationContext ctxt, BiFunctionThrowsIoException<JsonParser, DeserializationContext, Object> nestedDeserialize) throws IOException {
             String v = jp.getCurrentToken()==JsonToken.VALUE_STRING ? jp.getValueAsString() : null;
             try {
-//                // TODO remove; not needed
-//                if (v!=null && _valueClass!=null) {
-//                    if (ManagementContext.class.isAssignableFrom(_valueClass)) {
-//                        if (DEFAULT.equals(v)) {
-//                            if (mgmt!=null) {
-//                                return mgmt;
-//                            } else {
-//                                throw new IllegalArgumentException("Deserialization of " + _valueClass + " not permitted here (no management context available)");
-//                            }
-//                        } else {
-//                            throw new IllegalArgumentException("Deserialization of " + _valueClass + " from '"+v+"' not supported; only 'default' is allowed");
-//                        }
-//                    }
-//                }
-
                 Object result = nestedDeserialize.apply(jp, ctxt);
 
                 if (BROOKLYN_PARSE_DSL_FUNCTION!=null && mgmt!=null && result instanceof Map) {
@@ -198,6 +225,7 @@ public class BrooklynJacksonSerializationUtils {
                 return result;
             } catch (Exception e) {
                 // if it fails, get the raw object and attempt a coercion?; currently just for strings
+                // we could do for maps but it would mean buffering every object, and it could cause recursive nightmares where the coercers tries a Jackson mapper
                 if ((String.class.equals(_valueClass) || Boxing.isPrimitiveOrBoxedClass(_valueClass)) && v==null && jp.getCurrentToken()==JsonToken.END_OBJECT) {
                     // primitives declaring just their type are allowed
                     try {
