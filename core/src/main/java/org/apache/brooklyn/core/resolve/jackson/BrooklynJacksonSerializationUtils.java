@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.util.JsonParserSequence;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
@@ -85,14 +86,28 @@ public class BrooklynJacksonSerializationUtils {
         return deser;
     }
 
+    /** per TokenBuffer.asCopyOfValue but if on a field _name_ it buffers all the key-values */
     @Beta
     public static TokenBuffer createBufferForParserCurrentObject(JsonParser parser, DeserializationContext optionalCtxtForFeatures) throws IOException {
         TokenBuffer pb = new TokenBuffer(parser, optionalCtxtForFeatures);
-        while (parser.currentToken()!=JsonToken.END_OBJECT && parser.currentToken()!=JsonToken.END_ARRAY && parser.currentToken()!=null) {
-            pb.copyCurrentStructure(parser);
+
+        while (parser.currentToken() == JsonToken.FIELD_NAME) {
+            // if on a field name (in an object), we want to buffer the entire object, so take key and value and continue (the initial start_object is fine not to be restored);
+            // needed for any deserializer which creates a token buffer inside an object, eg entity/selector predicate
+            // see: com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer.deserializeTypedFromObject
+            pb.copyCurrentStructure(parser);  // copies name and value
             parser.nextToken();
         }
+
+        pb.copyCurrentStructure(parser);
+
         return pb;
+    }
+
+    public static JsonParser createParserFromTokenBufferAndParser(TokenBuffer tb, JsonParser p) throws IOException {
+        JsonParserSequence pp = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
+        pp.nextToken();
+        return pp;
     }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {

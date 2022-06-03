@@ -61,6 +61,8 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class BrooklynJacksonSerializerTest {
 
@@ -431,14 +433,28 @@ public class BrooklynJacksonSerializerTest {
         ManagementContext mgmt = LocalManagementContextForTests.newInstance();
         try {
             in.specT = WrappedValue.of( EntitySpec.create(TestEntity.class) );
-            // and in a list, our deep conversion also works
-            List<SpecHolder> inL = BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true);
-            // TODO would be nice to avoid the serialization cycle in the above
 
-            in2 = inL.iterator().next();
-            Asserts.assertEquals(in2.specT.get().getType(), TestEntity.class);
-            // management mappers don't have the map artifice
-            Asserts.assertEquals( ((EntitySpec) in2.specU.get()).getType(), TestEntity.class);
+            BiConsumer<List<SpecHolder>,Boolean> test = (inL, expectMap) -> {
+                SpecHolder inX = inL.iterator().next();
+                Asserts.assertEquals(inX.specT.get().getType(), TestEntity.class);
+                // management mappers don't have the map artifice
+                Object sp = inX.specU.get();
+                if (Boolean.TRUE.equals(expectMap)) Asserts.assertInstanceOf(sp, Map.class);
+                if (Boolean.FALSE.equals(expectMap)) Asserts.assertInstanceOf(sp, EntitySpec.class);
+                Object v = null;
+                if (sp instanceof Map) {
+                    sp = TypeCoercions.coerce(sp, EntitySpec.class);
+                }
+                Asserts.assertEquals(((EntitySpec)sp).getType(), TestEntity.class);
+            };
+
+            // and in a list, deep and shallow conversion both work
+            test.accept( BeanWithTypeUtils.convertDeeply(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    /* deep conversion serializes and for untyped key it doesn't know the type to deserialize, until it is explicitly coerced, so we get a map */ true );
+            test.accept( BeanWithTypeUtils.convertShallow(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    /* shallow conversion should preserve the object */ false );
+            test.accept( BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    /* overall convert tries deep first */ true );
         } finally {
             Entities.destroyAll(mgmt);
         }

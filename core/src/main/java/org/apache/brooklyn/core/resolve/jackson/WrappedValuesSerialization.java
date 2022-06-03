@@ -52,6 +52,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createParserFromTokenBufferAndParser;
+
 public class WrappedValuesSerialization {
 
     private static final Logger log = LoggerFactory.getLogger(WrappedValuesSerialization.class);
@@ -106,7 +108,10 @@ public class WrappedValuesSerialization {
 
                 // fall back to just using object
                 try {
-                    return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
+                    return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(
+//                            b.asParserOnFirstToken()
+                            createParserFromTokenBufferAndParser(b, p)
+                            , ctxt);
                 } catch (Exception e) {
                     exceptions.add(e);
                 }
