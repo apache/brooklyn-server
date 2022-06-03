@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
@@ -194,4 +195,27 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
 //        Assert.assertEquals( impl2.calendar, impl.calendar );
         Assert.assertEquals( impl2.instant, impl.instant );
     }
+
+    @Test
+    public void testFailsOnTrailing() throws Exception {
+        try {
+            Duration d = mapper().readValue("1 m", Duration.class);
+            Asserts.shouldHaveFailedPreviously("Instead got: " + d);
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "Unrecognized token 'm'");
+        }
+    }
+
+    @Test
+    public void testStringBean() throws Exception {
+        Duration d = mapper().readValue("\"1m\"", Duration.class);
+        Asserts.assertEquals(d, Duration.ONE_MINUTE);
+    }
+
+    @Test
+    public void testStringByteSize() throws Exception {
+        ByteSize x = mapper().readValue("\"1b\"", ByteSize.class);
+        Asserts.assertEquals(x, ByteSize.fromString("1b"));
+    }
+
 }

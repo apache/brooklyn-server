@@ -124,7 +124,7 @@ public abstract class JacksonBetterDelegatingDeserializer extends DelegatingDese
                 _delegatee instanceof CollectionDelegatingUntypedObjectDeserializer
                     ? ((CollectionDelegatingUntypedObjectDeserializer)_delegatee).deserializeReal(jp2, ctxt2)
 
-                        // might be necessary to do this if we've started to analyse the type; but impls seems to be flexible enough to adapt as eneded
+                        // might be necessary to do this if we've started to analyse the type; but impls seems to be flexible enough to adapt as needed
 //                    : jp2.currentTokenId() == JsonTokenId.ID_FIELD_NAME && (_delegatee instanceof BeanDeserializerBase)
 //                        ? ((BeanDeserializerBase)_delegatee).deserializeFromObject(jp2, ctxt2)
 
