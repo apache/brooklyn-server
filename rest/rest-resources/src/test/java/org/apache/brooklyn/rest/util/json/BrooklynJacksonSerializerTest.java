@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.BidiSerialization;
+import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.stream.Streams;
@@ -50,6 +52,7 @@ import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -57,10 +60,7 @@ import org.testng.annotations.Test;
 
 import java.io.NotSerializableException;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -455,6 +455,41 @@ public class BrooklynJacksonSerializerTest {
                     /* shallow conversion should preserve the object */ false );
             test.accept( BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
                     /* overall convert tries deep first */ true );
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
+
+    @Test
+    public void testStringCoercedRegisteredType() throws Exception {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            mgmt.getCatalog().addTypesAndValidateAllowInconsistent(
+                    "brooklyn.catalog:\n" +
+                            "  id: test\n" +
+                            "  version: 1.0.0-SNAPSHOT\n" +
+                            "  items:\n" +
+                            "  - id: byte-size\n" +
+                            "    format: bean-with-type\n" +
+                            "    item:\n" +
+                            "      type: org.apache.brooklyn.util.core.units.ByteSize\n", null, false);
+            BrooklynJacksonType bst = BrooklynJacksonType.of(mgmt.getTypeRegistry().get("byte-size"));
+
+            Consumer<ObjectMapper> test = mapper -> {
+                ByteSize bs = null;
+                try {
+                    bs = mapper.readValue("\"1k\"", bst);
+                } catch (JsonProcessingException e) {
+                    throw Exceptions.propagate(e);
+                }
+                Assert.assertEquals(bs.getBytes(), 1024);
+            };
+
+//            test.accept(BrooklynJacksonJsonProvider.newPrivateObjectMapper(mgmt));
+//            test.accept(BeanWithTypeUtils.newYamlMapper(null, false, null, true));
+//            // above work, but below fails as it tries to instantiate then populate as a bean
+            test.accept(BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true));
+
         } finally {
             Entities.destroyAll(mgmt);
         }

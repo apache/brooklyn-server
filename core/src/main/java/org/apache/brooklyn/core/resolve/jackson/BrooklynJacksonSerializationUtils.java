@@ -21,27 +21,23 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.core.util.JsonParserSequence;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.DeserializerFactory;
 import com.fasterxml.jackson.databind.deser.ResolvableDeserializer;
-import com.fasterxml.jackson.databind.exc.InvalidDefinitionException;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
-import com.google.common.reflect.TypeToken;
-import java.io.Closeable;
+
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -108,6 +104,13 @@ public class BrooklynJacksonSerializationUtils {
         JsonParserSequence pp = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
         pp.nextToken();
         return pp;
+    }
+
+    public static Object readObject(DeserializationContext ctxt, JsonParser p) throws IOException {
+        // sometimes we do this, but it fails on trailing tokens
+        // p.readValueAs(Object.class)
+        if (p.currentToken()==JsonToken.END_OBJECT) return new Object();
+        return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(p, ctxt);
     }
 
     public static class ConfigurableBeanDeserializerModifier extends BeanDeserializerModifier {
@@ -238,6 +241,7 @@ public class BrooklynJacksonSerializationUtils {
                 }
 
                 return result;
+
             } catch (Exception e) {
                 // if it fails, get the raw object and attempt a coercion?; currently just for strings
                 // we could do for maps but it would mean buffering every object, and it could cause recursive nightmares where the coercers tries a Jackson mapper

@@ -176,7 +176,7 @@ public class CommonTypesSerialization {
             @Override
             public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
                 try {
-                    Object valueO = p.readValueAs(Object.class); // if using a token buffer, see BJSUtils.createBufferForParserCurrentObject
+                    Object valueO = BrooklynJacksonSerializationUtils.readObject(ctxt, p);
                     Object value = valueO;
                     if (value instanceof Map) {
                         if (((Map)value).size()==1 && ((Map)value).containsKey(BrooklynJacksonSerializationUtils.VALUE)) {
@@ -193,6 +193,8 @@ public class CommonTypesSerialization {
                         return convertStringToObject(value.toString(), p, ctxt);
                     } else if (value instanceof Map) {
                         return convertSpecialMapToObject((Map)value, p, ctxt);
+                    } else if (value.getClass().equals(Object.class)) {
+                        return newEmptyInstance();
                     } else {
                         throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
                     }

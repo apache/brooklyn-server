@@ -69,8 +69,7 @@ public class BrooklynRegisteredTypeJacksonSerialization {
             try {
                 Object target = getEmptyValue(ctxt);
                 JsonDeserializer<Object> delegate = ctxt.findContextualValueDeserializer(ctxt.constructType(target.getClass()), null);
-                delegate.deserialize(p, ctxt, target);
-                return (T)target;
+                return (T) delegate.deserialize(p, ctxt, target);
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }

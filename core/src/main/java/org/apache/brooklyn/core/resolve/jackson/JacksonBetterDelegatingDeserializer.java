@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.JsonTokenId;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.BeanDeserializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerBase;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
@@ -133,9 +134,22 @@ public abstract class JacksonBetterDelegatingDeserializer extends DelegatingDese
 
     @Override
     public Object deserialize(JsonParser jp1, DeserializationContext ctxt1, Object intoValue) throws IOException {
-        return deserializeWrapper(jp1, ctxt1, (jp2, ctxt2) -> _delegatee instanceof CollectionDelegatingUntypedObjectDeserializer
-                    ? ((CollectionDelegatingUntypedObjectDeserializer)_delegatee).deserializeReal(jp2, ctxt2, intoValue)
-                    : ((JsonDeserializer<Object>)_delegatee).deserialize(jp2, ctxt2, intoValue));
+        return deserializeWrapper(jp1, ctxt1, (jp2, ctxt2) -> {
+            if (_delegatee instanceof CollectionDelegatingUntypedObjectDeserializer)
+                    return ((CollectionDelegatingUntypedObjectDeserializer) _delegatee).deserializeReal(jp2, ctxt2, intoValue);
+
+            if (jp2.currentToken()==JsonToken.VALUE_STRING && _delegatee instanceof BeanDeserializer) {
+                // parser was on a string value, and still is. probably the parser is a bean parser and has done nothing.
+                // we should use the coercion routines instead (the wrapper will catch the exception)
+                // (ie if deserializing from a string into a bean, constructor couldn't be used because registered type was declared; coercion is required)
+
+                // advancing seems unnecessary
+//                jp2.nextToken();
+
+                throw new IllegalStateException("String deserialization using BeanDeserializer is not supported for '"+intoValue+"'; coercion may fix, otherwise this will propagate and input cannot handle strings for "+getValueType());
+            }
+            return((JsonDeserializer<Object>) _delegatee).deserialize(jp2, ctxt2, intoValue);
+        });
     }
 
     interface BiFunctionThrowsIoException<I1,I2,O> {
