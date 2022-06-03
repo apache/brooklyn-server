@@ -288,6 +288,10 @@ public class CommonTypesSerialization {
             if (result!=null) return result;
             throw new IllegalStateException("Entity or other BrooklynObject '"+value+"' is not known here");
         }
+
+        @Override public BrooklynObject convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            throw new IllegalStateException("Entity instances and other Brooklyn objects should be supplied as unique IDs; they cannot be instantiated from YAML. If a spec is desired, the type should be known or use $brooklyn:entitySpec.");
+        }
     }
 
     public static class ConfigKeySerialization {

@@ -381,7 +381,8 @@ public class BrooklynJacksonSerializerTest {
 
     static class SpecHolder {
         String label;
-        WrappedValue<EntitySpec> specT;
+        EntitySpec<?> spec;
+        WrappedValue<EntitySpec<?>> specT;
         WrappedValue<Object> specU;
     }
     @Test
@@ -394,7 +395,7 @@ public class BrooklynJacksonSerializerTest {
                 "specT:",
                 "  $brooklyn:entitySpec:",
                 "    type: "+ TestEntity.class.getName()));
-        // above creates a map because the DSL isn't recognised
+        // above creates a map because the DSL isn't recognised with non-management mapper
         Asserts.assertInstanceOf(in.specT.get(), Map.class);
 
         String out;
@@ -437,7 +438,7 @@ public class BrooklynJacksonSerializerTest {
             BiConsumer<List<SpecHolder>,Boolean> test = (inL, expectMap) -> {
                 SpecHolder inX = inL.iterator().next();
                 Asserts.assertEquals(inX.specT.get().getType(), TestEntity.class);
-                // management mappers don't have the map artifice
+                // management mappers don't have the map artifice (unless type is unknown and doing deep conversion)
                 Object sp = inX.specU.get();
                 if (Boolean.TRUE.equals(expectMap)) Asserts.assertInstanceOf(sp, Map.class);
                 if (Boolean.FALSE.equals(expectMap)) Asserts.assertInstanceOf(sp, EntitySpec.class);
@@ -455,6 +456,33 @@ public class BrooklynJacksonSerializerTest {
                     /* shallow conversion should preserve the object */ false );
             test.accept( BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
                     /* overall convert tries deep first */ true );
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
+
+    @Test
+    public void testEntitySpecNonDslDeserialization() throws JsonProcessingException {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            ObjectMapper mapperY = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true);
+            // note, this does JSON deserialization of the entity spec, which is not the same as CAMP parsing, though not hugely far away;
+            // use $brooklyn:entitySpec if the CAMP deserialization is needed
+            SpecHolder in = mapperY.readerFor(SpecHolder.class).readValue(Strings.lines(
+                "label: foo",
+                "spec:",
+                "  type: "+ TestEntity.class.getName(),
+                "  name: TestEntity",
+                "specT:",
+                "  type: "+ TestEntity.class.getName(),
+                "  name: TestEntity",
+                "specU:",
+                "  type: "+ TestEntity.class.getName(),
+                "  name: TestEntity"));
+            Asserts.assertInstanceOf(in.specT.get(), EntitySpec.class);
+            Asserts.assertInstanceOf(in.spec, EntitySpec.class);
+            Asserts.assertInstanceOf(in.specU.get(), Map.class);
+
         } finally {
             Entities.destroyAll(mgmt);
         }
