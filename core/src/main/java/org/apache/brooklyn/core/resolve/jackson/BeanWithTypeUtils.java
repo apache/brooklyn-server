@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
@@ -70,6 +71,7 @@ public class BeanWithTypeUtils {
 
     public static ObjectMapper applyCommonMapperConfig(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
         mapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        mapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
 
         BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
         WrappedValuesSerialization.apply(mapper, mgmt);
