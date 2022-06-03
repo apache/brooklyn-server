@@ -152,9 +152,20 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                     // loader-based registered types logic does not validate, so for consistency we proceed even if unvalidated;
                     // note if the type is not a subtype, we will typically get an error when validating the deserializer or using it
                     // (coercion could be attempted for both by extending in AsPropertyIfAmbiguous)
-                    JavaType result = context.resolveAndValidateSubType(context.constructType(Object.class), id, _subTypeValidator);
-                    if (result==null) throw e;
-                    return result;
+                    try {
+                        JavaType result = context.resolveAndValidateSubType(context.constructType(Object.class), id, _subTypeValidator);
+                        if (result!=null) return result;
+                    } catch (Exception e2) {
+                        Exceptions.propagateIfFatal(e2);
+                    }
+
+                    // finally, if we have a base type which is a RT, for backwards compatibility reasons we switch to using its class
+                    // this is only needed for tests which don't support RTs but supply registered types
+                    if (id.equals(idFromBaseType()) && !id.equals(super.idFromBaseType())) {
+                        return typeFromId(context, super.idFromBaseType());
+                    }
+
+                    throw e;
                 }
             }
 
