@@ -51,6 +51,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import java.io.IOException;
 import java.util.*;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 
 public class BrooklynRegisteredTypeJacksonSerialization {
 
@@ -77,6 +78,12 @@ public class BrooklynRegisteredTypeJacksonSerialization {
 
         public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
             // empty for us is the underlying definition, not null
+            if (mgmt==null) {
+                // could do this to use the type
+                //return Reflections.invokeConstructorFromArgs(type.getRawClass(), new Object[] {}, true).orThrow("Cannot create "+type+" because no management context and no accessible constructor on "+type.getRawClass());
+                // but instead treat as error
+                throw new NullPointerException("Requested to deserialize Brooklyn type "+type+" without a management context");
+            }
             return mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
         }
     }
