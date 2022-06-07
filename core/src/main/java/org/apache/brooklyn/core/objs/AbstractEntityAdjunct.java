@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
 import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
@@ -52,6 +54,7 @@ import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
+import org.apache.brooklyn.core.objs.proxy.EntityAdjunctProxyImpl;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -584,4 +587,18 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
                 .add("id", getId())
                 .toString();
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o==null) return false;
+        if (Proxy.isProxyClass(o.getClass())) {
+            InvocationHandler ph = Proxy.getInvocationHandler(o);
+            if (ph!=null && ph instanceof EntityAdjunctProxyImpl) return ((EntityAdjunctProxyImpl)ph).equals(this);
+            return false;
+        }
+
+        return super.equals(o);
+    }
+
 }

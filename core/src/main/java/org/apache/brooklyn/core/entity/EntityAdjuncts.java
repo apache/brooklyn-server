@@ -30,12 +30,15 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
+import org.apache.brooklyn.core.objs.proxy.EntityAdjunctProxyImpl;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nullable;
 
 /**
  * Convenience methods for working with entity adjunts.
@@ -91,6 +94,18 @@ public class EntityAdjuncts {
         // Enricher doesn't support suspend so if not running or destroyed then
         // it is just created
         return Lifecycle.CREATED;
+    }
+
+    public static <T extends EntityAdjunct> T createProxy(Class<T> adjunctType, @Nullable T delegate) {
+        return (T) java.lang.reflect.Proxy.newProxyInstance(
+                /** must have sight of all interfaces */ EntityAdjuncts.class.getClassLoader(),
+                new Class[] { adjunctType, EntityAdjuncts.EntityAdjunctProxyable.class},
+
+                new EntityAdjunctProxyImpl(delegate));
+    }
+
+    public interface EntityAdjunctProxyable {
+        Entity getEntity();
     }
 
 }
