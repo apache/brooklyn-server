@@ -23,8 +23,11 @@ import java.util.Set;
 import java.util.function.Consumer;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -303,11 +306,20 @@ public abstract class AbstractBlueprintTest {
 
     /** @return An unstarted management context */
     protected ManagementContext createNewManagementContext() {
+        ManagementContext newMgmt;
         if (isRebindEnabled()) {
-            return createBuilderForRebindingManagementContext().buildUnstarted();
+            newMgmt = createBuilderForRebindingManagementContext().buildUnstarted();
         } else {
-            return LocalManagementContextForTests.newInstance();
+            newMgmt = LocalManagementContextForTests.newInstance();
         }
+
+        // add camp, for consistency with orig mgmt context
+        new BrooklynCampPlatform(
+                PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
+                newMgmt)
+                .setConfigKeyAtManagmentContext();
+
+        return newMgmt;
     }
 
     // -----
