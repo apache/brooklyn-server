@@ -18,23 +18,35 @@
  */
 package org.apache.brooklyn.camp.brooklyn.rebind;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.BiMap;
+import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import com.google.common.reflect.TypeToken;
 import java.io.File;
+import java.util.Map;
+
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
+import org.apache.brooklyn.camp.brooklyn.BrooklynTagsRebindTest;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.StaticSensor;
 import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
+
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -64,5 +76,31 @@ public class RebindMiscTest extends AbstractYamlRebindTest {
         
         File persistedEntityFile = new File(mementoDir, Os.mergePaths("entities", entityId));
         Files.write(memento.getBytes(), persistedEntityFile);
+    }
+
+    @Test
+    public void testRebindPolicyReference() throws Exception {
+        final Entity entity = createAndStartApplication("services:",
+                "- type: " + BasicApplication.class.getName());
+        Enricher en = entity.enrichers().iterator().next();
+        entity.sensors().set(Sensors.newSensor(Object.class, "enricher-map"), MutableMap.of("enricher", en));
+        //for testing in the UI, run this in groovy debug console:
+        //entity.sensors().set(org.apache.brooklyn.core.sensor.Sensors.newSensor(Object.class, "enricher-map"), org.apache.brooklyn.util.collections.MutableMap.of("enricher", entity.enrichers().iterator().next()));
+
+        rebind();
+        Runnable check = () -> {
+            final Entity newEntity = mgmt().getEntityManager().getEntity(entity.getId());
+            Object m = newEntity.sensors().get(Sensors.newSensor(Object.class, "enricher-map"));
+            Enricher enR = (Enricher) ((Map) m).get("enricher");
+            Asserts.assertEquals(enR.getId(), en.getId());
+            String enReId = enR instanceof EntityAdjuncts.EntityAdjunctProxyable ? ((EntityAdjuncts.EntityAdjunctProxyable) enR).getEntity().getId() : "(no entity available)";
+            Asserts.assertEquals(enReId, ((AbstractEntityAdjunct) en).getEntity().getId());
+        };
+        check.run();
+
+        // also check again so the proxy isn't what gets written out
+        switchOriginalToNewManagementContext();
+        rebind();
+        check.run();
     }
 }
