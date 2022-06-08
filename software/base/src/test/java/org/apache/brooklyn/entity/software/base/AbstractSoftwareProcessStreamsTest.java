@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
@@ -99,6 +100,20 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
             assertTrue(stdin.contains("echo "+echoed), msg);
             assertTrue(stdout.contains(echoed), msg);
         }
+    }
+
+    protected <T extends SoftwareProcess> String getAnyTaskEnvStream(final T softwareProcessEntity) {
+        Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
+
+        for (Map.Entry<String, String> entry : getCommands().entrySet()) {
+            String taskNameRegex = entry.getKey();
+
+            Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameSatisfies(StringPredicates.matchesRegex(taskNameRegex))).get();
+
+            return getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
+        }
+
+        throw Asserts.fail("No commands found");
     }
 
     protected <T extends SoftwareProcess> void assertEnvStream(final T softwareProcessEntity, final Map<String, String> expectedEnv) {
