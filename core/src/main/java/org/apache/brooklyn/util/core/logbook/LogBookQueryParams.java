@@ -31,6 +31,9 @@ public class LogBookQueryParams {
     /** The indicator whether to return last number of items (tail) or not */
     private Boolean tail;
 
+    /** The indicator whether to list sub-task items (recursively) or not */
+    private Boolean recursive = false; // for backward compatibility
+
     /** The log levels: INFO, FATAL, ERROR, DEBUG or WARNING */
     private List<String> levels;
 
@@ -61,6 +64,14 @@ public class LogBookQueryParams {
 
     public void setTail(Boolean tail) {
         this.tail = tail;
+    }
+
+    public Boolean isRecursive() {
+        return recursive;
+    }
+
+    public void setRecursive(Boolean recursive) {
+        this.recursive = recursive;
     }
 
     public List<String> getLevels() {

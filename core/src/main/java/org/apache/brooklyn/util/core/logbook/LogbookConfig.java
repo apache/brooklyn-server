@@ -24,10 +24,16 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 public class LogbookConfig {
     public final static String BASE_NAME_LOGBOOK = "brooklyn.logbook";
 
-    public final static ConfigKey<String> LOGBOOK_LOG_STORE_CLASSNAME = ConfigKeys.newStringConfigKey(
-            BASE_NAME_LOGBOOK + ".logStore", "Log store implementation class name","org.apache.brooklyn.util.core.logbook.file.FileLogStore");
-
-    public final static ConfigKey<LogStore> LOGBOOK_LOG_STORE_INSTANCE = ConfigKeys.newConfigKey(LogStore.class,
-            LOGBOOK_LOG_STORE_CLASSNAME.getName() + ".internal.instance", "instance of a pre-configured log store");
+    public final static ConfigKey<String> LOGBOOK_LOG_STORE_CLASSNAME = ConfigKeys.builder(String.class, BASE_NAME_LOGBOOK + ".logStore")
+            .description("Log store implementation class name")
+            .defaultValue("org.apache.brooklyn.util.core.logbook.file.FileLogStore")
+            .build();
+    public final static ConfigKey<LogStore> LOGBOOK_LOG_STORE_INSTANCE = ConfigKeys.builder(LogStore.class, LOGBOOK_LOG_STORE_CLASSNAME.getName() + ".internal.instance")
+            .description("Instance of a pre-configured log store")
+            .build();
+    public final static ConfigKey<Integer> LOGBOOK_MAX_RECURSIVE_TASKS = ConfigKeys.builder(Integer.class, BASE_NAME_LOGBOOK + ".maxTasks")
+            .description("Maximum number of recursive tasks")
+            .defaultValue(100)
+            .build();
 
 }

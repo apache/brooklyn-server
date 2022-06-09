@@ -21,14 +21,19 @@ package org.apache.brooklyn.util.core.logbook.opensearch;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+
 import net.minidev.json.JSONObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 import org.apache.brooklyn.util.core.logbook.LogStore;
@@ -62,9 +67,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.util.core.logbook.LogbookConfig.BASE_NAME_LOGBOOK;
+import static org.apache.brooklyn.util.core.logbook.LogbookConfig.LOGBOOK_MAX_RECURSIVE_TASKS;
 
 /**
  * Implementation for expose log from ElasticSearch to the logbook API.
@@ -108,10 +115,12 @@ public class OpenSearchLogStore implements LogStore {
     private String apiKey;
     private Boolean verifySsl;
     private String indexName;
+    private Integer maxTasks;
 
     @VisibleForTesting
     public OpenSearchLogStore() {
         this.mgmt = null;
+        this.maxTasks = LOGBOOK_MAX_RECURSIVE_TASKS.getDefaultValue();
     }
 
     public OpenSearchLogStore(ManagementContext mgmt) {
@@ -160,6 +169,8 @@ public class OpenSearchLogStore implements LogStore {
     }
 
     private void initialize() {
+        this.maxTasks = mgmt.getConfig().getConfig(LOGBOOK_MAX_RECURSIVE_TASKS);
+
         this.host = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_HOST);
         Preconditions.checkNotNull(host, "OpenSearch host must be set: " + LOGBOOK_LOG_STORE_HOST.getName());
 
@@ -217,7 +228,6 @@ public class OpenSearchLogStore implements LogStore {
     }
 
     private ImmutableMap<String, Object> buildQuery(LogBookQueryParams params) {
-
         // The `query.bool.must` part of the open-search query.
         ImmutableList.Builder<Object> queryBoolMustListBuilder = ImmutableList.builder();
 
@@ -250,14 +260,22 @@ public class OpenSearchLogStore implements LogStore {
             queryBoolMustListBuilder.add(ImmutableMap.of("range", ImmutableMap.of("timestamp", timestampMapBuilder.build())));
         }
 
-        // Apply search taskId.
+        // Apply search taskId (including recursive ids)
         if (Strings.isNonBlank(params.getTaskId())) {
+            Set<String> taskIds = MutableSet.of(params.getTaskId());
+            if (params.isRecursive()) {
+                if (mgmt != null) {
+                    Task<?> parent = mgmt.getExecutionManager().getTask(params.getTaskId());
+                    taskIds.addAll(enumerateTaskIds(parent, maxTasks));
+                }
+            }
+
             queryBoolMustListBuilder.add(
                     ImmutableMap.of("bool",
                             ImmutableMap.of("should",
                                     ImmutableList.of(
-                                            buildMatchPhraseOf("taskId", params.getTaskId()),
-                                            buildMatchPhraseOf("message", params.getTaskId())
+                                            params.isRecursive() ? buildMultiMatchOf("taskId", taskIds) : buildMatchPhraseOf("taskId", params.getTaskId()),
+                                            params.isRecursive() ? buildMultiMatchOf("message", taskIds) : buildMatchPhraseOf("message", params.getTaskId())
                                     ))
                     )
             );
@@ -290,7 +308,13 @@ public class OpenSearchLogStore implements LogStore {
         }
     }
 
-    private ImmutableMap<String, ImmutableMap<String, String>> buildMatchPhraseOf(String message, String searchPhrase) {
-        return ImmutableMap.of("match_phrase", ImmutableMap.of(message, searchPhrase));
+    private ImmutableMap<String, ImmutableMap<String, String>> buildMatchPhraseOf(String field, String searchPhrase) {
+        return ImmutableMap.of("match_phrase", ImmutableMap.of(field, searchPhrase));
     }
+
+    private ImmutableMap<String, ImmutableMap<String, ImmutableMap<String, String>>> buildMultiMatchOf(String field, Set<String> searchPhrases) {
+        return ImmutableMap.of("match", ImmutableMap.of(field,
+                    ImmutableMap.of("query", Joiner.on(" ").join(searchPhrases), "analyzer", "whitespace", "operator", "or")));
+    }
+
 }
