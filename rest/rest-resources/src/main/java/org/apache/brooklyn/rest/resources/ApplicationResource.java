@@ -18,35 +18,20 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.ws.rs.core.Response.created;
-import static javax.ws.rs.core.Response.status;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.core.config.Sanitizer;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
-
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.UriInfo;
-
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -55,6 +40,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -72,11 +58,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.group.AbstractGroup;
 import org.apache.brooklyn.rest.api.ApplicationApi;
-import org.apache.brooklyn.rest.domain.ApplicationSpec;
-import org.apache.brooklyn.rest.domain.ApplicationSummary;
-import org.apache.brooklyn.rest.domain.EntityDetail;
-import org.apache.brooklyn.rest.domain.EntitySummary;
-import org.apache.brooklyn.rest.domain.TaskSummary;
+import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.ApplicationTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
@@ -101,19 +83,28 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.UriInfo;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import static javax.ws.rs.core.Response.created;
+import static javax.ws.rs.core.Response.status;
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 @HaHotStateRequired
 public class ApplicationResource extends AbstractBrooklynRestResource implements ApplicationApi {
 
     private static final Logger log = LoggerFactory.getLogger(ApplicationResource.class);
+    private static final String AUTHORIZATION_ERR_MSG = "User '%s' is not authorized to start application %s";
 
     @Context
     private UriInfo uriInfo;
@@ -378,8 +369,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     /** @deprecated since 0.7.0 see #create */ @Deprecated
     protected Response createFromAppSpec(ApplicationSpec applicationSpec) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, applicationSpec)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                Entitlements.getEntitlementContext().user(), applicationSpec);
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), applicationSpec);
         }
 
         checkApplicationTypesAreValid(applicationSpec);
@@ -463,8 +453,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                Entitlements.getEntitlementContext().user(), yaml);
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), yaml);
         }
 
         try {
@@ -493,8 +482,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     EntityAndItem.of(app, StringAndArgument.of(Startable.START.getName(), null)));
 
             if (!isEntitled) {
-                throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                    Entitlements.getEntitlementContext().user(), spec.getType());
+                throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), spec.getType());
             }
 
             CreationResult<Application,Void> result = EntityManagementUtils.start(app);
@@ -590,8 +578,10 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             throw WebResourceUtils.badRequest(e, "Error in blueprint");
         }
 
-
         if (spec != null) {
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
+                throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), potentialYaml);
+            }
             try {
                 return launch(potentialYaml, spec, Optional.absent());
             } catch (Exception e) {
