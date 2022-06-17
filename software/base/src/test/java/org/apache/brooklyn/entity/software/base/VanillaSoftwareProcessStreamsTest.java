@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmdPredicates;
 import org.apache.brooklyn.util.stream.Streams;
@@ -71,6 +72,7 @@ public class VanillaSoftwareProcessStreamsTest extends AbstractSoftwareProcessSt
         // Prepare expected environment variables, secret names are keys with values that should be masked in env stream
         Map<String, String> expectedEnv = new ImmutableMap.Builder<String, String>()
                 .put("KEY1", "VAL1")
+                .put("KEY2A", "v1=v2 secret=not_hidden_if_on_same_line\nsecret2=should_be_suppressed")
                 .putAll(Sanitizer.DEFAULT_SENSITIVE_FIELDS_TOKENS.stream().collect(Collectors.toMap(item -> item, item -> item)))
                 .build();
 
@@ -115,10 +117,12 @@ public class VanillaSoftwareProcessStreamsTest extends AbstractSoftwareProcessSt
         // Calculate MD5 hash for all keys that are expected to be masked and verify them displayed masked in env stream
         Map<String, String> expectedMaskedEnv = new ImmutableMap.Builder<String, String>()
                 .put("KEY1", "VAL1") // this key must appear unmasked, it is not in the list of SECRET NAMES to mask
+                .put("KEY2A", "v1=v2 secret=not_hidden_if_on_same_line\nsecret2= "+Sanitizer.suppress("should_be_suppressed"))
                 .putAll(Sanitizer.DEFAULT_SENSITIVE_FIELDS_TOKENS.stream().collect(Collectors.toMap(
                         item -> item, // key and expected masked (suppressed) value for a SECRET NAME with MD5 hash
                         Sanitizer::suppress)))
                 .build();
+        Asserts.assertStringDoesNotContain(getAnyTaskEnvStream(entity), "should_be_suppressed");
         assertEnvStream(entity, expectedMaskedEnv);
     }
 

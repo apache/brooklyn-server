@@ -203,6 +203,7 @@ public final class Sanitizer {
                 String stringValue = kv.getValue() != null ? kv.getValue().toString() : "";
                 if (!stringValue.isEmpty()) {
                     stringValue = Sanitizer.suppressIfSecret(kv.getKey(), stringValue);
+                    stringValue = sanitizeMultilineString(stringValue);
                     stringValue = BashStringEscapes.wrapBash(stringValue);
                 }
                 sb.append(kv.getKey()).append("=").append(stringValue).append("\n");

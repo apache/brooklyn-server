@@ -20,13 +20,50 @@ package org.apache.brooklyn.util.core.logbook;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.collections.MutableSet;
 
 public interface LogStore {
     /**
-     * Expects a set of parameters {@link LogBookQueryParams} to query to the implemented logstore
+     * Expects a set of parameters {@link LogBookQueryParams} to query to the implemented logstore.
+     *
      * @param query Depending on the implementation some of fields could be mandatory
      * @return List of the log entries modeled
      * @throws IOException
      */
     List<BrooklynLogEntry> query(LogBookQueryParams query) throws IOException;
+
+    /** Breadth-first recursive enumeration of tasks up to {@code maxTasks} */
+    default Set<String> enumerateTaskIds(Task<?> parent, int maxTasks) {
+        Set<Task<?>> tasks = MutableSet.of(), current = MutableSet.of(parent), children;
+
+        enumerate: do {
+            children = MutableSet.of();
+            for (Task<?> task : current) {
+                if (task instanceof HasTaskChildren) {
+                    Iterables.addAll(children, ((HasTaskChildren) task).getChildren());
+                    Iterables.addAll(tasks, Iterables.limit(children, maxTasks - tasks.size()));
+
+                    if (tasks.size() == maxTasks) {
+                        break enumerate; // Limit reached
+                    }
+                }
+            }
+            current = children;
+        } while (children.size() > 0);
+
+        // Collect and return only the task ids
+        if (tasks.size() > 0) {
+            return tasks.stream()
+                    .map(Task::getId)
+                    .collect(Collectors.toSet());
+        } else return ImmutableSet.of();
+    }
 }

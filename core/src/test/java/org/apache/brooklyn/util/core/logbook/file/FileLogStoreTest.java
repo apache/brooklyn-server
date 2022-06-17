@@ -18,25 +18,39 @@
  */
 package org.apache.brooklyn.util.core.logbook.file;
 
-import com.google.common.collect.ImmutableList;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
-import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
-import org.testng.annotations.*;
-
 import java.io.File;
 import java.util.List;
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Callables;
+
+import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+import org.apache.brooklyn.api.mgmt.ExecutionManager;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
+import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
+import org.apache.brooklyn.util.core.task.BasicTask;
+import org.apache.brooklyn.util.core.task.SequentialTask;
+
+import static org.apache.brooklyn.test.Asserts.assertFalse;
+import static org.apache.brooklyn.test.Asserts.assertNull;
+import static org.apache.brooklyn.test.Asserts.assertTrue;
+import static org.apache.brooklyn.util.core.logbook.LogbookConfig.LOGBOOK_MAX_RECURSIVE_TASKS;
 import static org.apache.brooklyn.util.core.logbook.file.FileLogStore.LOGBOOK_LOG_STORE_DATEFORMAT;
 import static org.apache.brooklyn.util.core.logbook.file.FileLogStore.LOGBOOK_LOG_STORE_PATH;
-import static org.apache.brooklyn.test.Asserts.assertNull;
-import static org.junit.Assert.assertEquals;  // deliberately junit due to order of arguments
+import static org.junit.Assert.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
 
 public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
 
@@ -412,5 +426,87 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         assertEquals("DEBUG", brooklynLogEntries.get(0).getLevel());
         assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
         assertEquals("INFO", brooklynLogEntries.get(2).getLevel());
+    }
+
+    /* two INFO log entries due to extra from child task not in params */
+    @Test
+    public void testQueryLogSampleWithRecursion() {
+        mgmt = newMock(LocalManagementContextForTests.newInstance());
+        LogBookQueryParams logBookQueryParams = newQueryParams(true);
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(2, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getLevel().equals("INFO")));
+        assertTrue(brooklynLogEntries.stream().anyMatch(Predicates.not(e -> e.getTaskId().equals(logBookQueryParams.getTaskId()))));
+    }
+
+    /* one INFO log entry */
+    @Test
+    public void testQueryLogSampleWithoutRecursion() {
+        mgmt = newMock(LocalManagementContextForTests.newInstance());
+        LogBookQueryParams logBookQueryParams = newQueryParams(false);
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(1, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getLevel().equals("INFO")));
+        assertFalse(brooklynLogEntries.stream().anyMatch(Predicates.not(e -> e.getTaskId().equals(logBookQueryParams.getTaskId()))));
+
+    }
+
+    /* one INFO log entry, as for #testQueryLogSampleWithoutRecursion */
+    @Test
+    public void testQueryLogSampleWithRecursionLimitZero() {
+        mgmt = newMock(LocalManagementContextForTests.newInstance());
+        mgmt.getBrooklynProperties().put(LOGBOOK_MAX_RECURSIVE_TASKS.getName(), 0);
+        LogBookQueryParams logBookQueryParams = newQueryParams(true);
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(1, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getLevel().equals("INFO")));
+        assertFalse(brooklynLogEntries.stream().anyMatch(Predicates.not(e -> e.getTaskId().equals(logBookQueryParams.getTaskId()))));
+    }
+
+    /* two INFO log entries, as for #testQueryLogSampleWithRecursion */
+    @Test
+    public void testQueryLogSampleWithRecursionLimitOne() {
+        mgmt = newMock(LocalManagementContextForTests.newInstance());
+        mgmt.getBrooklynProperties().put(LOGBOOK_MAX_RECURSIVE_TASKS.getName(), 1);
+        LogBookQueryParams logBookQueryParams = newQueryParams(true);
+        FileLogStore fileLogStore = new FileLogStore(mgmt);
+        List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
+
+        assertEquals(2, brooklynLogEntries.size());
+        assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getLevel().equals("INFO")));
+        assertTrue(brooklynLogEntries.stream().anyMatch(Predicates.not(e -> e.getTaskId().equals(logBookQueryParams.getTaskId()))));
+    }
+
+    private LogBookQueryParams newQueryParams(boolean recursive) {
+        LogBookQueryParams params = new LogBookQueryParams();
+        params.setNumberOfItems(5); // Request first five only
+        params.setTail(false);
+        params.setLevels(ImmutableList.of("INFO"));
+        params.setTaskId("CMeSRJNF");
+        params.setRecursive(recursive);
+        return params;
+    }
+
+    private ManagementContextInternal newMock(ManagementContextInternal mgmt) {
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
+        mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
+
+        ManagementContextInternal result = Mockito.spy(mgmt);
+        ExecutionManager exec = Mockito.mock(ExecutionManager.class);
+
+        Task<?> child = Mockito.spy(new BasicTask<Object>(MutableMap.<String, String>of(), Callables.returning(null)));
+        Mockito.when(child.getId()).thenReturn("THGMmYiu");
+        SequentialTask<?> parent = Mockito.spy(new SequentialTask<Object>(child));
+        Mockito.when(parent.getId()).thenReturn("CMeSRJNF");
+
+        Mockito.when(exec.getTask(eq("CMeSRJNF"))).thenReturn((Task) parent);
+        Mockito.when(result.getExecutionManager()).thenReturn(exec);
+        return result;
     }
 }
