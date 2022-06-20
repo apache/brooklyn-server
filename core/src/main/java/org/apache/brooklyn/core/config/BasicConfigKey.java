@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
@@ -297,6 +298,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         return deprecatedNames;
     }
 
+    @JsonIgnore
     /** @see ConfigKey#getTypeName() */
     @Override public String getTypeName() { return getTypeToken().toString(); }
 
@@ -345,7 +347,8 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         
         return null;
     }
-    
+
+    @JsonIgnore
     @Override
     public Map<ConfigInheritanceContext,ConfigInheritance> getInheritanceByContext() {
         MutableMap<ConfigInheritanceContext, ConfigInheritance> result = MutableMap.of();
@@ -398,6 +401,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
 
     /** @see ConfigKey#getNameParts() */
+    @JsonIgnore
     @Deprecated
     @Override public Collection<String> getNameParts() {
         return Lists.newArrayList(dots.split(name));

@@ -19,22 +19,22 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.deser.BeanDeserializerFactory;
-import com.fasterxml.jackson.databind.deser.DeserializerFactory;
-import com.fasterxml.jackson.databind.deser.ResolvableDeserializer;
+import com.fasterxml.jackson.databind.cfg.MapperConfig;
+import com.fasterxml.jackson.databind.introspect.Annotated;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
-import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -82,6 +82,7 @@ public class CommonTypesSerialization {
         new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
         new ConfigKeySerialization(mgmt).apply(m);
         new GuavaTypeTokenSerialization().apply(mapper, m, interceptible);
+        //mapper.setAnnotationIntrospector(new CustomAnnotationInspector());
 
         // see also JsonDeserializerForCommonBrooklynThings, and BrooklynDslCommon coercion of Spec
 
@@ -310,6 +311,8 @@ public class CommonTypesSerialization {
     }
 
     /** Serializing TypeTokens is annoying; basically we wrap the Type, and intercept 3 things specially */
+    // we've tried jackson-datatype-guava's mapper.registerModule(new GuavaModule())
+    // but it doesn't support TypeToken (or guava Predicates)
     public static class GuavaTypeTokenSerialization extends BeanSerializerModifier {
 
         public static final String RUNTIME_TYPE = "runtimeType";
@@ -348,7 +351,7 @@ public class CommonTypesSerialization {
 
             @Override
             protected Object deserializeObject(JsonParser p) throws IOException {
-                Object holder = createBeanDeserializer(ctxt, getDefaultType()).deserialize(p, ctxt);
+                Object holder = contextualize(createBeanDeserializer(ctxt, getDefaultType())).deserialize(p, ctxt);
                 return TypeToken.of( ((RuntimeTypeHolder)holder).runtimeType );
             }
         }
@@ -370,6 +373,11 @@ public class CommonTypesSerialization {
 
         static class RuntimeTypeHolder {
             private Type runtimeType;
+
+            // jackson compatibility
+            private void setType(Object type) {
+                // ignore; always deserialize as SimpleTypeToken
+            }
         }
 
         static class JavaLangTypeDeserializer extends JsonSymbolDependentDeserializer {
@@ -382,7 +390,36 @@ public class CommonTypesSerialization {
             protected JsonDeserializer<?> getTokenDeserializer() throws IOException {
                 return createBeanDeserializer(ctxt, getDefaultType());
             }
+
+            @Override
+            protected JsonDeserializer<?> getArrayDeserializer() throws IOException {
+                if (type!=null && type.getTypeHandler() instanceof AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) {
+                    /** Object.class can be encoded as array ["Class", "Object"] if type is unknown;
+                     *  it doesn't want to use { type: Class, value: Object } because it is trying to write a value string.
+                     *  this is a cheap-and-cheerful way to support that.
+                     */
+                    return new JsonDeserializer<Object>() {
+                        @Override
+                        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+                            return ((AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) type.getTypeHandler()).deserializeArrayContainingType(p, ctxt);
+                        }
+                    };
+                }
+                return super.getArrayDeserializer();
+            }
         }
     }
+
+    // kept for reference, if we did want to customize the mode (but you cannot from here inject parameter names)
+//    public static class CustomAnnotationInspector extends JacksonAnnotationIntrospector {
+//        @Override
+//        public JsonCreator.Mode findCreatorAnnotation(MapperConfig<?> config, Annotated a) {
+//            // does not work
+////            if (a.getAnnotated() instanceof Constructor && ((Constructor)a.getAnnotated()).getDeclaringClass().getPackage().equals(Predicate.class.getPackage())) {
+////                return JsonCreator.Mode.DELEGATING;
+////            }
+//            return super.findCreatorAnnotation(config, a);
+//        }
+//    }
 
 }

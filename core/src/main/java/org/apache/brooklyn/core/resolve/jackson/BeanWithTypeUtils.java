@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.cfg.ConstructorDetector;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.google.common.annotations.Beta;
@@ -86,7 +87,10 @@ public class BeanWithTypeUtils {
 
     public static JsonMapper newSimpleMapper() {
         // for use with json maps (no special type resolution, even the field "type" is ignored)
-        return JsonMapper.builder().build();
+        return JsonMapper.builder()
+                // experimented with this, but safer for us to add annotations, and for eg guava it doesn't work due to no parameter names in the compiled code
+                //.constructorDetector(ConstructorDetector.USE_DELEGATING)
+                .build();
     }
 
     public static YAMLMapper newSimpleYamlMapper() {

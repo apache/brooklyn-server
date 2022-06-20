@@ -26,6 +26,8 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.WritableTypeId;
 import com.fasterxml.jackson.core.util.JsonParserSequence;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.AbstractDeserializer;
+import com.fasterxml.jackson.databind.deser.std.DelegatingDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
@@ -136,12 +138,12 @@ public class AsPropertyIfAmbiguous {
         public Object deserializeTypedFromObject(JsonParser p, DeserializationContext ctxt) throws IOException {
             if (_idResolver instanceof HasBaseType) {
                 if (// object has field with same name as the type property - don't treat the type property supplied here as the type
-                        presentAndNotJsonIgnored(Reflections.findFieldMaybe(((HasBaseType)_idResolver).getBaseType().getRawClass(), _typePropertyName))
-                        || // or object has getter with same name as the type property
-                        presentAndNotJsonIgnored(Reflections.findMethodMaybe(((HasBaseType)_idResolver).getBaseType().getRawClass(), "get"+ Strings.toInitialCapOnly(_typePropertyName)))
+                        presentAndNotJsonIgnored(Reflections.findFieldMaybe(((HasBaseType) _idResolver).getBaseType().getRawClass(), _typePropertyName))
+                                || // or object has getter with same name as the type property
+                                presentAndNotJsonIgnored(Reflections.findMethodMaybe(((HasBaseType) _idResolver).getBaseType().getRawClass(), "get" + Strings.toInitialCapOnly(_typePropertyName)))
                 ) {
                     // look for an '@' type
-                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX+_typePropertyName).deserializeTypedFromObject(p, ctxt);
+                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName).deserializeTypedFromObject(p, ctxt);
 
                     // previous behaviour:
 //                    // don't read type id, just deserialize
@@ -161,13 +163,19 @@ public class AsPropertyIfAmbiguous {
             if (!fm.isPresent()) return false;
             AccessibleObject f = fm.get();
             JsonIgnore ignored = f.getAnnotation(JsonIgnore.class);
-            if (ignored!=null) return false;
+            if (ignored != null) return false;
             return true;
         }
 
         @Override
         public TypeDeserializer forProperty(BeanProperty prop) {
             return (prop == _property) ? this : new AsPropertyButNotIfFieldConflictTypeDeserializer(this, prop);
+        }
+
+        /** if the type is detected as probably serialized inside an array, we need to skip the default _deserialize which assumes we know the type */
+        public Object deserializeArrayContainingType(JsonParser p, DeserializationContext ctxt) throws IOException {
+            return super._deserialize(p, ctxt);
+            // better than deserializeTypedFromAny directly because does not come in to our _deserialize
         }
 
         // deserialize list-like things
@@ -193,11 +201,9 @@ public class AsPropertyIfAmbiguous {
 
         @Override
         protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt,
-                                                TokenBuffer tb) throws IOException
-        {
+                                                TokenBuffer tb, String typeId) throws IOException {
             // first part copied from parent
 
-            String typeId = p.getText();
             JsonDeserializer<Object> deser = _findDeserializer(ctxt, typeId);
             if (_typeIdVisible) { // need to merge id back in JSON input?
                 if (tb == null) {
@@ -206,15 +212,14 @@ public class AsPropertyIfAmbiguous {
                 tb.writeFieldName(p.getCurrentName());
                 tb.writeString(typeId);
             }
-            if (tb != null) { // need to put back skipped properties?
-                // 02-Jul-2016, tatu: Depending on for JsonParserSequence is initialized it may
-                //   try to access current token; ensure there isn't one
+            if (tb != null) {
                 p.clearCurrentToken();
                 p = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
             }
-            // Must point to the next value; tb had no current, jp pointed to VALUE_STRING:
-            p.nextToken(); // to skip past String value
-            // deserializer should take care of closing END_OBJECT as well
+
+            if (((JsonParser)p).currentToken() != JsonToken.END_OBJECT) {
+                ((JsonParser)p).nextToken();
+            }
 
             boolean wasEndToken = (p.currentToken() == JsonToken.END_OBJECT);
             try {
@@ -227,12 +232,29 @@ public class AsPropertyIfAmbiguous {
                     // normal use case is that context implies e.g. list-extended, then collection deserializer does the right thing when it is used.
                     // but if we got an empty map somehow, e.g. user supplied, don't use it.
                     Object candidate = deser.getEmptyValue(ctxt);
-                    if (candidate!=null) {
+                    if (candidate != null) {
                         return candidate;
                     }
                 }
                 throw e;
             }
+        }
+
+        protected Object _deserializeTypedUsingDefaultImpl(JsonParser p, DeserializationContext ctxt, TokenBuffer tb, String priorFailureMsg) throws IOException {
+            JsonDeserializer<Object> deserPeek = _findDefaultImplDeserializer(ctxt);
+            if (isAbstract(deserPeek)) {
+                // if it's abstract, don't use untyped
+                if (p.getCurrentToken()==JsonToken.START_ARRAY) {
+                    return deserializeArrayContainingType(p, ctxt);
+                }
+            }
+            return super._deserializeTypedUsingDefaultImpl(p, ctxt, tb, priorFailureMsg);
+        }
+
+        protected boolean isAbstract(JsonDeserializer d) {
+            if (d instanceof AbstractDeserializer) return true;
+            if (d instanceof DelegatingDeserializer) return isAbstract( ((DelegatingDeserializer)d).getDelegatee() );
+            return false;
         }
     }
 }

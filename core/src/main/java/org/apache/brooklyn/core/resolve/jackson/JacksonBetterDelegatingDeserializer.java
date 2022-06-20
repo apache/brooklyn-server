@@ -23,6 +23,7 @@ import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.JsonTokenId;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.deser.AbstractDeserializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerBase;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
@@ -121,15 +122,23 @@ public abstract class JacksonBetterDelegatingDeserializer extends DelegatingDese
 
     @Override
     public Object deserialize(JsonParser jp1, DeserializationContext ctxt1) throws IOException {
-        return deserializeWrapper(jp1, ctxt1, (jp2, ctxt2) ->
-                _delegatee instanceof CollectionDelegatingUntypedObjectDeserializer
-                    ? ((CollectionDelegatingUntypedObjectDeserializer)_delegatee).deserializeReal(jp2, ctxt2)
+        return deserializeWrapper(jp1, ctxt1, (jp2, ctxt2) -> {
+            if (_delegatee instanceof CollectionDelegatingUntypedObjectDeserializer)
+                return ((CollectionDelegatingUntypedObjectDeserializer) _delegatee).deserializeReal(jp2, ctxt2);
 
-                        // might be necessary to do this if we've started to analyse the type; but impls seems to be flexible enough to adapt as needed
+                    // might be necessary to do this if we've started to analyse the type; but impls seems to be flexible enough to adapt as needed
 //                    : jp2.currentTokenId() == JsonTokenId.ID_FIELD_NAME && (_delegatee instanceof BeanDeserializerBase)
 //                        ? ((BeanDeserializerBase)_delegatee).deserializeFromObject(jp2, ctxt2)
 
-                        : _delegatee.deserialize(jp2, ctxt2));
+            // type names in arrays are handled by the PropertyIfAmbiguous; but we could catch abstract and treat better if we wanted
+//            if (_delegatee instanceof AbstractDeserializer) {
+//                if (jp2.getCurrentToken()==JsonToken.START_ARRAY) {
+//                    throw new IllegalStateException("TODO catch abstract array attempts and treat as typed");
+//                }
+//            }
+
+            return _delegatee.deserialize(jp2, ctxt2);
+        });
     }
 
     @Override
