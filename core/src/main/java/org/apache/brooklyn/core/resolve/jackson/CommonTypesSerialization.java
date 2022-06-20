@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import com.fasterxml.jackson.databind.util.ByteBufferBackedOutputStream;
 import com.google.common.base.Predicate;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -49,10 +50,13 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -77,6 +81,7 @@ public class CommonTypesSerialization {
         m.setDeserializers(interceptible);
         new DurationSerialization().apply(m);
         new DateSerialization().apply(m);
+        new ByteArrayObjectStreamSerialization().apply(m);
         new InstantSerialization().apply(m);
         new ManagementContextSerialization(mgmt).apply(m);
         new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
@@ -138,6 +143,10 @@ public class CommonTypesSerialization {
             ObjectMapper m = BeanWithTypeUtils.newSimpleYamlMapper();
             m.setVisibility(new VisibilityChecker.Std(JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY));
             return m.readerFor(getType()).readValue(m.writeValueAsString(value));
+        }
+
+        protected T copyInto(T src, T target) {
+            throw new IllegalStateException("Not supported to read into "+getType()+", from "+src+" into "+target);
         }
 
         public <T extends SimpleModule> T apply(T module) {
@@ -203,6 +212,11 @@ public class CommonTypesSerialization {
                     throw Exceptions.propagate(e);
                 }
             }
+
+            @Override
+            public T deserialize(JsonParser p, DeserializationContext ctxt, T intoValue) throws IOException, JsonProcessingException {
+                return copyInto(deserialize(p, ctxt), intoValue);
+            }
         }
     }
 
@@ -229,6 +243,31 @@ public class CommonTypesSerialization {
         }
         @Override public Date convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
             return doConvertSpecialMapViaNewSimpleMapper(value);
+        }
+    }
+
+    public static class ByteArrayObjectStreamSerialization extends ObjectAsStringSerializerAndDeserializer<ByteArrayOutputStream> {
+        @Override public Class<ByteArrayOutputStream> getType() { return ByteArrayOutputStream.class; }
+        @Override public String convertObjectToString(ByteArrayOutputStream value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return provider.getConfig().getBase64Variant().encode(value.toByteArray());
+//            byte[] array = value.toByteArray();
+//            gen.writeBinary(provider.getConfig().getBase64Variant(), array, 0, array.length);
+        }
+        @Override public ByteArrayOutputStream convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            out.write(ctxt.getConfig().getBase64Variant().decode(value));
+//            out.write(p.getBinaryValue());
+            return out;
+        }
+
+        @Override
+        protected ByteArrayOutputStream copyInto(ByteArrayOutputStream src, ByteArrayOutputStream target) {
+            try {
+                target.write(src.toByteArray());
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
+            }
+            return target;
         }
     }
 

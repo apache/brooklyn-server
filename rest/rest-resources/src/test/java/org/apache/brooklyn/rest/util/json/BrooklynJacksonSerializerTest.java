@@ -58,6 +58,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.NotSerializableException;
 import java.time.Instant;
 import java.util.*;
@@ -336,9 +337,20 @@ public class BrooklynJacksonSerializerTest {
 
     @Test
     public void testSupplierSerialization() throws Exception {
-        String result = checkSerializesAs(Strings.toStringSupplier(Streams.byteArrayOfString("x")), null);
+        ByteArrayOutputStream x = Streams.byteArrayOfString("x");
+        String result = checkSerializesAs(Strings.toStringSupplier(x), null);
         log.info("SUPPLIER json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+    }
+
+    @Test
+    public void testByteArrayOutputStreamSerialization() throws Exception {
+        ByteArrayOutputStream x = Streams.byteArrayOfString("x");
+        String result = checkSerializesAs(x, null);
+        log.info("BAOS json is: "+result);
+        Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+        ByteArrayOutputStream x2 = checkSerializesAs(x, ByteArrayOutputStream.class);
+        Asserts.assertEquals(x2.toString(), "x");
     }
 
     @Test

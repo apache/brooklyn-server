@@ -200,9 +200,14 @@ public class AsPropertyIfAmbiguous {
         }
 
         @Override
-        protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt,
-                                                TokenBuffer tb, String typeId) throws IOException {
+        protected Object _deserializeTypedForId(JsonParser p, DeserializationContext ctxt, TokenBuffer tb
+                // jackson 2.13 below
+                , String typeId
+                ) throws IOException {
             // first part copied from parent
+
+            // jackson 2.11 only
+//            String typeId = p.getText();
 
             JsonDeserializer<Object> deser = _findDeserializer(ctxt, typeId);
             if (_typeIdVisible) { // need to merge id back in JSON input?
@@ -240,7 +245,11 @@ public class AsPropertyIfAmbiguous {
             }
         }
 
-        protected Object _deserializeTypedUsingDefaultImpl(JsonParser p, DeserializationContext ctxt, TokenBuffer tb, String priorFailureMsg) throws IOException {
+        @Override
+        protected Object _deserializeTypedUsingDefaultImpl(JsonParser p, DeserializationContext ctxt, TokenBuffer tb
+                // jackson 2.13
+                , String priorFailureMsg
+        ) throws IOException {
             JsonDeserializer<Object> deserPeek = _findDefaultImplDeserializer(ctxt);
             if (isAbstract(deserPeek)) {
                 // if it's abstract, don't use untyped
@@ -248,7 +257,10 @@ public class AsPropertyIfAmbiguous {
                     return deserializeArrayContainingType(p, ctxt);
                 }
             }
-            return super._deserializeTypedUsingDefaultImpl(p, ctxt, tb, priorFailureMsg);
+            return super._deserializeTypedUsingDefaultImpl(p, ctxt, tb
+                    // jackson 2.13
+                    , priorFailureMsg
+                    );
         }
 
         protected boolean isAbstract(JsonDeserializer d) {
