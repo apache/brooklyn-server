@@ -126,8 +126,9 @@ public class JobBuilderTest {
                 new JobBuilder().withImage("hashicorp/terraform").withName("tf-version")
                         .withVolumes(Lists.newArrayList(volumes))
                         .withVolumeMounts(Lists.newArrayList(Maps.newHashMap("name", "tf-ws", "mountPath", "/tfws")))
-                        .withCommands(Lists.newArrayList("terraform", "version")
-                        ).build();
+                        .withCommands(Lists.newArrayList("terraform", "version"))
+                        .withWorkingDir("/tfws/app1")
+                        .build();
         assertNotNull(yamlJobLocation);
         String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
         String expected = "apiVersion: batch/v1\n" +
@@ -147,6 +148,7 @@ public class JobBuilderTest {
                 "        volumeMounts:\n" +
                 "        - mountPath: /tfws\n" +
                 "          name: tf-ws\n" +
+                "        workingDir: /tfws/app1\n" +
                 "      restartPolicy: Never\n" +
                 "      volumes:\n" +
                 "      - name: tf-ws\n" +

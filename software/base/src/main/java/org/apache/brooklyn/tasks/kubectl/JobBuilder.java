@@ -20,6 +20,7 @@ package org.apache.brooklyn.tasks.kubectl;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.DumperOptions;
@@ -42,6 +43,8 @@ public class JobBuilder {
     private static final Logger LOG = LoggerFactory.getLogger(JobBuilder.class);
     String jobName;
     String imageName;
+
+    String workingDir;
 
     String prefix = "brooklyn-job";
 
@@ -84,6 +87,11 @@ public class JobBuilder {
         return this;
     }
 
+    public JobBuilder withWorkingDir(String workingDir) {
+        this.workingDir = workingDir;
+        return this;
+    }
+
     public JobBuilder withPrefix(final String prefixArg){
         this.prefix = prefixArg;
         return this;
@@ -99,6 +107,9 @@ public class JobBuilder {
 
         ContainerSpec containerSpec = jobTemplate.getSpec().get("template").getContainerSpec(0);
 
+        if(Strings.isNonBlank(workingDir)) {
+            containerSpec.setWorkingDir(workingDir);
+        }
         containerSpec.setImage(imageName);
         if (!env.isEmpty()) {
             List<Map<String,String>> envList = env.entrySet().stream().map (e ->  {

@@ -54,6 +54,10 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
         String containerNameFromCfg = EntityInitializers.resolve(configBag, CONTAINER_NAME);
         Boolean devMode = EntityInitializers.resolve(configBag, KEEP_CONTAINER_FOR_DEBUGGING);
 
+        String workingDir = EntityInitializers.resolve(configBag, WORKING_DIR);
+        List<Map<String,String>> volumeMounts = EntityInitializers.resolve(configBag, VOLUME_MOUNTS);
+        List<Map<String, Object>> volumes = EntityInitializers.resolve(configBag, VOLUMES);
+
         if(Strings.isBlank(containerImage)) {
             throw new IllegalStateException("You must specify containerImage when using " + this.getClass().getSimpleName());
         }
@@ -69,6 +73,8 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
                 .withArgs(argumentsCfg)
                 .withEnv(EntityInitializers.resolve(configBag, BrooklynConfigKeys.SHELL_ENVIRONMENT))
                 .withCommands(Lists.newArrayList(commandsCfg))
+                .withVolumeMounts(volumeMounts)
+                .withVolumes(volumes)
                 .build();
 
 

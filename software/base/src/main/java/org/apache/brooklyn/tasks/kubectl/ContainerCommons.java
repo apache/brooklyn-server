@@ -19,10 +19,14 @@
 package org.apache.brooklyn.tasks.kubectl;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings({ "rawtypes"})
 public interface ContainerCommons {
@@ -33,6 +37,10 @@ public interface ContainerCommons {
 
     ConfigKey<List> COMMANDS = ConfigKeys.newConfigKey(List.class,"commands", "Commands to execute for container", Lists.newArrayList());
     ConfigKey<List> ARGUMENTS = ConfigKeys.newConfigKey(List.class,"args", "Arguments to execute for container", Lists.newArrayList());
+
+    ConfigKey<String> WORKING_DIR = ConfigKeys.newStringConfigKey("workingDir", "Location where the container commands are executed");
+    ConfigKey<List<Map<String,String>>> VOLUME_MOUNTS = ConfigKeys.newConfigKey("volumeMounts", "Configuration to  mount a volume  into a container.", Lists.newArrayList());
+    ConfigKey<List<Map<String, Object>>> VOLUMES = ConfigKeys.newConfigKey("volumes", "List of directories with data that is accessible across multiple containers", Lists.newArrayList());
 
     String NAMESPACE_CREATE_CMD = "kubectl create namespace brooklyn-%s"; // namespace name
     String NAMESPACE_SET_CMD = "kubectl config set-context --current --namespace=brooklyn-%s"; // namespace name
