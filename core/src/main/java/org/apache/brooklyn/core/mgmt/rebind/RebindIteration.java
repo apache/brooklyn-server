@@ -485,7 +485,7 @@ public abstract class RebindIteration {
 
     protected Map<String,EntityAdjunct> adjunctProxies = MutableMap.of();
     protected <T extends EntityAdjunct> T createAdjunctProxy(Class<T> adjunctType, String id) {
-        return (T) adjunctProxies.computeIfAbsent(id, (id2) -> EntityAdjuncts.createProxy(adjunctType, null) );
+        return (T) adjunctProxies.computeIfAbsent(id, (id2) -> EntityAdjuncts.createProxyForId(adjunctType, id) );
     }
 
     protected void instantiateMementos() throws IOException {

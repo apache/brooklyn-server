@@ -601,4 +601,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         return super.equals(o);
     }
 
+    public int hashCode() {
+        return getId().hashCode();
+    }
 }

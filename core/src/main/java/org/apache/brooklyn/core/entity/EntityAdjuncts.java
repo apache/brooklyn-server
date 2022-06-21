@@ -38,6 +38,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -96,12 +97,20 @@ public class EntityAdjuncts {
         return Lifecycle.CREATED;
     }
 
-    public static <T extends EntityAdjunct> T createProxy(Class<T> adjunctType, @Nullable T delegate) {
+    public static <T extends EntityAdjunct> T createProxyForInstance(Class<T> adjunctType, @Nonnull T delegate) {
         return (T) java.lang.reflect.Proxy.newProxyInstance(
                 /** must have sight of all interfaces */ EntityAdjuncts.class.getClassLoader(),
                 new Class[] { adjunctType, EntityAdjuncts.EntityAdjunctProxyable.class},
 
-                new EntityAdjunctProxyImpl(delegate));
+                new EntityAdjunctProxyImpl(Preconditions.checkNotNull(delegate)));
+    }
+
+    public static <T extends EntityAdjunct> T createProxyForId(Class<T> adjunctType, String id) {
+        return (T) java.lang.reflect.Proxy.newProxyInstance(
+                /** must have sight of all interfaces */ EntityAdjuncts.class.getClassLoader(),
+                new Class[] { adjunctType, EntityAdjuncts.EntityAdjunctProxyable.class},
+
+                new EntityAdjunctProxyImpl(id));
     }
 
     public interface EntityAdjunctProxyable {

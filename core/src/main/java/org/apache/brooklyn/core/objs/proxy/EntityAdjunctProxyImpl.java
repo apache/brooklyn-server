@@ -39,9 +39,14 @@ public class EntityAdjunctProxyImpl extends AbstractBrooklynObjectProxyImpl<Enti
 
     private static final Logger LOG = LoggerFactory.getLogger(EntityAdjunctProxyImpl.class);
 
-    /** These are allowed to be null, assuming they are replaced later during rebind. */
-    public EntityAdjunctProxyImpl(@Nullable EntityAdjunct adjunct) {
+    /** These are allowed to be null, assuming they are replaced later during rebind; but it is recommended to supply an ID in that case so hashcode/equals/etc is consistent. */
+    public EntityAdjunctProxyImpl(EntityAdjunct adjunct) {
         super(adjunct);
+    }
+
+    public EntityAdjunctProxyImpl(String id) {
+        this((EntityAdjunct) null);
+        this.id = id;
     }
 
     public static void resetDelegate(EntityAdjunct proxy, EntityAdjunct preferredDelegate) {

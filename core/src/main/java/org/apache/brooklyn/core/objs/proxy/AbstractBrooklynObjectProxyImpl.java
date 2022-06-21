@@ -47,6 +47,7 @@ public abstract class AbstractBrooklynObjectProxyImpl<T extends BrooklynObject> 
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractBrooklynObjectProxyImpl.class);
 
+    String id;
     protected T delegate;
     protected Boolean isMaster;
 
@@ -79,6 +80,10 @@ public abstract class AbstractBrooklynObjectProxyImpl<T extends BrooklynObject> 
         T oldDelegate = delegate;
         this.delegate = newDelegate;
         this.isMaster = null;
+
+        if (id!=null && newDelegate!=null && !newDelegate.getId().equals(id)) {
+            LOG.warn("Change of ID when delegate "+delegate+" assigned to proxy for ID "+id+" (ignoring, but indicates something odd occurring)", new Throwable("source of ID change"));
+        }
         
         if (newDelegate==oldDelegate)
             return;
@@ -105,7 +110,7 @@ public abstract class AbstractBrooklynObjectProxyImpl<T extends BrooklynObject> 
     
     @Override
     public String toString() {
-        return delegate==null ? getClass().getName()+"[null]" : delegate.toString();
+        return delegate==null ? getClass().getName()+"["+getId()+"]" : delegate.toString();
     }
     
     protected boolean isMaster() {
@@ -143,8 +148,11 @@ public abstract class AbstractBrooklynObjectProxyImpl<T extends BrooklynObject> 
 
         Object result;
         if (delegate==null) {
-            // allow access to toString (mainly for logging of errors during serialization)
+            // allow access to toString, hashcode, equals (for insertion in hash sets, logging of errors during serialization, etc)
             if ("toString".equals(sig.name)) return toString();
+            if ("getId".equals(sig.name)) return getId();
+            if ("hashCode".equals(sig.name)) return hashCode();
+            if ("equals".equals(sig.name) && args.length==1) return equals(args[0]);
             throw new NullPointerException("Access to proxy before initialized, method "+m);
         } else if (OBJECT_METHODS.contains(sig)) {
             result = m.invoke(delegate, args);
@@ -205,12 +213,16 @@ public abstract class AbstractBrooklynObjectProxyImpl<T extends BrooklynObject> 
     }
     
     @Override
-    public boolean equals(Object obj) {
-        return Objects.equal(delegate, obj);
-    }
-    
-    @Override
     public int hashCode() {
-        return delegate==null ? 0 : delegate.hashCode();
+        return delegate!=null ? delegate.hashCode() : id!=null ? id.hashCode() : -1;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return other==this || (delegate!=null ? delegate.equals(other) : (other instanceof BrooklynObject && ((BrooklynObject)other).getId().equals(id)));
+    }
+
+    public String getId() {
+        return delegate!=null ? delegate.getId() : id;
     }
 }
