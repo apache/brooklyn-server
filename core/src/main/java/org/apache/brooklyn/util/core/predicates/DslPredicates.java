@@ -26,17 +26,21 @@ import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -113,19 +117,25 @@ public class DslPredicates {
         return value instanceof String || Boxing.isPrimitiveOrBoxedClass(value.getClass()) ? test.test(value.toString()) : false;
     }
 
-    public abstract static class DslPredicateBase {
+    public static class DslPredicateBase<T> {
         Object implicitEquals;
         Object equals;
         String regex;
         String glob;
+
         List<DslPredicate> any;
         List<DslPredicate> all;
+
         WhenPresencePredicate when;
+
         @JsonProperty("in-range") Range inRange;
         @JsonProperty("less-than") Object lessThan;
         @JsonProperty("greater-than") Object greaterThan;
         @JsonProperty("less-than-or-equal-to") Object lessThanOrEqualTo;
         @JsonProperty("greater-than-or-equal-to") Object greaterThanOrEqualTo;
+
+        @JsonProperty("java-type-name") DslPredicate javaTypeName;
+        @JsonProperty("java-instance-of") String javaInstanceOf;
 
         public static class CheckCounts {
             int checksTried = 0;
@@ -150,6 +160,15 @@ public class DslPredicates {
             }
         }
 
+        public boolean apply(T input) {
+            Maybe<Object> result = resolveTargetAgainstInput(input);
+            return applyToResolved(result);
+        }
+
+        protected Maybe<Object> resolveTargetAgainstInput(Object input) {
+            return Maybe.ofAllowingNull(input);
+        }
+
         public boolean applyToResolved(Maybe<Object> result) {
             CheckCounts counts = new CheckCounts();
             applyToResolved(result, counts);
@@ -167,6 +186,7 @@ public class DslPredicates {
             checker.check(equals, result, DslPredicates::equalsAfterCoercion);
             checker.check(regex, result, (test,value) -> asStringTestOrFalse(value, v -> v.matches(test)));
             checker.check(glob, result, (test,value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(test, v)));
+
             checker.check(inRange, result, (test,value) ->
                 // current Range only supports Integer, but this code will support any
                 asStringTestOrFalse(value, v -> NaturalOrderComparator.INSTANCE.compare(""+test.min(), v)<=0 && NaturalOrderComparator.INSTANCE.compare(""+test.max(), v)>=0));
@@ -179,6 +199,19 @@ public class DslPredicates {
 
             checker.check(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
             checker.check(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
+
+            checker.check(javaInstanceOf, result, (test, value) -> {
+                Entity ent = null;
+                if (value instanceof Entity) ent = (Entity)value;
+                if (ent==null) BrooklynTaskTags.getContextEntity(Tasks.current());
+                if (ent==null) return false;
+
+                Maybe<TypeToken<?>> tt = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken(test);
+                if (tt.isAbsentOrNull()) return false;
+
+                return tt.get().isSupertypeOf(value.getClass());
+            });
+            checker.check(javaTypeName, (test) -> nestedPredicateCheck(test, result.map(v -> v.getClass().getName())));
         }
 
         protected void checkWhen(WhenPresencePredicate when, Maybe<Object> result, CheckCounts checker) {
@@ -200,7 +233,6 @@ public class DslPredicates {
         protected boolean nestedPredicateCheck(DslPredicate p, Maybe<Object> result) {
             return result.isPresent() ? p.apply(result.get()) : p instanceof DslEntityPredicateDefault ? ((DslEntityPredicateDefault)p).applyToResolved(result) : false;
         }
-
     }
 
     @JsonDeserialize(using= DslPredicateJsonDeserializer.class)
@@ -215,7 +247,7 @@ public class DslPredicates {
     }
 
     @Beta
-    public static class DslPredicateDefault<T2> extends DslPredicateBase implements DslPredicate<T2> {
+    public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2> {
         Object target;
 
         /** test to be applied prior to any flattening of lists (eg if targetting children */
@@ -245,11 +277,6 @@ public class DslPredicates {
         protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
             if ("location".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
             return Maybe.absent("Unsupported target '"+target+"' on input "+input);
-        }
-
-        public boolean apply(Object input) {
-            Maybe<Object> result = resolveTargetAgainstInput(input);
-            return applyToResolved(result);
         }
 
         @Override

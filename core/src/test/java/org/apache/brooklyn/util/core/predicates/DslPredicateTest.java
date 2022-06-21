@@ -118,6 +118,14 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
+    public void testTypeName() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "java-type-name", String.class), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("some-str"));
+        Asserts.assertFalse(p.test(18));
+    }
+
+    @Test
     public void testAll() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
                 "all", MutableList.of(MutableMap.of("regex", ".*x"), MutableMap.of("less-than", "z"))), DslPredicates.DslPredicate.class);

@@ -21,10 +21,13 @@ package org.apache.brooklyn.util.core.predicates;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Predicate;
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -51,6 +54,17 @@ public class DslPredicateEntityTest extends BrooklynAppUnitTestSupport {
         Asserts.assertTrue(p.test(app));
 
         app.config().set(TestEntity.CONF_OBJECT, "y");
+        Asserts.assertFalse(p.test(app));
+    }
+
+    @Test
+    public void testJavaInstanceOf() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "java-instance-of", Application.class.getName()), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(app));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "java-instance-of", Location.class.getName()), DslPredicates.DslPredicate.class);
         Asserts.assertFalse(p.test(app));
     }
 

@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
@@ -41,6 +42,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
+import org.apache.brooklyn.util.javalang.ClassLoadingContext;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
@@ -136,7 +138,7 @@ public class BrooklynTypeNameResolution {
         private BrooklynTypeNameResolver(String context, ManagementContext mgmt, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
             this.context = context;
             this.mgmt = mgmt;
-            this.loader = loader;
+            this.loader = loader==null ? JavaBrooklynClassLoadingContext.create(mgmt) : loader;
             this.allowJavaType = allowJavaType;
             this.allowRegisteredTypes = allowRegisteredTypes;
 
