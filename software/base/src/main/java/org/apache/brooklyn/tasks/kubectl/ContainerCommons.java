@@ -28,7 +28,7 @@ import java.util.List;
 public interface ContainerCommons {
     ConfigKey<String> CONTAINER_IMAGE = ConfigKeys.newStringConfigKey("image", "Container image");
     ConfigKey<String> CONTAINER_NAME = ConfigKeys.newStringConfigKey("containerName", "Container name");
-    ConfigKey<Boolean> DEV_MODE = ConfigKeys.newBooleanConfigKey("devMode", "When set to true, the namespace" +
+    ConfigKey<Boolean> KEEP_CONTAINER_FOR_DEBUGGING = ConfigKeys.newBooleanConfigKey("keepContainerForDebugging", "When set to true, the namespace" +
             " and associated resources and services are not destroyed after execution. Defaults value is 'false'.", Boolean.FALSE);
 
     ConfigKey<List> COMMANDS = ConfigKeys.newConfigKey(List.class,"commands", "Commands to execute for container", Lists.newArrayList());

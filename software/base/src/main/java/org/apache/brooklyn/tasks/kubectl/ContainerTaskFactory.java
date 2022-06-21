@@ -52,7 +52,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
         List<String> argumentsCfg =  EntityInitializers.resolve(configBag, ARGUMENTS);
         String containerImage = EntityInitializers.resolve(configBag, CONTAINER_IMAGE);
         String containerNameFromCfg = EntityInitializers.resolve(configBag, CONTAINER_NAME);
-        Boolean devMode = EntityInitializers.resolve(configBag, DEV_MODE);
+        Boolean devMode = EntityInitializers.resolve(configBag, KEEP_CONTAINER_FOR_DEBUGGING);
 
         if(Strings.isBlank(containerImage)) {
             throw new IllegalStateException("You must specify containerImage when using " + this.getClass().getSimpleName());

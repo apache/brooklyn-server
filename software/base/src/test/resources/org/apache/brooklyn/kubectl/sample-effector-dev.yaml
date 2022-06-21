@@ -26,7 +26,7 @@ services:
           shell.env:
             hello: world-amp
             # hello: $brooklyn:external("hello", "hello")
-          devMode: true  # makes the activity fail and does not delete namespace allowing debug
+          keepContainerForDebugging: true  # makes the activity fail and does not delete namespace allowing debug
           image: perl
           commands:
             - /bin/bash
