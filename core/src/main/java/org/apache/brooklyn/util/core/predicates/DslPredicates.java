@@ -91,7 +91,7 @@ public class DslPredicates {
         /** always returns false */ NEVER,
     }
 
-    public static final boolean equalsAfterCoercion(Object a, Object b) {
+    public static final boolean coercedEqual(Object a, Object b) {
         if (a==null || b==null) return a==null && b==null;
 
         // could handle numbers specially here, if differences between 2.0d and 2 are problematic
@@ -113,8 +113,37 @@ public class DslPredicates {
         return false;
     }
 
+    /** returns -1, 0, 1, or null, dependeing whether first arg is less than, equal, greater than, or incomparable with the second */
+    public static final Integer coercedCompare(Object a, Object b) {
+        if (a==null || b==null) return 0;
+
+        // if either believes they're equal, believe it
+        if (a.equals(b) || b.equals(a)) return 0;
+
+        if (isStringOrPrimitive(a) && isStringOrPrimitive(b)) {
+            return NaturalOrderComparator.INSTANCE.compare(a.toString(), b.toString());
+        }
+
+        // if classes are equal or one is a subclass of the other, and the above check was false, that is decisive
+        if (a.getClass().isAssignableFrom(b.getClass()) && b instanceof Comparable) return ((Comparable) b).compareTo(a);
+        if (b.getClass().isAssignableFrom(a.getClass()) && a instanceof Comparable) return ((Comparable) a).compareTo(b);
+
+        // different type hierarchies, consider coercion
+        if (isJson(a) && !isJson(b)) a = ((Maybe<Object>)TypeCoercions.tryCoerce(a, b.getClass())).or(a);
+        if (isJson(b) && !isJson(a)) b = ((Maybe<Object>)TypeCoercions.tryCoerce(b, a.getClass())).or(b);
+
+        // repeat equality check
+        if (a.equals(b) || b.equals(a)) return true;
+
+        return false;
+    }
+
+    private static boolean isStringOrPrimitive(Object a) {
+        return a!=null && a instanceof String || Boxing.isPrimitiveOrBoxedClass(a.getClass());
+    }
+
     static boolean asStringTestOrFalse(Object value, Predicate<String> test) {
-        return value instanceof String || Boxing.isPrimitiveOrBoxedClass(value.getClass()) ? test.test(value.toString()) : false;
+        return isStringOrPrimitive(value) ? test.test(value.toString()) : false;
     }
 
     public static class DslPredicateBase<T> {
@@ -181,9 +210,9 @@ public class DslPredicates {
                         (!(test instanceof Iterable) && value instanceof Iterable)) {
                     throw new IllegalStateException("Implicit string used for equality check comparing "+test+" with "+value+", which is probably not what was meant. Use explicit 'equals: ...' syntax for this case.");
                 }
-                return test.equals(value);
+                return DslPredicates.coercedEqual(test, value);
             });
-            checker.check(equals, result, DslPredicates::equalsAfterCoercion);
+            checker.check(equals, result, DslPredicates::coercedEqual);
             checker.check(regex, result, (test,value) -> asStringTestOrFalse(value, v -> v.matches(test)));
             checker.check(glob, result, (test,value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(test, v)));
 
@@ -276,6 +305,7 @@ public class DslPredicates {
 
         protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
             if ("location".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
+            if ("children".equals(target) && input instanceof Entity) return Maybe.of( ((Entity)input).getChildren() );
             return Maybe.absent("Unsupported target '"+target+"' on input "+input);
         }
 
