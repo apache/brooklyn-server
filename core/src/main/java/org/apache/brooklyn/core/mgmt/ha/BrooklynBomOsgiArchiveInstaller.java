@@ -96,8 +96,21 @@ public class BrooklynBomOsgiArchiveInstaller {
     private boolean force = false;
     private boolean deferredStart = false;
     private boolean validateTypes = true;
-    
-    private File zipFile;
+
+    public static class FileWithTempInfo<T extends File> {
+        public FileWithTempInfo(T f, boolean isTemp) { this.f = f; this.isTemp = isTemp; }
+        public T f;
+        public boolean isTemp;
+
+        public void deleteIfTemp() {
+            if (isTemp && f!=null) {
+                f.delete();
+                f = null;
+            }
+        }
+    }
+
+    private FileWithTempInfo<File> zipFile;
     private boolean isBringingExistingOsgiInstalledBundleUnderBrooklynManagement = false;
     private Manifest discoveredManifest;
     private VersionedName discoveredBomVersionedName;
@@ -177,7 +190,7 @@ public class BrooklynBomOsgiArchiveInstaller {
         /** set if we anticipate a caller may want to read from a ZIP file;
          * this is for the case where no input stream was supplied but
          * OSGi bundle co-ordinates were supplied and can be used to find a ZIP */
-        public File zipFile;
+        public FileWithTempInfo<File> zipFile;
     }
     public static PrepareInstallResult prepareInstall(ManagementContext mgmt, ManagedBundle suppliedKnownBundleMetadata, ManagedBundle optionalAdditionalInferredMetadata,
                                                       Supplier<InputStream> zipInS, boolean force, @Nullable OsgiBundleInstallationResult resultObject) {
@@ -339,13 +352,13 @@ public class BrooklynBomOsgiArchiveInstaller {
 
             if (zipIn != null) {
                 if (zipInS instanceof InputStreamSourceFromFile) {
-                    prepareInstallResult.zipFile = ((InputStreamSourceFromFile) zipInS).getFile();
+                    prepareInstallResult.zipFile = new FileWithTempInfo<File>( ((InputStreamSourceFromFile) zipInS).getFile(), false );
                 } else {
-                    prepareInstallResult.zipFile = Os.newTempFile("brooklyn-bundle-transient-" + suppliedKnownBundleMetadata, "zip");
+                    prepareInstallResult.zipFile = new FileWithTempInfo<File>( Os.newTempFile("brooklyn-bundle-transient-" + suppliedKnownBundleMetadata, "zip"), true );
                     try {
-                        FileOutputStream fos = new FileOutputStream(prepareInstallResult.zipFile);
+                        FileOutputStream fos = new FileOutputStream(prepareInstallResult.zipFile.f);
                         Streams.copyClose(zipIn, fos);
-                        try (ZipFile zf = new ZipFile(prepareInstallResult.zipFile)) {
+                        try (ZipFile zf = new ZipFile(prepareInstallResult.zipFile.f)) {
                             // validate it is a valid ZIP, otherwise errors are more obscure later.
                             // can happen esp if user supplies a file://path/to/folder/ as the URL.openStream returns a list of that folder (!)
                             // the error thrown by the below is useful enough, and caller will wrap with suppliedKnownBundleMetadata details
@@ -353,7 +366,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                         }
                     } catch (Exception e) {
                         try {
-                            prepareInstallResult.zipFile.delete();
+                            prepareInstallResult.zipFile.deleteIfTemp();
                         } catch (Exception e2) {
                             Exceptions.propagateIfFatal(e2);
                             log.warn("Error deleting ZIP file but ignoring because handling error "+e+": "+e2);
@@ -371,7 +384,7 @@ public class BrooklynBomOsgiArchiveInstaller {
     }
 
     private void discoverManifestFromCatalogBom(boolean isCatalogBomRequired) {
-        discoveredManifest = new BundleMaker(mgmt()).getManifest(zipFile);
+        discoveredManifest = new BundleMaker(mgmt()).getManifest(zipFile.f);
 
         if (Strings.isNonBlank(bomText)) {
             discoveredBomVersionedName = BasicBrooklynCatalog.getVersionedName(BasicBrooklynCatalog.getCatalogMetadata(bomText), false );
@@ -381,7 +394,7 @@ public class BrooklynBomOsgiArchiveInstaller {
         ZipFile zf = null;
         try {
             try {
-                zf = new ZipFile(zipFile);
+                zf = new ZipFile(zipFile.f);
             } catch (IOException e) {
                 throw new IllegalArgumentException("Invalid ZIP/JAR archive: "+e);
             }
@@ -440,15 +453,15 @@ public class BrooklynBomOsgiArchiveInstaller {
             manifestNeedsUpdating = true;                
         }
         if (manifestNeedsUpdating) {
-            File zf2 = new BundleMaker(mgmt()).copyAddingManifest(zipFile, discoveredManifest);
-            zipFile.delete();
-            zipFile = zf2;
+            File zf2 = new BundleMaker(mgmt()).copyAddingManifest(zipFile.f, discoveredManifest);
+            zipFile.deleteIfTemp();
+            zipFile = new FileWithTempInfo<>(zf2, zipFile.isTemp);
         }
     }
     
     private synchronized void close() {
         if (zipFile!=null) {
-            zipFile.delete();
+            zipFile.deleteIfTemp();
             zipFile = null;
         }
     }
@@ -482,7 +495,7 @@ public class BrooklynBomOsgiArchiveInstaller {
             if (result.code!=null) return ReferenceWithError.newInstanceWithoutError(result);
             assert inferredMetadata.isNameResolved() : "Should have resolved "+inferredMetadata;
             assert inferredMetadata instanceof BasicManagedBundle : "Only BasicManagedBundles supported";
-            ((BasicManagedBundle)inferredMetadata).setChecksum(getChecksum(new ZipFile(zipFile)));
+            ((BasicManagedBundle)inferredMetadata).setChecksum(getChecksum(new ZipFile(zipFile.f)));
             ((BasicManagedBundle)inferredMetadata).setFormat(format);
 
             final boolean updating;
@@ -520,7 +533,7 @@ public class BrooklynBomOsgiArchiveInstaller {
 
                 List<Bundle> matchingVsnBundles = findBundlesBySymbolicNameAndVersion(osgiManager, inferredMetadata);
 
-                List<Bundle> sameContentBundles = matchingVsnBundles.stream().filter(b -> isBundleSameOsgiUrlOrSameContents(b, inferredMetadata, zipFile)).collect(Collectors.toList());
+                List<Bundle> sameContentBundles = matchingVsnBundles.stream().filter(b -> isBundleSameOsgiUrlOrSameContents(b, inferredMetadata, zipFile.f)).collect(Collectors.toList());
                 if (!sameContentBundles.isEmpty()) {
                     // e.g. happens if pre-installed bundle is brought under management, and then add it again via a mvn-style url.
                     // We wouldn't know the checksum from the pre-installed bundle, the osgi locations might be different,
@@ -588,7 +601,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                 
                 // search for already-installed bundles.
                 List<Bundle> existingBundles = findBundlesBySymbolicNameAndVersion(osgiManager, inferredMetadata);
-                Maybe<Bundle> existingEquivalentBundle = tryFindSameOsgiUrlOrSameContentsBundle(existingBundles, inferredMetadata, zipFile);
+                Maybe<Bundle> existingEquivalentBundle = tryFindSameOsgiUrlOrSameContentsBundle(existingBundles, inferredMetadata, zipFile.f);
                 
                 if (existingEquivalentBundle.isPresent()) {
                     // Identical bundle (by osgi location or binary content) already installed; just bring that under management.
@@ -634,7 +647,7 @@ public class BrooklynBomOsgiArchiveInstaller {
             }
             
             startedInstallation = true;
-            try (InputStream fin = new FileInputStream(zipFile)) {
+            try (InputStream fin = new FileInputStream(zipFile.f)) {
                 if (!updating) {
                     if (isBringingExistingOsgiInstalledBundleUnderBrooklynManagement) {
                         assert result.getBundle()!=null;
@@ -656,11 +669,11 @@ public class BrooklynBomOsgiArchiveInstaller {
             if (!updating) { 
                 oldZipFile = null;
                 oldManagedBundle = null;
-                osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile);
+                osgiManager.managedBundlesRecord.addManagedBundle(result, zipFile.f);
                 result.code = OsgiBundleInstallationResult.ResultCode.INSTALLED_NEW_BUNDLE;
                 result.message = "Installed Brooklyn catalog bundle "+result.getMetadata().getVersionedName()+" with ID "+result.getMetadata().getId()+" ["+result.bundle.getBundleId()+"]";
             } else {
-                Pair<File, ManagedBundle> olds = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile);
+                Pair<File, ManagedBundle> olds = osgiManager.managedBundlesRecord.updateManagedBundleFileAndMetadata(result, zipFile.f);
                 oldZipFile = olds.getLeft();
                 oldManagedBundle = olds.getRight();
 
@@ -669,7 +682,7 @@ public class BrooklynBomOsgiArchiveInstaller {
             }
             log.debug(result.message + " (partial): OSGi bundle installed, with bundle start and Brooklyn management to follow");
             // can now delete and close (copy has been made and is available from OsgiManager)
-            zipFile.delete();
+            zipFile.deleteIfTemp();
             zipFile = null;
             
             // setting the above before the code below means if there is a problem starting or loading catalog items

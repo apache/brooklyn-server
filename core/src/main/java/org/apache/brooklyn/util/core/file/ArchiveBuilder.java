@@ -44,6 +44,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.io.Files;
+import org.apache.brooklyn.util.time.Duration;
 
 /**
  * Build a Zip or Jar archive.
@@ -278,7 +279,6 @@ public class ArchiveBuilder {
     public File create() {
         if (archive == null) {
             File temp = Os.newTempFile("brooklyn-archive", type.toString());
-            temp.deleteOnExit();
             named(temp);
         }
         try {

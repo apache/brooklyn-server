@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.entity.drivers.downloads.DownloadSubstituters;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode.ExistingFileBehaviour;
 import org.apache.brooklyn.entity.java.JavaSoftwareProcessSshDriver;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
@@ -261,8 +262,10 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
             checkNotNull(url, "url");
 
             // If a local folder, then create archive from contents first
+            List<File> filesToDelete = MutableList.of();
             if (Urls.isDirectory(url)) {
                 File jarFile = ArchiveBuilder.jar().addDirContentsAt(new File(url), "").create();
+                filesToDelete.add(jarFile);
                 url = jarFile.getAbsolutePath();
             }
 
@@ -271,6 +274,7 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
                 filename = getFilename(url);
             }
             ArchiveUtils.deploy(MutableMap.<String, Object>of(), url, machine, getRunDir(), Os.mergePaths(getRunDir(), "lib", "dropins"), filename);
+            filesToDelete.forEach(f -> f.delete());
         }
 
         String cmd = entity.getConfig(BrooklynNode.EXTRA_CUSTOMIZATION_SCRIPT);
