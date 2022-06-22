@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.rebind.BasicEnricherRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
@@ -44,7 +45,7 @@ import com.google.common.collect.Maps;
 /**
 * Base {@link Enricher} implementation; all enrichers should extend this or its children
 */
-public abstract class AbstractEnricher extends AbstractEntityAdjunct implements Enricher {
+public abstract class AbstractEnricher extends AbstractEntityAdjunct implements Enricher, EntityAdjuncts.EntityAdjunctProxyable {
 
     public static final ConfigKey<Boolean> SUPPRESS_DUPLICATES = ConfigKeys.newBooleanConfigKey(
             "enricher.suppressDuplicates",

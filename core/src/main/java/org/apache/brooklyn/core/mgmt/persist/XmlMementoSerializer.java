@@ -218,6 +218,10 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);
         mapper = new CustomMapper(mapper, Entity.class, "entityProxy");
         mapper = new CustomMapper(mapper, Location.class, "locationProxy");
+
+        mapper = new CustomMapper(mapper, Policy.class, "policyRef");
+        mapper = new CustomMapper(mapper, Enricher.class, "enricherRef");
+
         mapper = new UnwantedStateLoggingMapper(mapper);
         return mapper;
     }

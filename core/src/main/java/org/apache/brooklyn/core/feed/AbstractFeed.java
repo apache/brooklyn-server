@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.rebind.BasicFeedRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
@@ -42,7 +43,7 @@ import org.slf4j.LoggerFactory;
  * These generally poll or subscribe to get sensor values for an entity.
  * They make it easy to poll over http, jmx, etc.
  */
-public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed {
+public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed, EntityAdjuncts.EntityAdjunctProxyable {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractFeed.class);
 
