@@ -102,7 +102,19 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
     protected Object deserializeArray(JsonParser p) throws IOException, JsonProcessingException {
         return contextualize(getArrayDeserializer()).deserialize(p, ctxt);
     }
-    protected JsonDeserializer<?> getArrayDeserializer() throws IOException, JsonProcessingException {
+    protected JsonDeserializer<?> getArrayDeserializer() throws IOException {
+        if (type!=null && type.getTypeHandler() instanceof AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) {
+            /** Object.class can be encoded as array ["Class", "Object"] if type is unknown;
+             *  it doesn't want to use { type: Class, value: Object } because it is trying to write a value string.
+             *  this is a cheap-and-cheerful way to support that.
+             */
+            return new JsonDeserializer<Object>() {
+                @Override
+                public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+                    return ((AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) type.getTypeHandler()).deserializeArrayContainingType(p, ctxt);
+                }
+            };
+        }
         throw new IllegalStateException("List input not supported for "+type);
     }
 

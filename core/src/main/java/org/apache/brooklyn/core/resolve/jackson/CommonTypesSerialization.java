@@ -43,6 +43,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
@@ -86,6 +87,7 @@ public class CommonTypesSerialization {
         new ManagementContextSerialization(mgmt).apply(m);
         new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
         new ConfigKeySerialization(mgmt).apply(m);
+        new PredicateSerialization(mgmt).apply(m);
         new GuavaTypeTokenSerialization().apply(mapper, m, interceptible);
         //mapper.setAnnotationIntrospector(new CustomAnnotationInspector());
 
@@ -349,6 +351,16 @@ public class CommonTypesSerialization {
         }
     }
 
+    public static class PredicateSerialization {
+        private final ManagementContext mgmt;
+        public PredicateSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
+        public void apply(SimpleModule m) {
+            m.addDeserializer(Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            m.addDeserializer(DslPredicates.DslPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            m.addDeserializer(DslPredicates.DslEntityPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+        }
+    }
+
     /** Serializing TypeTokens is annoying; basically we wrap the Type, and intercept 3 things specially */
     // we've tried jackson-datatype-guava's mapper.registerModule(new GuavaModule())
     // but it doesn't support TypeToken (or guava Predicates)
@@ -428,23 +440,6 @@ public class CommonTypesSerialization {
             @Override
             protected JsonDeserializer<?> getTokenDeserializer() throws IOException {
                 return createBeanDeserializer(ctxt, getDefaultType());
-            }
-
-            @Override
-            protected JsonDeserializer<?> getArrayDeserializer() throws IOException {
-                if (type!=null && type.getTypeHandler() instanceof AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) {
-                    /** Object.class can be encoded as array ["Class", "Object"] if type is unknown;
-                     *  it doesn't want to use { type: Class, value: Object } because it is trying to write a value string.
-                     *  this is a cheap-and-cheerful way to support that.
-                     */
-                    return new JsonDeserializer<Object>() {
-                        @Override
-                        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-                            return ((AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) type.getTypeHandler()).deserializeArrayContainingType(p, ctxt);
-                        }
-                    };
-                }
-                return super.getArrayDeserializer();
             }
         }
     }
