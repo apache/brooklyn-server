@@ -108,17 +108,26 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
         return contextualize(getArrayDeserializer()).deserialize(p, ctxt);
     }
     protected JsonDeserializer<?> getArrayDeserializer() throws IOException {
-        if (type!=null && type.getTypeHandler() instanceof AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) {
-            /** Object.class can be encoded as array ["Class", "Object"] if type is unknown;
-             *  it doesn't want to use { type: Class, value: Object } because it is trying to write a value string.
-             *  this is a cheap-and-cheerful way to support that.
-             */
-            return new JsonDeserializer<Object>() {
-                @Override
-                public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
-                    return ((AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) type.getTypeHandler()).deserializeArrayContainingType(p, ctxt);
-                }
-            };
+        if (type!=null) {
+            Object handler = type.getTypeHandler();
+            if (handler==null) {
+                // drop type info, in case the default type was overly restrictive
+                type = ctxt.constructType(Object.class);
+                handler = ctxt.getFactory().findTypeDeserializer(ctxt.getConfig(), type);
+            }
+            if (handler instanceof AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) {
+                /** Object.class can be encoded as array ["Class", "Object"] if type is unknown;
+                 *  it doesn't want to use { type: Class, value: Object } because it is trying to write a value string.
+                 *  this is a cheap-and-cheerful way to support that.
+                 */
+                AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer hf = (AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) handler;
+                return new JsonDeserializer<Object>() {
+                    @Override
+                    public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+                        return hf.deserializeArrayContainingType(p, ctxt);
+                    }
+                };
+            }
         }
         throw new IllegalStateException("List input not supported for "+type);
     }
