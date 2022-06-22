@@ -55,10 +55,13 @@ import org.apache.brooklyn.util.text.WildcardGlobs;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class DslPredicates {
 
@@ -113,7 +116,8 @@ public class DslPredicates {
         return false;
     }
 
-    /** returns -1, 0, 1, or null, dependeing whether first arg is less than, equal, greater than, or incomparable with the second */
+    /** returns negative, zero, positive, or null, depending whether first arg is less than, equal, greater than, or incomparable with the second */
+    @Beta
     public static final Integer coercedCompare(Object a, Object b) {
         if (a==null || b==null) return 0;
 
@@ -128,18 +132,29 @@ public class DslPredicates {
         if (a.getClass().isAssignableFrom(b.getClass()) && b instanceof Comparable) return ((Comparable) b).compareTo(a);
         if (b.getClass().isAssignableFrom(a.getClass()) && a instanceof Comparable) return ((Comparable) a).compareTo(b);
 
+        BiFunction<Maybe<?>,Maybe<?>,Integer> maybeCoercedCompare = (ma,mb) -> {
+            if (ma.isPresent() && mb.isPresent()) return coercedCompare(ma.get(), mb.get());
+            return null;
+        };
         // different type hierarchies, consider coercion
-        if (isJson(a) && !isJson(b)) a = ((Maybe<Object>)TypeCoercions.tryCoerce(a, b.getClass())).or(a);
-        if (isJson(b) && !isJson(a)) b = ((Maybe<Object>)TypeCoercions.tryCoerce(b, a.getClass())).or(b);
+        if (isJson(a) && !isJson(b)) return maybeCoercedCompare.apply( TypeCoercions.tryCoerce(a, b.getClass()), Maybe.of(b) );
+        if (isJson(b) && !isJson(a)) return maybeCoercedCompare.apply( Maybe.of(a), TypeCoercions.tryCoerce(b, a.getClass()) );
 
-        // repeat equality check
-        if (a.equals(b) || b.equals(a)) return true;
+        return null;
+    }
 
-        return false;
+    public static final boolean coercedCompare(Object a, Object b, Function<Integer,Boolean> postProcess) {
+        Integer result = coercedCompare(a, b);
+        if (result==null) return false;
+        return postProcess.apply(result);
     }
 
     private static boolean isStringOrPrimitive(Object a) {
         return a!=null && a instanceof String || Boxing.isPrimitiveOrBoxedClass(a.getClass());
+    }
+
+    private static boolean isJson(Object a) {
+        return isStringOrPrimitive(a) || (a instanceof Map) || (a instanceof Collection);
     }
 
     static boolean asStringTestOrFalse(Object value, Predicate<String> test) {
@@ -219,10 +234,10 @@ public class DslPredicates {
             checker.check(inRange, result, (test,value) ->
                 // current Range only supports Integer, but this code will support any
                 asStringTestOrFalse(value, v -> NaturalOrderComparator.INSTANCE.compare(""+test.min(), v)<=0 && NaturalOrderComparator.INSTANCE.compare(""+test.max(), v)>=0));
-            checker.check(lessThan, result, (test,value) -> asStringTestOrFalse(value, v -> NaturalOrderComparator.INSTANCE.compare(test.toString(), v)>0));
-            checker.check(lessThanOrEqualTo, result, (test,value) -> asStringTestOrFalse(value, v -> NaturalOrderComparator.INSTANCE.compare(test.toString(), v)>=0));
-            checker.check(greaterThan, result, (test,value) -> asStringTestOrFalse(value, v -> NaturalOrderComparator.INSTANCE.compare(test.toString(), v)<0));
-            checker.check(greaterThanOrEqualTo, result, (test,value) -> asStringTestOrFalse(value, v -> NaturalOrderComparator.INSTANCE.compare(test.toString(), v)<=0));
+            checker.check(lessThan, result, (test,value) -> coercedCompare(value, test, x -> x<0));
+            checker.check(lessThanOrEqualTo, result, (test,value) -> coercedCompare(value, test, x -> x<=0));
+            checker.check(greaterThan, result, (test,value) -> coercedCompare(value, test, x -> x>0));
+            checker.check(greaterThanOrEqualTo, result, (test,value) -> coercedCompare(value, test, x -> x>=0));
 
             checkWhen(when, result, checker);
 

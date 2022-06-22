@@ -23,6 +23,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.time.Time;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.testng.annotations.Test;
 
 public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
@@ -95,6 +97,40 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertFalse(p.test("-0.2"));
         Asserts.assertTrue(p.test("10"));
         Asserts.assertTrue(p.test("5"));
+    }
+
+    @Test
+    public void testDateGreaterThanOrEquals() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than-or-equal-to", "2022-06-01"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(Time.parseInstant("2022-06-02")));
+        Asserts.assertTrue(p.test(Time.parseInstant("2022-05-31")));
+
+        // ensure it isn't doing string compare if either side is strongly typed
+        p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than-or-equal-to", "2022.06.01"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(Time.parseInstant("2022-06-02")));
+        Asserts.assertTrue(p.test(Time.parseInstant("2022-05-31")));
+
+        // whereas if none are strongly typed it does string compare
+        Asserts.assertFalse(p.test("2022-06-02"));
+        Asserts.assertFalse(p.test("2022-05-31"));
+
+        Asserts.assertFalse(p.test("0"));
+        Asserts.assertTrue(p.test("2023"));
+        Asserts.assertTrue(p.test("a"));
+        Asserts.assertTrue(p.test("10000"));
+
+        // if argument to test against is not coercible to a date, it's always false if value to test is a date
+        p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than-or-equal-to", "2022-06-not-a-date"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(Time.parseInstant("2022-07-02")));
+        Asserts.assertFalse(p.test(Time.parseInstant("2022-05-31")));
+        // whereas a string it just does string compare
+        Asserts.assertTrue(p.test("2022-07-02"));
+        Asserts.assertFalse(p.test("2022-05-31"));
+        Asserts.assertTrue(p.test("2022.07.02"));
+        Asserts.assertTrue(p.test("2022.05.31"));
     }
 
     @Test
