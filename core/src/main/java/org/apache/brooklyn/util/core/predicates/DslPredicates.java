@@ -162,24 +162,24 @@ public class DslPredicates {
     }
 
     public static class DslPredicateBase<T> {
-        Object implicitEquals;
-        Object equals;
-        String regex;
-        String glob;
+        public Object implicitEquals;
+        public Object equals;
+        public String regex;
+        public String glob;
 
-        List<DslPredicate> any;
-        List<DslPredicate> all;
+        public List<DslPredicate> any;
+        public List<DslPredicate> all;
 
-        WhenPresencePredicate when;
+        public WhenPresencePredicate when;
 
-        @JsonProperty("in-range") Range inRange;
-        @JsonProperty("less-than") Object lessThan;
-        @JsonProperty("greater-than") Object greaterThan;
-        @JsonProperty("less-than-or-equal-to") Object lessThanOrEqualTo;
-        @JsonProperty("greater-than-or-equal-to") Object greaterThanOrEqualTo;
+        public @JsonProperty("in-range") Range inRange;
+        public @JsonProperty("less-than") Object lessThan;
+        public @JsonProperty("greater-than") Object greaterThan;
+        public @JsonProperty("less-than-or-equal-to") Object lessThanOrEqualTo;
+        public @JsonProperty("greater-than-or-equal-to") Object greaterThanOrEqualTo;
 
-        @JsonProperty("java-type-name") DslPredicate javaTypeName;
-        @JsonProperty("java-instance-of") String javaInstanceOf;
+        public @JsonProperty("java-type-name") DslPredicate javaTypeName;
+        public @JsonProperty("java-instance-of") Object javaInstanceOf;
 
         public static class CheckCounts {
             int checksTried = 0;
@@ -250,7 +250,10 @@ public class DslPredicates {
                 if (ent==null) BrooklynTaskTags.getContextEntity(Tasks.current());
                 if (ent==null) return false;
 
-                Maybe<TypeToken<?>> tt = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken(test);
+                Maybe<TypeToken<?>> tt = Maybe.absent("Unsupported type "+test);
+                if (test instanceof String) tt = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken((String)test);
+                else if (test instanceof Class) tt = Maybe.of(TypeToken.of((Class)test));
+                else if (test instanceof TypeToken) tt = Maybe.of((TypeToken)test);
                 if (tt.isAbsentOrNull()) return false;
 
                 return tt.get().isSupertypeOf(value.getClass());
@@ -292,14 +295,14 @@ public class DslPredicates {
 
     @Beta
     public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2> {
-        Object target;
+        public Object target;
 
         /** test to be applied prior to any flattening of lists (eg if targetting children */
-        DslPredicate unflattened;
+        public DslPredicate unflattened;
 
-        String config;
-        String sensor;
-        DslPredicate tag;
+        public String config;
+        public String sensor;
+        public DslPredicate tag;
 
         protected Maybe<Object> resolveTargetAgainstInput(Object input) {
             Object target = this.target;
@@ -479,6 +482,11 @@ public class DslPredicates {
         }
         @Override
         public boolean apply(@Nullable Object t) { return predicate.test(t); }
+
+        public static DslPredicate of(Predicate<?> p) {
+            if (p instanceof DslPredicate) return (DslPredicate) p;
+            return new DslPredicateAdapter(p);
+        }
     }
 
     public static class DslEntityPredicateAdapter implements DslEntityPredicate {
@@ -488,6 +496,35 @@ public class DslPredicates {
         }
         @Override
         public boolean apply(@Nullable Entity t) { return predicate.test(t); }
+
+        public static DslEntityPredicate of(Predicate<? super Entity> p) {
+            if (p instanceof DslEntityPredicate) return (DslEntityPredicate) p;
+            return new DslEntityPredicateAdapter(p);
+        }
+    }
+
+    public static DslPredicate alwaysFalse() {
+        DslPredicateDefault result = new DslPredicateDefault();
+        result.when = WhenPresencePredicate.NEVER;
+        return result;
+    }
+
+    public static DslPredicate alwaysTrue() {
+        DslPredicateDefault result = new DslPredicateDefault();
+        result.when = WhenPresencePredicate.ALWAYS;
+        return result;
+    }
+
+    public static DslPredicate equalTo(Object x) {
+        DslPredicateDefault result = new DslPredicateDefault();
+        result.equals = x;
+        return result;
+    }
+
+    public static DslPredicate instanceOf(Object x) {
+        DslPredicateDefault result = new DslPredicateDefault();
+        result.javaInstanceOf = x;
+        return result;
     }
 
 }
