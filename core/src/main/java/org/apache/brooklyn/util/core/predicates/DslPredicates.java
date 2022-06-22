@@ -106,14 +106,21 @@ public class DslPredicates {
         if (a.getClass().isAssignableFrom(b.getClass())) return false;
         if (b.getClass().isAssignableFrom(a.getClass())) return false;
 
-        // different type hierarchies, consider coercion
-        if (a instanceof String) a = ((Maybe<Object>)TypeCoercions.tryCoerce(a, b.getClass())).or(a);
-        if (b instanceof String) b = ((Maybe<Object>)TypeCoercions.tryCoerce(b, a.getClass())).or(b);
-
-        // repeat equality check
-        if (a.equals(b) || b.equals(a)) return true;
-
-        return false;
+        // different type hierarchies, consider coercion if one is json and not json, or one is string and the other a non-string primitive
+        BiFunction<Object,Object,Maybe<Boolean>> maybeCoercedEquals = (ma,mb) -> {
+            if ((isJson(ma) && !isJson(mb)) || (ma instanceof String && Boxing.isPrimitiveOrBoxedClass(mb.getClass()))) {
+                Maybe<? extends Object> mma = TypeCoercions.tryCoerce(ma, mb.getClass());
+                if (mma.isPresent()) {
+                    // repeat equality check
+                    if (mma.get().equals(mb) || mb.equals(mma.get())) return Maybe.of(true);
+                }
+                return Maybe.absent("coercion not supported in equality check, to "+mb.getClass());
+            }
+            return Maybe.absent("coercion not permitted for equality check with these arhument types");
+        };
+        return maybeCoercedEquals.apply(a, b)
+                .orMaybe(()->maybeCoercedEquals.apply(b, a))
+                .or(false);
     }
 
     /** returns negative, zero, positive, or null, depending whether first arg is less than, equal, greater than, or incomparable with the second */
@@ -282,11 +289,11 @@ public class DslPredicates {
         }
     }
 
-    @JsonDeserialize(using= DslPredicateJsonDeserializer.class)
+    @JsonDeserialize(using=DslPredicateJsonDeserializer.class)
     public interface DslPredicate<T4> extends SerializablePredicate<T4> {
     }
 
-    @JsonDeserialize(using= DslPredicateJsonDeserializer.class)
+    @JsonDeserialize(using=DslPredicateJsonDeserializer.class)
     public interface DslEntityPredicate extends DslPredicate<Entity> {
         default boolean applyInEntityScope (Entity entity){
             return ((EntityInternal) entity).getExecutionContext().get(Tasks.create("Evaluating predicate " + this, () -> this.apply(entity)));
@@ -295,6 +302,9 @@ public class DslPredicates {
 
     @Beta
     public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2> {
+        public DslPredicateDefault() {}
+        public DslPredicateDefault(String implicitEquals) { this.implicitEquals = implicitEquals; }
+
         public Object target;
 
         /** test to be applied prior to any flattening of lists (eg if targetting children */
@@ -403,15 +413,25 @@ public class DslPredicates {
 
     @Beta
     public static class DslEntityPredicateDefault extends DslPredicateDefault<Entity> implements DslEntityPredicate {
+        public DslEntityPredicateDefault() { super(); }
+        public DslEntityPredicateDefault(String implicitEquals) { super(implicitEquals); }
+
     }
 
     @Beta
     public static class DslPredicateJsonDeserializer extends JsonSymbolDependentDeserializer {
         public static final Set<Class> DSL_SUPPORTED_CLASSES = ImmutableSet.<Class>of(
+            java.util.function.Predicate.class, Predicate.class,
             DslPredicate.class, DslEntityPredicate.class);
 
         public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
             return super.createContextual(ctxt, property);
+        }
+
+        protected boolean isTypeReplaceableByDefault() {
+            if (super.isTypeReplaceableByDefault()) return true;
+            if (type.getRawClass().isInterface()) return true;
+            return false;
         }
 
         @Override
@@ -504,25 +524,25 @@ public class DslPredicates {
     }
 
     public static DslPredicate alwaysFalse() {
-        DslPredicateDefault result = new DslPredicateDefault();
+        DslEntityPredicateDefault result = new DslEntityPredicateDefault();
         result.when = WhenPresencePredicate.NEVER;
         return result;
     }
 
     public static DslPredicate alwaysTrue() {
-        DslPredicateDefault result = new DslPredicateDefault();
+        DslEntityPredicateDefault result = new DslEntityPredicateDefault();
         result.when = WhenPresencePredicate.ALWAYS;
         return result;
     }
 
     public static DslPredicate equalTo(Object x) {
-        DslPredicateDefault result = new DslPredicateDefault();
+        DslEntityPredicateDefault result = new DslEntityPredicateDefault();
         result.equals = x;
         return result;
     }
 
     public static DslPredicate instanceOf(Object x) {
-        DslPredicateDefault result = new DslPredicateDefault();
+        DslEntityPredicateDefault result = new DslEntityPredicateDefault();
         result.javaInstanceOf = x;
         return result;
     }

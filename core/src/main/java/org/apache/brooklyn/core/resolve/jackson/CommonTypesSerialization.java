@@ -356,6 +356,7 @@ public class CommonTypesSerialization {
         public PredicateSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
         public void apply(SimpleModule m) {
             m.addDeserializer(Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            m.addDeserializer(java.util.function.Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
             m.addDeserializer(DslPredicates.DslPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
             m.addDeserializer(DslPredicates.DslEntityPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
         }

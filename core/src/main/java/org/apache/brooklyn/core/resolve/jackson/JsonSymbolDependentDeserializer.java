@@ -65,11 +65,16 @@ public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<O
             // this is normally set during contextualization but not during deserialization (although not if we're the ones contextualizing it)
             type = ctxt.getContextualType();
         }
-        if (type==null) {
+        if (isTypeReplaceableByDefault()) {
             type = getDefaultType();
         }
 
         return this;
+    }
+
+    protected boolean isTypeReplaceableByDefault() {
+        if (type==null) return true;
+        return false;
     }
 
     public abstract JavaType getDefaultType();

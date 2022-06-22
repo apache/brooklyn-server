@@ -27,6 +27,8 @@ import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.time.Timestamp;
 import org.testng.annotations.Test;
 
+import java.util.function.Predicate;
+
 public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
 
     static {
@@ -39,6 +41,33 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
                 "equals", "x"), DslPredicates.DslPredicate.class);
         Asserts.assertTrue(p.test("x"));
         Asserts.assertFalse(p.test("y"));
+    }
+
+    @Test
+    public void testSimpleEqualsAsPredicate() {
+        Predicate p = TypeCoercions.coerce(MutableMap.of(
+                "equals", "x"), Predicate.class);
+        Asserts.assertTrue(p.test("x"));
+        Asserts.assertFalse(p.test("y"));
+    }
+
+    @Test
+    public void testImplicitEquals() {
+        Predicate p = TypeCoercions.coerce("x", DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("x"));
+        Asserts.assertFalse(p.test("y"));
+    }
+
+    @Test
+    public void testImplicitEqualsAsPredicateNotSupported() {
+        Asserts.assertFailsWith(() -> {
+                Predicate p = TypeCoercions.coerce("x", Predicate.class);
+//                Asserts.assertTrue(p.test("x"));
+//                Asserts.assertFalse(p.test("y"));
+        }, e -> {
+                Asserts.assertStringContainsIgnoreCase(e.toString(), "cannot coerce", "string", "predicate");
+                return true;
+        });
     }
 
     @Test
