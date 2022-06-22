@@ -106,7 +106,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
         return 0;
     }
 
-    protected static class FileTypeDetector {
+    public static class FileTypeDetector implements AutoCloseable {
         final Supplier<InputStream> streamSupplier;
 
         private byte[] bytesRead = new byte[0];
@@ -238,8 +238,7 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
 
         public List<String> zipFileMatchesGlob(String glob) {
             try {
-                ZipFile zf = getZipFile();
-                return zf.stream().filter(ze -> Os.isPathGlobMatched(glob, ze.getName(), true)).map(ZipEntry::getName).collect(Collectors.toList());
+                return getZipFile().stream().map(ZipEntry::getName).filter(name -> Os.isPathGlobMatched(glob, name, true)).collect(Collectors.toList());
 
             } catch (Exception e) {
                 throw new IllegalArgumentException("Error reading zip: "+e, e);
@@ -273,10 +272,14 @@ public abstract class AbstractCatalogBundleResolver implements BrooklynCatalogBu
         @Override
         protected void finalize() throws Throwable {
             super.finalize();
+            close();
+        }
 
-            // TODO use autocloseable
+        @Override
+        public void close() {
             if (zipFile!=null) {
                 zipFile.delete();
+                zipFile = null;
             }
         }
     }

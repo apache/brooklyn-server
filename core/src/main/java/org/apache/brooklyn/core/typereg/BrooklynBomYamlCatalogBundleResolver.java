@@ -53,34 +53,37 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
 
     @Override
     protected double scoreForNullFormat(Supplier<InputStream> f) {
-        FileTypeDetector detector = new FileTypeDetector(f);
-        // positive but very small, so we can get errors
-        if (!detector.isPrintableText()) return 0.001;
-        if (!detector.isYaml()) return 0.01;
-        Object yaml = detector.getYaml().get();
-        if (yaml instanceof Iterable) {
-            Iterator yi = ((Iterable) yaml).iterator();
-            if (!yi.hasNext()) return 0;
-            Object yo = yi.next();
-            if (yi.hasNext()) {
-                // multiple documents
-                return 0.01;
+        try (FileTypeDetector detector = new FileTypeDetector(f)) {
+            // positive but very small, so we can get errors
+            if (!detector.isPrintableText()) return 0.001;
+            if (!detector.isYaml()) return 0.01;
+            Object yaml = detector.getYaml().get();
+            if (yaml instanceof Iterable) {
+                Iterator yi = ((Iterable) yaml).iterator();
+                if (!yi.hasNext()) return 0;
+                Object yo = yi.next();
+                if (yi.hasNext()) {
+                    // multiple documents
+                    return 0.01;
+                }
+                if (yo instanceof Map) {
+                    if (((Map<?, ?>) yo).containsKey("brooklyn.catalog")) return 0.9;
+                    return 0.1;
+                } else {
+                    return 0.01;
+                }
             }
-            if (yo instanceof Map) {
-                if (((Map<?,?>)yo).containsKey("brooklyn.catalog")) return 0.9;
-                return 0.1;
-            } else {
-                return 0.01;
-            }
+            // expected an iterable
+            return 0.01;
         }
-        // expected an iterable
-        return 0.01;
     }
 
     @Override
     public ReferenceWithError<OsgiBundleInstallationResult> install(Supplier<InputStream> input, BundleInstallationOptions options) {
-        // throw if not valid yaml
-        new FileTypeDetector(input).getYaml().get();
+        try (FileTypeDetector detector = new FileTypeDetector(input)) {
+            // throw if not valid yaml
+            detector.getYaml().get();
+        }
 
         if (options==null) options = new BundleInstallationOptions();
 

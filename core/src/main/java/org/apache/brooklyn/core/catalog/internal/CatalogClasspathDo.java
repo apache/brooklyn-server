@@ -146,7 +146,9 @@ public class CatalogClasspathDo {
                     }
                     urls[i] = new URL(u);
                     
-                    // TODO potential disk leak above as we have no way to know when the temp file can be removed earlier than server shutdown;
+                    // NOTE - item above potentially deleted earlier as written to a temp file (which some OS's will wipe, though usually not if in use);
+                    //      - and potential disk leak above as we have no way to know when the temp file can be removed earlier than server shutdown;
+                    // (but not a big deal as this is legacy code, superseded by bundle installation in almost all cases)
                     // a better way to handle this is to supply a stream handler (but URLConnection is a little bit hard to work with):
 //                    urls[i] = new URL(null, classpath.getEntries().get(i)   // (handy construtor for reparsing urls, without splitting into uri first)
 //                        , new URLStreamHandler() {

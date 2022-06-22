@@ -111,21 +111,20 @@ public class BrooklynCatalogBundleResolvers {
     public static ReferenceWithError<OsgiBundleInstallationResult> install(ManagementContext mgmt, Supplier<InputStream> input,
                                                                            BundleInstallationOptions options) {
         LOG.debug("Installing bundle {} / {} for {}", input, (options==null ? null : options.knownBundleMetadata), Entitlements.getEntitlementContextUser());
-        File fileToDelete = null;
+        PrepareInstallResult prepareResult = null;
         if (input==null && options.knownBundleMetadata==null) {
             return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or reference must be supplied"));
         }
         if (input==null && options.knownBundleMetadata!=null) {
             try {
                 // installing to brooklyn a bundle already installed to OSGi
-                PrepareInstallResult prepareResult = BrooklynBomOsgiArchiveInstaller.prepareInstall(mgmt, options.knownBundleMetadata, null, input, options.forceUpdateOfNonSnapshots, null);
+                prepareResult = BrooklynBomOsgiArchiveInstaller.prepareInstall(mgmt, options.knownBundleMetadata, null, input, options.forceUpdateOfNonSnapshots, null);
                 if (prepareResult.resultObject != null) {
                     return ReferenceWithError.newInstanceWithoutError(prepareResult.resultObject);
                 }
 
-                fileToDelete = prepareResult.zipFile;
                 if (prepareResult.zipFile != null) {
-                    input = InputStreamSource.of(prepareResult.zipFile.getName(), prepareResult.zipFile);
+                    input = InputStreamSource.of(prepareResult.zipFile.f.getName(), prepareResult.zipFile.f);
                 } else {
                     return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or known reference must be supplied; " +
                             options.knownBundleMetadata + " not known"));
@@ -217,8 +216,8 @@ public class BrooklynCatalogBundleResolvers {
         } catch (Exception e) {
             return ReferenceWithError.newInstanceThrowingError(null, e);
         } finally {
-            if (fileToDelete!=null) {
-                fileToDelete.delete();
+            if (prepareResult!=null && prepareResult.zipFile!=null) {
+                prepareResult.zipFile.deleteIfTemp();
             }
         }
     }
