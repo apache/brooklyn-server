@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 
@@ -190,6 +191,10 @@ public class BidiSerialization {
             return getInstanceFromId(entity, id);
         }
         protected Optional<String> getEntityId(T value) {
+            if (value instanceof EntityAdjuncts.EntityAdjunctProxyable) {
+                Entity entity = ((EntityAdjuncts.EntityAdjunctProxyable)value).getEntity();
+                return Optional.fromNullable(entity == null ? null : entity.getId());
+            }
             if (value instanceof AbstractEntityAdjunct) {
                 Entity entity = ((AbstractEntityAdjunct)value).getEntity();
                 return Optional.fromNullable(entity == null ? null : entity.getId());

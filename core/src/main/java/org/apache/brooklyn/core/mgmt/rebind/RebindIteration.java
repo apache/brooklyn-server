@@ -63,6 +63,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.TreeNode;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
@@ -78,6 +79,7 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.AbstractApplication;
 import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -97,10 +99,7 @@ import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl.RebindTracker;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
-import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
-import org.apache.brooklyn.core.objs.proxy.InternalFactory;
-import org.apache.brooklyn.core.objs.proxy.InternalLocationFactory;
-import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
+import org.apache.brooklyn.core.objs.proxy.*;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.typereg.BasicManagedBundle;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
@@ -484,11 +483,23 @@ public abstract class RebindIteration {
         }
     }
 
+    protected Map<String,EntityAdjunct> adjunctProxies = MutableMap.of();
+    protected <T extends EntityAdjunct> T createAdjunctProxy(Class<T> adjunctType, String id) {
+        return (T) adjunctProxies.computeIfAbsent(id, (id2) -> EntityAdjuncts.createProxyForId(adjunctType, id) );
+    }
+
     protected void instantiateMementos() throws IOException {
 
         checkEnteringPhase(4);
 
+        if (!adjunctProxies.isEmpty()) {
+            LOG.warn("Had stale adjunct information when rebinding; ignoring: "+adjunctProxies);
+        }
+        adjunctProxies.clear();
+
+        ((RebindExceptionHandlerImpl)exceptionHandler).setAdjunctProxyCreator(this::createAdjunctProxy);
         memento = persistenceStoreAccess.loadMemento(mementoRawData, rebindContext.lookup(), exceptionHandler);
+        ((RebindExceptionHandlerImpl)exceptionHandler).setAdjunctProxyCreator(null);
     }
 
     protected void initPlaneId() {
@@ -518,6 +529,9 @@ public abstract class RebindIteration {
 
                 try {
                     Policy policy = instantiator.newPolicy(policyMemento);
+
+                    EntityAdjunctProxyImpl.resetDelegate( adjunctProxies.remove(policy.getId()) , policy);
+
                     rebindContext.registerPolicy(policyMemento.getId(), policy);
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.POLICY, policyMemento.getId(), policyMemento.getType(), e);
@@ -535,6 +549,7 @@ public abstract class RebindIteration {
 
                 try {
                     Enricher enricher = instantiator.newEnricher(enricherMemento);
+                    EntityAdjunctProxyImpl.resetDelegate( adjunctProxies.remove(enricher.getId()) , enricher);
                     rebindContext.registerEnricher(enricherMemento.getId(), enricher);
                 } catch (Exception e) {
                     exceptionHandler.onCreateFailed(BrooklynObjectType.ENRICHER, enricherMemento.getId(), enricherMemento.getType(), e);
@@ -542,6 +557,18 @@ public abstract class RebindIteration {
             }
         } else {
             logRebindingDebug("Not rebinding enrichers; feature disabled: {}", memento.getEnricherIds());
+        }
+
+        if (!adjunctProxies.isEmpty()) {
+            adjunctProxies.entrySet().forEach(entry -> {
+                if (entry.getValue() instanceof Policy) exceptionHandler.onDanglingPolicyRef(entry.getKey());
+                else if (entry.getValue() instanceof Enricher) exceptionHandler.onDanglingEnricherRef(entry.getKey());
+                else {
+                    LOG.warn("Adjunct proxy for "+entry.getKey()+" is of unexpected type; "+entry.getValue()+"; reporting as dangling of unknown type");
+                    exceptionHandler.onDanglingUntypedItemRef(entry.getKey());
+                }
+            });
+            adjunctProxies.clear();
         }
 
         // Instantiate feeds

@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.objs.proxy;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.Arrays;
@@ -59,25 +60,13 @@ import com.google.common.collect.Sets;
  * 
  * @author aled
  */
-public class EntityProxyImpl implements java.lang.reflect.InvocationHandler {
+public class EntityProxyImpl extends AbstractBrooklynObjectProxyImpl<Entity> implements java.lang.reflect.InvocationHandler {
     
     // TODO Currently the proxy references the real entity and invokes methods on it directly.
     // As we work on remoting/distribution, this will be replaced by RPC.
 
     private static final Logger LOG = LoggerFactory.getLogger(EntityProxyImpl.class);
 
-    private Entity delegate;
-    private Boolean isMaster;
-
-    private WeakHashMap<Entity,Void> temporaryProxies = new WeakHashMap<Entity, Void>();
-    
-    private static final Set<MethodSignature> OBJECT_METHODS = Sets.newLinkedHashSet();
-    static {
-        for (Method m : Object.class.getMethods()) {
-            OBJECT_METHODS.add(new MethodSignature(m));
-        }
-    }
-    
     private static final Set<MethodSignature> ENTITY_NON_EFFECTOR_METHODS = Sets.newLinkedHashSet();
     static {
         for (Method m : Entity.class.getMethods()) {
@@ -106,119 +95,56 @@ public class EntityProxyImpl implements java.lang.reflect.InvocationHandler {
             ENTITY_PERMITTED_READ_ONLY_METHODS.add(new MethodSignature(m));
         }
     }
-    
+
     public EntityProxyImpl(Entity entity) {
-        this.delegate = checkNotNull(entity, "entity");
+        super(checkNotNull(entity, "entity"));
     }
-    
-    /** invoked to specify that a different underlying delegate should be used, 
-     * e.g. because we are switching copy impls or switching primary/copy*/
-    public synchronized void resetDelegate(Entity thisProxy, Entity preferredProxy, Entity newDelegate) {
-        if (LOG.isTraceEnabled()) {
-            LOG.trace("updating "+Integer.toHexString(System.identityHashCode(thisProxy))
-                +" to be the same as "+Integer.toHexString(System.identityHashCode(preferredProxy))
-                +" pointing at "+Integer.toHexString(System.identityHashCode(newDelegate)) 
-                +" ("+temporaryProxies.size()+" temporary proxies)");
-        }
 
-        Entity oldDelegate = delegate;
-        this.delegate = newDelegate;
-        this.isMaster = null;
-        
-        if (newDelegate==oldDelegate)
-            return;
-        
-        /* we have to make sure that any newly created proxy of the newDelegate 
-         * which have leaked (eg by being set as a child) also get repointed to this new delegate */
-        if (oldDelegate!=null) {
-            Entity temporaryProxy = ((AbstractEntity)oldDelegate).getProxy();
-            if (temporaryProxy!=null) temporaryProxies.put(temporaryProxy, null);
-            ((AbstractEntity)oldDelegate).resetProxy(preferredProxy);
-        }
-        if (newDelegate!=null) {   
-            Entity temporaryProxy = ((AbstractEntity)newDelegate).getProxy();
-            if (temporaryProxy!=null) temporaryProxies.put(temporaryProxy, null);
-            ((AbstractEntity)newDelegate).resetProxy(preferredProxy);
-        }
-        
-        // update any proxies which might be in use
-        for (Entity tp: temporaryProxies.keySet()) {
-            if (tp==thisProxy || tp==preferredProxy) continue;
-            ((EntityProxyImpl)(Proxy.getInvocationHandler(tp))).resetDelegate(tp, preferredProxy, newDelegate);
-        }
-    }
-    
     @Override
-    public String toString() {
-        return delegate.toString();
+    protected Entity getProxy(Entity instance, boolean requireNonProxy) {
+        if (!requireNonProxy && !(instance instanceof AbstractEntity)) return instance;
+        return ((AbstractEntity)instance).getProxy();
     }
-    
-    protected boolean isMaster() {
-        if (isMaster!=null) return isMaster;
-        
-        ManagementContext mgmt = ((EntityInternal)delegate).getManagementContext();
-        ManagementTransitionMode mode = ((EntityManagerInternal)mgmt.getEntityManager()).getLastManagementTransitionMode(delegate.getId());
-        Boolean ro = ((EntityInternal)delegate).getManagementSupport().isReadOnlyRaw();
-        
-        if (mode==null || ro==null) {
-            // not configured yet
-            return false;
-        }
-        boolean isMasterX = !mode.isReadOnly();
-        if (isMasterX != !ro) {
-            LOG.warn("Inconsistent read-only state for "+delegate+" (possibly rebinding); "
-                + "management thinks "+isMasterX+" but entity thinks "+!ro);
-            return false;
-        }
-        isMaster = isMasterX;
-        return isMasterX;
-    }
-    
+
     @Override
-    public Object invoke(Object proxy, final Method m, final Object[] args) throws Throwable {
-        if (proxy == null) {
-            throw new IllegalArgumentException("Static methods not supported via proxy on entity "+delegate);
-        }
-        
+    protected void resetProxy(Entity instance, Entity preferredProxy) {
+        ((AbstractEntity)instance).resetProxy(preferredProxy);
+    }
+
+    @Override
+    protected boolean isPermittedReadOnlyMethod(AbstractBrooklynObjectProxyImpl.MethodSignature sig) {
+        return ENTITY_PERMITTED_READ_ONLY_METHODS.contains(sig);
+    }
+
+    protected boolean isPermittedReadWriteStandardMethod(AbstractBrooklynObjectProxyImpl.MethodSignature sig) {
+        return ENTITY_NON_EFFECTOR_METHODS.contains(sig);
+    }
+
+    @Override
+    protected Object invokeOther(Method m, Object[] argsPreNullFix) throws IllegalAccessException, InvocationTargetException {
         MethodSignature sig = new MethodSignature(m);
+        // not sure this is necessary, but it was done previously so has been maintained
+        Object[] args = (argsPreNullFix == null) ? new Object[0] : argsPreNullFix;
 
-        Object result;
-        if (OBJECT_METHODS.contains(sig)) {
-            result = m.invoke(delegate, args);
-        } else if (ENTITY_PERMITTED_READ_ONLY_METHODS.contains(sig)) {
-            result = m.invoke(delegate, args);
-        } else {
-            if (!isMaster()) {
-                if (isMaster==null || RebindTracker.isRebinding()) {
-                    // rebinding or caller manipulating before management; permit all access
-                    // (as of this writing, things seem to work fine without the isRebinding check;
-                    // but including in it may allow us to tighten the methods in EntityTransientCopyInternal) 
-                    result = m.invoke(delegate, args);
-                } else {
-                    throw new UnsupportedOperationException("Call to '"+sig+"' not permitted on read-only entity "+delegate);
-                }
-            } else if (ENTITY_NON_EFFECTOR_METHODS.contains(sig)) {
-                result = m.invoke(delegate, args);
-            } else {
-                Object[] nonNullArgs = (args == null) ? new Object[0] : args;
-                Effector<?> eff = findEffector(m, nonNullArgs);
-                if (eff != null) {
-                    @SuppressWarnings("rawtypes")
-                    Map parameters = EffectorUtils.prepareArgsForEffectorAsMapFromArray(eff, nonNullArgs);
-                    @SuppressWarnings({ "unchecked", "rawtypes" })
-                    TaskAdaptable<?> task = ((EffectorWithBody)eff).getBody().newTask(delegate, eff, ConfigBag.newInstance(parameters));
-                    // as per LocalManagementContext.runAtEntity(Entity entity, TaskAdaptable<T> task) 
-                    TaskTags.markInessential(task);
-                    result = DynamicTasks.get(task.asTask(), delegate);
-                } else {
-                    result = m.invoke(delegate, nonNullArgs);
-                }
-            }
+        if (isPermittedReadWriteStandardMethod(sig)) {
+            return m.invoke(delegate, args);
         }
-        
-        return (result == delegate && delegate instanceof AbstractEntity) ? ((AbstractEntity)result).getProxy() : result;
+
+        Effector<?> eff = findEffector(m, args);
+        if (eff != null) {
+            @SuppressWarnings("rawtypes")
+            Map parameters = EffectorUtils.prepareArgsForEffectorAsMapFromArray(eff, args);
+            @SuppressWarnings({ "unchecked", "rawtypes" })
+            TaskAdaptable<?> task = ((EffectorWithBody)eff).getBody().newTask(delegate, eff, ConfigBag.newInstance(parameters));
+            // as per LocalManagementContext.runAtEntity(Entity entity, TaskAdaptable<T> task)
+            TaskTags.markInessential(task);
+            return DynamicTasks.get(task.asTask(), delegate);
+
+        } else {
+            return super.invokeOther(m, args);
+        }
     }
-    
+
     private Effector<?> findEffector(Method m, Object[] args) {
         String name = m.getName();
         Set<Effector<?>> effectors = delegate.getEntityType().getEffectors();
@@ -229,46 +155,5 @@ public class EntityProxyImpl implements java.lang.reflect.InvocationHandler {
         }
         return null;
     }
-    
-    private static class MethodSignature {
-        private final String name;
-        private final Class<?>[] parameterTypes;
-        
-        MethodSignature(Method m) {
-            name = m.getName();
-            parameterTypes = m.getParameterTypes();
-        }
-        
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(name, Arrays.hashCode(parameterTypes));
-        }
-        
-        @Override
-        public boolean equals(Object obj) {
-            if (!(obj instanceof MethodSignature)) return false;
-            MethodSignature o = (MethodSignature) obj;
-            return name.equals(o.name) && Arrays.equals(parameterTypes, o.parameterTypes);
-        }
-        
-        @Override
-        public String toString() {
-            return name+Arrays.toString(parameterTypes);
-        }
-    }
-    
-    @VisibleForTesting
-    public Entity getDelegate() {
-        return delegate;
-    }
-    
-    @Override
-    public boolean equals(Object obj) {
-        return delegate.equals(obj);
-    }
-    
-    @Override
-    public int hashCode() {
-        return delegate.hashCode();
-    }
+
 }
