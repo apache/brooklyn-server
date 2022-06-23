@@ -21,6 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 
 import javax.ws.rs.core.GenericType;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
@@ -150,7 +152,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
     
     @Test
     public void testGetActivity() {
-        Task<?> t = entity.invoke(effector, null);
+        Task<?> t = entity.invoke(effector, MutableMap.of(SampleManyTasksEffector.RANDOM_SEED.getName(), 10));
         
         Response response = client().path("/activities/"+t.getId())
             .accept(MediaType.APPLICATION_JSON)
@@ -158,6 +160,10 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
         assertHealthy(response);
         TaskSummary task = response.readEntity(TaskSummary.class);
         Assert.assertEquals(task.getId(), t.getId());
+        Asserts.assertThat(task.getTags(), tags -> tags.contains("EFFECTOR"));
+        Optional<Object> effectorParams = task.getTags().stream().map(tag -> tag instanceof Map ? ((Map) tag).get("effectorParams") : null).filter(p -> p != null).findAny();
+        Asserts.assertTrue(effectorParams.isPresent());
+        Asserts.assertEquals(((Map)effectorParams.get()).get(SampleManyTasksEffector.RANDOM_SEED.getName()), 10);
     }
     
     // See https://issues.apache.org/jira/browse/BROOKLYN-571
