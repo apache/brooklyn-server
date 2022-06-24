@@ -313,7 +313,6 @@ public class LocalEntityManager implements EntityManagerInternal {
     }
     
     void prePreManage(Entity entity) {
-log.info("XXX prePreManage "+entity);
         if (isPreRegistered(entity)) {
             log.warn(""+this+" redundant call to pre-pre-manage entity "+entity+"; skipping", 
                     new Exception("source of duplicate pre-pre-manage of "+entity));
@@ -619,7 +618,6 @@ log.info("XXX prePreManage "+entity);
                 for (EntityInternal it : allEntities) {
                     it.getManagementSupport().onManagementStopped(info, false);
                     managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
-                    log.info("XXX told persister to unmanage " + it);
                     if (managementContext.getGarbageCollector() != null)
                         managementContext.getGarbageCollector().onUnmanaged(e);
                 }
@@ -901,7 +899,6 @@ log.info("XXX prePreManage "+entity);
      * Returns true if the entity has been removed from management; false if it is not known or pre-pre-managed (anything else throws exception)
      */
     private boolean unmanageNonRecursive(Entity e) {
-log.info("XXX unmanaging NR "+e);
         /*
          * When method is synchronized, hit deadlock: 
          * 1. thread called unmanage() on a member of a group, so we got the lock and called group.removeMember;

@@ -498,7 +498,6 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                             prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
                             prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
             }
-LOG.info("XXX persistence cycle");
             // Generate mementos for everything that has changed in this time period
             if (prevDeltaCollector.isEmpty()) {
                 if (LOG.isTraceEnabled()) LOG.trace("No changes to persist since last delta");
@@ -539,7 +538,6 @@ LOG.info("XXX persistence cycle");
                 }
 
                 for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
-if (!prevDeltaCollector.getRemovedIdsOfType(type).isEmpty()) LOG.info("XXX persistence removing "+prevDeltaCollector.getRemovedIdsOfType(type));
                     persisterDelta.removed(type, prevDeltaCollector.getRemovedIdsOfType(type));
                 }
 
