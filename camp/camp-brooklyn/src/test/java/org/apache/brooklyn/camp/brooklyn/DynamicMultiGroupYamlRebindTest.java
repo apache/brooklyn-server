@@ -22,11 +22,13 @@ import com.google.common.io.Files;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -35,35 +37,40 @@ public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
 
    @Test(groups="Broken")  // bug we are fixing
    public void testDynamicMultiGroupWithCluster_DeleteBeforeRebind() throws Exception {
+      try {
+         // Create test app first.
+         Entity app = createDynamicMultiGroupWithCluster();
+         waitForApplicationTasks(app);
 
-      // Create test app first.
-      Entity app = createDynamicMultiGroupWithCluster();
-      waitForApplicationTasks(app);
+         // Expect 10 entities in persistence store.
+         BrooklynMementoRawData state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
+         Assert.assertEquals(state.getEntities().size(), 10);
 
-      // Expect 10 entities in persistence store.
-      BrooklynMementoRawData state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
-      Assert.assertEquals(state.getEntities().size(), 10);
+         Dumper.dumpInfo(app);
 
-      // Destroy application before first rebind.
-      Entities.destroy(app);
+         // Destroy application before first rebind.
+         Entities.destroy(app);
 
-      // Rebind, expect no apps.
-      Entity appRebind = rebind(RebindOptions.create().terminateOrigManagementContext(true));
-      Assert.assertNull(appRebind);
-      switchOriginalToNewManagementContext();
+         // Rebind, expect no apps.
+         Entity appRebind = rebind(RebindOptions.create().terminateOrigManagementContext(true));
+         Assert.assertNull(appRebind);
+         switchOriginalToNewManagementContext();
 
-      // Expect no resources in persistence store.
-      state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
-      Assert.assertEquals(state.getEntities().size(), 0);
-      Files.fileTraverser().breadthFirst(mementoDir).forEach(f -> {
-         if (!f.isDirectory()) {
-            if (MutableSet.of("planeId").contains(f.getName())) {
-               // expect these
-            } else {
-               Assert.fail("At least one unexpected file exists after app stopped: " + f);
+         // Expect no resources in persistence store.
+         state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
+         Assert.assertEquals(state.getEntities().size(), 0);
+         Files.fileTraverser().breadthFirst(mementoDir).forEach(f -> {
+            if (!f.isDirectory()) {
+               if (MutableSet.of("planeId").contains(f.getName())) {
+                  // expect these
+               } else {
+                  Assert.fail("At least one unexpected file exists after app stopped: " + f);
+               }
             }
-         }
-      });
+         });
+      } catch (Throwable t) {
+         throw Exceptions.propagate(t);
+      }
    }
 
    @Test
