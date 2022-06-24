@@ -816,6 +816,14 @@ public class Entities {
         return ((EntityInternal)e).getManagementSupport().isNoLongerManaged();
     }
 
+    public static boolean isUnmanaging(Entity e) {
+        return ((EntityInternal)e).getManagementSupport().isUnmanaging();
+    }
+
+    public static boolean isUnmanagingOrNoLongerManaged(Entity e) {
+        return isNoLongerManaged(e) || isUnmanaging(e);
+    }
+
     /** if entity is managed, but in a read-only state */
     public static boolean isReadOnly(Entity e) {
         return Boolean.TRUE.equals( ((EntityInternal)e).getManagementSupport().isReadOnlyRaw() );

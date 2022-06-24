@@ -266,6 +266,8 @@ public class InternalEntityFactory extends InternalFactory {
                 }
                 childSpec.parent(entity);
                 Entity child = createEntityAndDescendantsUninitialized(depth+1, childSpec, options, entitiesByEntityId, specsByEntityId);
+                if (Entities.isUnmanagingOrNoLongerManaged(entity))
+                    throw new IllegalStateException("Cannot create "+child+" as child of "+entity+" because the latter is unmanaging or no longer managed");
                 entity.addChild(child);
             }
 
@@ -317,6 +319,9 @@ public class InternalEntityFactory extends InternalFactory {
                 Entity parent = spec.getParent();
                 if (parent != null) {
                     parent = (parent instanceof AbstractEntity) ? ((AbstractEntity) parent).getProxyIfAvailable() : parent;
+log.info("XXX creating " + entity + " child of " + parent);
+                    if (Entities.isUnmanagingOrNoLongerManaged(parent))
+                        throw new IllegalStateException("Cannot create " + entity + " as child of " + parent + " because the latter is unmanaging or no longer managed");
                     entity.setParent(parent);
                 }
                 return entity;

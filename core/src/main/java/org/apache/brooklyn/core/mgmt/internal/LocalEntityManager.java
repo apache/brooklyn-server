@@ -195,7 +195,8 @@ public class LocalEntityManager implements EntityManagerInternal {
             }
 
         } catch (Throwable e) {
-            log.warn("Failed to create entity using spec "+spec+" (rethrowing)", e);
+            // this may be expected, eg if parent is being unmanaged; rely on catcher to handle
+            log.debug("Failed to create entity using spec "+spec+" (rethrowing)", e);
             throw Exceptions.propagate(e);
         }
     }
@@ -533,7 +534,7 @@ public class LocalEntityManager implements EntityManagerInternal {
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
         if (shouldSkipUnmanagement(e, hasBeenReplaced)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
-        
+log.info("XXX unmanaging "+e);
         if (hasBeenReplaced) {
             // we are unmanaging an old instance after having replaced it
             // don't unmanage or even clear its fields, because there might be references to it

@@ -35,7 +35,7 @@ import org.testng.annotations.Test;
 @Test
 public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
 
-   @Test(groups="Broken")  // bug we are fixing
+   @Test(invocationCount = 100)
    public void testDynamicMultiGroupWithCluster_DeleteBeforeRebind() throws Exception {
       try {
          // Create test app first.
@@ -46,7 +46,7 @@ public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
          BrooklynMementoRawData state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
          Assert.assertEquals(state.getEntities().size(), 10);
 
-         Dumper.dumpInfo(app);
+//         Dumper.dumpInfo(app);
 
          // Destroy application before first rebind.
          Entities.destroy(app);

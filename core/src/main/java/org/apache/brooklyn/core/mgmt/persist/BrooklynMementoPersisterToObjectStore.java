@@ -72,6 +72,7 @@ import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -878,17 +879,37 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
     }
 
+    private boolean isKnownNotManagedActive(BrooklynObject bo) {
+        return bo!=null && ((bo instanceof Entity && !Entities.isManagedActive((Entity) bo)) || (bo instanceof Location && !Locations.isManaged((Location) bo)));
+    }
+
     private void checkMementoForProblemsAndWarn(Memento memento) {
         // warn if there appears to be a dangling reference
         MutableList<String> dependenciesToConfirmExistence = MutableList.of();
         if (memento instanceof EntityMemento || memento instanceof LocationMemento) dependenciesToConfirmExistence.appendIfNotNull( ((TreeNode) memento).getParent() );
         // NOTE: adjuncts on entities could be relevant for warning also, but they don't persist a reference to their entity and can't so easily be looked up without it; so far this hasn't been an issue
-        dependenciesToConfirmExistence.forEach(id -> {
+        Maybe<BrooklynObject> me = null;
+        for (String id : dependenciesToConfirmExistence) {
             BrooklynObject bo = mgmt.lookup(id);
-            if (bo==null) LOG.warn("Dependency "+id+" of "+ memento.getType()+" "+ memento.getId()+" not found when persisting the latter, potential race in creation/deletion");
-            if (bo instanceof Entity && !Entities.isManagedActive((Entity)bo)) LOG.warn("Dependency entity "+id+" of "+ memento.getType()+" "+ memento.getId()+" is being unmanaged when persisting the latter, potential race in creation/deletion");
-            if (bo instanceof Location && !Locations.isManaged((Location)bo)) LOG.warn("Dependency location "+id+" of "+ memento.getType()+" "+ memento.getId()+" is being unmanaged when persisting the latter, potential race in creation/deletion");
-        });
+            if (bo == null) {
+                if (me == null) me = Maybe.ofAllowingNull(mgmt.lookup(memento.getId()));
+                if (me.isPresentAndNonNull() && isKnownNotManagedActive(me.get())) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; "+me.get()+" is being unmanaged, and dependency " + id + "(" + bo + ") is not known; likely the former will be deleted shortly also but persisting it for now as requested");
+                    }
+                } else {
+                    // almost definitely a problem, as the descendants should be unmanaged by the time the parent is removed altogether from lookup tables
+                    LOG.warn("Persistence dependency problem with " + memento.getType() + " " + memento.getId() + "; dependency " + id + " not found when persisting the former, potential race in creation/deletion which may prevent rebind");
+                }
+            }
+
+            if (isKnownNotManagedActive(bo)) {
+                // common to do partial persistence when deleting a tree, so this is not worrisome
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; dependency " + id + "(" + bo + ") is being unmanaged; likely the former will be unmanaged and deleted shortly but persisting it for now as requested");
+                }
+            }
+        }
     }
 
     private void persist(String subPath, BrooklynObjectType type, String id, String content, PersistenceExceptionHandler exceptionHandler) {
