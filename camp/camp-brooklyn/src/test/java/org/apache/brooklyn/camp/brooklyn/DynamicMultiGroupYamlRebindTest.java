@@ -36,7 +36,12 @@ import org.testng.annotations.Test;
 @Test
 public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
 
-   @Test(invocationCount = 100)
+   @Test(invocationCount = 100, groups="Integration")
+   public void testDynamicMultiGroupWithCluster_DeleteBeforeRebind_ManyTimes() throws Exception {
+      testDynamicMultiGroupWithCluster_DeleteBeforeRebind();
+   }
+
+   @Test
    public void testDynamicMultiGroupWithCluster_DeleteBeforeRebind() throws Exception {
       try {
          // Create test app first.
