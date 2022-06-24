@@ -630,7 +630,10 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 if (Entities.isAncestor(this, child)) throw new IllegalStateException("loop detected trying to add child "+child+" to "+this+"; it is already an ancestor");
                 child.setParent(getProxyIfAvailable());
                 boolean changed = children.add(child);
-                
+                if (Entities.isUnmanagingOrNoLongerManaged(this)) {
+                    throw new IllegalStateException("Cannot add " + child + " as child of " + this + " because the latter is unmanaging or no longer managed");
+                }
+
                 getManagementSupport().getEntityChangeListener().onChildrenChanged();
                 if (changed) {
                     sensors().emit(AbstractEntity.CHILD_ADDED, child);
@@ -674,7 +677,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                     getManagementSupport().getEntityChangeListener().onChildrenChanged();
                 }
             
-                if (changed) {
+                if (changed && Entities.isManagedActiveOrComingUp(this)) {
+                    // don't publish when tearing down
                     sensors().emit(AbstractEntity.CHILD_REMOVED, child);
                 }
                 return changed;

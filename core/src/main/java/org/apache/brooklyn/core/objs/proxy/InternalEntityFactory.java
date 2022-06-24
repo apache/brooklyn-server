@@ -319,10 +319,9 @@ public class InternalEntityFactory extends InternalFactory {
                 Entity parent = spec.getParent();
                 if (parent != null) {
                     parent = (parent instanceof AbstractEntity) ? ((AbstractEntity) parent).getProxyIfAvailable() : parent;
-log.info("XXX creating " + entity + " child of " + parent +" - unmanaging? "+Entities.isUnmanagingOrNoLongerManaged(parent));
-                    if (Entities.isUnmanagingOrNoLongerManaged(parent))
-                        throw new IllegalStateException("Cannot create " + entity + " as child of " + parent + " because the latter is unmanaging or no longer managed");
+                    // below will throw if parent is unmanaging, _after_ adding
                     entity.setParent(parent);
+log.info("XXX created " + entity + " child of " + parent +" - unmanaging? "+Entities.isUnmanagingOrNoLongerManaged(parent));
                 }
                 return entity;
             });
