@@ -600,7 +600,6 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         }
     }
     
-
     @Override
     public synchronized void onUnmanaged(BrooklynObject instance) {
         if (LOG.isTraceEnabled()) LOG.trace("onUnmanaged: {}", instance);

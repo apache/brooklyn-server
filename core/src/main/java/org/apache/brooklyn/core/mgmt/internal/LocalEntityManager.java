@@ -534,7 +534,6 @@ public class LocalEntityManager implements EntityManagerInternal {
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
         if (shouldSkipUnmanagement(e, hasBeenReplaced)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
-log.info("XXX unmanaging "+e);
         if (hasBeenReplaced) {
             // we are unmanaging an old instance after having replaced it
             // don't unmanage or even clear its fields, because there might be references to it
@@ -603,6 +602,7 @@ log.info("XXX unmanaging "+e);
             for (EntityInternal it : allEntities) {
                 it.getManagementSupport().onManagementStopped(info, false);
                 managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
+log.info("XXX told persister to unmanage "+it);
                 if (managementContext.getGarbageCollector() != null) managementContext.getGarbageCollector().onUnmanaged(e);
             }
             
@@ -853,6 +853,7 @@ log.info("XXX unmanaging "+e);
      * Returns true if the entity has been removed from management; if it was not previously managed (anything else throws exception) 
      */
     private boolean unmanageNonRecursive(Entity e) {
+log.info("XXX unmanaging NR "+e);
         /*
          * When method is synchronized, hit deadlock: 
          * 1. thread called unmanage() on a member of a group, so we got the lock and called group.removeMember;

@@ -22,6 +22,7 @@ import com.google.common.io.Files;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
@@ -47,9 +48,13 @@ public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
          Assert.assertEquals(state.getEntities().size(), 10);
 
 //         Dumper.dumpInfo(app);
+         Enricher enricher1 = app.enrichers().iterator().next();
 
          // Destroy application before first rebind.
          Entities.destroy(app);
+
+         // check that a subsequent change doesn't cause it to re-create
+         mgmt().getRebindManager().getChangeListener().onChanged(enricher1);
 
          // Rebind, expect no apps.
          Entity appRebind = rebind(RebindOptions.create().terminateOrigManagementContext(true));

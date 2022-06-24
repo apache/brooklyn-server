@@ -895,7 +895,11 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
                 if (me == null) me = Maybe.ofAllowingNull(mgmt.lookup(memento.getId()));
                 if (me.isPresentAndNonNull() && isKnownNotManagedActive(me.get())) {
                     if (LOG.isDebugEnabled()) {
-                        LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; "+me.get()+" is being unmanaged, and dependency " + id + "(" + bo + ") is not known; likely the former will be deleted shortly also but persisting it for now as requested");
+                        LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; "+me.get()+" is being unmanaged, and dependency " + id + "(" + bo + ") is not known; likely the former will be unpersisted shortly also but persisting it for now as requested");
+                    }
+                } else if (me.get()==null) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; "+me.get()+" is not known to mgmt context, and dependency " + id + "(" + bo + ") is not known; likely the former will be unpersisted shortly also but persisting it for now as requested");
                     }
                 } else {
                     // almost definitely a problem, as the descendants should be unmanaged by the time the parent is removed altogether from lookup tables
@@ -906,7 +910,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             if (isKnownNotManagedActive(bo)) {
                 // common to do partial persistence when deleting a tree, so this is not worrisome
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; dependency " + id + "(" + bo + ") is being unmanaged; likely the former will be unmanaged and deleted shortly but persisting it for now as requested");
+                    LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; dependency " + id + "(" + bo + ") is being unmanaged; likely the former will be unmanaged and unpersisted shortly but persisting it for now as requested");
                 }
             }
         }

@@ -309,6 +309,7 @@ public class EntityManagementSupport {
     
     @SuppressWarnings("deprecation")
     public void onManagementStopping(ManagementTransitionInfo info, boolean wasDryRun) {
+log.info("XXX mgmt stopping "+entity);
         synchronized (this) {
             currentlyStopping.set(true);
             if (!wasDryRun) {
