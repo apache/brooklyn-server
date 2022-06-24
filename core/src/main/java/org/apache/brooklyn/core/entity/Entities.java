@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.entity;
 
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.internal.*;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
 
@@ -38,6 +39,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
@@ -68,12 +70,6 @@ import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.internal.BrooklynShutdownHooks;
-import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
-import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
-import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext;
 import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -876,6 +872,7 @@ public class Entities {
         }
         
         log.warn("Deprecated use of Entities.manage(Entity), for unmanaged entity "+e);
+
         Entity o = e.getParent();
         Entity eum = e; // Highest unmanaged ancestor
         if (o==null) throw new IllegalArgumentException("Can't manage "+e+" because it is an orphan");
@@ -884,7 +881,9 @@ public class Entities {
             o = o.getParent();
         }
         if (isManaged(o)) {
-            ((EntityInternal)o).getManagementContext().getEntityManager().manage(eum);
+            ManagementContextInternal mgmt = (ManagementContextInternal) ((EntityInternal) o).getManagementContext();
+            premanageRecursively(mgmt, eum);
+            mgmt.getEntityManager().manage(eum);
             return true;
         }
         if (!(o instanceof Application)) {
@@ -956,8 +955,20 @@ public class Entities {
             }
         }
 
+        premanageRecursively((ManagementContextInternal)mgmt, app);
+
         mgmt.getEntityManager().manage(app);
         return mgmt;
+    }
+
+    private static void premanageRecursively(ManagementContextInternal mgmt, Entity e) {
+        if (Entities.isUnmanagingOrNoLongerManaged(e) || Entities.isManagedActive(e)) {
+            log.warn("Skipping premanagement for "+e+", as it has some form of known management");
+            // skip for active and unmanaged entities
+            return;
+        }
+        mgmt.prePreManage(e);
+        e.getChildren().forEach(e2 -> premanageRecursively(mgmt, e2));
     }
 
     /**
