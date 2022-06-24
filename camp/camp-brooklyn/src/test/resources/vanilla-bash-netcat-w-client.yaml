@@ -73,7 +73,13 @@ services:
   launch.command: ""
   checkRunning.command: ""
   stop.command: ""
-  
+ 
+  brooklyn.tags:
+  # only show restart and stop
+  - ui-effector-hints:
+      include-regex: say.*|restart|stop
+      exclude-regex: .* 
+
   brooklyn.initializers:
   # but there is a sample effector which runs nc in client mode
   
