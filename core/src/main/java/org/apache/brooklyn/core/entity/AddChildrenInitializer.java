@@ -16,66 +16,46 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.effector;
+package org.apache.brooklyn.core.entity;
 
 import com.google.common.annotations.Beta;
-import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-
 import static org.apache.brooklyn.util.core.BrooklynEntityUtils.addChildrenToEntity;
 import static org.apache.brooklyn.util.core.BrooklynEntityUtils.parseBlueprintYaml;
 
-/** Entity initializer which defines an effector which adds a child blueprint to an entity.
+/**
+ * Entity initializer which adds children to an entity.
  * <p>
- * One of the config keys {@link #BLUEPRINT_YAML} (containing a YAML blueprint (map or string)) 
+ * One of the config keys {@link #BLUEPRINT_YAML} (containing a YAML blueprint (map or string))
  * or {@link #BLUEPRINT_TYPE} (containing a string referring to a catalog type) should be supplied, but not both.
  * Parameters defined here are supplied as config during the entity creation.
- * 
- * @since 0.7.0*/
+ * <p>
+ * Acts similar as {@link org.apache.brooklyn.core.effector.AddChildrenEffector}.
+ */
 @Beta
-public class AddChildrenEffector extends AddEffectorInitializerAbstract {
-    
-    private static final Logger log = LoggerFactory.getLogger(AddChildrenEffector.class);
-    
+public class AddChildrenInitializer extends EntityInitializers.InitializerPatternWithConfigKeys {
+
+    private static final Logger log = LoggerFactory.getLogger(AddChildrenInitializer.class);
+
     public static final ConfigKey<Object> BLUEPRINT_YAML = ConfigKeys.newConfigKey(Object.class, "blueprint_yaml");
     public static final ConfigKey<String> BLUEPRINT_TYPE = ConfigKeys.newStringConfigKey("blueprint_type");
     public static final ConfigKey<Boolean> AUTO_START = ConfigKeys.newBooleanConfigKey("auto_start");
-    
-    private AddChildrenEffector() {}
-    public AddChildrenEffector(ConfigBag params) { super(params); }
 
-    @SuppressWarnings({ "unchecked", "rawtypes" })
-    public EffectorBuilder<List<String>> newEffectorBuilder() {
-        EffectorBuilder<List<String>> eff = (EffectorBuilder) newAbstractEffectorBuilder(List.class);
-        eff.impl(new Body(eff.buildAbstract(), initParams()));
-        return eff;
-    }
-    
-    protected static class Body extends EffectorBody<List<String>> {
+    private AddChildrenInitializer() {}
+    public AddChildrenInitializer(ConfigBag params) { super(params); }
 
-        private final Effector<?> effector;
-        private final String blueprintBase;
-        private final Boolean autostart;
-
-        public Body(Effector<?> eff, ConfigBag params) {
-            this.effector = eff;
-            Object yaml = params.get(BLUEPRINT_YAML);
-            String blueprintType = params.get(BLUEPRINT_TYPE);
-            blueprintBase = parseBlueprintYaml(yaml, blueprintType);
-            autostart = params.get(AUTO_START);
-        }
-
-        @Override
-        public List<String> call(ConfigBag params) {
-            ConfigBag paramsMerged = getMergedParams(effector, params);
-            return addChildrenToEntity(entity(), paramsMerged, blueprintBase, autostart);
-        }
+    @Override
+    public void apply(EntityLocal entity) {
+        ConfigBag params = initParams();
+        Object yaml = params.get(BLUEPRINT_YAML);
+        String blueprintType = params.get(BLUEPRINT_TYPE);
+        String blueprint = parseBlueprintYaml(yaml, blueprintType);
+        addChildrenToEntity(entity, params, blueprint, params.get(AUTO_START));
     }
 }
