@@ -1,0 +1,89 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+package org.apache.brooklyn.tasks.kubectl;
+
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.time.Duration;
+import org.testng.annotations.Test;
+
+import java.util.HashMap;
+import java.util.List;
+
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.testng.AssertJUnit.assertTrue;
+
+public class DockerTaskTest extends BrooklynAppUnitTestSupport {
+
+    @Test
+    public void testSuccessfulDockerTask() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        Map<String,Object> configBag = new HashMap<>();
+        configBag.put("name", "test-docker-task");
+        configBag.put("image", "perl");
+        configBag.put("commands", Lists.newArrayList("/bin/bash", "-c","echo 'hello test'"));
+
+        Task<String> dockerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                .summary("Running docker task")
+                .configure(configBag)
+                .newTask();
+        DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity);
+        Object result = dockerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
+        List<String> res = (List<String>) result;
+        while(!res.isEmpty() && Iterables.getLast(res).matches("namespace .* deleted\\s*")) res = res.subList(0, res.size()-1);
+
+        String res2 = res.isEmpty() ? null : Iterables.getLast(res);
+        assertTrue(res2.startsWith("hello test"));
+    }
+
+    @Test
+    public void testFailingDockerTask() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        List<String> commands = MutableList.of("/bin/bash", "-c","echo 'hello test'", "exit 1");
+
+        Map<String,Object> configBag = new HashMap<>();
+        configBag.put("name", "test-docker-task");
+        configBag.put("image", "perl");
+        configBag.put("commands", commands);
+
+        Task<String> dockerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                .summary("Running docker task")
+                .configure(configBag)
+                .newTask();
+
+        try {
+            DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity);
+        } catch (Exception e) {
+            assertTrue(e.getCause() instanceof ExecutionException);
+            assertTrue(e.getCause().getMessage().contains("Process task ended with exit code 1 when 0 was required"));
+        }
+    }
+
+}

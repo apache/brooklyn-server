@@ -20,13 +20,13 @@ package org.apache.brooklyn.tasks.kubectl;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.SetConfigKey;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings({ "rawtypes"})
 public interface ContainerCommons {
@@ -39,8 +39,11 @@ public interface ContainerCommons {
     ConfigKey<List> ARGUMENTS = ConfigKeys.newConfigKey(List.class,"args", "Arguments to execute for container", Lists.newArrayList());
 
     ConfigKey<String> WORKING_DIR = ConfigKeys.newStringConfigKey("workingDir", "Location where the container commands are executed");
-    ConfigKey<List<Map<String,String>>> VOLUME_MOUNTS = ConfigKeys.newConfigKey("volumeMounts", "Configuration to  mount a volume  into a container.", Lists.newArrayList());
-    ConfigKey<List<Map<String, Object>>> VOLUMES = ConfigKeys.newConfigKey("volumes", "List of directories with data that is accessible across multiple containers", Lists.newArrayList());
+    BasicConfigKey<Map<String,String>> VOLUME_MOUNTS = SetConfigKey.builder(new TypeToken<Map<String,String>>()  {}, "volumeMounts")
+            .description("Configuration to mount a volume into a container.").defaultValue(null).build();
+
+    BasicConfigKey<Map<String,Object>> VOLUMES = SetConfigKey.builder(new TypeToken<Map<String,Object>>()  {}, "volumes")
+            .description("List of directories with data that is accessible across multiple containers").defaultValue(null).build();
 
     String NAMESPACE_CREATE_CMD = "kubectl create namespace brooklyn-%s"; // namespace name
     String NAMESPACE_SET_CMD = "kubectl config set-context --current --namespace=brooklyn-%s"; // namespace name

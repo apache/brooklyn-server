@@ -68,22 +68,30 @@ public class JobBuilder {
     }
 
     public JobBuilder withCommands(final List<String> commandsArg){
-        this.commands.addAll(commandsArg);
+        if (commandsArg != null) {
+            this.commands.addAll(commandsArg);
+        }
         return this;
     }
 
     public JobBuilder withArgs(final List<String> args){
-        this.args.addAll(args);
+        if (args != null) {
+            this.args.addAll(args);
+        }
         return this;
     }
 
-    public JobBuilder withVolumeMounts(final List<Map<String,String>> volumeMounts) {
-        this.volumeMounts.addAll(volumeMounts);
+    public JobBuilder withVolumeMounts(final Set<Map<String,String>> volumeMounts) {
+        if (volumeMounts != null) {
+            this.volumeMounts.addAll(volumeMounts);
+        }
         return this;
     }
 
-    public JobBuilder withVolumes(final List<Map<String, Object>> volumes) {
-        this.volumes.addAll(volumes);
+    public JobBuilder withVolumes(final Set<Map<String, Object>> volumes) {
+        if (volumes != null) {
+            this.volumes.addAll(volumes);
+        }
         return this;
     }
 
@@ -98,7 +106,9 @@ public class JobBuilder {
     }
 
     public JobBuilder withEnv(final Map<String,Object> env){
-        this.env.putAll(env);
+        if (env != null) {
+            this.env.putAll(env);
+        }
         return this;
     }
 
