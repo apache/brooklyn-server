@@ -52,6 +52,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.Supplier;
 
+import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createParserFromTokenBufferAndParser;
+
 public class WrappedValuesSerialization {
 
     private static final Logger log = LoggerFactory.getLogger(WrappedValuesSerialization.class);
@@ -92,8 +94,7 @@ public class WrappedValuesSerialization {
         Object deserializeWithTypeUnwrapped(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer) throws IOException {
             List<Exception> exceptions = MutableList.of();
             try {
-                TokenBuffer b = new TokenBuffer(p, ctxt);
-                b.copyCurrentStructure(p);
+                TokenBuffer b = BrooklynJacksonSerializationUtils.createBufferForParserCurrentObject(p, ctxt);
                 try {
                     // this should work for primitives, objects, and suppliers (which will declare type)
                     // only time it won't is where generics are used to drop the type declaration during serialization
@@ -107,7 +108,10 @@ public class WrappedValuesSerialization {
 
                 // fall back to just using object
                 try {
-                    return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(b.asParserOnFirstToken(), ctxt);
+                    return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(
+//                            b.asParserOnFirstToken()
+                            createParserFromTokenBufferAndParser(b, p)
+                            , ctxt);
                 } catch (Exception e) {
                     exceptions.add(e);
                 }
@@ -152,7 +156,12 @@ public class WrappedValuesSerialization {
                 // should be omitted
                 gen.writeNull();
             } else {
-                serializers.findValueSerializer(serializers.constructType(valueToWrite.getClass())).serializeWithType(valueToWrite, gen, serializers, serializers.findTypeSerializer(baseType));
+                if (!baseType.getRawClass().isInstance(valueToWrite)) {
+                    // wrapped value has unexpected type; treat as object to prevent serialization errors; coercion might fix, or there might be an error later on
+                    baseType = serializers.constructType(Object.class);
+                }
+                JsonSerializer<Object> vs = serializers.findValueSerializer(serializers.constructType(valueToWrite.getClass()), null);
+                vs.serializeWithType(valueToWrite, gen, serializers, serializers.findTypeSerializer(baseType));
             }
         }
     }

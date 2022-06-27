@@ -44,11 +44,11 @@ public class PerverseSerializationTest implements MapperTestFixture {
     }
 
     @Test
-    public void testFieldCalledTypeMakesInvalidJson() throws Exception {
+    public void testFieldCalledTypeMakesBetterJson() throws Exception {
         BeanWithFieldCalledType a = new BeanWithFieldCalledType();
         a.type = "not my type";
         Assert.assertEquals(ser(a),
-                "{\"type\":\""+ BeanWithFieldCalledType.class.getName()+"\",\"type\":\"not my type\"}");
+                "{\"@type\":\""+ BeanWithFieldCalledType.class.getName()+"\",\"type\":\"not my type\"}");
     }
 
     private final static class BeanWithFieldCalledTypeHolder {

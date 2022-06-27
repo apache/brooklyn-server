@@ -123,6 +123,7 @@ public class BidiSerialization {
 
         public T deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
             @SuppressWarnings("unchecked")
+            // see BrooklynJacksonSerializationUtils.readObject, if this throws on trailing data
             Map<Object,Object> values = jp.readValueAs(Map.class);
             String type = (String) values.get("type");
             return customReadBody(type, values, jp, ctxt);

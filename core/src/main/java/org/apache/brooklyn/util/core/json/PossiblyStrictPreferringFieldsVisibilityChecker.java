@@ -37,7 +37,7 @@ import static com.fasterxml.jackson.annotation.JsonAutoDetect.*;
  * <p>
  * the reason for this change to visibility
  * is that getters might generate a copy, resulting in infinite loops, whereas field access should never do so.
- * (see e.g. test in {@link BrooklynJacksonSerializerTest} which uses a sensor+config object whose getTypeToken
+ * (see e.g. test in BrooklynJacksonSerializerTest (REST sub-project) which uses a sensor+config object whose getTypeToken
  * causes infinite recursion)
  **/
 public class PossiblyStrictPreferringFieldsVisibilityChecker implements VisibilityChecker<PossiblyStrictPreferringFieldsVisibilityChecker> {
@@ -45,7 +45,11 @@ public class PossiblyStrictPreferringFieldsVisibilityChecker implements Visibili
         vizDefault = new VisibilityChecker.Std(Visibility.NONE, Visibility.NONE, Visibility.NONE, Visibility.ANY, Visibility.ANY),
         vizStrict = new VisibilityChecker.Std(Visibility.NONE, Visibility.NONE, Visibility.NONE, Visibility.PUBLIC_ONLY, Visibility.PUBLIC_ONLY);
     
-    @Override public PossiblyStrictPreferringFieldsVisibilityChecker with(JsonAutoDetect ann) { throw new UnsupportedOperationException(); }
+    @Override public PossiblyStrictPreferringFieldsVisibilityChecker with(JsonAutoDetect ann) {
+        // this is called if a ConfigBag is emitted by the REST API; silently ignore
+//        throw new UnsupportedOperationException();
+        return this;
+    }
     @Override public PossiblyStrictPreferringFieldsVisibilityChecker with(Visibility v) { throw new UnsupportedOperationException(); }
     @Override public PossiblyStrictPreferringFieldsVisibilityChecker withVisibility(PropertyAccessor method, Visibility v) { throw new UnsupportedOperationException(); }
     @Override public PossiblyStrictPreferringFieldsVisibilityChecker withGetterVisibility(Visibility v) { throw new UnsupportedOperationException(); }

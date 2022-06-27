@@ -19,45 +19,80 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.cfg.MapperConfig;
+import com.fasterxml.jackson.databind.introspect.Annotated;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
+import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import com.fasterxml.jackson.databind.util.ByteBufferBackedOutputStream;
+import com.google.common.base.Predicate;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createBeanDeserializer;
 
 public class CommonTypesSerialization {
+
+    private static final Logger LOG = LoggerFactory.getLogger(CommonTypesSerialization.class);
 
     public static void apply(ObjectMapper mapper) {
         apply(mapper, null);
     }
 
     public static void apply(ObjectMapper mapper, ManagementContext mgmt) {
+
         SimpleModule m = new SimpleModule();
         InterceptibleDeserializers interceptible = new InterceptibleDeserializers();
         m.setDeserializers(interceptible);
         new DurationSerialization().apply(m);
         new DateSerialization().apply(m);
+        new ByteArrayObjectStreamSerialization().apply(m);
         new InstantSerialization().apply(m);
         new ManagementContextSerialization(mgmt).apply(m);
         new BrooklynObjectSerialization(mgmt).apply(m, interceptible);
+        new ConfigKeySerialization(mgmt).apply(m);
+        new PredicateSerialization(mgmt).apply(m);
+        new GuavaTypeTokenSerialization().apply(mapper, m, interceptible);
+        //mapper.setAnnotationIntrospector(new CustomAnnotationInspector());
+
+        // see also JsonDeserializerForCommonBrooklynThings, and BrooklynDslCommon coercion of Spec
+
         mapper.registerModule(m);
     }
 
@@ -106,9 +141,14 @@ public class CommonTypesSerialization {
 
         protected T doConvertSpecialMapViaNewSimpleMapper(Map value) throws IOException {
             // a hack to support default bean deserialization as a fallback; we could deprecate, but some tests support eg nanos: xx for duration
+            // TODO - would be better to use createBeanDeserializer ?
             ObjectMapper m = BeanWithTypeUtils.newSimpleYamlMapper();
             m.setVisibility(new VisibilityChecker.Std(JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY, JsonAutoDetect.Visibility.ANY));
             return m.readerFor(getType()).readValue(m.writeValueAsString(value));
+        }
+
+        protected T copyInto(T src, T target) {
+            throw new IllegalStateException("Not supported to read into "+getType()+", from "+src+" into "+target);
         }
 
         public <T extends SimpleModule> T apply(T module) {
@@ -148,7 +188,7 @@ public class CommonTypesSerialization {
             @Override
             public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
                 try {
-                    Object valueO = p.readValueAs(Object.class);
+                    Object valueO = BrooklynJacksonSerializationUtils.readObject(ctxt, p);
                     Object value = valueO;
                     if (value instanceof Map) {
                         if (((Map)value).size()==1 && ((Map)value).containsKey(BrooklynJacksonSerializationUtils.VALUE)) {
@@ -165,12 +205,19 @@ public class CommonTypesSerialization {
                         return convertStringToObject(value.toString(), p, ctxt);
                     } else if (value instanceof Map) {
                         return convertSpecialMapToObject((Map)value, p, ctxt);
+                    } else if (value.getClass().equals(Object.class)) {
+                        return newEmptyInstance();
                     } else {
                         throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
                     }
                 } catch (Exception e) {
                     throw Exceptions.propagate(e);
                 }
+            }
+
+            @Override
+            public T deserialize(JsonParser p, DeserializationContext ctxt, T intoValue) throws IOException, JsonProcessingException {
+                return copyInto(deserialize(p, ctxt), intoValue);
             }
         }
     }
@@ -198,6 +245,31 @@ public class CommonTypesSerialization {
         }
         @Override public Date convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
             return doConvertSpecialMapViaNewSimpleMapper(value);
+        }
+    }
+
+    public static class ByteArrayObjectStreamSerialization extends ObjectAsStringSerializerAndDeserializer<ByteArrayOutputStream> {
+        @Override public Class<ByteArrayOutputStream> getType() { return ByteArrayOutputStream.class; }
+        @Override public String convertObjectToString(ByteArrayOutputStream value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return provider.getConfig().getBase64Variant().encode(value.toByteArray());
+//            byte[] array = value.toByteArray();
+//            gen.writeBinary(provider.getConfig().getBase64Variant(), array, 0, array.length);
+        }
+        @Override public ByteArrayOutputStream convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            out.write(ctxt.getConfig().getBase64Variant().decode(value));
+//            out.write(p.getBinaryValue());
+            return out;
+        }
+
+        @Override
+        protected ByteArrayOutputStream copyInto(ByteArrayOutputStream src, ByteArrayOutputStream target) {
+            try {
+                target.write(src.toByteArray());
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
+            }
+            return target;
         }
     }
 
@@ -258,6 +330,131 @@ public class CommonTypesSerialization {
             if (result!=null) return result;
             throw new IllegalStateException("Entity or other BrooklynObject '"+value+"' is not known here");
         }
+
+        @Override public BrooklynObject convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            throw new IllegalStateException("Entity instances and other Brooklyn objects should be supplied as unique IDs; they cannot be instantiated from YAML. If a spec is desired, the type should be known or use $brooklyn:entitySpec.");
+        }
     }
+
+    public static class ConfigKeySerialization {
+        private final ManagementContext mgmt;
+        public ConfigKeySerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
+        public void apply(SimpleModule m) {
+            m.addKeyDeserializer(ConfigKey.class, new CKKeyDeserializer());
+        }
+        static class CKKeyDeserializer extends KeyDeserializer {
+            @Override
+            public Object deserializeKey(String key, DeserializationContext ctxt) throws IOException {
+                // ignores type, but allows us to serialize entity specs etc
+                return ConfigKeys.newConfigKey(Object.class, key);
+            }
+        }
+    }
+
+    public static class PredicateSerialization {
+        private final ManagementContext mgmt;
+        public PredicateSerialization(ManagementContext mgmt) { this.mgmt = mgmt; }
+        public void apply(SimpleModule m) {
+            m.addDeserializer(Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            m.addDeserializer(java.util.function.Predicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            m.addDeserializer(DslPredicates.DslPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+            m.addDeserializer(DslPredicates.DslEntityPredicate.class, (JsonDeserializer) new DslPredicates.DslPredicateJsonDeserializer());
+        }
+    }
+
+    /** Serializing TypeTokens is annoying; basically we wrap the Type, and intercept 3 things specially */
+    // we've tried jackson-datatype-guava's mapper.registerModule(new GuavaModule())
+    // but it doesn't support TypeToken (or guava Predicates)
+    public static class GuavaTypeTokenSerialization extends BeanSerializerModifier {
+
+        public static final String RUNTIME_TYPE = "runtimeType";
+
+        public void apply(ObjectMapper m, SimpleModule module, InterceptibleDeserializers interceptible) {
+            m.setSerializerFactory(m.getSerializerFactory().withSerializerModifier(this));
+
+            TypeTokenDeserializer ttDeserializer = new TypeTokenDeserializer();
+            interceptible.addSubtypeInterceptor(TypeToken.class, ttDeserializer);
+            module.addDeserializer(TypeToken.class, (JsonDeserializer) ttDeserializer);
+
+            ParameterizedTypeDeserializer ptDeserializer = new ParameterizedTypeDeserializer();
+            interceptible.addSubtypeInterceptor(ParameterizedType.class, ptDeserializer);
+            module.addDeserializer(ParameterizedType.class, (JsonDeserializer) ptDeserializer);
+
+            module.addDeserializer(Type.class, (JsonDeserializer) new JavaLangTypeDeserializer());
+        }
+
+        @Override
+        public List<BeanPropertyWriter> changeProperties(SerializationConfig config, BeanDescription beanDesc, List<BeanPropertyWriter> beanProperties) {
+            if (TypeToken.class.isAssignableFrom(beanDesc.getBeanClass())) {
+                // not needed, but kept in case useful in future
+//                Set<String> fields = MutableList.copyOf(Reflections.findFields(beanDesc.getBeanClass(), null, null))
+//                        .stream().map(f -> f.getName()).collect(Collectors.toSet());
+                beanProperties = beanProperties.stream().filter(p -> RUNTIME_TYPE.equals(p.getName())).collect(Collectors.toList());
+            }
+
+            return beanProperties;
+        }
+
+        static class TypeTokenDeserializer extends JsonSymbolDependentDeserializer {
+            @Override
+            public JavaType getDefaultType() {
+                return ctxt.constructType(RuntimeTypeHolder.class);
+            }
+
+            @Override
+            protected Object deserializeObject(JsonParser p) throws IOException {
+                Object holder = contextualize(createBeanDeserializer(ctxt, getDefaultType())).deserialize(p, ctxt);
+                return TypeToken.of( ((RuntimeTypeHolder)holder).runtimeType );
+            }
+        }
+
+        static class ParameterizedTypeDeserializer extends JsonSymbolDependentDeserializer {
+            @Override
+            public JavaType getDefaultType() {
+                return ctxt.constructType(BrooklynTypeNameResolution.BetterToStringParameterizedTypeImpl.class);
+            }
+
+            @Override
+            public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
+                super.createContextual(ctxt, property);
+                // always use this one
+                type = getDefaultType();
+                return this;
+            }
+        }
+
+        static class RuntimeTypeHolder {
+            private Type runtimeType;
+
+            // jackson compatibility
+            private void setType(Object type) {
+                // ignore; always deserialize as SimpleTypeToken
+            }
+        }
+
+        static class JavaLangTypeDeserializer extends JsonSymbolDependentDeserializer {
+            @Override
+            public JavaType getDefaultType() {
+                return ctxt.constructType(Class.class);
+            }
+
+            @Override
+            protected JsonDeserializer<?> getTokenDeserializer() throws IOException {
+                return createBeanDeserializer(ctxt, getDefaultType());
+            }
+        }
+    }
+
+    // kept for reference, if we did want to customize the mode (but you cannot from here inject parameter names)
+//    public static class CustomAnnotationInspector extends JacksonAnnotationIntrospector {
+//        @Override
+//        public JsonCreator.Mode findCreatorAnnotation(MapperConfig<?> config, Annotated a) {
+//            // does not work
+////            if (a.getAnnotated() instanceof Constructor && ((Constructor)a.getAnnotated()).getDeclaringClass().getPackage().equals(Predicate.class.getPackage())) {
+////                return JsonCreator.Mode.DELEGATING;
+////            }
+//            return super.findCreatorAnnotation(config, a);
+//        }
+//    }
 
 }

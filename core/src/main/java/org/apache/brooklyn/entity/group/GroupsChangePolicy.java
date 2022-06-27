@@ -139,7 +139,8 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                         if (!item.isNull()) {
                             locationSpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<LocationSpec<Location>>) BrooklynObjectType.LOCATION.getSpecType());
                         } else {
-                            locationSpec = LocationSpec.create(ImmutableMap.of(), (Class<Location>) new OsgiBrooklynClassLoadingContext(member).tryLoadClass(type).get());
+                            locationSpec = LocationSpec.create(ImmutableMap.of(), (Class<Location>)
+                                    RegisteredTypes.getClassLoadingContext(member).tryLoadClass(type).get());
                         }
 
                         // NOTE, it is important to resolve all DSL expressions in the context of the member, e.g.
@@ -168,7 +169,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     try {
                         String type = (String) stringObjectMap.get(TYPE);
 
-                        OsgiBrooklynClassLoadingContext loader = member != null ? new OsgiBrooklynClassLoadingContext(member) : null;
+                        BrooklynClassLoadingContext loader = member != null ? RegisteredTypes.getClassLoadingContext(member) : null;
                         TypeToken<? extends EntityInitializer> typeToken = getType(loader, type);
                         LOG.debug("type='{}', typeToken='{}'",type, typeToken);
                         Maybe<? extends EntityInitializer> entityInitializerMaybe = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(stringObjectMap), typeToken);
@@ -194,7 +195,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     if (!item.isNull()) {
                         policySpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<PolicySpec<Policy>>) BrooklynObjectType.POLICY.getSpecType());
                     } else {
-                        policySpec = PolicySpec.create(ImmutableMap.of(), (Class<Policy>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
+                        policySpec = PolicySpec.create(ImmutableMap.of(), (Class<Policy>) RegisteredTypes.getClassLoadingContext(entity).tryLoadClass(type).get());
                     }
                     policySpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
 
@@ -213,7 +214,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     if (!item.isNull()) {
                         enricherSpec = mgmt.getTypeRegistry().createSpec(item.get(), null, (Class<EnricherSpec<Enricher>>) BrooklynObjectType.ENRICHER.getSpecType());
                     } else {
-                        enricherSpec = EnricherSpec.create(ImmutableMap.of(), (Class<Enricher>) new OsgiBrooklynClassLoadingContext(entity).tryLoadClass(type).get());
+                        enricherSpec = EnricherSpec.create(ImmutableMap.of(), (Class<Enricher>) RegisteredTypes.getClassLoadingContext(entity).tryLoadClass(type).get());
                     }
                     enricherSpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
 

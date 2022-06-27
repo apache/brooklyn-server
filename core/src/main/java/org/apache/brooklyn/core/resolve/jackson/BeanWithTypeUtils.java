@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
@@ -34,11 +36,13 @@ import java.util.function.Predicate;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.ConfigurableBeanDeserializerModifier;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -66,6 +70,9 @@ public class BeanWithTypeUtils {
     }
 
     public static ObjectMapper applyCommonMapperConfig(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
+        mapper.enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+        mapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS);
+
         BrooklynRegisteredTypeJacksonSerialization.apply(mapper, mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
         WrappedValuesSerialization.apply(mapper, mgmt);
         mapper = new ConfigurableBeanDeserializerModifier()
@@ -79,7 +86,10 @@ public class BeanWithTypeUtils {
 
     public static JsonMapper newSimpleMapper() {
         // for use with json maps (no special type resolution, even the field "type" is ignored)
-        return JsonMapper.builder().build();
+        return JsonMapper.builder()
+                // experimented with this, but safer for us to add annotations, and for eg guava it doesn't work due to no parameter names in the compiled code
+                //.constructorDetector(ConstructorDetector.USE_DELEGATING)
+                .build();
     }
 
     public static YAMLMapper newSimpleYamlMapper() {
@@ -162,7 +172,7 @@ public class BeanWithTypeUtils {
     public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, TypeToken<T> type) {
         Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
         ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
-        OsgiBrooklynClassLoadingContext loader = entity != null ? new OsgiBrooklynClassLoadingContext(entity) : null;
+        BrooklynClassLoadingContext loader = entity != null ? RegisteredTypes.getClassLoadingContext(entity) : null;
         return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, true);
     }
 

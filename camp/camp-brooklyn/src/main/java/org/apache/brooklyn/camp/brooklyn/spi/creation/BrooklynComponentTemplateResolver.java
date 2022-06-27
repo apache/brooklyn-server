@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.google.common.annotations.Beta;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -637,17 +638,7 @@ public class BrooklynComponentTemplateResolver {
          */
         protected Object transformSpecialFlags(Object flag) {
             if (flag instanceof EntitySpecConfiguration) {
-                EntitySpecSupplier supplier = new EntitySpecSupplier((EntitySpecConfiguration)flag);
-                EntitySpec<?> resolved = supplier.get();
-                // do the "get" above to catch errors prior to attempts to use the spec
-                if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
-                    return supplier;
-                } else {
-                    // 2017-10 previously we always returned the resolved EntitySpec.
-                    // main reason for the supplier is so that we persist the YAML and can apply upgrades on rebind.
-                    // this also means other transformations are deferred, which seems safe but if not there is a configurable FEATURE. 
-                    return resolved;
-                }
+                return toEntitySpecOrSupplier((EntitySpecConfiguration)flag);
             }
             if (flag instanceof ManagementContextInjectable) {
                 log.debug("Injecting Brooklyn management context info object: {}", flag);
@@ -655,6 +646,20 @@ public class BrooklynComponentTemplateResolver {
             }
 
             return flag;
+        }
+
+        private Object toEntitySpecOrSupplier(EntitySpecConfiguration cfg) {
+            EntitySpecSupplier supplier = new EntitySpecSupplier(cfg);
+            EntitySpec<?> resolved = supplier.get();
+            // do the "get" above to catch errors prior to attempts to use the spec
+            if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
+                return supplier;
+            } else {
+                // 2017-10 previously we always returned the resolved EntitySpec.
+                // main reason for the supplier is so that we persist the YAML and can apply upgrades on rebind.
+                // this also means other transformations are deferred, which seems safe but if not there is a configurable FEATURE.
+                return resolved;
+            }
         }
     }
 

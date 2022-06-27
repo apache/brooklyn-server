@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
+import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
@@ -30,6 +31,7 @@ import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
@@ -40,6 +42,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
+import org.apache.brooklyn.util.javalang.ClassLoadingContext;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
@@ -135,7 +138,7 @@ public class BrooklynTypeNameResolution {
         private BrooklynTypeNameResolver(String context, ManagementContext mgmt, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
             this.context = context;
             this.mgmt = mgmt;
-            this.loader = loader;
+            this.loader = loader==null ? JavaBrooklynClassLoadingContext.create(mgmt) : loader;
             this.allowJavaType = allowJavaType;
             this.allowRegisteredTypes = allowRegisteredTypes;
 
@@ -194,12 +197,18 @@ public class BrooklynTypeNameResolution {
         return new BetterToStringParameterizedTypeImpl(raw, null, types.toArray(new Type[0]));
     }
 
-    private static final class BetterToStringParameterizedTypeImpl implements ParameterizedType {
+    @Beta
+    public static ParameterizedType parameterizedType(ParameterizedType t) {
+        return new BetterToStringParameterizedTypeImpl(t);
+    }
+
+    @Beta
+    public static final class BetterToStringParameterizedTypeImpl implements ParameterizedType {
         // because Apache Commons ParameterizedTypeImpl toString is too rigid
 
-        private final Class<?> raw;
-        private final Type useOwner;
-        private final Type[] typeArguments;
+        private Type raw;
+        private Type useOwner;
+        private Type[] typeArguments;
 
         /**
          * Constructor
@@ -211,6 +220,17 @@ public class BrooklynTypeNameResolution {
             this.raw = raw;
             this.useOwner = useOwner;
             this.typeArguments = typeArguments;
+        }
+
+        // JSON deserializer constructor
+        private BetterToStringParameterizedTypeImpl() {
+            this(null, null, null);
+        }
+
+        private BetterToStringParameterizedTypeImpl(ParameterizedType t) {
+            this.raw = t.getRawType();
+            this.useOwner = t.getOwnerType();
+            this.typeArguments = t.getActualTypeArguments();
         }
 
         /**
@@ -291,6 +311,19 @@ public class BrooklynTypeNameResolution {
             result <<= 8;
             result |= Arrays.hashCode(typeArguments);
             return result;
+        }
+
+        // compatibility setters to match sun ParameterizedTypeImpl
+        private void setActualTypeArguments(Type[] typeArguments) {
+            this.typeArguments = typeArguments;
+        }
+        private void setOwnerType(Type useOwner) {
+            this.useOwner = useOwner;
+        }
+        private void setRawType(Type raw) {
+            this.raw = raw;
+        }
+        private void setTypeName(Object ignored) {
         }
     }
 

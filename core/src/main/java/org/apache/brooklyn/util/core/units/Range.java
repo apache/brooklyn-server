@@ -19,10 +19,13 @@
 package org.apache.brooklyn.util.core.units;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import java.io.IOException;
 import java.util.List;
+
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.units.Range.RangeDeserializer;
@@ -53,6 +56,11 @@ public class Range extends MutableList<Object> {
     }
 
     public static class RangeDeserializer extends JsonSymbolDependentDeserializer {
+        @Override
+        public JavaType getDefaultType() {
+            return ctxt.constructType(Range.class);
+        }
+
         @Override
         protected Object deserializeArray(JsonParser p) throws IOException {
             return new Range( (List<Object>) super.deserializeArray(p) );

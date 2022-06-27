@@ -25,6 +25,7 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynComponentTemplateResolver;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -64,6 +65,12 @@ public class DslUtils {
         return new BrooklynComponentTemplateResolver.SpecialFlagsTransformer(
             CatalogUtils.newClassLoadingContext(mgmt, spec.getCatalogItemId(), ImmutableList.of()),
             MutableSet.of()).apply(v);
+    }
+
+    public static Object transformSpecialFlags(ManagementContext mgmt, BrooklynClassLoadingContext loadingContext, Object v) {
+        return new BrooklynComponentTemplateResolver.SpecialFlagsTransformer(
+                loadingContext,
+                MutableSet.of()).apply(v);
     }
 
     /** resolve an object which might be (or contain in a map or list) a $brooklyn DSL string expression */

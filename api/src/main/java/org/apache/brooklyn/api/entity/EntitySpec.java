@@ -26,6 +26,10 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -110,7 +114,9 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     private Entity parent;
     private final List<PolicySpec<?>> policySpecs = Lists.newArrayList();
     private final List<EnricherSpec<?>> enricherSpecs = Lists.newArrayList();
+    @JsonProperty("locationInstances")
     private final List<Location> locations = Lists.newArrayList();
+    @JsonProperty("locationSpecs")
     private final List<LocationSpec<?>> locationSpecs = Lists.newArrayList();
     private final Set<Class<?>> additionalInterfaces = Sets.newLinkedHashSet();
     private final List<EntityInitializer> entityInitializers = Lists.newArrayList();
@@ -125,6 +131,10 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
 
     public EntitySpec(Class<T> type) {
         super(type);
+    }
+    // JSON constructor
+    private EntitySpec() {
+        this(null);
     }
 
     @Override
@@ -200,6 +210,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     }
 
     /** @return {@link EntityInitializer} objects which customize the entity to be created */
+    @JsonIgnore
     public List<EntityInitializer> getInitializers() {
         return entityInitializers;
     }
@@ -230,12 +241,14 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     public List<EnricherSpec<?>> getEnricherSpecs() {
         return enricherSpecs;
     }
-    
+
+    @JsonIgnore
     public List<LocationSpec<?>> getLocationSpecs() {
         return locationSpecs;
     }
 
     /** @deprecated since 0.9.0 in future only {@link #getLocationSpecs()} will be supported */ @Deprecated
+    @JsonIgnore
     public List<Location> getLocations() {
         return locations;
     }
@@ -267,7 +280,8 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         entityInitializers.add(initializer);
         return this;
     }
-        
+
+    @JsonSetter("brooklyn.initializers")
     public EntitySpec<T> addInitializers(Iterable<? extends EntityInitializer> initializers) {
         checkMutable();
         Iterables.addAll(entityInitializers, initializers);
@@ -336,6 +350,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     }
 
     /** adds the supplied policies to the spec */
+    @JsonSetter("brooklyn.policies")
     public <V> EntitySpec<T> policySpecs(Iterable<? extends PolicySpec<?>> val) {
         checkMutable();
         policySpecs.addAll(MutableList.copyOf(checkNotNull(val, "policySpecs")));
@@ -350,6 +365,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     }
 
     /** adds the supplied policies to the spec */
+    @JsonSetter("brooklyn.enrichers")
     public <V> EntitySpec<T> enricherSpecs(Iterable<? extends EnricherSpec<?>> val) {
         checkMutable();
         enricherSpecs.addAll(MutableList.copyOf(checkNotNull(val, "enricherSpecs")));
@@ -374,8 +390,9 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         locationSpecs.add(checkNotNull(val, "location"));
         return this;
     }
-    
+
     /** adds the supplied locations to the spec */
+    @JsonSetter("locations")
     public <V> EntitySpec<T> locationSpecs(Iterable<? extends LocationSpec<?>> val) {
         checkMutable();
         locationSpecs.addAll(MutableList.copyOf(checkNotNull(val, "locations")));

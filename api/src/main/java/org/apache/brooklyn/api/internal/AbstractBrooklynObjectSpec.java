@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -211,6 +212,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     /**
      * adds the given tags
      */
+    @JsonSetter("brooklyn.tags")
     public SpecT tagsAdd(Iterable<? extends Object> tagsToAdd) {
         Iterables.addAll(this.tags, tagsToAdd);
         return self();
@@ -453,6 +455,16 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
      */
     public Map<ConfigKey<?>, Object> getConfig() {
         return Collections.unmodifiableMap(config);
+    }
+
+    @JsonSetter("name")
+    private void jsonSetName(String val) {
+        displayName(val);
+    }
+
+    @JsonSetter("brooklyn.config")
+    private void jsonSetConfig(Map<String,Object> val) {
+        configure(val);
     }
 
 }

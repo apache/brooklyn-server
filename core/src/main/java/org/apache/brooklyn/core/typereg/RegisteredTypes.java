@@ -31,8 +31,10 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -751,4 +753,7 @@ public class RegisteredTypes {
         return type.getTags().contains(BrooklynTags.CATALOG_TEMPLATE);
     }
 
+    public static BrooklynClassLoadingContext getClassLoadingContext(Entity entity) {
+        return CatalogUtils.getClassLoadingContext(entity);
+    }
 }

@@ -56,7 +56,6 @@ public class MethodCoercions {
      */
     public static Predicate<Method> matchSingleParameterMethod(final String methodName, final Object argument) {
         checkNotNull(methodName, "methodName");
-        checkNotNull(argument, "argument");
 
         return new Predicate<Method>() {
             @Override
@@ -65,7 +64,7 @@ public class MethodCoercions {
                 if (!input.getName().equals(methodName)) return false;
                 Type[] parameterTypes = input.getGenericParameterTypes();
                 return parameterTypes.length == 1
-                        && TypeCoercions.tryCoerce(argument, TypeToken.of(parameterTypes[0])).isPresentAndNonNull();
+                        && (argument==null || TypeCoercions.tryCoerce(argument, TypeToken.of(parameterTypes[0])).isPresentAndNonNull());
 
             }
         };
@@ -173,7 +172,7 @@ public class MethodCoercions {
      *
      * @param instanceOrClazz the object or class to invoke the method on
      * @param methods the methods to choose from
-     * @param argument a list of the arguments to the method's parameters.
+     * @param arguments a list of the arguments to the method's parameters.
      * @return the result of the method call, or {@link org.apache.brooklyn.util.guava.Maybe#absent()} if method could not be matched.
      */
     public static Maybe<?> tryFindAndInvokeMultiParameterMethod(Object instanceOrClazz, Iterable<Method> methods, List<?> arguments) {
@@ -216,7 +215,7 @@ public class MethodCoercions {
      *
      * @param instance the object to invoke the method on
      * @param methodName the name of the method to invoke
-     * @param argument a list of the arguments to the method's parameters.
+     * @param arguments a list of the arguments to the method's parameters.
      * @return the result of the method call, or {@link org.apache.brooklyn.util.guava.Maybe#absent()} if method could not be matched.
      */
     public static Maybe<?> tryFindAndInvokeMultiParameterMethod(Object instance, String methodName, List<?> arguments) {

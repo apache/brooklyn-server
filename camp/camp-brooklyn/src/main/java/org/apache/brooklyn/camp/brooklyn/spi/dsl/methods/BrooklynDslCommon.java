@@ -22,12 +22,19 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import java.util.*;
+
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
+import java.util.function.Supplier;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -46,7 +53,7 @@ import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ExternalConfigSupplierRegistry;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
@@ -55,6 +62,7 @@ import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -68,7 +76,9 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
 import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
@@ -97,11 +107,48 @@ public class BrooklynDslCommon {
 
     public static final String PREFIX = "$brooklyn:";
 
-    public static void registerSerializationHooks() {
+    public static synchronized void registerSerializationHooks() { registerSerializationHooks(false); }
+    public static synchronized void registerSerializationHooks(boolean forceReinitialization) {
+        if (INITIALIZED && !forceReinitialization) return;
         BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
+        registerSpecCoercionAdapter();
+        INITIALIZED = true;
     }
+    private static boolean INITIALIZED = false;
     static {
         registerSerializationHooks();
+    }
+    private static void registerSpecCoercionAdapter() {
+        TypeCoercions.registerAdapter("10-specs", new TryCoercer() {
+            @Override
+            public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                BiFunction<ManagementContext, Object, Object> dslParse = BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION;
+                if (!TypeTokens.equalsRaw(EntitySpec.class, type) || dslParse==null) {
+                    // only applies if a spec is wanted and dsl parse registered
+                    return null;
+                }
+                if (!(input instanceof Map)) {
+                    // only if given a map
+                    return null;
+                }
+
+                Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+                ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
+                if (mgmt==null) return null;
+
+                Map m = (Map) input;
+                if (!m.containsKey("type")) {
+                    // and map says a type
+                    return null;
+                }
+
+                BrooklynClassLoadingContext loader = (entity != null) ? RegisteredTypes.getClassLoadingContext(entity) : JavaBrooklynClassLoadingContext.create(mgmt);
+                Object spec = DslUtils.transformSpecialFlags(mgmt, loader, dslParse.apply(mgmt, MutableMap.of("$brooklyn:entitySpec", input)));
+                if (spec instanceof Supplier) spec = ((Supplier)spec).get();
+
+                return Maybe.of( (T) spec );
+            }
+        });
     }
     
     // Access specific entities
@@ -797,7 +844,7 @@ public class BrooklynDslCommon {
                     if (entity==null) {
                         throw new IllegalStateException("Cannot invoke without a Task running the context of an entity");
                     }
-                    RegisteredType rt = managementContext().getTypeRegistry().get(typeName, RegisteredTypeLoadingContexts.loader(new OsgiBrooklynClassLoadingContext(entity)));
+                    RegisteredType rt = managementContext().getTypeRegistry().get(typeName, RegisteredTypeLoadingContexts.loader(RegisteredTypes.getClassLoadingContext(entity)));
                     if (rt!=null) {
                         Object inst = managementContext().getTypeRegistry().create(rt, null, null);
                         if (inst!=null) {

@@ -51,6 +51,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import java.io.IOException;
 import java.util.*;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 
 public class BrooklynRegisteredTypeJacksonSerialization {
 
@@ -68,8 +69,7 @@ public class BrooklynRegisteredTypeJacksonSerialization {
             try {
                 Object target = getEmptyValue(ctxt);
                 JsonDeserializer<Object> delegate = ctxt.findContextualValueDeserializer(ctxt.constructType(target.getClass()), null);
-                delegate.deserialize(p, ctxt, target);
-                return (T)target;
+                return (T) delegate.deserialize(p, ctxt, target);
             } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
@@ -77,6 +77,12 @@ public class BrooklynRegisteredTypeJacksonSerialization {
 
         public Object getEmptyValue(DeserializationContext ctxt) throws JsonMappingException {
             // empty for us is the underlying definition, not null
+            if (mgmt==null) {
+                // could do this to use the type
+                //return Reflections.invokeConstructorFromArgs(type.getRawClass(), new Object[] {}, true).orThrow("Cannot create "+type+" because no management context and no accessible constructor on "+type.getRawClass());
+                // but instead treat as error
+                throw new NullPointerException("Requested to deserialize Brooklyn type "+type+" without a management context");
+            }
             return mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
         }
     }
@@ -123,19 +129,43 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                     return new BrooklynJacksonType(rt);
                 }
             }
-            if (loader!=null) {
-                Maybe<Class<?>> fromLoader = loader.tryLoadClass(id);
-                if (fromLoader.isPresent()) {
-                    return context.constructType(fromLoader.get());
-                }
-            }
             // TODO - this would be nice to support complex types
 //            if (type is present in a registered type) {
 //                get the bundle of registered type
 //                use that classloader to instantiate the type
 //            }
             if (allowPojoJavaTypes) {
-                return super.typeFromId(context, id);
+                if (loader!=null) {
+                    Maybe<Class<?>> fromLoader = loader.tryLoadClass(id);
+                    if (fromLoader.isPresent()) {
+                        // contextual base type ignored; more sophisticated handling is done by jackson but this seems good enough
+                        return context.constructType(fromLoader.get());
+                    }
+                }
+
+                // this will validate id is a subtype of expected type, and take most specific
+                try {
+                    return super.typeFromId(context, id);
+                } catch (IOException e) {
+                    Exceptions.propagateIfFatal(e);
+                    // loader-based registered types logic does not validate, so for consistency we proceed even if unvalidated;
+                    // note if the type is not a subtype, we will typically get an error when validating the deserializer or using it
+                    // (coercion could be attempted for both by extending in AsPropertyIfAmbiguous)
+                    try {
+                        JavaType result = context.resolveAndValidateSubType(context.constructType(Object.class), id, _subTypeValidator);
+                        if (result!=null) return result;
+                    } catch (Exception e2) {
+                        Exceptions.propagateIfFatal(e2);
+                    }
+
+                    // finally, if we have a base type which is a RT, for backwards compatibility reasons we switch to using its class
+                    // this is only needed for tests which don't support RTs but supply registered types
+                    if (id.equals(idFromBaseType()) && !id.equals(super.idFromBaseType())) {
+                        return typeFromId(context, super.idFromBaseType());
+                    }
+
+                    throw e;
+                }
             }
 
             // even if we aren't allowed to load java types, if the expected type matches, then we will allow it
@@ -157,6 +187,15 @@ public class BrooklynRegisteredTypeJacksonSerialization {
         @Override
         public JavaType getBaseType() {
             return _baseType;
+        }
+
+        @Override
+        public String idFromBaseType() {
+            if (_baseType instanceof BrooklynJacksonType) {
+                return ((BrooklynJacksonType)_baseType).getTypeName();
+            }
+            // fall back to the raw class name
+            return super.idFromBaseType();
         }
     }
 

@@ -18,13 +18,13 @@
  */
 package org.apache.brooklyn.rest.util.json;
 
-import java.io.NotSerializableException;
-import java.time.Instant;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -34,12 +34,17 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.BidiSerialization;
+import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.stream.Streams;
@@ -47,16 +52,18 @@ import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
+import java.io.ByteArrayOutputStream;
+import java.io.NotSerializableException;
+import java.time.Instant;
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class BrooklynJacksonSerializerTest {
 
@@ -330,9 +337,20 @@ public class BrooklynJacksonSerializerTest {
 
     @Test
     public void testSupplierSerialization() throws Exception {
-        String result = checkSerializesAs(Strings.toStringSupplier(Streams.byteArrayOfString("x")), null);
+        ByteArrayOutputStream x = Streams.byteArrayOfString("x");
+        String result = checkSerializesAs(Strings.toStringSupplier(x), null);
         log.info("SUPPLIER json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+    }
+
+    @Test
+    public void testByteArrayOutputStreamSerialization() throws Exception {
+        ByteArrayOutputStream x = Streams.byteArrayOfString("x");
+        String result = checkSerializesAs(x, null);
+        log.info("BAOS json is: "+result);
+        Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+        ByteArrayOutputStream x2 = checkSerializesAs(x, ByteArrayOutputStream.class);
+        Asserts.assertEquals(x2.toString(), "x");
     }
 
     @Test
@@ -340,6 +358,181 @@ public class BrooklynJacksonSerializerTest {
         String result = checkSerializesAs(BrooklynTaskTags.tagForStream("TEST", Streams.byteArrayOfString("x")), null);
         log.info("WRAPPED STREAM json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
+    }
+
+    @Test
+    public void testGuavaTypeTokenSerialization() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        // fails with SO if we haven't intercepted
+        String out = mapper.writerFor(Object.class).writeValueAsString(TypeToken.of(Object.class));
+
+        Asserts.assertStringContains(out, Object.class.getName());
+
+        Object tt2 = mapper.readerFor(Object.class).readValue(out);
+        Asserts.assertInstanceOf(tt2, TypeToken.class);
+        Asserts.assertEquals(((TypeToken)tt2).getRawType(), Object.class);
+        Asserts.assertEquals(tt2.toString(), "java.lang.Object");
+    }
+
+    @Test
+    public void testComplexGuavaTypeTokenSerialization() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        TypeToken<List<List<String>>> tt = new TypeToken<List<List<String>>>() {};
+        // fails with SO if we haven't intercepted
+        String out = mapper.writerFor(Object.class).writeValueAsString(tt);
+
+        Asserts.assertStringContains(out, List.class.getName());
+        Asserts.assertStringContains(out, String.class.getName());
+
+        Object tt2 = mapper.readerFor(Object.class).readValue(out);
+        Asserts.assertInstanceOf(tt2, TypeToken.class);
+        Asserts.assertEquals(tt2.toString(), "java.util.List<java.util.List<java.lang.String>>");
+    }
+
+    static class SpecHolder {
+        String label;
+        EntitySpec<?> spec;
+        WrappedValue<EntitySpec<?>> specT;
+        WrappedValue<Object> specU;
+    }
+    @Test
+    public void testEntitySpecSerialization() throws JsonProcessingException {
+        ObjectMapper mapperY = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+        ObjectMapper mapperJ = BeanWithTypeUtils.newMapper(null, true, null, true);
+
+        SpecHolder in = mapperY.readerFor(SpecHolder.class).readValue(Strings.lines(
+                "label: foo",
+                "specT:",
+                "  $brooklyn:entitySpec:",
+                "    type: "+ TestEntity.class.getName()));
+        // above creates a map because the DSL isn't recognised with non-management mapper
+        Asserts.assertInstanceOf(in.specT.get(), Map.class);
+
+        String out;
+        SpecHolder in2;
+
+        in.specT = WrappedValue.of( EntitySpec.create(TestEntity.class) );
+        out = mapperJ.writerFor(Object.class).writeValueAsString(in);
+        // strongly typed - not contained
+        Asserts.assertStringDoesNotContain(out, EntitySpec.class.getName());
+        in2 = mapperJ.readerFor(SpecHolder.class).readValue(out);
+        Asserts.assertEquals(in2.specT.get().getType(), TestEntity.class);
+        // and same with yaml
+        out = mapperY.writerFor(Object.class).writeValueAsString(in);
+        Asserts.assertStringDoesNotContain(out, EntitySpec.class.getName());
+        in2 = mapperY.readerFor(SpecHolder.class).readValue(out);
+        Asserts.assertEquals(in2.specT.get().getType(), TestEntity.class);
+
+        in.specT = null;
+        in.specU = WrappedValue.of( EntitySpec.create(TestEntity.class) );
+        out = mapperJ.writerFor(Object.class).writeValueAsString(in);
+        // not strongly typed typed - type is contained, but we get a map which still we need to coerce
+        Asserts.assertStringContains(out, EntitySpec.class.getName());
+        in2 = mapperJ.readerFor(SpecHolder.class).readValue(out);
+        // and we get a map
+        Map map;
+        map = (Map) in2.specU.get();
+        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+        // and same with yaml
+        out = mapperY.writerFor(Object.class).writeValueAsString(in);
+        Asserts.assertStringContains(out, EntitySpec.class.getName());
+        in2 = mapperY.readerFor(SpecHolder.class).readValue(out);
+        map = (Map) in2.specU.get();
+        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+
+
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            in.specT = WrappedValue.of( EntitySpec.create(TestEntity.class) );
+
+            BiConsumer<List<SpecHolder>,Boolean> test = (inL, expectMap) -> {
+                SpecHolder inX = inL.iterator().next();
+                Asserts.assertEquals(inX.specT.get().getType(), TestEntity.class);
+                // management mappers don't have the map artifice (unless type is unknown and doing deep conversion)
+                Object sp = inX.specU.get();
+                if (Boolean.TRUE.equals(expectMap)) Asserts.assertInstanceOf(sp, Map.class);
+                if (Boolean.FALSE.equals(expectMap)) Asserts.assertInstanceOf(sp, EntitySpec.class);
+                Object v = null;
+                if (sp instanceof Map) {
+                    sp = TypeCoercions.coerce(sp, EntitySpec.class);
+                }
+                Asserts.assertEquals(((EntitySpec)sp).getType(), TestEntity.class);
+            };
+
+            // and in a list, deep and shallow conversion both work
+            test.accept( BeanWithTypeUtils.convertDeeply(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    /* deep conversion serializes and for untyped key it doesn't know the type to deserialize, until it is explicitly coerced, so we get a map */ true );
+            test.accept( BeanWithTypeUtils.convertShallow(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    /* shallow conversion should preserve the object */ false );
+            test.accept( BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    /* overall convert tries deep first */ true );
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
+
+    @Test
+    public void testEntitySpecNonDslDeserialization() throws JsonProcessingException {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            ObjectMapper mapperY = BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true);
+            // note, this does JSON deserialization of the entity spec, which is not the same as CAMP parsing, though not hugely far away;
+            // use $brooklyn:entitySpec if the CAMP deserialization is needed
+            SpecHolder in = mapperY.readerFor(SpecHolder.class).readValue(Strings.lines(
+                "label: foo",
+                "spec:",
+                "  type: "+ TestEntity.class.getName(),
+                "  name: TestEntity",
+                "specT:",
+                "  type: "+ TestEntity.class.getName(),
+                "  name: TestEntity",
+                "specU:",
+                "  type: "+ TestEntity.class.getName(),
+                "  name: TestEntity"));
+            Asserts.assertInstanceOf(in.specT.get(), EntitySpec.class);
+            Asserts.assertInstanceOf(in.spec, EntitySpec.class);
+            Asserts.assertInstanceOf(in.specU.get(), Map.class);
+
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
+
+    @Test
+    public void testStringCoercedRegisteredType() throws Exception {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            mgmt.getCatalog().addTypesAndValidateAllowInconsistent(
+                    "brooklyn.catalog:\n" +
+                            "  id: test\n" +
+                            "  version: 1.0.0-SNAPSHOT\n" +
+                            "  items:\n" +
+                            "  - id: byte-size\n" +
+                            "    format: bean-with-type\n" +
+                            "    item:\n" +
+                            "      type: org.apache.brooklyn.util.core.units.ByteSize\n", null, false);
+            BrooklynJacksonType bst = BrooklynJacksonType.of(mgmt.getTypeRegistry().get("byte-size"));
+
+            Consumer<ObjectMapper> test = mapper -> {
+                ByteSize bs = null;
+                try {
+                    bs = mapper.readValue("\"1k\"", bst);
+                } catch (JsonProcessingException e) {
+                    throw Exceptions.propagate(e);
+                }
+                Assert.assertEquals(bs.getBytes(), 1024);
+            };
+
+//            test.accept(BrooklynJacksonJsonProvider.newPrivateObjectMapper(mgmt));
+//            test.accept(BeanWithTypeUtils.newYamlMapper(null, false, null, true));
+//            // above work, but below fails as it tries to instantiate then populate as a bean
+            test.accept(BeanWithTypeUtils.newYamlMapper(mgmt, true, null, true));
+
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
     }
 
     @SuppressWarnings("unchecked")

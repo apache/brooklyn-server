@@ -130,4 +130,10 @@ public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supp
         }
     }
 
+    /** Convenience to access the value of a wrapper where the wrapper itself may be null. */
+    public static <T> T get(WrappedValue<T> wrapper) {
+        if (wrapper==null) return null;
+        return wrapper.get();
+    }
+
 }

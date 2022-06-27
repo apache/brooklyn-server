@@ -31,7 +31,9 @@ import java.util.Set;
 import java.util.function.Function;
 import org.apache.brooklyn.util.core.xstream.ImmutableSetConverter;
 
-public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
+import static org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils.createBeanDeserializer;
+
+public abstract class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> implements ContextualDeserializer {
 
     public static final Set<JsonToken> SIMPLE_TOKENS = ImmutableSet.of(
             JsonToken.VALUE_STRING,
@@ -48,7 +50,8 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
 
     public BeanDescription getBeanDescription() {
         if (beanDesc!=null) return beanDesc;
-        return beanDesc = ctxt.getConfig().introspect(type);
+        if (type!=null) return beanDesc = ctxt.getConfig().introspect(type);
+        return null;
     }
 
     @Override
@@ -62,9 +65,19 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
             // this is normally set during contextualization but not during deserialization (although not if we're the ones contextualizing it)
             type = ctxt.getContextualType();
         }
+        if (isTypeReplaceableByDefault()) {
+            type = getDefaultType();
+        }
 
         return this;
     }
+
+    protected boolean isTypeReplaceableByDefault() {
+        if (type==null) return true;
+        return false;
+    }
+
+    public abstract JavaType getDefaultType();
 
     @Override
     public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
@@ -94,7 +107,28 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
     protected Object deserializeArray(JsonParser p) throws IOException, JsonProcessingException {
         return contextualize(getArrayDeserializer()).deserialize(p, ctxt);
     }
-    protected JsonDeserializer<?> getArrayDeserializer() throws IOException, JsonProcessingException {
+    protected JsonDeserializer<?> getArrayDeserializer() throws IOException {
+        if (type!=null) {
+            Object handler = type.getTypeHandler();
+            if (handler==null) {
+                // drop type info, in case the default type was overly restrictive
+                type = ctxt.constructType(Object.class);
+                handler = ctxt.getFactory().findTypeDeserializer(ctxt.getConfig(), type);
+            }
+            if (handler instanceof AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) {
+                /** Object.class can be encoded as array ["Class", "Object"] if type is unknown;
+                 *  it doesn't want to use { type: Class, value: Object } because it is trying to write a value string.
+                 *  this is a cheap-and-cheerful way to support that.
+                 */
+                AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer hf = (AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer) handler;
+                return new JsonDeserializer<Object>() {
+                    @Override
+                    public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+                        return hf.deserializeArrayContainingType(p, ctxt);
+                    }
+                };
+            }
+        }
         throw new IllegalStateException("List input not supported for "+type);
     }
 
@@ -109,13 +143,9 @@ public class JsonSymbolDependentDeserializer extends JsonDeserializer<Object> im
         return contextualize(getObjectDeserializer()).deserialize(p, ctxt);
     }
     protected JsonDeserializer<?> getObjectDeserializer() throws IOException, JsonProcessingException {
-        DeserializerFactory f = ctxt.getFactory();
-        if (f instanceof BeanDeserializerFactory) {
-            // don't recurse, we're likely to just return ourselves
-            return ((BeanDeserializerFactory)f).buildBeanDeserializer(ctxt, type, getBeanDescription());
-        }
-        // will probably cause endless loop; we don't know how to deserialize
-        return f.createBeanDeserializer(ctxt, type, getBeanDescription());
+        return createBeanDeserializer(ctxt, type, getBeanDescription(),
+                /** try to do low level build so we don't recreate ourselves and loop endlessly */ true,
+                true);
     }
 
 }

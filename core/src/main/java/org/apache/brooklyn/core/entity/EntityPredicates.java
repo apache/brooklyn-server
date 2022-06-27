@@ -23,6 +23,9 @@ import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
@@ -254,6 +257,24 @@ public class EntityPredicates {
         return configSatisfies(configKeyName, Predicates.equalTo(val));
     }
 
+    @Beta
+    @VisibleForTesting
+    public static <T> Predicate<Entity> configCustomEqualTo(final String configKeyName, final Object val) {
+        return configSatisfies(configKeyName, new CustomIsEqualTo(val));
+    }
+
+    private static class CustomIsEqualTo<T> implements Predicate<T> {
+        final T target;
+        private CustomIsEqualTo() { this(null); }
+        public CustomIsEqualTo(T target) {
+            this.target = target;
+        }
+        @Override
+        public boolean apply(T input) {
+            return java.util.Objects.equals(input, target);
+        }
+    }
+
     public static <T> Predicate<Entity> configEqualTo(final ConfigKey<T> configKey, final T val) {
         return configSatisfies(configKey, Predicates.equalTo(val));
     }
@@ -293,6 +314,8 @@ public class EntityPredicates {
             this.configKey = configKey;
             this.condition = condition;
         }
+        // Jackson constructor
+        private ConfigKeySatisfies() { this(null, null); }
         @Override
         public boolean apply(@Nullable Entity input) {
             return (input != null) && condition.apply(input.getConfig(configKey));

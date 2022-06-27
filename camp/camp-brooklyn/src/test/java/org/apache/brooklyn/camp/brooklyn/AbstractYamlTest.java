@@ -37,6 +37,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.Entities;
@@ -73,6 +74,10 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 public abstract class AbstractYamlTest {
+
+    static {
+        BrooklynDslCommon.registerSerializationHooks();
+    }
 
     private static final Logger LOG = LoggerFactory.getLogger(AbstractYamlTest.class);
     protected static final String TEST_VERSION = "0.1.2";
