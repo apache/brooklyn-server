@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.text.Strings;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.brooklyn.tasks.kubectl.ContainerCommons.*;
 
@@ -55,17 +56,19 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
         Boolean devMode = EntityInitializers.resolve(configBag, KEEP_CONTAINER_FOR_DEBUGGING);
 
         String workingDir = EntityInitializers.resolve(configBag, WORKING_DIR);
-        List<Map<String,String>> volumeMounts = EntityInitializers.resolve(configBag, VOLUME_MOUNTS);
-        List<Map<String, Object>> volumes = EntityInitializers.resolve(configBag, VOLUMES);
+        Set<Map<String,String>> volumeMounts = (Set<Map<String,String>>) EntityInitializers.resolve(configBag, VOLUME_MOUNTS);
+        Set<Map<String, Object>> volumes = (Set<Map<String, Object>>) EntityInitializers.resolve(configBag, VOLUMES);
 
         if(Strings.isBlank(containerImage)) {
             throw new IllegalStateException("You must specify containerImage when using " + this.getClass().getSimpleName());
         }
 
-
         final String containerName = (Strings.isBlank(containerNameFromCfg)
                 ? ( (Strings.isNonBlank(this.tag) ? this.tag + "-" : "").concat(containerImage).concat("-").concat(Strings.makeRandomId(10)))
-                : containerNameFromCfg).replace(" ", "-").replace("/", "-").toLowerCase();
+                : containerNameFromCfg).replace(" ", "-")
+                .replace("/", "-")
+                .replace("_", "-")
+                .toLowerCase();
 
         final String jobYamlLocation =  new JobBuilder()
                 .withImage(containerImage)
@@ -75,6 +78,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
                 .withCommands(Lists.newArrayList(commandsCfg))
                 .withVolumeMounts(volumeMounts)
                 .withVolumes(volumes)
+                .withWorkingDir(workingDir)
                 .build();
 
 

@@ -20,6 +20,7 @@ package org.apache.brooklyn.tasks.kubectl;
 
 import com.beust.jcommander.internal.Maps;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
@@ -27,7 +28,6 @@ import org.testng.annotations.Test;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -124,8 +124,8 @@ public class JobBuilderTest {
         volumes.put("hostPath", Maps.newHashMap("path", "/tfws"));
         String yamlJobLocation =
                 new JobBuilder().withImage("hashicorp/terraform").withName("tf-version")
-                        .withVolumes(Lists.newArrayList(volumes))
-                        .withVolumeMounts(Lists.newArrayList(Maps.newHashMap("name", "tf-ws", "mountPath", "/tfws")))
+                        .withVolumes(Sets.newHashSet(volumes))
+                        .withVolumeMounts(Sets.newHashSet(Maps.newHashMap("name", "tf-ws", "mountPath", "/tfws")))
                         .withCommands(Lists.newArrayList("terraform", "version"))
                         .withWorkingDir("/tfws/app1")
                         .build();
