@@ -20,9 +20,16 @@ package org.apache.brooklyn.entity.group;
 
 import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.Iterables.find;
+import com.google.common.io.Files;
+import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import static org.apache.brooklyn.core.entity.EntityPredicates.displayNameEqualTo;
+import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import static org.apache.brooklyn.entity.group.DynamicMultiGroup.BUCKET_FUNCTION;
 import static org.apache.brooklyn.entity.group.DynamicMultiGroupImpl.bucketFromAttribute;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -116,5 +123,42 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
                 }
             });
         }
+    }
+
+    @Test
+    public void testSimplestMultiGroupRebindAndDelete() throws Exception {
+        DynamicMultiGroup dmg = origApp.createAndManageChild(EntitySpec.create(DynamicMultiGroup.class)
+                .configure(DynamicMultiGroup.ENTITY_FILTER, Predicates.alwaysFalse())
+                .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
+                .configure(DynamicMultiGroup.BUCKET_SPEC, EntitySpec.create(BasicGroup.class)));
+
+        BrooklynMementoRawData state;
+        state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
+        Assert.assertEquals(state.getEntities().size(), 2);
+
+        TestApplication appRebinded = rebind(RebindOptions.create().terminateOrigManagementContext(true));
+        switchOriginalToNewManagementContext();
+
+        state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
+        Assert.assertEquals(state.getEntities().size(), 2);
+
+        appRebinded.stop();
+
+        appRebinded = rebind(RebindOptions.create().terminateOrigManagementContext(true));
+
+        Assert.assertNull(appRebinded);
+        state = BrooklynPersistenceUtils.newStateMemento(mgmt(), MementoCopyMode.LOCAL);
+        Assert.assertEquals(state.getEntities().size(), 0);
+        Assert.assertEquals(state.getEnrichers().size(), 0);
+
+        Files.fileTraverser().breadthFirst(mementoDir).forEach(f -> {
+            if (!f.isDirectory()) {
+                if ( MutableSet.of("planeId").contains(f.getName()) ) {
+                    // expect these
+                } else {
+                    Assert.fail("At least one unexpected file exists after app stopped: " + f);
+                }
+            }
+        });
     }
 }

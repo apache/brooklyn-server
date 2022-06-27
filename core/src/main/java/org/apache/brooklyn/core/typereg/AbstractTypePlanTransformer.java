@@ -18,13 +18,29 @@
  */
 package org.apache.brooklyn.core.typereg;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
+import java.util.List;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -81,7 +97,7 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     @Override
     public double scoreForType(RegisteredType type, RegisteredTypeLoadingContext context) {
         if (getFormatCode().equals(type.getPlan().getPlanFormat())) return 1;
-        if (type.getPlan().getPlanFormat()==null)
+        if (Strings.isBlank(type.getPlan().getPlanFormat()))
             return scoreForNullFormat(type.getPlan().getPlanData(), type, context);
         else
             return scoreForNonmatchingNonnullFormat(type.getPlan().getPlanFormat(), type.getPlan().getPlanData(), type, context);
@@ -134,7 +150,12 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             if (!(e instanceof UnsupportedTypePlanException)) {
-                log.debug("Could not instantiate "+type+" (rethrowing): "+Exceptions.collapseText(e));
+                Supplier<String> s = () -> "Could not instantiate " + type + " (rethrowing): " + Exceptions.collapseText(e);
+                if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                    log.debug(s.get());
+                } else if (log.isTraceEnabled()) {
+                    log.trace(s.get());
+                }
             }
             throw Exceptions.propagate(e);
         }
@@ -150,5 +171,128 @@ public abstract class AbstractTypePlanTransformer implements BrooklynTypePlanTra
     protected abstract AbstractBrooklynObjectSpec<?,?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
 
     protected abstract Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception;
-    
+
+    @Beta
+    @Deprecated /** @deprecated since 1.1.0 when introduced */
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithCommonTags(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
+                                                                     @Nullable String format, @Nullable String summary,
+                                                                     @Nullable Function<String,String> previousSummaryModification) {
+        return decorateWithCommonTagsModifyingSpecSummary(spec, type, format, summary,
+                previousSummaryModification==null ? null : s -> previousSummaryModification.apply(s.summary));
+    }
+    @Beta
+    protected AbstractBrooklynObjectSpec<?,?> decorateWithCommonTagsModifyingSpecSummary(AbstractBrooklynObjectSpec<?, ?> spec, RegisteredType type,
+                                                                     @Nullable String format, @Nullable String summary,
+                                                                     @Nullable Function<SpecSummary,String> previousSummaryModification) {
+        if (Strings.isBlank(format)) format = getFormatCode();
+        final String specSummaryText = Strings.isNonBlank(summary)
+                ? summary
+                : format + " plan" +
+                    (Strings.isNonBlank(type.getSymbolicName())
+                            ? " for type "+type.getSymbolicName()
+                            : Strings.isNonBlank(type.getDisplayName())
+                                ? " for "+type.getDisplayName()
+                                : "");
+
+        SpecSummary specSummary = SpecSummary.builder()
+                .format(format)
+                .summary(specSummaryText)
+                .contents(type.getPlan().getPlanData())
+                .build();
+
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(spec.getTags());
+        if (specTag != null) {
+            SpecSummary.modifyHeadSpecSummary(specTag, previousSummaryModification);
+            SpecSummary.pushToList(specTag, specSummary);
+        } else {
+            specTag = MutableList.of(specSummary);
+        }
+
+        List<SpecSummary> sources = BrooklynTags.findSpecHierarchyTag(type.getTags());
+        if (sources != null) {
+            SpecSummary.modifyHeadSpecSummary(specTag, s ->
+                    s.summary.startsWith(s.format) ? "Converted for catalog to "+s.summary :
+                    s.summary.contains(s.format) ? s.summary + ", converted for catalog" :
+                    s.summary + ", converted to "+s.format+" for catalog");
+            SpecSummary.pushToList(specTag, sources);
+        }
+        BrooklynTags.upsertSingleKeyMapValueTag(spec, BrooklynTags.SPEC_HIERARCHY, specTag);
+
+        if (spec instanceof EntitySpec) {
+            addDepthTagsWhereMissing( ((EntitySpec<?>)spec).getChildren(), 1 );
+        }
+
+        checkSecuritySensitiveFields(spec);
+
+        return spec;
+    }
+
+    protected void addDepthTagsWhereMissing(List<EntitySpec<?>> children, int depth) {
+        children.forEach(c -> {
+            Integer existingDepth = BrooklynTags.getDepthInAncestorTag(c.getTags());
+            if (existingDepth==null) {
+                c.tag(MutableMap.of(BrooklynTags.DEPTH_IN_ANCESTOR, depth));
+                addDepthTagsWhereMissing(c.getChildren(), depth+1);
+            }
+        });
+    }
+
+    @Beta
+    public static AbstractBrooklynObjectSpec<?,?> checkSecuritySensitiveFields(AbstractBrooklynObjectSpec<?,?> spec) {
+        if (Sanitizer.isSensitiveFieldsPlaintextBlocked()) {
+            // if blocking plaintext values, check them before instantiating
+            Predicate<Object> predicate = Sanitizer.IS_SECRET_PREDICATE;
+            spec.getConfig().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key.getName(), val) );
+            spec.getFlags().forEach( (key,val) -> failOnInsecureValueForSensitiveNamedField(predicate, key, val) );
+        }
+        return spec;
+    }
+
+    public static void failOnInsecureValueForSensitiveNamedField(Predicate<Object> tokens, String key, Object val) {
+        if (val==null) {
+            // not set; key is irrelevant
+            return;
+        }
+
+        if (!tokens.apply(key)) {
+            // not a sensitive named key
+            return;
+        }
+
+        if (val instanceof DeferredSupplier || val==null) {
+            // allows unless phrase blocked
+            failOnExtBlockedPhraseInValueForSensitiveNamedField(key, val);
+            return;
+        }
+
+        // sensitive named key
+
+        if (val instanceof String) {
+            if (((String) val).startsWith("$brooklyn:")) {
+                // DSL expression, allow unless phrase blocked
+                failOnExtBlockedPhraseInValueForSensitiveNamedField(key, val);
+                return;
+            }
+        }
+
+        if (val instanceof String || Boxing.isPrimitiveOrBoxedClass(val.getClass()) || val instanceof Number) {
+            // non-DSL plaintext value
+            throw new IllegalStateException("Insecure value supplied for '"+key+"'; external suppliers should be used here");
+        }
+
+        // complex values allowed unless phrase blocked
+        failOnExtBlockedPhraseInValueForSensitiveNamedField(key, val);
+    }
+
+    private static void failOnExtBlockedPhraseInValueForSensitiveNamedField(String key, Object value) {
+        List<String> blockedPhrases = Sanitizer.getSensitiveFieldsExtBlockedPhrases();
+        if (blockedPhrases==null || blockedPhrases.isEmpty()) return;
+        String valS = ""+value;
+        for (String blockedPhrase: blockedPhrases) {
+            if (valS.contains(blockedPhrase)) {
+                throw new IllegalStateException("Improperly secured value supplied for '"+key+"'; value must not contain '"+blockedPhrase+"'");
+            }
+        }
+    }
+
 }

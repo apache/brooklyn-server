@@ -30,6 +30,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 
 import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.util.guava.TypeTokens;
 
 public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigKey<T> implements StructuredConfigKey {
 
@@ -41,9 +42,9 @@ public abstract class AbstractStructuredConfigKey<T,RawT,V> extends BasicConfigK
     @SuppressWarnings("unchecked")
     protected AbstractStructuredConfigKey(BasicConfigKey.Builder<T,?> builder, TypeToken<V> subType) {
         super(builder);
-        if (TypeToken.of(subType.getRawType()).equals(subType)) {
+        if (TypeToken.of(TypeTokens.getRawRawType(subType)).equals(subType)) {
             // not generic; store raw type
-            this.subType = (Class<V>) subType.getRawType();
+            this.subType = (Class<V>) TypeTokens.getRawRawType(subType);
             this.subTypeToken = null;
         } else {
             // store generic type token

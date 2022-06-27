@@ -79,6 +79,7 @@ public class MapReferenceYamlTest extends AbstractYamlTest {
                 return testEntity.getConfig(TestEntity.CONF_MAP_OBJ_THING);
             }
         }).build()).get();
+
         Object frog = testMap.get("frog");
         Object one = testMap.get("one");
         Object two = testMap.get("two");

@@ -28,7 +28,7 @@ import io.swagger.config.ScannerFactory;
 public class RestApiSetup {
 
     public static void install(ServletContextHandler context) {
-        ScannerFactory.setScanner(new RestApiResourceScanner());
+        RestApiResourceScanner.install(null);
 
         CampRestApp app = new CampRestApp();
 

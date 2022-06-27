@@ -222,11 +222,9 @@ public class SshMachineLocationTest extends BrooklynAppUnitTestSupport {
 
         EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class)
                 .configure(BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, true)
-                .addInitializer(new EntityInitializer() {
-                        @Override
-                        public void apply(EntityLocal entity) {
+                .addInitializer(entity -> {
                             ((EntityInternal)entity).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1);
-                        }});
+                        });
 
         TestApplication app = mgmt.getEntityManager().createEntity(appSpec);
 

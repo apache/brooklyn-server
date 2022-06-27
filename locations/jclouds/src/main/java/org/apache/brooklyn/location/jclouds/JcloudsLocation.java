@@ -20,6 +20,10 @@ package org.apache.brooklyn.location.jclouds;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import org.apache.brooklyn.api.location.*;
+import org.apache.brooklyn.core.location.*;
+
+import org.apache.brooklyn.core.location.MachineLifecycleUtils.MachineStatus;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
@@ -49,24 +53,13 @@ import javax.annotation.Nullable;
 import javax.xml.ws.WebServiceException;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.LocationSpec;
-import org.apache.brooklyn.api.location.MachineLocation;
-import org.apache.brooklyn.api.location.MachineLocationCustomizer;
-import org.apache.brooklyn.api.location.MachineManagementMixins;
-import org.apache.brooklyn.api.location.NoMachinesAvailableException;
-import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.location.AbstractLocation;
-import org.apache.brooklyn.core.location.BasicMachineMetadata;
-import org.apache.brooklyn.core.location.LocationConfigKeys;
-import org.apache.brooklyn.core.location.LocationConfigUtils;
 import org.apache.brooklyn.core.location.LocationConfigUtils.OsCredential;
-import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
 import org.apache.brooklyn.core.location.access.PortMapping;
@@ -312,12 +305,21 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
     @Override
     public String toString() {
-        Object identity = getIdentity();
+        String className = getClass().getSimpleName();
         String configDescription = config().getLocalBag().getDescription();
-        if (configDescription!=null && configDescription.startsWith(getClass().getSimpleName()))
+        String displayName = getDisplayName();
+
+        if (configDescription != null && configDescription.startsWith(className))
             return configDescription;
-        return getClass().getSimpleName()+"["+getDisplayName()+":"+(identity != null ? identity : null)+
-                (configDescription!=null ? "/"+configDescription : "") + "@" + getId() + "]";
+
+        if (displayName != null)
+            return className + "['" + displayName + "']";
+
+        return className + "[" +
+                getIdentity() +
+                (configDescription == null ? "" : "/" + configDescription) +
+                "@" + getId() +
+                "]";
     }
 
     @Override
@@ -544,8 +546,23 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             return null;
         return new BasicMachineMetadata(node.getId(), node.getName(),
             ((node instanceof NodeMetadata) ? Iterators.tryFind( ((NodeMetadata)node).getPublicAddresses().iterator(), Predicates.alwaysTrue() ).orNull() : null),
-            ((node instanceof NodeMetadata) ? ((NodeMetadata)node).getStatus()==Status.RUNNING : null),
+            ((node instanceof NodeMetadata) ? toMachineStatus( ((NodeMetadata)node).getStatus() ) : null),
             node);
+    }
+
+    public static MachineStatus toMachineStatus(Status status) {
+        if (status==null) return null;
+        switch (status) {
+            case PENDING: return MachineStatus.TRANSITIONING;
+            case RUNNING: return MachineStatus.RUNNING;
+            case SUSPENDED: return MachineStatus.SUSPENDED;
+            case ERROR: return MachineStatus.ERROR;
+
+            case TERMINATED:
+            case UNRECOGNIZED:
+                //below
+        }
+        return MachineStatus.UNKNOWN;
     }
 
     @Override
@@ -863,7 +880,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 Map<Integer, Integer> portMappings = JcloudsUtil.dockerPortMappingsFor(this, node.getId());
                 for(Integer containerPort : portMappings.keySet()) {
                     Integer hostPort = portMappings.get(containerPort);
-                    String dockerHost = ((JcloudsSshMachineLocation)machineLocation).getSshHostAndPort().getHostText();
+                    String dockerHost = ((JcloudsSshMachineLocation)machineLocation).getSshHostAndPort().getHost();
                     portForwardManager.associate(node.getId(), HostAndPort.fromParts(dockerHost, hostPort), machineLocation, containerPort);
                 }
             }
@@ -1202,7 +1219,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      */
     @Override
     public void suspendMachine(MachineLocation rawLocation) {
-        String instanceId = vmInstanceIds.remove(rawLocation);
+        String instanceId = vmInstanceIds.get(rawLocation);
         if (instanceId == null) {
             LOG.info("Attempt to suspend unknown machine " + rawLocation + " in " + this);
             throw new IllegalArgumentException("Unknown machine " + rawLocation);
@@ -1215,7 +1232,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             toThrow = e;
             LOG.error("Problem suspending machine " + rawLocation + " in " + this + ", instance id " + instanceId, e);
         }
-        removeChild(rawLocation);
+        // before 2020-12 we removed the child; we don't actually want to, as it still exists; and it can trigger a release which could destroy it
+        //removeChild(rawLocation);
         if (toThrow != null) {
             throw Exceptions.propagate(toThrow);
         }
@@ -1226,6 +1244,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
      * <p/>
      * Note that this method does <b>not</b> call the lifecycle methods of any
      * {@link #getCustomizers(ConfigBag) customizers} attached to this location.
+     * <p/>
+     * Also note other machines with the same ID may be unmanaged as part of this.
      *
      * @param flags See {@link #registerMachine(ConfigBag)} for a description of required fields.
      * @see #registerMachine(ConfigBag)
@@ -1233,18 +1253,75 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     @Override
     public JcloudsMachineLocation resumeMachine(Map<?, ?> flags) {
         ConfigBag setup = ConfigBag.newInstanceExtending(config().getBag(), flags);
-        LOG.info("{} using resuming node matching properties: {}", this, Sanitizer.sanitize(setup));
+        LOG.info("Resuming machine in {} matching properties {}", this, Sanitizer.sanitize(setup));
         ComputeService computeService = getComputeService(setup);
         NodeMetadata node = findNodeOrThrow(setup);
-        LOG.debug("{} resuming {}", this, node);
+        LOG.debug("{} resuming node {}", this, node);
         computeService.resumeNode(node.getId());
         // Load the node a second time once it is resumed to get an object with
         // hostname and addresses populated.
         node = findNodeOrThrow(setup);
-        LOG.debug("{} resumed {}", this, node);
+        LOG.debug("{} resumed node {}", this, node);
         JcloudsMachineLocation registered = registerMachineLocation(setup, node);
-        LOG.info("{} resumed and registered {}", this, registered);
+        // either allow an explicit 'manage' call, or refactor above to create it from a spec
+        getManagementContext().getLocationManager().manage(registered);
+        addChild(registered);
+        boolean madeNew = true;
+
+        // we replace, rather than change IP of existing. feels safer, failing fast. but callers/users should be prepared for machine instance to change underneath them.
+        // might be better to change fields in the existing machine location.
+        // but if IP etc haven't changed then we re-use.
+
+        for (Location l : getChildren()) {
+            if (l==registered) {
+                continue;
+            }
+            if (l instanceof JcloudsMachineLocation && !Boolean.FALSE.equals(MachineLifecycleUtils.isSameInstance((JcloudsMachineLocation)l, registered, false))) {
+                if (MachineLifecycleUtils.isSameInstance((JcloudsMachineLocation) l, registered, true)) {
+                    // use this machine
+                    if (madeNew) {
+                        removeChild(registered);
+                        getManagementContext().getLocationManager().unmanage(registered);
+                        madeNew = false;
+                    }
+                    registered = (JcloudsMachineLocation) l;
+                } else {
+                    // unmanage any old machine location which has no-longer-valid details
+                    removeChild(l);
+                }
+            }
+        }
+        LOG.info("Resumed {} in {}", registered, this);
         return registered;
+    }
+
+    @Override
+    public void shutdownMachine(MachineLocation l) {
+        // jclouds doesn't expose shutdown so just do a suspend
+        suspendMachine(l);
+    }
+
+    @Override
+    public MachineLocation startupMachine(Map<?, ?> flags) {
+        return resumeMachine(flags);
+    }
+
+    @Override
+    public void rebootMachine(MachineLocation l) {
+        if (!(l instanceof JcloudsSshMachineLocation)) {
+            throw new IllegalStateException("Cannot startup machine "+l+"; wrong type");
+        }
+        getComputeService().rebootNode(((JcloudsSshMachineLocation)l).getJcloudsId());
+    }
+
+    @Override
+    public Map<String, Object> getMachineMetrics(MachineLocation l) {
+        return MutableMap.of();
+    }
+
+    @Override
+    public Map<String, Object> getLocationMetrics(Map<String, Object> properties) {
+        return MutableMap.of();
     }
 
     // ------------- constructing the template, etc ------------------------
@@ -1429,8 +1506,20 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         Template template = null;
         Image image;
         try {
+            // in AWS, hardware types A1, T4g, M6g, C6g, and R6g use arm64 which is not compatible with the usual x86_64;
+            // so don't pick those hardware types by default; would be nice to have a hardwareChooser on TemplateBuilder akin to
+            // imageChooser, but we don't; and would be nice if AWSEC2 used org.jclouds.ec2.domain.Image, rather than org.jclouds.compute.domain.Image,
+            // and Hardware stored org.jclouds.ec2.domain.Image.Architecture, so that TemplateBuilderImpl.resolveHardware / supportsImage did the
+            // right thing with images selected (noting that OperatingSystem.arch is different (eg "HVM");
+            // in the absence of that, in AWS we cheat and if min cores is not set, we set it to 2 to cause the good t3.micro to come back instead of a1.large;
+            // to see more details, step in to templateBuilder.build and inspect the hardwareSorter.sortedCopy(hardwares) and filter(..., hardwarePredicate)
+            if ("aws-ec2".equals(getProvider()) && Strings.isBlank(config.get(HARDWARE_ID)) && config.get(MIN_CORES)==null) {
+                templateBuilder.minCores(2);
+            }
+
             template = templateBuilder.build();
             if (template==null) throw new IllegalStateException("No matching template; check image and hardware constraints (e.g. OS, RAM); using "+templateBuilder);
+
             image = template.getImage();
             LOG.debug("jclouds found template "+template+" (image "+image+") for provisioning in "+this+" for "+getCreationString(config));
             if (image==null) throw new IllegalStateException("No matching image in template at "+toStringNice()+"; check image constraints (OS, providers, ID); using "+templateBuilder);
@@ -1514,7 +1603,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
 
     /**
-     * See {@link https://issues.apache.org/jira/browse/JCLOUDS-1108}.
+     * See https://issues.apache.org/jira/browse/JCLOUDS-1108
      * 
      * In jclouds 1.9.x and 2.0.0, google-compute-engine hardwareId must be in the long form. For 
      * example {@code https://www.googleapis.com/compute/v1/projects/jclouds-gce/zones/us-central1-a/machineTypes/n1-standard-1}.
@@ -1628,7 +1717,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Map<String,Object> sshProps = Maps.newLinkedHashMap(config.getAllConfig());
         sshProps.put("user", initialUser);
-        sshProps.put("address", hostAndPort.getHostText());
+        sshProps.put("address", hostAndPort.getHost());
         sshProps.put("port", hostAndPort.getPort());
         sshProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         sshProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
@@ -1660,7 +1749,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
         Map<String,Object> winrmProps = Maps.newLinkedHashMap(config.getAllConfig());
         winrmProps.put("user", initialUser);
-        winrmProps.put("address", hostAndPort.getHostText());
+        winrmProps.put("address", hostAndPort.getHost());
         winrmProps.put("port", hostAndPort.getPort());
         winrmProps.put(AbstractLocation.TEMPORARY_LOCATION.getName(), true);
         winrmProps.put(LocalLocationManager.CREATE_UNMANAGED.getName(), true);
@@ -1954,7 +2043,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     });
         }
 
-        String address = managementHostAndPort.getHostText();
+        String address = managementHostAndPort.getHost();
         int port = managementHostAndPort.hasPort() ? managementHostAndPort.getPort() : node.getLoginPort();
         
         // The display name will be one of the IPs of the VM (preferring public if there are any).
@@ -2045,7 +2134,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             nodeRegion = extractProvider(setup, node);
         }
         
-        String address = winrmHostAndPort.getHostText();
+        String address = winrmHostAndPort.getHost();
         String displayName = getPublicHostnameGeneric(node, setup, Optional.of(address));
 
         final Object password = winrmConfig.get(WinRmMachineLocation.PASSWORD.getName()) != null
@@ -2827,7 +2916,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (result.isPresent()) return result.get();
         }
 
-        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
+        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHost()) : Optional.<String>absent();
         return getPublicHostnameGeneric(node, setup, preferredAddress);
     }
 
@@ -2863,7 +2952,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
             if (result.isPresent()) return result.get();
         }
 
-        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHostText()) : Optional.<String>absent();
+        Optional<String> preferredAddress = sshHostAndPort.isPresent() ? Optional.of(sshHostAndPort.get().getHost()) : Optional.absent();
         return getPrivateHostnameGeneric(node, setup, preferredAddress);
     }
 

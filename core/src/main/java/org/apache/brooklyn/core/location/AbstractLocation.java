@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.location;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
@@ -72,8 +74,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -357,11 +357,6 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
         // (now gives us inheritance correctly -- for free!)
 
         @Override
-        protected <T> void assertValid(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(AbstractLocation.this, key, val);
-        }
-
-        @Override
         protected <T> void onConfigChanging(ConfigKey<T> key, Object val) {
         }
         
@@ -610,7 +605,7 @@ public abstract class AbstractLocation extends AbstractBrooklynObject implements
 
     /** override this, adding to the returned value, to supply additional fields to include in the toString */
     protected ToStringHelper string() {
-        return Objects.toStringHelper(getClass()).add("id", getId()).add("name", name);
+        return MoreObjects.toStringHelper(getClass()).add("id", getId()).add("name", name);
     }
     
     @Override

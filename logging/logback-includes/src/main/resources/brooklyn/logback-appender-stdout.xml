@@ -21,7 +21,9 @@
 
   <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
-      <pattern>%d %-5level %X{task.id}-%X{entity.ids} %msg%n%xEx{0}</pattern>
+<!--      <pattern>%d %-5level %X{task.id}-%X{entity.ids} %msg%n</pattern> -->
+<!--      <pattern>%d{ISO8601}{UTC}Z %X{task.id}-%X{entity.ids} %-5.5p %c{1.} [%.16t] %m%n</pattern>-->
+      <pattern>%d{ISO8601} %-5.5p %-48c{1}  %m%n</pattern>
     </encoder>
     <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
         <level>INFO</level>

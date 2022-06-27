@@ -106,13 +106,13 @@ public class SoftwareProcessLocationUnmanageTest extends BrooklynAppUnitTestSupp
     }
 
     private void assertOwned(BasicApplication app, Location loc) {
-        NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
+        NamedStringTag ownerEntityTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
         Assert.assertNotNull(ownerEntityTag);
         Assert.assertEquals(ownerEntityTag.getContents(), app.getId());
     }
 
     private void assertNotOwned(Location loc) {
-        NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
+        NamedStringTag ownerEntityTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
         Assert.assertNull(ownerEntityTag);
     }
 

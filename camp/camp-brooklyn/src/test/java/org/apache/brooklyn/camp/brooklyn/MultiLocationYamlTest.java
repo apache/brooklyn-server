@@ -146,7 +146,7 @@ public class MultiLocationYamlTest extends AbstractYamlTest {
                         String addr = machine.getAddress().getHostAddress();
                         int port = machine.getPort();
                         String user = machine.getUser();
-                        return addr != null && addr.equals(conn.getHostAndPort().getHostText())
+                        return addr != null && addr.equals(conn.getHostAndPort().getHost())
                                 && port == conn.getHostAndPort().getPortOrDefault(22)
                                 && user != null && user.equals(conn.getUser());
                     }

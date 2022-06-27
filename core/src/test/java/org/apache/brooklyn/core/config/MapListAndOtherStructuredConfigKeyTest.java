@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.config;
 
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.guava.Maybe;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -41,9 +44,12 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.Tasks.ForTestingAndLegacyCompatibilityOnly.LegacyDeepResolutionMode;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.Assert;
@@ -84,7 +90,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval","bkey","bval"));
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING.subKey("akey")), "aval");
     }
-    
+
     @Test
     public void testMapConfigKeyCanStoreAndRetrieveFutureValsPutByKeys() throws Exception {
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
@@ -101,6 +107,20 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     }
 
     @Test
+    public void testMapConfigKeyGetRaw() throws Exception {
+        final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
+        entity.config().set(TestEntity.CONF_MAP_THING.subKey("akey"), DependentConfiguration.whenDone(Callables.returning("aval")));
+        app.start(locs);
+
+        Maybe<Object> rawMM = entity.config().getLocalRaw(TestEntity.CONF_MAP_THING);
+        Assert.assertTrue(rawMM.isPresent());
+        Map rawM = (Map) rawMM.get();
+        assertEquals(rawM.size(), 1);
+        assertEquals(rawM.keySet(), ImmutableSet.of("akey"));
+        Asserts.assertInstanceOf(rawM.get("akey"), Task.class);
+    }
+
+    @Test
     public void testMapConfigKeyCanStoreAndRetrieveFutureValsPutAsMap() throws Exception {
         final AtomicReference<String> bval = new AtomicReference<String>("bval-too-early");
         entity.config().set(TestEntity.CONF_MAP_THING, (Map) MutableMap.of(
@@ -114,6 +134,14 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         bval.set("bval");
         
         assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval","bkey","bval"));
+    }
+
+    @Test
+    public void testMapConfigKeyCanStoreAndRetrieveFutureAtRoot() throws Exception {
+        entity.config().set(TestEntity.CONF_MAP_THING, DependentConfiguration.whenDone(Callables.returning(MutableMap.of("akey", "aval"))));
+        app.start(locs);
+
+        assertEquals(entity.getConfig(TestEntity.CONF_MAP_THING), ImmutableMap.of("akey","aval"));
     }
 
     @Test
@@ -172,14 +200,8 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testConfigKeyStringWontStoreAndRetrieveMaps() throws Exception {
         Map<String, String> v1 = ImmutableMap.of("a", "1", "b", "bb");
         //it only allows strings
-        try {
-            entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING.subKey("akey"), v1);
-            fail();
-        } catch (Exception e) {
-            ClassCastException cce = Exceptions.getFirstThrowableOfType(e, ClassCastException.class);
-            if (cce == null) throw e;
-            if (!cce.getMessage().contains("Cannot coerce type")) throw e;
-        }
+        Asserts.assertFailsWith(() -> entity.config().set((ConfigKey)TestEntity.CONF_MAP_THING.subKey("akey"), v1),
+            e -> Asserts.expectedFailureContainsIgnoreCase(e, "cannot coerce", "map to ", "String", "test.confMapThing", "akey"));
     }
     
     @Test
@@ -224,6 +246,14 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     }
 
     @Test
+    public void testSetConfigKeyCanStoreAndRetrieveFutureAtRoot() throws Exception {
+        entity.config().set(TestEntity.CONF_SET_THING, DependentConfiguration.whenDone(Callables.returning(MutableSet.of("aval", "bval"))));
+        app.start(locs);
+
+        assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval","bval"));
+    }
+
+    @Test
     public void testSetConfigKeyAddDirect() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "aval");
         entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, "bval");
@@ -254,7 +284,8 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testSetConfigKeyAddItemMod() throws Exception {
         entity.config().set(TestEntity.CONF_SET_THING.subKey(), "aval");
         entity.config().set((ConfigKey)TestEntity.CONF_SET_THING, SetModifications.addItem(ImmutableList.of("bval", "cval")));
-        assertEquals(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval",ImmutableList.of("bval","cval")));
+        Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ONLY_LEGACY,
+                () -> Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_SET_THING), ImmutableSet.of("aval",ImmutableList.of("bval","cval"))));
     }
     @Test
     public void testSetConfigKeyListMod() throws Exception {
@@ -303,8 +334,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testListConfigKeyAddMod() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.add("bval", "cval"));
-        //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["aval","bval","cval"])
-        assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("aval","bval","cval"));
+        Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableSet.of("aval","bval","cval"));
     }
 
     @Test // ListConfigKey deprecated, as order no longer guaranteed
@@ -312,22 +342,21 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.addAll(ImmutableList.of("bval", "cval")));
         //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["aval","bval","cval"])
-        assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("aval","bval","cval"));
+        Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableSet.of("aval","bval","cval"));
     }
     
     @Test // ListConfigKey deprecated, as order no longer guaranteed
     public void testListConfigKeyAddItemMod() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set((ConfigKey)TestEntity.CONF_LIST_THING, ListModifications.addItem(ImmutableList.of("bval", "cval")));
-        //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["aval",["bval","cval"]])
-        assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("aval",ImmutableList.of("bval","cval")));
+        Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ONLY_LEGACY,
+                () -> Asserts.assertSameUnorderedContents(entity.getConfig(TestEntity.CONF_LIST_THING), ImmutableSet.of("aval",ImmutableList.of("bval","cval"))));
     }
     
     @Test // ListConfigKey deprecated, as order no longer guaranteed
     public void testListConfigKeyListMod() throws Exception {
         entity.config().set(TestEntity.CONF_LIST_THING.subKey(), "aval");
         entity.config().set(TestEntity.CONF_LIST_THING, ListModifications.set(ImmutableList.of("bval", "cval")));
-        //assertEquals(entity.getConfig(TestEntity.CONF_LIST_THING), ["bval","cval"])
         assertEquals(ImmutableSet.copyOf(entity.getConfig(TestEntity.CONF_LIST_THING)), ImmutableSet.of("bval","cval"));
     }
 
@@ -399,7 +428,7 @@ public class MapListAndOtherStructuredConfigKeyTest extends BrooklynAppUnitTestS
     public void testInterestingIterableConfig() throws Exception {
         PortRange r12 = PortRanges.fromString("1-2");
         // previously VR would act on iterables such as PRs inside maps and lists, but not on those at top level, so this test failed
-        Assert.assertFalse(ValueResolver.supportsDeepResolution(r12));
+        Assert.assertFalse(ValueResolver.supportsDeepResolution(r12, null));
         
         entity.config().set(TestEntity.CONF_OBJECT, r12);
         entity.config().set(TestEntity.CONF_MAP_OBJ_THING.subKey("r"), r12);

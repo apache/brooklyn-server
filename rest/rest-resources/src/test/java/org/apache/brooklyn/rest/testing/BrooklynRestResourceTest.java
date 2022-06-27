@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.rest.testing;
 
+import com.google.common.collect.Iterables;
+import java.util.stream.Collectors;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import static org.testng.Assert.assertTrue;
 
 import java.io.IOException;
@@ -34,6 +38,7 @@ import javax.ws.rs.client.Entity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
@@ -142,10 +147,10 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
         }
     }
     
-    protected void waitForApplicationToBeRunning(final URI applicationRef) {
-        waitForApplicationToBeRunning(applicationRef, Duration.minutes(3));
+    protected Application waitForApplicationToBeRunning(final URI applicationRef) {
+        return waitForApplicationToBeRunning(applicationRef, Duration.minutes(3));
     }
-    protected void waitForApplicationToBeRunning(final URI applicationRef, Duration timeout) {
+    protected Application waitForApplicationToBeRunning(final URI applicationRef, Duration timeout) {
         if (applicationRef==null)
             throw new NullPointerException("No application URI available (consider using BrooklynRestResourceTest.clientDeploy)");
         
@@ -171,6 +176,10 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
                 Entities.dumpInfo(app);
         }
         assertTrue(started);
+
+        Application app = Iterables.getOnlyElement(getManagementContext().getApplications().stream().filter(appI -> applicationRef.toString().contains(appI.getId())).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, Attributes.SERVICE_UP, true);
+        return app;
     }
 
     protected Status getApplicationStatus(URI uri) {
@@ -234,4 +243,14 @@ public abstract class BrooklynRestResourceTest extends BrooklynRestApiTest {
         return WebClient.create(getEndpointAddress(), clientProviders);
     }
 
+    // Convenience for finding a Map within a collection, based on the value of one of its keys
+    protected static Predicate<? super Map<?,?>> withValueForKey(final Object key, final Object value) {
+        return new Predicate<Object>() {
+            @Override
+            public boolean apply(Object input) {
+                if (!(input instanceof Map)) return false;
+                return value.equals(((Map<?, ?>) input).get(key));
+            }
+        };
+    }
 }

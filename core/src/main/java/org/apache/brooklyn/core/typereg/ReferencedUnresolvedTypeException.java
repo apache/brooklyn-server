@@ -21,7 +21,7 @@ package org.apache.brooklyn.core.typereg;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 
 /** Indicates a type has requested to resolve another type which is not resolved or not resolvable */
-public class ReferencedUnresolvedTypeException extends UnsupportedTypePlanException {
+public class ReferencedUnresolvedTypeException extends TypePlanException {
 
     private static final long serialVersionUID = -5590108442839125317L;
 

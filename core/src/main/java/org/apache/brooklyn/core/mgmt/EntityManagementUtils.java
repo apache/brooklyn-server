@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.core.mgmt;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -41,8 +44,10 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -218,10 +223,14 @@ public class EntityManagementUtils {
         return CreationResult.of(children, task);
     }
     
+    public static EntitySpec<? extends Entity> unwrapEntity(EntitySpec<? extends Entity> wrapperApplication) {
+        return unwrapEntity(wrapperApplication, false);
+    }
+    
     /** Unwraps a single {@link Entity} if appropriate. See {@link #WRAPPER_APP_MARKER}.
      * Also see {@link #canUnwrapEntity(EntitySpec)} to test whether it will unwrap. */
-    public static EntitySpec<? extends Entity> unwrapEntity(EntitySpec<? extends Entity> wrapperApplication) {
-        if (!canUnwrapEntity(wrapperApplication)) {
+    public static EntitySpec<? extends Entity> unwrapEntity(EntitySpec<? extends Entity> wrapperApplication, boolean allowUnwrappingApplicationsWithoutWrapperAppMarker) {
+        if (!canUnwrapEntity(wrapperApplication, allowUnwrappingApplicationsWithoutWrapperAppMarker)) {
             return wrapperApplication;
         }
         EntitySpec<?> wrappedEntity = Iterables.getOnlyElement(wrapperApplication.getChildren());
@@ -243,7 +252,7 @@ public class EntityManagementUtils {
         EntitySpec<? extends Application> wrappedApplication = (EntitySpec<? extends Application>) unwrapEntity(wrapperApplication);
         return wrappedApplication;
     }
-    
+
     /** Modifies the child so it includes the inessential setup of its parent,
      * for use when unwrapping specific children, but a name or other item may have been set on the parent.
      * See {@link #WRAPPER_APP_MARKER}. */
@@ -259,8 +268,6 @@ public class EntityManagementUtils {
             wrappedChild.parametersAdd(wrapperParent.getParameters());
         }
 
-        wrappedChild.catalogItemIdAndSearchPath(wrapperParent.getCatalogItemId(), wrapperParent.getCatalogItemIdSearchPath());
-
         // NB: this clobber's child config wherever they conflict; might prefer to deeply merge maps etc
         // (or maybe even prevent the merge in these cases; 
         // not sure there is a compelling reason to have config on a pure-wrapper parent)
@@ -269,7 +276,25 @@ public class EntityManagementUtils {
                 Predicates.not(Predicates.<ConfigKey<?>>equalTo(EntityManagementUtils.WRAPPER_APP_MARKER)));
         wrappedChild.configure(configWithoutWrapperMarker);
         wrappedChild.configure(wrapperParent.getFlags());
-        
+
+        // add the search path to children when unwrapped, in preference to anything on the children
+        String preferredCatalogItemId, otherCatalogItemId;
+        if (wrapperParent.getCatalogItemId()!=null) {
+            preferredCatalogItemId = wrapperParent.getCatalogItemId();
+            otherCatalogItemId = wrappedChild.getCatalogItemId();
+            if (Objects.equals(otherCatalogItemId, preferredCatalogItemId)) {
+                otherCatalogItemId = null;
+            }
+        } else {
+            preferredCatalogItemId = wrappedChild.getCatalogItemId();
+            otherCatalogItemId = null;
+        }
+        MutableList<String> searchPath = MutableList.<String>of()
+                .appendAll(wrapperParent.getCatalogItemIdSearchPath())
+                .appendIfNotNull(otherCatalogItemId)
+                .appendAll(wrappedChild.getCatalogItemIdSearchPath());
+        wrappedChild.catalogItemIdAndSearchPath(preferredCatalogItemId, searchPath);
+
         // copying tags to all entities may be something the caller wants to control,
         // e.g. if we're adding multiple, the caller might not want to copy the parent
         // (the BrooklynTags.YAML_SPEC tag will include the parents source including siblings),
@@ -294,6 +319,10 @@ public class EntityManagementUtils {
         return (childSpec.getType()!=null && Application.class.isAssignableFrom(childSpec.getType()));
     }
     
+    public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec) {
+        return canUnwrapEntity(spec, false);
+    }
+    
     /** Returns true if the spec is for a wrapper app with no important settings, wrapping a single child entity. 
      * for use when adding from a plan specifying multiple entities but there is nothing significant at the application level,
      * and the context would like to flatten it to remove the wrapper yielding just a single entity.
@@ -301,20 +330,37 @@ public class EntityManagementUtils {
      * see {@link #canUnwrapApplication(EntitySpec)} if that is required).
      * <p>
      * Note callers will normally use one of {@link #unwrapEntity(EntitySpec)} or {@link #unwrapApplication(EntitySpec)}.
-     * 
-     * @see #WRAPPER_APP_MARKER for an overview */
-    public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec) {
-        return isWrapperApp(spec) && hasSingleChild(spec) &&
-            // these "brooklyn.*" items on the app rather than the child absolutely prevent unwrapping
-            // as their semantics could well be different whether they are on the parent or the child
-            spec.getEnricherSpecs().isEmpty() &&
-            spec.getInitializers().isEmpty() &&
-            spec.getPolicySpecs().isEmpty() &&
-            // prevent merge only if a location is defined at both levels
-            ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) || 
-                (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())
-            // parameters are collapsed on merge so don't need to be considered here
-            ;
+     *
+     * @see #WRAPPER_APP_MARKER  */
+    public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec, boolean allowUnwrappingApplicationsWithoutWrapperAppMarker) {
+        return ((allowUnwrappingApplicationsWithoutWrapperAppMarker && Application.class.isAssignableFrom(spec.getType())) 
+                || isWrapperApp(spec)) &&
+            hasMergeableSingleChild(spec);
+    }
+
+    private static boolean hasMergeableSingleChild(EntitySpec<? extends Entity> spec) {
+        if (!hasSingleChild(spec)) return false;
+        // these "brooklyn.*" items on the app rather than the child absolutely prevent unwrapping
+        // as their semantics could well be different whether they are on the parent or the child
+        EntitySpec<? extends Entity> child = Iterables.getOnlyElement(spec.getChildren());
+        if (!allParentSubsetOfChild(spec, child, EntitySpec::getEnricherSpecs, EntitySpec::getInitializers, EntitySpec::getPolicySpecs)) return false;
+
+        // prevent merge only if a location is defined at both levels
+        if (! ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) ||
+                (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())) {
+            return false;
+        }
+
+        // parameters are collapsed on merge so don't need to be considered here
+
+        return true;
+    }
+
+    private static boolean allParentSubsetOfChild(EntitySpec<? extends Entity> spec, EntitySpec<? extends Entity> child, Function<EntitySpec<? extends Entity>, Collection<?>> ...getters) {
+        for (Function<EntitySpec<? extends Entity>, Collection<?>> getter: getters) {
+            if (! (MutableSet.copyOf( getter.apply(child) ).containsAll( getter.apply(spec) )) ) return false;
+        }
+        return true;
     }
 
     public static boolean isWrapperApp(EntitySpec<?> spec) {

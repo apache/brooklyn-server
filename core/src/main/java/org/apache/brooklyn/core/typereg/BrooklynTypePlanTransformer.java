@@ -37,9 +37,11 @@ import com.google.common.annotations.Beta;
  * (serialized descriptions) to brooklyn objecs and specs.
  * <p>
  * To add a new plan transformation scheme, simply create an implementation and declare it
- * as a java service (cf {@link ServiceLoader}).
+ * as an OSGi service in blueprint.xml (and usually also as a java service cf {@link ServiceLoader} for testing).
  * <p>
  * Implementations may wish to extend {@link AbstractTypePlanTransformer} which simplifies the process.
+ * <p>
+ * See also the BrooklynCatalogBundleResolver in the core project, for adding types with plans to the type registry.
  */
 public interface BrooklynTypePlanTransformer extends ManagementContextInjectable {
 
@@ -64,8 +66,11 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * 1 means this is clearly the intended transformer and no others need be tried 
      * (for instance because the format is explicitly specified),
      * and values between 0 and 1 indicate how likely a transformer believes it should be used.
+     * <p>
      * Values greater than 0.5 are generally reserved for the presence of marker tags or files
      * which strongly indicate that the format is compatible.
+     * Such a value should be returned even if the plan is not actually parseable, but if it looks like a user error
+     * which prevents parsing (eg mal-formed YAML) and the transformer could likely be the intended target.
      * <p>
      * */
     double scoreForType(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
@@ -77,15 +82,18 @@ public interface BrooklynTypePlanTransformer extends ManagementContextInjectable
      * The framework guarantees this will only be invoked when {@link #scoreForType(RegisteredType, RegisteredTypeLoadingContext)} 
      * has returned a positive value, and the same constraints on the inputs as for that method apply.
      * <p>
-     * Implementations should either return null or throw {@link UnsupportedTypePlanException} 
-     * if they cannot instantiate the given {@link RegisteredType#getPlan()}. */
+     * Implementations should either return null,
+     * or throw an {@link UnsupportedTypePlanException} if
+     * if upon closer inspection following a non-null score, they are not actually applicable the given {@link RegisteredType#getPlan()};
+     * If they should support the plan but the plan contains an error, they should throw the relevant error for feedback to the user
+     * which may be a different subclass of {@link TypePlanException}. */
     @Nullable Object create(@Nonnull RegisteredType type, @Nonnull RegisteredTypeLoadingContext context);
 
-    // TODO sketch methods for loading *catalog* definitions.  note some potential overlap
-    // with BrooklynTypeRegistery.createXxxFromPlan
-    @Beta
-    double scoreForTypeDefinition(String formatCode, Object catalogData);
-    @Beta
-    List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData);
+    /** @deprecated since 1.1; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */
+    @Deprecated
+    default double scoreForTypeDefinition(String formatCode, Object catalogData) { return 0; }
+    /** @deprecated since 1.1; use {@link org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver} for adding to catalog */
+    @Deprecated
+    default List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) { return null; }
 
 }

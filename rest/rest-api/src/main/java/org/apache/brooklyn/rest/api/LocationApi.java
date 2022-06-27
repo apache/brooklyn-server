@@ -18,7 +18,8 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
+import io.swagger.annotations.*;
+
 import java.util.List;
 import java.util.Map;
 
@@ -38,9 +39,6 @@ import javax.ws.rs.core.Response;
 import org.apache.brooklyn.rest.domain.LocationSpec;
 import org.apache.brooklyn.rest.domain.LocationSummary;
 
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-
 @SuppressWarnings("deprecation")
 @Path("/locations")
 @Api("Locations")
@@ -52,9 +50,15 @@ public interface LocationApi {
      * @deprecated since 0.7.0; use {@link CatalogApi#listLocations}
      */
     @GET
-    @ApiOperation(value = "Fetch the list of location definitions",
+    @ApiOperation(value = "Fetch the list of location definitions (deprecated; locations now included via /catalog/types endpoint)",
             response = org.apache.brooklyn.rest.domain.LocationSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     @Deprecated
     public List<LocationSummary> list();
 
@@ -62,6 +66,12 @@ public interface LocationApi {
     @GET
     @Path("/usage/LocatedLocations")
     @ApiOperation(value = "Return a summary of all usage", notes="interim API, expected to change")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String,Map<String,Object>> getLocatedLocations();
 
     /**
@@ -73,6 +83,13 @@ public interface LocationApi {
     @ApiOperation(value = "Fetch details about a location instance, or a location definition",
             response = org.apache.brooklyn.rest.domain.LocationSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find location"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public LocationSummary get(
             @ApiParam(value = "Location id to fetch", required = true)
             @PathParam("locationId") String locationId,
@@ -82,8 +99,14 @@ public interface LocationApi {
 
     /** @deprecated since 0.7.0 use {@link CatalogApi#create(String)} with a location definition */
     @POST
-    @ApiOperation(value = "Create a new location definition", response = String.class)
+    @ApiOperation(value = "Create a new location definition (deprecated; locations now installed via /catalog/bundles endpoint)", response = String.class)
     @Deprecated
+    @ApiResponses(value = {
+            @ApiResponse(code = 202, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response create(
             @ApiParam(name = "locationSpec", value = "Location specification object", required = true)
             @Valid LocationSpec locationSpec);
@@ -93,8 +116,15 @@ public interface LocationApi {
      */
     @DELETE
     @Path("/{locationId}")
-    @ApiOperation(value = "Deletes a location definition by id")
+    @ApiOperation(value = "Deletes a location definition by id (deprecated; locations now managed via /catalog/bundles endpoint)")
     @Deprecated
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find location"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public void delete(
             @ApiParam(value = "Location id to delete", required = true)
             @PathParam("locationId") String locationId);

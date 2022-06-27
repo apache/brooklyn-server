@@ -73,6 +73,10 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         this(Maps.newLinkedHashMap());
     }
 
+    protected AbstractBrooklynObject(String id) {
+        this.id = id;
+    }
+
     public AbstractBrooklynObject(Map<?, ?> properties) {
         _legacyConstruction = !InternalFactory.FactoryConstructionTracker.isConstructing();
 

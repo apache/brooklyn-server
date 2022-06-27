@@ -18,23 +18,21 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.zip.ZipFile;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.ext.ContextResolver;
 
+import com.google.common.io.ByteSource;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -44,39 +42,54 @@ import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.api.mgmt.ha.ManagementPlaneSyncRecord;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
+import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
+import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.ShutdownHandler;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
-import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
-import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
+import org.apache.brooklyn.core.mgmt.persist.*;
+import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
+import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.rest.api.ServerApi;
-import org.apache.brooklyn.rest.domain.BrooklynFeatureSummary;
-import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
-import org.apache.brooklyn.rest.domain.VersionSummary;
+import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.transform.BrooklynFeatureTransformer;
 import org.apache.brooklyn.rest.transform.HighAvailabilityTransformer;
+import org.apache.brooklyn.rest.transform.TypeTransformer;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
+import org.apache.brooklyn.util.core.file.ArchiveUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,11 +99,10 @@ import com.google.common.collect.FluentIterable;
 public class ServerResource extends AbstractBrooklynRestResource implements ServerApi {
 
     private static final int SHUTDOWN_TIMEOUT_CHECK_INTERVAL = 200;
-
     private static final Logger log = LoggerFactory.getLogger(ServerResource.class);
-
     private static final String BUILD_SHA_1_PROPERTY = "git-sha-1";
     private static final String BUILD_BRANCH_PROPERTY = "git-branch-name";
+    private static final String USER_OPERATION_NOT_AUTHORIZED_MSG = "User '%s' is not authorized to perform this operation";
     
     @Context
     private ContextResolver<ShutdownHandler> shutdownHandler;
@@ -103,7 +115,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
             brooklyn().reloadBrooklynProperties();
         } else {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         }
     }
 
@@ -117,7 +129,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             Long delayMillis) {
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SHUTDOWN, null))
             throw WebResourceUtils.forbidden("User '%s' is not authorized for shutdown", Entitlements.getEntitlementContext().user());
 
@@ -162,7 +174,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                         int allStoppableApps = 0;
                         for (Application app: mgmt.getApplications()) {
                             allStoppableApps++;
-                            Lifecycle appState = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                            Lifecycle appState = EntityAttributesUtils.tryGetAttribute(app, Attributes.SERVICE_STATE_ACTUAL);
                             if (app instanceof StartableApplication &&
                                     // Don't try to stop an already stopping app. Subsequent stops will complete faster
                                     // cancelling the first stop task.
@@ -246,7 +258,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             private boolean hasStoppableApps(ManagementContext mgmt) {
                 for (Application app : mgmt.getApplications()) {
                     if (app instanceof StartableApplication) {
-                        Lifecycle state = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                        Lifecycle state = EntityAttributesUtils.tryGetAttribute(app, Attributes.SERVICE_STATE_ACTUAL);
                         if (state != Lifecycle.STOPPING && state != Lifecycle.STOPPED) {
                             log.warn("Shutting down, expecting all apps to be in stopping state, but found application " + app + " to be in state " + state + ". Just started?");
                         }
@@ -323,7 +335,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public VersionSummary getVersion() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         
         // TODO
         // * "build-metadata.properties" is probably the wrong name
@@ -350,7 +362,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public String getPlaneId() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
 
         Maybe<ManagementContext> mm = mgmtMaybe();
         Maybe<String> result = (mm.isPresent()) ? mm.get().getManagementPlaneIdMaybe() : Maybe.absent();
@@ -359,17 +371,28 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public boolean isUp() {
+        return isRestUp() && isOsgiUp(false);
+    }
+
+    public boolean isRestUp() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
 
         Maybe<ManagementContext> mm = mgmtMaybe();
         return !mm.isAbsent() && mm.get().isStartupComplete() && mm.get().isRunning();
+    }
+
+    /** returns whether up if known to be starting or up; else returns false if required and true if not */
+    public boolean isOsgiUp(boolean osgiRequired) {
+        Boolean up = mgmtInternal().getBrooklynProperties().getConfig(OsgiManager.OSGI_STARTUP_COMPLETE);
+        if (up!=null) return up;
+        return !osgiRequired;
     }
     
     @Override
     public boolean isShuttingDown() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         Maybe<ManagementContext> mm = mgmtMaybe();
         return !mm.isAbsent() && mm.get().isStartupComplete() && !mm.get().isRunning();
     }
@@ -388,13 +411,20 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             "up", isUp(),
             "shuttingDown", isShuttingDown(),
             "healthy", isHealthy(),
-            "ha", getHighAvailabilityPlaneStates());
+            "ha", getHighAvailabilityPlaneStates(),
+            "osgiUp", isOsgiUp(true),
+
+            "brooklyn.security.sensitive.fields",
+                MutableMap.of(
+                        "tokens", Sanitizer.getSensitiveFieldsTokens(),
+                        "plaintext.blocked", Sanitizer.isSensitiveFieldsPlaintextBlocked()
+                ));
     }
 
     @Override
     public String getConfig(String configKey) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         }
         ConfigKey<String> config = ConfigKeys.newStringConfigKey(configKey);
         return (String) WebResourceUtils.getValueForDisplay(mapper(), mgmt().getConfig().getConfig(config), true, true);
@@ -403,7 +433,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public ManagementNodeState getHighAvailabilityNodeState() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         
         Maybe<ManagementContext> mm = mgmtMaybe();
         if (mm.isAbsent()) return ManagementNodeState.INITIALIZING;
@@ -415,10 +445,14 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (mode==null)
             throw new IllegalStateException("Missing parameter: mode");
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
+
 
         HighAvailabilityManager haMgr = mgmt().getHighAvailabilityManager();
         ManagementNodeState existingState = haMgr.getNodeState();
+
+        log.info("REST call to set server state "+mode+" (currently "+existingState+") by "+Entitlements.getEntitlementContext().user());
+
         haMgr.changeMode(mode);
         return existingState;
     }
@@ -428,26 +462,29 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_STATS, null))
             return mgmt().getHighAvailabilityManager().getMetrics();
         else
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
     }
     
     @Override
-    public long getHighAvailabitlityPriority() {
+    public long getHighAvailabilityPriority() {
         if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_STATS, null)) {
             return mgmt().getHighAvailabilityManager().getPriority();
         } else {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         }
     }
 
     @Override
     public long setHighAvailabilityPriority(long priority) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         }
 
         HighAvailabilityManager haMgr = mgmt().getHighAvailabilityManager();
         long oldPrio = haMgr.getPriority();
+
+        log.info("REST call to set server priority "+priority+" (currently "+oldPrio+") by "+Entitlements.getEntitlementContext().user());
+
         haMgr.setPriority(priority);
         return oldPrio;
     }
@@ -455,7 +492,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     @Override
     public HighAvailabilitySummary getHighAvailabilityPlaneStates() {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SERVER_STATUS, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
 
         ManagementPlaneSyncRecord memento = mgmt().getHighAvailabilityManager().getLastManagementPlaneSyncRecord();
         if (memento==null) memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
@@ -465,14 +502,25 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         if (memento.getMasterNodeId() == null) {
             memento = mgmt().getHighAvailabilityManager().loadManagementPlaneSyncRecord(true);
         }
+
         return HighAvailabilityTransformer.highAvailabilitySummary(mgmt().getManagementNodeId(), memento);
     }
 
     @Override
     public Response clearHighAvailabilityPlaneStates() {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SYSTEM_ADMIN, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null))
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         mgmt().getHighAvailabilityManager().publishClearNonMaster();
+        return Response.ok().build();
+    }
+
+    @Override
+    public Response clearHighAvailabilityPlaneStates(String nodeId) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.HA_ADMIN, null))
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
+        HighAvailabilityManager haMan = mgmt().getHighAvailabilityManager();
+        haMan.setNodeIdToRemove(nodeId);
+        haMan.publishClearNonMaster();
         return Response.ok().build();
     }
 
@@ -496,7 +544,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     
     protected Response exportPersistenceData(MementoCopyMode preferredOrigin) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null))
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to perform this operation", Entitlements.getEntitlementContext().user());
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
 
         File dir = null;
         try {
@@ -509,7 +557,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             BrooklynPersistenceUtils.writeMemento(mgmt(), targetStore, preferredOrigin);
             
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), ((FileBasedObjectStore)targetStore).getBaseDir().getName() ).stream(baos);
+            ArchiveBuilder.zip().addDirContentsAt( ((FileBasedObjectStore)targetStore).getBaseDir(), "data" ).stream(baos);
             Os.deleteRecursively(dir);
             String filename = "brooklyn-state-"+label+".zip";
             return Response.ok(baos.toByteArray(), MediaType.APPLICATION_OCTET_STREAM_TYPE)
@@ -528,4 +576,114 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         }
     }
 
+    @Override
+    public Response importPersistenceData(byte[] persistenceData) {
+        File tempZipFile = null;
+        String unzippedPath = null;
+        try {
+            // create a temporary archive where persistence data supplied is written to
+            tempZipFile = File.createTempFile("persistence-import",null);
+            Files.write(tempZipFile.toPath(), persistenceData, StandardOpenOption.TRUNCATE_EXISTING);
+
+            // set path where the data is extracted to - saved in the root of persistence location
+            // this directory is deleted at end of the method
+            unzippedPath = BrooklynServerPaths.newMainPersistencePathResolver(mgmt()).dir(tempZipFile.getName()).resolve();
+
+            // extract to the location specified
+            ArchiveUtils.extractZip(new ZipFile(tempZipFile),unzippedPath);
+
+            // create a temporary mgmt context and load the persistence data
+            LocalManagementContext tempMgmt = new LocalManagementContext(BrooklynProperties.Factory.builderDefault().build());
+            PersistenceObjectStore tempPersistenceStore = BrooklynPersistenceUtils.newPersistenceObjectStore(tempMgmt,null, unzippedPath + "/data");
+            tempPersistenceStore.prepareForSharedUse(PersistMode.REBIND,HighAvailabilityMode.AUTO);
+            BrooklynMementoPersisterToObjectStore persister = new BrooklynMementoPersisterToObjectStore(
+                    tempPersistenceStore, tempMgmt);
+            PersistenceExceptionHandler persistenceExceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
+            RebindManager rebindManager = tempMgmt.getRebindManager();
+            rebindManager.setPersister(persister, persistenceExceptionHandler);
+            rebindManager.forcePersistNow(false, null);
+
+            // create raw memento of persisted state to be imported
+            BrooklynMementoRawData newMementoRawData = tempMgmt.getRebindManager().retrieveMementoRawData();
+            BrooklynMementoManifest mementoManifest = persister.loadMementoManifest(newMementoRawData,
+                    ((RebindManagerImpl)rebindManager).newExceptionHandler());
+
+            // install bundles to active management context
+            for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()){
+                ManagedBundleMemento memento = mementoManifest.getBundle(bundleJar.getKey());
+                log.debug("Installing "+memento+" as part of persisted state import");
+                ReferenceWithError<OsgiBundleInstallationResult> bundleInstallResult = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
+                        .install(InputStreamSource.of("Persistence import - bundle install - "+memento, bundleJar.getValue().read()), "", false, memento.getDeleteable());
+
+                if (bundleInstallResult.hasError()) {
+                    log.debug("Unable to create "+memento+", format '', throwing: "+bundleInstallResult.getError().getMessage(), bundleInstallResult.getError());
+                    String errorMsg = "";
+                    if (bundleInstallResult.getWithoutError()!=null) {
+                        errorMsg = bundleInstallResult.getWithoutError().getMessage();
+                    } else {
+                        errorMsg = Strings.isNonBlank(bundleInstallResult.getError().getMessage()) ? bundleInstallResult.getError().getMessage() : bundleInstallResult.getError().toString();
+                    }
+                    throw new Exception(errorMsg);
+                }
+                if (!OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(bundleInstallResult.get().getCode()) && !OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE.equals(bundleInstallResult.get().getCode())) {
+                    BundleInstallationRestResult result = TypeTransformer.bundleInstallationResult(bundleInstallResult.get(), mgmt(), brooklyn(), ui);
+                    log.debug("Installed "+memento+" as part of persisted state import: "+result);
+                } else {
+                    log.debug("Installation of " + memento + " reported: " + bundleInstallResult.get());
+                }
+            }
+
+
+            // store persisted items and rebind to load applications
+            BrooklynMementoRawData.Builder result = BrooklynMementoRawData.builder();
+
+            // bundles already initialized
+//            result.bundles(newMementoRawData.getBundles());
+
+            result.planeId(mgmt().getManagementPlaneIdMaybe().orNull());
+            result.entities(newMementoRawData.getEntities());
+            result.locations(newMementoRawData.getLocations());
+            result.policies(newMementoRawData.getPolicies());
+            result.enrichers(newMementoRawData.getEnrichers());
+            result.feeds(newMementoRawData.getFeeds());
+            result.catalogItems(newMementoRawData.getCatalogItems());
+
+            PersistenceObjectStore currentPersistenceStore = ((BrooklynMementoPersisterToObjectStore) mgmt().getRebindManager().getPersister()).getObjectStore();
+            BrooklynPersistenceUtils.writeMemento(mgmt(),result.build(),currentPersistenceStore, "persist for REST call");
+
+            mgmt().getRebindManager().rebind(mgmt().getCatalogClassLoader(),null, mgmt().getHighAvailabilityManager().getNodeState());
+
+            // clean up the temporary management context
+            rebindManager.stop();
+            persister.stop(true);
+            tempPersistenceStore.close();
+
+        } catch (Exception e){
+            Exceptions.propagateIfFatal(e);
+            ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
+            error.message(e.getMessage());
+            return error.build().asJsonResponse();
+        } finally {
+            File unzippedData = new File(unzippedPath);
+            if (unzippedData!=null){
+                try {
+                    FileUtils.deleteDirectory(unzippedData);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.warn("Failed to delete temp directory "+unzippedData+" (ignoring): "+e, e);
+                }
+
+            }
+
+            if (tempZipFile!=null) {
+                try {
+                    tempZipFile.delete();
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.warn("Failed to delete temp file "+tempZipFile+" (ignoring): "+e, e);
+                }
+            }
+        }
+        return Response.ok().build();
+    }
 }

@@ -42,7 +42,7 @@ import com.google.common.collect.ImmutableSet;
 public class RegisteredTypeLoadingContexts {
 
     private static final Logger log = LoggerFactory.getLogger(RegisteredTypeLoadingContexts.class);
-    
+
     /** Immutable (from caller's perspective) record of a constraint */
     public final static class BasicRegisteredTypeLoadingContext implements RegisteredTypeLoadingContext {
         @Nullable private RegisteredTypeKind kind;
@@ -112,6 +112,13 @@ public class RegisteredTypeLoadingContexts {
     }
     public static RegisteredTypeLoadingContext loaderAlreadyEncountered(BrooklynClassLoadingContext loader, Set<String> encounteredTypeSymbolicNames, String anotherEncounteredType) {
         return withLoader(alreadyEncountered(encounteredTypeSymbolicNames, anotherEncounteredType), loader);
+    }
+    public static RegisteredTypeLoadingContext loaderAlreadyEncountered(RegisteredTypeLoadingContext loader, String anotherEncounteredType) {
+        BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext(loader);
+        MutableSet<String> encounteredTypes = MutableSet.copyOf(loader==null ? null : loader.getAlreadyEncounteredTypes());
+        encounteredTypes.addIfNotNull(anotherEncounteredType);
+        result.encounteredTypes = encounteredTypes.asUnmodifiable();
+        return result;
     }
 
     private static RegisteredTypeLoadingContext of(RegisteredTypeKind kind, Class<?> javaSuperType) {
@@ -229,10 +236,19 @@ public class RegisteredTypeLoadingContexts {
         result.loader = loader;
         return result;
     }
-    
+
     public static RegisteredTypeLoadingContext withLoader(RegisteredTypeLoadingContext constraint, BrooklynClassLoadingContext loader) {
         BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext(constraint);
         result.loader = loader;
+        return result;
+    }
+
+    public static RegisteredTypeLoadingContext withEncounteredItem(RegisteredTypeLoadingContext constraint, String itemId) {
+        if (constraint.getAlreadyEncounteredTypes().contains(itemId)) {
+            return constraint;
+        }
+        BasicRegisteredTypeLoadingContext result = new BasicRegisteredTypeLoadingContext(constraint);
+        result.encounteredTypes = ImmutableSet.<String>builder().addAll(constraint.getAlreadyEncounteredTypes()).add(itemId).build();
         return result;
     }
 

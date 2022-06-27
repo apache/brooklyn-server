@@ -147,6 +147,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
                 .accept(MediaType.APPLICATION_JSON)
                 .post("{\"duration\": \"5m\"}");
         Duration runDuration = Duration.of(stopwatch);
+        response.bufferEntity();
         assertEquals(response.getStatus(), 202);
         
         String responseBody = response.readEntity(String.class);
@@ -158,8 +159,9 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
         assertTrue((""+responseMap.get("displayName")).contains("sleepEffector"), "responseMap="+responseMap);
         
         String detailedStatus = ""+responseMap.get("detailedStatus");
+        boolean taskSubmitted = detailedStatus.contains("Submitted") && (detailedStatus.contains("TestEntityImpl.sleepEffector") || detailedStatus.contains("for execution"));
         boolean taskSleeping = detailedStatus.contains("In progress, thread waiting") && detailedStatus.contains("TestEntityImpl.sleepEffector");
         boolean taskPreparing = detailedStatus.contains("In progress (RUNNABLE)") && detailedStatus.contains("EffectorUtils.invokeMethodEffector");
-        assertTrue(taskSleeping || taskPreparing, "responseMap="+responseMap);
+        assertTrue(taskSubmitted || taskSleeping || taskPreparing, "responseMap="+responseMap);
     }
 }

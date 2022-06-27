@@ -65,7 +65,7 @@ public class TimeFractionDeltaEnricherTest extends BrooklynAppUnitTestSupport {
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1000000L));
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1001000L));
-        assertEquals(producer.getAttribute(fractionSensor), 0d);
+        assertEquals(producer.getAttribute(fractionSensor), (Double) 0d);
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 100, 1002000L));
         assertEquals(producer.getAttribute(fractionSensor), 0.1d, PRECISION);
@@ -88,7 +88,7 @@ public class TimeFractionDeltaEnricherTest extends BrooklynAppUnitTestSupport {
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1000000L));
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 1000000, 1001000L));
-        assertEquals(producer.getAttribute(fractionSensor), 1d);
+        assertEquals(producer.getAttribute(fractionSensor), (Double) 1d);
     }
     
     @Test
@@ -102,6 +102,6 @@ public class TimeFractionDeltaEnricherTest extends BrooklynAppUnitTestSupport {
         
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 0, 1000000L));
         enricher.onEvent(new BasicSensorEvent<Integer>(intSensor, producer, 10000000, 1001000L));
-        assertEquals(producer.getAttribute(fractionSensor), 1d);
+        assertEquals(producer.getAttribute(fractionSensor), (Double) 1d);
     }
 }

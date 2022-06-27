@@ -109,18 +109,18 @@ public class HttpCommandEffectorTest extends BrooklynAppUnitTestSupport {
 
    @Test(expectedExceptions = NullPointerException.class)
    public void testMissingURI() {
-      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+      new HttpCommandEffector(ConfigBag.newInstance()
               .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
               .configure(HttpCommandEffector.EFFECTOR_HTTP_VERB, "GET")
-      );
+      ).newEffectorBuilder();
    }
 
    @Test(expectedExceptions = NullPointerException.class)
    public void testMissingVerb() {
-      httpCommandEffector = new HttpCommandEffector(ConfigBag.newInstance()
+      new HttpCommandEffector(ConfigBag.newInstance()
               .configure(HttpCommandEffector.EFFECTOR_NAME, EFFECTOR_HTTP_COMMAND.getName())
               .configure(HttpCommandEffector.EFFECTOR_URI, url(""))
-      );
+      ).newEffectorBuilder();
    }
 
    @Test(expectedExceptions = ExecutionException.class)

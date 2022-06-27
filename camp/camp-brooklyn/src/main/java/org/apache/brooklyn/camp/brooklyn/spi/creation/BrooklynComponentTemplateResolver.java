@@ -20,16 +20,16 @@ package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
+import com.google.common.annotations.Beta;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -40,6 +40,10 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.service.CampServiceSpecResolver;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
 import org.apache.brooklyn.camp.spi.AbstractResource;
 import org.apache.brooklyn.camp.spi.ApplicationComponentTemplate;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
@@ -60,6 +64,8 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -68,14 +74,16 @@ import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.FlagUtils.FlagConfigKeyAndValueRecord;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 
@@ -192,13 +200,17 @@ public class BrooklynComponentTemplateResolver {
             }
             throw new IllegalStateException("Unable to create spec for type " + type + ". " + msgDetails);
         }
-        spec = EntityManagementUtils.unwrapEntity(spec);
+        try {
+            spec = EntityManagementUtils.unwrapEntity(spec);
+            CampResolver.fixScopeRootAtRoot(mgmt, spec);
+            populateSpec(spec, encounteredRegisteredTypeSymbolicNames);
 
-        populateSpec(spec, encounteredRegisteredTypeSymbolicNames);
-
-        @SuppressWarnings("unchecked")
-        EntitySpec<T> typedSpec = (EntitySpec<T>) spec;
-        return typedSpec;
+            @SuppressWarnings("unchecked")
+            EntitySpec<T> typedSpec = (EntitySpec<T>) spec;
+            return typedSpec;
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("Error populating spec "+spec, e);
+        }
     }
 
     private List<EntitySpecResolver> getServiceTypeResolverOverrides() {
@@ -206,6 +218,8 @@ public class BrooklynComponentTemplateResolver {
         // none for now -- previously supported ServiceTypeResolver service
         return overrides;
     }
+
+
 
     @SuppressWarnings("unchecked")
     private <T extends Entity> void populateSpec(EntitySpec<T> spec, Set<String> encounteredRegisteredTypeIds) {
@@ -220,6 +234,14 @@ public class BrooklynComponentTemplateResolver {
         planId = (String)attrs.getStringKey("id");
         if (planId==null)
             planId = (String) attrs.getStringKey(BrooklynCampConstants.PLAN_ID_FLAG);
+
+        Stack<RegisteredType> itemBeingResolved = CampResolver.currentlyCreatingSpec.get();
+        if (itemBeingResolved!=null && itemBeingResolved.peek()!=null) {
+            MutableList<String> searchPath = MutableList.<String>of()
+                    .appendIfNotNull(itemBeingResolved.peek().getContainingBundle())
+                    .appendAll(itemBeingResolved.peek().getLibraries().stream().map(bundle -> bundle.getVersionedName().toString()).collect(Collectors.toList()));
+            spec.addSearchPathAtStart(searchPath);
+        }
 
         Object childrenObj = attrs.getStringKey(BrooklynCampReservedKeys.BROOKLYN_CHILDREN);
         if (childrenObj != null) {
@@ -265,6 +287,13 @@ public class BrooklynComponentTemplateResolver {
         new BrooklynEntityDecorationResolver.TagsResolver(yamlLoader).decorate(spec, attrs, encounteredRegisteredTypeIds);
 
         configureEntityConfig(spec, encounteredRegisteredTypeIds);
+
+        // check security. we probably used the catalog resolver which will have delegated to the transformer;
+        // but if we used the java resolver or one of the others, then:
+        // - we won't have all the right source tags, but that's okay
+        // - depth will come from the containing transformer and so be ignored here (which is fine, none of them should have children)
+        // - secure fields won't be scanned - need to fix that; just check again here on the spec, and above on the spec decorations
+        AbstractTypePlanTransformer.checkSecuritySensitiveFields(spec);
     }
 
     @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -295,46 +324,36 @@ public class BrooklynComponentTemplateResolver {
 
         // now set configuration for all the items in the bag
         Map<String, ConfigKey<?>> entityConfigKeys = findAllConfigKeys(spec);
-
         Collection<FlagConfigKeyAndValueRecord> records = findAllFlagsAndConfigKeyValues(spec, bag);
-        Set<String> keyNamesUsed = new LinkedHashSet<String>();
+
+        Map<String, Pair<Object,Object>> configLookup = MutableMap.of();
         for (FlagConfigKeyAndValueRecord r: records) {
             // flags and config keys tracked separately, look at each (may be overkill but it's what we've always done)
 
-            Function<Maybe<Object>, Maybe<Object>> rawConvFn = Functions.identity();
+            BiFunction<Maybe<Object>, TypeToken<? super Object>, Maybe<Object>> rawConvFn = this::convertConfig;
             if (r.getFlagMaybeValue().isPresent()) {
                 final String flag = r.getFlagName();
-                final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                if (key==null) ConfigKeys.newConfigKey(Object.class, flag);
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final ConfigKey<Object> key = Maybe.ofDisallowingNull((ConfigKey<Object>) r.getConfigKey()).or(() -> ConfigKeys.newConfigKey(Object.class, flag));
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getFlagMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
-                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
-                    @Override
-                    public Maybe<Object> apply(EntitySpec<?> input) {
-                        return spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
-                    }
-                };
+                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = input -> spec.getFlags().containsKey(flag) ? Maybe.of((Object)spec.getFlags().get(flag)) : Maybe.absent();
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
-                        new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
+                        new LazyContainerAndKeyValue<>(key, null, rawEvalFn, rawConvFn));
 
                 ConfigValueAtContainer<EntitySpec<?>,Object> combinedVal = ConfigInheritances.resolveInheriting(
                         null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
                         ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
 
-                spec.configure(flag, combinedVal.get());
-                keyNamesUsed.add(flag);
+                configLookup.put(flag, Pair.of(flag, combinedVal.get()));
             }
 
             if (r.getConfigKeyMaybeValue().isPresent()) {
                 final ConfigKey<Object> key = (ConfigKey<Object>) r.getConfigKey();
-                final Object ownValueF = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValue1 = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(r.getConfigKeyMaybeValue().get());
+                final Object ownValueF = rawConvFn.apply(Maybe.ofAllowingNull(ownValue1), key.getTypeToken()).get();
 
-                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = new Function<EntitySpec<?>,Maybe<Object>>() {
-                    @Override
-                    public Maybe<Object> apply(EntitySpec<?> input) {
-                        return spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
-                    }
-                };
+                Function<EntitySpec<?>, Maybe<Object>> rawEvalFn = input -> spec.getConfig().containsKey(key) ? Maybe.of(spec.getConfig().get(key)) : Maybe.absent();
                 Iterable<? extends ConfigValueAtContainer<EntitySpec<?>,Object>> ckvi = MutableList.of(
                         new LazyContainerAndKeyValue<EntitySpec<?>,Object>(key, null, rawEvalFn, rawConvFn));
 
@@ -342,10 +361,46 @@ public class BrooklynComponentTemplateResolver {
                         null, key, Maybe.ofAllowingNull(ownValueF), Maybe.<Object>absent(),
                         ckvi.iterator(), InheritanceContext.TYPE_DEFINITION, getDefaultConfigInheritance()).getWithoutError();
 
-                spec.configure(key, combinedVal.get());
-                keyNamesUsed.add(key.getName());
+                configLookup.put(key.getName(), Pair.of(key, combinedVal.get()));
             }
         }
+
+        Set<String> keyNamesUsed = MutableSet.copyOf(configLookup.keySet());
+        Set<String> unusedBagNames = MutableSet.copyOf(bag.getUnusedConfig().keySet());
+
+        // preserve the order
+        bag.forEach((k,v) -> {
+            Pair<Object,Object> toSet = configLookup.remove(k);
+            if (toSet!=null) {
+                if (toSet.getLeft() instanceof String)
+                    spec.configure((String)toSet.getLeft(), toSet.getRight());
+                else if (toSet.getLeft() instanceof ConfigKey)
+                    spec.configure((ConfigKey)toSet.getLeft(), toSet.getRight());
+                else
+                    // shouldn't come here
+                    throw new IllegalStateException();
+            } else if (unusedBagNames.remove(k)) {
+                // anonymous keys -- insert into the right order
+                Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(k));
+                transformed = convertConfig(Maybe.of(transformed), TypeToken.of(Object.class)).get();
+                spec.configure(ConfigKeys.newConfigKey(Object.class, k), transformed);
+                keyNamesUsed.add(k);
+            } else {
+                // a deprecated key name (or alias) was supplied; ignore this entry in the bag,
+                // it's okay that it gets inserted later on
+            }
+        });
+
+        // now pick up any config keys we missed (due to aliases?)
+        configLookup.values().forEach(toSet -> {
+            if (toSet.getLeft() instanceof String)
+                spec.configure((String) toSet.getLeft(), toSet.getRight());
+            else if (toSet.getLeft() instanceof ConfigKey)
+                spec.configure((ConfigKey) toSet.getLeft(), toSet.getRight());
+            else
+                // shouldn't come here
+                throw new IllegalStateException();
+        });
 
         // For anything that should not be inherited, clear it from the spec (if not set above)
         // (very few things follow this, esp not on the spec; things like camp.id do;
@@ -360,18 +415,15 @@ public class BrooklynComponentTemplateResolver {
                 spec.removeFlag(key.getName());
             }
         }
+    }
 
-        // set unused keys as anonymous config keys -
-        // they aren't flags or known config keys, so must be passed as config keys in order for
-        // EntitySpec to know what to do with them (as they are passed to the spec as flags)
-        for (String key: MutableSet.copyOf(bag.getUnusedConfig().keySet())) {
-            // we don't let a flag with the same name as a config key override the config key
-            // (that's why we check whether it is used)
-            if (!keyNamesUsed.contains(key)) {
-                Object transformed = new SpecialFlagsTransformer(loader, encounteredRegisteredTypeIds).apply(bag.getStringKey(key));
-                spec.configure(ConfigKeys.newConfigKey(Object.class, key.toString()), transformed);
-            }
-        }
+    private <T> Maybe<T> convertConfig(Maybe<Object> input, TypeToken<T> type) {
+        // no longer do conversion on set; do it on read instead
+//        if (BeanWithTypeUtils.isConversionPlausible(input, type) && BeanWithTypeUtils.isJsonOrDeferredSupplier(input.orNull())) {
+//            // attempt bean-with-type conversion if we're given a map when a map is not explicitly wanted
+//            return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, false).or((Maybe<T>) (input));
+//        }
+        return (Maybe<T>)input;
     }
 
     protected ConfigInheritance getDefaultConfigInheritance() {
@@ -417,6 +469,10 @@ public class BrooklynComponentTemplateResolver {
 
         // need to de-dupe? (can't use Set bc FCKAVR doesn't impl equals/hashcode)
         // TODO merge *bagFlags* with existing spec params, merge yaml w yaml parent params elsewhere
+
+        // optimization:
+        if (bagFlags.isEmpty()) return Collections.emptyList();
+
         List<FlagConfigKeyAndValueRecord> allKeys = MutableList.of();
         allKeys.addAll(FlagUtils.findAllParameterConfigKeys(spec.getParameters(), bagFlags));
         if (spec.getImplementation() != null) {
@@ -426,6 +482,12 @@ public class BrooklynComponentTemplateResolver {
         for (Class<?> iface : spec.getAdditionalInterfaces()) {
             allKeys.addAll(FlagUtils.findAllFlagsAndConfigKeys(null, iface, bagFlags));
         }
+        if (!allKeys.isEmpty() && allKeys.stream().filter(k -> "id".equals(k.getFlagName())).findAny().isPresent()) {
+            // remove the 'id' flag, e.g. if a spec class is not an interface and picks up AbstractBrooklynObject.id
+            // because the 'id' flag should have been treated specially (this logic could go elsewhere, but this seems as good a place as any)
+            allKeys = MutableList.copyOf( allKeys.stream().filter(k -> !"id".equals(k.getFlagName())).iterator() );
+        }
+
         return allKeys;
     }
 
@@ -474,7 +536,7 @@ public class BrooklynComponentTemplateResolver {
         @Override
         public Object apply(Object input) {
             if (input instanceof Map)
-                return transformSpecialFlags((Map<?, ?>)input);
+                return MutableMap.copyOf(transformSpecialFlags((Map<?, ?>)input));
             else if (input instanceof Set<?>)
                 return MutableSet.copyOf(transformSpecialFlags((Iterable<?>)input));
             else if (input instanceof List<?>)
@@ -505,6 +567,7 @@ public class BrooklynComponentTemplateResolver {
 
         private class EntitySpecSupplier implements DeferredSupplier<EntitySpec<?>> {
             EntitySpecConfiguration flag;
+            transient EntitySpec<?> cached = null;
             public EntitySpecSupplier(EntitySpecConfiguration flag) {
                 this.flag = flag;
             }
@@ -512,10 +575,60 @@ public class BrooklynComponentTemplateResolver {
                 // TODO: This should called from BrooklynAssemblyTemplateInstantiator.configureEntityConfig
                 // And have transformSpecialFlags(Object flag, ManagementContext mgmt) drill into the Object flag if it's a map or iterable?
                 @SuppressWarnings("unchecked")
-                Map<String, Object> resolvedConfig = (Map<String, Object>)transformSpecialFlags(flag.getSpecConfiguration());
-                EntitySpec<?> entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
-
-                return EntityManagementUtils.unwrapEntity(entitySpec);
+                Map<String, Object> resolvedConfig = (Map<String, Object>)apply(flag.getSpecConfiguration());
+                EntitySpec<?> entitySpec;
+                try {
+                    // first parse as a CAMP entity
+                    entitySpec = Factory.newInstance(getLoader(), resolvedConfig).resolveSpec(encounteredRegisteredTypeIds);
+                } catch (Exception e1) {
+                    Exceptions.propagateIfFatal(e1);
+                    
+                    // if that doesn't work, try full multi-format plan parsing 
+                    String yamlPlan = null;
+                    try {
+                        yamlPlan = new Yaml().dump(resolvedConfig);
+                        entitySpec = mgmt.getTypeRegistry().createSpecFromPlan(null, yamlPlan, 
+                            RegisteredTypeLoadingContexts.alreadyEncountered(encounteredRegisteredTypeIds), EntitySpec.class);
+                    } catch (Exception e2) {
+                        String errorMessage = "entitySpec plan parse error";
+                        if (Thread.currentThread().isInterrupted()) {
+                            // plans which read/write to a file might not work in interrupted state
+                            if (cached!=null) {
+                                log.debug("EntitySpecSupplier returning cached spec "+cached+" because being invoked in a context which must return immediately");
+                                return cached;
+                            } else {
+                                errorMessage += " (note, it is being invoked in a context which must return immediately and there is no cache)";
+                            }
+                        }
+                        Exceptions.propagateIfFatal(e2);
+                        
+                        Exception exceptionToInclude;
+                        // heuristic
+                        if (resolvedConfig.containsKey("type")) {
+                            // if it has a key 'type' then it is likely a CAMP entity, abbreviated syntax (giving a type), so just give e1
+                            exceptionToInclude = e1;
+                        } else if (resolvedConfig.containsKey("brooklyn.services")) {
+                            // seems like a CAMP app, just give e2
+                            exceptionToInclude = e2;
+                        } else {
+                            // can't tell if it was short form eg `entitySpec: { type: x, ... }`
+                            // or long form (camp or something else), eg `entitySpec: { brooklyn.services: [ ... ] }`.
+                            // the error from the latter is a bit nicer so return it, but log the former.
+                            errorMessage += "; consult log for more information";
+                            log.debug("Suppressed error in entity spec where unclear whether abbreviated or full syntax, is (from abbreviated form parse, where error parsing full form will be reported subsequently): "+e1);
+                            exceptionToInclude = e2;
+                            // don't use the list as that causes unhelpful "2 errors including"...
+                        }
+                        // first exception might include the plan, so we don't need to here
+                        boolean yamlPlanAlreadyIncluded = exceptionToInclude.toString().contains(yamlPlan);
+                        if (!yamlPlanAlreadyIncluded) {
+                            errorMessage += ":\n"+yamlPlan;
+                        }
+                        throw Exceptions.propagateAnnotated(errorMessage, exceptionToInclude);
+                    }
+                }
+                cached = EntityManagementUtils.unwrapEntity(entitySpec, true);
+                return cached;
             }
         }
         
@@ -525,17 +638,7 @@ public class BrooklynComponentTemplateResolver {
          */
         protected Object transformSpecialFlags(Object flag) {
             if (flag instanceof EntitySpecConfiguration) {
-                EntitySpecSupplier supplier = new EntitySpecSupplier((EntitySpecConfiguration)flag);
-                EntitySpec<?> resolved = supplier.get();
-                // do the "get" above to catch errors prior to attempts to use the spec
-                if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
-                    return supplier;
-                } else {
-                    // 2017-10 previously we always returned the resolved EntitySpec.
-                    // main reason for the supplier is so that we persist the YAML and can apply upgrades on rebind.
-                    // this also means other transformations are deferred, which seems safe but if not there is a configurable FEATURE. 
-                    return resolved;
-                }
+                return toEntitySpecOrSupplier((EntitySpecConfiguration)flag);
             }
             if (flag instanceof ManagementContextInjectable) {
                 log.debug("Injecting Brooklyn management context info object: {}", flag);
@@ -544,5 +647,20 @@ public class BrooklynComponentTemplateResolver {
 
             return flag;
         }
+
+        private Object toEntitySpecOrSupplier(EntitySpecConfiguration cfg) {
+            EntitySpecSupplier supplier = new EntitySpecSupplier(cfg);
+            EntitySpec<?> resolved = supplier.get();
+            // do the "get" above to catch errors prior to attempts to use the spec
+            if (BrooklynFeatureEnablement.isEnabled(BrooklynFeatureEnablement.FEATURE_PERSIST_ENTITY_SPEC_AS_SUPPLIER)) {
+                return supplier;
+            } else {
+                // 2017-10 previously we always returned the resolved EntitySpec.
+                // main reason for the supplier is so that we persist the YAML and can apply upgrades on rebind.
+                // this also means other transformations are deferred, which seems safe but if not there is a configurable FEATURE.
+                return resolved;
+            }
+        }
     }
+
 }

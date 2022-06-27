@@ -79,7 +79,7 @@ public class TestApplicationImpl extends AbstractApplication implements TestAppl
     }
 
     @Override
-    protected void logApplicationLifecycle(String message) {
+    public void logApplicationLifecycle(String message) {
         // for tests, log this at debug so we see test info more
         LOG.debug(message+" application "+this);
     }

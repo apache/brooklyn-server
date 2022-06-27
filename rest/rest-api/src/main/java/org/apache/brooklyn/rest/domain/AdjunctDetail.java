@@ -57,6 +57,14 @@ public class AdjunctDetail extends AdjunctSummary {
         return tags;
     }
     
+    public Map<String, Object> getConfig() {
+        return config;
+    }
+    
+    public Set<ConfigSummary> getParameters() {
+        return parameters;
+    }
+
     public AdjunctDetail parameter(ConfigSummary p) {
         parameters.add(p); return this;
     }
@@ -68,5 +76,5 @@ public class AdjunctDetail extends AdjunctSummary {
     public AdjunctDetail config(Map<String,Object> vals) {
         config.putAll(vals); return this;
     }
-
+    
 }

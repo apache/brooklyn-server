@@ -15,20 +15,20 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
+import org.apache.brooklyn.entity.stock.BasicEntity;
+import static org.testng.Assert.assertTrue;
+
+import javax.annotation.Nullable;
+
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.Test;
 
-import javax.annotation.Nullable;
-
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 
 public class TagsYamlTest extends AbstractYamlTest {
     @Test
@@ -64,9 +64,11 @@ public class TagsYamlTest extends AbstractYamlTest {
                     "  brooklyn.tags:",
                     "    tag1: true",
                     "    tag2: 2");
-            fail("Should throw IllegalArgumentException exception; instead got: "+app);
-        } catch (CompoundRuntimeException e) {
-            Asserts.assertStringContainsAtLeastOne(Exceptions.getFirstInteresting(e).getMessage(),"brooklyn.tags must be a list, is: ");
+            Asserts.shouldHaveFailedPreviously("Should throw IllegalArgumentException exception; instead got: "+app);
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "brooklyn.tags must be a list");
+            Asserts.assertStringContainsAtLeastOne(Exceptions.getFirstInteresting(e).getMessage(),
+                "brooklyn.tags must be a list, is: ");
         }
     }
 
@@ -112,9 +114,13 @@ public class TagsYamlTest extends AbstractYamlTest {
                     "      type: "+TagsTestObject.class.getName(),
                     "      constructor.args:",
                     "      - $brooklyn:attributeWhenReady(\"host.name\")");
-            fail("Should throw IllegalArgumentException exception; instead got "+app);
-        } catch (CompoundRuntimeException e) {
-            Asserts.assertStringContainsAtLeastOne(Exceptions.getFirstInteresting(e).getMessage(),"brooklyn.tags should not contain DeferredSupplier. A DeferredSupplier is made when using $brooklyn:attributeWhenReady");
+            Asserts.shouldHaveFailedPreviously("Should throw IllegalArgumentException exception; instead got "+app);
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, 
+                "brooklyn.tags should not contain DeferredSupplier",
+                "A DeferredSupplier is made when using $brooklyn:attributeWhenReady");
+            Asserts.assertStringContainsAtLeastOne(Exceptions.getFirstInteresting(e).getMessage(),
+                "brooklyn.tags should not contain DeferredSupplier");
         }
     }
 
@@ -124,8 +130,41 @@ public class TagsYamlTest extends AbstractYamlTest {
                 "services:",
                 "- type: " + BasicApplication.class.getName(),
                 "  brooklyn.tags:",
-                "  - $brooklyn:literal(\"myval\")");
+                "  - $brooklyn:formatString(\"myval\")");
         assertTrue(app.tags().getTags().contains("myval"));
+    }
+
+    @Test
+    public void testBrooklynCampApplicationTag() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "tags:",
+                "- oldStyle",
+                "brooklyn.tags:",
+                "- newStyle");
+        assertTrue(app.tags().getTags().contains("oldStyle"));
+        assertTrue(app.tags().getTags().contains("newStyle"));
+    }
+
+    @Test
+    public void testBrooklynCampApplicationNewStyleOnlyTag() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "brooklyn.tags:",
+                "- newStyle");
+        assertTrue(app.tags().getTags().contains("newStyle"));
+    }
+
+    @Test
+    public void testBrooklynCampApplicationOldStyleOnlyTag() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "tags:",
+                "- oldStyle");
+        assertTrue(app.tags().getTags().contains("oldStyle"));
     }
 
     public static class TagsTestObject {

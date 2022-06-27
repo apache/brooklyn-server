@@ -108,11 +108,11 @@ import com.google.common.reflect.TypeToken;
  * The following methods are commonly overridden (and you can safely queue tasks, block, or return immediately in them):
  * <ul>
  *  <li> {@link #startProcessesAtMachine(Supplier)} (required)
- *  <li> {@link #stopProcessesAtMachine()} (required, but can be left blank if you assume the VM will be destroyed)
- *  <li> {@link #preStartCustom(MachineLocation)}
- *  <li> {@link #postStartCustom()}
- *  <li> {@link #preStopConfirmCustom()}
- *  <li> {@link #postStopCustom()}
+ *  <li> {@link #stopProcessesAtMachine(ConfigBag)} (required, but can be left blank if you assume the VM will be destroyed)
+ *  <li> {@link #preStartCustom(MachineLocation, ConfigBag)}
+ *  <li> {@link #postStartCustom(ConfigBag)}
+ *  <li> {@link #preStopConfirmCustom(ConfigBag)}
+ *  <li> {@link #postStopCustom(ConfigBag)}
  * </ul>
  * Note methods at this level typically look after the {@link Attributes#SERVICE_STATE_ACTUAL} sensor.
  *
@@ -223,7 +223,7 @@ public abstract class MachineLifecycleEffectorTasks {
         return new StartEffectorBody();
     }
 
-    private class StartEffectorBody extends EffectorBody<Void> {
+    protected class StartEffectorBody extends EffectorBody<Void> {
         @Override
         public Void call(ConfigBag parameters) {
             Collection<? extends Location> locations = null;
@@ -259,7 +259,7 @@ public abstract class MachineLifecycleEffectorTasks {
         return new RestartEffectorBody();
     }
 
-    private class RestartEffectorBody extends EffectorBody<Void> {
+    protected class RestartEffectorBody extends EffectorBody<Void> {
         @Override
         public Void call(ConfigBag parameters) {
             restart(parameters);
@@ -284,7 +284,7 @@ public abstract class MachineLifecycleEffectorTasks {
         return new StopEffectorBody();
     }
 
-    private class StopEffectorBody extends EffectorBody<Void> {
+    protected class StopEffectorBody extends EffectorBody<Void> {
         @Override
         public Void call(ConfigBag parameters) {
             stop(parameters);
@@ -301,7 +301,7 @@ public abstract class MachineLifecycleEffectorTasks {
         return new SuspendEffectorBody();
     }
 
-    private class SuspendEffectorBody extends EffectorBody<Void> {
+    protected class SuspendEffectorBody extends EffectorBody<Void> {
         @Override
         public Void call(ConfigBag parameters) {
             suspend(parameters);
@@ -335,7 +335,7 @@ public abstract class MachineLifecycleEffectorTasks {
     public void start(Collection<? extends Location> locations) {
         ServiceStateLogic.setExpectedState(entity(), Lifecycle.STARTING);
         try {
-            startInLocations(locations);
+            startInLocations(locations, ConfigBag.newInstance());
             DynamicTasks.waitForLast();
             ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
         } catch (Throwable t) {
@@ -344,13 +344,13 @@ public abstract class MachineLifecycleEffectorTasks {
         }
     }
 
-    /** Asserts there is a single location and calls {@link #startInLocation(Location)} with that location. */
-    protected void startInLocations(Collection<? extends Location> locations) {
-        startInLocation(getLocation(locations));
+    /** Asserts there is a single location and calls {@link #startInLocation(Location, ConfigBag)} with that location. */
+    protected void startInLocations(Collection<? extends Location> locations, ConfigBag parameters) {
+        startInLocation(getLocation(locations), parameters);
     }
 
     /** Dispatches to the appropriate method(s) to start in the given location. */
-    protected void startInLocation(final Location location) {
+    protected void startInLocation(final Location location, ConfigBag parameters) {
         Supplier<MachineLocation> locationS = null;
         if (location instanceof MachineProvisioningLocation) {
             Task<MachineLocation> machineTask = provisionAsync((MachineProvisioningLocation<?>)location);
@@ -364,15 +364,15 @@ public abstract class MachineLifecycleEffectorTasks {
 
         // Opportunity to block startup until other dependent components are available
         try (CloseableLatch latch = waitForCloseableLatch(entity(), SoftwareProcess.START_LATCH)) {
-            preStartAtMachineAsync(locationSF);
+            preStartAtMachineAsync(locationSF, parameters);
             DynamicTasks.queue("start (processes)", new StartProcessesAtMachineTask(locationSF));
-            postStartAtMachineAsync();
+            postStartAtMachineAsync(parameters);
         }
     }
 
-    private class StartProcessesAtMachineTask implements Runnable {
+    protected class StartProcessesAtMachineTask implements Runnable {
         private final Supplier<MachineLocation> machineSupplier;
-        private StartProcessesAtMachineTask(Supplier<MachineLocation> machineSupplier) {
+        protected StartProcessesAtMachineTask(Supplier<MachineLocation> machineSupplier) {
             this.machineSupplier = machineSupplier;
         }
         @Override
@@ -390,10 +390,10 @@ public abstract class MachineLifecycleEffectorTasks {
                 new ProvisionMachineTask(location)).build());
     }
 
-    private class ProvisionMachineTask implements Callable<MachineLocation> {
+    protected class ProvisionMachineTask implements Callable<MachineLocation> {
         final MachineProvisioningLocation<?> location;
 
-        private ProvisionMachineTask(MachineProvisioningLocation<?> location) {
+        protected ProvisionMachineTask(MachineProvisioningLocation<?> location) {
             this.location = location;
         }
 
@@ -434,11 +434,11 @@ public abstract class MachineLifecycleEffectorTasks {
         }
     }
 
-    private static class ObtainLocationTask implements Callable<MachineLocation> {
+    protected static class ObtainLocationTask implements Callable<MachineLocation> {
         final MachineProvisioningLocation<?> location;
         final Map<String, Object> flags;
 
-        private ObtainLocationTask(MachineProvisioningLocation<?> location, Map<String, Object> flags) {
+        protected ObtainLocationTask(MachineProvisioningLocation<?> location, Map<String, Object> flags) {
             this.flags = flags;
             this.location = location;
         }
@@ -450,17 +450,23 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     /**
-     * Wraps a call to {@link #preStartCustom(MachineLocation)}, after setting the hostname and address.
+     * Wraps a call to {@link #preStartCustom(MachineLocation, ConfigBag)}, after setting the hostname and address.
      */
-    protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS) {
-        DynamicTasks.queue("pre-start", new PreStartTask(machineS.get()));
+    protected void preStartAtMachineAsync(final Supplier<MachineLocation> machineS, ConfigBag parameters) {
+        DynamicTasks.queue("pre-start", new PreStartTask(machineS.get(), parameters));
     }
 
-    private class PreStartTask implements Runnable {
+    protected class PreStartTask implements Runnable {
         final MachineLocation machine;
+        final ConfigBag parameters;
 
-        private PreStartTask(MachineLocation machine) {
+        protected PreStartTask(MachineLocation machine) {
+            this(machine, null);
+        }
+        protected PreStartTask(MachineLocation machine, ConfigBag parameters) {
             this.machine = machine;
+            this.parameters = parameters;
+
         }
         @Override
         public void run() {
@@ -537,7 +543,7 @@ public abstract class MachineLifecycleEffectorTasks {
                 }
             }
             resolveOnBoxDir(entity(), machine);
-            preStartCustom(machine);
+            preStartCustom(machine, parameters);
 
         }
     }
@@ -587,8 +593,7 @@ public abstract class MachineLifecycleEffectorTasks {
                     "("+paramSummary+" not compatible: "+oldParam+" / "+newParam+"); "+newLoc+" may require manual removal.");
     }
 
-    @Deprecated
-    protected void preStartCustom(MachineLocation machine) {
+    protected void preStartCustom(MachineLocation machine, ConfigBag parameters) {
         ConfigToAttributes.apply(entity());
     }
 
@@ -601,14 +606,21 @@ public abstract class MachineLifecycleEffectorTasks {
 
     protected abstract String startProcessesAtMachine(final Supplier<MachineLocation> machineS);
 
-    protected void postStartAtMachineAsync() {
-        DynamicTasks.queue("post-start", new PostStartTask());
+    protected void postStartAtMachineAsync(ConfigBag parameters) {
+        DynamicTasks.queue("post-start", new PostStartTask(parameters));
     }
 
-    private class PostStartTask implements Runnable {
+    protected class PostStartTask implements Runnable {
+        protected final ConfigBag parameters;
+
+        public PostStartTask() { this(null); }
+        public PostStartTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public void run() {
-            postStartCustom();
+            postStartCustom(parameters);
         }
     }
 
@@ -618,7 +630,7 @@ public abstract class MachineLifecycleEffectorTasks {
      * Can be extended by subclasses, and typically will wait for confirmation of start.
      * The service not set to running until after this. Also invoked following a restart.
      */
-    protected void postStartCustom() {
+    protected void postStartCustom(ConfigBag parameters) {
         // nothing by default
     }
 
@@ -679,25 +691,45 @@ public abstract class MachineLifecycleEffectorTasks {
         ServiceStateLogic.setExpectedState(entity(), Lifecycle.RUNNING);
     }
 
-    private class PreRestartTask implements Runnable {
+    protected class PreRestartTask implements Runnable {
+        protected final ConfigBag parameters;
+
+        public PreRestartTask() { this(null); }
+        public PreRestartTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public void run() {
-            preRestartCustom();
+            preRestartCustom(parameters);
         }
     }
-    private class PostRestartTask implements Runnable {
+    protected class PostRestartTask implements Runnable {
+        protected final ConfigBag parameters;
+
+        public PostRestartTask() { this(null); }
+        public PostRestartTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public void run() {
-            postRestartCustom();
+            postRestartCustom(parameters);
         }
     }
-    private class StartInLocationsTask implements Runnable {
+    protected class StartInLocationsTask implements Runnable {
+        protected final ConfigBag parameters;
+
+        public StartInLocationsTask() { this(null); }
+        public StartInLocationsTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
         @Override
         public void run() {
             // startInLocations will look up the location, and provision a machine if necessary
             // (if it remembered the provisioning location)
             ServiceStateLogic.setExpectedState(entity(), Lifecycle.STARTING);
-            startInLocations(null);
+            startInLocations(null, parameters);
         }
     }
 
@@ -721,12 +753,12 @@ public abstract class MachineLifecycleEffectorTasks {
      * Default stop implementation for an entity.
      * <p>
      * Aborts if already stopped, otherwise sets state {@link Lifecycle#STOPPING} then
-     * invokes {@link #preStopCustom()}, {@link #stopProcessesAtMachine()}, then finally
-     * {@link #stopAnyProvisionedMachines()} and sets state {@link Lifecycle#STOPPED}.
-     * If no errors were encountered call {@link #postStopCustom()} at the end.
+     * invokes {@link #preStopCustom(ConfigBag parameters)}, {@link #stopProcessesAtMachine(ConfigBag parameters)}, then finally
+     * {@link #stopAnyProvisionedMachines(ConfigBag parameters)} and sets state {@link Lifecycle#STOPPED}.
+     * If no errors were encountered call {@link #postStopCustom(ConfigBag parameters)} at the end.
      */
     public void stop(ConfigBag parameters) {
-        doStopLatching(parameters, new StopAnyProvisionedMachinesTask());
+        doStopLatching(parameters, new StopAnyProvisionedMachinesTask(parameters));
     }
 
     /**
@@ -744,14 +776,14 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     protected void doStop(ConfigBag parameters, Callable<StopMachineDetails<Integer>> stopTask) {
-        preStopConfirmCustom();
+        preStopConfirmCustom(parameters);
 
         log.info("Stopping {} in {}", entity(), entity().getLocations());
 
         StopMode stopMachineMode = getStopMachineMode(parameters);
         StopMode stopProcessMode = parameters.get(StopSoftwareParameters.STOP_PROCESS_MODE);
 
-        DynamicTasks.queue("pre-stop", new PreStopCustomTask());
+        DynamicTasks.queue("pre-stop", new PreStopCustomTask(parameters));
 
         // BROOKLYN-263:
         // With this change the stop effector will wait for Location to provision so it can terminate
@@ -799,8 +831,8 @@ public abstract class MachineLifecycleEffectorTasks {
         Task<List<?>> stoppingProcess = null;
         if (canStop(stopProcessMode, entity())) {
             stoppingProcess = Tasks.parallel("stopping",
-                    Tasks.create("stopping (process)", new StopProcessesAtMachineTask()),
-                    Tasks.create("stopping (feeds)", new StopFeedsAtMachineTask()));
+                    Tasks.create("stopping (process)", new StopProcessesAtMachineTask(parameters)),
+                    Tasks.create("stopping (feeds)", new StopFeedsAtMachineTask(parameters)));
             DynamicTasks.queue(stoppingProcess);
         }
 
@@ -862,31 +894,57 @@ public abstract class MachineLifecycleEffectorTasks {
         if (log.isDebugEnabled()) log.debug("Stopped software process entity "+entity());
     }
 
-    private class StopAnyProvisionedMachinesTask implements Callable<StopMachineDetails<Integer>> {
+    protected class StopAnyProvisionedMachinesTask implements Callable<StopMachineDetails<Integer>> {
+        private final ConfigBag parameters;
+
+        public StopAnyProvisionedMachinesTask() { this(ConfigBag.newInstance()); }
+        public StopAnyProvisionedMachinesTask(ConfigBag parameters) { this.parameters = parameters;
+        }
         @Override
         public StopMachineDetails<Integer> call() {
-            return stopAnyProvisionedMachines();
+            return stopAnyProvisionedMachines(parameters);
         }
     }
 
-    private class SuspendAnyProvisionedMachinesTask implements Callable<StopMachineDetails<Integer>> {
+    protected class SuspendAnyProvisionedMachinesTask implements Callable<StopMachineDetails<Integer>> {
+        protected final ConfigBag parameters;
+
+        public SuspendAnyProvisionedMachinesTask() { this(null); }
+        public SuspendAnyProvisionedMachinesTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public StopMachineDetails<Integer> call() {
-            return suspendAnyProvisionedMachines();
+            return suspendAnyProvisionedMachines(parameters);
         }
     }
 
-    private class StopProcessesAtMachineTask implements Callable<String> {
+    protected class StopProcessesAtMachineTask implements Callable<String> {
+        protected final ConfigBag parameters;
+
+        public StopProcessesAtMachineTask() { this(null); }
+        public StopProcessesAtMachineTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public String call() {
             DynamicTasks.markInessential();
-            stopProcessesAtMachine();
+            stopProcessesAtMachine(parameters);
             DynamicTasks.waitForLast();
             return "Stop processes completed with no errors.";
         }
     }
 
-    private class StopFeedsAtMachineTask implements Callable<String> {
+    protected class StopFeedsAtMachineTask implements Callable<String> {
+        protected final ConfigBag parameters;
+
+        public StopFeedsAtMachineTask() { this(null); }
+        public StopFeedsAtMachineTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public String call() {
             DynamicTasks.markInessential();
@@ -898,7 +956,14 @@ public abstract class MachineLifecycleEffectorTasks {
         }
     }
 
-    private class StopMachineTask implements Callable<String> {
+    protected class StopMachineTask implements Callable<String> {
+        protected final ConfigBag parameters;
+
+        public StopMachineTask() { this(null); }
+        public StopMachineTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public String call() {
             DynamicTasks.markInessential();
@@ -908,7 +973,14 @@ public abstract class MachineLifecycleEffectorTasks {
         }
     }
 
-    private class PreStopCustomTask implements Callable<String> {
+    protected class PreStopCustomTask implements Callable<String> {
+        protected final ConfigBag parameters;
+
+        public PreStopCustomTask() { this(null); }
+        public PreStopCustomTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public String call() {
             if (entity().getAttribute(SoftwareProcess.SERVICE_STATE_ACTUAL) == Lifecycle.STOPPED) {
@@ -917,15 +989,22 @@ public abstract class MachineLifecycleEffectorTasks {
             }
             ServiceStateLogic.setExpectedState(entity(), Lifecycle.STOPPING);
             entity().sensors().set(SoftwareProcess.SERVICE_UP, false);
-            preStopCustom();
+            preStopCustom(parameters);
             return null;
         }
     }
 
-    private class PostStopCustomTask implements Callable<Void> {
+    protected class PostStopCustomTask implements Callable<Void> {
+        protected final ConfigBag parameters;
+
+        public PostStopCustomTask() { this(null); }
+        public PostStopCustomTask(ConfigBag parameters) {
+            this.parameters = parameters;
+        }
+
         @Override
         public Void call() {
-            postStopCustom();
+            postStopCustom(parameters);
             return null;
         }
     }
@@ -946,30 +1025,30 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     @Deprecated
-    protected void preStopConfirmCustom() {
+    protected void preStopConfirmCustom(ConfigBag parameters) {
     }
 
-    protected void preStopCustom() {
+    protected void preStopCustom(ConfigBag parameters) {
         // nothing needed here
     }
 
-    protected void postStopCustom() {
+    protected void postStopCustom(ConfigBag parameters) {
         // nothing needed here
     }
 
-    protected void preRestartCustom() {
+    protected void preRestartCustom(ConfigBag parameters) {
         // nothing needed here
     }
 
-    protected void postRestartCustom() {
+    protected void postRestartCustom(ConfigBag parameters) {
         // nothing needed here
     }
 
     public static class StopMachineDetails<T> implements Serializable {
         private static final long serialVersionUID = 3256747214315895431L;
-        final String message;
-        final T value;
-        protected StopMachineDetails(String message, T value) {
+        public final String message;
+        public final T value;
+        public StopMachineDetails(String message, T value) {
             this.message = message;
             this.value = value;
         }
@@ -984,15 +1063,14 @@ public abstract class MachineLifecycleEffectorTasks {
      * <p>
      * Can run synchronously or not, caller will submit/queue as needed, and will block on any submitted tasks.
      */
-    protected abstract String stopProcessesAtMachine();
+    protected abstract String stopProcessesAtMachine(ConfigBag parameters);
 
     /**
      * Stop and release the {@link MachineLocation} the entity is provisioned at.
      * <p>
      * Can run synchronously or not, caller will submit/queue as needed, and will block on any submitted tasks.
      */
-    protected StopMachineDetails<Integer> stopAnyProvisionedMachines() {
-        @SuppressWarnings("unchecked")
+    protected StopMachineDetails<Integer> stopAnyProvisionedMachines(ConfigBag parameters) {
         MachineProvisioningLocation<MachineLocation> provisioner = entity().getAttribute(SoftwareProcess.PROVISIONING_LOCATION);
 
         if (Iterables.isEmpty(entity().getLocations())) {
@@ -1014,15 +1092,18 @@ public abstract class MachineLifecycleEffectorTasks {
 
         entity().sensors().set(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE, ProvisioningTaskState.RUNNING);
         try {
-            clearEntityLocationAttributes(machine);
-            provisioner.release((MachineLocation)machine);
+            return stopProvisionedMachine(provisioner, machine, parameters);
         } finally {
             // TODO On exception, should we add the machine back to the entity (because it might not really be terminated)?
             //      Do we need a better exception hierarchy for that?
             entity().sensors().remove(AttributesInternal.INTERNAL_TERMINATION_TASK_STATE);
         }
-        
-        return new StopMachineDetails<Integer>("Decommissioned "+machine, 1);
+    }
+
+    protected StopMachineDetails<Integer> stopProvisionedMachine(MachineProvisioningLocation<MachineLocation> provisioner, Location machine, ConfigBag parameters) {
+        clearEntityLocationAttributes(machine);
+        provisioner.release((MachineLocation) machine);
+        return new StopMachineDetails<Integer>("Decommissioned "+machine, 1) {};
     }
 
     /**
@@ -1034,7 +1115,7 @@ public abstract class MachineLifecycleEffectorTasks {
      * @throws java.lang.UnsupportedOperationException if the entity's provisioner cannot suspend machines.
      * @see MachineManagementMixins.SuspendsMachines
      */
-    protected StopMachineDetails<Integer> suspendAnyProvisionedMachines() {
+    protected StopMachineDetails<Integer> suspendAnyProvisionedMachines(ConfigBag parameters) {
         @SuppressWarnings("unchecked")
         MachineProvisioningLocation<MachineLocation> provisioner = entity().getAttribute(SoftwareProcess.PROVISIONING_LOCATION);
 
@@ -1100,7 +1181,7 @@ public abstract class MachineLifecycleEffectorTasks {
         return new CloseableLatch(entity, releaseableLatch);
     }
 
-    private static ReleaseableLatch waitForLatch(EntityInternal entity, ConfigKey<Boolean> configKey) {
+    protected static ReleaseableLatch waitForLatch(EntityInternal entity, ConfigKey<Boolean> configKey) {
         Maybe<?> rawValue = entity.config().getRaw(configKey);
         if (rawValue.isAbsent()) {
             return ReleaseableLatch.NOP;
@@ -1128,7 +1209,7 @@ public abstract class MachineLifecycleEffectorTasks {
         }
     }
 
-    private static ValueResolverIterator<Boolean> resolveLatchIterator(EntityInternal entity, Object val, ConfigKey<Boolean> key) {
+    protected static ValueResolverIterator<Boolean> resolveLatchIterator(EntityInternal entity, Object val, ConfigKey<Boolean> key) {
         return Tasks.resolving(val, Boolean.class)
                 .context(entity.getExecutionContext())
                 .description("config " + key.getName())

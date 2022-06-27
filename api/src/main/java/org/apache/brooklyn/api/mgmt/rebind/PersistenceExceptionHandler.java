@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.api.mgmt.rebind;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.util.Set;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -43,5 +45,10 @@ public interface PersistenceExceptionHandler {
     void onDeleteMementoFailed(String id, Exception e);
     
     void onUpdatePlaneIdFailed(String planeId, Exception e);
+
+    @Beta
+    void clearRecentErrors();
+    @Beta
+    Set<String> getRecentErrors();
 
 }

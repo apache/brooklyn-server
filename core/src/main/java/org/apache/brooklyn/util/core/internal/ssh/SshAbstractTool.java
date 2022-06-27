@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.internal.ssh;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import java.util.Arrays;
 import static org.apache.brooklyn.util.net.Networking.checkPortValid;
 
 import java.io.File;
@@ -31,8 +32,12 @@ import org.apache.brooklyn.util.os.Os;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class SshAbstractTool extends ShellAbstractTool implements SshTool {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SshAbstractTool.class);
 
     protected final String toString;
 
@@ -83,7 +88,9 @@ public abstract class SshAbstractTool extends ShellAbstractTool implements SshTo
             // but sshj accepts only a single privateKeyFile; leave blank to use defaults (i.e. ~/.ssh/id_rsa and id_dsa)
             warnOnDeprecated(props, "keyFiles", null);
             String privateKeyFile = getOptionalVal(props, PROP_PRIVATE_KEY_FILE);
-            if (privateKeyFile != null) privateKeyFiles.add(privateKeyFile);
+            if (privateKeyFile != null) {
+                privateKeyFiles.addAll(Arrays.asList(privateKeyFile.split(File.pathSeparator)));
+            }
             
             strictHostKeyChecking = getOptionalVal(props, PROP_STRICT_HOST_KEY_CHECKING);
             allocatePTY = getOptionalVal(props, PROP_ALLOCATE_PTY);
@@ -136,14 +143,27 @@ public abstract class SshAbstractTool extends ShellAbstractTool implements SshTo
         allocatePTY = builder.allocatePTY;
         privateKeyPassphrase = builder.privateKeyPassphrase;
         privateKeyData = builder.privateKeyData;
-        
-        if (builder.privateKeyFiles.size() > 1) {
-            throw new IllegalArgumentException("sshj supports only a single private key-file; " +
-                    "for defaults of ~/.ssh/id_rsa and ~/.ssh/id_dsa leave blank");
-        } else if (builder.privateKeyFiles.size() == 1) {
-            String privateKeyFileStr = Iterables.get(builder.privateKeyFiles, 0);
-            String amendedKeyFile = privateKeyFileStr.startsWith("~") ? (System.getProperty("user.home")+privateKeyFileStr.substring(1)) : privateKeyFileStr;
-            privateKeyFile = new File(amendedKeyFile);
+
+        String keyFile = null;
+        String lastCandidate = null;
+
+        for (String candidate: builder.privateKeyFiles) {
+            lastCandidate = candidate.startsWith("~") ? (System.getProperty("user.home")+candidate.substring(1)) : candidate;
+            if (new File(lastCandidate).exists()) {
+                keyFile = lastCandidate;
+                break;
+            }
+        }
+        if (keyFile==null) {
+            if (builder.privateKeyFiles.size()==1) {
+                // probably won't work, but use a single file if specified
+                keyFile = lastCandidate;
+            } else if (builder.privateKeyFiles.size()>1 && privateKeyData==null) {
+                LOG.trace("None of the key files exist; unlikely for SSH to succeed");
+            }
+        }
+        if (keyFile!=null) {
+            privateKeyFile = new File(keyFile);
         } else {
             privateKeyFile = null;
         }

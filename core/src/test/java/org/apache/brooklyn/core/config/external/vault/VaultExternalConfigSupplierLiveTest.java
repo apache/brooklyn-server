@@ -165,5 +165,4 @@ public class VaultExternalConfigSupplierLiveTest {
                 ImmutableMap.of("endpoint", endpoint, "appId", appId, "path", path, "userId", userId));
         assertEquals(ecs.get(propertyName), propertyExpectedValue);
     }
-
 }

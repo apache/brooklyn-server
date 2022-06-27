@@ -28,6 +28,7 @@ import java.net.URL;
 import java.util.List;
 
 import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.effector.http.HttpCommandEffector;
@@ -229,10 +230,10 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
 
    @Test(expectedExceptions = NullPointerException.class)
    public void testMissingEffectors() {
-      compositeEffector = new CompositeEffector(ConfigBag.newInstance()
+      new CompositeEffector(ConfigBag.newInstance()
               .configure(CompositeEffector.EFFECTOR_NAME, EFFECTOR_COMPOSITE.getName())
               .configure(CompositeEffector.EFFECTORS, null)
-      );
+      ).newEffectorBuilder();
    }
 
    @Test(expectedExceptions = PropagatedRuntimeException.class)
@@ -254,9 +255,9 @@ public class CompositeEffectorTest extends BrooklynAppUnitTestSupport {
       Asserts.assertEquals(results.size(), 2);
    }
 
-   private EntitySpec<TestEntity> buildEntitySpec(AddEffector... effectors) {
+   private EntitySpec<TestEntity> buildEntitySpec(EntityInitializer... effectors) {
       EntitySpec<TestEntity> testEntitySpec = EntitySpec.create(TestEntity.class);
-      for (AddEffector effector : effectors) {
+      for (EntityInitializer effector : effectors) {
          testEntitySpec.addInitializer(effector);
       }
       return testEntitySpec;

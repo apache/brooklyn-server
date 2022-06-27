@@ -22,8 +22,8 @@ import com.google.common.base.Supplier;
 
 /**
  * A class that supplies objects of a single type. When used as a ConfigKey value,
- * the evaluation is deferred until getConfig() is called. The returned value will then
- * be coerced to the correct type. 
+ * the evaluation is deferred until getConfig() or {@link Tasks#resolving(Object)} is called.
+ * The returned value will then be coerced to the correct type.
  * 
  * Subsequent calls to getConfig will result in further calls to deferredProvider.get(), 
  * rather than reusing the result. If you want to reuse the result, consider instead 

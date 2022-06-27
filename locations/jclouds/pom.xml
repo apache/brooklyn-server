@@ -29,7 +29,7 @@
     <parent>
         <groupId>org.apache.brooklyn</groupId>
         <artifactId>brooklyn-parent</artifactId>
-        <version>1.0.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
+        <version>1.1.0-SNAPSHOT</version>  <!-- BROOKLYN_VERSION -->
         <relativePath>../../parent/pom.xml</relativePath>
     </parent>
 
@@ -60,14 +60,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
@@ -100,14 +92,6 @@
         <dependency>
             <groupId>${jclouds.groupId}</groupId>
             <artifactId>jclouds-core</artifactId>
-            <version>${jclouds.version}</version>
-            <exclusions>
-                <exclusion>
-                    <!-- Conflicts with javax.ws.rs-api -->
-                    <groupId>javax.ws.rs</groupId>
-                    <artifactId>jsr311-api</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>${jclouds.groupId}.driver</groupId>
@@ -122,6 +106,11 @@
         <dependency>
             <groupId>${jclouds.groupId}.driver</groupId>
             <artifactId>jclouds-sshj</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okio</groupId>
+            <artifactId>okio</artifactId>
+            <version>${okio.version}</version>
         </dependency>
 
         <dependency>
@@ -139,6 +128,11 @@
                 <!-- pulls in 1.17 where we want a newer version -->
                 <groupId>org.yaml</groupId>
                 <artifactId>snakeyaml</artifactId>
+              </exclusion>
+              <exclusion>
+                <!-- we use 1.15 instead of 1.2, have for a long time and seems to work fine -->
+                <groupId>com.squareup.okio</groupId>
+                <artifactId>okio</artifactId>
               </exclusion>
             </exclusions>
         </dependency>
@@ -197,8 +191,8 @@
                 For tests running in the module still need to use a specific dependency - use JAX-RS 2.0 as
                 that's what is used in standard build.
             -->
-            <groupId>javax.ws.rs</groupId>
-            <artifactId>javax.ws.rs-api</artifactId>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

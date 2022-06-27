@@ -510,27 +510,29 @@ public class DependentConfiguration {
      * </pre>
      */
     @SuppressWarnings("unchecked")
-    public static Task<String> formatString(final String spec, final Object ...args) {
+    public static Task<String> formatString(final Object spec, final Object ...args) {
         List<TaskAdaptable<Object>> taskArgs = Lists.newArrayList();
-        for (Object arg: args) {
+
+        Object[] newArgs = Lists.asList(spec, args).toArray();
+        for (Object arg: newArgs) {
             if (arg instanceof TaskAdaptable) taskArgs.add((TaskAdaptable<Object>)arg);
             else if (arg instanceof TaskFactory) taskArgs.add( ((TaskFactory<TaskAdaptable<Object>>)arg).newTask() );
         }
         
         return transformMultiple(
-            MutableMap.<String,String>of("displayName", "formatting '"+spec+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")), 
+            MutableMap.<String,String>of("displayName", "formatting '"+spec.toString()+"' with "+taskArgs.size()+" task"+(taskArgs.size()!=1?"s":"")),
             new Function<List<Object>, String>() {
                 @Override public String apply(List<Object> input) {
                     Iterator<?> tri = input.iterator();
-                    Object[] vv = new Object[args.length];
+                    Object[] vv = new Object[newArgs.length];
                     int i=0;
-                    for (Object arg : args) {
+                    for (Object arg : newArgs) {
                         if (arg instanceof TaskAdaptable || arg instanceof TaskFactory) vv[i] = tri.next();
                         else if (arg instanceof DeferredSupplier) vv[i] = ((DeferredSupplier<?>) arg).get();
                         else vv[i] = arg;
                         i++;
                     }
-                    return String.format(spec, vv);
+                    return String.format(vv[0].toString(), Arrays.copyOfRange(vv, 1, vv.length));
                 }},
             taskArgs);
     }
@@ -538,7 +540,13 @@ public class DependentConfiguration {
     /**
      * @throws ImmediateSupplier.ImmediateUnsupportedException if cannot evaluate this in a timely manner
      */
-    public static Maybe<String> formatStringImmediately(final String spec, final Object ...args) {
+    public static Maybe<String> formatStringImmediately(final Object spec, final Object ...args) {
+        String pattern = "";
+        Maybe<?> resolvedSpec = resolveImmediately(spec);
+        if (resolvedSpec.isPresent()) {
+            pattern = resolvedSpec.get().toString();
+        }
+
         List<Object> resolvedArgs = Lists.newArrayList();
         for (Object arg : args) {
             Maybe<?> argVal = resolveImmediately(arg);
@@ -546,7 +554,7 @@ public class DependentConfiguration {
             resolvedArgs.add(argVal.get());
         }
 
-        return Maybe.of(String.format(spec, resolvedArgs.toArray()));
+        return Maybe.of(String.format(pattern, resolvedArgs.toArray()));
     }
 
     /**

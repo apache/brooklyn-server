@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.cli;
 
+import com.google.common.base.MoreObjects.ToStringHelper;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Console;
@@ -80,7 +81,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects.ToStringHelper;
 import com.google.common.collect.ImmutableList;
 
 import groovy.lang.GroovyClassLoader;

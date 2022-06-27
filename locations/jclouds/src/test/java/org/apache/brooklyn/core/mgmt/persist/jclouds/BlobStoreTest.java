@@ -65,7 +65,7 @@ public class BlobStoreTest {
 
     @BeforeMethod(alwaysRun=true)
     public void setup() {
-        testContainerName = CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(8);
+        testContainerName = (CONTAINER_PREFIX+"-"+Identifiers.makeRandomId(8)).toLowerCase();
         mgmt = new LocalManagementContextForTests(BrooklynProperties.Factory.newDefault());
         location = (JcloudsLocation) mgmt.getLocationRegistry().getLocationManaged(locationSpec);
         context = BlobStoreContextFactoryImpl.INSTANCE.newBlobStoreContext(location);
@@ -82,7 +82,7 @@ public class BlobStoreTest {
         PageSet<? extends StorageMetadata> ps = context.getBlobStore().list();
         assertHasItemNamed(ps, testContainerName);
         
-        Blob b = context.getBlobStore().blobBuilder("my-blob-1").payload(Streams.newInputStreamWithContents("hello world")).build();
+        Blob b = context.getBlobStore().blobBuilder("my-blob-1").payload("hello world").build();
         context.getBlobStore().putBlob(testContainerName, b);
         
         Blob b2 = context.getBlobStore().getBlob(testContainerName, "my-blob-1");

@@ -18,43 +18,45 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import java.lang.reflect.Constructor;
-import java.util.Map;
-
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.internal.BrooklynInitialization;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.util.JavaGroovyEquivalents;
-import org.apache.brooklyn.util.core.ClassLoaderUtils;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
-import org.apache.brooklyn.util.javalang.JavaClassNames;
-import org.apache.brooklyn.util.javalang.Reflections;
-import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTryCoercions;
-import org.apache.brooklyn.util.javalang.coerce.CommonAdaptorTypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.EnumTypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.PrimitiveStringTypeCoercions;
-import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercer;
-import org.apache.brooklyn.util.javalang.coerce.TypeCoercerExtensible;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
-
 import groovy.lang.Closure;
 import groovy.time.TimeDuration;
+import java.lang.reflect.Constructor;
+import java.util.Collection;
+import java.util.Map;
+import java.util.function.BiFunction;
+import javax.annotation.Nullable;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Sensor;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.internal.BrooklynInitialization;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
+import org.apache.brooklyn.core.resolve.jackson.CommonTypesSerialization;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
+import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
+import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.javalang.coerce.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Static class providing a shared {@link TypeCoercer} for all of Brooklyn */
 public class TypeCoercions {
@@ -269,9 +271,21 @@ public class TypeCoercions {
         
         public BrooklynCommonAdaptorTypeCoercions(TypeCoercerExtensible coercer) { super(coercer); }
 
+        public CommonAdaptorTypeCoercions registerAllAdapters() {
+            super.registerAllAdapters();
+            registerWrappedValueAdapters();
+            registerBeanWithTypeAdapter();
+
+            //// deliberately not included here, but added by routines which need them:
+            // registerInstanceForClassnameAdapter
+
+            return this;
+        }
+
         @SuppressWarnings("rawtypes")
         @Override
         public void registerClassForNameAdapters() {
+            // do we need this one? should it go further and use the context entity to resolve registered types too?
             registerAdapter(String.class, Class.class, new Function<String,Class>() {
                 @Override
                 public Class apply(final String input) {
@@ -284,7 +298,8 @@ public class TypeCoercions {
                 }
             });        
         }
-        
+
+        // very similar to above, but uses configurable loader
         public static <T> void registerInstanceForClassnameAdapter(ClassLoaderUtils loader, Class<T> supertype) {
             TypeCoercions.registerAdapter(String.class, supertype, new Function<String, T>() {
                 @Override public T apply(String input) {
@@ -304,6 +319,64 @@ public class TypeCoercions {
                     } else {
                         throw new IllegalStateException("Failed to create "+supertype.getSimpleName()+" from class name '"+input+"' using no-arg constructor");
                     }
+                }
+            });
+        }
+
+        public void registerWrappedValueAdapters() {
+            registerAdapter("10-unwrap-wrapped-value", new TryCoercer() {
+                        @Override
+                        public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                            if (!(input instanceof WrappedValue)) {
+                                return null;
+                            }
+                            if (TypeTokens.isAssignableFromRaw(WrappedValue.class, type)) {
+                                // don't unwrap if a wrapped value is wanted (won't come here anyway)
+                                return null;
+                            }
+                            WrappedValue<?> w = (WrappedValue<?>) input;
+                            if (w.getSupplier()!=null) {
+                                // don't unwrap if it is a supplier
+                                return null;
+                            }
+                            return (Maybe) Maybe.of(((WrappedValue<?>) input).get());
+                        }
+                    });
+            registerAdapter("99-wrap-to-wrapped-value", new TryCoercer() {
+                @Override
+                public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                    if (!TypeTokens.equalsRaw(WrappedValue.class, type)) {
+                        // only applies if a WrappedValue is wanted
+                        return null;
+                    }
+                    if (input instanceof WrappedValue) {
+                        // already wrapped (won't come here anyway, unless possibly thing _in_ the wrapped value needs generic coercion)
+                        return null;
+                    }
+                    // note, generics on type are not respected
+                    return Maybe.of( (T) WrappedValue.ofConstant(input) );
+                }
+            });
+        }
+
+        public void registerBeanWithTypeAdapter() {
+            // if we want to do bean-with-type coercion ... probably nice to do if it doesn't already match
+            registerAdapter("80-bean-with-type", new TryCoercer() {
+
+                @Override
+                public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                    if (!(input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrBoxedObject(input))) {
+                        return null;
+                    }
+                    if (BeanWithTypeUtils.isConversionRecommended(Maybe.of(input), type)) {
+                        try {
+                            Maybe<T> result = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), type);
+                            return result;
+                        } catch (Exception e) {
+                            return Maybe.absent(e);
+                        }
+                    }
+                    return null;
                 }
             });
         }

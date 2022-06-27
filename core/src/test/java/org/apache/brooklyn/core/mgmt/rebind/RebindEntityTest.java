@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
+import java.util.function.Supplier;
+import org.apache.brooklyn.core.entity.EntitySpecTest.TestEntityWithDefaultNameImpl;
+import org.apache.brooklyn.util.collections.MutableList;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -780,7 +783,23 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         origApp.sensors().set(MY_ATTRIBUTE, "myval");
         assertFalse(RebindTestUtils.hasPendingPersists(mgmt()));
     }
-    
+
+    @Test
+    public void testCreationWithLambdaFails() throws Exception {
+        Collection<Entity> oldChildren = MutableList.copyOf( origApp.getChildren() );
+        Collection<Entity> oldEntities = MutableList.copyOf( mgmt().getEntityManager().getEntities() );
+
+        Asserts.assertFailsWith(() -> origApp.createAndManageChild(EntitySpec.create(TestEntity.class)
+                        .configure(TestEntityWithDefaultNameImpl.CONF_OBJECT, (Supplier<String>) () -> "hello")),
+                error -> {
+                    Asserts.expectedFailureContainsIgnoreCase(error, "lambda");
+                    return true;
+                });
+
+        Asserts.assertEquals( origApp.getChildren(), oldChildren );
+        Asserts.assertEquals( mgmt().getEntityManager().getEntities(), oldEntities );
+    }
+
     @ImplementedBy(EntityChecksIsRebindingImpl.class)
     public static interface EntityChecksIsRebinding extends TestEntity {
         boolean isRebindingValWhenRebinding();

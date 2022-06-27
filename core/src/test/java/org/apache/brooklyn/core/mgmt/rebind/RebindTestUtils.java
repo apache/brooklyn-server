@@ -45,9 +45,12 @@ import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
 import org.apache.brooklyn.core.mgmt.ha.ManagementPlaneSyncRecordPersisterToObjectStore;
+import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -354,6 +357,7 @@ public class RebindTestUtils {
         boolean hasHaPersister = newManagementContext != null && newManagementContext.getHighAvailabilityManager().getPersister() != null;
         boolean checkSerializable = options.checkSerializable;
         boolean terminateOrigManagementContext = options.terminateOrigManagementContext;
+        boolean clearOrigManagementContext = options.clearOrigManagementContext;
         Function<BrooklynMementoPersister, Void> stateTransformer = options.stateTransformer;
         
         LOG.info("Rebinding app, using mementoDir " + mementoDir + "; object store " + objectStore);
@@ -385,11 +389,16 @@ public class RebindTestUtils {
             RebindTestUtils.checkCurrentMementoSerializable(origManagementContext);
         }
 
+        if (clearOrigManagementContext) {
+            checkNotNull(origManagementContext, "must supply origManagementContext with terminateOrigManagementContext");
+            ((HighAvailabilityManagerImpl)origManagementContext.getHighAvailabilityManager()).clearManagedItems(
+                    ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.MANAGED_PRIMARY, BrooklynObjectManagementMode.UNMANAGED_PERSISTED) );
+        }
         if (terminateOrigManagementContext) {
             checkNotNull(origManagementContext, "must supply origManagementContext with terminateOrigManagementContext");
             origManagementContext.terminate();
         }
-        
+
         if (mementoDirBackup != null) {
             FileUtil.copyDir(mementoDir, mementoDirBackup);
             FileUtil.setFilePermissionsTo700(mementoDirBackup);

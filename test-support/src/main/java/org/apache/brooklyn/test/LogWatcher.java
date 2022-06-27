@@ -18,32 +18,6 @@
  */
 package org.apache.brooklyn.test;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.testng.Assert.assertFalse;
-
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.lang.reflect.Proxy;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiPredicate;
-
-import org.apache.brooklyn.util.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.annotations.Beta;
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
@@ -52,11 +26,35 @@ import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.StackTraceElementProxy;
 import ch.qos.logback.core.Appender;
 import ch.qos.logback.core.ConsoleAppender;
+import ch.qos.logback.core.OutputStreamAppender;
+import com.google.common.annotations.Beta;
+import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.lang.reflect.Proxy;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiPredicate;
+import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.io.output.NullOutputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import static org.testng.Assert.assertFalse;
 
 /**
- * Testing utility that registers an appender to watch a given logback logger, and records events 
+ * Testing utility that registers an appender to watch a given logback logger, and records events
  * that match a given predicate.
- * 
+ *
  * Callers should first call {@link #start()}, and must call {@link #close()} to de-register the
  * appender (doing this in a finally block).
  */
@@ -137,28 +135,31 @@ public class LogWatcher implements Closeable {
             return input -> input == null ? false : input.getLevel().isGreaterOrEqual(expectedLevel);
         }
     }
-    
+
     private final List<ILoggingEvent> events = Collections.synchronizedList(Lists.<ILoggingEvent>newLinkedList());
     private final AtomicBoolean closed = new AtomicBoolean();
     private final ch.qos.logback.classic.Level loggerLevel;
-    private final ConsoleAppender<ILoggingEvent> appender;
+    private final OutputStreamAppender<ILoggingEvent> appender;
+    private final ByteArrayOutputStream stream;
     private final List<ch.qos.logback.classic.Logger> watchedLoggers = Lists.newArrayList();
     private volatile Map<ch.qos.logback.classic.Logger, Level> origLevels = Maps.newLinkedHashMap();
 
     public LogWatcher(String loggerName, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
         this(ImmutableList.of(checkNotNull(loggerName, "loggerName")), loggerLevel, filter);
     }
-    
+
     public LogWatcher(Iterable<String> loggerNames, ch.qos.logback.classic.Level loggerLevel, final Predicate<? super ILoggingEvent> filter) {
 
         this.loggerLevel = checkNotNull(loggerLevel, "loggerLevel");
         LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
 
-        this.appender = new ConsoleAppender<>();
+        this.stream = new ByteArrayOutputStream();
+        this.appender = new OutputStreamAppender<>();
+        this.appender.setOutputStream(this.stream);
 
         PatternLayoutEncoder ple = new PatternLayoutEncoder() {
             @Override
-            public void doEncode(ILoggingEvent event) throws IOException {
+            public byte[] encode(ILoggingEvent event) {
                 final String txt = layout.doLayout(event);
 
                 // Jump through hoops to turn the input event (without any layout)
@@ -180,19 +181,13 @@ public class LogWatcher implements Closeable {
                 if (event != null && filter.apply(formatted)) {
                     events.add(formatted);
                 }
-                LOG.trace("level="+event.getLevel()+"; event="+event+"; msg="+event.getFormattedMessage());
+                LOG.trace("level={}; event={}; msg={}", event.getLevel(), event, event.getFormattedMessage());
 
-                super.doEncode(event);
+                return super.encode(event);
             }
         };
 
-        // The code below makes the assumption that the (test) logger configuration has a console appender
-        // for root, with a pattern layout encoder, and re-uses its encoder pattern.
-        // This is (at time of writing) as defined in logback-appender-stdout.xml.
-        final Appender<ILoggingEvent> appender = lc.getLogger("ROOT").getAppender("STDOUT");
-        final ConsoleAppender<?> stdout = ConsoleAppender.class.cast(appender);
-        final PatternLayoutEncoder stdoutEncoder = PatternLayoutEncoder.class.cast(stdout.getEncoder());
-        ple.setPattern(stdoutEncoder.getPattern());
+        ple.setPattern("%d{ISO8601} %8X{task.id}-%-23X{entity.ids} %-5.5p %-48c{1}  %m%n");
         ple.setContext(lc);
         ple.start();
 
@@ -206,7 +201,7 @@ public class LogWatcher implements Closeable {
 
         start();
     }
-    
+
     /** @deprecated since 1.0.0 called by constructor, will go private as no need for anyone else to call */
     public void start() {
         for (ch.qos.logback.classic.Logger watchedLogger : watchedLoggers) {
@@ -217,7 +212,7 @@ public class LogWatcher implements Closeable {
             watchedLogger.addAppender(appender);
         }
     }
-    
+
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
@@ -230,7 +225,7 @@ public class LogWatcher implements Closeable {
             origLevels.clear();
         }
     }
-    
+
     public void assertHasEvent() {
         assertFalse(events.isEmpty());
     }
@@ -268,6 +263,13 @@ public class LogWatcher implements Closeable {
         synchronized (events) {
             return ImmutableList.copyOf(Iterables.filter(events, filter));
         }
+    }
+
+    public String getLog() {
+        return new String(stream.toByteArray());
+    }
+    public void dumpLog() {
+        System.out.println(getLog());
     }
 
     public void printEvents() {

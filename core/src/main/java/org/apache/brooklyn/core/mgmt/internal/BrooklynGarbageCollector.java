@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -35,9 +36,11 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import java.util.stream.Collectors;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -131,7 +134,12 @@ public class BrooklynGarbageCollector {
         + "within an execution context (e.g. entity); "
         + "some broad-brush tags are excluded, and if an entity has multiple tags all tag counts must be full",
         50);
-    
+
+    public static final ConfigKey<Integer> MAX_TASKS_PER_NAME = ConfigKeys.newIntegerConfigKey(
+            "brooklyn.gc.maxTasksPerName",
+            "the maximum number of tasks with the same name kept within an execution context (e.g. entity)",
+            10);
+
     public static final ConfigKey<Integer> MAX_TASKS_PER_ENTITY = ConfigKeys.newIntegerConfigKey(
         "brooklyn.gc.maxTasksPerEntity", 
         "the maximum number of tasks to be kept for a given entity",
@@ -154,6 +162,7 @@ public class BrooklynGarbageCollector {
             return (end1 < end2) ? -1 : ((end1 == end2) ? 0 : 1);
         }
     };
+    protected final static Comparator<Task<?>> TASKS_NEWEST_FIRST_COMPARATOR = (t1,t2) -> -TASKS_OLDEST_FIRST_COMPARATOR.compare(t1, t2);
     
     private final BasicExecutionManager executionManager;
     @SuppressWarnings("unused")  // TODO remove BrooklynStorage altogether?
@@ -165,7 +174,7 @@ public class BrooklynGarbageCollector {
     
     private Duration gcPeriod;
     private volatile boolean running = true;
-    
+
     public BrooklynGarbageCollector(BrooklynProperties brooklynProperties, BasicExecutionManager executionManager, BrooklynStorage storage) {
         this.executionManager = executionManager;
         this.storage = storage;
@@ -276,10 +285,11 @@ public class BrooklynGarbageCollector {
     
     public void deleteTasksForEntity(Entity entity) {
         // remove all references to this entity from tasks
-        executionManager.deleteTag(entity);
-        executionManager.deleteTag(BrooklynTaskTags.tagForContextEntity(entity));
-        executionManager.deleteTag(BrooklynTaskTags.tagForCallerEntity(entity));
-        executionManager.deleteTag(BrooklynTaskTags.tagForTargetEntity(entity));
+        // (note that cancellation for most tasks will have been done by LocalEntityManager.stopTasks)
+        executionManager.deleteDoneInTag(entity);
+        executionManager.deleteDoneInTag(BrooklynTaskTags.tagForContextEntity(entity));
+        executionManager.deleteDoneInTag(BrooklynTaskTags.tagForCallerEntity(entity));
+        executionManager.deleteDoneInTag(BrooklynTaskTags.tagForTargetEntity(entity));
     }
     
     public void onUnmanaged(Location loc) {
@@ -326,10 +336,19 @@ public class BrooklynGarbageCollector {
     }
 
     /**
-     * Deletes old tasks. The age/number of tasks to keep is controlled by fields like 
-     * {@link #maxTasksPerTag} and {@link #maxTaskAge}.
+     * Deletes old tasks. The age/number of tasks to keep is controlled by fields including
+     * {@link #MAX_TASKS_PER_TAG} and {@link #MAX_TASKS_PER_TAG}.
+     *
+     * This works by looking at the "entity" tag(s) [context and target], then at the "non-entity" tags (excluding some such as sub-task etc);
+     * any (completed) task which has one or more tag in the category, and where all such tags are over capacity
+     * (with some grace to ignore tasks for which one tag in category is under-capacity), these will get GC'd;
+     * with oldest first.  So it will keep up to 1000 tasks for an entity, and limit of up to 50 for each tag,
+     * so eg attaching an 'entityId:effectorName' tag means we keep up to 50 instances of each effector call, provided we don't exceed the 1000 global.
+     *
+     * (It might be nicer to score, based on age and name uniqueness and activity within an entity. But above works pretty well.)
      */
-    protected synchronized int gcTasks() {
+    @VisibleForTesting
+    public synchronized int gcTasks() {
         // NB: be careful with memory usage here: have seen OOME if we get crazy lots of tasks.
         // hopefully the use new limits, filters, and use of live lists in some places (added Sep 2014) will help.
         // 
@@ -351,10 +370,13 @@ public class BrooklynGarbageCollector {
         expireAgedTasks();
         expireTransientTasks();
         
-        // now look at overcapacity tags, non-entity tags first
-        
+        // now look at overcapacity tags, names, then non-entity tags first
+
         Set<Object> taskTags = executionManager.getTaskTags();
-        
+
+        int deletedCount = 0;
+        deletedCount += expireOverCapacityNamesInCategory(taskTags, TagCategory.ENTITY);
+
         int maxTasksPerEntity = brooklynProperties.getConfig(MAX_TASKS_PER_ENTITY);
         int maxTasksPerTag = brooklynProperties.getConfig(MAX_TASKS_PER_TAG);
         
@@ -387,10 +409,9 @@ public class BrooklynGarbageCollector {
             }
         }
         
-        int deletedCount = 0;
         deletedCount += expireOverCapacityTagsInCategory(taskNonEntityTagsOverCapacity, taskAllTagsOverCapacity, TagCategory.NON_ENTITY_NORMAL, false);
         deletedCount += expireOverCapacityTagsInCategory(taskEntityTagsOverCapacity, taskAllTagsOverCapacity, TagCategory.ENTITY, true);
-        
+
         // if expensive we could optimize task GC here to avoid repeated lookups by
         // counting all expired above (not just prev two lines) and skipping if none
         // but that seems unlikely
@@ -411,14 +432,15 @@ public class BrooklynGarbageCollector {
 
     protected static boolean isTagIgnoredForGc(Object tag) {
         if (tag == null) return true;
+
         if (tag.equals(ManagementContextInternal.EFFECTOR_TAG)) return true;
         if (tag.equals(ManagementContextInternal.SUB_TASK_TAG)) return true;
         if (tag.equals(ManagementContextInternal.NON_TRANSIENT_TASK_TAG)) return true;
         if (tag.equals(ManagementContextInternal.TRANSIENT_TASK_TAG)) return true;
-        if (tag instanceof WrappedStream) {
-            return true;
-        }
-        
+
+        if (tag instanceof ManagementContext) return true;
+        if (tag instanceof WrappedStream) return true;
+
         return false;
     }
     
@@ -526,7 +548,7 @@ public class BrooklynGarbageCollector {
             return false;
         }
         Task<?> submitter = task.getSubmittedByTask();
-        if (submitter!=null && (!submitter.isDone() || executionManager.getTask(submitter.getId())!=null)) {
+        if (submitter!=null && (!submitter.isDone(true) || executionManager.getTask(submitter.getId())!=null)) {
             return false;
         }
         // submitter task is GC'd
@@ -545,7 +567,7 @@ public class BrooklynGarbageCollector {
     } 
 
 
-    /** expires tasks which are over-capacity in all their non-entity tag categories, returned count */
+    /** expires tasks which are over-capacity in all their non-entity or entity (target, context) tag categories, returned count */
     protected int expireOverCapacityTagsInCategory(Map<Object, AtomicInteger> taskTagsInCategoryOverCapacity, Map<Object, AtomicInteger> taskAllTagsOverCapacity, TagCategory category, boolean emptyFilterNeeded) {
         if (emptyFilterNeeded) {
             // previous run may have decremented counts  
@@ -606,29 +628,47 @@ public class BrooklynGarbageCollector {
             LOG.debug("Got CME inspecting tasks, with "+tasksToConsiderDeleting.size()+" found for deletion: "+e);
         }
 
-        if (LOG.isDebugEnabled())
-            LOG.debug("brooklyn-gc detected "+taskTagsInCategoryOverCapacity.size()+" "+category+" "
-                    + "tags over capacity, expiring old tasks; "
-                    + tasksToConsiderDeleting.size()+" tasks under consideration; categories are: "
-                    + taskTagsInCategoryOverCapacity);
+        if (tasksToConsiderDeleting.isEmpty()) {
+            return 0;
+        }
 
         Collections.sort(tasksToConsiderDeleting, TASKS_OLDEST_FIRST_COMPARATOR);
+
+        if (LOG.isDebugEnabled()) {
+            List<Object> tasksToLog = MutableList.copyOf(tasksToConsiderDeleting);
+            if (tasksToConsiderDeleting.size()>10) {
+                tasksToConsiderDeleting.stream().limit(5).forEach(tasksToLog::add);
+                tasksToLog.add("...");
+                tasksToConsiderDeleting.stream().skip(tasksToConsiderDeleting.size()-5).forEach(tasksToLog::add);
+            } else {
+                tasksToLog.addAll(tasksToConsiderDeleting);
+            }
+            LOG.debug("brooklyn-gc detected " + taskTagsInCategoryOverCapacity.size() + " " + category + " "
+                    + "tag(s) over capacity, expiring old tasks; "
+                    + tasksToConsiderDeleting.size() + " tasks under consideration; categories are: "
+                    + taskTagsInCategoryOverCapacity + "; including " + tasksToLog);
+        }
+
         // now try deleting tasks which are overcapacity for each (non-entity) tag
-        int deleted = 0;
+        Set<Task<?>> deleted = MutableSet.of();
         for (Task<?> task: tasksToConsiderDeleting) {
-            boolean delete = true;
+            boolean delete = false;
             for (Object tag: task.getTags()) {
-                if (!category.acceptsTag(tag))
+                if (!category.acceptsTag(tag)) {
+                    // ignore this tag, not right for the category
                     continue;
+                }
                 if (taskTagsInCategoryOverCapacity.get(tag)==null) {
                     // no longer over capacity in this tag
                     delete = false;
                     break;
                 }
+                // has at least one tag in the category, and all such tags are overcapacity
+                delete = true;
             }
             if (delete) {
                 // delete this and update overcapacity info
-                deleted++;
+                deleted.add(task);
                 executionManager.deleteTask(task);
                 for (Object tag: task.getTags()) {
                     AtomicInteger counter = taskAllTagsOverCapacity.get(tag);
@@ -643,9 +683,67 @@ public class BrooklynGarbageCollector {
         }
 
         if (LOG.isDebugEnabled())
-            LOG.debug("brooklyn-gc deleted "+deleted+" tasks in over-capacity " + category+" tag categories; "
-                    + "capacities now: " + taskTagsInCategoryOverCapacity);
-        return deleted;
+            LOG.debug("brooklyn-gc deleted "+deleted.size()+" tasks in over-capacity " + category+" tag categories; "
+                    + "capacities now: " + taskTagsInCategoryOverCapacity+"; deleted tasks: "+
+                    deleted.stream().map(Task::getId).collect(Collectors.joining(",")));
+        return deleted.size();
+    }
+
+    protected int expireOverCapacityNamesInCategory(Set<Object> taskTags, TagCategory category) {
+        List<Object> entityTags = taskTags.stream().filter(tag -> category.acceptsTag(tag)).collect(Collectors.toList());
+        Integer maxPerName = brooklynProperties.getConfig(MAX_TASKS_PER_NAME);
+        if (maxPerName==null || maxPerName<=0) return 0;
+        Set<Task<?>> tasksToDelete = MutableSet.of();
+
+        try {
+            for (Object entityTag: entityTags) {
+                Set<Task<?>> tasks = executionManager.getTasksWithTag(entityTag);
+                Map<String,Set<Task<?>>> tasksByName = MutableMap.of();
+                for (Task<?> task: tasks) {
+                    if (!task.isDone(true)) continue;
+                    tasksByName.compute(task.getDisplayName(), (key,set) -> {
+                        if (set==null) set = MutableSet.of();
+                        set.add(task);
+                        return set;
+                    });
+                }
+
+                List<Entry<String,Set<Task<?>>>> overCapacityNames = tasksByName.entrySet().stream().filter(entry -> entry.getValue().size() > maxPerName).collect(Collectors.toList());
+                if (!overCapacityNames.isEmpty()) {
+                    LOG.debug("brooklyn-gc detected tasks exceeding max per-name for entity "+entityTag+"; collecting for deletion: " +
+                            overCapacityNames.stream().map(entry -> entry.getKey()+"("+entry.getValue().size()+")").collect(Collectors.joining(", ")));
+                }
+                overCapacityNames.forEach(entry -> {
+                    List<Task<?>> list = MutableList.copyOf(entry.getValue());
+                    Collections.sort(list, TASKS_NEWEST_FIRST_COMPARATOR);
+                    list.stream().skip(maxPerName).forEach(tasksToDelete::add);
+                });
+            }
+
+        } catch (ConcurrentModificationException e) {
+            // do CME's happen with these data structures?
+            // if so, let's just delete what we've found so far
+            LOG.debug("Got CME inspecting tasks by name to delete; ignoring: "+e);
+        }
+
+
+        if (tasksToDelete.isEmpty()) {
+            return 0;
+        }
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("brooklyn-gc detected "
+                    + tasksToDelete.size() + " tasks with exceeding max per-name and will be deleted: "+
+                    tasksToDelete.stream().map(Task::getId).collect(Collectors.joining(",")));
+        }
+
+        // now try deleting tasks which are overcapacity for each (non-entity) tag
+        for (Task<?> task: tasksToDelete) {
+            // delete this and update overcapacity info
+            executionManager.deleteTask(task);
+        }
+
+        return tasksToDelete.size();
     }
 
     protected int expireIfOverCapacityGlobally() {
@@ -660,13 +758,8 @@ public class BrooklynGarbageCollector {
             tasksLive = executionManager.getTasksWithAllTags(MutableList.of());
         }
 
-        MutableList<Task<?>> tasks = MutableList.of();
-        for (Task<?> task: tasksLive) {
-            if (task.isDone()) {
-                tasks.add(task);
-            }
-        }
-        
+        List<Task<?>> tasks = tasksLive.stream().filter(t -> t.isDone(true)).collect(Collectors.toList());
+
         int numToDelete = tasks.size() - brooklynProperties.getConfig(MAX_TASKS_GLOBAL);
         if (numToDelete <= 0) {
             LOG.debug("brooklyn-gc detected only "+tasks.size()+" completed tasks in memory, not over global limit, so not deleting any");

@@ -463,8 +463,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
      * @see #DEBUG
      */
     protected ScriptHelper newScript(Map<String, ?> flags, String phase) {
-        if (!Entities.isManaged(getEntity()))
-            throw new IllegalStateException(getEntity()+" is no longer managed; cannot create script to run here ("+phase+")");
+        if (!Entities.isManagedActive(getEntity()))
+            throw new IllegalStateException(getEntity()+" is not currently managed here; cannot create script to run here ("+phase+")");
 
         if (!Iterables.all(flags.keySet(), StringPredicates.equalToAny(VALID_FLAGS))) {
             throw new IllegalArgumentException("Invalid flags passed: " + flags);
@@ -515,7 +515,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         }
         if (phase.equalsIgnoreCase(CHECK_RUNNING)) {
             s.setInessential();
-            s.setTransient();
+            //s.setTransient();
             s.setFlag(SshTool.PROP_CONNECT_TIMEOUT, Duration.TEN_SECONDS.toMilliseconds());
             s.setFlag(SshTool.PROP_SESSION_TIMEOUT, Duration.THIRTY_SECONDS.toMilliseconds());
             s.setFlag(SshTool.PROP_SSH_TRIES, 1);

@@ -51,7 +51,11 @@ public interface SensorApi {
             response = org.apache.brooklyn.rest.domain.SensorSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<SensorSummary> list(
             @ApiParam(value = "Application ID or name", required = true)
@@ -62,21 +66,35 @@ public interface SensorApi {
     @GET
     @Path("/current-state")
     @ApiOperation(value = "Fetch sensor values in batch", notes="Returns a map of sensor name to value")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String, Object> batchSensorRead(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") final String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") final String entityToken,
-            @ApiParam(value = "Return raw sensor data instead of display values", required = false)
-            @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     @GET
     @Path("/{sensor}")
     @ApiOperation(value = "Fetch sensor value (json)", response = Object.class)
-    @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or sensor")
-    })
     @Produces({MediaType.APPLICATION_JSON})
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Object get(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") final String application,
@@ -84,15 +102,22 @@ public interface SensorApi {
             @PathParam("entity") final String entityToken,
             @ApiParam(value = "Sensor name", required = true)
             @PathParam("sensor") String sensorName,
-            @ApiParam(value = "Return raw sensor data instead of display values", required = false)
-            @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     // this method is used if user has requested plain (ie not converting to json)
     @GET
     @Path("/{sensor}")
     @ApiOperation(value = "Fetch sensor value (text/plain)", response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or sensor")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.TEXT_PLAIN + ";qs=0.9")
     public String getPlain(
@@ -102,13 +127,20 @@ public interface SensorApi {
             @PathParam("entity") final String entityToken,
             @ApiParam(value = "Sensor name", required = true)
             @PathParam("sensor") String sensorName,
-            @ApiParam(value = "Return raw sensor data instead of display values", required = false)
-            @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     @POST
     @ApiOperation(value = "Manually set multiple sensor values")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @SuppressWarnings("rawtypes")
     public void setFromMap(
@@ -123,7 +155,11 @@ public interface SensorApi {
     @Path("/{sensor}")
     @ApiOperation(value = "Manually set a sensor value")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or sensor")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void set(
             @ApiParam(value = "Application ID or name", required = true)
@@ -139,7 +175,11 @@ public interface SensorApi {
     @Path("/{sensor}")
     @ApiOperation(value = "Manually clear a sensor value")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or sensor")
+            @ApiResponse(code = 200, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application, entity, or sensor not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void delete(
             @ApiParam(value = "Application ID or name", required = true)

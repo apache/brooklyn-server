@@ -40,6 +40,7 @@ public class BrooklynVersionSyntax {
     public final static String OSGI_TOKEN_REGEX = "[" + OSGI_TOKEN_CHARS + "]+";
     public final static String NUMBER = "[0-9]+";
     public final static String QUALIFIER = OSGI_TOKEN_REGEX;
+    public final static String BROOKLYN_QUALIFIER = "[" + "." + OSGI_TOKEN_CHARS + "]+";
     
     public final static String VALID_OSGI_VERSION_REGEX = 
         NUMBER + 
@@ -54,10 +55,9 @@ public class BrooklynVersionSyntax {
         NUMBER + 
             "(" + DOT + NUMBER +  
                 "(" + DOT + NUMBER +  
-                    "(" + "-" + QUALIFIER +  
-                    ")?" +
                 ")?" +
-            ")?";
+            ")?" +
+            "(" + "-" + BROOKLYN_QUALIFIER +  ")?";
     
     private static boolean isUsable(String candidate) {
         return candidate!=null && candidate.matches(USABLE_REGEX);

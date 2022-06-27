@@ -213,8 +213,10 @@ public class ArchiveUtils {
      * @see #deploy(Map, String, SshMachineLocation, String, String, String)
      */
     public static void deploy(Map<String, ?> props, String archiveUrl, SshMachineLocation machine, String destDir) {
+        List<File> filesToDelete = MutableList.of();
         if (Urls.isDirectory(archiveUrl)) {
             File zipFile = ArchiveBuilder.zip().entry(".", Urls.toFile(archiveUrl)).create();
+            filesToDelete.add(zipFile);
             archiveUrl = zipFile.getAbsolutePath();
         }
 
@@ -223,6 +225,7 @@ public class ArchiveUtils {
         destFile = destFile.substring(destFile.lastIndexOf('/') + 1);
 
         deploy(props, archiveUrl, machine, destDir, destFile);
+        filesToDelete.forEach(f -> f.delete());
     }
 
     /**

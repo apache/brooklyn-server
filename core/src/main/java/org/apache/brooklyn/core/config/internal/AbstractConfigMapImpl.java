@@ -18,17 +18,11 @@
  */
 package org.apache.brooklyn.core.config.internal;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Future;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
+import java.util.function.Consumer;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -53,18 +47,19 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.MaybeSupplier;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.concurrent.Future;
 
 public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> implements ConfigMapWithInheritance<TContainer> {
 
@@ -105,6 +100,8 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return bo;
     }
 
+    public abstract <T> void assertValid(ConfigKey<T> key, T val);
+
     protected final BrooklynObjectInternal getBrooklynObject() {
         return (BrooklynObjectInternal)bo;
     }
@@ -116,7 +113,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     
     @Override
     public <T> T getConfig(HasConfigKey<T> key) {
-        return getConfigImpl(key.getConfigKey(), false).getWithoutError().get();
+        return getConfig(key.getConfigKey());
     }
 
     @Override
@@ -166,18 +163,23 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return result.seal();
     }
 
-    /** As {@link #getLocalConfigRaw()} but in a {@link ConfigBag} for convenience */
+    /** As {@link #getAllConfigLocalRaw()} } but in a {@link ConfigBag} for convenience */
     public ConfigBag getLocalConfigBag() {
         return putAllOwnConfigIntoSafely(ConfigBag.newInstance()).seal();
     }
 
+    /** used in putAll, does coercion but bypasses validation; also used in AbstractEntity#setConfigEvenIfOwned */
     public Object setConfig(final ConfigKey<?> key, Object v) {
+        return setConfigCoercingAndValidating(key, v, false).getLeft();
+    }
+
+    public <T> Pair<Object,Object> setConfigCoercingAndValidating(final ConfigKey<T> key, Object v, boolean validate) {
         // Use our own key for writing, (e.g. in-case it should (or should not) be a structured key like MapConfigKey).
         // This is same logic as for getConfig, except we only have to look at our own container.
-        ConfigKey<?> ownKey = getKeyAtContainer(getContainer(), key);
+        ConfigKey<T> ownKey = getKeyAtContainer(getContainer(), key);
         if (ownKey==null) ownKey = key;
 
-        Object val = coerceConfigVal(ownKey, v);
+        Object val = coerceConfigValAndValidate(ownKey, v, validate);
         Object oldVal;
         if (ownKey instanceof StructuredConfigKey) {
             oldVal = ((StructuredConfigKey)ownKey).applyValueToMap(val, ownConfig);
@@ -185,7 +187,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             oldVal = ownConfig.put(ownKey, val);
         }
         postSetConfig();
-        return oldVal;
+        return ImmutablePair.of(oldVal, val);
     }
 
     protected abstract void postSetConfig();
@@ -228,9 +230,9 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         return (BrooklynObjectInternal) getParent();
     }
 
-    @Override @Deprecated
+    @Override
     public Maybe<Object> getConfigRaw(ConfigKey<?> key, boolean includeInherited) {
-        // does not currently respect inheritance modes
+        // NB: does not respect inheritance modes; see methods in ConfigMap.ConfigInheritance
         if (ownConfig.containsKey(key)) {
             return Maybe.of(ownConfig.get(key));
         }
@@ -244,35 +246,71 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 return Maybe.of(ownConfig.get(deprecatedKey));
             }
         }
+        if (key instanceof AbstractStructuredConfigKey) {
+            // for structured keys, compute the raw value
+            Object result = ((AbstractStructuredConfigKey) key).rawValue(ownConfig);
+            if (result instanceof Iterable) {
+                if (!((Iterable)result).iterator().hasNext()) return Maybe.absent("No value for structured collection key "+key);
+            } else if (result instanceof Map) {
+                if (((Map)result).isEmpty()) return Maybe.absent("No value for structured map key "+key);
+            } else {
+                LOG.warn("Unsupported structured config key "+key+"; may return default empty value if unset");
+            }
+            return Maybe.ofDisallowingNull(result);
+        }
         if (!includeInherited || getParent()==null) return Maybe.absent();
         return getParentInternal().config().getInternalConfigMap().getConfigRaw(key, includeInherited);
     }
 
-    protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
+    protected final Object coerceConfigVal(ConfigKey<?> key, Object v) {
+        return coerceConfigValAndValidate(key, v, false);
+    }
+
+    /** see also {@link #resolveCoerceAndValidate(BrooklynObject, String, Object, TypeToken, ConfigKey, ConfigKey)} */
+    protected <T> Object coerceConfigValAndValidate(ConfigKey<T> key, Object v, boolean validate) {
+        Object result = coerceConfigValPreValidate(key, v);
+        // previously validation was only done in a few paths, and before coercion, and cast exceptions were ignored.
+        // now (2021) validation is done after coercion, on more paths but not all; but not for futures etc.
+        // now we are also validating on retrieval, for all types.
+        if (validate) {
+            assertValid(key, (T)result);
+        }
+        return result;
+    }
+
+    protected <T> Object coerceConfigValPreValidate(ConfigKey<T> key, Object v) {
         if ((v instanceof Future) || (v instanceof DeferredSupplier) || (v instanceof TaskFactory)) {
             // no coercion for these (coerce on exit)
             return v;
         } else if (key instanceof StructuredConfigKey) {
             // no coercion for these structures (they decide what to do)
             return v;
-        } else if ((v instanceof Map || v instanceof Iterable) && key.getType().isInstance(v)) {
+        } else if ((v instanceof Map || v instanceof Iterable) && isStructurallyCompatible(key, v)) {
             // don't do coercion on put for these, if the key type is compatible, 
             // because that will force resolution deeply
             return v;
         } else {
+            T result;
             try {
                 // try to coerce on input, to detect errors sooner
-                return TypeCoercions.coerce(v, key.getTypeToken());
+                result = (T) TypeCoercions.coerce(v, key.getTypeToken());
             } catch (Exception e) {
-                throw new IllegalArgumentException("Cannot coerce or set "+v+" to "+key, e);
-                // if can't coerce, we could just log as below and *throw* the error when we retrieve the config
-                // but for now, fail fast (above), because we haven't encountered strong use cases
-                // where we want to do coercion on retrieval, except for the exceptions above
-                //                Exceptions.propagateIfFatal(e);
-                //                LOG.warn("Cannot coerce or set "+v+" to "+key+" (ignoring): "+e, e);
-                //                val = v;
+                throw Exceptions.propagateAnnotated("Cannot coerce or set "+v+" to "+key, e);
+                // in early days (<2017?) we would warn on setting, only throw on retrieval;
+                // but now throw on setting if it is coercible
+            }
+            return result;
+        }
+    }
+
+    private <T> boolean isStructurallyCompatible(ConfigKey<T> key, Object v) {
+        if (key.getType().isInstance(v)) return true;
+        if (Collection.class.isAssignableFrom(key.getType())) {
+            if (v instanceof Iterable) {
+                return true;
             }
         }
+        return false;
     }
 
     @Override
@@ -363,18 +401,16 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         }
     }
 
+    /** see also {@link #coerceConfigVal(ConfigKey, Object)} */
     @SuppressWarnings("unchecked")
-    protected <T> T coerceDefaultValue(TContainer container, String name, Object value, TypeToken<T> type) {
+    protected <T> T resolveCoerceAndValidate(TContainer container, String name, Object value, TypeToken<T> type, ConfigKey<?> key1, ConfigKey<?> key2) {
         if (type==null || value==null) return (T) value;
         ExecutionContext exec = getExecutionContext(container);
         try {
-            T result;
-            if (ValueResolver.supportsDeepResolution(value)) {
-                result = (T) Tasks.resolveDeepValue(value, Object.class, exec, "Resolving deep default config "+name);
-            } else {
-                result = Tasks.resolveValue(value, type, exec, "Resolving default config "+name);
-            }
-            
+            T result = Tasks.resolveDeepValueCoerced(value, type, exec, "config "+name); // entity should be in context, and entity toString might be disallowed (during initial validation)
+            assertValid((ConfigKey) key1, value);
+            if (key2!=null && !Objects.equals(key1, key2)) assertValid((ConfigKey) key2, value);
+
             // best effort to preserve/enforce immutability for defaults
             if (result instanceof Map) return (T) Collections.unmodifiableMap((Map<?,?>)result);
             if (result instanceof List) return (T) Collections.unmodifiableList((List<?>)result);
@@ -383,7 +419,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             
             return result;
         } catch (Exception e) {
-            throw Exceptions.propagate(e);
+            throw Exceptions.propagateAnnotated("Error coercing " + container + "->" + name, e);
         }
     }
 
@@ -416,7 +452,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (raw || input==null || input.isAbsent()) return (Maybe<T>)input;
                 // use lambda to defer execution if default value not needed.
                 // this coercion should never be persisted so this is safe.
-                return new MaybeSupplier<T>(() -> (coerceDefaultValue(getContainer(), ownKey.getName(), input.get(), type)));
+                return new MaybeSupplier<T>(() -> (resolveCoerceAndValidate(getContainer(), ownKey.getName(), input.get(), type, ownKey, queryKey)));
             }
         };
         // prefer default and type of ownKey
@@ -463,11 +499,11 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         
         TypeToken<?> ownType = ownKey.getTypeToken();
         TypeToken<?> queryType = queryKey.getTypeToken();
-        if (queryType.isAssignableFrom(ownType)) {
+        if (queryType.isSupertypeOf(ownType)) {
             // own type is same or more specific, normal path
             return ownType;
         }
-        if (ownType.isAssignableFrom(queryType)) {
+        if (ownType.isSupertypeOf(queryType)) {
             // query type is more specific than type defined; unusual but workable
             LOG.debug("Query for "+queryKey+" wants more specific type than key "+ownKey+" declared on "+context+" (unusual but clear what to do)");
             // previously (to 2017-11) we used the less specific type, only issue noticed was if an anonymous key is persisted
@@ -532,10 +568,8 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
     @SuppressWarnings("deprecation")
     protected Set<ConfigKey<?>> findKeys(Predicate<? super ConfigKey<?>> filter, KeyFindingMode mode) {
         MutableSet<ConfigKey<?>> result = MutableSet.of();
-        if (mode==KeyFindingMode.DECLARED_OR_PRESENT) {
-            result.addAll( Iterables.filter(getKeysAtContainer(getContainer()), filter) );
-        }
 
+        // always put present ones first, in the order they were specified
         for (ConfigKey<?> k: Iterables.filter(ownConfig.keySet(), filter)) {
             if (result.contains(k)) continue;
             if (mode!=KeyFindingMode.PRESENT_NOT_RESOLVED) {
@@ -543,6 +577,11 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
                 if (k2!=null) k = k2;
             }
             result.add(k);
+        }
+
+        // then add any additional ones declared on the type
+        if (mode==KeyFindingMode.DECLARED_OR_PRESENT) {
+            result.addAll( Iterables.filter(getKeysAtContainer(getContainer()), filter) );
         }
 
         // due to set semantics local should be added first, it prevents equal items from parent from being added on top

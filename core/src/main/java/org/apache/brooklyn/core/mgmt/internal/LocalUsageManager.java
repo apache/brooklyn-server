@@ -288,8 +288,16 @@ public class LocalUsageManager implements UsageManager {
         // but no strong enough feelings yet...
         
         checkNotNull(loc, "location");
-        if (loc.getConfig(AbstractLocation.TEMPORARY_LOCATION)) {
-            log.info("Ignoring location lifecycle usage event for {} (state {}), because location is a temporary location", loc, state);
+        Boolean tempLocation = null;
+        try {
+            tempLocation = loc.getConfig(AbstractLocation.TEMPORARY_LOCATION);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.trace("Unable to get temporary location for {}", loc);
+        }
+
+        if (Boolean.TRUE.equals(tempLocation)) {
+            log.info("Ignoring location lifecycle usage event for {} (state {}), because location is a temporary location {}", loc, state, tempLocation);
             return;
         }
         checkNotNull(state, "state of location %s", loc);
@@ -302,7 +310,13 @@ public class LocalUsageManager implements UsageManager {
             return;
         }
         
-        Object callerContext = loc.getConfig(LocationConfigKeys.CALLER_CONTEXT);
+        Object callerContext = null;
+        try {
+            callerContext = loc.getConfig(LocationConfigKeys.CALLER_CONTEXT);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.trace("Unable to get caller context for {}", loc);
+        }
         
         if (callerContext != null && callerContext instanceof Entity) {
             Entity caller = (Entity) callerContext;

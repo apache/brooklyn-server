@@ -19,16 +19,44 @@
 package org.apache.brooklyn.rest.resources;
 
 
+import javax.servlet.ServletConfig;
+import javax.servlet.ServletContext;
 import javax.ws.rs.Path;
 
 import io.swagger.annotations.Api;
 import io.swagger.jaxrs.listing.ApiListingResource;
 
+import javax.ws.rs.core.*;
+
+import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
+
 /**
  * @author Ciprian Ciubotariu <cheepeero@gmx.net>
  */
 @Api("API Documentation")
-@Path("/apidoc")
+@Path("/apidoc/swagger.{type:json|yaml}")
 public class ApidocResource extends ApiListingResource {
 
+    @Context
+    ServletContext servletContext;
+
+    private void preprocess(Application app, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo) {
+        RestApiResourceScanner.rescanIfNeeded(() -> process(app, servletContext, servletConfig, headers, uriInfo));
+    }
+
+    @Override
+    public Response getListing(Application app, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo, String type) {
+        preprocess(app, servletConfig, headers, uriInfo);
+        return super.getListing(app, servletConfig, headers, uriInfo, type);
+    }
+
+    @Override
+    public Response getListingJsonResponse(Application app, ServletContext servletContext, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo) {
+        return super.getListingJsonResponse(app, servletContext, servletConfig, headers, uriInfo);
+    }
+
+    @Override
+    public Response getListingYamlResponse(Application app, ServletContext servletContext, ServletConfig servletConfig, HttpHeaders headers, UriInfo uriInfo) {
+        return super.getListingYamlResponse(app, servletContext, servletConfig, headers, uriInfo);
+    }
 }

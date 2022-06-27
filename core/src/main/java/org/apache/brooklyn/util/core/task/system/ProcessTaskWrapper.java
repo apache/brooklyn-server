@@ -19,15 +19,16 @@
 package org.apache.brooklyn.util.core.task.system;
 
 import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskWrapper;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.internal.AbstractSshExecTaskFactory.Std2x2StreamProvider;
 import org.apache.brooklyn.util.core.task.system.internal.AbstractProcessTaskFactory;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
@@ -46,19 +47,31 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
     private final Task<RET> task;
 
     // execution details
-    protected ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-    protected ByteArrayOutputStream stderr = new ByteArrayOutputStream();
     protected Integer exitCode = null;
-    
+    private Std2x2StreamProvider streamProvider;
+
     @SuppressWarnings("unchecked")
     protected ProcessTaskWrapper(AbstractProcessTaskFactory<?,RET> constructor) {
         super(constructor);
         TaskBuilder<Object> tb = constructor.constructCustomizedTaskBuilder();
-        if (stdout!=null) tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, stdout));
-        if (stderr!=null) tb.tag(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, stderr));
+        initStreams(tb);
         task = (Task<RET>) tb.body(new ProcessTaskInternalJob()).build();
     }
-    
+
+    protected void initStreams(TaskBuilder<Object> tb) {
+        streamProvider = Std2x2StreamProvider.newDefault(tb);
+    }
+
+    protected void initStreams(Std2x2StreamProvider r) {
+        streamProvider = r;
+    }
+
+    protected ByteArrayOutputStream stdoutForReading() { return streamProvider.stdoutForReading; }
+    protected OutputStream stdoutForWriting() { return streamProvider.stdoutForWriting; }
+
+    protected ByteArrayOutputStream stderrForReading() { return streamProvider.stderrForReading; }
+    protected OutputStream stderrForWriting() { return streamProvider.stderrForWriting; }
+
     @Override
     public Task<RET> asTask() {
         return getTask();
@@ -74,24 +87,25 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
     }
     
     public byte[] getStdoutBytes() {
-        if (stdout==null) return null;
-        return stdout.toByteArray();
+        if (stdoutForReading()==null) return null;
+        return stdoutForReading().toByteArray();
     }
     
     public byte[] getStderrBytes() {
-        if (stderr==null) return null;
-        return stderr.toByteArray();
+        if (stderrForReading()==null) return null;
+        return stderrForReading().toByteArray();
     }
     
     public String getStdout() {
-        if (stdout==null) return null;
-        return stdout.toString();
+        if (stdoutForReading()==null) return null;
+        return stdoutForReading().toString();
     }
     
     public String getStderr() {
-        if (stderr==null) return null;
-        return stderr.toString();
+        if (stderrForReading()==null) return null;
+        return stderrForReading().toString();
     }
+
 
     protected class ProcessTaskInternalJob implements Callable<Object> {
         @Override
@@ -117,10 +131,10 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
             }
             switch (returnType) {
             case CUSTOM: return returnResultTransformation.apply(ProcessTaskWrapper.this);
-            case STDOUT_STRING: return stdout.toString();
-            case STDOUT_BYTES: return stdout.toByteArray();
-            case STDERR_STRING: return stderr.toString();
-            case STDERR_BYTES: return stderr.toByteArray();
+            case STDOUT_STRING: return getStdout();
+            case STDOUT_BYTES: return getStdoutBytes();
+            case STDERR_STRING: return getStderr();
+            case STDERR_BYTES: return getStderrBytes();
             case EXIT_CODE: return exitCode;
             }
 
@@ -130,8 +144,8 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
         protected void logWithDetailsAndThrow(String message, Throwable optionalCause) {
             message = (extraErrorMessage!=null ? extraErrorMessage+": " : "") + message;
             log.warn(message+" (throwing)");
-            logProblemDetails("STDERR", stderr, 1024);
-            logProblemDetails("STDOUT", stdout, 1024);
+            logProblemDetails("STDERR", stderrForReading(), 1024);
+            logProblemDetails("STDOUT", stdoutForReading(), 1024);
             logProblemDetails("STDIN", Streams.byteArrayOfString(Strings.join(commands,"\n")), 4096);
             if (optionalCause!=null) throw new IllegalStateException(message, optionalCause);
             throw new IllegalStateException(message);
@@ -167,8 +181,8 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
     /** for overriding */
     protected ConfigBag getConfigForRunning() {
         ConfigBag config = ConfigBag.newInstanceCopying(ProcessTaskWrapper.this.config);
-        if (stdout!=null) config.put(ShellTool.PROP_OUT_STREAM, stdout);
-        if (stderr!=null) config.put(ShellTool.PROP_ERR_STREAM, stderr);
+        if (stdoutForWriting()!=null) config.put(ShellTool.PROP_OUT_STREAM, stdoutForWriting());
+        if (stderrForWriting()!=null) config.put(ShellTool.PROP_ERR_STREAM, stderrForWriting());
         
         if (!config.containsKey(ShellTool.PROP_NO_EXTRA_OUTPUT))
             // by default no extra output (so things like cat, etc work as expected)

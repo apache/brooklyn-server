@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.util.Collection;
 import java.util.Map;
 
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
@@ -39,6 +40,7 @@ import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.osgi.framework.BundleException;
 
 import com.google.common.collect.Maps;
@@ -91,10 +93,14 @@ public class RebindContextImpl implements RebindContext {
         catalogItems.put(id, catalogItem);
     }
 
+    public void registerBundle(String versionedName, ManagedBundle bundle) {
+        bundles.put(versionedName, bundle);
+    }
+
     /** install the bundles into brooklyn and osgi, but do not start nor validate;
      * caller (rebind) will do that manually, doing each step across all bundles before proceeding 
      * to prevent reference errors */
-    public OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
+    public OsgiBundleInstallationResult installBundle(ManagedBundle bundle, Supplier<InputStream> zipInput) {
         return ((ManagementContextInternal)mgmt).getOsgiManager().get().installDeferredStart(bundle, zipInput, false).get();
     }
     public void startBundle(OsgiBundleInstallationResult br) throws BundleException {

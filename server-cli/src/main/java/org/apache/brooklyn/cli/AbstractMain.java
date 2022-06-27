@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.cli;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Cli;
 import io.airlift.airline.Cli.CliBuilder;
@@ -51,18 +53,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Objects;
-import com.google.common.base.Objects.ToStringHelper;
 
 /**
  * This class is the primary CLI for brooklyn.
  * Run with the `help` argument for help.
  * <p>
  * This class is designed for subclassing, with subclasses typically:
- * <li> providing their own static {@link #main(String...)} (of course) which need simply invoke 
+ * <li> providing their own static main (of course) which need simply invoke
  *      {@link #execCli(String[])} with the arguments 
  * <li> returning their CLI name (e.g. "start.sh") in an overridden {@link #cliScriptName()}
- * <li> providing an overridden {@link LaunchCommand} via {@link #cliLaunchCommand()} if desired
+ * <li> providing an overridden {@link LaunchCommand} if desired
  * <li> providing any other CLI customisations by overriding {@link #cliBuilder()}
  *      (typically calling the parent and then customizing the builder)
  * <li> populating a custom catalog using {@link LaunchCommand#populateCatalog(BrooklynCatalog)}
@@ -118,7 +118,7 @@ public abstract class AbstractMain {
         protected InputStream stdin = System.in;
 
         public ToStringHelper string() {
-            return Objects.toStringHelper(getClass())
+            return MoreObjects.toStringHelper(getClass())
                     .add("verbose", verbose)
                     .add("quiet", quiet);
         }

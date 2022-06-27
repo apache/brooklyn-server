@@ -60,17 +60,17 @@ public class Locations {
         public List<Location> filterForContext(List<Location> locations, Object context);
     }
     
-    /** as {@link Machines#findUniqueMachineLocation(Iterable)} */
+    /** @see {@link Machines#findUniqueMachineLocation(Iterable)} */
     public static Maybe<MachineLocation> findUniqueMachineLocation(Iterable<? extends Location> locations) {
         return Machines.findUniqueMachineLocation(locations);
     }
     
-    /** as {@link Machines#findUniqueSshMachineLocation(Iterable)} */
+    /** @see {@link Machines#findUniqueMachineLocation(Iterable, Class)} */
     public static Maybe<SshMachineLocation> findUniqueSshMachineLocation(Iterable<? extends Location> locations) {
         return Machines.findUniqueMachineLocation(locations, SshMachineLocation.class);
     }
 
-    /** if no locations are supplied, returns locations on the entity, or in the ancestors, until it finds a non-empty set,
+    /** If no locations are supplied, returns locations on the entity, or in the ancestors, until it finds a non-empty set,
      * or ultimately the empty set if no locations are anywhere */ 
     public static Collection<? extends Location> getLocationsCheckingAncestors(Collection<? extends Location> locations, Entity entity) {
         // look in ancestors if location not set here

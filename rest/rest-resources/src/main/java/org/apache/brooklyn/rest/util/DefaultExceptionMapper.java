@@ -64,7 +64,7 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         if (throwable1.getClass().getName().equals("org.eclipse.jetty.io.EofException")) {
             if (LOG.isTraceEnabled()) {
                 LOG.trace("REST request running as {} was disconnected, threw: {}", Entitlements.getEntitlementContext(), 
-                        Exceptions.collapse(throwable1));
+                        Exceptions.collapseText(throwable1));
             }
             return null;
         }
@@ -72,10 +72,10 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
         Throwable throwable2 = Exceptions.getFirstInteresting(throwable1);
         if (isSevere(throwable2)) {
             LOG.warn("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
-                Exceptions.collapse(throwable1));
+                Exceptions.collapseText(throwable1));
         } else {
             LOG.debug("REST request running as {} threw: {}", Entitlements.getEntitlementContext(), 
-                Exceptions.collapse(throwable1));            
+                Exceptions.collapseText(throwable1));
         }
         logExceptionDetailsForDebugging(throwable1);
 

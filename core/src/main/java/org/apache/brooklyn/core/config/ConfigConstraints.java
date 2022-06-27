@@ -19,13 +19,11 @@
 
 package org.apache.brooklyn.core.config;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -38,7 +36,11 @@ import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectPredicate;
 import org.apache.brooklyn.core.objs.ConstraintSerialization;
+import org.apache.brooklyn.core.validation.BrooklynValidation;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
@@ -56,11 +58,11 @@ import com.google.common.collect.Lists;
  *
  * @since 0.9.0
  */
-public abstract class ConfigConstraints<T extends BrooklynObject> {
+public abstract class ConfigConstraints<T> {
 
     public static final Logger LOG = LoggerFactory.getLogger(ConfigConstraints.class);
 
-    private final T brooklynObject;
+    private final T source;
 
     /**
      * Checks all constraints of all config keys available to an entity.
@@ -69,10 +71,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
      * {@link BrooklynObjectPredicate#apply(Object, BrooklynObject)} will be used.
      */
     public static void assertValid(Entity entity) {
-        Iterable<ConfigKey<?>> violations = new EntityConfigConstraints(entity).getViolations();
-        if (!Iterables.isEmpty(violations)) {
-            throw new ConstraintViolationException(errorMessage(entity, violations));
-        }
+        new EntityConfigConstraints(entity).assertValid();
     }
 
     /**
@@ -82,14 +81,15 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
      * {@link BrooklynObjectPredicate#apply(Object, BrooklynObject)} will be used.
      */
     public static void assertValid(EntityAdjunct adjunct) {
-        Iterable<ConfigKey<?>> violations = new EntityAdjunctConstraints(adjunct).getViolations();
-        if (!Iterables.isEmpty(violations)) {
-            throw new ConstraintViolationException(errorMessage(adjunct, violations));
-        }
+        new EntityAdjunctConstraints(adjunct).assertValid();
     }
 
     public static <T> void assertValid(Entity entity, ConfigKey<T> key, T value) {
         assertValid(new EntityConfigConstraints(entity), entity, key, value);
+    }
+
+    public static <T> void assertValid(EntityAdjunct adj, ConfigKey<T> key, T value) {
+        assertValid(new EntityAdjunctConstraints(adj), adj, key, value);
     }
 
     public static <T> void assertValid(Location location, ConfigKey<T> key, T value) {
@@ -97,70 +97,85 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
     }
     
     private static <T> void assertValid(ConfigConstraints<?> constrants, Object context, ConfigKey<T> key, T value) {
-        ReferenceWithError<Predicate<?>> validity = constrants.validateValue(key, value);
-        if (validity.hasError()) {
-            throw new ConstraintViolationException("Invalid value for " + key + " on " + context + " (" + value + "); it should satisfy "+validity.getWithoutError());
-        }
-    }
-
-    private static String errorMessage(BrooklynObject object, Iterable<ConfigKey<?>> violations) {
-        StringBuilder message = new StringBuilder("Error configuring ")
-                .append(object.getDisplayName())
-                .append(": [");
-        Iterator<ConfigKey<?>> it = violations.iterator();
-        while (it.hasNext()) {
-            ConfigKey<?> config = it.next();
-            message.append(config.getName())
-                    .append(":")
-                    .append(config.getConstraint());
-            if (it.hasNext()) {
-                message.append(", ");
+        try {
+            ReferenceWithError<?> validity = constrants.validateValue(key, value);
+            if (validity.hasError()) {
+                // messages now handled by the CVE class
+//                String msg = "Invalid value for " + key + " on " + context + " (" + value + ")";
+//                if (validity.getWithoutError() != null) {
+//                    throw new ConstraintViolationException(Exceptions.collapseText(validity.getError()) + ": " + msg + "; it should satisfy " + validity.getWithoutError());
+//                } else {
+//                    throw new ConstraintViolationException(msg, validity.getError());
+//                }
+                throw validity.getError();
             }
+        } catch (Throwable e) {
+            Exceptions.propagateIfFatal(e);
+            throw ConstraintViolationException.of(e, context, key, value);
         }
-        return message.append("]").toString();
     }
 
-    public ConfigConstraints(T brooklynObject) {
-        this.brooklynObject = brooklynObject;
+    public ConfigConstraints(T source) {
+        this.source = source;
     }
 
-    abstract Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys();
+    public void assertValid() {
+        Map<ConfigKey<?>, Throwable> violations = getViolationsDetails();
+        if (!violations.isEmpty()) {
+            throw ConstraintViolationException.CompoundConstraintViolationException.of(getDisplayName(), violations);
+        }
+    }
 
+    public abstract String getDisplayName();
+
+    public abstract Iterable<ConfigKey<?>> getConfigKeys();
+
+    public abstract Maybe<?> getValue(ConfigKey<?> configKey);
+
+    public abstract @Nullable ExecutionContext getExecutionContext();
+
+    /** @deprecated since 1.1.0 use {@link #getViolationsDetails()} */
+    @Deprecated  // not used
     public Iterable<ConfigKey<?>> getViolations() {
-        ExecutionContext exec = 
-            getBrooklynObject() instanceof EntityInternal ? ((EntityInternal)getBrooklynObject()).getExecutionContext() :
-            getBrooklynObject() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getBrooklynObject()).getExecutionContext() :
-            null;
+        return getViolationsDetails().keySet();
+    }
+
+    /** runs blocking in task on context entity if possible, else runs in caller's thread */
+    public Map<ConfigKey<?>,Throwable> getViolationsDetails() {
+        ExecutionContext exec = getExecutionContext();
         if (exec!=null) {
             return exec.get(
-                Tasks.<Iterable<ConfigKey<?>>>builder().dynamic(false).displayName("Validating config").body(
-                    () -> validateAll() ).build() );
+                BrooklynTaskTags.setTransient(   // set transient so gets GC and doesn't pollute the "top-level" view
+                    Tasks.<Map<ConfigKey<?>,Throwable>>builder().dynamic(false).displayName("Validating config").body( () -> validateAll() ).build() ));
         } else {
             return validateAll();
         }
     }
 
     @SuppressWarnings("unchecked")
-    protected Iterable<ConfigKey<?>> validateAll() {
-        List<ConfigKey<?>> violating = Lists.newLinkedList();
-        Iterable<ConfigKey<?>> configKeys = getBrooklynObjectTypeConfigKeys();
-        LOG.trace("Checking config keys on {}: {}", getBrooklynObject(), configKeys);
+    protected Map<ConfigKey<?>, Throwable> validateAll() {
+        Map<ConfigKey<?>,Throwable> violating = MutableMap.of();
+        Iterable<ConfigKey<?>> configKeys = getConfigKeys();
+        LOG.trace("Checking config keys on {}: {}", getSource(), configKeys);
         for (ConfigKey<?> configKey : configKeys) {
-            BrooklynObjectInternal.ConfigurationSupportInternal configInternal = getConfigurationSupportInternal();
-            // getNonBlocking method coerces the value to the config key's type.
-            Maybe<?> maybeValue = configInternal.getNonBlocking(configKey);
-            if (maybeValue.isPresent()) {
-                // Cast is safe because the author of the constraint on the config key had to
-                // keep its type to Predicte<? super T>, where T is ConfigKey<T>.
-                ConfigKey<Object> ck = (ConfigKey<Object>) configKey;
-                if (!isValueValid(ck, maybeValue.get())) {
-                    violating.add(configKey);
+            try {
+                Maybe<?> maybeValue = getValue(configKey);
+                if (maybeValue.isPresent()) {
+                    // Cast is safe because the author of the constraint on the config key had to
+                    // keep its type to Predicate<? super T>, where T is ConfigKey<T>.
+                    ReferenceWithError<?> validation = validateValue((ConfigKey<Object>) configKey, maybeValue.get());
+                    if (validation.hasError()) {
+                        violating.put(configKey, validation.getError());
+                    }
+                } else {
+                    // absent means did not resolve in time or not coercible;
+                    // code will return `Maybe.of(null)` if it is unset,
+                    // and coercion errors are handled when the value is _set_ or _needed_
+                    // (this allows us to deal with edge cases where we can't *immediately* coerce)
                 }
-            } else {
-                // absent means did not resolve in time or not coercible;
-                // code will return `Maybe.of(null)` if it is unset,
-                // and coercion errors are handled when the value is _set_ or _needed_
-                // (this allows us to deal with edge cases where we can't *immediately* coerce)
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                violating.put(configKey, e);
             }
         }
         return violating;
@@ -170,32 +185,68 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         return !validateValue(configKey, value).hasError();
     }
     
-    /** returns reference to null without error if valid; otherwise returns reference to predicate and a good error message */
+    /** returns reference to null without error if valid; otherwise should
+     * contain an error whose message can be displayed at least one, and ideally a value whose toString is suitable for describing the requirement (eg the predicate).
+     * <p>
+     * this does not return the value, i.e. this is not suitable for use in a fluent api.
+     * </p>
+     * <p>
+     * this is for running constraints only.
+     * if value supplied to this method is not of the type declared by the config key, this returns no error.
+     * thus predicates can assume they will only see instances of the type declared by the config key.
+     * <p>
+     * in particular if it is a {@link DeferredSupplier} or {@link Future} no validation is done.
+     * the caller of this method is responsible for ensuring it is coerced and reporting failures if it is not of the right type.
+     * (those are not considered "constraint" violations so not part of this method -- they are a different class of violation.)
+     * <p>
+     * used to validate single constraints and multiple constraints.
+     * </p>
+     */
     @SuppressWarnings("unchecked")
-    <V> ReferenceWithError<Predicate<?>> validateValue(ConfigKey<V> configKey, V value) {
+    <V> ReferenceWithError<?> validateValue(ConfigKey<V> configKey, V value) {
+
+        // previously we ignored problems if validation threw an error; now we skip the check altogether if the type is wrong (future, or coercible),
+        // but report an error if the predicate throws one
+
+        Predicate<? super V> po = null;
+        if (value!=null) {
+            if (configKey.getType()==Object.class) {
+                if ((value instanceof Future || value instanceof DeferredSupplier)) {
+                    return ReferenceWithError.newInstanceWithoutError(null);
+                }
+            } else {
+                if (!configKey.getType().isInstance(value)) {
+                    return ReferenceWithError.newInstanceWithoutError(null);
+                }
+            }
+        }
         try {
-            Predicate<? super V> po = configKey.getConstraint();
+            po = configKey.getConstraint();
             boolean valid;
-            if (po instanceof BrooklynObjectPredicate) {
-                valid = BrooklynObjectPredicate.class.cast(po).apply(value, brooklynObject);
+            if (getSource() instanceof BrooklynObject && po instanceof BrooklynObjectPredicate) {
+                valid = BrooklynObjectPredicate.class.cast(po).apply(value, (BrooklynObject) getSource());
             } else {
                 valid = po.apply(value);
             }
             if (!valid) {
-                return ReferenceWithError.newInstanceThrowingError(po, new IllegalStateException("Invalid value for " + configKey.getName() + ": " + value));
+                throw new IllegalArgumentException("Constraint '"+po+"' not satisfied");
             }
         } catch (Exception e) {
-            LOG.debug("Error checking constraint on " + configKey.getName(), e);
+            Exceptions.propagateIfFatal(e);
+            return ReferenceWithError.newInstanceThrowingError(po, ConstraintViolationException.of(e, getSource(), configKey, value));
+        }
+
+        try {
+            BrooklynValidation.getInstance().validateIfPresent(value);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Invalid value for " + configKey.getName() + ": " + value + "; " + Exceptions.collapseText(e), e));
         }
         return ReferenceWithError.newInstanceWithoutError(null);
     }
 
-    private BrooklynObjectInternal.ConfigurationSupportInternal getConfigurationSupportInternal() {
-        return ((BrooklynObjectInternal) brooklynObject).config();
-    }
-
-    protected T getBrooklynObject() {
-        return brooklynObject;
+    protected T getSource() {
+        return source;
     }
 
     /**
@@ -211,8 +262,26 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         }
 
         @Override
-        Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys() {
-            return getBrooklynObject().getEntityType().getConfigKeys();
+        public String getDisplayName() {
+            return getSource().getDisplayName();
+        }
+
+        @Override
+        public Iterable<ConfigKey<?>> getConfigKeys() {
+            return getSource().getEntityType().getConfigKeys();
+        }
+
+        @Override
+        public Maybe<?> getValue(ConfigKey<?> configKey) {
+            // getNonBlocking method coerces the value to the config key's type.
+            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey, false);
+        }
+
+        @Nullable
+        @Override
+        public ExecutionContext getExecutionContext() {
+            return ((EntityInternal)getSource()).getExecutionContext();
+
         }
     }
 
@@ -222,8 +291,25 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         }
 
         @Override
-        Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys() {
-            return ((AbstractEntityAdjunct) getBrooklynObject()).getAdjunctType().getConfigKeys();
+        public String getDisplayName() {
+            return getSource().getDisplayName();
+        }
+
+        @Override
+        public Iterable<ConfigKey<?>> getConfigKeys() {
+            return ((AbstractEntityAdjunct) getSource()).getAdjunctType().getConfigKeys();
+        }
+
+        @Override
+        public Maybe<?> getValue(ConfigKey<?> configKey) {
+            // getNonBlocking method coerces the value to the config key's type.
+            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey, false);
+        }
+
+        @Nullable
+        @Override
+        public ExecutionContext getExecutionContext() {
+            return getSource() instanceof AbstractEntityAdjunct ? ((AbstractEntityAdjunct)getSource()).getExecutionContext() : null;
         }
     }
 
@@ -233,8 +319,25 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
         }
 
         @Override
-        Iterable<ConfigKey<?>> getBrooklynObjectTypeConfigKeys() {
+        public String getDisplayName() {
+            return getSource().getDisplayName();
+        }
+
+        @Override
+        public Iterable<ConfigKey<?>> getConfigKeys() {
             return Collections.emptyList();
+        }
+
+        @Override
+        public Maybe<?> getValue(ConfigKey<?> configKey) {
+            // getNonBlocking method coerces the value to the config key's type.
+            return ((BrooklynObjectInternal)getSource()).config().getNonBlocking(configKey, false);
+        }
+
+        @Nullable
+        @Override
+        public ExecutionContext getExecutionContext() {
+            return null;
         }
     }
 
@@ -310,7 +413,7 @@ public abstract class ConfigConstraints<T extends BrooklynObject> {
                 ConfigKey<Object> otherKey = ConfigKeys.newConfigKey(Object.class, otherKeyName);
                 BrooklynObjectInternal.ConfigurationSupportInternal configInternal = ((BrooklynObjectInternal) context).config();
                 
-                Maybe<?> maybeValue = configInternal.getNonBlocking(otherKey);
+                Maybe<?> maybeValue = configInternal.getNonBlocking(otherKey, false);
                 if (maybeValue.isPresent()) {
                     vals.add(maybeValue.get());
                 } else {

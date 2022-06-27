@@ -42,6 +42,9 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     private String symbolicName;
     private String version;
     private String checksum;
+    private Boolean deleteable;
+    private String osgiUniqueUrl;
+    private String format;
     private String url;
     private Credentials credentials;
     private transient boolean persistenceNeeded = false;
@@ -49,11 +52,25 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     /** Creates an empty one, with an ID, expecting other fields will be populated. */
     public BasicManagedBundle() {}
 
+    /** @deprecated since 1.1 use larger constructor */ @Deprecated
     public BasicManagedBundle(String name, String version, String url, @Nullable String checksum) {
-        this(name, version, url, null, checksum);
+        this(name, version, url, null, null, checksum);
+    }
+    /** @deprecated since 1.1 use larger constructor */ @Deprecated
+    public BasicManagedBundle(String name, String version, String url, Credentials credentials, @Nullable String checksum) {
+        this(name, version, url, null, credentials, checksum);
     }
 
-    public BasicManagedBundle(String name, String version, String url, Credentials credentials, @Nullable String checksum) {
+    /** @deprecated since 1.1 use larger constructor */ @Deprecated
+    public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum) {
+        init(name, version, url, format, credentials, checksum, null);
+    }
+
+    public BasicManagedBundle(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
+        init(name, version, url, format, credentials, checksum, deleteable);
+    }
+
+    private void init(String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -63,15 +80,38 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         this.symbolicName = name;
         this.version = version;
         this.url = url;
-        this.checksum = checksum;
+        this.format = format;
         this.credentials = credentials;
+        this.checksum = checksum;
+        this.deleteable = deleteable;
+    }
+
+    private BasicManagedBundle(String id, String name, String version, String url, String format, Credentials credentials, @Nullable String checksum, @Nullable Boolean deleteable) {
+        super(id);
+        init(name, version, url, format, credentials, checksum, deleteable);
+    }
+
+    /** used when updating a persisted bundle, we want to use the coords (ID and OSGI unique URL) of the second with the checksum of the former;
+     * the other fields should be the same between the two but if in doubt use the first argument
+     */
+    public static BasicManagedBundle copyFirstWithCoordsOfSecond(ManagedBundle update, ManagedBundle oldOneForCoordinates) {
+        BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum(), update.getDeleteable());
+        // we have secondary logic which should accept a change in the OSGi unique URL,
+        // but more efficient if we use the original URL
+        result.osgiUniqueUrl = oldOneForCoordinates.getOsgiUniqueUrl();
+        return result;
     }
     
     @Override
     public boolean isNameResolved() {
         return symbolicName != null && version != null;
     }
-    
+
+    @Override
+    public Boolean getDeleteable() {
+        return deleteable;
+    }
+
     @Override
     public String getSymbolicName() {
         return symbolicName;
@@ -100,7 +140,16 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         if (symbolicName==null) return null;
         return new VersionedName(symbolicName, version);
     }
-    
+
+    public void setFormat(String format) {
+        this.format = format;
+    }
+
+    @Override
+    public String getFormat() {
+        return format;
+    }
+
     @Override
     public String getUrl() {
         return url;
@@ -116,15 +165,23 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
     }
 
     /**
-     * Gets the (internal) value to be used as the location in bundleContext.install(location). 
-     * It thus allows us to tell if a cached OSGi bundle is the same as a bundle we are about to 
-     * install (e.g. one we get from persisted state), or have retrieved from the initial catalog.
+     * Gets the (internal) value to be used as the location in bundleContext.install(location) / bundleContext.getBundle(location).
+     * It thus allows us to tell if a cached OSGi bundle should be considered as replacement
+     * for the one we are about to install (e.g. one we get from persisted state),
+     * or have retrieved from the initial catalog with a unique URL for a bundle symbolic-name + version.
+     * This is typically not a real URL, as the same bundle may come from various locations.
+     * Typically we use a checksum or internal ID.
+     * In the case of same-version (eg snapshot or forced) bundle updates we remember and re-use the _original_ checksum.
+     * However code should be tolerant if this is not unique and use other more-expensive mechanisms for secondary de-duplication.
      * 
      * Care should be taken to set the checksum <em>before</em> using the OSGi unique url.
      */
     @Override
     public String getOsgiUniqueUrl() {
-        return "brooklyn:" + (checksum != null ? checksum : getId());
+        if (osgiUniqueUrl==null) {
+            osgiUniqueUrl = "brooklyn:" + (checksum != null ? checksum : getId());
+        }
+        return osgiUniqueUrl;
     }
     
     @Override
@@ -132,7 +189,9 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
         return MoreObjects.toStringHelper(this)
                 .add("symbolicName", symbolicName)
                 .add("version", version)
+                .add("format", format)
                 .add("url", url)
+                .add("osgiUniqueUrl", osgiUniqueUrl)
                 .toString();
     }
 
@@ -215,8 +274,10 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
                 bundle.getSymbolicName(),
                 bundle.getSuppliedVersionString(),
                 bundle.getUrl(),
+                null,
                 bundle.getUrlCredential(),
-                checksum);
+                checksum,
+                bundle instanceof ManagedBundle ? ((ManagedBundle)bundle).getDeleteable() : null);
     }
 
     public void setPersistenceNeeded(boolean val) {

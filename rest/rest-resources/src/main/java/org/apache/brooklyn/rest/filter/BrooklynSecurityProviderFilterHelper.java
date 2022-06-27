@@ -18,16 +18,23 @@
  */
 package org.apache.brooklyn.rest.filter;
 
+import com.google.common.collect.ImmutableList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
+import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.rest.BrooklynWebConfig;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
@@ -35,6 +42,7 @@ import org.apache.brooklyn.rest.security.provider.SecurityProvider.SecurityProvi
 import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.jetty.http.HttpHeader;
 import org.slf4j.Logger;
@@ -68,6 +76,14 @@ import org.slf4j.LoggerFactory;
  */
 public class BrooklynSecurityProviderFilterHelper {
 
+    private static final ConfigKey<String> UNAUTHENTICATED_ENDPOINTS =
+            ConfigKeys.newStringConfigKey(BrooklynWebConfig.BASE_NAME_SECURITY + ".unauthenticated.endpoints",
+                    "List of endpoints available without authentication e.g. a login page", "");
+
+    private static final List<String> STATIC_CONTENT_EXTENSIONS = ImmutableList.of(
+                ".html", ".htm", ".js", ".png", ".gif", ".jpg", ".svg"
+            );
+
     public interface Responder {
         void error(String message, boolean requiresBasicAuth) throws SecurityProviderDeniedAuthentication;
     }
@@ -89,17 +105,41 @@ public class BrooklynSecurityProviderFilterHelper {
     
     public void run(HttpServletRequest webRequest, ManagementContext mgmt) throws SecurityProviderDeniedAuthentication {
         SecurityProvider provider = getProvider(mgmt);
-        MultiSessionAttributeAdapter preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, false);
+        MultiSessionAttributeAdapter preferredSessionWrapper = null;
+
+        try{
+            preferredSessionWrapper = MultiSessionAttributeAdapter.of(webRequest, false);
+        }catch (WebApplicationException e){
+            // there is no valid session
+
+            abort(e.getResponse());
+        }
+
+        String unauthenticatedEndpoints = mgmt.getConfig().getConfig(UNAUTHENTICATED_ENDPOINTS);
+        if (Strings.isNonBlank(unauthenticatedEndpoints)) {
+            for (String s : unauthenticatedEndpoints.split(",")) {
+                String accessibleEndpoint = s.startsWith("/") ? s : "/" + s;
+                if (webRequest.getContextPath().equals(accessibleEndpoint)) {
+                    return;
+                }
+            }
+        }
+        if (Strings.isNonBlank(mgmt.getConfig().getConfig(BrooklynSecurityProviderFilterJavax.LOGIN_FORM)) && isStaticContent(webRequest)) {
+            // also allow pages' static content to be accessed
+            return;
+        }
+
         final HttpSession preferredSession1 = preferredSessionWrapper==null ? null : preferredSessionWrapper.getPreferredSession();
         
         if (log.isTraceEnabled()) {
-            log.trace(this+" checking "+MultiSessionAttributeAdapter.info(webRequest));
+            log.trace("{} checking {}", this, MultiSessionAttributeAdapter.info(webRequest));
         }
         if (provider.isAuthenticated(preferredSession1)) {
             log.trace("{} already authenticated - {}", this, preferredSession1);
             return;
         }
-        
+
+
         String user = null, pass = null;
         if (provider.requiresUserPass()) {
             String authorization = webRequest.getHeader("Authorization");
@@ -126,20 +166,51 @@ public class BrooklynSecurityProviderFilterHelper {
             }
         }
         
-        Supplier<HttpSession> sessionSupplier = () -> preferredSession1!=null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
-        if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
-            HttpSession preferredSession2 = sessionSupplier.get();
-            log.trace("{} authentication successful - {}", this, preferredSession2);
-            preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
-            if (user != null) {
-                preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+        Supplier<HttpSession> sessionSupplier = () -> {
+            return preferredSession1 != null ? preferredSession1 : MultiSessionAttributeAdapter.of(webRequest, true).getPreferredSession();
+        };
+
+        try{
+            if (provider.authenticate(webRequest, sessionSupplier, user, pass)) {
+                // gets new session created after authentication
+                HttpSession preferredSession2 = sessionSupplier.get();
+                preferredSession2.setAttribute(BrooklynWebConfig.REMOTE_ADDRESS_SESSION_ATTRIBUTE, webRequest.getRemoteAddr());
+                if (user != null) {
+                    preferredSession2.setAttribute(AUTHENTICATED_USER_SESSION_ATTRIBUTE, user);
+                }
+                return;
             }
-            return;
+        } catch (WebApplicationException e) {
+            abort(e.getResponse());
         }
-    
+
         throw abort("Authentication failed", provider.requiresUserPass());
     }
-    
+
+    boolean isStaticContent(HttpServletRequest webRequest) {
+        String servletPath = webRequest.getServletPath();
+        if (servletPath!=null) {
+            if (servletPath.matches("\\/v[0-9]+\\/")) {
+                // disallow API endpoints
+                return false;
+            }
+
+            if (Objects.equals(stripTrailingSlash(webRequest.getContextPath()), stripTrailingSlash(servletPath))) {
+                return true;
+            }
+            String servletPathLower = servletPath.toLowerCase(Locale.ROOT);
+            if (STATIC_CONTENT_EXTENSIONS.stream().anyMatch(
+                    //ext -> servletPath.endsWith(ext)  // <-- this seems allowed, but why? it's not effectively final!
+                    servletPathLower::endsWith
+                    )) return true;
+        }
+        return false;
+    }
+
+    private String stripTrailingSlash(String contextPath) {
+        return Strings.removeFromEnd(contextPath, "/");
+    }
+
     SecurityProviderDeniedAuthentication abort(String msg, boolean requiresUserPass) throws SecurityProviderDeniedAuthentication {
         ResponseBuilder response = Response.status(Status.UNAUTHORIZED);
         if (requiresUserPass) {
@@ -148,6 +219,10 @@ public class BrooklynSecurityProviderFilterHelper {
         response.header(HttpHeader.CONTENT_TYPE.asString(), MediaType.TEXT_PLAIN);
         response.entity(msg);
         throw new SecurityProviderDeniedAuthentication(response.build());
+    }
+
+    void abort(Response response) throws SecurityProviderDeniedAuthentication {
+        throw new SecurityProviderDeniedAuthentication(response);
     }
 
     SecurityProviderDeniedAuthentication redirect(String path, String msg) throws SecurityProviderDeniedAuthentication {

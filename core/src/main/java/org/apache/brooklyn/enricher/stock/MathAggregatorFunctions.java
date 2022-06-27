@@ -98,9 +98,9 @@ public class MathAggregatorFunctions {
         public AbstractComputingNumber(Number defaultValueForUnreportedSensors, Number valueToReportIfNoSensors, TypeToken<T> typeToken) {
             this.defaultValueForUnreportedSensors = defaultValueForUnreportedSensors;
             this.valueToReportIfNoSensors = valueToReportIfNoSensors;
-            if (typeToken != null && TypeToken.of(Number.class).isAssignableFrom(typeToken.getType())) {
+            if (typeToken != null && TypeToken.of(Number.class).isSupertypeOf(typeToken.getType())) {
                 this.typeToken = typeToken;
-            } else if (typeToken == null || typeToken.isAssignableFrom(Number.class)) {
+            } else if (typeToken == null || typeToken.isSupertypeOf(Number.class)) {
                 // use double if e.g. Object is supplied
                 this.typeToken = (TypeToken)TypeToken.of(Double.class);
             } else {

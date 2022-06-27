@@ -24,7 +24,6 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementClass;
@@ -74,6 +73,7 @@ public class Entitlements {
     public static EntitlementClass<EntityAndItem<String>> SEE_CONFIG = new BasicEntitlementClassDefinition<EntityAndItem<String>>("config.see", EntityAndItem.typeToken(String.class));
     public static EntitlementClass<TaskAndItem<String>> SEE_ACTIVITY_STREAMS = new BasicEntitlementClassDefinition<TaskAndItem<String>>("activity.streams.see", TaskAndItem.typeToken(String.class));
     // string is effector name; argument may be a map or a list, depending how the args were supplied
+    // currently this permission gates even _seeing_ the effector; in future we might have a separate permission for that
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
 
@@ -104,6 +104,7 @@ public class Entitlements {
      * of the app to be deployed (spec instance or yaml plan)
      */
     public static EntitlementClass<Object> DEPLOY_APPLICATION = new BasicEntitlementClassDefinition<Object>("app.deploy", Object.class);
+    public static EntitlementClass<Object> ADD_JAVA = new BasicEntitlementClassDefinition<Object>("java.add", Object.class);
 
     /**
      * Catch-all for catalog, locations, scripting, usage, etc - exporting persistence, shutting down, etc;
@@ -123,6 +124,16 @@ public class Entitlements {
      */
     public static EntitlementClass<Void> ROOT = new BasicEntitlementClassDefinition<Void>("root", Void.class);
 
+    /**
+     * Permission to query the query the log store
+     */
+    public static EntitlementClass<Void> LOGBOOK_LOG_STORE_QUERY = new BasicEntitlementClassDefinition<Void>("logbook.query", Void.class);
+
+    /**
+     * Permission to execute groovy scripts
+     */
+    public static EntitlementClass<Void> EXECUTE_GROOVY_SCRIPT = new BasicEntitlementClassDefinition<Void>("groovy_script.execute", Void.class);
+
     @SuppressWarnings("unchecked")
     public enum EntitlementClassesEnum {
         ENTITLEMENT_SEE_CATALOG_ITEM(SEE_CATALOG_ITEM) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeCatalogItem((String)argument); } },
@@ -135,10 +146,16 @@ public class Entitlements {
         ENTITLEMENT_MODIFY_ENTITY(MODIFY_ENTITY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleModifyEntity((Entity)argument); } },
         
         ENTITLEMENT_DEPLOY_APPLICATION(DEPLOY_APPLICATION) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleDeployApplication(argument); } },
-        
+
+        ENTITLEMENT_ADD_JAVA(ADD_JAVA) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleAddJava(argument); } },
+
         ENTITLEMENT_SEE_ALL_SERVER_INFO(SEE_ALL_SERVER_INFO) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeAllServerInfo(); } },
         ENTITLEMENT_SERVER_STATUS(SERVER_STATUS) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleSeeServerStatus(); } },
         ENTITLEMENT_ROOT(ROOT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
+        ENTITLEMENT_EXECUTE_GROOVY_SCRIPT(EXECUTE_GROOVY_SCRIPT) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleExecuteGroovyScript(); } },
+
+        /* NOTE, 'ROOT' USER ONLY IS ALLOWED TO SEE THE LOGS. */
+        ENTITLEMENT_LOGBOOK_QUERY(LOGBOOK_LOG_STORE_QUERY) { public <T> T handle(EntitlementClassesHandler<T> handler, Object argument) { return handler.handleRoot(); } },
         ;
         
         private EntitlementClass<?> entitlementClass;
@@ -170,7 +187,9 @@ public class Entitlements {
         public T handleInvokeEffector(EntityAndItem<StringAndArgument> effectorInfo);
         public T handleModifyEntity(Entity entity);
         public T handleDeployApplication(Object app);
+        public T handleAddJava(Object app);
         public T handleSeeAllServerInfo();
+        public T handleExecuteGroovyScript();
         public T handleRoot();
     }
     
@@ -247,17 +266,75 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT} and {@link #SEE_ALL_SERVER_INFO}.
+     * @return An entitlement manager allowing everything but {@link #EXECUTE_GROOVY_SCRIPT}.
+     */
+    public static EntitlementManager powerUser() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return !EXECUTE_GROOVY_SCRIPT.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.powerUser";
+            }
+        };
+    }
+
+    /**
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY},{@link #SEE_ALL_SERVER_INFO}
+     * and {@link #EXECUTE_GROOVY_SCRIPT}.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
             @Override
             public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
-                return !SEE_ALL_SERVER_INFO.equals(permission) && !ROOT.equals(permission);
+                return
+                        !SEE_ALL_SERVER_INFO.equals(permission) &&
+                        !ROOT.equals(permission) &&
+                        !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
+                        !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
+                        !HA_ADMIN.equals(permission);
             }
             @Override
             public String toString() {
                 return "Entitlements.user";
+            }
+        };
+    }
+
+    /**
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY}, {@link #SEE_ALL_SERVER_INFO},
+     * {@link #EXECUTE_GROOVY_SCRIPT} and {@link #ADD_JAVA}
+     */
+    public static EntitlementManager blueprintAuthor() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return
+                        !SEE_ALL_SERVER_INFO.equals(permission) &&
+                        !ROOT.equals(permission) &&
+                        !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
+                        !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
+                        !ADD_JAVA.equals(permission) &&
+                        !HA_ADMIN.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.user";
+            }
+        };
+    }
+
+    public static EntitlementManager logViewer() {
+        return new EntitlementManager() {
+            @Override
+            public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
+                return LOGBOOK_LOG_STORE_QUERY.equals(permission);
+            }
+            @Override
+            public String toString() {
+                return "Entitlements.logViewer";
             }
         };
     }
@@ -422,6 +499,19 @@ public class Entitlements {
         return null;
     }
 
+    public static String getEntitlementContextUser() {
+        return getEntitlementContextUserMaybe().or("<system>");
+    }
+
+    public static Maybe<String> getEntitlementContextUserMaybe() {
+        EntitlementContext ctx = getEntitlementContext();
+        if (ctx!=null) {
+            String user = ctx.user();
+            if (Strings.isNonBlank(user)) return Maybe.of(user);
+        }
+        return Maybe.absent();
+    }
+
     public static void setEntitlementContext(EntitlementContext context) {
         EntitlementContext oldContext = PerThreadEntitlementContextHolder.perThreadEntitlementsContextHolder.get();
         if (oldContext!=null && context!=null) {
@@ -472,6 +562,12 @@ public class Entitlements {
             return minimal();
         } else if ("user".equalsIgnoreCase(type)) {
             return user();
+        } else if ("powerUser".equalsIgnoreCase(type) || "power_user".equalsIgnoreCase(type)) {
+            return powerUser();
+        } else if ("blueprintAuthor".equalsIgnoreCase(type) || "blueprint_author".equalsIgnoreCase(type)) {
+            return blueprintAuthor();
+        }else if ("logViewer".equalsIgnoreCase(type) || "log_viewer".equalsIgnoreCase(type) || "log".equalsIgnoreCase(type)) {
+            return logViewer();
         }
         if (Strings.isNonBlank(type)) {
             try {

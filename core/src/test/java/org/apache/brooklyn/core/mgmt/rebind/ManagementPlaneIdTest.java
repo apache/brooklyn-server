@@ -85,7 +85,7 @@ public class ManagementPlaneIdTest {
         checkPlaneIdPersisted(mgmt);
     }
 
-    @Test
+    @Test(groups="Integration")  // because slow
     public void testPlaneIdRolledBack() throws Exception {
         final LocalManagementContext mgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.AUTO);
 
@@ -101,7 +101,7 @@ public class ManagementPlaneIdTest {
         });
     }
 
-    @Test
+    @Test(groups="Integration")  // because slow
     public void testColdRebindInitialisesPlaneId() throws Exception {
         final LocalManagementContext origMgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.DISABLED);
         checkPlaneIdPersisted(origMgmt);
@@ -136,7 +136,7 @@ public class ManagementPlaneIdTest {
         });
     }
 
-    @Test
+    @Test(groups="Integration")  // because slow
     public void testHaFailoverKeepsPlaneId() throws Exception {
         final LocalManagementContext origMgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.MASTER);
         final LocalManagementContext rebindMgmt = createManagementContext(PersistMode.AUTO, HighAvailabilityMode.STANDBY);

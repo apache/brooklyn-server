@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.TaskQueueingContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -65,7 +66,12 @@ import com.google.common.collect.ImmutableList;
 public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChildren, TaskQueueingContext {
 
     private static final Logger log = LoggerFactory.getLogger(CompoundTask.class);
-                
+
+    private static String TASK_NAME = "DST manager (internal)";
+    static {
+        BasicExecutionManager.registerUninterestingTaskName(TASK_NAME);
+    }
+
     protected final Queue<Task<?>> secondaryJobsAll = new ConcurrentLinkedQueue<Task<?>>();
     protected final Queue<Task<?>> secondaryJobsRemaining = new ConcurrentLinkedQueue<Task<?>>();
     protected final Object jobTransitionLock = new Object();
@@ -85,7 +91,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
         /** as {@link #abortSecondaryQueueOnPrimaryFailure} but controls cancelling of secondary queue*/
         public final boolean cancelSecondariesOnPrimaryFailure;
         /** secondary queue can continue submitting+blocking tasks even if a secondary task fails (unusual;
-         * typically handled by {@link TaskTags#markInessential(Task)} on the secondary tasks, in which case
+         * typically handled by {@link TaskTags#markInessential(TaskAdaptable)} on the secondary tasks, in which case
          * the secondary queue is never aborted */
         public final boolean abortSecondaryQueueOnSecondaryFailure;
         /** unsubmitted secondary tasks (ie those further in the queue) can be cancelled if a secondary task fails */
@@ -279,8 +285,8 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
             // optimisation would either use newTaskEndCallback property on task to submit
             // or use some kind of single threaded executor for the queued tasks
             Task<List<Object>> secondaryJobMaster = Tasks.<List<Object>>builder().dynamic(false)
-                    .displayName("DST manager (internal)")
-                    // TODO marking it transient helps it be GC'd sooner, 
+                    .displayName(TASK_NAME)
+                    // marking it transient helps it be GC'd sooner,
                     // but ideally we wouldn't have this,
                     // or else it would be a child
                     .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)

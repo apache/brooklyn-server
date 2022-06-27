@@ -20,10 +20,12 @@ import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoa
 
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Entity;
@@ -31,7 +33,6 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.BrooklynVersion;
-import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
@@ -39,16 +40,17 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ClassLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.MultipleResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.LoaderDispatcher.ResourceLoaderDispatcher;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.BundleReference;
 import org.osgi.framework.FrameworkUtil;
 import org.osgi.framework.launch.Framework;
 import org.slf4j.Logger;
@@ -73,6 +75,11 @@ public class ClassLoaderUtils {
     static final String CLASS_NAME_DELIMITER = ":";
     private static final String WHITE_LIST_DEFAULT =
         "org\\.apache\\.brooklyn\\..*:" + BrooklynVersion.getOsgiVersion();
+
+    // Contains the bundle symbolic names replaced in new versions mapped to the new name
+    private Map<String,String> SYMBOLIC_NAME_UPDATES = ImmutableMap.<String, String>builder()
+        .put("org.apache.commons.codec", "org.apache.commons.commons-codec")
+        .build();
 
     // Class.forName gets the class loader from the calling class.
     // We don't have access to the same reflection API so need to pass it explicitly.
@@ -287,8 +294,14 @@ public class ClassLoaderUtils {
                 CatalogItem<?, ?> item = CatalogUtils.getCatalogItemOptionalVersion(mgmt, catalogItemId);
                 if (item != null) {
                     BrooklynClassLoadingContextSequential loader = new BrooklynClassLoadingContextSequential(mgmt);
-                    loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
-                        item.getCatalogItemIdSearchPath()));
+                    try {
+                        loader.add(newClassLoadingContextForCatalogItems(mgmt, item.getCatalogItemId(),
+                                item.getCatalogItemIdSearchPath()));
+                    } catch (UnsupportedOperationException e) {
+                        // normal if item comes from the type; could suppress load attempt
+                    } catch (Exception e) {
+                        log.warn("Error accessing looking up "+className+" relative to "+catalogItemId+" (ignoring, will try loading other ways but may fail): "+e, e);
+                    }
                     cls = dispatcher.tryLoadFrom(loader, className);
                     if (cls.isPresent()) {
                         return cls;
@@ -321,33 +334,71 @@ public class ClassLoaderUtils {
         return Maybe.absentNull();
     }
 
-    protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String symbolicName, String version,
+    protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String originalSymbolicName, String version,
                                              String name) {
         Framework framework = getFramework();
+        String symbolicName = originalSymbolicName;
+        if(isSymbolicNameChanged(symbolicName)){
+            log.debug("Using {} as symbolicName instead of {} as it is in UPDATED_SYMBOLICS_NAMES list", symbolicName, originalSymbolicName);
+            symbolicName = findUpdatedSymbolicName(symbolicName);
+        }
         if (framework != null) {
-            Maybe<Bundle> bundle = Osgis.bundleFinder(framework)
-                .symbolicName(symbolicName)
-                .version(version)
-                .find();
+
+            if (Strings.isBlank(version)) {
+                try {
+                    // if the class can be loaded using the default classloader, and it comes from a bundle matching symbolic name, and version not specified,read
+                    // then use that version of the bundle, rather than the latest version
+                    ClassLoader cl = classLoader.loadClass(name).getClassLoader();
+                    if (cl instanceof BundleReference){
+                        Bundle b = ((BundleReference) cl).getBundle();
+                        if (Objects.equal(symbolicName, b.getSymbolicName())) {
+                            version = b.getVersion().toString();
+                        }
+                    }
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    log.trace("Error deducing class - not unusual", e);
+                }
+            }
+
+            Maybe<Bundle> bundle = Maybe.of(Osgis.bundleFinder(framework)
+                    .symbolicName(symbolicName)
+                    .version(version)
+                    .findAll()
+                    .stream()
+                    .reduce((v1, v2) -> v2));
             if (bundle.isAbsent()) {
                 String requestedV = symbolicName+":"+(Strings.isBlank(version) ? BrooklynCatalog.DEFAULT_VERSION : version);
                 String upgradedV = CatalogUpgrades.getBundleUpgradedIfNecessary(mgmt, requestedV);
                 if (!Objects.equal(upgradedV, requestedV)) {
                     log.debug("Upgraded access to bundle "+requestedV+" for loading "+name+" to use bundle "+upgradedV);
-                    bundle = Osgis.bundleFinder(framework)
-                        .id(upgradedV)
-                        .find();
+                    bundle = Maybe.of(Osgis.bundleFinder(framework)
+                            .id(upgradedV)
+                            .findAll()
+                            .stream()
+                            .reduce((v1, v2) -> v2));
                 }
                 if (bundle.isAbsent()) {
-                    throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)
-                        + " not found to load " + name);
+                    throw new IllegalStateException("Bundle " + toBundleString(symbolicName, version)+ " not found to load.");
                 }
             }
             return dispatcher.tryLoadFrom(bundle.get(), name);
         } else {
             Maybe<T> result = dispatcher.tryLoadFrom(classLoader, name);
             if (result.isAbsent()) {
-                log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "")+"was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                if (name==null || name.startsWith("//") || symbolicName==null || "classpath".equals(symbolicName) || "http".equals(symbolicName) || "https".equals(symbolicName) || "file".equals(symbolicName)) {
+                    // this is called speculatively by BasicBrooklynCatalog.PlanInterpreterGuessingType so can log a lot of warnings where URLs are passed
+                    if (log.isTraceEnabled()) {
+                        log.trace("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "") +
+                                (originalSymbolicName.equals(symbolicName)?"":". Original symbolic name: "+originalSymbolicName) +
+                                "was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                    }
+                } else {
+                    // TODO not sure warning is appropriate, but won't hide that in all cases yet
+                    log.warn("Request for bundle '"+symbolicName+"' "+(Strings.isNonBlank(version) ? "("+version+") " : "") +
+                            (originalSymbolicName.equals(symbolicName)?"":". Original symbolic name: "+originalSymbolicName) +
+                            "was ignored as no framework available; and failed to find '"+name+"' in plain old classpath");
+                }
             }
             return result;
         }
@@ -407,14 +458,26 @@ public class ClassLoaderUtils {
         }
         List<Bundle> bundles = Osgis.bundleFinder(framework)
             .satisfying(createBundleMatchingPredicate())
+            .satisfying(b -> b.getState() == Bundle.ACTIVE)  // 2021-12-03 we now require them to be started, to prevent activation of persisted bundles too early
             .findAll();
+        Map<Bundle,Throwable> errors = MutableMap.of();
         for (Bundle b : bundles) {
-            Maybe<T> item = dispatcher.tryLoadFrom(b, className);
-            if (item.isPresent()) {
-                return item;
+            try {
+                Maybe<T> item = dispatcher.tryLoadFrom(b, className);
+                if (item.isPresent()) {
+                    return item;
+                }
+            } catch (Exception e) {
+                // silently ignore
+                log.debug("Skipping bundle "+b+" for search of "+className+" due to: "+e);
+                if (log.isTraceEnabled()) log.trace("Stack trace details", e);
+                errors.put(b, e);
             }
         }
-        return Maybe.absentNull();
+        return Maybe.absent(() -> {
+            if (errors.isEmpty()) return new IllegalStateException("Unable to find class '"+className+"' in whitelisted bundles");
+            return Exceptions.propagate("Unable to find class '"+className+"' in whitelisted bundles, with errors in bundles "+errors.keySet(), errors.values());
+        });
     }
 
     protected WhiteListBundlePredicate createBundleMatchingPredicate() {
@@ -432,7 +495,9 @@ public class ClassLoaderUtils {
     }
 
     private String toBundleString(String symbolicName, String version) {
-        return symbolicName + ":" + (version != null ? version : "any");
+        return symbolicName + ":" + (version != null ? version : "any") +
+                (isSymbolicNameChanged(symbolicName) ? " (originally " + SYMBOLIC_NAME_UPDATES.get(symbolicName) +
+                ")" : "");
     }
 
     /**
@@ -460,6 +525,18 @@ public class ClassLoaderUtils {
             arr[last] = arr[last].substring(1);
         }
         return Joiner.on(":").join(arr);
+    }
+
+    private boolean isSymbolicNameChanged(String symbolicName) {
+        return SYMBOLIC_NAME_UPDATES.containsKey(symbolicName);
+    }
+
+    private String findUpdatedSymbolicName(String orignalSymbolicName) {
+        String result = orignalSymbolicName;
+        while (isSymbolicNameChanged(result)) {
+            result = SYMBOLIC_NAME_UPDATES.get(result);
+        }
+        return result;
     }
     
     @Override

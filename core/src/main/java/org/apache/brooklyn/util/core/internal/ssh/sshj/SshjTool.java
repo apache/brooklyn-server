@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
+import net.schmizz.sshj.common.SecurityUtils;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.util.core.internal.ssh.BackoffLimitedRetryHandler;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
@@ -101,6 +102,13 @@ public class SshjTool extends SshAbstractTool implements SshTool {
      */
 
     private static final Logger LOG = LoggerFactory.getLogger(SshjTool.class);
+
+    static {
+        // this gives better error messages from sshj if it can't find bouncy castle;
+        // this can happen in osgi fairly easily, and when it does it can be obscure to debug,
+        // because it looks like ssh is just failing
+        SecurityUtils.setRegisterBouncyCastle(true);
+    }
 
     protected final int sshTries;
     protected final long sshTriesTimeout;

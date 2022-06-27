@@ -18,32 +18,20 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static javax.ws.rs.core.Response.created;
-import static javax.ws.rs.core.Response.status;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.stream.Collectors;
-
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.UriInfo;
-
+import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -52,6 +40,7 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConstraintViolationException;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
@@ -69,16 +58,14 @@ import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.group.AbstractGroup;
 import org.apache.brooklyn.rest.api.ApplicationApi;
-import org.apache.brooklyn.rest.domain.ApplicationSpec;
-import org.apache.brooklyn.rest.domain.ApplicationSummary;
-import org.apache.brooklyn.rest.domain.EntityDetail;
-import org.apache.brooklyn.rest.domain.EntitySummary;
-import org.apache.brooklyn.rest.domain.TaskSummary;
+import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.ApplicationTransformer;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
+import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -96,19 +83,28 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.UriInfo;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import static javax.ws.rs.core.Response.created;
+import static javax.ws.rs.core.Response.status;
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 @HaHotStateRequired
 public class ApplicationResource extends AbstractBrooklynRestResource implements ApplicationApi {
 
     private static final Logger log = LoggerFactory.getLogger(ApplicationResource.class);
+    private static final String AUTHORIZATION_ERR_MSG = "User '%s' is not authorized to start application %s";
 
     @Context
     private UriInfo uriInfo;
@@ -125,9 +121,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 MutableMap.of("self", EntityTransformer.entityUri(entity, ui.getBaseUriBuilder())) );
         }
 
-        Boolean serviceUp = entity.getAttribute(Attributes.SERVICE_UP);
+        Boolean serviceUp = EntityAttributesUtils.tryGetAttribute(entity, Attributes.SERVICE_UP);
 
-        Lifecycle serviceState = entity.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+        Lifecycle serviceState = EntityAttributesUtils.tryGetAttribute(entity, Attributes.SERVICE_STATE_ACTUAL);
 
         String iconUrl = RegisteredTypes.getIconUrl(entity);
         if (iconUrl!=null) {
@@ -158,7 +154,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         List<Map<String, String>> members = Lists.newArrayList();
         if (entity instanceof Group) {
             // use attribute instead of method in case it is read-only
-            Collection<Entity> memberEntities = entity.getAttribute(AbstractGroup.GROUP_MEMBERS);
+            Collection<Entity> memberEntities = EntityAttributesUtils.tryGetAttribute(entity, AbstractGroup.GROUP_MEMBERS);
             if (memberEntities != null && !memberEntities.isEmpty())
                 members.addAll(entitiesIdAndNameAsList(memberEntities));
         }
@@ -184,7 +180,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         result.setExtraField("creationTimeUtc", entity.getCreationTime());
         addSensorsByGlobs(result, entity, extraSensorGlobs);
         addConfigByGlobs(result, entity, extraConfigGlobs);
-        
+
+        result.setExtraField("relations", EntityRelationUtils.getRelations(entity));
+
         return result;
     }
 
@@ -215,7 +213,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         
         List<EntityDetail> entitySummaries = Lists.newArrayList();
         for (Entity application : mgmt().getApplications()) {
-            entitySummaries.add(addSensorsByName((EntityDetail)fromEntity(application, false, -1, null, null), application, extraSensors));
+            if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, application)) {
+                entitySummaries.add(addSensorsByName((EntityDetail) fromEntity(application, false, -1, null, null), application, extraSensors));
+            }
         }
 
         if (Strings.isNonBlank(entityIds)) {
@@ -280,7 +280,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, s.getName()))) {
                     Object sv = entity.sensors().get(s);
                     if (sv!=null) {
-                        sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(false).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                         sensors.put(s.getName(), sv);
                     }
                 }
@@ -309,7 +309,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     String name = kv.getKey().getName();
                     if (Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_SENSOR, new EntityAndItem<String>(entity, name))) {
                         if (extraSensorGlobs.stream().anyMatch(sn -> WildcardGlobs.isGlobMatched(sn, name))) {
-                            sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                            sv = resolving(sv).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(false).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                             sensors.put(name, sv);
                         }
                     }
@@ -339,7 +339,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                     Maybe<Object> vRaw = ((EntityInternal)entity).config().getRaw(key);
                     Object v = vRaw.isPresent() ? vRaw.get() : entity.config().get(key);
                     if (v!=null) {
-                        v = resolving(v, mgmt()).preferJson(true).asJerseyOutermostReturnValue(false).raw(true).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
+                        v = resolving(v, mgmt()).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(false).context(entity).immediately(true).timeout(Duration.ZERO).resolve();
                         configs.put(key.getName(), v);
                     }
                 }
@@ -369,8 +369,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     /** @deprecated since 0.7.0 see #create */ @Deprecated
     protected Response createFromAppSpec(ApplicationSpec applicationSpec) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, applicationSpec)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                Entitlements.getEntitlementContext().user(), applicationSpec);
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), applicationSpec);
         }
 
         checkApplicationTypesAreValid(applicationSpec);
@@ -387,15 +386,34 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createFromYaml(String yaml) {
-        return createFromYaml(yaml, Optional.absent());
+        return createFromYaml(yaml, null, Optional.absent());
     }
-    
+
     @Override
     public Response createFromYamlWithAppId(String yaml, String appId) {
-        return createFromYaml(yaml, Optional.of(appId));
+        return createFromYaml(yaml, null, Optional.of(appId));
     }
-    
-    protected Response createFromYaml(String yaml, Optional<String> appId) {
+
+    @Override
+    public Response createFromYamlAndAppId(String yaml, String appId) {
+        return createFromYamlAndFormatAndAppId(yaml, null, appId);
+    }
+
+    @Override
+    public Response createFromYamlAndFormatAndAppIdForm(String yaml, String format, String appId) {
+        return createFromYamlAndFormatAndAppId(yaml, format, appId);
+    }
+
+    @Override
+    public Response createFromYamlAndFormatAndAppIdMultipart(String yaml, String format, String appId) {
+        return createFromYamlAndFormatAndAppId(yaml, format, appId);
+    }
+
+    public Response createFromYamlAndFormatAndAppId(String yaml, String format, String appId) {
+        return createFromYaml(yaml, format, Optional.of(appId));
+    }
+
+    protected Response createFromYaml(String yaml, String format, Optional<String> appId) {
         // First of all, see if it's a URL
         Preconditions.checkNotNull(yaml, "Blueprint must not be null");
         URI uri = null;
@@ -418,11 +436,11 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             }
         }
 
-        log.debug("Creating app from yaml:\n{}", yaml);
+        log.debug("Creating app from yaml:\n{}", Sanitizer.sanitizeMultilineString(yaml));
 
         EntitySpec<? extends Application> spec;
         try {
-            spec = createEntitySpecForApplication(yaml);
+            spec = createEntitySpecForApplication(yaml, format);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment, could not create spec: "+e);
@@ -435,8 +453,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
         
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                Entitlements.getEntitlementContext().user(), yaml);
+            throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), yaml);
         }
 
         try {
@@ -452,23 +469,26 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     private Response launch(String yaml, EntitySpec<? extends Application> spec, Optional<String> entityId) {
+        return launch(yaml, spec, entityId, mgmt(), ui);
+    }
+
+    public static Response launch(String planForReference, EntitySpec<? extends Application> spec, Optional<String> entityId, ManagementContext mgmt, UriInfo ui) {
         try {
-            Application app = EntityManagementUtils.createUnstarted(mgmt(), spec, entityId);
+            Application app = EntityManagementUtils.createUnstarted(mgmt, spec, entityId);
 
             boolean isEntitled = Entitlements.isEntitled(
-                    mgmt().getEntitlementManager(),
+                    mgmt.getEntitlementManager(),
                     Entitlements.INVOKE_EFFECTOR,
                     EntityAndItem.of(app, StringAndArgument.of(Startable.START.getName(), null)));
 
             if (!isEntitled) {
-                throw WebResourceUtils.forbidden("User '%s' is not authorized to start application %s",
-                    Entitlements.getEntitlementContext().user(), spec.getType());
+                throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), spec.getType());
             }
 
             CreationResult<Application,Void> result = EntityManagementUtils.start(app);
             waitForStart(app, Duration.millis(100));
 
-            log.info("Launched from YAML: " + yaml + " -> " + app + " (" + result.task() + ")");
+            log.info("Launched from plan: " + Sanitizer.sanitizeMultilineString(planForReference) + " -> " + app + " (" + result.task() + ")");
 
             URI ref = serviceAbsoluteUriBuilder(ui.getBaseUriBuilder(), ApplicationApi.class, "get").build(app.getApplicationId());
             ResponseBuilder response = created(ref);
@@ -482,7 +502,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
     }
 
-    private void waitForStart(final Application app, Duration timeout) {
+    private static void waitForStart(final Application app, Duration timeout) {
         // without this UI shows "stopped" sometimes esp if brooklyn has just started,
         // because app goes to stopped state if it sees unstarted children,
         // and that gets returned too quickly, before the start has taken effect
@@ -490,7 +510,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             new Callable<Boolean>() {
                 @Override
                 public Boolean call() throws Exception {
-                    Lifecycle state = app.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+                    Lifecycle state = EntityAttributesUtils.tryGetAttribute(app, Attributes.SERVICE_STATE_ACTUAL);
                     if (state==Lifecycle.CREATED || state==Lifecycle.STOPPED) return false;
                     return true;
                 }
@@ -499,39 +519,69 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
 
     @Override
     public Response createPoly(byte[] inputToAutodetectType) {
+        return createWithFormat(new String(inputToAutodetectType, StandardCharsets.UTF_8), null);
+    }
+
+    @Override
+    public Response createFromForm(String contents) {
+        log.debug("Creating app from form");
+        return createPoly(contents.getBytes());
+    }
+
+    @Override
+    public Response createFromBytes(byte[] plan) {
+        return createPoly(plan);
+    }
+
+    @Override
+    public Response createWithFormatForm(String plan, String format) {
+        return createWithFormat(plan, format);
+    }
+
+    @Override
+    public Response createWithFormatMultipart(String plan, String format) {
+        return createWithFormat(plan, format);
+    }
+
+    public Response createWithFormat(String inputToAutodetectType, String format) {
+        if (format!=null) format = format.trim();
         log.debug("Creating app from autodetecting input");
 
         boolean looksLikeLegacy = false;
         Exception legacyFormatException = null;
-        // attempt legacy format
-        try {
-            ApplicationSpec appSpec = mapper().readValue(inputToAutodetectType, ApplicationSpec.class);
-            if (appSpec.getType() != null || appSpec.getEntities() != null) {
-                looksLikeLegacy = true;
+        if (Strings.isBlank(format)) {
+            // attempt legacy format
+            try {
+                ApplicationSpec appSpec = mapper().readValue(inputToAutodetectType, ApplicationSpec.class);
+                if (appSpec.getType() != null || appSpec.getEntities() != null) {
+                    looksLikeLegacy = true;
+                }
+                return createFromAppSpec(appSpec);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                legacyFormatException = e;
+                log.debug("Input is not legacy ApplicationSpec JSON (will try others)");
             }
-            return createFromAppSpec(appSpec);
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            legacyFormatException = e;
-            log.debug("Input is not legacy ApplicationSpec JSON (will try others): "+e, e);
         }
 
         //TODO infer encoding from request
         String potentialYaml = new String(inputToAutodetectType);
         EntitySpec<? extends Application> spec;
         try {
-            spec = createEntitySpecForApplication(potentialYaml);
+            spec = createEntitySpecForApplication(potentialYaml, format);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             log.warn("Failed REST deployment, could not create spec (autodetecting): "+e);
-            
+
             // TODO if not yaml/json - try ZIP, etc
-            
+
             throw WebResourceUtils.badRequest(e, "Error in blueprint");
         }
 
-
         if (spec != null) {
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.DEPLOY_APPLICATION, spec)) {
+                throw WebResourceUtils.forbidden(AUTHORIZATION_ERR_MSG, Entitlements.getEntitlementContext().user(), potentialYaml);
+            }
             try {
                 return launch(potentialYaml, spec, Optional.absent());
             } catch (Exception e) {
@@ -547,12 +597,6 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Response createFromForm(String contents) {
-        log.debug("Creating app from form");
-        return createPoly(contents.getBytes());
-    }
-
-    @Override
     public Response delete(String application) {
         Application app = brooklyn().getApplication(application);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, Entitlements.EntityAndItem.of(app,
@@ -565,8 +609,8 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         return status(ACCEPTED).entity(ts).build();
     }
 
-    private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml) {
-        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), potentialYaml);
+    private EntitySpec<? extends Application> createEntitySpecForApplication(String potentialYaml, String format) {
+        return EntityManagementUtils.createEntitySpecForApplication(mgmt(), format, potentialYaml);
     }
     
     private void checkApplicationTypesAreValid(ApplicationSpec applicationSpec) {
@@ -657,13 +701,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             return result;
         }
         for (Entity e: descs) {
-            Object v = null;
-            try {
-                v = e.getAttribute((AttributeSensor<?>)s);
-            } catch (Exception exc) {
-                Exceptions.propagateIfFatal(exc);
-                log.warn("Error retrieving sensor "+s+" for "+e+" (ignoring): "+exc);
-            }
+            Object v = EntityAttributesUtils.tryGetAttribute(e, (AttributeSensor<?>)s);
             if (v!=null)
                 result.put(e.getId(), v);
         }

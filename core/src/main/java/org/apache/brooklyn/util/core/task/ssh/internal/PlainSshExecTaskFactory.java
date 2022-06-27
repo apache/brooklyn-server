@@ -49,6 +49,9 @@ public class PlainSshExecTaskFactory<RET> extends AbstractSshExecTaskFactory<Pla
     }
 
     @Override
+    protected String taskTypeShortName() { return "SSH"; }
+
+    @Override
     public <T2> PlainSshExecTaskFactory<T2> returning(ScriptReturnType type) {
         return (PlainSshExecTaskFactory<T2>) super.<T2>returning(type);
     }

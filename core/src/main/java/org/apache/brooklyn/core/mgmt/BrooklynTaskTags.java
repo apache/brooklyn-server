@@ -20,7 +20,9 @@ package org.apache.brooklyn.core.mgmt;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -36,9 +38,12 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
+import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -345,15 +350,17 @@ public class BrooklynTaskTags extends TaskTags {
         return new WrappedStream(streamType, contents, size);
     }
     
-    /** creates a tag suitable for attaching a snapshot of an environment var map as a "stream" on a task;
-     * mainly for use with STREAM_ENV */ 
+    /**
+     * Creates a tag suitable for attaching a snapshot of an environment var map as a "stream" on a task; mainly for use
+     * with STREAM_ENV. Sensitive data like passwords is always masked, see {@link Sanitizer#IS_SECRET_PREDICATE}.
+     *
+     * @param streamEnv Never used
+     * @param env The {@link Map} with environment variables
+     * @return The {@link WrappedStream}
+     * */
     public static WrappedStream tagForEnvStream(String streamEnv, Map<?, ?> env) {
         StringBuilder sb = new StringBuilder();
-        for (Map.Entry<?,?> kv: env.entrySet()) {
-            Object val = kv.getValue();
-            sb.append(kv.getKey()+"=" +
-                (val!=null ? BashStringEscapes.wrapBash(val.toString()) : "") + "\n");
-        }
+        Sanitizer.sanitizeMapToString(env, sb);
         // TODO also make soft - this is often larger than the streams themselves
         return BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_ENV, Streams.byteArrayOfString(sb.toString()));
     }
@@ -380,8 +387,8 @@ public class BrooklynTaskTags extends TaskTags {
 
     // ------ misc
     
-    public static void setInessential(Task<?> task) { addTagDynamically(task, INESSENTIAL_TASK); }
-    public static void setTransient(Task<?> task) { addTagDynamically(task, TRANSIENT_TASK_TAG); }
+    public static <TR,T extends Task<TR>> T setInessential(T task) { return addTagDynamically(task, INESSENTIAL_TASK); }
+    public static <TR,T extends Task<TR>> T setTransient(T task) { return addTagDynamically(task, TRANSIENT_TASK_TAG); }
     public static boolean isTransient(Task<?> task) { 
         if (hasTag(task, TRANSIENT_TASK_TAG)) return true;
         if (hasTag(task, NON_TRANSIENT_TASK_TAG)) return false;
@@ -396,11 +403,12 @@ public class BrooklynTaskTags extends TaskTags {
     public static class EffectorCallTag {
         protected final String entityId;
         protected final String effectorName;
+        protected Map<String,Object> effectorParams;
         protected transient ConfigBag parameters;
         protected EffectorCallTag(String entityId, String effectorName, ConfigBag parameters) {
             this.entityId = checkNotNull(entityId, "entityId");
             this.effectorName = checkNotNull(effectorName, "effectorName");
-            this.parameters = parameters;
+            setParameters(parameters);
         }
         @Override
         public String toString() {
@@ -417,7 +425,8 @@ public class BrooklynTaskTags extends TaskTags {
             EffectorCallTag other = (EffectorCallTag) obj;
             return 
                 Objects.equal(entityId, other.entityId) && 
-                Objects.equal(effectorName, other.effectorName);
+                Objects.equal(effectorName, other.effectorName) &&
+                Objects.equal(effectorParams, other.effectorParams);
         }
         public String getEntityId() {
             return entityId;
@@ -425,11 +434,17 @@ public class BrooklynTaskTags extends TaskTags {
         public String getEffectorName() {
             return effectorName;
         }
+        /** contains parameters including typed keys, for use during invocation; not serialized (via REST API) */
         public ConfigBag getParameters() {
             return parameters;
         }
         public void setParameters(ConfigBag parameters) {
             this.parameters = parameters;
+            effectorParams = MutableMap.copyOf(parameters.getAllConfig());
+        }
+        /** contains parameters as a map, for use during invocation; serialized (in REST API) */
+        public Map<String, Object> getEffectorParams() {
+            return effectorParams;
         }
     }
     

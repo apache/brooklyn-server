@@ -28,8 +28,10 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
@@ -68,6 +70,8 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
+import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleException;
 import org.slf4j.Logger;
@@ -237,24 +241,26 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
         synchronized (populatingCatalogMutex) {
             if (hasRunFinalInitialization()) {
-                log.warn("Catalog initialization called to add persisted catalog, even though it has already run the final 'master' initialization; mode="+mode+" (perhaps previously demoted from master?)");      
+                log.warn("Catalog initialization called to add persisted catalog, even though it has already run the final 'master' initialization; mode="+mode, new Throwable("Source of duplicate catalog initialization"));
                 hasRunFinalInitialization = false;
             }
             if (hasRunPersistenceInitialization()) {
                 // Multiple calls; will need to reset (only way to clear out the previous persisted state's catalog)
                 if (log.isDebugEnabled()) {
                     String message = "Catalog initialization repeated call to add persisted catalog, resetting catalog (including initial) to start from clean slate; mode="+mode;
-                    if (!ManagementNodeState.isHotProxy(mode)) {
-                        log.debug(message);
-                    } else {
-                        // in hot modes, make this message trace so we don't get too much output then
-                        log.trace(message);
-                    }
+                    log.debug(message);
                 }
             } else if (hasRunInitialCatalogInitialization()) {
                 throw new IllegalStateException("Catalog initialization already run for initial catalog by mechanism other than populating persisted state; mode="+mode);      
             }
-            
+
+            // Always install the bundles from persisted state; installed (but not started) prior to catalog,
+            // so that OSGi unique IDs might be picked up when initial catalog is populated
+            Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(persistedState.getBundles(), exceptionHandler, rebindLogger);
+
+            // now we install and start the bundles from the catalog;
+            // 2021-12-03 now this only will look for classes in active bundles, so it won't resolve persisted bundles
+            // and we can safely filter them out later
             populateInitialCatalogImpl(true);
 
             final Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
@@ -268,9 +274,20 @@ public class CatalogInitialization implements ManagementContextInjectable {
                         catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
                 CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
             }
+
             PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
-            addPersistedCatalogImpl(filteredPersistedState, exceptionHandler, rebindLogger);
-            
+
+            // 2021-09-14 previously we effectively installed here, after populating; but now we do it earlier and then uninstall if needed, to preserve IDs
+//            Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(filteredPersistedState.getBundles(), exceptionHandler, rebindLogger);
+
+            try {
+                startPersistedBundles(filteredPersistedState, persistenceInstalls, exceptionHandler, rebindLogger);
+                BrooklynCatalog catalog = managementContext.getCatalog();
+                catalog.addCatalogLegacyItemsOnRebind(filteredPersistedState.getLegacyCatalogItems());
+            } finally {
+                hasRunPersistenceInitialization = true;
+            }
+
             if (mode == ManagementNodeState.MASTER) {
                 // TODO ideally this would remain false until it has *persisted* the changed catalog;
                 // if there is a subsequent startup failure the forced additions will not be persisted,
@@ -292,7 +309,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
      * Expected to be called only during tests, where the test has not gone through the same 
      * management-context lifecycle as is done in BasicLauncher.
      * 
-     * Subsequent calls will fail to things like {@link #populateInitialCatalog()} or 
+     * Subsequent calls will fail to things like {@link #populateInitialCatalogOnly()} or
      * {@link #populateInitialAndPersistedCatalog(ManagementNodeState, PersistedCatalogState, RebindExceptionHandler, RebindLogger)}.
      */
     @VisibleForTesting
@@ -408,25 +425,17 @@ public class CatalogInitialization implements ManagementContextInjectable {
         }
     }
 
-    private void addPersistedCatalogImpl(PersistedCatalogState persistedState, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
-        assert Thread.holdsLock(populatingCatalogMutex);
-
-        try {
-            // Always installing the bundles from persisted state
-            installPersistedBundles(persistedState.getBundles(), exceptionHandler, rebindLogger);
-            
-            BrooklynCatalog catalog = managementContext.getCatalog();
-            catalog.addCatalogLegacyItemsOnRebind(persistedState.getLegacyCatalogItems());
-        } finally {
-            hasRunPersistenceInitialization = true;
-        }
-    }
-    
     private void onFinalCatalog() {
         assert Thread.holdsLock(populatingCatalogMutex);
         
         hasRunFinalInitialization = true;
         confirmCatalog();
+    }
+
+    public void clearForSubsequentCatalogInit() {
+        hasRunInitialCatalogInitialization = false;
+        hasRunPersistenceInitialization = false;
+        hasRunFinalInitialization = false;
     }
 
     private void populateViaInitialBomImpl(BasicBrooklynCatalog catalog) {
@@ -499,24 +508,75 @@ public class CatalogInitialization implements ManagementContextInjectable {
         return false;
     }
 
-    private void installPersistedBundles(Map<VersionedName, InstallableManagedBundle> bundles, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+    private Map<InstallableManagedBundle, OsgiBundleInstallationResult> installPersistedBundlesDontStart(Map<VersionedName, InstallableManagedBundle> bundles, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
         Map<InstallableManagedBundle, OsgiBundleInstallationResult> installs = MutableMap.of();
 
         // Install the bundles
-        for (Map.Entry<VersionedName, InstallableManagedBundle> entry : bundles.entrySet()) {
-            VersionedName bundleId = entry.getKey();
-            InstallableManagedBundle installableBundle = entry.getValue();
-            rebindLogger.debug("RebindManager installing bundle {}", bundleId);
-            try (InputStream in = installableBundle.getInputStream()) {
-                installs.put(installableBundle, installBundle(installableBundle.getManagedBundle(), in));
-            } catch (Exception e) {
-                exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE, bundleId.toString(), installableBundle.getManagedBundle().getSymbolicName(), e);
+        Map<VersionedName, InstallableManagedBundle> remaining = MutableMap.copyOf(bundles);
+        Set<Pair<Entry<VersionedName, InstallableManagedBundle>, Exception>> errors = MutableSet.of();
+        while (!remaining.isEmpty()) {
+            int installed = 0;
+            for (Entry<VersionedName, InstallableManagedBundle> entry : MutableSet.copyOf(remaining.entrySet())) {
+                rebindLogger.debug("RebindManager installing bundle {}", entry.getKey());
+                try {
+                    installs.put(entry.getValue(), installBundle(entry.getValue().getManagedBundle(), entry.getValue().getInputStreamSource()));
+                    remaining.remove(entry.getKey());
+                    installed++;
+                } catch (Exception e) {
+                    rebindLogger.debug("Unable to install bundle " + entry.getKey() + ", but may re-try in case it has a dependency on another bundle (" + e + ")");
+                    errors.add(Pair.of(entry, e));
+                }
+            }
+            if (installed == 0) {
+                // keep trying until either nothing is installed or nothing is left to install
+                break;
             }
         }
-        
+        rebindLogger.debug("RebindManager installed bundles {}, {} errors", installs.keySet(), errors.size());
+        errors.forEach(err -> exceptionHandler.onCreateFailed(BrooklynObjectType.MANAGED_BUNDLE,
+                err.getLeft().getKey().toString(), err.getLeft().getValue().getManagedBundle().getSymbolicName(), err.getRight()));
+
+        return installs;
+    }
+
+    private void startPersistedBundles(PersistedCatalogState filteredPersistedState, Map<InstallableManagedBundle, OsgiBundleInstallationResult> installs, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
         // Start the bundles (now that we've installed them all)
+
+        // start order is:  OSGi and not catalog; then OSGi and catalog; then not catalog nor OSGi; then catalog and not OSGi
+        // (we need OSGi and not catalog to start first; the others are less important)
+        Set<OsgiBundleInstallationResult> bundlesInOrder = MutableSet.of();
+        Set<OsgiBundleInstallationResult> bundlesToRemove = MutableSet.of();
+        installs.values().stream().forEach(candidate -> {
+            if (filteredPersistedState.getBundles().containsKey(candidate.getVersionedName())) {
+                bundlesInOrder.add(candidate);
+            } else {
+                log.debug("Skipping start of persisted bundle "+candidate+" due to catalog upgrade metadata instructions");
+                bundlesToRemove.add(candidate);
+            }
+        });
+        bundlesToRemove.forEach(b -> {
+            ManagedBundle mb = getManagementContext().getOsgiManager().get().getManagedBundle(b.getVersionedName());
+            if (b.getBundle().getState() >= Bundle.INSTALLED && b.getBundle().getState() < Bundle.STARTING) {
+                // we installed it, catalog did not start it, so let's uninstall it
+                OsgiBundleInstallationResult result = getManagementContext().getOsgiManager().get().uninstallUploadedBundle(b.getMetadata());
+                log.debug("Result of uninstalling "+b+" due to catalog upgrade metadata instructions: "+result);
+            }
+        });
+
+        MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle() != null && b.getBundle().getResource("/catalog.bom") != null).forEach(b -> {
+            bundlesInOrder.remove(b);
+            bundlesInOrder.add(b); // then move catalog.bom items to the end
+        });
+        MutableSet.copyOf(bundlesInOrder).stream().filter(b -> b.getBundle() != null && b.getBundle().getResource("/META-INF/MANIFEST.MF") == null).forEach(b -> {
+            bundlesInOrder.remove(b);
+            bundlesInOrder.add(b); // move non-osgi items to the end
+        });
+        if (!bundlesInOrder.isEmpty()) {
+            log.debug("Rebind bundle start order is: " + bundlesInOrder);
+        }
         Set<RegisteredType> installedTypes = MutableSet.of();
-        for (OsgiBundleInstallationResult br : installs.values()) {
+
+        for (OsgiBundleInstallationResult br : bundlesInOrder) {
             try {
                 startBundle(br);
                 Iterables.addAll(installedTypes, managementContext.getTypeRegistry().getMatching(
@@ -544,7 +604,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
         }
     }
-    
+
     private void validateAllTypes(Set<RegisteredType> installedTypes, RebindExceptionHandler exceptionHandler) {
         Stopwatch sw = Stopwatch.createStarted();
         log.debug("Getting catalog to validate all types");
@@ -580,7 +640,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
     /** install the bundles into brooklyn and osgi, but do not start nor validate;
      * caller (rebind) will do that manually, doing each step across all bundles before proceeding 
      * to prevent reference errors */
-    private OsgiBundleInstallationResult installBundle(ManagedBundle bundle, InputStream zipInput) {
+    private OsgiBundleInstallationResult installBundle(ManagedBundle bundle, Supplier<InputStream> zipInput) {
         return getManagementContext().getOsgiManager().get().installDeferredStart(bundle, zipInput, false).get();
     }
     
@@ -603,6 +663,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (Map.Entry<VersionedName, InstallableManagedBundle> entry : persistedState.getBundles().entrySet()) {
             if (catalogUpgrades.isBundleRemoved(entry.getKey())) {
                 rebindLogger.debug("Filtering out persisted bundle "+entry.getKey());
+                // will skip persistence while not yet installed, and will remove when uninstalled
             } else {
                 bundles.put(entry.getKey(), entry.getValue());
             }
@@ -612,6 +673,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         for (CatalogItem<?, ?> legacyCatalogItem : persistedState.getLegacyCatalogItems()) {
             if (catalogUpgrades.isLegacyItemRemoved(legacyCatalogItem)) {
                 rebindLogger.debug("Filtering out persisted legacy catalog item "+legacyCatalogItem.getId());
+                // will skip persistence while not yet installed, and will remove when uninstalled
             } else {
                 legacyCatalogItems.add(legacyCatalogItem);
             }
@@ -627,8 +689,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
     
     public interface InstallableManagedBundle {
         public ManagedBundle getManagedBundle();
-        /** The caller is responsible for closing the returned stream. */
-        public InputStream getInputStream() throws IOException;
+        /** The caller is responsible for closing each stream. */
+        public Supplier<InputStream> getInputStreamSource() throws IOException;
     }
     
     public static class PersistedCatalogState {

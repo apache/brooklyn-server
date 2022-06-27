@@ -26,10 +26,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.StreamGobbler;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.commons.io.FileUtils;
@@ -38,6 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.collect.ImmutableList;
+
 
 public class FileUtil {
 
@@ -200,5 +204,19 @@ public class FileUtil {
                 LOG.warn(e.getMessage());
             }
         }
+    }
+
+    public static boolean doesZipContainJavaBinaries(InputStreamSource archive) {
+        try {
+            ZipInputStream zipIS = new ZipInputStream(archive.get());
+            for (ZipEntry entry = zipIS.getNextEntry(); entry != null; entry = zipIS.getNextEntry()) {
+                if (!entry.isDirectory() && (entry.getName().endsWith(".class") || entry.getName().endsWith(".jar"))) {
+                    return true;
+                }
+            }
+        }catch (Exception e){
+            LOG.debug("Error analyzing file to be added as a bundle", e);
+        }
+        return false;
     }
 }

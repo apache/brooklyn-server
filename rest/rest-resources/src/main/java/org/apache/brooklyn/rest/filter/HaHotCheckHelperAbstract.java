@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,9 +56,13 @@ public abstract class HaHotCheckHelperAbstract {
     }
 
     public Response disallowResponse(String problem, Object info) {
+        return disallowResponse(problem, info, true);
+    }
+
+    public Response disallowResponse(String problem, Object info, boolean masterRequired) {
         log.warn("Disallowing web request as "+problem+": "+info+" (caller should set '"+HaHotCheckHelperAbstract.SKIP_CHECK_HEADER+"' to force)");
         return ApiError.builder()
-            .message("This request is only permitted against an active master Brooklyn server")
+            .message("This request is only permitted against an active "+(masterRequired?"primary":"primary or hot standby/backup")+" Brooklyn server")
             .errorCode(Response.Status.FORBIDDEN).build().asJsonResponse();
     }
 
@@ -78,5 +83,19 @@ public abstract class HaHotCheckHelperAbstract {
     public boolean isStateNotYetValid() {
         return mgmt().getRebindManager().isAwaitingInitialRebind();
     }
-    
+
+    public static boolean isCallAllowedInAnyState(String uri) {
+        if (uri !=null) {
+            uri = Strings.removeAllFromStart(uri, "/", "v1/");
+
+            // user can log out anywhere they log in
+            if (uri.startsWith("logout")) return true;
+
+            // explicitly allow calls to shutdown
+            // (if stopAllApps is specified, the method itself will fail; but we do not want to consume parameters here, that breaks things!)
+            if ("server/shutdown".equals(uri)) return true;
+        }
+        return false;
+    }
+
 }

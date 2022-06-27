@@ -56,8 +56,10 @@ public interface AdjunctApi {
             response = org.apache.brooklyn.rest.domain.AdjunctSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity"),
-            @ApiResponse(code = 400, message = "Type is not known adjunct kind")
+            @ApiResponse(code = 400, message = "Type is not known adjunct kind"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<AdjunctSummary> list(
             @ApiParam(value = "Application ID or name", required = true)
@@ -68,11 +70,14 @@ public interface AdjunctApi {
             @QueryParam("adjunctType") final String adjunctType);
 
     // TODO support YAML ?
+    // TODO support timeout
     @POST
     @ApiOperation(value = "Create and add an adjunct (e.g. a policy, enricher, or feed) to this entity", notes = "Returns a summary of the added adjunct")
     @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Type is not a suitable adjunct"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application or entity"),
-            @ApiResponse(code = 400, message = "Type is not a suitable adjunct")
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public AdjunctDetail addAdjunct(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -93,7 +98,10 @@ public interface AdjunctApi {
     @Path("/{adjunct}")
     @ApiOperation(value = "Gets detail of an adjunct")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct")
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public AdjunctDetail get(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -109,7 +117,10 @@ public interface AdjunctApi {
     @Path("/{adjunct}/status")
     @ApiOperation(value = "Gets status of an adjunct (RUNNING / SUSPENDED)")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct")
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Status getStatus(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -125,8 +136,11 @@ public interface AdjunctApi {
     @Path("/{adjunct}/start")
     @ApiOperation(value = "Start or resume an adjunct")
     @ApiResponses(value = {
+            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
-            @ApiResponse(code = 400, message = "Adjunct does not support start/stop")
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response start(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -142,8 +156,11 @@ public interface AdjunctApi {
     @Path("/{adjunct}/stop")
     @ApiOperation(value = "Suspends an adjunct")
     @ApiResponses(value = {
+            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
-            @ApiResponse(code = 400, message = "Adjunct does not support start/stop")
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response stop(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -159,7 +176,11 @@ public interface AdjunctApi {
     @Path("/{adjunct}")
     @ApiOperation(value = "Destroy an adjunct", notes="Removes an adjunct from being associated with the entity and destroys it (stopping first if running)")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct")
+            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response destroy(
             @ApiParam(name = "application", value = "Application ID or name", required = true)
@@ -179,7 +200,10 @@ public interface AdjunctApi {
             response = org.apache.brooklyn.rest.domain.ConfigSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity or adjunct")
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<ConfigSummary> listConfig(
             @ApiParam(value = "Application ID or name", required = true)
@@ -194,6 +218,12 @@ public interface AdjunctApi {
     @GET
     @Path("/{adjunct}/config-current")
     @ApiOperation(value = "Fetch config key values in batch", notes="Returns a map of config name to value")
+    @ApiResponses(value = {
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String, Object> batchConfigRead(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
@@ -206,7 +236,10 @@ public interface AdjunctApi {
     @Path("/{adjunct}/config/{config}")
     @ApiOperation(value = "Fetch config value", response = Object.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity, adjunct or config key")
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity, adjunct or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public String getConfig(
             @ApiParam(value = "Application ID or name", required = true)
@@ -223,7 +256,11 @@ public interface AdjunctApi {
     @Consumes(value = {"*/*"})
     @ApiOperation(value = "Sets the given config on this adjunct")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity, adjunct or config key")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity, adjunct or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response setConfig(
             @ApiParam(value = "Application ID or name", required = true)
@@ -242,7 +279,10 @@ public interface AdjunctApi {
     @Path("/{adjunct}/activities")
     @ApiOperation(value = "Fetch list of tasks for this adjunct")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity, or adjunct")
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<TaskSummary> listTasks(
             @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
@@ -256,6 +296,13 @@ public interface AdjunctApi {
     @GET
     @ApiOperation(value = "Returns an icon for the adjunct, if defined")
     @Path("/{adjunct}/icon")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or adjunct"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response getIcon(
         @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
         @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId,

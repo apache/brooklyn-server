@@ -57,6 +57,7 @@ public class DslParseComponentsTest extends AbstractYamlTest {
                     "  brooklyn.config:",
                     "    dest: 1",
                     "    dest2: 1",
+                    "    pattern: '%s-%s'",
                     "  brooklyn.children:",
                     "  - type: "+BasicEntity.class.getName(),
                     "    id: two",
@@ -130,6 +131,17 @@ public class DslParseComponentsTest extends AbstractYamlTest {
         
         String y3 = Tasks.resolveValue(y1, String.class, ((EntityInternal) find("one")).getExecutionContext());
         Assert.assertEquals(y3.toString(), "1-1");
+    }
+
+    @Test
+    public void testFormatStringWithDslPatternEvaluation() throws Exception {
+        app();
+
+        Object y1 = parseDslExpression("$brooklyn:formatString($brooklyn:config(\"pattern\"), $brooklyn:config(\"dest\"), $brooklyn:config(\"dest2\"))");
+        Assert.assertEquals(y1.toString(), "$brooklyn:formatString(config(\"pattern\"), config(\"dest\"), config(\"dest2\"))");
+
+        String y2 = Tasks.resolveValue(y1, String.class, ((EntityInternal) find("one")).getExecutionContext());
+        Assert.assertEquals(y2.toString(), "1-1");
     }
 
     @Test

@@ -76,7 +76,7 @@ public class JmxmpAgentSslTest {
     
     @BeforeMethod
     public void setup() throws Exception {
-        caRootSigner = new FluentKeySigner("ca-root").selfsign();
+        caRootSigner = new FluentKeySigner("ca-root").ca(0).selfsign();
         caRootKey = caRootSigner.getKey();
         caRootCert = caRootSigner.getAuthorityCertificate();
 
@@ -169,7 +169,7 @@ public class JmxmpAgentSslTest {
         new JmxmpClient().connect("service:jmx:jmxmp://localhost:11099", new LinkedHashMap());
     }
 
-    @Test
+    @Test(groups = "Integration")
     public void testAllGoodSignatures() throws Exception {
         serverKeystore.setKeyEntry("child-2", child2Key.getPrivate(), new char[]{},  
                 new java.security.cert.Certificate[]{ child2Cert, caRootCert });

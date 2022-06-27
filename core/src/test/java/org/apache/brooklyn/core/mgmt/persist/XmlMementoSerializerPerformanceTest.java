@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.core.mgmt.rebind.dto.MementosGenerators;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -55,7 +56,9 @@ public class XmlMementoSerializerPerformanceTest extends AbstractPerformanceTest
     public void setUp() throws Exception {
         super.setUp();
 
-        serializer = new XmlMementoSerializer<Object>(XmlMementoSerializerPerformanceTest.class.getClassLoader());
+        serializer = XmlMementoSerializerBuilder.empty()
+                .withBrooklynDeserializingClassRenames()
+                .withClassLoader(XmlMementoSerializerPerformanceTest.class.getClassLoader()).build();
     }
 
     protected int numIterations() {

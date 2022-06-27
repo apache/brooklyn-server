@@ -54,7 +54,10 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
     TestEntity producer;
     AttributeSensor<Integer> intSensorA;
     AttributeSensor<Integer> intSensorB;
+    AttributeSensor<String> stringSensorC;
     AttributeSensor<Long> target;
+    AttributeSensor<Duration> targetDuration;
+    AttributeSensor<Object> targetObject;
 
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -63,8 +66,11 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
         producer = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         intSensorA = new BasicAttributeSensor<Integer>(Integer.class, "int.sensor.a");
         intSensorB = new BasicAttributeSensor<Integer>(Integer.class, "int.sensor.b");
+        stringSensorC = new BasicAttributeSensor<String>(String.class, "string.sensor.c");
         target = new BasicAttributeSensor<Long>(Long.class, "long.sensor.target");
-        
+        targetDuration = new BasicAttributeSensor<Duration>(Duration.class, "duration.sensor.target");
+        targetObject = new BasicAttributeSensor<Object>(Object.class, "object.sensor.target");
+
         app.start(ImmutableList.of(new SimulatedLocation()));
     }
     
@@ -75,13 +81,38 @@ public class TransformingEnricherTest extends BrooklynAppUnitTestSupport {
 
         producer.enrichers().add(Enrichers.builder()
                 .transforming(intSensorA)
-                .computing(MathFunctions.times(2))
                 .publishing(target)
                 // note: if `computing` comes later, we lose some type inference, have to give explicit types or go unchecked
-                //.computing((Function)MathFunctions.times(2))
-                .build());
+                .computing((Function)MathFunctions.times(2))
+                .build()
+                );
 
         EntityAsserts.assertAttributeEqualsEventually(producer, target, 6L);
+    }
+
+    @Test
+    public void testTransformingEnricherTypeFromSensor() throws Exception {
+        producer.enrichers().add(Enrichers.builder()
+                .transforming(stringSensorC)
+                .publishing(targetDuration)
+                .build()
+                );
+
+        producer.sensors().set(stringSensorC, "1h");
+        EntityAsserts.assertAttributeEqualsEventually(producer, targetDuration, Duration.ONE_HOUR);
+    }
+
+    @Test
+    public void testTransformingEnricherTypeExplicit() throws Exception {
+        producer.enrichers().add(Enrichers.builder()
+                        .transforming(stringSensorC)
+                        .publishing(targetObject)
+                        .build()
+                        .configure(Transformer.TARGET_TYPE, Duration.class.getName())
+        );
+
+        producer.sensors().set(stringSensorC, "1h");
+        EntityAsserts.assertAttributeEqualsEventually(producer, targetObject, Duration.ONE_HOUR);
     }
     
     @Test

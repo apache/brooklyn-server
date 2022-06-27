@@ -37,6 +37,9 @@ import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.core.BrooklynLogging;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.rest.util.MultiSessionAttributeAdapter;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -127,19 +130,39 @@ public class LoggingResourceFilter implements ContainerRequestFilter, ContainerR
         
         SecurityContext securityContext = requestContext.getSecurityContext();
         Principal userPrincipal = (securityContext != null) ? requestContext.getSecurityContext().getUserPrincipal() : null;
-        String userName = (userPrincipal != null) ? userPrincipal.getName() : "<no-user>";
+        String userName = (userPrincipal != null) ? userPrincipal.getName() : tryFindUserName();
         String remoteAddr = servletRequest.getRemoteAddr();
         
         StringBuilder message = new StringBuilder("Request received: ")
                 .append(method)
                 .append(" ")
                 .append(path)
-                .append(" from ")
+                .append(" from user '")
                 .append(userName)
-                .append(" @ ")
+                .append("' @ ")
                 .append(remoteAddr);
 
         log(LOG, level, message.toString());
+    }
+
+    private String tryFindUserName(){
+        // trying to find it on the Entitlement context
+        Maybe<String> entitlementContextUserMaybe = Entitlements.getEntitlementContextUserMaybe();
+        if(entitlementContextUserMaybe.isPresent()){
+            return entitlementContextUserMaybe.get();
+        }
+
+        // trying to find it on the session
+        if (servletRequest != null) {
+            MultiSessionAttributeAdapter s = MultiSessionAttributeAdapter.of(servletRequest, false);
+            if (s != null) {
+                String userName = (String) s.getAttribute(BrooklynSecurityProviderFilterHelper.AUTHENTICATED_USER_SESSION_ATTRIBUTE);
+                if(userName !=null){
+                    return userName;
+                }
+            }
+        }
+        return  "<no-user>";
     }
 
     private void logResponse(ContainerRequestContext requestContext, ContainerResponseContext responseContext, Duration requestDuration, LogLevel level) {

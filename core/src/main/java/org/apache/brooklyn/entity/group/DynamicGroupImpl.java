@@ -144,11 +144,19 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
         }
     }
 
-    private class MyEntitySetChangeListener implements CollectionChangeListener<Entity> {
+    private class MyEntitySetChangeListener implements CollectionChangeListener.ListenerWithErrorHandler<Entity> {
         @Override
         public void onItemAdded(Entity item) { onEntityAdded(item); }
         @Override
         public void onItemRemoved(Entity item) { onEntityRemoved(item); }
+
+        @Override
+        public void onError(String msg, Throwable trace) {
+            // log debug if shutting down
+            BrooklynLogging.log(log, Entities.isManagedActive(DynamicGroupImpl.this) ? BrooklynLogging.LoggingLevel.WARN : BrooklynLogging.LoggingLevel.DEBUG,
+                    msg, trace);
+            throw Exceptions.propagate(trace);
+        }
     }
 
     @Override

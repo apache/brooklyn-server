@@ -453,7 +453,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     protected void doStart() {
         if (isQuarantineEnabled()) {
             QuarantineGroup quarantineGroup = getAttribute(QUARANTINE_GROUP);
-            if (quarantineGroup==null || !Entities.isManaged(quarantineGroup)) {
+            if (quarantineGroup==null || !Entities.isManagedActive(quarantineGroup)) {
                 quarantineGroup = addChild(EntitySpec.create(QuarantineGroup.class).displayName("quarantine"));
                 sensors().set(QUARANTINE_GROUP, quarantineGroup);
             }
@@ -587,8 +587,12 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
             ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
             throw Exceptions.propagate(e);
         } finally {
-            if (clusterOneAndAllMembersUp != null) clusterOneAndAllMembersUp.stop();
+            stopClusterAndMembersFeed();
         }
+    }
+
+    protected void stopClusterAndMembersFeed(){
+        if (clusterOneAndAllMembersUp != null) clusterOneAndAllMembersUp.stop();
     }
 
     @Override
@@ -1164,7 +1168,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
                         "Waiting for permit then running " + effector.getName() + " on " + target,
                         obtainMutex, effectorTask);
             }
-            toSubmit.addListener(new ReleasePermit(getChildTaskSemaphore(), permitObtained), MoreExecutors.sameThreadExecutor());
+            toSubmit.addListener(new ReleasePermit(getChildTaskSemaphore(), permitObtained), /* same thread */ r -> r.run());
         } else {
             toSubmit = effectorTask;
         }

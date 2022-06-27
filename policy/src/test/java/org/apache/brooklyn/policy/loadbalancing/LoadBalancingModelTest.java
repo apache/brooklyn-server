@@ -106,7 +106,7 @@ public class LoadBalancingModelTest extends BrooklynAppUnitTestSupport {
         
         assertEquals(model.getItemsForContainer(container1), Collections.emptySet());
         assertEquals(model.getItemsForContainer(container2), ImmutableSet.of(item1));
-        assertEquals(model.getItemWorkrate(item1), 123d);
+        assertEquals(model.getItemWorkrate(item1), (Double) 123d);
         assertEquals(model.getTotalWorkrate(container1), 0d);
         assertEquals(model.getTotalWorkrate(container2), 123d);
         assertEquals(model.getItemWorkrates(container1), Collections.emptyMap());

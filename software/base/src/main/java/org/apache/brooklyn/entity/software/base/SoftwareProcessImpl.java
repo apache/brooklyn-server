@@ -214,9 +214,6 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
      * Subscribes to SERVICE_PROCESS_IS_RUNNING and SERVICE_UP; the latter has no effect if the former is set,
      * but to support entities which set SERVICE_UP directly we want to make sure that the absence of 
      * SERVICE_PROCESS_IS_RUNNING does not trigger any not-up indicators.
-     * 
-     * This class should be considered internal, and not instantiated directly. It is only public 
-     * to better support rebind.
      */
     public static class UpdatingNotUpFromServiceProcessIsRunning extends AbstractEnricher implements SensorEventListener<Object> {
         public UpdatingNotUpFromServiceProcessIsRunning() {}

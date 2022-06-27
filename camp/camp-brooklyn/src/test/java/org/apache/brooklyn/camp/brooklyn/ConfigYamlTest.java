@@ -18,6 +18,15 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.annotations.Beta;
+import java.util.Map;
+import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
+import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
+import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.yaml.Yamls;
+import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -51,6 +60,8 @@ import com.google.common.collect.Iterables;
 public class ConfigYamlTest extends AbstractYamlTest {
     
     private static final Logger LOG = LoggerFactory.getLogger(ConfigYamlTest.class);
+
+    final static String DOUBLE_MAX_VALUE_TIMES_TEN = "" + Double.MAX_VALUE + "0";
 
     private ExecutorService executor;
 
@@ -418,5 +429,202 @@ public class ConfigYamlTest extends AbstractYamlTest {
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_MAP_PLAIN).get(), ImmutableMap.of("mykey", "myOther"));
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_LIST_PLAIN).get(), ImmutableList.of("myOther"));
         assertEquals(entity.config().getNonBlocking(TestEntity.CONF_SET_PLAIN).get(), ImmutableSet.of("myOther"));
+    }
+
+    @Test
+    public void testConfigGoodNumericCoercions() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: 1.1",
+                "    test.confInteger: 1.0");
+
+        final Entity app = createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        assertEquals(entity.config().get(TestEntity.CONF_INTEGER), (Integer)1);
+        assertEquals(entity.config().get(TestEntity.CONF_DOUBLE), (Double)1.1);
+    }
+
+    @Test
+    public void testConfigVeryLargeIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 9999999999999999999999999999999999999332",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+            e -> e.toString().contains("9999332"));
+    }
+
+    @Test
+    public void testConfigOtherVeryLargeIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 100000000000000000000000000000000000",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("100000000000000000000000000000000000"));
+    }
+
+    @Test
+    public void testConfigSlightlyLargeIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 2147483648",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("2147483648"));
+    }
+
+    @Test
+    public void testConfigVeryLargeDoubleCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: 999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999332",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("9999332"));
+    }
+
+    @Test
+    public void testConfigSlightlyLargeDoubleParseFails() throws Exception {
+        Object xm = null;
+        try {
+            xm = Yamls.parseAll("x: " + DOUBLE_MAX_VALUE_TIMES_TEN).iterator().next();
+
+//        Object x = ((Map)xm).get("x");
+//        LOG.info("x: "+x);
+//        if (x instanceof Double) {
+//            Asserts.fail("Should not be a double: "+x);
+//        }
+
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "yaml parser", "out of range", DOUBLE_MAX_VALUE_TIMES_TEN);
+        }
+    }
+
+    @Test
+    public void testConfigSlightlyLargeDoubleCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: "+DOUBLE_MAX_VALUE_TIMES_TEN,
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "yaml parser", "out of range", DOUBLE_MAX_VALUE_TIMES_TEN));
+    }
+
+
+    @Test
+    public void testConfigSlightlyLargeDoubleAsStringCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confDouble: "+ JavaStringEscapes.wrapJavaString(DOUBLE_MAX_VALUE_TIMES_TEN),
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "cannot coerce", DOUBLE_MAX_VALUE_TIMES_TEN));
+    }
+
+    @Test
+    public void testConfigFloatAsIntegerCoercionFails() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    test.confInteger: 1.5",
+                "");
+
+        Asserts.assertFailsWith(() -> createStartWaitAndLogApplication(yaml),
+                e -> e.toString().contains("1.5"));
+    }
+
+    @Test
+    public void testSensitiveConfigFailsIfConfigured() throws Exception {
+        Asserts.assertFailsWith(() -> {
+            return withSensitiveFieldsBlocked(() -> {
+                String yaml = Joiner.on("\n").join(
+                        "services:",
+                        "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                        "  brooklyn.config:",
+                        "    secret1: myval");
+
+                return createStartWaitAndLogApplication(yaml);
+            });
+        }, e -> {
+            Asserts.expectedFailureContainsIgnoreCase(e, "secret1");
+            Asserts.expectedFailureDoesNotContain(e, "myval");
+            return true;
+        });
+    }
+
+    @Test
+    public void testSensitiveConfigDslWorksOrFailsDependingHowConfigured() throws Exception {
+        String yaml = Joiner.on("\n").join(
+                "services:",
+                "- type: org.apache.brooklyn.core.test.entity.TestEntity",
+                "  brooklyn.config:",
+                "    secret1: $brooklyn:literal(\"myval\")");
+
+        // allowed
+        withSensitiveFieldsBlocked(() -> {
+            return createStartWaitAndLogApplication(yaml);
+        });
+
+        Asserts.assertFailsWith(() -> {
+            return withSensitiveFieldsBlocked(() -> {
+                String oldValue =
+                        //((BrooklynProperties) mgmt().getConfig()).put(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED, true);
+                        System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES.getName(), "[ \"$brooklyn:literal\" ]");
+                Sanitizer.getSensitiveFieldsTokens(true);
+                try {
+                    return createStartWaitAndLogApplication(yaml);
+                } finally {
+                    System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES.getName(), oldValue!=null ? oldValue : "");
+                    Sanitizer.getSensitiveFieldsTokens(true);
+                }
+            });
+        }, e -> {
+            Asserts.expectedFailureContainsIgnoreCase(e, "literal");
+            Asserts.expectedFailureDoesNotContain(e, "myval");
+            return true;
+        });
+    }
+
+    @Beta
+    public static <T> T withSensitiveFieldsBlocked(Callable<T> r) throws Exception {
+        String oldValue =
+                //((BrooklynProperties) mgmt().getConfig()).put(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED, true);
+                System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getName(), "true");
+        Sanitizer.getSensitiveFieldsTokens(true);
+        Assert.assertTrue( Sanitizer.isSensitiveFieldsPlaintextBlocked() );
+
+        try {
+
+            return r.call();
+
+        } finally {
+            //((BrooklynProperties) mgmt().getConfig()).put(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED, oldValue);
+            System.setProperty(BrooklynServerConfig.SENSITIVE_FIELDS_PLAINTEXT_BLOCKED.getName(), oldValue!=null ? oldValue : "");
+            Sanitizer.getSensitiveFieldsTokens(true);
+        }
     }
 }

@@ -23,8 +23,10 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.TypePlanTransformers;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
@@ -142,7 +144,12 @@ public class PlanToSpecFactory {
         Exception result;
         if (!otherProblemsFromTransformers.isEmpty()) {
             // at least one thought he could do it
-            log.debug("Plan could not be transformed; failure will be propagated (other transformers tried = "+transformersWhoDontSupport+"): "+otherProblemsFromTransformers);
+            Supplier<String> msg = () -> "Plan could not be transformed; failure will be propagated (other transformers tried = "+transformersWhoDontSupport+"): "+otherProblemsFromTransformers;
+            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null) {
+                log.debug(msg.get());
+            } else if (log.isTraceEnabled()) {
+                log.trace(msg.get());
+            }
             result = otherProblemsFromTransformers.size()==1 ? Exceptions.create(null, otherProblemsFromTransformers) :
                 Exceptions.create("All plan transformers failed", otherProblemsFromTransformers);
         } else {

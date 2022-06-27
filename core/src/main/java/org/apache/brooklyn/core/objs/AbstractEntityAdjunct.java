@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.core.objs;
 
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Proxy;
+import java.util.concurrent.ConcurrentHashMap;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
 import java.util.Collection;
@@ -51,6 +54,7 @@ import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.internal.SubscriptionTracker;
+import org.apache.brooklyn.core.objs.proxy.EntityAdjunctProxyImpl;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
@@ -111,16 +115,16 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @SetFromFlag(value="uniqueTag")
     protected String uniqueTag;
 
-    private Map<String, HighlightTuple> highlights = new HashMap<>();
+    private Map<String, HighlightTuple> highlights = new ConcurrentHashMap<>();
 
     /** Name of a highlight that indicates the last action taken by this adjunct. */
-    public static String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
+    public static final String HIGHLIGHT_NAME_LAST_ACTION = "lastAction";
     /** Name of a highlight that indicates the last confirmation detected by this adjunct. */
-    public static String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
+    public static final String HIGHLIGHT_NAME_LAST_CONFIRMATION= "lastConfirmation";
     /** Name of a highlight that indicates the last violation detected by this adjunct. */
-    public static String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
+    public static final String HIGHLIGHT_NAME_LAST_VIOLATION= "lastViolation";
     /** Name of a highlight that indicates the triggers for this adjunct. */
-    public static String HIGHLIGHT_NAME_TRIGGERS = "triggers";
+    public static final String HIGHLIGHT_NAME_TRIGGERS = "triggers";
 
     public AbstractEntityAdjunct() {
         this(Collections.emptyMap());
@@ -345,11 +349,6 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         }
 
         @Override
-        protected <T> void assertValid(ConfigKey<T> key, T val) {
-            ConfigConstraints.assertValid(entity, key, val);
-        }
-
-        @Override
         protected BrooklynObject getContainer() {
             return AbstractEntityAdjunct.this;
         }
@@ -436,6 +435,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
         destroyed.set(true);
         SubscriptionTracker tracker = getSubscriptionTracker();
         if (tracker != null) tracker.unsubscribeAll();
+        getManagementContext().getRebindManager().getChangeListener().onUnmanaged(this);
     }
     
     @Override
@@ -586,5 +586,22 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
                 .add("entity", entity)
                 .add("id", getId())
                 .toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o==null) return false;
+        if (Proxy.isProxyClass(o.getClass())) {
+            InvocationHandler ph = Proxy.getInvocationHandler(o);
+            if (ph!=null && ph instanceof EntityAdjunctProxyImpl) return ((EntityAdjunctProxyImpl)ph).equals(this);
+            return false;
+        }
+
+        return super.equals(o);
+    }
+
+    public int hashCode() {
+        return getId().hashCode();
     }
 }

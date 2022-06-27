@@ -1,0 +1,31 @@
+#    Licensed to the Apache Software Foundation (ASF) under one
+#    or more contributor license agreements.  See the NOTICE file
+#    distributed with this work for additional information
+#    regarding copyright ownership.  The ASF licenses this file
+#    to you under the Apache License, Version 2.0 (the
+#    "License"); you may not use this file except in compliance
+#    with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing,
+#   software distributed under the License is distributed on an
+#    "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+#   KIND, either express or implied.  See the License for the
+#   specific language governing permissions and limitations
+#    under the License.
+
+2021-05-27T11:36:59,251Z - DEBUG 146 o.a.b.c.m.i.LocalManagementContext [qtp158784971-235] Top-level effector invocation: restart[] on BasicApplicationImpl{id=gwpndj09r8, name=Application (gwpndj09r8)}
+2021-07-05T12:38:09,351Z - ERROR 293 o.a.b.u.m.ExternalUiModule [tures-3-thread-1] bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules:1.1.0.SNAPSHOT (293)[org.apache.brooklyn.ui.modularity.ExternalUiModule] : Cannot register component
+org.osgi.service.component.ComponentException: The component name 'org.apache.brooklyn.ui.external.module' has already been registered by Bundle 293 (org.apache.brooklyn.ui.modularity.brooklyn-ui-external-modules) as Component of Class org.apache.brooklyn.ui.modularity.ExternalUiModule
+	at org.apache.felix.scr.impl.ComponentRegistry.checkComponentName(ComponentRegistry.java:240) ~[?:?]
+	at org.apache.felix.scr.impl.BundleComponentActivator.validateAndRegister(BundleComponentActivator.java:443) ~[?:?]
+2021-07-05T12:38:10,355Z - INFO   18 o.a.k.f.i.s.FeaturesServiceImpl [tures-3-thread-1]   org.apache.brooklyn.ui.modularity.brooklyn-ui-module-registry/1.1.0.SNAPSHOT in entity l8442kq0zu
+2021-07-05T12:38:11,382Z - INFO  178 o.o.p.w.s.j.i.HttpServiceContext [ender-3-thread-2] registering JasperInitializer
+2021-07-05T12:38:12,369Z - WARN   48 o.a.a.b.c.BlueprintContainerImpl [tures-3-thread-1] Blueprint bundle org.apache.brooklyn.ui.modularity.brooklyn-ui-module-registry/1.1.0.SNAPSHOT is waiting for dependencies [(objectClass=org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal), (objectClass=org.apache.brooklyn.core.mgmt.ShutdownHandler)]
+2021-08-30T11:28:24,764Z - ERROR   18 o.a.k.f.i.s.FeaturesServiceImpl [tures-3-thread-1]   org.apache.brooklyn.ui.modularity.brooklyn-ui-module-registry/1.1.0.SNAPSHOT in entity iffj68b370 and testing
+2021-08-30T11:28:25,764Z CMeSRJNF-[l8442kq0zu,iffj68b370] WARN  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] key 'brooklyn.locations' not supported
+2021-08-30T11:28:26,764Z CMeSRJNF-[l8442kq0zu,iffj68b370] INFO  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] for testing
+2021-08-30T11:28:27,764Z CMeSRJNX-[l8442kq0zu,iffj68b370] INFO  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] for testing
+2021-08-30T11:28:28,764Z CMeSRJNX-[l8442kq0zx,iffj68b370] WARN  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] key 'brooklyn.locations' not supported
+2021-08-30T11:28:54,466Z THGMmYiu-[l8442kq0zx,iffj68b370] INFO  282 o.a.b.e.s.b.l.MachineLifecycleEffectorTasks [ger-rhkc5jtA-360] Starting ToscaComputeNodeEntityImpl{id=iffj68b370} on machine SshMachineLocation[cloudsoft-ubuntu:cloudsoft@135.181.244.108/135.181.244.108:22(id=dr6f7lah7i)]

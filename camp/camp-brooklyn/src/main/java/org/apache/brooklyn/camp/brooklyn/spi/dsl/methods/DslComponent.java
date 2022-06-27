@@ -18,14 +18,26 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl.methods;
 
-import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.CaseFormat;
+import com.google.common.base.Converter;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.util.concurrent.Callables;
+import com.thoughtworks.xstream.annotations.XStreamConverter;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-
+import java.util.function.Function;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -34,9 +46,11 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.AppGroupTraverser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
+import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -44,10 +58,10 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
@@ -58,19 +72,6 @@ import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverte
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-
-import com.google.common.base.CaseFormat;
-import com.google.common.base.Converter;
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.util.concurrent.Callables;
-import com.thoughtworks.xstream.annotations.XStreamConverter;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
 
@@ -107,6 +108,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         } else {
             return new DslComponent(scope, (DeferredSupplier<?>)componentId);
         }
+    }
+
+    public static DslComponent newInstanceChangingScope(Scope scope, DslComponent old, Function<String,String> dslUpdateFn) {
+        DslComponent result;
+        if (old.componentIdSupplier!=null) result = new DslComponent(scope, old.componentIdSupplier);
+        else if (old.componentId!=null) result = new DslComponent(scope, old.componentId);
+        else result = new DslComponent(scope);
+
+        if (dslUpdateFn!=null && old.dsl instanceof String) {
+            result.dsl = dslUpdateFn.apply((String) old.dsl);
+        } else {
+            result.dsl = old.dsl;
+        }
+        return result;
     }
 
     /**
@@ -150,6 +165,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         this(null, scope, componentIdSupplier);
     }
 
+    // for JSON deserialization only
+    private DslComponent() {
+        this.scopeComponent = null;
+        this.componentId = null;
+        this.componentIdSupplier = null;
+        this.scope = null;
+    }
+
     /**
      * Resolve componentId in scope relative to scopeComponent.
      */
@@ -177,8 +200,20 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public Scope getScope() {
         return scope;
     }
-    
-    @Override
+
+    public DeferredSupplier<?> getComponentIdSupplier() {
+        return componentIdSupplier;
+    }
+
+    public String getComponentId() {
+        return componentId;
+    }
+
+    public DslComponent getScopeComponent() {
+        return scopeComponent;
+    }
+
+    @Override @JsonIgnore
     public final Maybe<Entity> getImmediately() {
         return new EntityInScopeFinder(scopeComponent, scope, componentId, componentIdSupplier).getImmediately();
     }
@@ -197,7 +232,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         protected final Scope scope;
         protected final String componentId;
         protected final DeferredSupplier<?> componentIdSupplier;
-        
+
         public EntityInScopeFinder(DslComponent scopeComponent, Scope scope, String componentId, DeferredSupplier<?> componentIdSupplier) {
             this.scopeComponent = scopeComponent;
             this.scope = scope;
@@ -205,7 +240,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.componentIdSupplier = componentIdSupplier;
         }
 
-        @Override 
+        @Override @JsonIgnore
         public Maybe<Entity> getImmediately() {
             try {
                 return callImpl(true);
@@ -239,15 +274,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 return Maybe.<Entity>ofDisallowingNull(entity()).or(Maybe.<Entity>absent("Context entity not available when trying to evaluate Brooklyn DSL"));
             }
         }
-        
+
         protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
             Maybe<Entity> entityMaybe = getEntity(immediate);
             if (immediate && entityMaybe.isAbsent()) {
                 return entityMaybe;
             }
             EntityInternal entity = (EntityInternal) entityMaybe.get();
-            
-            Iterable<Entity> entitiesToSearch = null;
+
+            java.util.function.Predicate<Entity> acceptableEntity = x -> true;
             Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
 
             switch (scope) {
@@ -256,25 +291,45 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 case PARENT:
                     return Maybe.<Entity>of(entity.getParent());
                 case GLOBAL:
-                    entitiesToSearch = ((EntityManagerInternal)entity.getManagementContext().getEntityManager())
-                        .getAllEntitiesInApplication( entity().getApplication() );
+                    if (Entities.isManaged(entity())) {
+                        // use management context if entity is managed (usual case, more efficient)
+                        String appId = entity().getApplicationId();
+                        acceptableEntity = ee -> appId!=null && appId.equals(ee.getApplicationId());
+
+                    } else {
+                        // otherwise traverse the application
+                        if (entity()!=null && entity().getApplication()!=null) {
+                            Set<Entity> toVisit = MutableSet.of(entity().getApplication()), visited = MutableSet.of(entity().getApplication());
+                            while (!toVisit.isEmpty()) {
+                                Set<Entity> visiting = MutableSet.copyOf(toVisit);
+                                toVisit.clear();
+                                visiting.forEach(e -> {
+                                    e.getChildren().forEach(ec -> {
+                                        if (visited.add(ec)) toVisit.add(ec);
+                                    });
+                                });
+                            }
+                            acceptableEntity = visited::contains;
+                        } else {
+                            // nothing to do
+                        }
+                    }
                     break;
                 case ROOT:
                     return Maybe.<Entity>of(entity.getApplication());
                 case SCOPE_ROOT:
                     return Maybe.<Entity>of(Entities.catalogItemScopeRoot(entity));
                 case DESCENDANT:
-                    entitiesToSearch = Entities.descendantsWithoutSelf(entity);
+                    acceptableEntity = MutableSet.copyOf(Entities.descendantsWithoutSelf(entity))::contains;
                     break;
                 case ANCESTOR:
-                    entitiesToSearch = Entities.ancestorsWithoutSelf(entity);
+                    acceptableEntity = MutableSet.copyOf(Entities.ancestorsWithoutSelf(entity))::contains;
                     break;
                 case SIBLING:
-                    entitiesToSearch = entity.getParent().getChildren();
-                    entitiesToSearch = Iterables.filter(entitiesToSearch, notSelfPredicate);
+                    acceptableEntity = MutableSet.copyOf(Iterables.filter(entity.getParent().getChildren(), notSelfPredicate))::contains;
                     break;
                 case CHILD:
-                    entitiesToSearch = entity.getChildren();
+                    acceptableEntity = MutableSet.copyOf(entity.getChildren())::contains;
                     break;
                 default:
                     throw new IllegalStateException("Unexpected scope "+scope);
@@ -300,9 +355,10 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 }
                 
                 // Support being passed an explicit entity via the DSL
-                if (maybeComponentId.get() instanceof BrooklynObject) {
-                    if (Iterables.contains(entitiesToSearch, maybeComponentId.get())) {
-                        return Maybe.of((Entity)maybeComponentId.get());
+                Object candidate = maybeComponentId.get();
+                if (candidate instanceof BrooklynObject) {
+                    if (acceptableEntity.test((Entity)candidate)) {
+                        return Maybe.of((Entity)candidate);
                     } else {
                         throw new IllegalStateException("Resolved component " + maybeComponentId.get() + " is not in scope '" + scope + "' wrt " + entity);
                     }
@@ -317,15 +373,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             } else {
                 desiredComponentId = componentId;
             }
-            
-            Optional<Entity> result = Iterables.tryFind(entitiesToSearch, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, desiredComponentId));
-            if (result.isPresent()) {
-                return Maybe.of(result.get());
+
+            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
+                    Predicates.and(EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, desiredComponentId), acceptableEntity::test)::apply);
+            if (firstGroupOfMatches.isEmpty()) {
+                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
+                        Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), acceptableEntity::test)::apply);
             }
-            
-            result = Iterables.tryFind(entitiesToSearch, EntityPredicates.idEqualTo(desiredComponentId));
-            if (result.isPresent()) {
-                return Maybe.of(result.get());
+            if (!firstGroupOfMatches.isEmpty()) {
+                return Maybe.of(firstGroupOfMatches.get(0));
             }
             
             // could be nice if DSL has an extra .block() method to allow it to wait for a matching entity.
@@ -419,7 +475,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.component = Preconditions.checkNotNull(component);
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
@@ -455,15 +511,28 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public BrooklynDslDeferredSupplier<?> attributeWhenReady(final Object sensorNameOrSupplier) {
         return new AttributeWhenReady(this, sensorNameOrSupplier);
     }
-    protected static class AttributeWhenReady extends BrooklynDslDeferredSupplier<Object> {
+    public static class AttributeWhenReady extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = 1740899524088902383L;
         private final DslComponent component;
         @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object sensorName;
 
+        // JSON deserialization only
+        private AttributeWhenReady() {
+            this.component = null;
+            this.sensorName = null;
+        }
         public AttributeWhenReady(DslComponent component, Object sensorName) {
             this.component = Preconditions.checkNotNull(component);
             this.sensorName = sensorName;
+        }
+
+        public Object getSensorName() {
+            return sensorName;
+        }
+
+        public DslComponent getComponent() {
+            return component;
         }
 
         protected String resolveSensorName(boolean immediately) {
@@ -479,7 +548,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .get();
         }
         
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Maybe<Entity> targetEntityMaybe = component.getImmediately();
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity not available: "+component, targetEntityMaybe);
@@ -529,15 +598,28 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public BrooklynDslDeferredSupplier<?> config(final Object keyNameOrSupplier) {
         return new DslConfigSupplier(this, keyNameOrSupplier);
     }
-    protected final static class DslConfigSupplier extends BrooklynDslDeferredSupplier<Object> {
+    public final static class DslConfigSupplier extends BrooklynDslDeferredSupplier<Object> {
         private final DslComponent component;
         @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object keyName;
         private static final long serialVersionUID = -4735177561947722511L;
 
+        // JSON-only constructor
+        private DslConfigSupplier() {
+            component = null;
+            keyName = null;
+        }
         public DslConfigSupplier(DslComponent component, Object keyName) {
             this.component = Preconditions.checkNotNull(component);
             this.keyName = keyName;
+        }
+
+        public Object getKeyName() {
+            return keyName;
+        }
+
+        public DslComponent getComponent() {
+            return component;
         }
 
         protected String resolveKeyName(boolean immediately) {
@@ -553,7 +635,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 .get();
         }
         
-        @Override
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Maybe<Object> maybeWrappedMaybe = findExecutionContext(this).getImmediately(newCallableReturningImmediateMaybeOrNonImmediateValue(true));
             // the answer will be wrapped twice due to the callable semantics;
@@ -592,7 +674,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     ConfigKey<?> key = targetEntity.getEntityType().getConfigKey(keyNameS);
                     if (key==null) key = ConfigKeys.newConfigKey(Object.class, keyNameS);
                     if (immediate) {
-                        return ((EntityInternal)targetEntity).config().getNonBlocking(key);
+                        return ((EntityInternal)targetEntity).config().getNonBlocking(key, true);
                     } else {
                         return targetEntity.getConfig(key);
                     }
@@ -627,7 +709,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     public BrooklynDslDeferredSupplier<Sensor<?>> sensor(final Object sensorIndicator) {
         return new DslSensorSupplier(this, sensorIndicator);
     }
-    protected final static class DslSensorSupplier extends BrooklynDslDeferredSupplier<Sensor<?>> {
+    public final static class DslSensorSupplier extends BrooklynDslDeferredSupplier<Sensor<?>> {
         private final DslComponent component;
         @XStreamConverter(ObjectWithDefaultStringImplConverter.class)
         private final Object sensorName;
@@ -638,7 +720,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.sensorName = sensorIndicator;
         }
 
-        @Override
+        public Object getSensorName() {
+            return sensorName;
+        }
+
+        public DslComponent getComponent() {
+            return component;
+        }
+
+        @Override @JsonIgnore
         public Maybe<Sensor<?>> getImmediately() {
             return getImmediately(sensorName, false);
         }
@@ -661,7 +751,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (!resolved) {
                 // attempt to resolve, and recurse
                 final ExecutionContext executionContext = entity().getExecutionContext();
-                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep(true, true).immediately(true).context(executionContext).getMaybe();
+                Maybe<Object> resolvedSi = Tasks.resolving(si, Object.class).deep().immediately(true).context(executionContext).getMaybe();
                 if (resolvedSi.isAbsent()) return Maybe.absent();
                 return getImmediately(resolvedSi.get(), true);
             }
@@ -693,7 +783,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                             if (!resolved) {
                                 // attempt to resolve, and recurse
                                 final ExecutionContext executionContext = entity().getExecutionContext();
-                                return resolve(Tasks.resolveDeepValue(si, Object.class, executionContext), true);
+                                return resolve(Tasks.resolveDeepValueWithoutCoercion(si, executionContext), true);
                             }
                             throw new IllegalStateException("Cannot resolve '"+sensorName+"' as a sensor (got type "+(si == null ? "null" : si.getClass().getName()+")"));
                         }})
@@ -731,7 +821,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         return new DslLocationSupplier(this, index);
     }
 
-    protected final static class DslLocationSupplier extends BrooklynDslDeferredSupplier<Object> {
+    public final static class DslLocationSupplier extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = 5597335296158584040L;
         private final DslComponent component;
         private final Object index;
@@ -741,7 +831,15 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.index = index;
         }
 
-        @Override
+        public Object getIndex() {
+            return index;
+        }
+
+        public DslComponent getComponent() {
+            return component;
+        }
+
+        @Override @JsonIgnore
         public final Maybe<Object> getImmediately() {
             Callable<Object> job = new Callable<Object>() {
                 @Override public Object call() {
@@ -854,7 +952,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         return new DslTemplate(this, template, substitutions);
     }
 
-    protected final static class DslTemplate extends BrooklynDslDeferredSupplier<Object> {
+    public final static class DslTemplate extends BrooklynDslDeferredSupplier<Object> {
         private static final long serialVersionUID = -585564936781673667L;
         private DslComponent component;
         private Object template;
@@ -869,7 +967,19 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             this.template = template;
             this.substitutions = substitutions;
         }
-        
+
+        public DslComponent getComponent() {
+            return component;
+        }
+
+        public Object getTemplate() {
+            return template;
+        }
+
+        public Map<?, ?> getSubstitutions() {
+            return substitutions;
+        }
+
         private String resolveTemplate(boolean immediately) {
             if (template instanceof String) {
                 return (String)template;
@@ -889,12 +999,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                     .as(Object.class)
                     .context(findExecutionContext(this))
                     .immediately(immediately)
-                    .deep(true, true)
+                    .deep()
                     .description("Resolving substitutions " + substitutions + " for template " + template)
                     .get();
         }
 
-        @Override
+        @Override @JsonIgnore
         public Maybe<Object> getImmediately() {
             String resolvedTemplate = resolveTemplate(true);
             Map<String, ?> resolvedSubstitutions = resolveSubstitutions(true);
@@ -930,7 +1040,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         DESCENDANT,
         ANCESTOR,
         ROOT,
-        /** highest ancestor where all items come from the same catalog item ID */
+        /** root node of blueprint where the the DSL is used; usually the depth in ancestor,
+         *  though specially treated in CampResolver to handle usage within blueprints */
         SCOPE_ROOT,
         THIS;
 

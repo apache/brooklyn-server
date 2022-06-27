@@ -207,6 +207,7 @@ public class ItemLister {
             List<Map<?,?>> enrichers = new ArrayList<>();
             List<Map<?,?>> locations = new ArrayList<>();
             List<Object> locationResolvers = new ArrayList<>();
+            List<Map<?,?>> beans = new ArrayList<>();
 
             if (!getJars().isEmpty() || yamlToScan.isEmpty()) {
                 List<URL> urls = getJarUrls();
@@ -245,6 +246,8 @@ public class ItemLister {
                             policies.add(itemDescriptor);
                         } else if (item.getCatalogItemType() == CatalogItem.CatalogItemType.LOCATION) {
                             locations.add(itemDescriptor);
+                        } else if (item.getCatalogItemType() == CatalogItem.CatalogItemType.BEAN) {
+                            beans.add(itemDescriptor);
                         } else {
                             LOG.warn("Skipping unknown catalog item type "+item.getCatalogItemType()+": "+item);
                             itemCount--;
@@ -261,6 +264,7 @@ public class ItemLister {
                     .put("enrichers", enrichers)
                     .put("locations", locations)
                     .put("locationResolvers", locationResolvers)
+                    .put("beans", beans)
                     .build();
             return result;
         }

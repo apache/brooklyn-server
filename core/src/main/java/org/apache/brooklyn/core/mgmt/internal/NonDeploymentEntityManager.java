@@ -53,18 +53,9 @@ public class NonDeploymentEntityManager implements EntityManagerInternal {
     }
     
     @Override
-    public <T extends Entity> T createEntity(EntitySpec<T> spec) {
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, EntityCreationOptions options) {
         if (isInitialManagementContextReal()) {
-            return initialManagementContext.getEntityManager().createEntity(spec);
-        } else {
-            throw new IllegalStateException("Non-deployment context "+this+" (with no initial management context supplied) is not valid for this operation.");
-        }
-    }
-    
-    @Override
-    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
-        if (isInitialManagementContextReal()) {
-            return ((EntityManagerInternal)initialManagementContext.getEntityManager()).createEntity(spec, entityId);
+            return initialManagementContext.getEntityManager().createEntity(spec, options);
         } else {
             throw new IllegalStateException("Non-deployment context "+this+" (with no initial management context supplied) is not valid for this operation.");
         }

@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.api.objs;
 
+import org.apache.brooklyn.api.entity.Entity;
+
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -48,7 +50,7 @@ public interface EntityAdjunct extends BrooklynObject {
      * This is used to prevent multiple instances with the same purpose from being created,
      * and to access and customize adjuncts so created.
      * <p>
-     * This will be included in the call to {@link #getTags()}.
+     * This will be included in the call to {@link BrooklynObject#tags()}.
      */
     @Nullable String getUniqueTag();
 

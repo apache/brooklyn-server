@@ -24,7 +24,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -34,17 +33,19 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
-import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.CatalogApi;
 import org.apache.brooklyn.rest.domain.ApiError;
+import org.apache.brooklyn.rest.domain.ApiError.Builder;
 import org.apache.brooklyn.rest.domain.BundleInstallationRestResult;
 import org.apache.brooklyn.rest.domain.CatalogEnricherSummary;
 import org.apache.brooklyn.rest.domain.CatalogEntitySummary;
@@ -56,11 +57,12 @@ import org.apache.brooklyn.rest.transform.CatalogTransformer;
 import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.io.FileUtil;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -83,7 +85,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
     private static final Logger log = LoggerFactory.getLogger(CatalogResource.class);
     private static final String LATEST = "latest";
-    
+
     @Deprecated
     private Function<RegisteredType, CatalogItemSummary> toCatalogItemSummary(final UriInfo ui) {
         return new Function<RegisteredType, CatalogItemSummary>() {
@@ -103,8 +105,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
 
     static Set<String> missingIcons = MutableSet.of();
 
-    @Override
-    @Beta
+    @Override @Deprecated @Beta
     public Response createFromUpload(byte[] item, boolean forceUpdate) {
         Throwable yamlException = null;
         try {
@@ -113,64 +114,64 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             Exceptions.propagateIfFatal(e);
             yamlException = e;
         }
-        
+
         if (yamlException==null) {
             // treat as yaml if it parsed
             return createFromYaml(new String(item), forceUpdate);
         }
-        
+
         return createFromArchive(item, false, forceUpdate);
     }
-    
-    @Override
-    @Deprecated
+
+    @Override @Deprecated
     public Response create(String yaml, boolean forceUpdate) {
         return createFromYaml(yaml, forceUpdate);
     }
-    
-    @SuppressWarnings("deprecation")
-    @Override
-    public Response createFromYaml(String yaml, boolean forceUpdate) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, yaml)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
-                Entitlements.getEntitlementContext().user());
-        }
 
-        try {
-            final Iterable<? extends CatalogItem<?, ?>> items = brooklyn().getCatalog().addItems(yaml, true, forceUpdate);
-            List<RegisteredType> itemsRT = MutableList.of();
-            for (CatalogItem<?, ?> ci: items) {
-                RegisteredType rt = brooklyn().getTypeRegistry().get(ci.getId());
-                itemsRT.add(rt!=null ? rt : RegisteredTypes.of(ci));
-            }
-            return buildCreateResponse(itemsRT);
-        } catch (Exception e) {
-            Exceptions.propagateIfFatal(e);
-            return badRequest(e);
-        }
+    @Override @Deprecated
+    public Response createFromYaml(String yaml, boolean forceUpdate) {
+        return create(yaml.getBytes(), BrooklynBomYamlCatalogBundleResolver.FORMAT, false, true, forceUpdate);
+    }
+
+    @Override @Deprecated @Beta
+    public Response createFromArchive(byte[] zipInput, boolean detail, boolean forceUpdate) {
+        return create(zipInput, "", detail, false, forceUpdate);
     }
 
     @Override
-    @Beta
-    public Response createFromArchive(byte[] zipInput, boolean detail, boolean forceUpdate) {
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null)) {
+    public Response create(byte[] archive, String format, boolean detail, boolean itemDetails, boolean forceUpdate) {
+        InputStreamSource source = InputStreamSource.of("REST bundle upload", archive);
+        if(!BrooklynBomYamlCatalogBundleResolver.FORMAT.equals(format) && FileUtil.doesZipContainJavaBinaries(source)){
+            if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_JAVA, null)) {
+                throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item containing java classes",
+                        Entitlements.getEntitlementContext().user());
+            }
+        }
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ADD_CATALOG_ITEM, null)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to add catalog item",
-                Entitlements.getEntitlementContext().user());
+                    Entitlements.getEntitlementContext().user());
         }
 
         ReferenceWithError<OsgiBundleInstallationResult> result = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-            .install(null, new ByteArrayInputStream(zipInput), true, true, forceUpdate);
+                .install(source, format, forceUpdate, true);
 
         if (result.hasError()) {
             // (rollback already done as part of install, if necessary)
             if (log.isTraceEnabled()) {
-                log.trace("Unable to create from archive, returning 400: "+result.getError().getMessage(), result.getError());
+                log.trace("Unable to create, format '"+format+"', returning 400: "+result.getError().getMessage(), result.getError());
             }
-            return ApiError.builder().errorCode(Status.BAD_REQUEST).message(result.getWithoutError().getMessage())
-                .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui)).build().asJsonResponse();
+            Builder error = ApiError.builder().errorCode(Status.BAD_REQUEST);
+            if (result.getWithoutError()!=null) {
+                error = error.message(result.getWithoutError().getMessage())
+                        .data(TypeTransformer.bundleInstallationResult(result.getWithoutError(), mgmt(), brooklyn(), ui));
+            } else {
+                error.message(Strings.isNonBlank(result.getError().getMessage()) ? result.getError().getMessage() : result.getError().toString());
+            }
+            return error.build().asJsonResponse();
         }
 
-        BundleInstallationRestResult resultR = TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
+        BundleInstallationRestResult resultR = itemDetails ? TypeTransformer.bundleInstallationResultLegacyItemDetails(result.get(), mgmt(), brooklyn(), ui)
+                : TypeTransformer.bundleInstallationResult(result.get(), mgmt(), brooklyn(), ui);
         Status status;
         switch (result.get().getCode()) {
             case IGNORING_BUNDLE_AREADY_INSTALLED:
@@ -183,28 +184,6 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 break;
         }
         return Response.status(status).entity( detail ? resultR : resultR.getTypes() ).build();
-    }
-
-    private Response buildCreateResponse(Iterable<RegisteredType> catalogItems) {
-        log.info("REST created catalog items: "+catalogItems);
-
-        Map<String,Object> result = MutableMap.of();
-
-        for (RegisteredType catalogItem: catalogItems) {
-            try {
-                result.put(
-                        catalogItem.getId(),
-                        CatalogTransformer.catalogItemSummary(brooklyn(), catalogItem, ui.getBaseUriBuilder()));
-            } catch (Throwable t) {
-                log.warn("Error loading catalog item '"+catalogItem+"' (rethrowing): "+t);
-                // unfortunately items are already added to the catalog and hard to remove,
-                // but at least let the user know;
-                // happens eg if a class refers to a missing class, like
-                // loading nosql items including mongo without the mongo bson class on the classpath
-                throw Exceptions.propagateAnnotated("At least one unusable item was added ("+catalogItem.getId()+")", t);
-            }
-        }
-        return Response.status(Status.CREATED).entity(result).build();
     }
 
     @Override
@@ -222,7 +201,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, version);
         if (item == null) {
             throw WebResourceUtils.notFound("Entity with id '%s:%s' not found", symbolicName, version);
@@ -230,6 +209,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not an entity", symbolicName, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -242,7 +222,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         RegisteredType item = mgmt().getTypeRegistry().get(policyId, version);
         if (item == null) {
             throw WebResourceUtils.notFound("Policy with id '%s:%s' not found", policyId, version);
@@ -250,6 +230,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not a policy", policyId, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -262,7 +243,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         RegisteredType item = mgmt().getTypeRegistry().get(locationId, version);
         if (item == null) {
             throw WebResourceUtils.notFound("Location with id '%s:%s' not found", locationId, version);
@@ -270,6 +251,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not a location", locationId, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -295,7 +277,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                         RegisteredTypePredicates.disabled(false));
         return getCatalogItemSummariesMatchingRegexFragment(filter, regex, fragment, allVersions);
     }
-    
+
     @Override
     @Deprecated
     public CatalogEntitySummary getEntity(String symbolicName, String version) {
@@ -388,7 +370,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             filters.add(RegisteredTypePredicates.stringRepresentationMatches(StringPredicates.containsLiteralIgnoreCase(fragment)));
         if (!allVersions)
             filters.add(RegisteredTypePredicates.isBestVersion(mgmt()));
-        
+
         filters.add(RegisteredTypePredicates.entitledToSee(mgmt()));
 
         ImmutableList<RegisteredType> sortedItems =
@@ -405,10 +387,10 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
         }
 
         version = processVersion(version);
-        
+
         return getCatalogItemIcon(mgmt().getTypeRegistry().get(itemId, version));
     }
-    
+
     @Override
     @Deprecated
     public void setDeprecated(String itemId, boolean deprecated) {
@@ -471,6 +453,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             throw WebResourceUtils.preconditionFailed("Item with id '%s:%s' not an enricher", enricherId, version);
         } else {
             brooklyn().getCatalog().deleteCatalogItem(item.getSymbolicName(), item.getVersion());
+            ((BasicBrooklynCatalog)brooklyn().getCatalog()).uninstallEmptyWrapperBundles();
         }
     }
 
@@ -480,13 +463,13 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
             log.debug("No icon available for "+result+"; returning "+Status.NO_CONTENT);
             return Response.status(Status.NO_CONTENT).build();
         }
-        
+
         if (brooklyn().isUrlServerSideAndSafe(url)) {
             // classpath URL's we will serve IF they end with a recognised image format;
-            // paths (ie non-protocol) and 
+            // paths (ie non-protocol) and
             // NB, for security, file URL's are NOT served
             log.debug("Loading and returning "+url+" as icon for "+result);
-            
+
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
             try {
                 Object content = ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt(), result)).getResourceFromUrl(url);
@@ -506,9 +489,9 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 throw WebResourceUtils.notFound("Icon unavailable for %s", result.getId());
             }
         }
-        
+
         log.debug("Returning redirect to "+url+" as icon for "+result);
-        
+
         // for anything else we do a redirect (e.g. http / https; perhaps ftp)
         return Response.temporaryRedirect(URI.create(url)).build();
     }
@@ -527,7 +510,7 @@ public class CatalogResource extends AbstractBrooklynRestResource implements Cat
                 } else {
                     Exceptions.propagateIfFatal(throwable);
                 }
-                
+
                 // item cannot be transformed; we will have logged a warning earlier
                 log.debug("Ignoring invalid catalog item: "+throwable);
             }

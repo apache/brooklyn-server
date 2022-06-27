@@ -57,14 +57,14 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "  itemType: entity",
                     "  item:",
                     "    foo: " + TestEntity.class.getName());
+            Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "must declare a type");
         }
     }
 
     @Test
-    public void testNoEntityTypeInTopLevelCatalogApp() throws Exception {
-        try {
+    public void testNoEntityTypeInTopLevelCatalogAppAsTemplateErrorIsAllowed() throws Exception {
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + Identifiers.makeRandomId(8),
@@ -73,9 +73,6 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "  item:",
                     "    services:",
                     "    - foo: " + TestEntity.class.getName());
-        } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "must declare a type");
-        }
     }
 
     @Test
@@ -140,13 +137,24 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "        foo: " + TestEntityImpl.class.getName());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "No type defined");
+//            org.apache.brooklyn.util.exceptions.PropagatedRuntimeException: brooklyn-camp plan creation error: 
+//                entitySpec plan parse error; consult log for more information: 
+//                UnsupportedTypePlanException: Invalid plan; format could not be recognized, 
+//                none of the available transformers 
+//                  [brooklyn-camp:CampTypePlanTransformer, 
+//                  java-type-name:JavaClassNameTypePlanTransformer]
+//                support plan:
+//            {foo: org.apache.brooklyn.core.test.entity.TestEntityImpl}
+
+            Asserts.expectedFailureContains(e, "entitySpec plan parse error");
+            Asserts.expectedFailureContains(e, "format could not be recognized");
         }
     }
     
     @Test
-    public void testNoEntityTypeInEntitySpecInCatalogEntity() throws Exception {
-        try {
+    public void testNoEntityTypeInEntitySpecInCatalogEntity() {
+        // using addItems this is allowed; but addTypes validation is stricter
+        Asserts.assertFailsWith(()->
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + Identifiers.makeRandomId(8),
@@ -158,15 +166,12 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "      initialSize: 0",
                     "      memberSpec: ",
                     "        $brooklyn:entitySpec:",
-                    "          foo: " + TestEntityImpl.class.getName());
-        } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "No type defined");
-        }
+                    "          foo: " + TestEntityImpl.class.getName()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "entitySpec"));
     }
 
     @Test
-    public void testNoEntityTypeInEntitySpecInCatalogApp() throws Exception {
-        try {
+    public void testNoEntityTypeInEntitySpecInTemplateIsAllowed() throws Exception {
             addCatalogItems(
                     "brooklyn.catalog:",
                     "  id: " + Identifiers.makeRandomId(8),
@@ -180,15 +185,26 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "        memberSpec: ",
                     "          $brooklyn:entitySpec:",
                     "            foo: " + TestEntityImpl.class.getName());
-        } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "No type defined");
-        }
     }
 
-    // TODO Preferred name should not be 'policy_type'; it should be 'type'!
     @Test
     public void testNoPolicyTypeSpecified() throws Exception {
+        // preferred syntax, okay
+        createAndStartApplication(
+            "services:",
+            "- type: " + TestApplication.class.getName(),
+            "  brooklyn.policies:",
+            "  - type: " + TestPolicy.class.getName());
+        
+        // legacy syntax okay
+        createAndStartApplication(
+            "services:",
+            "- type: " + TestApplication.class.getName(),
+            "  brooklyn.policies:",
+            "  - policy_type: " + TestPolicy.class.getName());
+        
         try {
+            // no type not okay
             createAndStartApplication(
                     "services:",
                     "- type: " + TestApplication.class.getName(),
@@ -196,13 +212,31 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "  - foo: " + TestPolicy.class.getName());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "Missing key 'policy_type'");
+            Asserts.expectedFailureContains(e, "Missing key", "'type'", "'policy_type'");
         }
+        
+        try {
+            // invalid type not okay
+            createAndStartApplication(
+                    "services:",
+                    "- type: " + TestApplication.class.getName(),
+                    "  brooklyn.policies:",
+                    "  - type: does_not_exist");
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "does_not_exist");
+        }
+
     }
     
-    // TODO Preferred name should not be 'enricher_type'; it should be 'type'!
     @Test
     public void testNoEnricherTypeSpecified() throws Exception {
+        createAndStartApplication(
+            "services:",
+            "- type: " + TestApplication.class.getName(),
+            "  brooklyn.enrichers:",
+            "  - type: " + TestEnricher.class.getName());
+
         try {
             createAndStartApplication(
                     "services:",
@@ -211,7 +245,7 @@ public class ValidationMissingTypeYamlTest extends AbstractYamlTest {
                     "  - foo: " + TestEnricher.class.getName());
             Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "Missing key 'enricher_type'");
+            Asserts.expectedFailureContains(e, "Missing key", "'type'", "'enricher_type'");
         }
     }
     

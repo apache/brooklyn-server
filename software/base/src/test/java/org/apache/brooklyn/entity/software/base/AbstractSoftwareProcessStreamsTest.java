@@ -32,6 +32,7 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.slf4j.Logger;
@@ -82,7 +83,7 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
         return Optional.<Task<?>>absent();
     }
 
-    protected <T extends SoftwareProcess> void assertStreams(T softwareProcessEntity) {
+    protected <T extends SoftwareProcess> void assertStdStreams(T softwareProcessEntity) {
         Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
 
         for (Map.Entry<String, String> entry : getCommands().entrySet()) {
@@ -94,11 +95,41 @@ public abstract class AbstractSoftwareProcessStreamsTest extends BrooklynAppLive
             String stdin = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDIN);
             String stdout = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDOUT);
             String stderr = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_STDERR);
-//            String env = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
             String msg = "taskName='" + taskNameRegex + "'; expected=" + echoed + "; actual=" + stdout + "\nstdin="+stdin+"\nstdout="+stdout+"\nstderr="+stderr; //+"; env="+env;
 
             assertTrue(stdin.contains("echo "+echoed), msg);
             assertTrue(stdout.contains(echoed), msg);
+        }
+    }
+
+    protected <T extends SoftwareProcess> String getAnyTaskEnvStream(final T softwareProcessEntity) {
+        Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
+
+        for (Map.Entry<String, String> entry : getCommands().entrySet()) {
+            String taskNameRegex = entry.getKey();
+
+            Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameSatisfies(StringPredicates.matchesRegex(taskNameRegex))).get();
+
+            return getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
+        }
+
+        throw Asserts.fail("No commands found");
+    }
+
+    protected <T extends SoftwareProcess> void assertEnvStream(final T softwareProcessEntity, final Map<String, String> expectedEnv) {
+        Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt.getExecutionManager(), softwareProcessEntity);
+
+        for (Map.Entry<String, String> entry : getCommands().entrySet()) {
+            String taskNameRegex = entry.getKey();
+
+            Task<?> subTask = findTaskOrSubTask(tasks, TaskPredicates.displayNameSatisfies(StringPredicates.matchesRegex(taskNameRegex))).get();
+
+            String env = getStreamOrFail(subTask, BrooklynTaskTags.STREAM_ENV);
+
+            expectedEnv.forEach((key, value) -> {
+                String expectedLine = key + "=\"" + value + "\"";
+                assertTrue(env.contains(expectedLine), "line '" + expectedLine + "' is expected in env stream:\n" + env);
+            });
         }
     }
 }

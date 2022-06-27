@@ -18,6 +18,11 @@
  */
 package org.apache.brooklyn.util.core.xstream;
 
+import com.thoughtworks.xstream.converters.MarshallingContext;
+import com.thoughtworks.xstream.converters.UnmarshallingContext;
+import com.thoughtworks.xstream.converters.reflection.SerializableConverter;
+import com.thoughtworks.xstream.io.HierarchicalStreamReader;
+import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
 import org.apache.brooklyn.util.collections.MutableSet;
 
 import com.thoughtworks.xstream.converters.collections.CollectionConverter;
@@ -41,4 +46,11 @@ public class MutableSetConverter extends CollectionConverter {
     protected Object createCollection(Class type) {
         return new MutableSet<Object>();
     }
+
+    // take a copy first to avoid CMEs
+    @Override
+    public void marshal(Object source, HierarchicalStreamWriter writer, MarshallingContext context) {
+        super.marshal(MutableSet.copyOf((MutableSet)source), writer, context);
+    }
+
 }

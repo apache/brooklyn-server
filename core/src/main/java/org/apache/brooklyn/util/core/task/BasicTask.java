@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import com.google.common.util.concurrent.Callables;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.asString;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvisString;
 
@@ -45,6 +46,7 @@ import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -87,6 +89,8 @@ public class BasicTask<T> implements TaskInternal<T> {
     public final String displayName;
     public final String description;
 
+    // TODO would be nice to make this linked to preserve order, as well as concurrent;
+    // but need to take care to support deserialization
     protected final Set<Object> tags = Sets.newConcurrentHashSet();
     // for debugging, to record where tasks were created
 //    { tags.add(new Throwable("Creation stack trace")); }
@@ -109,7 +113,7 @@ public class BasicTask<T> implements TaskInternal<T> {
      */
     @Deprecated
     protected BasicTask() { this(Collections.emptyMap()); }
-    
+
     protected BasicTask(Map<?,?> flags) { this(flags, (Callable<T>) null); }
 
     public BasicTask(Callable<T> job) { this(Collections.emptyMap(), job); }
@@ -341,9 +345,11 @@ public class BasicTask<T> implements TaskInternal<T> {
     @Override
     public boolean isDone(boolean andTaskNotRunning) {
         if (!cancelled && !(internalFuture!=null && internalFuture.isDone()) && endTimeUtc<=0) {
+            // done if the internal future is done and end time is set
             return false;
         }
         if (andTaskNotRunning && cancelled && isBegun() && endTimeUtc<=0) {
+            // if not-running confirmation requested, for cancelled tasks, if begun, wait for endTime to be set
             return false;
         }
         return true;
@@ -551,8 +557,7 @@ public class BasicTask<T> implements TaskInternal<T> {
         else if (!isCancelled() && startTimeUtc <= 0) {
             rv = "Submitted for execution";
             if (verbosity>0) {
-                long elapsed = System.currentTimeMillis() - submitTimeUtc;
-                rv += " "+Time.makeTimeStringRoundedSince(elapsed)+" ago";
+                rv += " "+Time.makeTimeStringRoundedSince(submitTimeUtc)+" ago";
             }
             if (verbosity >= 2 && getExtraStatusText()!=null) {
                 rv += "\n\n"+getExtraStatusText();
@@ -938,5 +943,31 @@ public class BasicTask<T> implements TaskInternal<T> {
     @Override
     public Task<?> getProxyTarget() {
         return proxyTargetTask;
+    }
+
+    public static class PlaceholderTask extends BasicTask {
+        private PlaceholderTask(Map flags) {
+            super(flags);
+        }
+
+        public static PlaceholderTask newPlaceholderForForgottenTask(String id, String displayName) {
+            PlaceholderTask result = new PlaceholderTask(MutableMap.of(
+                    "displayName", displayName + " (placeholder)",
+                    "description", "Details of the original task have been forgotten."
+                    ));
+
+            // since 2021-10 claim the ID of the thing we are placeholding so we get treated as an equal
+            ((BasicTask)result).id = id;
+
+            result.job = Callables.returning(null);
+
+            // don't really want anyone executing the "gone" task...
+            // also if we are GC'ing tasks then cancelled may help with cleanup
+            // of sub-tasks that have lost their submitted-by-task reference ?
+            // also don't want warnings when it's finalized, this means we don't need ignoreIfNotRun()
+            result.cancelled = true;
+
+            return result;
+        }
     }
 }

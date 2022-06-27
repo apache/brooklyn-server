@@ -63,7 +63,9 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
                 .filter(new Predicate<Effector<?>>() {
                     @Override
                     public boolean apply(@Nullable Effector<?> input) {
-                        return Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR,
+                        return Entitlements.isEntitled(mgmt().getEntitlementManager(),
+                                // see notes on INVOKE_EFFECTOR about the prospect of a separate SEE_EFFECTOR
+                                Entitlements.INVOKE_EFFECTOR,
                                 Entitlements.EntityAndItem.of(entity, StringAndArgument.of(input.getName(), null)));
                     }
                 })
@@ -90,7 +92,7 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
             throw WebResourceUtils.forbidden("User '%s' is not authorized to invoke effector %s on entity %s",
                     Entitlements.getEntitlementContext().user(), effector.get().getName(), entity);
         }
-        String userInfo = Entitlements.getEntitlementContext() != null ? "by user " + Entitlements.getEntitlementContext().user() : "(no user info available)";
+        String userInfo = Entitlements.getEntitlementContext() != null ? "for user " + Entitlements.getEntitlementContext().user() : "(no user info available)";
         log.info("REST invocation of " + entity + "." + effector.get() + " " + Sanitizer.sanitize(parameters) + " " + userInfo);
         Task<?> t = entity.invoke(effector.get(), parameters);
 

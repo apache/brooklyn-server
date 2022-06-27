@@ -455,7 +455,7 @@ public class CompoundTransformerTest extends RebindTestFixtureWithApp {
         persister.enableWriteAccess();
 
         PersistenceExceptionHandler exceptionHandler = PersistenceExceptionHandlerImpl.builder().build();
-        persister.checkpoint(rawData, exceptionHandler);
+        persister.checkpoint(rawData, exceptionHandler, "test", null);
         
         LOG.info("Test "+getClass()+" persisted raw data to "+newMementoDir);
         return newMementoDir;

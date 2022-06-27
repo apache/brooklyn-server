@@ -18,13 +18,19 @@
  */
 package org.apache.brooklyn.core.entity.internal;
 
+import com.google.common.collect.Maps;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -105,4 +111,53 @@ public class ConfigUtilsInternal {
             }
         }
     }
+
+    public static <T> Map<String,ConfigKey<?>> findConfigKeys(Class<? extends T> clazz, T optionalInstance) {
+        try {
+            Map<String,ConfigKey<?>> result = Maps.newLinkedHashMap();
+            Map<String, Field> configFields = Maps.newLinkedHashMap();
+            for (Field f : clazz.getFields()) {
+                boolean isConfigKey = ConfigKey.class.isAssignableFrom(f.getType());
+                if (!isConfigKey) {
+                    if (!HasConfigKey.class.isAssignableFrom(f.getType())) {
+                        // neither ConfigKey nor HasConfigKey
+                        continue;
+                    }
+                }
+                if (!Modifier.isStatic(f.getModifiers())) {
+                    // require it to be static or we have an instance
+                    LOG.warn("Discouraged use of non-static config key "+f+" defined in " + (optionalInstance!=null ? optionalInstance : clazz));
+                    if (optionalInstance==null) continue;
+                }
+                ConfigKey<?> k = isConfigKey ? (ConfigKey<?>) f.get(optionalInstance) :
+                        ((HasConfigKey<?>)f.get(optionalInstance)).getConfigKey();
+
+                Field alternativeField = configFields.get(k.getName());
+                // Allow overriding config keys (e.g. to set default values) when there is an assignable-from relationship between classes
+                Field definitiveField = alternativeField != null ? Reflections.inferSubbestField(alternativeField, f) : f;
+                boolean skip = false;
+                if (definitiveField != f) {
+                    // If they refer to the _same_ instance, just keep the one we already have
+                    if (alternativeField.get(optionalInstance) == f.get(optionalInstance)) skip = true;
+                }
+                if (skip) {
+                    //nothing
+                } else if (definitiveField == f) {
+                    result.put(k.getName(), k);
+                    configFields.put(k.getName(), f);
+                } else if (definitiveField != null) {
+                    if (LOG.isDebugEnabled()) LOG.debug("multiple definitions for config key {} on {}; preferring that in sub-class: {} to {}", new Object[] {
+                            k.getName(), optionalInstance!=null ? optionalInstance : clazz, alternativeField, f});
+                } else if (definitiveField == null) {
+                    LOG.warn("multiple definitions for config key {} on {}; preferring {} to {}", new Object[] {
+                            k.getName(), optionalInstance!=null ? optionalInstance : clazz, alternativeField, f});
+                }
+            }
+
+            return result;
+        } catch (IllegalAccessException e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
 }

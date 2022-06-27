@@ -30,9 +30,14 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynType;
 import org.apache.brooklyn.config.ConfigInheritances;
@@ -70,7 +75,8 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
     /** 
      * Map of config keys (and their fields) on this instance, by name.
      */
-    protected final Map<String,FieldAndValue<ConfigKey<?>>> configKeys = new ConcurrentHashMap<String, FieldAndValue<ConfigKey<?>>>();
+    protected final Map<String,FieldAndValue<ConfigKey<?>>> configKeysNCC = new LinkedHashMap<String, FieldAndValue<ConfigKey<?>>>();
+    protected final transient ReadWriteLock configKeysRW = new ReentrantReadWriteLock();
 
     private volatile BrooklynTypeSnapshot snapshot;
     private final AtomicBoolean snapshotValid = new AtomicBoolean(false);
@@ -88,9 +94,9 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
         // NB: official name is usually injected later, e.g. from AbstractEntity.setManagementContext
         this.name = (clazz.getCanonicalName() == null) ? clazz.getName() : clazz.getCanonicalName();
         
-        buildConfigKeys(clazz, null, configKeys);
+        buildConfigKeys(clazz, null, configKeysNCC);
         if (LOG.isTraceEnabled())
-            LOG.trace("Entity {} config keys: {}", (instance==null ? clazz.getName() : instance.getId()), Joiner.on(", ").join(configKeys.keySet()));
+            LOG.trace("Entity {} config keys: {}", (instance==null ? clazz.getName() : instance.getId()), Joiner.on(", ").join(configKeysNCC.keySet()));
     }
     
     protected abstract BrooklynTypeSnapshot newSnapshot();
@@ -116,24 +122,28 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
     }
     
     // --------------------------------------------------
-    
+
+    protected Map<String,ConfigKey<?>> getConfigKeysModifiableCopy() {
+        return withLock(configKeysRW.readLock(), () -> value(configKeysNCC));
+    }
+
     /**
      * ConfigKeys available on this entity.
      */
     public Map<String,ConfigKey<?>> getConfigKeys() {
-        return Collections.unmodifiableMap(value(configKeys));
+        return Collections.unmodifiableMap(getConfigKeysModifiableCopy());
     }
 
     /**
      * ConfigKeys available on this entity.
      */
-    public ConfigKey<?> getConfigKey(String keyName) { 
-        return value(configKeys.get(keyName)); 
+    public ConfigKey<?> getConfigKey(String keyName) {
+        return value(withLock(configKeysRW.readLock(), () -> configKeysNCC.get(keyName)));
     }
 
     /** field where a config key is defined, for use getting annotations. note annotations are not inherited. */
-    public Field getConfigKeyField(String keyName) { 
-        return field(configKeys.get(keyName)); 
+    public Field getConfigKeyField(String keyName) {
+        return field(withLock(configKeysRW.readLock(), () -> configKeysNCC.get(keyName)));
     }
 
     protected BrooklynTypeSnapshot refreshSnapshot() {
@@ -150,6 +160,9 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
      */
     protected static void buildConfigKeys(Class<? extends BrooklynObject> clazz, AbstractBrooklynObject optionalInstance, 
             Map<String, FieldAndValue<ConfigKey<?>>> configKeys) {
+
+        // TODO remove or document overlap with ConfigUtilsInternal.findConfigKeys
+
         ListMultimap<String,FieldAndValue<ConfigKey<?>>> configKeysAll = 
                 ArrayListMultimap.<String, FieldAndValue<ConfigKey<?>>>create();
         
@@ -290,6 +303,15 @@ public abstract class BrooklynDynamicType<T extends BrooklynObject, AbstractT ex
         for (K key: fvs.keySet())
             result.put(key, value(fvs.get(key)));
         return result;
+    }
+
+    protected static <T> T withLock(Lock lock, Supplier<T> call) {
+        try {
+            lock.lock();
+            return call.get();
+        } finally {
+            lock.unlock();
+        }
     }
 
 }

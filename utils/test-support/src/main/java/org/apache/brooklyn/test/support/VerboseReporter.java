@@ -26,6 +26,7 @@ import org.testng.ITestResult;
 import org.testng.TestListenerAdapter;
 import org.testng.internal.ConstructorOrMethod;
 import org.testng.internal.Utils;
+import org.testng.reporters.util.StackTraceTools;
 
 /**
  * Reporter printing out detailed messages about what TestNG
@@ -166,9 +167,9 @@ public class VerboseReporter extends TestListenerAdapter {
         ITestNGMethod[] ft = resultsToMethods(getFailedTests());
         StringBuilder sb = new StringBuilder("\n===============================================\n");
         sb.append("    ").append(suiteName).append("\n");
-        sb.append("    Tests run: ").append(Utils.calculateInvokedMethodCount(getAllTestMethods()));
-        sb.append(", Failures: ").append(Utils.calculateInvokedMethodCount(ft));
-        sb.append(", Skips: ").append(Utils.calculateInvokedMethodCount(resultsToMethods(getSkippedTests())));
+        sb.append("    Tests run: ").append(getAllTestMethods().length);
+        sb.append(", Failures: ").append(ft.length);
+        sb.append(", Skips: ").append(resultsToMethods(getSkippedTests()).length);
         int confFailures = getConfigurationFailures().size();
         int confSkips = getConfigurationSkips().size();
         if (confFailures > 0 || confSkips > 0) {
@@ -198,12 +199,12 @@ public class VerboseReporter extends TestListenerAdapter {
             case SKIP:
                 sb.append("SKIPPED");
                 stackTrace = itr.getThrowable() != null
-                        ? Utils.stackTrace(itr.getThrowable(), false)[0] : "";
+                        ? Utils.shortStackTrace(itr.getThrowable(), false) : "";
                 break;
             case FAILURE:
                 sb.append("FAILED");
                 stackTrace = itr.getThrowable() != null
-                        ? Utils.stackTrace(itr.getThrowable(), false)[0] : "";
+                        ? Utils.shortStackTrace(itr.getThrowable(), false) : "";
                 break;
             case SUCCESS:
                 sb.append("PASSED");

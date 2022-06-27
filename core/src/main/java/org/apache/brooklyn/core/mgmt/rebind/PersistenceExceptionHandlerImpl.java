@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +52,9 @@ public class PersistenceExceptionHandlerImpl implements PersistenceExceptionHand
             return new PersistenceExceptionHandlerImpl(this);
         }
     }
-    
+
+    Set<String> recentErrors = MutableSet.of();
+
     public PersistenceExceptionHandlerImpl(Builder builder) {
     }
 
@@ -94,8 +97,11 @@ public class PersistenceExceptionHandlerImpl implements PersistenceExceptionHand
     protected void onErrorImpl(String errmsg, Exception e, boolean isNew) {
         // TODO the default behaviour is simply to warn; we should have a "fail_at_end" behaviour,
         // and a way for other subsystems to tune in to such failures
+        // for now we just have a simple "getRecentErrors"
+
         Exceptions.propagateIfFatal(e);
         if (isActive()) {
+            recentErrors.add(errmsg+(e!=null ? " ("+e+")" : ""));
             if (!isNew) {
                 if (LOG.isDebugEnabled()) LOG.debug("Repeating problem: "+errmsg, e);
             } else {
@@ -108,6 +114,16 @@ public class PersistenceExceptionHandlerImpl implements PersistenceExceptionHand
                 if (LOG.isDebugEnabled()) LOG.debug("Problem: "+errmsg+"; but no longer active (ignoring)", e);
             }
         }
+    }
+
+    @Override
+    public void clearRecentErrors() {
+        recentErrors = MutableSet.of();
+    }
+
+    @Override
+    public Set<String> getRecentErrors() {
+        return recentErrors;
     }
 
     protected boolean isActive() {

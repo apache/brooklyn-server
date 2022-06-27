@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
@@ -55,6 +56,10 @@ public class PrimaryRunningEnricher extends AbstractEnricher implements SensorEv
 
     @Override
     public void onEvent(SensorEvent<Object> event) {
+        if (!Entities.isManagedActive(entity)) {
+            return;
+        }
+
         Entity primary = entity.getAttribute( Sensors.newSensor(Entity.class, config().get(PRIMARY_SENSOR_NAME)) );
         if (primary==null) {
             ServiceNotUpLogic.updateNotUpIndicator(entity, "primary.enricher", "no primary found");

@@ -95,10 +95,12 @@ public interface BrooklynMementoPersister {
       */
     BrooklynMemento loadMemento(@Nullable BrooklynMementoRawData mementoData, LookupContext lookupContext, RebindExceptionHandler exceptionHandler) throws IOException;
 
-    /** applies a full checkpoint (write) of all state */  
-    void checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler);
-    /** applies a partial write of state delta */  
-    void delta(Delta delta, PersistenceExceptionHandler exceptionHandler);
+    Set<String> getLastErrors();
+
+    /** applies a full checkpoint (write) of all state; returns true on success or false on error, with {@link #getLastErrors()} available to get the last errors */
+    boolean checkpoint(BrooklynMementoRawData newMemento, PersistenceExceptionHandler exceptionHandler, String context, @Nullable RebindManager deltaDetails);
+    /** applies a partial write of state delta; result and errors as per {@link #checkpoint(BrooklynMementoRawData, PersistenceExceptionHandler, String, RebindManager)} */
+    boolean delta(Delta delta, PersistenceExceptionHandler exceptionHandler);
     /** inserts an additional delta to be written on the next delta request */
     @Beta
     void queueDelta(Delta delta);
@@ -107,6 +109,8 @@ public interface BrooklynMementoPersister {
     void disableWriteAccess(boolean graceful);
     /** permanently shuts down all access to the remote store */
     void stop(boolean graceful);
+    /** cancels/waits for all current tasks */
+    void reset();
 
     @VisibleForTesting
     void waitForWritesCompleted(Duration timeout) throws InterruptedException, TimeoutException;

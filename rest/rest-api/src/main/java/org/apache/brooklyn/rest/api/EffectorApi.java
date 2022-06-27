@@ -51,7 +51,11 @@ public interface EffectorApi {
             response = org.apache.brooklyn.rest.domain.EffectorSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<EffectorSummary> list(
             @ApiParam(name = "application", value = "Application name", required = true)
@@ -64,7 +68,11 @@ public interface EffectorApi {
     @ApiOperation(value = "Trigger an effector",
             notes="Returns the return value (status 200) if it completes, or an activity task ID (status 202) if it times out", response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or effector")
+            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or effector"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_FORM_URLENCODED})
     public Response invoke(

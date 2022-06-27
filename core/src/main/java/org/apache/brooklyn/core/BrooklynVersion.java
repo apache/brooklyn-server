@@ -85,7 +85,7 @@ public class BrooklynVersion implements BrooklynVersionService {
     // may be useful:
 //    private static final String OSGI_BRANCH_PROPERTY_NAME = "Implementation-Branch";
 
-    private final static String VERSION_FROM_STATIC = "1.0.0-SNAPSHOT"; // BROOKLYN_VERSION
+    private final static String VERSION_FROM_STATIC = "1.1.0-SNAPSHOT"; // BROOKLYN_VERSION
     private static final AtomicReference<Boolean> IS_DEV_ENV = new AtomicReference<Boolean>();
 
     private static final String BROOKLYN_FEATURE_PREFIX = "Brooklyn-Feature-";
@@ -204,7 +204,7 @@ public class BrooklynVersion implements BrooklynVersionService {
                     }
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    log.warn("Error reading OSGi manifest from " + u + " when determining version properties: " + e, e);
+                    log.debug("Skipping unsupported OSGi manifest in " + u + " when determining Brooklyn version properties: " + e);
                 } finally {
                     Streams.closeQuietly(us);
                 }
@@ -379,6 +379,15 @@ public class BrooklynVersion implements BrooklynVersionService {
             return newFeature(headers);
         }
 
+        private static void ifHeaderAddKey(Dictionary<String, String> headers, String header, Map<String, String> additionalData, String key) {
+            if (!additionalData.containsKey(key)) {
+                String v = headers.get(header);
+                if (v!=null && !v.toLowerCase().equals("unknown")) {
+                    additionalData.put(key, headers.get(header));
+                }
+            }
+        }
+
         /** @return Present if any attribute name begins with {@link #BROOKLYN_FEATURE_PREFIX}, absent otherwise. */
         private static Optional<BrooklynFeature> newFeature(Dictionary<String,String> headers) {
             Map<String, String> additionalData = Maps.newHashMap();
@@ -400,6 +409,9 @@ public class BrooklynVersion implements BrooklynVersionService {
             String name = Optional.fromNullable(additionalData.remove(nameKey))
                     .or(Optional.fromNullable(Constants.BUNDLE_NAME))
                     .or(headers.get(Constants.BUNDLE_SYMBOLICNAME));
+
+            ifHeaderAddKey(headers, "Implementation-SHA-1", additionalData, "buildSha1");
+            ifHeaderAddKey(headers, "Implementation-Branch", additionalData, "buildBranch");
 
             return Optional.of(new BrooklynFeature(
                     name,

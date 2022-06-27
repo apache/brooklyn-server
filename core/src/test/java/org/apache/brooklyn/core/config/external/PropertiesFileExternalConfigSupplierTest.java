@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.config.external;
 
+import java.util.function.Function;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
@@ -63,14 +64,18 @@ public class PropertiesFileExternalConfigSupplierTest {
     }
 
     @Test
-    public void testFromProperties() throws Exception {
+    public void testFromPropertiesJavaFileUrl() throws Exception {
+        doTestFromProperties(f -> f.toURI().toString());
+    }
+
+    public void doTestFromProperties(Function<File,String> url) throws Exception {
         String contents =
                 "mykey=myval"+"\n"+
                 "mykey2=myval2";
         Files.write(contents, propsFile, Charsets.UTF_8);
         BrooklynProperties props = BrooklynProperties.Factory.newEmpty();
         props.put("brooklyn.external.foo", PropertiesFileExternalConfigSupplier.class.getName());
-        props.put("brooklyn.external.foo.propertiesUrl", propsFile.toURI().toString());
+        props.put("brooklyn.external.foo.propertiesUrl", url.apply(propsFile));
         
         mgmt = LocalManagementContextForTests.newInstance(props);
         

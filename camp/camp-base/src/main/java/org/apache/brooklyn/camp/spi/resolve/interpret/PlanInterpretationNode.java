@@ -191,7 +191,7 @@ public class PlanInterpretationNode {
         }
 
         if (changed==null) changed = false;
-    }
+     }
 
     protected void applyToIterable() {
         MutableList<Object> input = MutableList.copyOf((Iterable<?>)originalValue);

@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.entity.drivers.downloads.DownloadSubstituters;
 import org.apache.brooklyn.entity.brooklynnode.BrooklynNode.ExistingFileBehaviour;
 import org.apache.brooklyn.entity.java.JavaSoftwareProcessSshDriver;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
@@ -130,7 +131,7 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
         
         // Need to explicitly give file, because for snapshot URLs you don't get a clean filename from the URL.
         // This filename is used to generate the first URL to try: [BROOKLYN_VERSION_BELOW]
-        // file://$HOME/.brooklyn/repository/BrooklynNode/1.0.0-SNAPSHOT/brooklynnode-0.8.0-snapshot.tar.gz
+        // file://$HOME/.brooklyn/repository/BrooklynNode/1.1.0-SNAPSHOT/brooklynnode-0.8.0-snapshot.tar.gz
         // (DOWNLOAD_URL overrides this and has a default which comes from maven)
         List<String> urls = resolver.getTargets();
         String saveAs = resolver.getFilename();
@@ -261,8 +262,10 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
             checkNotNull(url, "url");
 
             // If a local folder, then create archive from contents first
+            List<File> filesToDelete = MutableList.of();
             if (Urls.isDirectory(url)) {
                 File jarFile = ArchiveBuilder.jar().addDirContentsAt(new File(url), "").create();
+                filesToDelete.add(jarFile);
                 url = jarFile.getAbsolutePath();
             }
 
@@ -271,6 +274,7 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
                 filename = getFilename(url);
             }
             ArchiveUtils.deploy(MutableMap.<String, Object>of(), url, machine, getRunDir(), Os.mergePaths(getRunDir(), "lib", "dropins"), filename);
+            filesToDelete.forEach(f -> f.delete());
         }
 
         String cmd = entity.getConfig(BrooklynNode.EXTRA_CUSTOMIZATION_SCRIPT);

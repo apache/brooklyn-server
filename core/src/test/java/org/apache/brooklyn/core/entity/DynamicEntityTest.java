@@ -37,24 +37,14 @@ public class DynamicEntityTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testEffectorAddedDuringInit() {
         BasicEntity entity = app.createAndManageChild(EntitySpec.create(BasicEntity.class)
-                .addInitializer(new EntityInitializer() {
-                    @Override
-                    public void apply(EntityLocal entity) {
-                        ((EntityInternal) entity).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1);
-                    }
-                }));
+                .addInitializer(ent -> ((EntityInternal) ent).getMutableEntityType().addEffector(EffectorTaskTest.DOUBLE_1)));
         assertEquals(entity.invoke(EffectorTaskTest.DOUBLE_BODYLESS, MutableMap.of("numberToDouble", 5)).getUnchecked(), (Integer) 10);
     }
 
     @Test
     public void testEffectorRemovedDuringInit() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .addInitializer(new EntityInitializer() {
-                    @Override
-                    public void apply(EntityLocal entity) {
-                        ((EntityInternal) entity).getMutableEntityType().removeEffector(TestEntity.IDENTITY_EFFECTOR);
-                    }
-                }));
+                .addInitializer(ent -> ((EntityInternal) ent).getMutableEntityType().removeEffector(TestEntity.IDENTITY_EFFECTOR)));
         assertFalse(entity.getMutableEntityType().getEffectors().containsKey(TestEntity.IDENTITY_EFFECTOR.getName()));
     }
     

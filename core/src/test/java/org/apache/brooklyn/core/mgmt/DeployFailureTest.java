@@ -106,9 +106,8 @@ public class DeployFailureTest extends BrooklynAppUnitTestSupport {
                     .child(EntitySpec.create(TestEntity.class)
                             .impl(TestEntityFailingGetParentImpl.class)));
             Asserts.shouldHaveFailedPreviously();
-        } catch (ClassCastException e) {
-            // TODO Should give nicer exception
-            Asserts.expectedFailureContains(e, "cannot be cast", "WrongParentEntity");
+        } catch (ConstraintViolationException e) {
+            Asserts.expectedFailureContains(e, "cannot be cast", "WrongParentEntity", TestEntityFailingGetParentImpl.class.getSimpleName());
         }
 
         // This should continue to work, after the failed entity-deploy above

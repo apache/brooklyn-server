@@ -153,14 +153,16 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
         }
     }
 
-    protected Response doSensorTest(Boolean raw, MediaType acceptsType, Object expectedValue) {
+    protected Response doSensorTest(Boolean displayHints, Boolean raw, MediaType acceptsType, Object expectedValue) {
         return doSensorTestUntyped(
-            raw==null ? null : (""+raw).toLowerCase(), 
+                displayHints==null ? null : (""+displayHints).toLowerCase(),
+            raw==null ? null : (""+raw).toLowerCase(),
             acceptsType==null ? null : new String[] { acceptsType.toString() },
             expectedValue);
     }
-    protected Response doSensorTestUntyped(String raw, String[] acceptsTypes, Object expectedValue) {
+    protected Response doSensorTestUntyped(String displayHints,String raw, String[] acceptsTypes, Object expectedValue) {
         WebClient req = client().path(SENSORS_ENDPOINT + "/" + SENSOR_NAME);
+        if (displayHints!=null) req = req.query("displayHints", displayHints);
         if (raw!=null) req = req.query("raw", raw);
         Response response;
         if (acceptsTypes!=null) {
@@ -184,12 +186,13 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
      */
     @Test
     public void testGetJson() throws Exception {
-        doSensorTest(null, MediaType.APPLICATION_JSON_TYPE, "\"12345 frogs\"");
+        doSensorTest(null,null, MediaType.APPLICATION_JSON_TYPE, "\"12345 frogs\"");
+        doSensorTest(true,null, MediaType.APPLICATION_JSON_TYPE, "\"12345 frogs\"");
     }
     
     @Test
     public void testGetJsonBytes() throws Exception {
-        Response response = doSensorTest(null, MediaType.APPLICATION_JSON_TYPE, null);
+        Response response = doSensorTest(null,null, MediaType.APPLICATION_JSON_TYPE, null);
         byte[] bytes = Streams.readFullyAndClose(response.readEntity(InputStream.class));
         // assert we have one set of surrounding quotes
         assertEquals(bytes.length, 13);
@@ -198,7 +201,8 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
     /** Check that plain returns a string without quotes, with the rendering hint */
     @Test
     public void testGetPlain() throws Exception {
-        doSensorTest(null, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
+        doSensorTest(null,null, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
+        doSensorTest(true,null, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
     }
 
     /** 
@@ -209,32 +213,39 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
      */
     @Test
     public void testGetRawJson() throws Exception {
-        doSensorTest(true, MediaType.APPLICATION_JSON_TYPE, 12345);
+        doSensorTest(null,true, MediaType.APPLICATION_JSON_TYPE, 12345);
+        doSensorTest(false,true, MediaType.APPLICATION_JSON_TYPE, 12345);
+        doSensorTest(true,true, MediaType.APPLICATION_JSON_TYPE, 12345);
     }
     
     /** As {@link #testGetRaw()} but with plain set, returns the number */
     @Test
     public void testGetPlainRaw() throws Exception {
         // have to pass a string because that's how PLAIN is deserialized
-        doSensorTest(true, MediaType.TEXT_PLAIN_TYPE, "12345");
+        doSensorTest(null,true, MediaType.TEXT_PLAIN_TYPE, "12345");
+        doSensorTest(false,true, MediaType.TEXT_PLAIN_TYPE, "12345");
+        doSensorTest(true,true, MediaType.TEXT_PLAIN_TYPE, "12345");
     }
 
     /** Check explicitly setting {@code raw} to {@code false} is as before */
     @Test
     public void testGetPlainRawFalse() throws Exception {
-        doSensorTest(false, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
+        doSensorTest(null,false, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
+        doSensorTest(true,false, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
+        doSensorTest(false,false, MediaType.TEXT_PLAIN_TYPE, "12345 frogs");
     }
 
     /** Check empty vaue for {@code raw} will revert to using default. */
     @Test
     public void testGetPlainRawEmpty() throws Exception {
-        doSensorTestUntyped("", new String[] { MediaType.TEXT_PLAIN }, "12345 frogs");
+        doSensorTestUntyped(null,"", new String[] { MediaType.TEXT_PLAIN }, "12345 frogs");
+        doSensorTestUntyped("","", new String[] { MediaType.TEXT_PLAIN }, "12345 frogs");
     }
 
     /** Check unparseable vaue for {@code raw} will revert to using default. */
     @Test
     public void testGetPlainRawError() throws Exception {
-        doSensorTestUntyped("biscuits", new String[] { MediaType.TEXT_PLAIN }, "12345 frogs");
+        doSensorTestUntyped(null,"biscuits", new String[] { MediaType.TEXT_PLAIN }, "12345 frogs");
     }
     
     /** Check we can set a value */

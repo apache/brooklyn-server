@@ -97,7 +97,20 @@ public class AwsEc2LocationLiveTest extends AbstractJcloudsLocationTest {
                     JcloudsLocationConfig.KEY_PAIR, primary.getKeyName(),
                     JcloudsLocationConfig.LOGIN_USER_PRIVATE_KEY_DATA, primary.getKeyMaterial(),
                     JcloudsLocationConfig.EXTRA_PUBLIC_KEY_DATA_TO_AUTH, extra.get("public"),
-                    JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-5492ba3c"
+
+//                    JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-5492ba3c",
+                    // above does not support Enhanced Networking which t3.micro (the new default) uses, so needs hardware ID set
+                    // with the below it works, but let's try a newer
+//                    JcloudsLocationConfig.HARDWARE_ID, "t2.micro",
+
+                    // below support ENA but want different users, not login user `root` (though the AMI definition advertises 'root')
+
+//                    JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-04745ee7d4c0fb5fd", JcloudsLocationConfig.LOGIN_USER, "ec2-user"
+                    // this centos9 stream seems not to like our ssh algorithms, server disconnects;
+                    // difference is that with bouncycastle we use ssh-ed25519, on CLI it uses rsa-sha2-256/512
+
+                    // this seems to work
+                    JcloudsLocationConfig.IMAGE_ID, "us-east-1/ami-05d7cb15bfbf13b6d", JcloudsLocationConfig.LOGIN_USER, "centos"
             ));
 
             log.info("Provisioned {} vm {}; checking if ssh'able; extra private key below\n{}", provider, machine, extra.get("private"));

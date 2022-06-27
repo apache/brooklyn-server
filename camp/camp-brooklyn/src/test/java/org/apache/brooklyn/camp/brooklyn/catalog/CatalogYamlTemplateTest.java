@@ -61,7 +61,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Assert.assertFalse(yaml.indexOf("description")>=0,
             "YAML included metadata which should have been excluded; it was:\n"+yaml);
 
-        deleteCatalogEntity("t1");
+        deleteCatalogRegisteredType("t1");
     }
 
     @Test
@@ -76,7 +76,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
         Assert.assertFalse(yaml.indexOf("description")>=0,
             "YAML included metadata which should have been excluded; it was:\n"+yaml);
 
-        deleteCatalogEntity("t1");
+        deleteCatalogRegisteredType("t1");
     }
 
     public void testServiceTypeEntityOfTypeCatalogTemplateNotWrapped() throws Exception {
@@ -202,7 +202,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
                         "services:",
                         "- type: t1"));
         
-        List<NamedStringTag> yamls = BrooklynTags.findAll(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
+        List<NamedStringTag> yamls = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
         Assert.assertEquals(yamls.size(), 1, "Expected 1 yaml tag; instead had: "+yamls);
         String yaml = Iterables.getOnlyElement(yamls).getContents();
         Asserts.assertStringContains(yaml, "services:", "t1", "localhost");
@@ -240,7 +240,7 @@ public class CatalogYamlTemplateTest extends AbstractYamlTest {
             "services: [ { type: app1r } ]\n" +
             "location: localhost");
         
-        List<NamedStringTag> yamls = BrooklynTags.findAll(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
+        List<NamedStringTag> yamls = BrooklynTags.findAllNamedStringTags(BrooklynTags.YAML_SPEC_KIND, spec.getTags());
         Assert.assertTrue(yamls.size() >= 1, "Expected at least 1 yaml tag; instead had: "+yamls);
         String yaml = yamls.iterator().next().getContents();
         Asserts.assertStringContains(yaml, "services:", "type: app1r", "localhost");

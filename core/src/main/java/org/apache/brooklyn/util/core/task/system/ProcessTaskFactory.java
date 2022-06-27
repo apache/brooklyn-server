@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.task.system;
 
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -30,7 +31,7 @@ import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 
 public interface ProcessTaskFactory<T> extends TaskFactory<ProcessTaskWrapper<T>> {
-    public ProcessTaskFactory<T> machine(SshMachineLocation machine);
+    public ProcessTaskFactory<T> machine(MachineLocation machine);
     public ProcessTaskFactory<T> add(String ...commandsToAdd);
     public ProcessTaskFactory<T> add(Iterable<String> commandsToAdd);
     public ProcessTaskFactory<T> requiringExitCodeZero();

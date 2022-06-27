@@ -18,29 +18,12 @@
  */
 package org.apache.brooklyn.rest;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.brooklyn.rest.resources.AbstractBrooklynRestResource;
-import org.apache.brooklyn.rest.resources.AccessResource;
-import org.apache.brooklyn.rest.resources.ActivityResource;
-import org.apache.brooklyn.rest.resources.AdjunctResource;
-import org.apache.brooklyn.rest.resources.ApidocResource;
-import org.apache.brooklyn.rest.resources.ApplicationResource;
-import org.apache.brooklyn.rest.resources.BundleResource;
-import org.apache.brooklyn.rest.resources.CatalogResource;
-import org.apache.brooklyn.rest.resources.EffectorResource;
-import org.apache.brooklyn.rest.resources.EntityConfigResource;
-import org.apache.brooklyn.rest.resources.EntityResource;
-import org.apache.brooklyn.rest.resources.LocationResource;
-import org.apache.brooklyn.rest.resources.LogoutResource;
-import org.apache.brooklyn.rest.resources.PolicyConfigResource;
-import org.apache.brooklyn.rest.resources.PolicyResource;
-import org.apache.brooklyn.rest.resources.ScriptResource;
-import org.apache.brooklyn.rest.resources.SensorResource;
-import org.apache.brooklyn.rest.resources.ServerResource;
-import org.apache.brooklyn.rest.resources.TypeResource;
-import org.apache.brooklyn.rest.resources.UsageResource;
+import java.util.Set;
+import org.apache.brooklyn.rest.resources.*;
 import org.apache.brooklyn.rest.util.DefaultExceptionMapper;
 import org.apache.brooklyn.rest.util.FormMapProvider;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
@@ -48,6 +31,7 @@ import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
 import com.google.common.collect.Iterables;
 
 import io.swagger.jaxrs.listing.SwaggerSerializers;
+import org.apache.brooklyn.util.collections.MutableSet;
 
 public class BrooklynRestApi {
 
@@ -71,6 +55,7 @@ public class BrooklynRestApi {
         resources.add(new ServerResource());
         resources.add(new UsageResource());
         resources.add(new LogoutResource());
+        resources.add(new LogbookResource());
         return resources;
     }
 
@@ -89,7 +74,22 @@ public class BrooklynRestApi {
         return resources;
     }
 
+    static Set<Object> extraResources = MutableSet.of();
+
+    @VisibleForTesting
+    public static void addExtraResource(Object resource) {
+        extraResources.add(resource);
+    }
+    @VisibleForTesting
+    public static Set<Object> getExtraResourcesMutable() {
+        return extraResources;
+    }
+
+    public static Set<Object> getExtraResources() {
+        return MutableSet.copyOf(extraResources);
+    }
+
     public static Iterable<Object> getAllResources() {
-        return Iterables.concat(getBrooklynRestResources(), getApidocResources(), getMiscResources());
+        return Iterables.concat(getBrooklynRestResources(), getApidocResources(), getMiscResources(), getExtraResources());
     }
 }

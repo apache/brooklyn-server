@@ -39,7 +39,9 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
+
     public void testAllowingSeeEntity() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.SEE_ENTITY);
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.ROOT, null));
@@ -48,6 +50,8 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+
     }
     public void testAllowingInvokeEffector() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.INVOKE_EFFECTOR);
@@ -57,6 +61,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
     public void testAllowingSeeSensor() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.SEE_SENSOR);
@@ -66,6 +71,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(allowSeeEntity.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
     public void testAllowingDeployApplication() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.DEPLOY_APPLICATION);
@@ -75,6 +81,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertTrue(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
     public void testAllowingSeeAllServerInfo() {
         EntitlementManager allowSeeEntity = Entitlements.FineGrainedEntitlements.allowing(Entitlements.SEE_ALL_SERVER_INFO);
@@ -84,6 +91,7 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(allowSeeEntity.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertTrue(allowSeeEntity.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(allowSeeEntity.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
     }
 
     // nonSecret
@@ -128,6 +136,9 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(root.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertTrue(root.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertTrue(root.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertTrue(root.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertTrue(root.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertTrue(root.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
     public void testAppSpecificRootEntitlement() {
         EntitlementManager root = Entitlements.root();
@@ -137,6 +148,67 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertTrue(root.isEntitled(null, Entitlements.SEE_SENSOR, Entitlements.EntityAndItem.of(app, "password")));
         assertTrue(root.isEntitled(null, Entitlements.DEPLOY_APPLICATION, Entitlements.EntityAndItem.of(app, null)));
         assertTrue(root.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertTrue(root.isEntitled(null, Entitlements.ADD_JAVA, null));
+    }
+
+    // powerUser, same as root but not Groovy scripts
+    public void testGlobalPowerUserEntitlement() {
+        EntitlementManager user = Entitlements.powerUser();
+        assertTrue(user.isEntitled(null, Entitlements.ROOT, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertTrue(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertTrue(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertTrue(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertTrue(user.isEntitled(null, Entitlements.HA_ADMIN, null));
+        assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+    }
+
+    // logViewer, can only see the logs
+    public void testGlobalLogViewerEntitlement() {
+        EntitlementManager user = Entitlements.logViewer();
+        assertTrue(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertFalse(user.isEntitled(null, Entitlements.ROOT, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertFalse(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertFalse(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
+    }
+
+    // user
+    public void testGlobalUserEntitlement() {
+        EntitlementManager user = Entitlements.user();
+        assertFalse(user.isEntitled(null, Entitlements.ROOT, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertTrue(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertTrue(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
+    }
+
+    // blueprintautor, same as root but not Groovy scripts
+    public void testGlobalBlueprintAuthorEntitlement() {
+        EntitlementManager user = Entitlements.blueprintAuthor();
+        assertFalse(user.isEntitled(null, Entitlements.ROOT, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_ENTITY, null));
+        assertTrue(user.isEntitled(null, Entitlements.INVOKE_EFFECTOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.SEE_SENSOR, null));
+        assertTrue(user.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
+        assertFalse(user.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(user.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertFalse(user.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(user.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(user.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
 
     // minimal
@@ -148,6 +220,10 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(minimal.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(minimal.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(minimal.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(minimal.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
     public void testAppSpecificMinimalEntitlement() {
         EntitlementManager minimal = Entitlements.minimal();
@@ -168,6 +244,10 @@ public class EntitlementsTest extends BrooklynAppUnitTestSupport {
         assertFalse(readOnly.isEntitled(null, Entitlements.SEE_SENSOR, null));
         assertFalse(readOnly.isEntitled(null, Entitlements.DEPLOY_APPLICATION, null));
         assertFalse(readOnly.isEntitled(null, Entitlements.SEE_ALL_SERVER_INFO, null));
+        assertFalse(readOnly.isEntitled(null, Entitlements.LOGBOOK_LOG_STORE_QUERY, null));
+        assertFalse(readOnly.isEntitled(null, Entitlements.EXECUTE_GROOVY_SCRIPT, null));
+        assertFalse(readOnly.isEntitled(null, Entitlements.ADD_JAVA, null));
+        assertFalse(readOnly.isEntitled(null, Entitlements.HA_ADMIN, null));
     }
     public void testAppSpecificReadOnlyEntitlement() {
         EntitlementManager readOnly = Entitlements.readOnly();

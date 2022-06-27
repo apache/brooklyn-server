@@ -76,13 +76,13 @@ public class YamlTimeWeightedDeltaEnricherTest extends BrooklynAppUnitTestSuppor
         delta.onEvent(newIntSensorEvent(0, 0));
         assertEquals(producer.getAttribute(deltaSensor), null);
         delta.onEvent(newIntSensorEvent(0, 1000));
-        assertEquals(producer.getAttribute(deltaSensor), 0d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 0d);
         delta.onEvent(newIntSensorEvent(1, 2000));
-        assertEquals(producer.getAttribute(deltaSensor), 1d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 1d);
         delta.onEvent(newIntSensorEvent(3, 3000));
-        assertEquals(producer.getAttribute(deltaSensor), 2d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 2d);
         delta.onEvent(newIntSensorEvent(8, 4000));
-        assertEquals(producer.getAttribute(deltaSensor), 5d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 5d);
     }
     
     protected BasicSensorEvent<Integer> newIntSensorEvent(int value, long timestamp) {
@@ -110,15 +110,15 @@ public class YamlTimeWeightedDeltaEnricherTest extends BrooklynAppUnitTestSuppor
         
         delta.onEvent(newIntSensorEvent(0, 0));
         delta.onEvent(newIntSensorEvent(0, 2000));
-        assertEquals(producer.getAttribute(deltaSensor), 0d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 0d);
         delta.onEvent(newIntSensorEvent(3, 5000));
-        assertEquals(producer.getAttribute(deltaSensor), 1d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 1d);
         delta.onEvent(newIntSensorEvent(7, 7000));
-        assertEquals(producer.getAttribute(deltaSensor), 2d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 2d);
         delta.onEvent(newIntSensorEvent(12, 7500));
-        assertEquals(producer.getAttribute(deltaSensor), 10d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 10d);
         delta.onEvent(newIntSensorEvent(15, 9500));
-        assertEquals(producer.getAttribute(deltaSensor), 1.5d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 1.5d);
     }
 
 }

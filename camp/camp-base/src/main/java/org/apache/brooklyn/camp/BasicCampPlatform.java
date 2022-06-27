@@ -137,7 +137,7 @@ public class BasicCampPlatform extends CampPlatform {
             if (!committed.get()) {
                 // normal, in the case of errors (which might occur when catalog tries to figure out the right plan format); shouldn't happen otherwise
                 // if we want log.warn visibility of these, then we will have to supply an abandon() method on this interface and ensure that is invoked on errors
-                log.debug("transaction "+this+" was never applied");
+                log.debug("Transaction "+this+" was never applied (normal when attempting to auto-detect plan formats)");
             }
             super.finalize();
         }

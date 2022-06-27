@@ -19,8 +19,7 @@
 package org.apache.brooklyn.core.typereg;
 
 /** Used by {@link BrooklynTypePlanTransformer} for a transformer to indicate an error resolving a plan. */
-// TODO add another hierarchy RecognizedTypePlanException or a score to indicate priority of errors for reporting?
-public class UnsupportedTypePlanException extends RuntimeException {
+public class UnsupportedTypePlanException extends TypePlanException {
 
     private static final long serialVersionUID = -5590108442839125317L;
 

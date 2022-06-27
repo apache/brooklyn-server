@@ -23,10 +23,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import java.util.ConcurrentModificationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import javax.annotation.Nonnull;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.JsonAutoDetect.Visibility;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -54,6 +57,7 @@ import com.google.common.collect.Sets;
  * <p>
  * @author alex
  */
+@JsonAutoDetect(fieldVisibility = Visibility.ANY, isGetterVisibility = Visibility.NONE, getterVisibility = Visibility.NONE, setterVisibility = Visibility.NONE)
 public class ConfigBag {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigBag.class);
@@ -222,7 +226,16 @@ public class ConfigBag {
     }
     
     public ConfigBag putAll(ConfigBag addlConfig) {
-        return putAll(addlConfig.getAllConfig());
+        if (addlConfig!=null) {
+            addlConfig.forEach((k,v)->{
+                putStringKey(k, v, !addlConfig.unusedConfig.containsKey(k));
+            });
+        }
+        return this;
+    }
+
+    public void forEach(BiConsumer<String,Object> action) {
+        getAllConfig().forEach(action);
     }
     
     public <T> ConfigBag putIfAbsent(ConfigKey<T> key, T value) {
@@ -305,14 +318,25 @@ public class ConfigBag {
      * (e.g. when copying a map) where we want to put a string key directly 
      */
     public synchronized Object putStringKey(String key, Object value) {
-        if (sealed) 
+        if (sealed)
             throw new IllegalStateException("Cannot insert "+key+"="+value+": this config bag has been sealed and is now immutable.");
         boolean isNew = !config.containsKey(key);
         boolean isUsed = !isNew && !unusedConfig.containsKey(key);
         Object old = config.put(key, value);
-        if (!isUsed) 
+        if (!isUsed)
             unusedConfig.put(key, value);
-        //if (!isNew && !isUsed) log.debug("updating config value which has already been used");
+        return old;
+    }
+    protected synchronized Object putStringKey(String key, Object value, boolean valueBeingSetIsAlreadyUsed) {
+        if (!valueBeingSetIsAlreadyUsed) {
+            return putStringKey(key, value);
+        }
+        if (sealed) {
+            if (Objects.equal(value, config.get(key))) return value;
+            throw new IllegalStateException("Cannot insert " + key + "=" + value + ": this config bag has been sealed and is now immutable.");
+        }
+        Object old = config.put(key, value);
+        unusedConfig.remove(key);
         return old;
     }
     public Object putStringKeyIfHasValue(String key, Maybe<?> value) {
@@ -366,7 +390,7 @@ public class ConfigBag {
     public Maybe<Object> getObjKeyMaybe(Object key) {
         if (key instanceof HasConfigKey<?>) key = ((HasConfigKey<?>)key).getConfigKey();
         if (key instanceof ConfigKey<?>) {
-            return getKeyMaybe((ConfigKey<?>)key, true);
+            return getKeyMaybeUncoercedIfPresent((ConfigKey<?>)key, true);
         } else if (key instanceof String) {
             return getStringKeyMaybe((String)key, true);
         } else {
@@ -513,8 +537,15 @@ public class ConfigBag {
         // TODO for now, no evaluation -- maps / closure content / other smart (self-extracting) keys are NOT supported
         // (need a clean way to inject that behaviour, as well as desired TypeCoercions)
         // this method, and the coercion, is not synchronized, nor does it need to be, because the "get" is synchronized.
-        Maybe<Object> val = getKeyMaybe(key, markUsed);
+        Maybe<Object> val = getKeyMaybeUncoercedIfPresent(key, markUsed);
         return coerceFirstNonNullKeyValue(key, val.orNull());
+    }
+
+    /** If the key is set, return the type-correct (coerced) value, but not any default; otherwise returns absent */
+    public <T> Maybe<T> ifPresent(ConfigKey<T> key) {
+        Maybe<Object> val = getKeyMaybeUncoercedIfPresent(key, true);
+        if (val.isAbsent()) return ((Maybe<T>)val);
+        return Maybe.of(coerceFirstNonNullKeyValue(key, val.get()));
     }
 
     /** returns the first non-null value to be the type indicated by the key, or the keys default value if no non-null values are supplied */
@@ -574,7 +605,7 @@ public class ConfigBag {
     /**
      * @return Unresolved configuration value. May be overridden to provide resolution - @see {@link ResolvingConfigBag#getStringKeyMaybe(String, boolean)}
      */
-    protected synchronized Maybe<Object> getKeyMaybe(ConfigKey<?> key, boolean markUsed) {
+    protected synchronized Maybe<Object> getKeyMaybeUncoercedIfPresent(ConfigKey<?> key, boolean markUsed) {
         return getKeyMaybeInternal(key, name -> getStringKeyMaybe(name, markUsed));
     }
 

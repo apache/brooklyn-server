@@ -18,17 +18,17 @@
  */
 package org.apache.brooklyn.util.javalang.coerce;
 
+import com.google.common.annotations.Beta;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TimeZone;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.Instant;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -40,7 +40,7 @@ import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
@@ -48,6 +48,7 @@ import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.brooklyn.util.time.Timestamp;
 import org.apache.brooklyn.util.yaml.Yamls;
 
 import com.google.common.base.Function;
@@ -60,6 +61,8 @@ import com.google.common.net.HostAndPort;
 import com.google.common.reflect.TypeToken;
 
 public class CommonAdaptorTypeCoercions {
+
+    @Beta public static final double DELTA_FOR_COERCION = 0.000001;
 
     private final TypeCoercerExtensible coercer;
 
@@ -208,19 +211,19 @@ public class CommonAdaptorTypeCoercions {
         registerAdapter(BigDecimal.class, Double.class, new Function<BigDecimal,Double>() {
             @Override
             public Double apply(BigDecimal input) {
-                return input.doubleValue();
+                return checkValidForConversion(input, input.doubleValue());
             }
         });
         registerAdapter(BigInteger.class, Long.class, new Function<BigInteger,Long>() {
             @Override
             public Long apply(BigInteger input) {
-                return input.longValue();
+                return input.longValueExact();
             }
         });
         registerAdapter(BigInteger.class, Integer.class, new Function<BigInteger,Integer>() {
             @Override
             public Integer apply(BigInteger input) {
-                return input.intValue();
+                return input.intValueExact();
             }
         });
         registerAdapter(String.class, BigDecimal.class, new Function<String,BigDecimal>() {
@@ -257,6 +260,30 @@ public class CommonAdaptorTypeCoercions {
             @Override
             public Date apply(final String input) {
                 return Time.parseDate(input);
+            }
+        });
+        registerAdapter(String.class, Instant.class, new Function<String,Instant>() {
+            @Override
+            public Instant apply(final String input) {
+                return Time.parseDate(input).toInstant();
+            }
+        });
+        registerAdapter(String.class, Timestamp.class, new Function<String,Timestamp>() {
+            @Override
+            public Timestamp apply(final String input) {
+                return new Timestamp(input);
+            }
+        });
+        registerAdapter(Date.class, Timestamp.class, new Function<Date,Timestamp>() {
+            @Override
+            public Timestamp apply(final Date input) {
+                return new Timestamp(input);
+            }
+        });
+        registerAdapter(Instant.class, Timestamp.class, new Function<Instant,Timestamp>() {
+            @Override
+            public Timestamp apply(final Instant input) {
+                return new Timestamp(input);
             }
         });
         registerAdapter(String.class, QuorumCheck.class, new Function<String,QuorumCheck>() {
@@ -307,8 +334,22 @@ public class CommonAdaptorTypeCoercions {
                 }
             }
         });
+        registerAdapter(String.class, Path.class, new Function<String,Path>() {
+            @Override
+            public Path apply(final String input) {
+                return Paths.get(input);
+            }
+        });
     }
-    
+
+    @Beta
+    public static double checkValidForConversion(BigDecimal input, double candidate) {
+        if (input.subtract(BigDecimal.valueOf(candidate)).abs().compareTo(BigDecimal.valueOf(DELTA_FOR_COERCION))>0) {
+            throw new IllegalStateException("Decimal value out of range; cannot convert "+ input +" to double");
+        }
+        return candidate;
+    }
+
     @SuppressWarnings("rawtypes")
     public void registerRecursiveIterableAdapters() {
         
@@ -386,13 +427,13 @@ public class CommonAdaptorTypeCoercions {
             if (!(input instanceof String)) return null;
             String inputS = (String)input;
             
-            Class<? super T> rawType = type.getRawType();
-            
+            Class<? super T> rawType = TypeTokens.getRawRawType(type);
+
             if (Collection.class.isAssignableFrom(rawType)) {
-                TypeToken<?> parameters[] = Reflections.getGenericParameterTypeTokens(type);
+                TypeToken<?> parameters[] = TypeTokens.getGenericParameterTypeTokensWhenUpcastToClassRaw(type, Collection.class);
                 Maybe<?> resultM = null;
                 Collection<?> result = null;
-                if (parameters.length==1 && CharSequence.class.isAssignableFrom(parameters[0].getRawType())) {
+                if (parameters.length==1 && TypeTokens.isAssignableFromRaw(CharSequence.class, parameters[0])) {
                     // for list of strings, use special parse
                     result = JavaStringEscapes.unwrapJsonishListStringIfPossible(inputS);
                 } else {

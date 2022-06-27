@@ -103,6 +103,30 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
         String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
         assertEquals(result, "myval");
     }
+
+    @Test
+    public void testEntityDisplayName() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                        .displayName("My Test Entity"));
+        String templateContents = "${displayName}";
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result, "My Test Entity");
+    }
+
+    @Test
+    public void testEntityApplicationAccess() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        // test getter
+        String templateContents = "${application.displayName}";
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result, app.getDisplayName());
+
+        // test config (proves our model has intercepted)
+        app.config().set(TestEntity.CONF_NAME, "sample config app");
+        templateContents = "${application.config['"+TestEntity.CONF_NAME.getName()+"']}";
+        result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result, app.config().get(TestEntity.CONF_NAME));
+    }
     
     @Test
     public void testConditionalComparingAttributes() {

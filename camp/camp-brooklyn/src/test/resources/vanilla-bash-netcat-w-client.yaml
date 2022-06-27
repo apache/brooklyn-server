@@ -73,7 +73,7 @@ services:
   launch.command: ""
   checkRunning.command: ""
   stop.command: ""
-  
+ 
   brooklyn.initializers:
   # but there is a sample effector which runs nc in client mode
   

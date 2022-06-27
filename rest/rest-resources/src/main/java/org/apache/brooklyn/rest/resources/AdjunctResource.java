@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -68,11 +69,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
+import com.google.common.reflect.TypeToken;
 
 @HaHotStateRequired
 public class AdjunctResource extends AbstractBrooklynRestResource implements AdjunctApi {
@@ -148,7 +151,13 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
             }
         }
 
-        spec.configure(config);
+        try {
+            Optional<Map> configResolved = DslUtils.resolveNonDeferredBrooklynDslValue(config, TypeToken.of(Map.class), mgmt(), spec);
+            spec.configure(configResolved.or(config));
+        } catch (Exception e) {
+            log.debug("Error resolving config (rethrowing) "+config+": "+e, e);
+            throw Exceptions.propagate(e);
+        }
 
         EntityAdjunct instance;
         if (spec instanceof PolicySpec) {

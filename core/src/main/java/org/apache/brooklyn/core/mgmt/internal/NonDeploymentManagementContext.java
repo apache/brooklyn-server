@@ -568,6 +568,11 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         }
 
         @Override
+        public PersistenceExceptionHandler getPersisterExceptionHandler() {
+            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+
+        @Override
         public List<Application> rebind(ClassLoader classLoader, RebindExceptionHandler exceptionHandler, ManagementNodeState mode) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
@@ -586,10 +591,20 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         public void startReadOnly(ManagementNodeState state) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
-        
+
+        @Override
+        public boolean isReadOnly() {
+            return true;
+        }
+
         @Override
         public void stopReadOnly() {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+
+        @Override
+        public void stopEntityTasksAndCleanUp(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning) {
+            // no-op
         }
 
         @Override
@@ -697,6 +712,10 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         }
         @Override
         public void publishClearNonMaster() {
+            throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
+        }
+        @Override
+        public void setNodeIdToRemove(String nodeId) {
             throw new IllegalStateException("Non-deployment context "+NonDeploymentManagementContext.this+" is not valid for this operation.");
         }
         @Override

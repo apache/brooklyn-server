@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.mgmt.persist.RetryingMementoSerializer;
 import org.apache.brooklyn.core.mgmt.persist.StoreObjectAccessorLocking;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore.StoreObjectAccessorWithLock;
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -109,6 +110,8 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
 
     protected final AtomicLong checkpointLogCount = new AtomicLong();
     private static final int INITIAL_LOG_WRITES = 5;
+
+    private boolean isStartup = false;
     
     @VisibleForTesting
     /** allows, when testing, to be able to override file times / blobstore times with time from the ticker */
@@ -124,7 +127,9 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
         this.mgmt = mgmt;
         this.objectStore = checkNotNull(objectStore, "objectStore");
 
-        MementoSerializer<Object> rawSerializer = new XmlMementoSerializer<Object>(checkNotNull(classLoader, "classLoader"));
+        MementoSerializer<Object> rawSerializer = XmlMementoSerializerBuilder.from(mgmt)
+                .withBrooklynDeserializingClassRenames()
+                .withClassLoader(checkNotNull(classLoader, "classLoader")).build();
         this.serializer = new RetryingMementoSerializer<Object>(rawSerializer, MAX_SERIALIZATION_ATTEMPTS);
 
         objectStore.createSubPath(NODES_SUB_PATH);
@@ -178,6 +183,11 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
 
     @Override
     public ManagementPlaneSyncRecord loadSyncRecord() throws IOException {
+        return loadSyncRecord(Duration.ZERO);
+    }
+
+    @Override
+    public ManagementPlaneSyncRecord loadSyncRecord(Duration terminatedNodeDeletionTimeout) throws IOException {
         if (!running) {
             throw new IllegalStateException("Persister not running; cannot load memento from "+ objectStore.getSummaryName());
         }
@@ -241,14 +251,35 @@ public class ManagementPlaneSyncRecordPersisterToObjectStore implements Manageme
                     Date lastModifiedDate = objectAccessor.getLastModifiedDate();
                     ((BasicManagementNodeSyncRecord)memento).setRemoteTimestamp(lastModifiedDate!=null ? lastModifiedDate.getTime() : null);
                 }
+                if ((terminatedNodeDeletionTimeout.compareTo(Duration.ZERO) == 1) && isStartup && memento.getStatus().name().equals(("TERMINATED"))){
+                    Date now = new Date();
+                    Duration inactivityDuration = new Duration(now.getTime() - memento.getRemoteTimestamp(), TimeUnit.MILLISECONDS);
+                    if (inactivityDuration.compareTo(terminatedNodeDeletionTimeout) == 1){
+                        LOG.debug("Last modified date exceeds the provided threshold for: "+memento+"; node will be removed from persistence store.");
+                        try {
+                            objectAccessor.delete();
+                        }
+                        catch (Exception e){
+                            LOG.debug("Exception: " + e + " while trying to remove node: "+memento+". Progressing regardless...");
+                        }
+                        continue;
+                    }
+                }
                 builder.node(memento);
             }
         }
+
+        if (isStartup) isStartup = false;
 
         if (LOG.isDebugEnabled()) LOG.trace("Loaded management-plane memento; {} nodes, took {}",
             nodeFiles.size(),
             Time.makeTimeStringRounded(stopwatch.elapsed(TimeUnit.MILLISECONDS)));
         return builder.build();
+    }
+
+    @Override
+    public void setIsStartup(boolean isStartup){
+        this.isStartup = isStartup;
     }
     
     @Override

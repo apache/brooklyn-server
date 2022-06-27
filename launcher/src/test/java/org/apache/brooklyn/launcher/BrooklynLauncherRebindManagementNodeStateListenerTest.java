@@ -136,7 +136,7 @@ public class BrooklynLauncherRebindManagementNodeStateListenerTest extends Abstr
         RecordingStaticManagementNodeStateListener.clearInstances();
 
         // Start standby
-        BrooklynLauncher launcher2 = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.AUTO);
+        BrooklynLauncher launcher2 = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.STANDBY);
         launcher2.start();
         RecordingStaticManagementNodeStateListener.getInstance().assertEventsEventually(ImmutableList.of(INITIALIZING, STANDBY));
         

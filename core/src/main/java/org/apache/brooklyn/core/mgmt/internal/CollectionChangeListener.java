@@ -18,7 +18,13 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
+import org.apache.brooklyn.api.entity.Entity;
+
 public interface CollectionChangeListener<Item> {
     void onItemAdded(Item item);
     void onItemRemoved(Item item);
+
+    public interface ListenerWithErrorHandler<Item> extends CollectionChangeListener<Item> {
+        void onError(String error, Throwable trace);
+    }
 }

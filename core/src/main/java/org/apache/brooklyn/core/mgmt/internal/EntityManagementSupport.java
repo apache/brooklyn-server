@@ -30,11 +30,12 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
-import org.apache.brooklyn.api.sensor.AttributeSensor.SensorPersistenceMode;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
@@ -44,6 +45,7 @@ import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext.NonDeploymentManagementContextMode;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -89,6 +91,7 @@ public class EntityManagementSupport {
     protected transient volatile ExecutionContext executionContext;
     
     protected final AtomicBoolean managementContextUsable = new AtomicBoolean(false);
+    protected final AtomicBoolean currentlyStopping = new AtomicBoolean(false);
     protected final AtomicBoolean currentlyDeployed = new AtomicBoolean(false);
     protected final AtomicBoolean everDeployed = new AtomicBoolean(false);
     protected Boolean readOnly = null;
@@ -104,9 +107,17 @@ public class EntityManagementSupport {
         return currentlyDeployed.get();
     }
 
+    /**
+     * Use this instead of negating {@link Entities#isManaged(Entity)} to avoid skipping publishing of values that to be published before the entity is deployed;
+     * or (better) see {@link Entities#isManagedActiveOrComingUp(Entity)}
+     */
     public boolean isNoLongerManaged() {
         return wasDeployed() && !isDeployed();
     }
+
+    public boolean isActive() { return !isUnmanaging() && isDeployed(); }
+
+    public boolean isUnmanaging() { return currentlyStopping.get(); }
 
     /** whether entity has ever been deployed (managed) */
     public boolean wasDeployed() {
@@ -164,7 +175,7 @@ public class EntityManagementSupport {
     public void onManagementStarting(ManagementTransitionInfo info) {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management starting")
             .dynamic(false)
-            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+//            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
             .body(() -> { try { synchronized (this) {
                 boolean alreadyManaging = isDeployed();
                 
@@ -223,7 +234,7 @@ public class EntityManagementSupport {
     public void onManagementStarted(ManagementTransitionInfo info) {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management started")
             .dynamic(false)
-            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+//            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
             .body(() -> { try { synchronized (this) {
                 boolean alreadyManaged = isFullyManaged();
                 
@@ -266,6 +277,28 @@ public class EntityManagementSupport {
             }
             
             synchronized (this) {
+                if (nonDeploymentManagementContext!=null && nonDeploymentManagementContext.getMode()!=null) {
+                    switch (nonDeploymentManagementContext.getMode()) {
+                        case MANAGEMENT_STARTED:
+                            // normal
+                            break;
+                        case PRE_MANAGEMENT:
+                        case MANAGEMENT_REBINDING:
+                        case MANAGEMENT_STARTING:
+                            // odd, but not a problem
+                            log.warn("Management started invoked on "+entity+" when in unexpected state "+nonDeploymentManagementContext.getMode());
+                            break;
+                        case MANAGEMENT_STOPPING:
+                        case MANAGEMENT_STOPPED:
+                            // problematic
+                            throw new IllegalStateException("Cannot start management of "+entity+" at this time; its management has been told to be "+
+                                    nonDeploymentManagementContext.getMode());
+                    }
+                } else {
+                    // odd - already started
+                    log.warn("Management started invoked on "+entity+" when non-deployment context already cleared");
+                }
+
                 nonDeploymentManagementContext = null;
             }
         } catch (Throwable t) {
@@ -275,26 +308,29 @@ public class EntityManagementSupport {
     }
     
     @SuppressWarnings("deprecation")
-    public void onManagementStopping(ManagementTransitionInfo info) {
+    public void onManagementStopping(ManagementTransitionInfo info, boolean wasDryRun) {
         synchronized (this) {
-            if (managementContext != info.getManagementContext()) {
-                throw new IllegalStateException("onManagementStopping encountered different management context for "+entity+
-                    (!wasDeployed() ? " (wasn't deployed)" : !isDeployed() ? " (no longer deployed)" : "")+
-                    ": "+managementContext+"; expected "+info.getManagementContext()+" (may be a pre-registered entity which was never properly managed)");
-            }
-            Stopwatch startTime = Stopwatch.createStarted();
-            while (!managementFailed.get() && nonDeploymentManagementContext!=null && 
-                    nonDeploymentManagementContext.getMode()==NonDeploymentManagementContextMode.MANAGEMENT_STARTING) {
-                // still becoming managed
-                try {
-                    if (startTime.elapsed(TimeUnit.SECONDS) > 30) {
-                        // emergency fix, 30s timeout for management starting
-                        log.error("Management stopping event "+info+" in "+this+" timed out waiting for start; proceeding to stopping");
-                        break;
+            currentlyStopping.set(true);
+            if (!wasDryRun) {
+                if (managementContext != info.getManagementContext()) {
+                    throw new IllegalStateException("onManagementStopping encountered different management context for " + entity +
+                            (!wasDeployed() ? " (wasn't deployed)" : !isDeployed() ? " (no longer deployed)" : "") +
+                            ": " + managementContext + "; expected " + info.getManagementContext() + " (may be a pre-registered entity which was never properly managed)");
+                }
+                Stopwatch startTime = Stopwatch.createStarted();
+                while (!managementFailed.get() && nonDeploymentManagementContext != null &&
+                        nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.MANAGEMENT_STARTING) {
+                    // still becoming managed
+                    try {
+                        if (startTime.elapsed(TimeUnit.SECONDS) > 30) {
+                            // emergency fix, 30s timeout for management starting
+                            log.error("Management stopping event " + info + " in " + this + " timed out waiting for start; proceeding to stopping");
+                            break;
+                        }
+                        wait(100);
+                    } catch (InterruptedException e) {
+                        Exceptions.propagate(e);
                     }
-                    wait(100);
-                } catch (InterruptedException e) {
-                    Exceptions.propagate(e);
                 }
             }
             if (nonDeploymentManagementContext==null) {
@@ -304,11 +340,16 @@ public class EntityManagementSupport {
                 nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STOPPING);
             }
         }
-        // TODO custom stopping activities
-        // TODO framework stopping events - no more sensors, executions, etc
-        // (elaborate or remove ^^^ ? -AH, Sept 2014)
         
-        if (!isReadOnly() && info.getMode().isDestroying()) {
+        if (wasDryRun || (!isReadOnly() && info.getMode().isDestroying())) {
+            // ensure adjuncts get a destroy callback
+            // note they don't get any alert if the entity is being locally unmanaged to run somewhere else.
+            // framework should introduce a call for that ideally, but in interim if needed they
+            // can listen to the entity becoming locally unmanaged
+            entity.feeds().forEach(this::destroyAdjunct);
+            entity.enrichers().forEach(this::destroyAdjunct);
+            entity.policies().forEach(this::destroyAdjunct);
+                
             // if we support remote parent of local child, the following call will need to be properly remoted
             if (entity.getParent()!=null) entity.getParent().removeChild(entity.getProxyIfAvailable());
         }
@@ -317,24 +358,44 @@ public class EntityManagementSupport {
         // new publications will be queued / not allowed
         nonDeploymentManagementContext.getSubscriptionManager().stopDelegatingForPublishing();
         
-        if (!isReadOnly()) {
+        if (!wasDryRun && !isReadOnly()) {
             entity.onManagementNoLongerMaster();
             entity.onManagementStopped();
         }
     }
     
-    public void onManagementStopped(ManagementTransitionInfo info) {
-        synchronized (this) {
-            if (managementContext == null && nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.MANAGEMENT_STOPPED) {
-                return;
+    protected void destroyAdjunct(EntityAdjunct adjunct) {
+        if (adjunct instanceof AbstractEntityAdjunct) {
+            try {
+                ((AbstractEntityAdjunct)adjunct).destroy();
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                log.error("Error destroying "+adjunct+" (ignoring): "+e);
+                log.trace("Trace for error", e);
             }
-            if (managementContext != info.getManagementContext()) {
-                throw new IllegalStateException("Has different management context: "+managementContext+"; expected "+info.getManagementContext());
+        }
+    }
+    
+    public void onManagementStopped(ManagementTransitionInfo info, boolean wasDryRun) {
+        synchronized (this) {
+            if (!wasDryRun) {
+                if (managementContext == null && nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.MANAGEMENT_STOPPED) {
+                    return;
+                }
+                if (managementContext != info.getManagementContext()) {
+                    if (managementContext == null && nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.PRE_MANAGEMENT) {
+                        log.info("Stopping management of "+entity+" during pre-management phase; likely concurrent creation/deletion");
+                        // proceed to below, without error
+                    } else {
+                        throw new IllegalStateException(entity + " has different management context: " + managementContext + "; expected " + info.getManagementContext());
+                    }
+                }
             }
             getSubscriptionContext().unsubscribeAll();
             entityChangeListener = EntityChangeListener.NOOP;
             managementContextUsable.set(false);
             currentlyDeployed.set(false);
+            currentlyStopping.set(false);
             executionContext = null;
             subscriptionContext = null;
         }

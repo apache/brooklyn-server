@@ -118,7 +118,7 @@ public class OsgiVersionMoreEntityTest implements OsgiTestResources {
 
             @SuppressWarnings("unchecked")
             EntitySpec<Entity> spec = (((EntitySpec<Entity>)EntitySpec.create(bundleInterface))).impl(bundleCls);
-            AbstractEntity entityImpl = (AbstractEntity) factory.createEntity(spec, Optional.absent());
+            AbstractEntity entityImpl = (AbstractEntity) factory.createEntity(spec);
             Entity entityProxy = factory.createEntityProxy(spec, entityImpl);
             
             assertTrue(entityProxy instanceof EntityProxy, "proxy="+entityProxy);

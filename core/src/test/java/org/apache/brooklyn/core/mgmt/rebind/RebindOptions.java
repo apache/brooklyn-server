@@ -39,6 +39,7 @@ import com.google.common.collect.Iterables;
 public class RebindOptions {
 
     public boolean checkSerializable;
+    public boolean clearOrigManagementContext;
     public boolean terminateOrigManagementContext;
     public RebindExceptionHandler exceptionHandler = RebindExceptionHandlerImpl.builder().strict().build();
     public ManagementContext origManagementContext;
@@ -58,6 +59,7 @@ public class RebindOptions {
     public static RebindOptions create(RebindOptions options) {
         RebindOptions result = create();
         result.checkSerializable(options.checkSerializable);
+        result.clearOrigManagementContext(options.clearOrigManagementContext);
         result.terminateOrigManagementContext(options.terminateOrigManagementContext);
         result.exceptionHandler(options.exceptionHandler);
         result.origManagementContext(options.origManagementContext);
@@ -78,6 +80,10 @@ public class RebindOptions {
     }
     public RebindOptions terminateOrigManagementContext(boolean val) {
         this.terminateOrigManagementContext = val;
+        return this;
+    }
+    public RebindOptions clearOrigManagementContext(boolean val) {
+        this.clearOrigManagementContext = val;
         return this;
     }
     public RebindOptions defaultExceptionHandler() {

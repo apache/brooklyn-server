@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.typereg;
 
 import java.io.StringReader;
-import java.util.List;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -41,8 +40,10 @@ import org.w3c.dom.Node;
  * how implementations are meant to be written. */
 public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
 
+    public static final String FORMAT = "example-xml";
+
     protected ExampleXmlTypePlanTransformer() {
-        super("example-xml", "Example XML", "Illustration of writing a transformer");
+        super(FORMAT, "Example XML", "Illustration of writing a transformer");
     }
 
     @Override
@@ -66,8 +67,8 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
 
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return toEntitySpec(parseXml((String)type.getPlan().getPlanData()), 
-            isApplicationExpected(type, context) ? 0 : 1);
+        return decorateWithCommonTagsModifyingSpecSummary(toEntitySpec(parseXml((String)type.getPlan().getPlanData()),
+            isApplicationExpected(type, context) ? 0 : 1), type, "example-xml", null, null);
     }
 
     private static boolean isApplicationExpected(RegisteredType type, RegisteredTypeLoadingContext context) {
@@ -78,19 +79,6 @@ public class ExampleXmlTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         return new XmlSerializer<Object>().fromString((String)type.getPlan().getPlanData());
-    }
-
-
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // defining types not supported
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // defining types not supported
-        return null;
     }
 
     private Document parseXml(String plan) {

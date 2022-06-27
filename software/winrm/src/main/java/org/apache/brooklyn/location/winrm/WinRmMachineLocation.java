@@ -18,13 +18,11 @@
  */
 package org.apache.brooklyn.location.winrm;
 
+import org.apache.brooklyn.api.mgmt.Task;
 import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
@@ -32,33 +30,38 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.google.common.base.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.MachineDetails;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.location.OsDetails;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.BrooklynLogging;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.location.AbstractMachineLocation;
 import org.apache.brooklyn.core.location.access.PortForwardManager;
 import org.apache.brooklyn.core.location.access.PortForwardManagerLocationResolver;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.location.ssh.CanResolveOnBoxDir;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.Winrm4jTool;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.stream.StreamGobbler;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.codec.binary.Base64;
@@ -66,10 +69,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Charsets;
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -80,6 +79,7 @@ import com.google.common.reflect.TypeToken;
 public class WinRmMachineLocation extends AbstractMachineLocation implements MachineLocation, CanResolveOnBoxDir {
 
     private static final Logger LOG = LoggerFactory.getLogger(WinRmMachineLocation.class);
+    private static final Logger logWinRm = LoggerFactory.getLogger(BrooklynLogging.WINRM_IO);
 
     public static final ConfigKey<InetAddress> ADDRESS = ConfigKeys.newConfigKey(
             InetAddress.class,
@@ -193,7 +193,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
                 if (!publicEndpoint.hasPort()) {
                     throw new IllegalArgumentException("Invalid portMapping ('"+entry.getValue()+"') for port "+targetPort+" in machine "+this);
                 }
-                pfm.associate(publicEndpoint.getHostText(), publicEndpoint, this, targetPort);
+                pfm.associate(publicEndpoint.getHost(), publicEndpoint, this, targetPort);
             }
         }
     }
@@ -204,8 +204,21 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
         return UNKNOWN_MACHINE_DETAILS;
     }
 
+    @Override
     public String getUser() {
         return config().get(USER);
+    }
+
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        ImmutableMap<Object, Object> properties = ImmutableMap.builder().putAll(props).put(Winrm4jTool.ENVIRONMENT, env).build();
+        return executeCommand(properties, commands).getStatusCode();
+    }
+
+    @Override
+    public int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        ImmutableMap<Object, Object> properties = ImmutableMap.builder().putAll(props).put(Winrm4jTool.ENVIRONMENT, env).build();
+        return executePsScript(properties, commands).getStatusCode();
     }
 
     @Override
@@ -233,7 +246,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     @Nullable
     protected String getHostAndPort() {
         String host = getHostname();
-        return (host == null) ? null : host + ":" + getDefaultPort();
+        return (host == null) ? null : host + ":" + getPort();
     }
 
     public int getPort() {
@@ -305,7 +318,7 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
      */
     public WinRmToolResponse executeCommand(Map<?,?> props, List<String> script) {
         WinRmTool tool = newWinRmTool(props);
-        return tool.executeCommand(script);
+        return runWithLogging(props, script, () -> tool.executeCommand(script));
     }
 
     public WinRmToolResponse executePsScript(String psScript) {
@@ -315,10 +328,70 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
     public WinRmToolResponse executePsScript(List<String> psScript) {
         return executePsScript(ImmutableMap.of(), psScript);
     }
-    
+
     public WinRmToolResponse executePsScript(Map<?,?> props, List<String> psScript) {
         WinRmTool tool = newWinRmTool(props);
-        return tool.executePs(psScript);
+        return runWithLogging(props, psScript, () -> tool.executePs(psScript));
+    }
+
+    private WinRmToolResponse runWithLogging(Map<?,?> props, List<String> stdinToLog, Supplier<WinRmToolResponse> r) {
+        /** for Windows we log here, as opposed to the ExecWithLoggingHelper.
+         *  ExecWithLoggingHelper has better support for showing output as it arrives,
+         *  but is more complicated to wire in for winrm execution.
+         *  (in future it might be nicer to shift the logic below to a windows-variant ShellTool used by ExecWithLoggingHelper.
+         */
+        String user = getUser();
+        String prefix = "["+( user != null ? user+"@" : "") + getHostAndPort()+"]";
+
+        if(logWinRm.isDebugEnabled()){
+            StringBuilder sb = new StringBuilder();
+            Sanitizer.sanitizeMapToString((Map)props.get(WinRmTool.ENVIRONMENT), sb);
+            logIfPresent("{} env: {}" , prefix, sb.toString());
+            logIfPresent("{} stdin: {}" , prefix, stdinToLog!=null ? Strings.join(stdinToLog, "\n") : null);
+        }
+
+        WinRmToolResponse result = r.get();
+
+        if(logWinRm.isDebugEnabled()){
+            logIfPresent("{} status code: {}",prefix, ""+result.getStatusCode());
+            // the stream supplied here is the stream for _writing_; it is not guaranteed we can read from it
+            // so we first try to take it from the task, then fall back to figuring out how to get the output from the writer-stream
+            // and if that fails we look at the response
+            logIfPresent("{} stdout: {}", prefix, getBuffer(BrooklynTaskTags.STREAM_STDOUT, props, ShellTool.PROP_OUT_STREAM, result::getStdOut));
+            logIfPresent("{} winrm: {}", prefix, getTaskStream(PlainWinRmExecTaskFactory.WINRM_STREAM).map(s -> s.streamContents.get()).orNull());
+            // stderr is usually not available
+            logIfPresent("{} stderr: {}", prefix, getBuffer(BrooklynTaskTags.STREAM_STDERR, props, ShellTool.PROP_ERR_STREAM, result::getStdErr));
+        }
+
+        return result;
+    }
+
+    private String getBuffer(String firstTryStreamType, Map<?,?> secondTryProps, Object secondTryKey, Supplier<String> thirdTryFallback) {
+        return getTaskStream(firstTryStreamType).map(s -> s.streamContents.get())
+                .orMaybe(() -> getBufferOutput(secondTryProps, secondTryKey))
+                .or(thirdTryFallback);
+    }
+
+    private Maybe<WrappedStream> getTaskStream(String streamType) {
+        return Maybe.ofDisallowingNull(BrooklynTaskTags.stream(Tasks.current(), streamType))
+                .or(Maybe.absent());
+    }
+    private Maybe<String> getBufferOutput(Map<?,?> props, Object key) {
+        if(props == null){
+            return Maybe.absent();
+        }
+        Object b = props.get(key);
+        if (b==null && key instanceof ConfigKey) b = props.get( ((ConfigKey)key).getName() );
+        if (b==null) return Maybe.absent();
+        if (b instanceof String) return Maybe.of((String)b);
+        if (b instanceof ByteArrayOutputStream) return Maybe.of( new String( ((ByteArrayOutputStream) b).toByteArray() ) );
+        return Maybe.of(""+b);
+    }
+
+    private void logIfPresent(String format, String prefix, String output) {
+        if(Strings.isNonEmpty(output)){
+            logWinRm.debug(format, prefix, output);
+        }
     }
 
     protected WinRmTool newWinRmTool(Map<?,?> props) {
@@ -507,4 +580,44 @@ public class WinRmMachineLocation extends AbstractMachineLocation implements Mac
         return unresolvedPath.replaceAll("/", "\\");
     }
 
+    public int installTo(ResourceUtils utils, Map<String, ?> props, String url, String destPath) {
+        LOG.debug("installing {} to {} on {}, attempting remote curl", new Object[] { url, destPath, this });
+
+        try(PipedInputStream insO = new PipedInputStream(); OutputStream outO = new PipedOutputStream(insO);
+            PipedInputStream insE = new PipedInputStream(); OutputStream outE = new PipedOutputStream(insE);
+            StreamGobbler sgsO = new StreamGobbler(insO, null, LOG);
+            StreamGobbler sgsE = new StreamGobbler(insE, null, LOG)
+            ){
+            sgsO.setLogPrefix("[curl @ "+getAddress()+":stdout] ").start();
+            sgsE.setLogPrefix("[curl @ "+getAddress()+":stderr] ").start();
+            Map<String, ?> winrmProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
+            ImmutableList<String> commands = ImmutableList.of(
+                    "$tmp = New-TemporaryFile",
+                    "echo $WebClient = New-Object System.Net.WebClient > $tmp.FullName",
+                    "echo $WebClient.DownloadFile(" + url + "," + destPath + ") >> $tmp.FullName",
+                    "powershell -c $tmp.FullName"
+            );
+            int result = execCommands(winrmProps,"", commands, ImmutableMap.of());
+
+            if (result != 0) {
+                LOG.debug("installing {} to {} on {}, curl failed, attempting local fetch and copy", new Object[] { url, destPath, this });
+                try {
+                    Tasks.setBlockingDetails("retrieving resource "+url+" for copying across");
+                    InputStream stream = utils.getResourceFromUrl(url);
+                    Tasks.setBlockingDetails("copying resource "+url+" to server");
+                    result = copyTo(props, stream, destPath);
+                } finally {
+                    Tasks.setBlockingDetails(null);
+                }
+            }
+            if (result == 0) {
+                LOG.debug("installing {} complete; {} on {}", new Object[] { url, destPath, this });
+            } else {
+                LOG.warn("installing {} failed; {} on {}: {}", new Object[] { url, destPath, this, result });
+            }
+            return result;
+        } catch (IOException e) {
+            throw Throwables.propagate(e);
+        }
+    }
 }

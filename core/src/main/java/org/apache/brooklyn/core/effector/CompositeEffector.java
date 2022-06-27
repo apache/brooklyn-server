@@ -43,7 +43,7 @@ import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 
 @Beta
-public class CompositeEffector extends AddEffector {
+public class CompositeEffector extends AddEffectorInitializerAbstract {
 
     private static final Logger LOG = LoggerFactory.getLogger(CompositeEffector.class);
     private static final String ORIGINAL_PREFIX = "original-";
@@ -60,25 +60,23 @@ public class CompositeEffector extends AddEffector {
             "Wheter additional defined effectors should override pre-existing effector with same name or not (default: false)",
             Boolean.FALSE);
 
-    public CompositeEffector(ConfigBag params) {
-        super(newEffectorBuilder(params).build());
-    }
-
+    private CompositeEffector() {}
+    public CompositeEffector(ConfigBag params) { super(params); }
     public CompositeEffector(Map<?, ?> params) {
         this(ConfigBag.newInstance(params));
     }
 
-    public static EffectorBuilder<List> newEffectorBuilder(ConfigBag params) {
-        EffectorBuilder<List> eff = AddEffector.newEffectorBuilder(List.class, params);
-        eff.impl(new Body(eff.buildAbstract(), params));
+    public EffectorBuilder<List> newEffectorBuilder() {
+        EffectorBuilder<List> eff = newAbstractEffectorBuilder(List.class);
+        eff.impl(new Body(eff.buildAbstract(), initParams()));
         return eff;
     }
 
     @Override
     public void apply(EntityLocal entity) {
-        Maybe<Effector<?>> effectorMaybe = entity.getEntityType().getEffectorByName(effector.getName());
+        Maybe<Effector<?>> effectorMaybe = entity.getEntityType().getEffectorByName(effector().getName());
         if (!effectorMaybe.isAbsentOrNull()) {
-            Effector<?> original = Effectors.effector(effectorMaybe.get()).name(ORIGINAL_PREFIX + effector.getName()).build();
+            Effector<?> original = Effectors.effector(effectorMaybe.get()).name(ORIGINAL_PREFIX + effector().getName()).build();
             ((EntityInternal) entity).getMutableEntityType().addEffector(original);
         }
         super.apply(entity);

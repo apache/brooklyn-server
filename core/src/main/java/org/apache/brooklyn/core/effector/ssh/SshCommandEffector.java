@@ -29,7 +29,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.AddEffector;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
@@ -53,7 +53,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Maps;
 
-public final class SshCommandEffector extends AddEffector {
+public final class SshCommandEffector extends AddEffectorInitializerAbstract {
 
     public static final ConfigKey<String> EFFECTOR_COMMAND = ConfigKeys.newStringConfigKey("command");
     public static final ConfigKey<String> EFFECTOR_EXECUTION_DIR = SshCommandSensor.SENSOR_EXECUTION_DIR;
@@ -70,17 +70,15 @@ public final class SshCommandEffector extends AddEffector {
         + "in the latter cases the sets are filtered by entities which have a machine and are not stopping.",
         ExecutionTarget.ENTITY);
 
+    private SshCommandEffector() {}
     public SshCommandEffector(ConfigBag params) {
-        super(newEffectorBuilder(params).build());
+        super(params);
     }
 
-    public SshCommandEffector(Map<String,String> params) {
-        this(ConfigBag.newInstance(params));
-    }
-
-    public static EffectorBuilder<String> newEffectorBuilder(ConfigBag params) {
-        EffectorBuilder<String> eff = AddEffector.newEffectorBuilder(String.class, params);
-        eff.impl(new Body(eff.buildAbstract(), params));
+    @Override
+    public EffectorBuilder<String> newEffectorBuilder() {
+        EffectorBuilder<String> eff = newAbstractEffectorBuilder(String.class);
+        eff.impl(new Body(eff.buildAbstract(), initParams()));
         return eff;
     }
 
@@ -182,7 +180,7 @@ public final class SshCommandEffector extends AddEffector {
 
         @SuppressWarnings("unchecked")
         private Map<String, Object> resolveEnv(MutableMap<String, Object> env) throws ExecutionException, InterruptedException {
-            return (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, entity().getExecutionContext());
+            return (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, entity().getExecutionContext());
         }
     }
 }

@@ -16,6 +16,8 @@
 package org.apache.brooklyn.util.core.json;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.resolve.jackson.CommonTypesSerialization;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.fasterxml.jackson.core.Version;
@@ -23,13 +25,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public class BrooklynObjectsJsonMapper {
+
+    /** TODO {@link org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils#newMapper(ManagementContext, boolean, BrooklynClassLoadingContext, boolean)}
+     * is better in most ways; ideally that and this should be combined */
     public static ObjectMapper newMapper(ManagementContext mgmt) {
         ConfigurableSerializerProvider sp = new ConfigurableSerializerProvider();
         sp.setUnknownTypeSerializer(new ErrorAndToStringUnknownTypeSerializer());
 
         ObjectMapper mapper = new ObjectMapper();
         mapper.setSerializerProvider(sp);
-        mapper.setVisibilityChecker(new PossiblyStrictPreferringFieldsVisibilityChecker());
+        mapper.setVisibility(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
         SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored", null, null));
 
@@ -44,6 +49,9 @@ public class BrooklynObjectsJsonMapper {
 
         mapperModule.addSerializer(Duration.class, new DurationSerializer());
         mapperModule.addSerializer(new MultimapSerializer());
+
+        new CommonTypesSerialization.ByteArrayObjectStreamSerialization().apply(mapperModule);
+
         mapper.registerModule(mapperModule);
         return mapper;
     }

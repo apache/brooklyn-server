@@ -19,6 +19,7 @@
 package org.apache.brooklyn.policy;
 
 import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
@@ -39,19 +40,24 @@ import com.google.common.reflect.TypeToken;
 /**
  * Invokes the given effector when the policy changes.
  * 
- * TODO
- * * support parameters
- * * support conditions
- * * allow to be triggered by sensors on members
+ * Does not support (possible enhancements):
+ * * effector parameters (in superclass)
+ * * conditions (in superclass?)
+ * * triggering directly by sensors on members (possible indirectly using aggregator)
  */
 public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy implements SensorEventListener<Object> {
-    
+
     private static final Logger LOG = LoggerFactory.getLogger(InvokeEffectorOnSensorChange.class);
 
     public static final ConfigKey<Object> SENSOR = ConfigKeys.builder(Object.class)
             .name("sensor")
             .description("Sensor to be monitored, as string or sensor type")
             .constraint(Predicates.notNull())
+            .build();
+
+    public static final ConfigKey<Entity> PRODUCER = ConfigKeys.builder(Entity.class)
+            .name("sensor.producer")
+            .description("The entity with the trigger sensor (defaults to the policy's entity)")
             .build();
 
     public static final ConfigKey<String> EFFECTOR = ConfigKeys.builder(String.class)
@@ -62,23 +68,36 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
 
     private AttributeSensor<Object> sensor;
 
+
     @Override
     public void setEntity(EntityLocal entity) {
         super.setEntity(entity);
         Preconditions.checkNotNull(getConfig(EFFECTOR), EFFECTOR);
         sensor = getSensor();
-        subscriptions().subscribe(entity, sensor, this);
-        LOG.debug("{} subscribed to {} events on {}", new Object[]{this, sensor, entity});
+        Entity producer = getProducer();
+        subscriptions().subscribe(producer, sensor, this);
+        highlightTriggers(sensor, producer);
+        LOG.debug("{} subscribed to {} events on {}", new Object[]{this, sensor, producer});
+    }
+
+    protected Entity getProducer() {
+        Entity producer = getConfig(PRODUCER);
+        if (producer == null) {
+            LOG.debug("Defaulting to producer==self for {}, on entity {}", this, entity);
+            producer = entity;
+        }
+        return producer;
     }
 
     @Override
     public void onEvent(SensorEvent<Object> event) {
+        LOG.debug("{} received {}", this, event);
         final Effector<?> eff = getEffectorNamed(getConfig(EFFECTOR)).get();
         if (isBusySensorEnabled()) {
-            final Object currentSensorValue = entity.sensors().get(sensor);
+            final Object currentSensorValue = getProducer().sensors().get(sensor);
             setMoreUpdatesComing(event.getTimestamp(), event.getValue(), currentSensorValue);
         }
-        invoke(eff, MutableMap.<String, Object>of());
+        highlightAction("Invoking effector due to "+event,invoke(eff, MutableMap.<String, Object>of()));
     }
 
     private AttributeSensor<Object> getSensor() {
@@ -95,5 +114,5 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
         }
         return sensor;
     }
-    
+
 }

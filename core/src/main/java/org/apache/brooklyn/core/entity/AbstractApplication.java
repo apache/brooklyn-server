@@ -89,13 +89,28 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
 
     @Override
     public Application getApplication() {
+        Entity proxy = null;
         if (application!=null) {
-            if (application.getId().equals(getId()))
-                return (Application) getProxyIfAvailable();
-            return application;
+            if (application.getId().equals(getId())) {
+                proxy = getProxyIfAvailable();
+            }
+            if (proxy==null || !(proxy instanceof Application)) {
+                return application;
+            }
         }
-        if (getParent()==null) return (Application)getProxyIfAvailable();
-        return getParent().getApplication();
+        if (getParent()!=null) {
+            return getParent().getApplication();
+        }
+        if (proxy==null) {
+            proxy = getProxyIfAvailable();
+        }
+        if (proxy instanceof Application) {
+            return (Application)getProxyIfAvailable();
+        }
+        if (this instanceof Application) {
+            return this;
+        }
+        return null;
     }
     
     @Override
@@ -196,8 +211,13 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         logApplicationLifecycle("Started");
     }
 
-    protected void logApplicationLifecycle(String message) {
-        log.info(message+" application " + this);
+    @Override
+    public void logApplicationLifecycle(String message) {
+        if (getParent()==null) {
+            log.info(message + " application " + this);
+        } else {
+            log.debug(message + " nested application " + this);
+        }
     }
     
     protected void doStart(Collection<? extends Location> locations) {
@@ -285,7 +305,8 @@ public abstract class AbstractApplication extends AbstractEntity implements Star
         }
     }
 
-    protected void setExpectedStateAndRecordLifecycleEvent(Lifecycle state) {
+    @Override
+    public void setExpectedStateAndRecordLifecycleEvent(Lifecycle state) {
         ServiceStateLogic.setExpectedState(this, state);
         recordApplicationEvent(state);
     }

@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.location.geo.HostGeoInfo;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.LocationWithObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceObjectStore;
+import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -50,6 +51,7 @@ import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.internal.ssh.process.ProcessTool;
 import org.apache.brooklyn.util.core.mutex.MutexSupport;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.ssh.BashCommands;
@@ -76,6 +78,8 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     public static final ConfigKey<Boolean> SKIP_ON_BOX_BASE_DIR_RESOLUTION = ConfigKeys.newConfigKeyWithDefault(
             BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION, 
             true);
+
+    public static final ConfigKey<Boolean> KEEP_MACHINES = ConfigKeys.newBooleanConfigKey("keep_machines", "Whether by default to keep localhost machine instances available for re-use or to unmanage them", false);
     
     @SetFromFlag("count")
     int initialCount;
@@ -254,6 +258,12 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
         
         for (int p: portsObtained)
             releasePort(null, p);
+
+        // prior to 2021-04 we kept the released machines in the queue
+        // this is now governed by a flag; tests that care should set this flag!
+        if (!config().get(KEEP_MACHINES)) {
+            this.removeChild(machine);
+        }
     }
     
     public static class LocalhostMachine extends SshMachineLocation implements HasSubnetHostname {
@@ -363,7 +373,13 @@ public class LocalhostMachineProvisioningLocation extends FixedListMachineProvis
     @Override
     public PersistenceObjectStore newPersistenceObjectStore(String container) {
         File basedir = new File(container);
-        if (basedir.isFile()) throw new IllegalArgumentException("Destination directory must not be a file");
+        if (basedir.isFile()){
+            throw new IllegalArgumentException("Destination directory must not be a file");
+        }
+        Boolean persistence_dir_must_exist = getManagementContext().getConfig().getConfig(BrooklynServerConfig.PERSISTENCE_DIR_MUST_EXIST);
+        if(persistence_dir_must_exist && !basedir.exists()) {
+            throw new IllegalArgumentException("Destination directory  '" + basedir + "' must exist");
+        }
         return new FileBasedObjectStore(basedir);
     }
     

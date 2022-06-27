@@ -43,9 +43,9 @@ public class UserAndHostAndPortTest {
         assertEquals(actual.getUser(), user);
         assertEquals(actual.getHostAndPort(), hostAndPort);
         if (hostAndPort.hasPort()) {
-            assertEquals(actual.toString(), user + "@" + hostAndPort.getHostText() + ":" + hostAndPort.getPort());
+            assertEquals(actual.toString(), user + "@" + hostAndPort.getHost() + ":" + hostAndPort.getPort());
         } else {
-            assertEquals(actual.toString(), user + "@" + hostAndPort.getHostText());
+            assertEquals(actual.toString(), user + "@" + hostAndPort.getHost());
         }
     }
 }

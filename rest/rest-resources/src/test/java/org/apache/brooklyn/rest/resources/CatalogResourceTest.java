@@ -19,8 +19,7 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.*;
 
 import java.awt.Image;
 import java.awt.Toolkit;
@@ -31,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -79,6 +79,7 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.cxf.jaxrs.client.WebClient;
@@ -564,19 +565,22 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
 
     @Test
     public void testAddUnreachableItem() {
-        addAddCatalogItemWithInvalidBundleUrl("http://0.0.0.0/can-not-connect");
+        Object err = addAddCatalogItemWithInvalidBundleUrl("http://0.0.0.0/can-not-connect");
+        Asserts.assertStringContainsIgnoreCase(err.toString(), "0.0.0.0/can-not-connect", "connection refused");
     }
 
     @Test
     public void testAddInvalidItem() {
         //equivalent to HTTP response 200 text/html
-        addAddCatalogItemWithInvalidBundleUrl("classpath://not-a-jar-file.txt");
+        Object err = addAddCatalogItemWithInvalidBundleUrl("classpath://not-a-jar-file.txt");
+        Asserts.assertStringContainsIgnoreCase(err.toString(), "classpath://not-a-jar-file.txt", "ZipException");
     }
 
     @Test
     public void testAddMissingItem() {
         //equivalent to HTTP response 404 text/html
-        addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
+        Object err = addAddCatalogItemWithInvalidBundleUrl("classpath://missing-jar-file.txt");
+        Asserts.assertStringContainsIgnoreCase(err.toString(), "classpath://missing-jar-file.txt", "not found");
     }
 
     @Test
@@ -660,7 +664,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Catalog BOM must define version");
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "BOM", "bundle", "version");
     }
 
     @Test
@@ -923,7 +927,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
         assertEquals(entity.getEntityType().getName(), entityType);
     }
 
-    private void addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
+    private Object addAddCatalogItemWithInvalidBundleUrl(String bundleUrl) {
         String symbolicName = "my.catalog.entity.id";
         String yaml = Joiner.on("\n").join(
                 "brooklyn.catalog:",
@@ -942,6 +946,7 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .post(yaml);
 
         assertEquals(response.getStatus(), HttpStatus.BAD_REQUEST_400);
+        return response.readEntity(Object.class);
     }
 
     private static String ver(String id) {
@@ -1289,7 +1294,9 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .description(updatedDescription)
                 .applyAsserts(() -> client());
     }
-    
+
+
+
     enum CatalogItemType {
         APPLICATION("applications", CatalogEntitySummary.class),
         ENTITY("entities", CatalogEntitySummary.class),

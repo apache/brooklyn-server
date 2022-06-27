@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.server;
 
+import static org.apache.brooklyn.core.config.ConfigKeys.newBooleanConfigKey;
 import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 
 import java.net.URI;
@@ -64,6 +65,12 @@ public class BrooklynServerConfig {
     public static final ConfigKey<String> PERSISTENCE_DIR = newStringConfigKey(
         "brooklyn.persistence.dir", 
         "Directory or container name for writing persisted state");
+
+    public static final ConfigKey<Boolean> PERSISTENCE_DIR_MUST_EXIST = newBooleanConfigKey(
+            "brooklyn.persistence.dir.required",
+            "Whether the persistence directory should before starting AMP;"
+                    + "if true, it will fail if it can't find the directory;"
+                    + "if false, the persistence directory will be created in case it didn't exist in advance;", false);
 
     public static final ConfigKey<String> PERSISTENCE_LOCATION_SPEC = newStringConfigKey(
         "brooklyn.persistence.location.spec", 
@@ -163,5 +170,12 @@ public class BrooklynServerConfig {
     public static Maybe<URI> getBrooklynWebUri(ManagementContext mgmt) {
         return mgmt.getManagementNodeUri();
     }
-    
+
+    public static final ConfigKey<List<String>> SENSITIVE_FIELDS_TOKENS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "brooklyn.security.sensitive.fields.tokens",
+            "List of tokens which get treated as sensitive-named fields and suppressed in many places");
+    public static final ConfigKey<Boolean> SENSITIVE_FIELDS_PLAINTEXT_BLOCKED = ConfigKeys.newBooleanConfigKey("brooklyn.security.sensitive.fields.plaintext.blocked",
+            "Whether plaintext values for sensitive-named fields are blocked");
+    public static final ConfigKey<List<String>> SENSITIVE_FIELDS_EXT_BLOCKED_PHRASES = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "brooklyn.security.sensitive.fields.ext.blocked.phrases",
+            "Extended blocking settings when plaintext values are blocked, allowing also to block DSL and complex values which contain any of the phrases supplied in this config key (comma-separated list)");
+
 }

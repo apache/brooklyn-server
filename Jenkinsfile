@@ -39,8 +39,10 @@ node(label: 'ubuntu') {
             stage('Prepare environment') {
                 echo 'Creating maven cache ...'
                 sh 'mkdir -p ${WORKSPACE}/.m2'
+                sh 'docker logout'   // needed because sometimes cached credentials break the following step (creds aren't needed)
                 echo 'Building docker image for test environment ...'
-                environmentDockerImage = docker.build('brooklyn:${DOCKER_TAG}')
+                echo "Using docker tag DOCKER_TAG=${DOCKER_TAG}" // double quotes to resolve env vars
+                environmentDockerImage = docker.build("brooklyn:${DOCKER_TAG}")  // double quotes to resolve env vars
             }
 
             stage('Run tests') {
