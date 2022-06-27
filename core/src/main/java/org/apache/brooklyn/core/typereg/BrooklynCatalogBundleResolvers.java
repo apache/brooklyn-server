@@ -18,10 +18,9 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.*;
-import java.io.File;
+
 import java.io.InputStream;
 import java.util.*;
 import java.util.Map.Entry;
@@ -29,8 +28,6 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
 import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller.PrepareInstallResult;
@@ -38,7 +35,6 @@ import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver.BundleInstallationOptions;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
@@ -124,7 +120,7 @@ public class BrooklynCatalogBundleResolvers {
                 }
 
                 if (prepareResult.zipFile != null) {
-                    input = InputStreamSource.of(prepareResult.zipFile.f.getName(), prepareResult.zipFile.f);
+                    input = InputStreamSource.of(prepareResult.zipFile.getFile().getName(), prepareResult.zipFile.getFile());
                 } else {
                     return ReferenceWithError.newInstanceThrowingError(null, new IllegalArgumentException("Bundle contents or known reference must be supplied; " +
                             options.knownBundleMetadata + " not known"));
