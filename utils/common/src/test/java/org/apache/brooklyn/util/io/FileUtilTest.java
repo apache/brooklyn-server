@@ -33,6 +33,7 @@ import com.google.common.io.Files;
 
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.InputStreamSource;
+import org.apache.brooklyn.util.stream.Streams;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -127,29 +128,25 @@ public class FileUtilTest {
 
     @Test
     public void testIsJavaFileText() throws IOException, URISyntaxException {
-        byte[] bytes = java.nio.file.Files.readAllBytes(
-               Paths.get(this.getClass().getClassLoader().getResource("brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.txt").toURI()));
+        byte[] bytes = Streams.readFully(getClass().getResourceAsStream("/brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.txt"));
         assertFalse(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test bom file", bytes)));
     }
 
     @Test
     public void testIsJavaNoClassesJar() throws IOException, URISyntaxException {
-        byte[] bytes = java.nio.file.Files.readAllBytes(
-                Paths.get(this.getClass().getClassLoader().getResource("brooklyn/files/testNoJava-0.1.0-SNAPSHOT.jar").toURI()));
+        byte[] bytes = Streams.readFully(getClass().getResourceAsStream("/brooklyn/files/testNoJava-0.1.0-SNAPSHOT.jar"));
         assertFalse(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test Jar without Java classes", bytes)));
     }
 
     @Test
     public void testIsFakeJavaWithClassesJar() throws IOException, URISyntaxException {
-        byte[] bytes = java.nio.file.Files.readAllBytes(
-                Paths.get(this.getClass().getClassLoader().getResource("brooklyn/files/testWithJava-0.1.0-SNAPSHOT.jar").toURI()));
+        byte[] bytes = Streams.readFully(getClass().getResourceAsStream("/brooklyn/files/testWithJava-0.1.0-SNAPSHOT.jar"));
         assertTrue(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test fail JAR with files renamed as .class", bytes)));
     }
 
     @Test
     public void testIsRealJavaFileText() throws IOException, URISyntaxException {
-        byte[] bytes = java.nio.file.Files.readAllBytes(
-                Paths.get(this.getClass().getClassLoader().getResource("brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.jar").toURI()));
+        byte[] bytes = Streams.readFully(getClass().getResourceAsStream("/brooklyn/osgi/brooklyn-osgi-test-a_0.1.0.jar"));
         assertTrue(FileUtil.doesZipContainJavaBinaries(InputStreamSource.of("Test real JAR with Java classes", bytes)));
     }
 }
