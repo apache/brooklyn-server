@@ -24,9 +24,7 @@ import javax.ws.rs.PathParam;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Response;
 
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
+import io.swagger.annotations.*;
 
 @Path("/logout")
 @Api("Logout")
@@ -34,6 +32,12 @@ public interface LogoutApi {
 
     @POST
     @ApiOperation(value = "Logout and clean session")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     Response logout(
             @ApiParam(value = "Instead of 200 (the default) to indicate successful logout, "
                 + "return a 401 with this value in a message key in the body (a 401 will cause browsers to clear some locally cached credentials)", 
@@ -51,6 +55,12 @@ public interface LogoutApi {
     @POST
     @Path("/unauthorize")
     @ApiOperation(value = "Return UNAUTHORIZED 401 response, but without disabling the session [deprecated in favour of /logout query parameter]")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     Response unAuthorize();
 
     /** @deprecated since 1.0 in favour of /logout query parameter */
@@ -58,6 +68,12 @@ public interface LogoutApi {
     @POST
     @Path("/{user}")
     @ApiOperation(value = "Logout and clean session if matching user logged in (deprecated; username should now be omitted)")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     Response logoutUser(
         @ApiParam(value = "User to log out", required = true)
         @PathParam("user") final String user);

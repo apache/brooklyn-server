@@ -30,14 +30,11 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import io.swagger.annotations.*;
 import org.apache.brooklyn.rest.domain.TypeDetail;
 import org.apache.brooklyn.rest.domain.TypeSummary;
 
 import com.google.common.annotations.Beta;
-
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 
 @Path("/catalog/types")
 @Api("Catalog Types")
@@ -50,6 +47,12 @@ public interface TypeApi {
     @ApiOperation(value = "List types registered in the system", 
             response = TypeSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<TypeSummary> list(
         @ApiParam(name = "supertype", value = "Supertype to require (beta, currently intended only for 'entity', 'policy', 'enricher', and 'location')", required = false)
         @QueryParam("supertype")
@@ -68,6 +71,13 @@ public interface TypeApi {
     @ApiOperation(value = "Get summaries for all versions and instances of a given type or alias, with best match first", 
             response = TypeSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Type not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<TypeSummary> listVersions(
         @ApiParam(name = "nameOrAlias", value = "Type name to query", required = true)
         @PathParam("nameOrAlias")
@@ -77,6 +87,13 @@ public interface TypeApi {
     @GET
     @ApiOperation(value = "Get detail on a given type and version, allowing 'latest' to match the most recent version (preferring non-SNAPSHOTs)", 
             response = TypeDetail.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Type or version not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public TypeDetail detail(
         @ApiParam(name = "symbolicName", value = "Type name to query", required = true)
         @PathParam("symbolicName")
@@ -89,6 +106,13 @@ public interface TypeApi {
     @GET
     @ApiOperation(value = "Returns the icon image registered for this item")
     @Produces("application/image")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Type or version not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response icon(
             @ApiParam(name = "symbolicName", value = "Type name to query", required = true)
             @PathParam("symbolicName")

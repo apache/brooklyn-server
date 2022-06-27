@@ -50,7 +50,11 @@ public interface EntityConfigApi {
             response = org.apache.brooklyn.rest.domain.ConfigSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<ConfigSummary> list(
             @ApiParam(value = "Application ID or name", required = true)
@@ -63,6 +67,13 @@ public interface EntityConfigApi {
     @GET
     @Path("/current-state")
     @ApiOperation(value = "Fetch config key values in batch", notes="Returns a map of config name to value")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String, Object> batchConfigRead(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
@@ -85,7 +96,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Fetch config value (json)", response = Object.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.APPLICATION_JSON)
     public Object get(
@@ -112,7 +127,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Fetch config value (text/plain)", response = Object.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.TEXT_PLAIN + ";qs=0.9")
     public String getPlain(
@@ -137,7 +156,11 @@ public interface EntityConfigApi {
     @POST
     @ApiOperation(value = "Manually set multiple config values")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @SuppressWarnings("rawtypes")
     public void setFromMap(
@@ -154,7 +177,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Manually set a config value")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void set(
             @ApiParam(value = "Application ID or name", required = true)
