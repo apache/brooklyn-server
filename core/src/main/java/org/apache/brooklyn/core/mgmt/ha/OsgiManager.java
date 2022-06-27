@@ -158,7 +158,8 @@ public class OsgiManager {
         }
 
         private File fileFor(ManagedBundle managedBundle) {
-            return new File(brooklynBundlesCacheDir, managedBundle.getId()+"-"+managedBundle.getVersionedName().toOsgiString()+".jar");
+            // windows doesn't like ':' chars
+            return new File(brooklynBundlesCacheDir, managedBundle.getId()+"-"+managedBundle.getVersionedName().toOsgiString().replace(":", ".-.") +".jar");
         }
         
         synchronized void addInstalledWrapperBundle(ManagedBundle mb) {
