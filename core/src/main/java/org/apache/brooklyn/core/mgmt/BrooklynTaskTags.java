@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -402,11 +403,12 @@ public class BrooklynTaskTags extends TaskTags {
     public static class EffectorCallTag {
         protected final String entityId;
         protected final String effectorName;
+        protected Map<String,Object> effectorParams;
         protected transient ConfigBag parameters;
         protected EffectorCallTag(String entityId, String effectorName, ConfigBag parameters) {
             this.entityId = checkNotNull(entityId, "entityId");
             this.effectorName = checkNotNull(effectorName, "effectorName");
-            this.parameters = parameters;
+            setParameters(parameters);
         }
         @Override
         public String toString() {
@@ -423,7 +425,8 @@ public class BrooklynTaskTags extends TaskTags {
             EffectorCallTag other = (EffectorCallTag) obj;
             return 
                 Objects.equal(entityId, other.entityId) && 
-                Objects.equal(effectorName, other.effectorName);
+                Objects.equal(effectorName, other.effectorName) &&
+                Objects.equal(effectorParams, other.effectorParams);
         }
         public String getEntityId() {
             return entityId;
@@ -431,11 +434,17 @@ public class BrooklynTaskTags extends TaskTags {
         public String getEffectorName() {
             return effectorName;
         }
+        /** contains parameters including typed keys, for use during invocation; not serialized (via REST API) */
         public ConfigBag getParameters() {
             return parameters;
         }
         public void setParameters(ConfigBag parameters) {
             this.parameters = parameters;
+            effectorParams = MutableMap.copyOf(parameters.getAllConfig());
+        }
+        /** contains parameters as a map, for use during invocation; serialized (in REST API) */
+        public Map<String, Object> getEffectorParams() {
+            return effectorParams;
         }
     }
     

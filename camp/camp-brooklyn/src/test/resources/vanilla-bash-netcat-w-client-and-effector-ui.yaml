@@ -74,6 +74,12 @@ services:
   checkRunning.command: ""
   stop.command: ""
  
+  brooklyn.tags:
+  # only show restart and stop
+  - ui-effector-hints:
+      include-regex: say.*|restart|stop
+      exclude-regex: .* 
+
   brooklyn.initializers:
   # but there is a sample effector which runs nc in client mode
   
@@ -87,6 +93,26 @@ services:
         message:
           description: The string to pass to netcat
           defaultValue: hi netcat
+
+  - type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+    brooklyn.config:
+      name: sleep
+      description: Sleep for a period of time
+      command: |
+        sleep $duration
+      parameters:
+        duration:
+          description: How long to sleep for
+          defaultValue: 120
+
+  - type: org.apache.brooklyn.core.effector.CompositeEffector
+    brooklyn.config:
+      name: sayHiComposite
+      description: Does a sayHiNetcat, sleep, then another sayHiNetcat, testing composite effector to test
+      effectors:
+      - sayHiNetcat
+      - sleep
+      - sayHiNetcat
 
 # and add an enricher at the root so all sensors from netcat-server are visible on the root
 brooklyn.enrichers:

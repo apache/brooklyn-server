@@ -22,6 +22,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.Reader;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -163,8 +164,10 @@ public abstract class AbstractJcloudsStubYamlTest extends AbstractJcloudsStubbed
         // wait for app to have started
         Set<Task<?>> tasks = mgmt().getExecutionManager().getTasksWithAllTags(ImmutableList.of(
                 BrooklynTaskTags.EFFECTOR_TAG, 
-                BrooklynTaskTags.tagForContextEntity(app), 
-                BrooklynTaskTags.tagForEffectorCall(app, "start", ConfigBag.newInstance(ImmutableMap.of("locations", ImmutableMap.of())))));
+                BrooklynTaskTags.tagForContextEntity(app))).stream().filter(task ->
+                    task.getTags().stream().filter(tag ->
+                        tag instanceof BrooklynTaskTags.EffectorCallTag && ((BrooklynTaskTags.EffectorCallTag)tag).getEffectorName().equals("start")
+                    ).findAny().isPresent()).collect(Collectors.toSet());
         Iterables.getOnlyElement(tasks).get();
         
         return app;
