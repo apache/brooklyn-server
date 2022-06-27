@@ -80,6 +80,7 @@ public class BrooklynAssemblyTemplateInstantiator implements AssemblyTemplateSpe
             CampPlatform platform,
             BrooklynClassLoadingContext loader,
             Set<String> encounteredTypeSymbolicNames) {
+
         if (BasicBrooklynCatalog.currentlyResolvingType.get()!=null) {
             if (log.isTraceEnabled()) {
                 log.trace("CAMP instantiating application to resolve {} ({} / {})", BasicBrooklynCatalog.currentlyResolvingType.get(), template.getId(), CampResolver.currentlyCreatingSpec.get());

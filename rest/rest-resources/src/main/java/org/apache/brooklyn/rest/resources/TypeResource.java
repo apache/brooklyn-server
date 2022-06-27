@@ -185,7 +185,7 @@ public class TypeResource extends AbstractBrooklynRestResource implements TypeAp
             // classpath URL's we will serve IF they end with a recognised image format;
             // paths (ie non-protocol) and 
             // NB, for security, file URL's are NOT served
-            log.debug("Loading and returning "+url+" as icon for "+result);
+            log.trace("Loading and returning "+url+" as icon for "+result);
             
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
             try {

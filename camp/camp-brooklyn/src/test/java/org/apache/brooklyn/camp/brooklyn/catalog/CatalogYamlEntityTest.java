@@ -777,6 +777,8 @@ public class CatalogYamlEntityTest extends AbstractYamlTest {
             "    item: " + TestEntity.class.getName(),
             "  - id: " + symbolicNameOuter,
             "    item: " + symbolicNameInner);
+        RegisteredType outer = mgmt().getTypeRegistry().get(symbolicNameOuter);
+        Asserts.assertStringContains(outer.getPlan().getPlanData().toString(), symbolicNameInner);
 
         String yaml = "name: " + symbolicNameOuter + "\n" +
                 "services: \n" +
