@@ -41,7 +41,7 @@ import static org.testng.AssertJUnit.assertTrue;
 
 public class DockerTaskTest extends BrooklynAppUnitTestSupport {
 
-    @Test
+    @Test(groups = "Live") // requires docker installed locally
     public void testSuccessfulDockerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
