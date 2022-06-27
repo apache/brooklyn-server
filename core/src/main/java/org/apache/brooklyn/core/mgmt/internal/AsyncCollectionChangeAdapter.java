@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.core.mgmt.internal;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import org.apache.brooklyn.api.mgmt.ExecutionManager;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionManager;
@@ -28,13 +26,15 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class AsyncCollectionChangeAdapter<Item> implements CollectionChangeListener<Item> {
     
     private static final Logger LOG = LoggerFactory.getLogger(AsyncCollectionChangeAdapter.class);
 
     private final ExecutionManager executor;
     private final CollectionChangeListener<Item> delegate;
-    
+
     public AsyncCollectionChangeAdapter(ExecutionManager executor, CollectionChangeListener<Item> delegate) {
         this.executor = checkNotNull(executor, "executor");
         this.delegate = checkNotNull(delegate, "delegate");
@@ -49,11 +49,19 @@ public class AsyncCollectionChangeAdapter<Item> implements CollectionChangeListe
                 try {
                     delegate.onItemAdded(item);
                 } catch (Throwable t) {
-                    LOG.warn("Error notifying listener of itemAdded("+item+")", t);
-                    Exceptions.propagate(t);
+                    onError("Error notifying listener of itemAdded("+item+")", t);
                 }
             }
         });
+    }
+
+    private void onError(String msg, Throwable t) {
+        if (delegate instanceof CollectionChangeListener.ListenerWithErrorHandler) {
+            ((CollectionChangeListener.ListenerWithErrorHandler)delegate).onError(msg, t);
+        } else {
+            LOG.warn(msg, t);
+            throw Exceptions.propagate(t);
+        }
     }
     
     @Override
@@ -64,8 +72,7 @@ public class AsyncCollectionChangeAdapter<Item> implements CollectionChangeListe
                 try {
                     delegate.onItemRemoved(item);
                 } catch (Throwable t) {
-                    LOG.warn("Error notifying listener of itemAdded("+item+")", t);
-                    Exceptions.propagate(t);
+                    onError("Error notifying listener of itemRemoved("+item+")", t);
                 }
             }
         });

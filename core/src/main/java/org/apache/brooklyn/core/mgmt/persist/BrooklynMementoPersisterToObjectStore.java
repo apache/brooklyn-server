@@ -37,17 +37,13 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.annotation.Nullable;
 import javax.xml.xpath.XPathConstants;
 
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.rebind.PersistenceExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMemento;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
-import org.apache.brooklyn.api.mgmt.rebind.mementos.Memento;
+import org.apache.brooklyn.api.mgmt.rebind.mementos.*;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -56,6 +52,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -74,6 +72,7 @@ import org.apache.brooklyn.util.core.xstream.XmlUtil;
 import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -658,7 +657,7 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
             
             Stopwatch stopwatch = Stopwatch.createStarted();
             List<ListenableFuture<?>> futures = Lists.newArrayList();
-            
+
             futures.add(asyncUpdatePlaneId(newMemento.getPlaneId(), exceptionHandler));
             for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                 for (Map.Entry<String, String> entry : newMemento.getObjectsOfType(type).entrySet()) {
@@ -872,17 +871,54 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
     private void persist(String subPath, Memento memento, PersistenceExceptionHandler exceptionHandler) {
         try {
+            checkMementoForProblemsAndWarn(memento);
             getWriter(getPath(subPath, memento.getId())).put(getSerializerWithStandardClassLoader().toString(memento));
+
         } catch (Exception e) {
             exceptionHandler.onPersistMementoFailed(memento, e);
         }
     }
-    
+
+    private boolean isKnownNotManagedActive(BrooklynObject bo) {
+        return bo!=null && ((bo instanceof Entity && !Entities.isManagedActive((Entity) bo)) || (bo instanceof Location && !Locations.isManaged((Location) bo)));
+    }
+
+    private void checkMementoForProblemsAndWarn(Memento memento) {
+        // warn if there appears to be a dangling reference
+        MutableList<String> dependenciesToConfirmExistence = MutableList.of();
+        if (memento instanceof EntityMemento || memento instanceof LocationMemento) dependenciesToConfirmExistence.appendIfNotNull( ((TreeNode) memento).getParent() );
+        // NOTE: adjuncts on entities could be relevant for warning also, but they don't persist a reference to their entity and can't so easily be looked up without it; so far this hasn't been an issue
+        Maybe<BrooklynObject> me = null;
+        for (String id : dependenciesToConfirmExistence) {
+            BrooklynObject bo = mgmt.lookup(id);
+            if (bo == null) {
+                if (me == null) me = Maybe.ofAllowingNull(mgmt.lookup(memento.getId()));
+                if (me.isPresentAndNonNull() && isKnownNotManagedActive(me.get())) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; "+me.get()+" is being unmanaged, and dependency " + id + "(" + bo + ") is not known; likely the former will be unpersisted shortly also but persisting it for now as requested");
+                    }
+                } else if (me.get()==null) {
+                    if (LOG.isDebugEnabled()) {
+                        LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; "+me.get()+" is not known to mgmt context, and dependency " + id + "(" + bo + ") is not known; likely the former will be unpersisted shortly also but persisting it for now as requested");
+                    }
+                } else {
+                    // almost definitely a problem, as the descendants should be unmanaged by the time the parent is removed altogether from lookup tables
+                    LOG.warn("Persistence dependency problem with " + memento.getType() + " " + memento.getId() + "; dependency " + id + " not found when persisting the former, potential race in creation/deletion which may prevent rebind");
+                }
+            }
+
+            if (isKnownNotManagedActive(bo)) {
+                // common to do partial persistence when deleting a tree, so this is not worrisome
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Persistence dependency incomplete with " + memento.getType() + " " + memento.getId() + "; dependency " + id + "(" + bo + ") is being unmanaged; likely the former will be unmanaged and unpersisted shortly but persisting it for now as requested");
+                }
+            }
+        }
+    }
+
     private void persist(String subPath, BrooklynObjectType type, String id, String content, PersistenceExceptionHandler exceptionHandler) {
         try {
-            if (content==null) {
-                LOG.warn("Null content for "+type+" "+id);
-            }
+            if (content==null) LOG.warn("Null content for "+type+" "+id);
             getWriter(getPath(subPath, id)).put(content);
         } catch (Exception e) {
             exceptionHandler.onPersistRawMementoFailed(type, id, e);

@@ -39,12 +39,16 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.mgmt.persist.PersistenceActivityMetrics;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
@@ -54,6 +58,7 @@ import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
@@ -493,7 +498,6 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                             prevDeltaCollector.entities.size(), prevDeltaCollector.locations.size(), prevDeltaCollector.policies.size(), prevDeltaCollector.enrichers.size(), prevDeltaCollector.catalogItems.size(), prevDeltaCollector.bundles.size(),
                             prevDeltaCollector.removedEntityIds.size(), prevDeltaCollector.removedLocationIds.size(), prevDeltaCollector.removedPolicyIds.size(), prevDeltaCollector.removedEnricherIds.size(), prevDeltaCollector.removedCatalogItemIds.size(), prevDeltaCollector.removedBundleIds.size()});
             }
-
             // Generate mementos for everything that has changed in this time period
             if (prevDeltaCollector.isEmpty()) {
                 if (LOG.isTraceEnabled()) LOG.trace("No changes to persist since last delta");
@@ -506,12 +510,33 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
                 for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                     for (BrooklynObject instance: prevDeltaCollector.getCollectionOfType(type)) {
                         try {
-                            persisterDelta.add(type, ((BrooklynObjectInternal)instance).getRebindSupport().getMemento());
+                            String skip = null;
+                            if (instance instanceof Entity) {
+                                if (Entities.isUnmanagingOrNoLongerManaged((Entity)instance)) skip = "unmanaging or no longer managed";
+                            } else if (instance instanceof Location) {
+                                if (!Locations.isManaged((Location)instance)) skip = "not managed";
+                            } else if (instance instanceof EntityAdjunct) {
+                                Maybe<Entity> entity = EntityAdjuncts.getEntity((EntityAdjunct) instance, false);
+                                if (entity.isAbsent()) skip = "not assigned to any entity";
+                                // if null, means adjunct doesn't tell us, which is weird, but don't skip
+                                else if (entity.isPresentAndNonNull()) {
+                                    if (Entities.isUnmanagingOrNoLongerManaged(entity.get())) skip = "associated entity is unmanaging or no longer managed";
+                                }
+                            }
+                            if (skip!=null) {
+                                // not uncommon if deleting lots of things
+                                LOG.debug("Persistence skipping change to "+instance+" because "+skip+"; expect this to be unpersisted soon");
+                                continue;
+
+                            } else {
+                                persisterDelta.add(type, ((BrooklynObjectInternal) instance).getRebindSupport().getMemento());
+                            }
                         } catch (Exception e) {
                             exceptionHandler.onGenerateMementoFailed(type, instance, e);
                         }
                     }
                 }
+
                 for (BrooklynObjectType type: BrooklynPersistenceUtils.STANDARD_BROOKLYN_OBJECT_TYPE_PERSISTENCE_ORDER) {
                     persisterDelta.removed(type, prevDeltaCollector.getRemovedIdsOfType(type));
                 }
@@ -600,7 +625,6 @@ public class PeriodicDeltaChangeListener implements ChangeListener {
         }
     }
     
-
     @Override
     public synchronized void onUnmanaged(BrooklynObject instance) {
         if (LOG.isTraceEnabled()) LOG.trace("onUnmanaged: {}", instance);

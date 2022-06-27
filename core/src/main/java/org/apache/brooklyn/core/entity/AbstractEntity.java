@@ -630,7 +630,10 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 if (Entities.isAncestor(this, child)) throw new IllegalStateException("loop detected trying to add child "+child+" to "+this+"; it is already an ancestor");
                 child.setParent(getProxyIfAvailable());
                 boolean changed = children.add(child);
-                
+                if (Entities.isUnmanagingOrNoLongerManaged(this)) {
+                    throw new IllegalStateException("Cannot add " + child + " as child of " + this + " because the latter is unmanaging or no longer managed");
+                }
+
                 getManagementSupport().getEntityChangeListener().onChildrenChanged();
                 if (changed) {
                     sensors().emit(AbstractEntity.CHILD_ADDED, child);
@@ -674,7 +677,8 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                     getManagementSupport().getEntityChangeListener().onChildrenChanged();
                 }
             
-                if (changed) {
+                if (changed && Entities.isManagedActiveOrComingUp(this)) {
+                    // don't publish when tearing down
                     sensors().emit(AbstractEntity.CHILD_REMOVED, child);
                 }
                 return changed;
@@ -1073,10 +1077,21 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
                 if (attribKey == null) {
                     // Most likely a race: e.g. persister thread calling getAllAttributes; writer thread
                     // has written attribute value and is in process of calling entityType.addSensorIfAbsent(attribute)
-                    // Just use a synthetic AttributeSensor, rather than ignoring value.
-                    // TODO If it's not a race, then don't log.warn every time!
-                    LOG.warn("When retrieving all attributes of {}, no AttributeSensor for attribute {} (creating synthetic)", AbstractEntity.this, entry.getKey());
-                    attribKey = Sensors.newSensor(Object.class, entry.getKey());
+                    // If that's the case, either it will finish imminently and we get the value, or we should _not_ be able to get the lock
+                    if (getLockInternal().tryLock()) {
+                        // we were able to get the lock; the attrib key should be set now
+                        getLockInternal().unlock();
+                        attribKey = (AttributeSensor<?>) entityType.getSensor(entry.getKey());
+                        if (attribKey==null) {
+                            // hmmm; AbstractEntity$BasicSensorSupport.modify didn't have a lock, so isn't creating this sensor. warn then use a synthetic value
+                            LOG.warn("When retrieving all attributes of {}, no AttributeSensor for attribute {} (creating synthetic)", AbstractEntity.this, entry.getKey());
+                        }
+                    } else {
+                        // just use a synthetic value this time; lock owner will update the real map
+                    }
+                    if (attribKey==null) {
+                        attribKey = Sensors.newSensor(Object.class, entry.getKey());
+                    }
                 }
                 result.put(attribKey, entry.getValue());
             }

@@ -383,7 +383,12 @@ public class EntityManagementSupport {
                     return;
                 }
                 if (managementContext != info.getManagementContext()) {
-                    throw new IllegalStateException("Has different management context: " + managementContext + "; expected " + info.getManagementContext());
+                    if (managementContext == null && nonDeploymentManagementContext.getMode() == NonDeploymentManagementContextMode.PRE_MANAGEMENT) {
+                        log.info("Stopping management of "+entity+" during pre-management phase; likely concurrent creation/deletion");
+                        // proceed to below, without error
+                    } else {
+                        throw new IllegalStateException(entity + " has different management context: " + managementContext + "; expected " + info.getManagementContext());
+                    }
                 }
             }
             getSubscriptionContext().unsubscribeAll();
