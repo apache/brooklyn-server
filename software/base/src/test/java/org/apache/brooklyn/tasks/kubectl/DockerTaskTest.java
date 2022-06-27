@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.time.Duration;
@@ -62,7 +63,7 @@ public class DockerTaskTest extends BrooklynAppUnitTestSupport {
         assertTrue(res2.startsWith("hello test"));
     }
 
-    @Test
+    @Test(groups = "Integration") // tries to execute local command, wants it to fail but even so best as integration
     public void testFailingDockerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
@@ -79,10 +80,10 @@ public class DockerTaskTest extends BrooklynAppUnitTestSupport {
                 .newTask();
 
         try {
-            DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity);
+            DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity).getTask().get();
+            Asserts.shouldHaveFailedPreviously();
         } catch (Exception e) {
-            assertTrue(e.getCause() instanceof ExecutionException);
-            assertTrue(e.getCause().getMessage().contains("Process task ended with exit code 1 when 0 was required"));
+            Asserts.expectedFailureContains(e, "Process task ended with exit code", "when 0 was required");
         }
     }
 
