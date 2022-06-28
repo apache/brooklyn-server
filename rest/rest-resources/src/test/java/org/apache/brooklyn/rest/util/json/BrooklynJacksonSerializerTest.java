@@ -310,10 +310,20 @@ public class BrooklynJacksonSerializerTest {
     public void testLinkedListSerialization() throws Exception {
         LinkedList<Object> ll = new LinkedList<Object>();
         ll.add(1); ll.add("two");
-        String result = checkSerializesAs(ll, null);
+        String result = checkSerializes(ll);
         log.info("LLIST json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
         Assert.assertEquals(Strings.collapseWhitespace(result, ""), "[1,\"two\"]");
+    }
+
+    @Test
+    public void testInstantSerialization() throws Exception {
+        Instant x = Instant.now().minusSeconds(5);
+        String xs = checkSerializes(x);
+        log.info("Instant json is: "+xs);
+        Assert.assertFalse(xs.contains("error"), "Shouldn't have had an error, instead got: "+xs);
+        Instant x2 = checkSerializesAs(x, Instant.class);
+        Asserts.assertEquals(x2, x);
     }
 
     @Test
@@ -321,7 +331,7 @@ public class BrooklynJacksonSerializerTest {
         Multimap<String, Integer> m = MultimapBuilder.hashKeys().arrayListValues().build();
         m.put("bob", 24);
         m.put("bob", 25);
-        String result = checkSerializesAs(m, null);
+        String result = checkSerializes(m);
         log.info("multimap serialized as: " + result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
         Assert.assertEquals(Strings.collapseWhitespace(result, ""), "{\"bob\":[24,25]}");
@@ -329,7 +339,7 @@ public class BrooklynJacksonSerializerTest {
 
     @Test
     public void testUserHostAndPortSerialization() throws Exception {
-        String result = checkSerializesAs(UserAndHostAndPort.fromParts("testHostUser", "1.2.3.4", 22), null);
+        String result = checkSerializes(UserAndHostAndPort.fromParts("testHostUser", "1.2.3.4", 22));
         log.info("UserHostAndPort serialized as: " + result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
         Assert.assertEquals(Strings.collapseWhitespace(result, ""), "{\"user\":\"testHostUser\",\"hostAndPort\":{\"host\":\"1.2.3.4\",\"port\":22,\"hasBracketlessColons\":false}}");
@@ -338,7 +348,7 @@ public class BrooklynJacksonSerializerTest {
     @Test
     public void testSupplierSerialization() throws Exception {
         ByteArrayOutputStream x = Streams.byteArrayOfString("x");
-        String result = checkSerializesAs(Strings.toStringSupplier(x), null);
+        String result = checkSerializes(Strings.toStringSupplier(x));
         log.info("SUPPLIER json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
     }
@@ -346,7 +356,7 @@ public class BrooklynJacksonSerializerTest {
     @Test
     public void testByteArrayOutputStreamSerialization() throws Exception {
         ByteArrayOutputStream x = Streams.byteArrayOfString("x");
-        String result = checkSerializesAs(x, null);
+        String result = checkSerializes(x);
         log.info("BAOS json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
         ByteArrayOutputStream x2 = checkSerializesAs(x, ByteArrayOutputStream.class);
@@ -355,7 +365,7 @@ public class BrooklynJacksonSerializerTest {
 
     @Test
     public void testWrappedStreamSerialization() throws Exception {
-        String result = checkSerializesAs(BrooklynTaskTags.tagForStream("TEST", Streams.byteArrayOfString("x")), null);
+        String result = checkSerializes(BrooklynTaskTags.tagForStream("TEST", Streams.byteArrayOfString("x")));
         log.info("WRAPPED STREAM json is: "+result);
         Assert.assertFalse(result.contains("error"), "Shouldn't have had an error, instead got: "+result);
     }
@@ -533,6 +543,10 @@ public class BrooklynJacksonSerializerTest {
         } finally {
             Entities.destroyAll(mgmt);
         }
+    }
+
+    protected String checkSerializes(Object x) {
+        return checkSerializesAs(x, null);
     }
 
     @SuppressWarnings("unchecked")

@@ -15,6 +15,8 @@
  */
 package org.apache.brooklyn.util.core.json;
 
+import com.fasterxml.jackson.datatype.jsr310.JSR310Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.jackson.CommonTypesSerialization;
@@ -36,6 +38,9 @@ public class BrooklynObjectsJsonMapper {
         mapper.setSerializerProvider(sp);
         mapper.setVisibility(new PossiblyStrictPreferringFieldsVisibilityChecker());
 
+        mapper.registerModule(new JavaTimeModule());
+        CommonTypesSerialization.apply(mapper, mgmt);
+
         SimpleModule mapperModule = new SimpleModule("Brooklyn", new Version(0, 0, 0, "ignored", null, null));
 
         new BidiSerialization.ManagementContextSerialization(mgmt).install(mapperModule);
@@ -50,9 +55,10 @@ public class BrooklynObjectsJsonMapper {
         mapperModule.addSerializer(Duration.class, new DurationSerializer());
         mapperModule.addSerializer(new MultimapSerializer());
 
-        new CommonTypesSerialization.ByteArrayObjectStreamSerialization().apply(mapperModule);
+        //new CommonTypesSerialization.ByteArrayObjectStreamSerialization().apply(mapperModule);
 
         mapper.registerModule(mapperModule);
+
         return mapper;
     }
 }
