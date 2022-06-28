@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableList;
@@ -77,7 +78,7 @@ public class SoftwareProcessShellEnvironmentTest extends BrooklynAppUnitTestSupp
                 + "\"special_value\":" + escapedString
                 + "}");
         assertEquals(env.get("some_list"), "[\"idx1\",\"idx2\"," + escapedString + "]");
-        assertEquals(env.get("some_time"), Long.toString(dt.getTime()));
+        assertEquals(env.get("some_time"), Time.makeIso8601DateStringZ(dt.toInstant()));
         assertEquals(env.get("some_bean"), "{\"propString\":\"bean-string\",\"propInt\":-1}");
         assertEquals(env.get("self"), "{\"type\":\"org.apache.brooklyn.api.entity.Entity\",\"id\":\"" + entity.getId() + "\"}");
     }
