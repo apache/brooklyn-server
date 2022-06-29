@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.mgmt.rebind;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+
+import java.util.*;
 import java.util.function.Supplier;
 import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_AUTO_FIX_CATALOG_REF_ON_REBIND;
 import static org.apache.brooklyn.core.BrooklynFeatureEnablement.FEATURE_BACKWARDS_COMPATIBILITY_INFER_CATALOG_ITEM_ON_REBIND;
@@ -26,13 +28,6 @@ import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoa
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -483,9 +478,10 @@ public abstract class RebindIteration {
         }
     }
 
-    protected Map<String,EntityAdjunct> adjunctProxies = MutableMap.of();
+    // creation of adjuncts can be called from different threads; it should be rare however, so easiest to synchronize
+    protected Map<String,EntityAdjunct> adjunctProxies = Collections.synchronizedMap(MutableMap.of());
     protected <T extends EntityAdjunct> T createAdjunctProxy(Class<T> adjunctType, String id) {
-        return (T) adjunctProxies.computeIfAbsent(id, (id2) -> EntityAdjuncts.createProxyForId(adjunctType, id) );
+        return (T) adjunctProxies.computeIfAbsent(id, (id2) -> EntityAdjuncts.createProxyForId(adjunctType, id));
     }
 
     protected void instantiateMementos() throws IOException {
@@ -560,6 +556,7 @@ public abstract class RebindIteration {
         }
 
         if (!adjunctProxies.isEmpty()) {
+            LOG.warn("Adjunct proxies not empty, likely indicating dangling references: "+adjunctProxies);
             adjunctProxies.entrySet().forEach(entry -> {
                 if (entry.getValue() instanceof Policy) exceptionHandler.onDanglingPolicyRef(entry.getKey());
                 else if (entry.getValue() instanceof Enricher) exceptionHandler.onDanglingEnricherRef(entry.getKey());
