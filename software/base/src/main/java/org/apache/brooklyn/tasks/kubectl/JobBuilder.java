@@ -41,8 +41,12 @@ import java.util.stream.Collectors;
  */
 public class JobBuilder {
     private static final Logger LOG = LoggerFactory.getLogger(JobBuilder.class);
+
+    private static final List<String> PULL_POLICY_ALLOWED_VALUES = Lists.newArrayList("IfNotPresent", "Always", "Never");
     String jobName;
     String imageName;
+
+    String imagePullPolicy;
 
     String workingDir;
 
@@ -64,6 +68,11 @@ public class JobBuilder {
 
     public JobBuilder withImage(final String image){
         this.imageName = image;
+        return this;
+    }
+
+    public JobBuilder withImagePullPolicy(final String imagePullPolicy){
+        this.imagePullPolicy = imagePullPolicy;
         return this;
     }
 
@@ -121,6 +130,11 @@ public class JobBuilder {
             containerSpec.setWorkingDir(workingDir);
         }
         containerSpec.setImage(imageName);
+        if(Strings.isNonBlank(imagePullPolicy)) {
+            if (PULL_POLICY_ALLOWED_VALUES.contains(imagePullPolicy)) {
+                containerSpec.setImagePullPolicy(imagePullPolicy);
+            } // else stick with default, do not fail
+        }
         if (!env.isEmpty()) {
             List<Map<String,String>> envList = env.entrySet().stream().map (e ->  {
                     Map<String,String> envItem = new HashMap<>();
@@ -318,6 +332,8 @@ class ContainerSpec {
     String name = "test";
     String image = "defaultImage";
 
+    String imagePullPolicy = "IfNotPresent";
+
     String workingDir = null; // default is /
 
     List<String> command = null;
@@ -341,6 +357,14 @@ class ContainerSpec {
 
     public String getImage() {
         return image;
+    }
+
+    public String getImagePullPolicy() {
+        return imagePullPolicy;
+    }
+
+    public void setImagePullPolicy(String imagePullPolicy) {
+        this.imagePullPolicy = imagePullPolicy;
     }
 
     public void setImage(String image) {

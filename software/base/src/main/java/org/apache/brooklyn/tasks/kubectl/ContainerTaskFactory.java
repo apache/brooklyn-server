@@ -52,6 +52,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
         List<String> commandsCfg =  EntityInitializers.resolve(configBag, COMMANDS);
         List<String> argumentsCfg =  EntityInitializers.resolve(configBag, ARGUMENTS);
         String containerImage = EntityInitializers.resolve(configBag, CONTAINER_IMAGE);
+        String containerImagePullPolicy = EntityInitializers.resolve(configBag, CONTAINER_IMAGE_PULL_POLICY);
         String containerNameFromCfg = EntityInitializers.resolve(configBag, CONTAINER_NAME);
         Boolean devMode = EntityInitializers.resolve(configBag, KEEP_CONTAINER_FOR_DEBUGGING);
 
@@ -72,6 +73,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
 
         final String jobYamlLocation =  new JobBuilder()
                 .withImage(containerImage)
+                .withImagePullPolicy(containerImagePullPolicy)
                 .withName(containerName)
                 .withArgs(argumentsCfg)
                 .withEnv(EntityInitializers.resolve(configBag, BrooklynConfigKeys.SHELL_ENVIRONMENT))

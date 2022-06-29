@@ -95,6 +95,7 @@ public class JobBuilderTest {
         String yamlJobLocation =
                 new JobBuilder().withImage("perl").withName("perl-command-test")
                         .withCommands(Lists.newArrayList("/bin/bash", "-c", "echo aaa"))
+                        .withImagePullPolicy("Always")
                         .build();
         assertNotNull(yamlJobLocation);
         String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
@@ -112,6 +113,7 @@ public class JobBuilderTest {
                 "        - -c\n" +
                 "        - echo aaa\n" +
                 "        image: perl\n" +
+                "        imagePullPolicy: Always\n" +
                 "        name: test\n" +
                 "      restartPolicy: Never";
         assertEquals(expected,actual);
