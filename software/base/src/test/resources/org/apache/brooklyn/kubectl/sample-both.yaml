@@ -32,6 +32,7 @@ services:
       - type: org.apache.brooklyn.tasks.kubectl.DockerSensor
         brooklyn.config:
           image: perl
+          imagePullPolicy: never
           args:
             - echo
             - hello
