@@ -34,6 +34,9 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertTrue;
 
+/**
+ * These tests require Minikube installed locally
+ */
 @SuppressWarnings( "UnstableApiUsage")
 @Test(groups = {"Live"})
 public class DockerEffectorTest extends BrooklynAppUnitTestSupport {
@@ -45,6 +48,7 @@ public class DockerEffectorTest extends BrooklynAppUnitTestSupport {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 DockerEffector.EFFECTOR_NAME, "test-container-effector",
                 ContainerCommons.CONTAINER_IMAGE, "perl",
+                ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
                 ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash", "-c", "echo " + message),
                 BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "WORLD")));
 

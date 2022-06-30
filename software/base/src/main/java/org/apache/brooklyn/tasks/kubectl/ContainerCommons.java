@@ -31,7 +31,8 @@ import java.util.*;
 @SuppressWarnings({ "rawtypes"})
 public interface ContainerCommons {
     ConfigKey<String> CONTAINER_IMAGE = ConfigKeys.newStringConfigKey("image", "Container image");
-    ConfigKey<String> CONTAINER_IMAGE_PULL_POLICY = ConfigKeys.newStringConfigKey("imagePullPolicy", "Container image pull policy. Allowed values: {IfNotPresent, Always, Never}", "IfNotPresent");
+    ConfigKey<PullPolicy> CONTAINER_IMAGE_PULL_POLICY = ConfigKeys.newConfigKey(new TypeToken<PullPolicy>() {} ,
+            "imagePullPolicy", "Container image pull policy. Allowed values: {IfNotPresent, Always, Never}. ", PullPolicy.ALWAYS);
 
     ConfigKey<String> CONTAINER_NAME = ConfigKeys.newStringConfigKey("containerName", "Container name");
     ConfigKey<Boolean> KEEP_CONTAINER_FOR_DEBUGGING = ConfigKeys.newBooleanConfigKey("keepContainerForDebugging", "When set to true, the namespace" +

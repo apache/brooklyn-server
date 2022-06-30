@@ -24,6 +24,7 @@ services:
           shell.env:
             hello: hello-amp-docker-effector
           image: bash
+          imagePullPolicy: NEVER
           args:
           - -c
           - HELLO=$(ls -la) ; sleep 5 ; echo $HELLO ; echo $hello

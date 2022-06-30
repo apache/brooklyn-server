@@ -52,7 +52,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
         List<String> commandsCfg =  EntityInitializers.resolve(configBag, COMMANDS);
         List<String> argumentsCfg =  EntityInitializers.resolve(configBag, ARGUMENTS);
         String containerImage = EntityInitializers.resolve(configBag, CONTAINER_IMAGE);
-        String containerImagePullPolicy = EntityInitializers.resolve(configBag, CONTAINER_IMAGE_PULL_POLICY);
+        PullPolicy containerImagePullPolicy = EntityInitializers.resolve(configBag, CONTAINER_IMAGE_PULL_POLICY);
         String containerNameFromCfg = EntityInitializers.resolve(configBag, CONTAINER_NAME);
         Boolean devMode = EntityInitializers.resolve(configBag, KEEP_CONTAINER_FOR_DEBUGGING);
 
@@ -87,6 +87,8 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
         Task<String> runCommandsTask = buildKubeTask(configBag, "Submit job", String.format(JOBS_CREATE_CMD,jobYamlLocation)).asTask();
         Task<String> waitTask =  buildKubeTask(configBag, "Wait For Completion", String.format(JOBS_FEED_CMD,containerName)).asTask();
         if(!devMode) {
+            // making these two inessential to insure proper namespace cleanup
+            BrooklynTaskTags.addTagDynamically(runCommandsTask, BrooklynTaskTags.INESSENTIAL_TASK);
             BrooklynTaskTags.addTagDynamically(waitTask, BrooklynTaskTags.INESSENTIAL_TASK);
         }
 

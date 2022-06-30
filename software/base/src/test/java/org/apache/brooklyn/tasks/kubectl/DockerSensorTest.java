@@ -40,6 +40,7 @@ public class DockerSensorTest extends BrooklynAppUnitTestSupport {
 
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "perl",
+                ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
                 ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash", "-c","echo " + message) ,
                 DockerSensor.SENSOR_PERIOD, "1s",
                 DockerSensor.SENSOR_NAME, "test-echo-sensor"));
