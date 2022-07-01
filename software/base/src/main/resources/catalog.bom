@@ -81,18 +81,18 @@ brooklyn.catalog:
         description: Creates a pre-allocated server pool, which other applications can deploy to
 
       #-----------------------------------------kubectl effector & sensor-------------------------------------------------------
-    - id: org.apache.brooklyn.tasks.kubectl.DockerSensor
+    - id: org.apache.brooklyn.tasks.kubectl.ContainerSensor
       format: java-type-name
       itemType: bean
       item:
-        type: org.apache.brooklyn.tasks.kubectl.DockerSensor
-        name: Docker Sensor
+        type: org.apache.brooklyn.tasks.kubectl.ContainerSensor
+        name: Container Sensor
         description: A sensor that exposes a value produced by a Kubectl Job
 
-    - id: org.apache.brooklyn.tasks.kubectl.DockerEffector
+    - id: org.apache.brooklyn.tasks.kubectl.ContainerEffector
       format: java-type-name
       itemType: bean
       item:
-        type: org.apache.brooklyn.tasks.kubectl.DockerEffector
-        name: Docker Effector
+        type: org.apache.brooklyn.tasks.kubectl.ContainerEffector
+        name: Container Effector
         description: An effector that runs a Kubectl Job

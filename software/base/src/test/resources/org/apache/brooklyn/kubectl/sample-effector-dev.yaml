@@ -19,10 +19,10 @@ name: container-effector-dev
 services:
   - type: 'org.apache.brooklyn.entity.stock.BasicStartable:1.1.0-SNAPSHOT'
     brooklyn.initializers:
-      - type: org.apache.brooklyn.tasks.kubectl.DockerEffector
+      - type: org.apache.brooklyn.tasks.kubectl.ContainerEffector
         brooklyn.config:
-          name: docker-effector
-          description: Very simple Docker effector
+          name: container-effector
+          description: Very simple container effector
           shell.env:
             hello: world-amp
             # hello: $brooklyn:external("hello", "hello")

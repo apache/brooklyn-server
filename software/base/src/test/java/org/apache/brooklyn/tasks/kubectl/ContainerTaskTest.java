@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -30,7 +31,6 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -45,24 +45,24 @@ import static org.testng.AssertJUnit.assertTrue;
  * These tests require Minikube installed locally
  */
 @Test(groups = {"Live"})
-public class DockerTaskTest extends BrooklynAppUnitTestSupport {
+public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
 
     @Test
-    public void testSuccessfulDockerTask() {
+    public void testSuccessfulContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
         Map<String,Object> configBag = new HashMap<>();
-        configBag.put("name", "test-docker-task");
+        configBag.put("name", "test-container-task");
         configBag.put("image", "perl");
         configBag.put("commands", Lists.newArrayList("/bin/bash", "-c","echo 'hello test'"));
         configBag.put("imagePullPolicy", PullPolicy.IF_NOT_PRESENT);
 
-        Task<String> dockerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
-                .summary("Running docker task")
+        Task<String> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                .summary("Running container task")
                 .configure(configBag)
                 .newTask();
-        DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity);
-        Object result = dockerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
+        DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
+        Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
         List<String> res = (List<String>) result;
         while(!res.isEmpty() && Iterables.getLast(res).matches("namespace .* deleted\\s*")) res = res.subList(0, res.size()-1);
 
@@ -70,25 +70,48 @@ public class DockerTaskTest extends BrooklynAppUnitTestSupport {
         assertTrue(res2.startsWith("hello test"));
     }
 
+    @Test
+    public void testSuccessfulContainerTerraformTask() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        Map<String,Object> configBag = new HashMap<>();
+        configBag.put("name", "test-container-task");
+        configBag.put("image", "hashicorp/terraform:latest");
+        configBag.put("commands",  ImmutableList.of("terraform", "version" ));
+        configBag.put("imagePullPolicy", PullPolicy.IF_NOT_PRESENT);
+
+        Task<String> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                .summary("Running terraform-container task")
+                .configure(configBag)
+                .newTask();
+        DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
+        Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
+        List<String> res = (List<String>) result;
+        while(!res.isEmpty() && Iterables.getLast(res).matches("namespace .* deleted\\s*")) res = res.subList(0, res.size()-1);
+
+        String res2 = res.isEmpty() ? null : Iterables.getLast(res);
+        assertTrue(res2.startsWith("Terraform"));
+    }
+
     @Test// tries to execute local command, wants it to fail, but even so best as integration
-    public void testFailingDockerTask() {
+    public void testFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
         List<String> commands = MutableList.of("/bin/bash", "-c","echo 'hello test' & exit 1");
 
         Map<String,Object> configBag = new HashMap<>();
-        configBag.put("name", "test-docker-task");
+        configBag.put("name", "test-container-task");
         configBag.put("image", "perl");
         configBag.put("commands", commands);
 
-        Task<String> dockerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+        Task<String> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
                 .summary("Running docker task")
                 .configure(configBag)
                 .newTask();
         try {
-            DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity).getTask().get();
-            if (dockerTask instanceof HasTaskChildren) {
-                for (Task<?> child: ((HasTaskChildren)dockerTask).getChildren()) {
+            DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity).getTask().get();
+            if (containerTask instanceof HasTaskChildren) {
+                for (Task<?> child: ((HasTaskChildren)containerTask).getChildren()) {
                     if(child.getTags().contains(BrooklynTaskTags.INESSENTIAL_TASK) && child.isError()) {
                        child.get();
                     }

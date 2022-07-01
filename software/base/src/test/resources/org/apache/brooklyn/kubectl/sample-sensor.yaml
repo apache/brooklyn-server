@@ -19,7 +19,7 @@ name: container-sensor
 services:
   - type: 'org.apache.brooklyn.entity.stock.BasicStartable:1.1.0-SNAPSHOT'
     brooklyn.initializers:
-      - type: org.apache.brooklyn.tasks.kubectl.DockerSensor
+      - type: org.apache.brooklyn.tasks.kubectl.ContainerSensor
         brooklyn.config:
           image: perl
           commands:

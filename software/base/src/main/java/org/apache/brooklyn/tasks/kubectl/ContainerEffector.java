@@ -35,14 +35,14 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.core.mgmt.BrooklynTaskTags.EFFECTOR_TAG;
 
-public class DockerEffector extends AddEffectorInitializerAbstract implements  ContainerCommons {
+public class ContainerEffector extends AddEffectorInitializerAbstract implements  ContainerCommons {
 
-    private static final Logger LOG = LoggerFactory.getLogger(DockerEffector.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ContainerEffector.class);
 
-    public DockerEffector() {
+    public ContainerEffector() {
     }
 
-    public DockerEffector(ConfigBag configBag) {
+    public ContainerEffector(ConfigBag configBag) {
         super(configBag);
     }
 
@@ -69,13 +69,13 @@ public class DockerEffector extends AddEffectorInitializerAbstract implements  C
         @Override
         public String call(ConfigBag parameters) {
             ConfigBag configBag = ConfigBag.newInstanceCopying(this.params).putAll(parameters);
-            Task<String> dockerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
-                    .summary("Executing Docker Image: " + EntityInitializers.resolve(configBag, CONTAINER_IMAGE))
+            Task<String> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                    .summary("Executing Container Image: " + EntityInitializers.resolve(configBag, CONTAINER_IMAGE))
                     .tag(entity().getId() + "-" + EFFECTOR_TAG)
                     .configure(configBag.getAllConfig())
                     .newTask();
-            DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity());
-            Object result = dockerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
+            DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity());
+            Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
             return result.toString();
         }
     }

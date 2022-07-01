@@ -64,8 +64,10 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
             throw new IllegalStateException("You must specify containerImage when using " + this.getClass().getSimpleName());
         }
 
+        final String cleanImageName = containerImage.contains(":") ?  containerImage.substring(0, containerImage.indexOf(":")) : containerImage;
+
         final String containerName = (Strings.isBlank(containerNameFromCfg)
-                ? ( (Strings.isNonBlank(this.tag) ? this.tag + "-" : "").concat(containerImage).concat("-").concat(Strings.makeRandomId(10)))
+                ? ( (Strings.isNonBlank(this.tag) ? this.tag + "-" : "").concat(cleanImageName).concat("-").concat(Strings.makeRandomId(10)))
                 : containerNameFromCfg).replace(" ", "-")
                 .replace("/", "-")
                 .replace("_", "-")

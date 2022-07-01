@@ -42,17 +42,17 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.brooklyn.core.mgmt.BrooklynTaskTags.SENSOR_TAG;
 
 @SuppressWarnings({"UnstableApiUsage", "deprecation", "unchecked"})
-public class DockerSensor<T> extends AbstractAddSensorFeed<T> implements ContainerCommons {
+public class ContainerSensor<T> extends AbstractAddSensorFeed<T> implements ContainerCommons {
 
     public static final ConfigKey<String> FORMAT = SshCommandSensor.FORMAT;
     public static final ConfigKey<Boolean> LAST_YAML_DOCUMENT = SshCommandSensor.LAST_YAML_DOCUMENT;
 
-    private static final Logger LOG = LoggerFactory.getLogger(DockerSensor.class);
+    private static final Logger LOG = LoggerFactory.getLogger(ContainerSensor.class);
 
-    public DockerSensor() {
+    public ContainerSensor() {
     }
 
-    public DockerSensor(final ConfigBag parameters) {
+    public ContainerSensor(final ConfigBag parameters) {
         super(parameters);
     }
 
@@ -77,13 +77,13 @@ public class DockerSensor<T> extends AbstractAddSensorFeed<T> implements Contain
                         .callable(new Callable<Object>() {
                             @Override
                             public Object call() throws Exception {
-                                Task<String> dockerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                                Task<String> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
                                         .summary("Running " + EntityInitializers.resolve(configBag, SENSOR_NAME))
                                         .tag(entity.getId() + "-" + SENSOR_TAG)
                                         .configure(configBag.getAllConfig())
                                         .newTask();
-                                DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity);
-                                Object result = dockerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
+                                DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
+                                Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
                                 List<String> res = (List<String>) result;
                                 while(!res.isEmpty() && Iterables.getLast(res).matches("namespace .* deleted\\s*")) res = res.subList(0, res.size()-1);
 

@@ -32,7 +32,7 @@ import org.testng.annotations.Test;
 
 @SuppressWarnings( "UnstableApiUsage")
 @Test(groups = {"Live"})
-public class DockerSensorTest extends BrooklynAppUnitTestSupport {
+public class ContainerSensorTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testEchoPerlCommand() {
@@ -42,10 +42,10 @@ public class DockerSensorTest extends BrooklynAppUnitTestSupport {
                 ContainerCommons.CONTAINER_IMAGE, "perl",
                 ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
                 ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash", "-c","echo " + message) ,
-                DockerSensor.SENSOR_PERIOD, "1s",
-                DockerSensor.SENSOR_NAME, "test-echo-sensor"));
+                ContainerSensor.SENSOR_PERIOD, "1s",
+                ContainerSensor.SENSOR_NAME, "test-echo-sensor"));
 
-        DockerSensor<String> initializer = new DockerSensor<>(parameters);
+        ContainerSensor<String> initializer = new ContainerSensor<>(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -61,10 +61,10 @@ public class DockerSensorTest extends BrooklynAppUnitTestSupport {
                 ContainerCommons.CONTAINER_IMAGE, "perl",
                 ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash") ,
                 ContainerCommons.ARGUMENTS, ImmutableList.of("-c", "echo " + message) ,
-                DockerSensor.SENSOR_PERIOD, "1s",
-                DockerSensor.SENSOR_NAME, "test-echo-sensor"));
+                ContainerSensor.SENSOR_PERIOD, "1s",
+                ContainerSensor.SENSOR_NAME, "test-echo-sensor"));
 
-        DockerSensor<String> initializer = new DockerSensor<>(parameters);
+        ContainerSensor<String> initializer = new ContainerSensor<>(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -79,10 +79,10 @@ public class DockerSensorTest extends BrooklynAppUnitTestSupport {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "perl",
                 ContainerCommons.ARGUMENTS, ImmutableList.of("echo", message) ,
-                DockerSensor.SENSOR_PERIOD, "1s",
-                DockerSensor.SENSOR_NAME, "test-echo-sensor"));
+                ContainerSensor.SENSOR_PERIOD, "1s",
+                ContainerSensor.SENSOR_NAME, "test-echo-sensor"));
 
-        DockerSensor<String> initializer = new DockerSensor<>(parameters);
+        ContainerSensor<String> initializer = new ContainerSensor<>(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -97,10 +97,10 @@ public class DockerSensorTest extends BrooklynAppUnitTestSupport {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "bash",
                 ContainerCommons.ARGUMENTS, ImmutableList.of("-c", "echo " + message) ,
-                DockerSensor.SENSOR_PERIOD, "1s",
-                DockerSensor.SENSOR_NAME, "test-echo-sensor"));
+                ContainerSensor.SENSOR_PERIOD, "1s",
+                ContainerSensor.SENSOR_NAME, "test-echo-sensor"));
 
-        DockerSensor<String> initializer = new DockerSensor<>(parameters);
+        ContainerSensor<String> initializer = new ContainerSensor<>(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -113,10 +113,10 @@ public class DockerSensorTest extends BrooklynAppUnitTestSupport {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "hashicorp/terraform",
                 ContainerCommons.COMMANDS, ImmutableList.of("terraform", "version" ),
-                DockerSensor.SENSOR_PERIOD, "1s",
-                DockerSensor.SENSOR_NAME, "tf-version-sensor"));
+                ContainerSensor.SENSOR_PERIOD, "1s",
+                ContainerSensor.SENSOR_NAME, "tf-version-sensor"));
 
-        DockerSensor<String> initializer = new DockerSensor<>(parameters);
+        ContainerSensor<String> initializer = new ContainerSensor<>(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 

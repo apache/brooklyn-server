@@ -39,20 +39,20 @@ import static org.testng.Assert.assertTrue;
  */
 @SuppressWarnings( "UnstableApiUsage")
 @Test(groups = {"Live"})
-public class DockerEffectorTest extends BrooklynAppUnitTestSupport {
+public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testEchoPerlCommand() {
         final String message = ("hello " + Strings.makeRandomId(10)).toLowerCase();
 
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
-                DockerEffector.EFFECTOR_NAME, "test-container-effector",
+                ContainerEffector.EFFECTOR_NAME, "test-container-effector",
                 ContainerCommons.CONTAINER_IMAGE, "perl",
                 ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
                 ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash", "-c", "echo " + message),
                 BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "WORLD")));
 
-        DockerEffector initializer = new DockerEffector(parameters);
+        ContainerEffector initializer = new ContainerEffector(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -66,12 +66,12 @@ public class DockerEffectorTest extends BrooklynAppUnitTestSupport {
         final String message = ("hello " + Strings.makeRandomId(10)).toLowerCase();
 
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
-                DockerEffector.EFFECTOR_NAME, "test-container-effector",
+                ContainerEffector.EFFECTOR_NAME, "test-container-effector",
                 ContainerCommons.CONTAINER_IMAGE, "bash",
                 ContainerCommons.ARGUMENTS, ImmutableList.of( "-c", "echo " + message),
                 BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "WORLD")));
 
-        DockerEffector initializer = new DockerEffector(parameters);
+        ContainerEffector initializer = new ContainerEffector(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -83,12 +83,12 @@ public class DockerEffectorTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testEchoVarBashCommand() {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
-                DockerEffector.EFFECTOR_NAME, "test-container-effector",
+                ContainerEffector.EFFECTOR_NAME, "test-container-effector",
                 ContainerCommons.CONTAINER_IMAGE, "bash",
                 ContainerCommons.ARGUMENTS, ImmutableList.of( "-c", "echo $HELLO"),
                 BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "WORLD")));
 
-        DockerEffector initializer = new DockerEffector(parameters);
+        ContainerEffector initializer = new ContainerEffector(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
@@ -100,12 +100,12 @@ public class DockerEffectorTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testEchoMultiBashCommand() {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
-                DockerEffector.EFFECTOR_NAME, "test-container-effector",
+                ContainerEffector.EFFECTOR_NAME, "test-container-effector",
                 ContainerCommons.CONTAINER_IMAGE, "bash",
                 ContainerCommons.ARGUMENTS, ImmutableList.of( "-c", "date; echo $HELLO"),
                 BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "WORLD")));
 
-        DockerEffector initializer = new DockerEffector(parameters);
+        ContainerEffector initializer = new ContainerEffector(parameters);
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
