@@ -22,11 +22,14 @@ import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.time.Timestamp;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
+import java.util.Set;
 import java.util.function.Predicate;
 
 public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
@@ -198,6 +201,44 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertTrue(p.test("yx"));
         Asserts.assertFalse(p.test("zx"));
         Asserts.assertFalse(p.test("xa"));
+    }
+
+    private static class SetAllowingEqualsToList<T> extends MutableSet<T> {
+        public static <T> SetAllowingEqualsToList<T> of(Iterable<T> items) {
+            SetAllowingEqualsToList<T> result = new SetAllowingEqualsToList<>();
+            result.putAll(items);
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o instanceof Iterable && !(o instanceof Set)) o = MutableSet.copyOf((Iterable)o);
+            return super.equals(o);
+        }
+    }
+
+    @Test
+    public void testAllWithListWithVariousFlattening() {
+        Asserts.assertTrue(SetAllowingEqualsToList.of(MutableSet.of("y", "x")).equals(MutableList.of("x", "y")));
+
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("equals", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(Arrays.asList("x", "y")));
+        // list not equal because of order and equal
+        Asserts.assertFalse(p.test(Arrays.asList("y", "x")));
+        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
+        // set equality _does_ match without order
+        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
+
+        // "all" works because it attempts unflattened at all, then flattens on each test
+        p = TypeCoercions.coerce(MutableMap.of("all", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(Arrays.asList("y", "x")));
+        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
+        // set equality _does_ match!
+        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
+
+        // specify unflattening also works, but is unnecessary
+        p = TypeCoercions.coerce(MutableMap.of("unflattened", MutableMap.of("all", MutableList.of("x", "y"))), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
     }
 
     @Test

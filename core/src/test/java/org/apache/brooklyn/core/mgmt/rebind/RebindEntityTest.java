@@ -291,7 +291,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     // Where the same object is referenced from two different fields, using types that do not share a 
     // super type... then the object will just be deserialized once - at that point it must have *both*
     // interfaces.
-    @Test(groups="WIP")
+    @Test
     public void testHandlesReferencingOtherEntityInPojoFieldsOfOtherTypes() throws Exception {
         MyEntityWithMultipleInterfaces origE = origApp.createAndManageChild(EntitySpec.create(MyEntityWithMultipleInterfaces.class));
         ReffingEntity reffer = new ReffingEntity();
@@ -785,6 +785,22 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     }
 
     @Test
+    public void testPojoFieldNotRebinded() throws Exception {
+        MyEntity2 my2 = origApp.createAndManageChild(EntitySpec.create(MyEntity2.class));
+        ((MyEntity2Impl) Entities.deproxy(my2)).obj = "hello";
+
+        ((MyEntity2Impl) Entities.deproxy(my2)).requestPersist();
+        //mgmt().getRebindManager().forcePersistNow(true, null);
+
+        TestApplication app2 = rebind();
+        MyEntity2 my2b = (MyEntity2) app2.getChildren().iterator().next();
+
+        // fields not persisted
+        // Asserts.assertEquals( ((MyEntity2Impl) Entities.deproxy(my2b)).obj, "hello");
+        Asserts.assertNull( ((MyEntity2Impl) Entities.deproxy(my2b)).obj);
+    }
+
+    @Test
     public void testCreationWithLambdaFails() throws Exception {
         Collection<Entity> oldChildren = MutableList.copyOf( origApp.getChildren() );
         Collection<Entity> oldEntities = MutableList.copyOf( mgmt().getEntityManager().getEntities() );
@@ -844,7 +860,7 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     
     public static class MyEntityImpl extends AbstractEntity implements MyEntity {
         @SuppressWarnings("unused")
-        private final Object dummy = new Object(); // so not serializable
+        private final Object dummy = new Object(); // not a problem that this is not serializable (not written anyway)
 
         public MyEntityImpl() {
         }
@@ -874,9 +890,6 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     }
     
     public static class MyEntityWithMultipleInterfacesImpl extends AbstractGroupImpl implements MyEntityWithMultipleInterfaces {
-        @SuppressWarnings("unused")
-        private final Object dummy = new Object(); // so not serializable
-
         public MyEntityWithMultipleInterfacesImpl() {
         }
 
@@ -919,9 +932,6 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
         public static final AttributeSensor<Location> LOCATION_REF_SENSOR = new BasicAttributeSensor<Location>(
                 Location.class, "test.attribute.locationref", "Ref to other location");
         
-        @SuppressWarnings("unused")
-        private final Object dummy = new Object(); // so not serializable
-
         public MyEntityReffingOthersImpl() {
         }
     }
@@ -942,8 +952,8 @@ public class RebindEntityTest extends RebindTestFixtureWithApp {
     public static class MyEntity2Impl extends AbstractEntity implements MyEntity2 {
         final List<String> events = new CopyOnWriteArrayList<String>();
 
-        @SuppressWarnings("unused")
-        private final Object dummy = new Object(); // so not serializable
+        @SetFromFlag
+        Object obj;
 
         public MyEntity2Impl() {
         }
