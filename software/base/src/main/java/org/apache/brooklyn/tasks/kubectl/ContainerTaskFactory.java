@@ -87,9 +87,9 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
                 .build();
 
 
-        final String timeout = EntityInitializers.resolve(configBag, TIMEOUT);
+        final long timeoutInSeconds = EntityInitializers.resolve(configBag, TIMEOUT).toSeconds();
         Task<String> runCommandsTask = buildKubeTask(configBag, "Submit job", String.format(JOBS_CREATE_CMD,jobYamlLocation)).asTask();
-        Task<String> waitTask =  buildKubeTask(configBag, "Wait For Completion", String.format(JOBS_FEED_CMD,timeout,containerName)).asTask();
+        Task<String> waitTask =  buildKubeTask(configBag, "Wait For Completion", String.format(JOBS_FEED_CMD,timeoutInSeconds,containerName)).asTask();
         if(!devMode) {
             // making these two inessential to insure proper namespace cleanup
             BrooklynTaskTags.addTagDynamically(runCommandsTask, BrooklynTaskTags.INESSENTIAL_TASK);

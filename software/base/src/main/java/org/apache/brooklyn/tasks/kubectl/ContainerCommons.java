@@ -24,6 +24,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.SetConfigKey;
+import org.apache.brooklyn.util.time.Duration;
 
 import java.util.List;
 import java.util.Map;
@@ -41,7 +42,7 @@ public interface ContainerCommons {
     ConfigKey<List> COMMANDS = ConfigKeys.newConfigKey(List.class,"commands", "Commands to execute for container", Lists.newArrayList());
     ConfigKey<List> ARGUMENTS = ConfigKeys.newConfigKey(List.class,"args", "Arguments to execute for container", Lists.newArrayList());
 
-    ConfigKey<String> TIMEOUT = ConfigKeys.newStringConfigKey("timeout", "Container wait timeout", "5m");
+    ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout", "Container wait timeout", Duration.minutes(1));
 
     ConfigKey<String> WORKING_DIR = ConfigKeys.newStringConfigKey("workingDir", "Location where the container commands are executed");
     BasicConfigKey<Map<String,String>> VOLUME_MOUNTS = SetConfigKey.builder(new TypeToken<Map<String,String>>()  {}, "volumeMounts")
@@ -53,7 +54,7 @@ public interface ContainerCommons {
     String NAMESPACE_CREATE_CMD = "kubectl create namespace brooklyn-%s"; // namespace name
     String NAMESPACE_SET_CMD = "kubectl config set-context --current --namespace=brooklyn-%s"; // namespace name
     String JOBS_CREATE_CMD = "kubectl apply -f %s"; // deployment.yaml absolute path
-    String JOBS_FEED_CMD = "kubectl wait --timeout=%s --for=condition=complete job/%s"; // timeout, containerName
+    String JOBS_FEED_CMD = "kubectl wait --timeout=%ds --for=condition=complete job/%s"; // timeout, containerName
     String JOBS_LOGS_CMD = "kubectl logs jobs/%s"; // containerName
     String NAMESPACE_DELETE_CMD = "kubectl delete namespace brooklyn-%s"; // namespace name
 
