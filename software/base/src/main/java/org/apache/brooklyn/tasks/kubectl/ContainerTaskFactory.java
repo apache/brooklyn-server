@@ -71,6 +71,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
                 : containerNameFromCfg).replace(" ", "-")
                 .replace("/", "-")
                 .replace("_", "-")
+                .replaceAll("[^a-z0-9-]", "") // remove other symbols
                 .toLowerCase();
 
         final String jobYamlLocation =  new JobBuilder()
@@ -86,8 +87,9 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
                 .build();
 
 
+        final String timeout = EntityInitializers.resolve(configBag, TIMEOUT);
         Task<String> runCommandsTask = buildKubeTask(configBag, "Submit job", String.format(JOBS_CREATE_CMD,jobYamlLocation)).asTask();
-        Task<String> waitTask =  buildKubeTask(configBag, "Wait For Completion", String.format(JOBS_FEED_CMD,containerName)).asTask();
+        Task<String> waitTask =  buildKubeTask(configBag, "Wait For Completion", String.format(JOBS_FEED_CMD,timeout,containerName)).asTask();
         if(!devMode) {
             // making these two inessential to insure proper namespace cleanup
             BrooklynTaskTags.addTagDynamically(runCommandsTask, BrooklynTaskTags.INESSENTIAL_TASK);
