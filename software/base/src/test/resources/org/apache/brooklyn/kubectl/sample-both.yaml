@@ -19,17 +19,17 @@ name: container-both
 services:
   - type: 'org.apache.brooklyn.entity.stock.BasicStartable:1.1.0-SNAPSHOT'
     brooklyn.initializers:
-      - type: org.apache.brooklyn.tasks.kubectl.DockerEffector
+      - type: org.apache.brooklyn.tasks.kubectl.ContainerEffector
         brooklyn.config:
           shell.env:
-            hello: hello-amp-docker-effector
+            hello: hello-amp-container-effector
           image: bash
           imagePullPolicy: NEVER
           args:
           - -c
           - HELLO=$(ls -la) ; sleep 5 ; echo $HELLO ; echo $hello
-          name: docker-effector
-      - type: org.apache.brooklyn.tasks.kubectl.DockerSensor
+          name: container-effector
+      - type: org.apache.brooklyn.tasks.kubectl.ContainerSensor
         brooklyn.config:
           image: perl
           imagePullPolicy: never

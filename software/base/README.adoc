@@ -23,7 +23,7 @@ This project contains useful software types for building applications.
 
 == Kubectl components
 
-The `org.apache.brooklyn.tasks.kubectl` package contains types `DockerSensor` and `DockerEffector` that can be used to 
+The `org.apache.brooklyn.tasks.kubectl` package contains types `ContainerSensor` and `ContainerEffector` that can be used to
 declare simple actions to be executed on a container managed by a kubernetes cluster. To use them you have to make sure
 the location where the app was deployed has `kubectl` installed and configured to use local or remote Kubernetes cluster. 
 
