@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddEffector;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.effector.http.HttpCommandEffector;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -75,6 +76,13 @@ public class ChildrenBatchEffectorTest extends BrooklynAppUnitTestSupport {
         assertEquals(DoNothingEffector.correctExecutions, 2);
     }
 
+    @Test(expectedExceptions = NullPointerException.class)
+    public void testMissingName() {
+        new HttpCommandEffector(ConfigBag.newInstance()
+                .configure(ChildrenBatchEffector.BATCH_SIZE, 1)
+                .configure(ChildrenBatchEffector.EFFECTOR_TO_INVOKE, EFFECTOR_CHILDREN.getName())
+        ).newEffectorBuilder();
+    }
     @Test
     public void testContinueInvocationsWhenOneEffectorFail() {
 

@@ -20,11 +20,11 @@ package org.apache.brooklyn.core.effector.util;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
 import org.apache.brooklyn.core.effector.Effectors;
@@ -40,14 +40,13 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Effector to  invoking an effector across children or members,
  */
-public class ChildrenBatchEffector implements EntityInitializer {
+public class ChildrenBatchEffector extends AddEffectorInitializerAbstract {
     public static final Effector<Object> EFFECTOR = Effectors.effector(Object.class, "childrenBatchEffector").
             description("Invokes an effector e.g. across children or members").buildAbstract();
     public static final ConfigKey<String> EFFECTOR_NAME = ConfigKeys.builder(String.class)
@@ -78,11 +77,16 @@ public class ChildrenBatchEffector implements EntityInitializer {
     public static final MapConfigKey<Object> EFFECTOR_ARGS = new MapConfigKey.Builder<Object>(Object.class, "effectorArgs")
             .build();
     private static final Logger log = LoggerFactory.getLogger(ChildrenBatchEffector.class);
-    private final ConfigBag paramsCreationTime;
 
     public ChildrenBatchEffector(ConfigBag params) {
-        this.paramsCreationTime = params;
+        super(params);
     }
+
+    @Override
+    protected Effectors.EffectorBuilder<Object> newEffectorBuilder() {
+        Effectors.EffectorBuilder<Object> eff = newAbstractEffectorBuilder(Object.class);
+        eff.impl(new ChildrenBatchEffector.ChildrenBatchEffectorBody(initParams()));
+        return eff;    }
 
     public ChildrenBatchEffector(Map<String, String> params) {
         this(ConfigBag.newInstance(params));
@@ -104,7 +108,7 @@ public class ChildrenBatchEffector implements EntityInitializer {
 
     @Override
     public void apply(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
-        ((EntityInternal) entity).getMutableEntityType().addEffector(makeEffector(paramsCreationTime));
+        ((EntityInternal) entity).getMutableEntityType().addEffector(makeEffector(initParams()));
     }
 
     protected static class ChildrenBatchEffectorBody extends EffectorBody<Object> {
@@ -162,11 +166,7 @@ public class ChildrenBatchEffector implements EntityInitializer {
 
                 if (batchSize > 0 && !items.isEmpty()) {
                     while (activeTasks.size() >= batchSize) {
-                        Iterator<Task<?>> ati = activeTasks.iterator();
-                        while (ati.hasNext()) {
-                            final Task<?> task = ati.next();
-                            if (task.isDone()) ati.remove();
-                        }
+                        activeTasks.removeIf(Task::isDone);
                         if (activeTasks.size() >= batchSize) {
                             try {
                                 Tasks.withBlockingDetails("Waiting for something in current batch of " + batchSize + " to complete "
