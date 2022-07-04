@@ -108,7 +108,7 @@ public class ClassLoaderUtilsTest {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
-        Bundle bundle = installBundle(mgmt, bundleUrl);
+        Bundle bundle = installBundle(mgmt, bundleUrl, false /* this works without starting it */);
         @SuppressWarnings("unchecked")
         Class<? extends Entity> clazz = (Class<? extends Entity>) bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
@@ -129,153 +129,154 @@ public class ClassLoaderUtilsTest {
         String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-        
+
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
-        Bundle bundle = installBundle(mgmt, bundleUrl);
+        Bundle bundle = installBundle(mgmt, bundleUrl, false /* this works without starting it */);
         Class<?> clazz = bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
-        
+
         String whiteList = bundle.getSymbolicName()+":"+bundle.getVersion();
         System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whiteList);
-        
+
         ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
 
         BundledName resource = new BundledName(classname).toResource();
         BundledName bn = new BundledName(resource.bundle, resource.version, "/" + resource.name);
         Asserts.assertSize(cluEntity.getResources(bn.toString()), 1);
     }
-    
+
 
     @Test
     public void testVariousLoadersLoadClassInOsgiWhiteList() throws Exception {
         String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-        
+
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
-        Bundle bundle = installBundle(mgmt, bundleUrl);
+        Bundle bundle = installBundle(mgmt, bundleUrl, true);
+
         Class<?> clazz = bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
-        
+
         String whiteList = bundle.getSymbolicName()+":"+bundle.getVersion();
         System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whiteList);
-        
+
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
         ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
-        
+
         assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluEntity);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluEntity);
     }
-    
+
     @Test
     public void testLoadClassInOsgiWhiteListWithInvalidBundlePresent() throws Exception {
         String bundlePath = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_PATH;
         String bundleUrl = OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL;
         String classname = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_SIMPLE_ENTITY;
-        
+
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), bundlePath);
 
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
-        Bundle bundle = installBundle(mgmt, bundleUrl);
-        
+        Bundle bundle = installBundle(mgmt, bundleUrl, true);
+
         Manifest manifest = new Manifest();
         manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         JarOutputStream target = new JarOutputStream(buffer, manifest);
         target.close();
-        
+
         OsgiManager osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager().get();
         Framework framework = osgiManager.getFramework();
         Bundle installedBundle = framework.getBundleContext().installBundle("stream://invalid", new ByteArrayInputStream(buffer.toByteArray()));
         assertNotNull(installedBundle);
-        
+
         Class<?> clazz = bundle.loadClass(classname);
         Entity entity = createSimpleEntity(bundleUrl, clazz);
-        
+
         String whileList = bundle.getSymbolicName()+":"+bundle.getVersion();
         System.setProperty(ClassLoaderUtils.WHITE_LIST_KEY, whileList);
-        
+
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
         ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
-        
+
         assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluEntity);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluEntity);
     }
-    
+
     @Test
     public void testLoadClassInOsgiCore() throws Exception {
         Class<?> clazz = BasicEntity.class;
         String classname = clazz.getName();
-        
+
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.core");
         String url = bundle.getLocation();
         // NB: the above will be a system:file: url when running tests against target/classes/ -- but
         // OSGi manager will accept that if running in dev mode
         Entity entity = createSimpleEntity(url, clazz);
-        
+
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
         ClassLoaderUtils cluNone = new ClassLoaderUtils(getClass());
         ClassLoaderUtils cluEntity = new ClassLoaderUtils(getClass(), entity);
-        
+
         assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
         assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname, clazz, cluMgmt, cluClass, cluNone, cluEntity);
     }
-    
+
     @Test
     public void testLoadClassInOsgiApi() throws Exception {
         Class<?> clazz = Entity.class;
         String classname = clazz.getName();
-        
+
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         Bundle bundle = getBundle(mgmt, "org.apache.brooklyn.api");
-        
+
         ClassLoaderUtils cluMgmt = new ClassLoaderUtils(getClass(), mgmt);
         ClassLoaderUtils cluClass = new ClassLoaderUtils(clazz);
         ClassLoaderUtils cluNone = new ClassLoaderUtils(getClass());
-        
+
         assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone);
         assertLoadSucceeds(classname, clazz, cluMgmt, cluClass, cluNone);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluNone);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion() + ":" + classname, clazz, cluMgmt, cluClass, cluNone);
     }
-    
+
     @Test
     public void testIsBundleWhiteListed() throws Exception {
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
-        
+
         assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.core")));
         assertTrue(clu.isBundleWhiteListed(getBundle(mgmt, "org.apache.brooklyn.api")));
         assertFalse(clu.isBundleWhiteListed(getBundle(mgmt, "com.google.guava")));
     }
-    
+
     /**
-     * When two guava versions installed, want us to load from the *brooklyn* version rather than 
+     * When two guava versions installed, want us to load from the *brooklyn* version rather than
      * a newer version that happens to be in Karaf.
      */
     @Test(groups={"Integration"})
     public void testLoadsFromRightGuavaVersion() throws Exception {
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
         ClassLoaderUtils clu = new ClassLoaderUtils(getClass(), mgmt);
-        
+
         String bundleUrl = MavenRetriever.localUrl(MavenArtifact.fromCoordinate("com.google.guava:guava:jar:18.0"));
-        Bundle bundle = installBundle(mgmt, bundleUrl);
+        Bundle bundle = installBundle(mgmt, bundleUrl, false /* this works without starting */);
         String bundleName = bundle.getSymbolicName();
-        
+
         String classname = bundleName + ":" + ImmutableList.class.getName();
         assertLoadSucceeds(clu, classname, ImmutableList.class);
     }
-    
+
     @Test
     public void testLoadBrooklynClass() throws Exception {
         mgmt = LocalManagementContextForTests.builder(true).enableOsgiReusable().build();
@@ -310,11 +311,13 @@ public class ClassLoaderUtilsTest {
             Asserts.expectedFailureContains(nested, "not found to load");
         }
     }
-    
-    private Bundle installBundle(ManagementContext mgmt, String bundleUrl) throws Exception {
+
+    private Bundle installBundle(ManagementContext mgmt, String bundleUrl, boolean start) throws Exception {
         OsgiManager osgiManager = ((ManagementContextInternal)mgmt).getOsgiManager().get();
         Framework framework = osgiManager.getFramework();
-        return Osgis.install(framework, bundleUrl);
+        Bundle result = Osgis.install(framework, bundleUrl);
+        if (start) result.start();
+        return result;
     }
 
     private Bundle getBundle(ManagementContext mgmt, final String symbolicName) throws Exception {

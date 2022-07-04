@@ -25,6 +25,7 @@ import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
@@ -32,6 +33,8 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.apache.cxf.jaxrs.ext.multipart.Multipart;
+
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -60,6 +63,12 @@ public interface ApplicationApi {
                 + "including tags, values for selected sensor and config glob patterns, "
                 + "and recursively this info for children, up to a given depth."
     )
+    @ApiResponses(value = {
+            @ApiResponse(code = 202, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<EntitySummary> details(
             @ApiParam(value="Any additional entity ID's to include, as JSON or comma-separated list; ancestors will also be included", required=false)
             @DefaultValue("")
@@ -91,6 +100,12 @@ public interface ApplicationApi {
                 + "Deprecated since 1.0.0. Use the '/details' endpoint with better semantics. "
                 + "(This returns the complete tree which is wasteful and not usually wanted.)"
     )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     @Deprecated
     /** @deprecated since 1.0.0 use {@link #details(String, boolean, String, String, int)} */
     public List<EntityDetail> fetch(
@@ -108,6 +123,12 @@ public interface ApplicationApi {
                 + "The `details` endpoint returns a more informative record of applications.",
             response = org.apache.brooklyn.rest.domain.ApplicationSummary.class
     )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<ApplicationSummary> list(
             @ApiParam(value = "Regular expression to filter by", required = false)
             @DefaultValue(".*")
@@ -126,7 +147,11 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.ApplicationSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Application not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public ApplicationSummary get(
             @ApiParam(
@@ -134,16 +159,18 @@ public interface ApplicationApi {
                     required = true)
             @PathParam("application") String application);
 
+    /** @deprecated since 1.1 use {@link #createWithFormat(String, String)} instead */
+    @Deprecated
     @POST
-    @Consumes({"application/x-yaml",
-            // see http://stackoverflow.com/questions/332129/yaml-mime-type
-            "text/yaml", "text/x-yaml", "application/yaml"})
-    @ApiOperation(
-            value = "Create and start a new application from YAML",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
-    )
+    @Consumes("application/deprecated-yaml-app-spec")
+    @ApiOperation(value = "(deprecated)", hidden = true, response = org.apache.brooklyn.rest.domain.TaskSummary.class)
     @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response createFromYaml(
             @ApiParam(
@@ -152,7 +179,25 @@ public interface ApplicationApi {
                     required = true)
             String yaml);
 
-    @Beta
+    /** @deprecated since 1.1 use {@link #createFromYamlAndAppId(String, String)}
+     * or {@link #createFromYamlAndFormatAndAppId(String, String, String)} instead */
+    @Deprecated
+    @POST
+    @Consumes("application/deprecated-yaml-app-spec")
+    @ApiOperation(value = "(deprecated)", hidden = true)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response createFromYamlWithAppId(
+            @ApiParam(name = "applicationSpec", value = "App spec in CAMP YAML format", required = true) String yaml,
+            @ApiParam(name = "application", value = "Application id", required = true) @PathParam("application") String appId);
+
+
     @PUT
     @Path("/{application}")
     @Consumes({"application/x-yaml",
@@ -163,21 +208,79 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
             @ApiResponse(code = 404, message = "Undefined entity or location"),
-            @ApiResponse(code = 409, message = "Application already registered")
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public Response createFromYamlWithAppId(
-            @ApiParam(name = "applicationSpec", value = "App spec in CAMP YAML format", required = true) String yaml,
+
+    public Response createFromYamlAndAppId(
+            @ApiParam(name = "plan", value = "Plan", required = true) String yaml,
             @ApiParam(name = "application", value = "Application id", required = true) @PathParam("application") String appId);
 
-    @POST
-    @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
+    @Beta
+    @PUT
+    @Path("/{application}")
+    @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
-            value = "Create and start a new application from miscellaneous types, including JSON either new CAMP format or legacy AppSpec format",
+            value = "[BETA] Create and start a new application from YAML and format with the given id",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response createFromYamlAndFormatAndAppIdForm(
+            @ApiParam(name = "plan", value = "Plan", required = true)
+            @FormParam("plan") String yaml,
+            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
+            @FormParam("format") String format,
+            @ApiParam(name = "application", value = "Application id", required = true)
+            @PathParam("application") String appId);
+
+    @Beta
+    @PUT
+    @Path("/{application}")
+    @Consumes({MediaType.MULTIPART_FORM_DATA})
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML and format with the given id",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response createFromYamlAndFormatAndAppIdMultipart(
+            @ApiParam(name = "plan", value = "Plan", required = true)
+            @Multipart("plan") String yaml,
+            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
+            @Multipart(value = "format", required = false) String format,
+            @ApiParam(name = "application", value = "Application id", required = true)
+            @PathParam("application") String appId);
+
+
+    /** @deprecated since 1.1 use {@link #createWithFormatMultipart(String, String)} instead */
+    @Deprecated
+    @POST
+    @Consumes("application/deprecated-yaml-app-spec")
+    @ApiOperation(value = "(deprecated)", hidden = true, response = org.apache.brooklyn.rest.domain.TaskSummary.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response createPoly(
             @ApiParam(
@@ -193,7 +296,12 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined entity or location")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response createFromForm(
             @ApiParam(
@@ -202,6 +310,65 @@ public interface ApplicationApi {
                     required = true)
             @Valid String contents);
 
+    @POST
+    @Consumes
+    @ApiOperation(
+            value = "Create and start a new application from YAML",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response createFromBytes(
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true) byte[] plan);
+
+    @Beta
+    @POST
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response createWithFormatMultipart(
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
+            @Multipart("plan") String plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
+            @Multipart(value = "format", required = false) String format);
+
+    @Beta
+    @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @ApiOperation(
+            value = "[BETA] Create and start a new application from YAML",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+    )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Undefined entity or location"),
+            @ApiResponse(code = 409, message = "Application already registered"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response createWithFormatForm(
+            @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
+            @FormParam("plan") String plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
+            @FormParam("format") String format);
+
     @DELETE
     @Path("/{application}")
     @ApiOperation(
@@ -209,7 +376,11 @@ public interface ApplicationApi {
             response = org.apache.brooklyn.rest.domain.TaskSummary.class
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Application not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response delete(
             @ApiParam(
@@ -223,7 +394,11 @@ public interface ApplicationApi {
     @ApiOperation(value = "Fetch entity info for all (or filtered) descendants",
             response = org.apache.brooklyn.rest.domain.EntitySummary.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Application or entity missing")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<EntitySummary> getDescendants(
             @ApiParam(value = "Application ID or name", required = true)
@@ -236,7 +411,11 @@ public interface ApplicationApi {
     @Path("/{application}/descendants/sensor/{sensor}")
             @ApiOperation(value = "Fetch values of a given sensor for all (or filtered) descendants")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Application or entity missing")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Map<String,Object> getDescendantsSensor(
             @ApiParam(value = "Application ID or name", required = true)

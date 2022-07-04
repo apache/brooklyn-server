@@ -27,6 +27,7 @@ import java.math.BigInteger;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -79,8 +80,8 @@ public class TypeCoercionsTest {
         assertEquals(coerce("1", Short.class), (Short)((short)1));
         assertEquals(coerce("1", Integer.class), (Integer)1);
         assertEquals(coerce("1", Long.class), (Long)1l);
-        assertEquals(coerce("1", Float.class), 1f);
-        assertEquals(coerce("1", Double.class), 1d);
+        assertEquals(coerce("1", Float.class), (Float)1f);
+        assertEquals(coerce("1", Double.class), (Double)1d);
         assertEquals(coerce("true", Boolean.class), (Boolean)true);
         assertEquals(coerce("False", Boolean.class), (Boolean)false);
         assertEquals(coerce("true ", Boolean.class), (Boolean)true);
@@ -90,8 +91,8 @@ public class TypeCoercionsTest {
         assertEquals(coerce("1", short.class), (Short)((short)1));
         assertEquals(coerce("1", int.class), (Integer)1);
         assertEquals(coerce("1", long.class), (Long)1l);
-        assertEquals(coerce("1", float.class), 1f);
-        assertEquals(coerce("1", double.class), 1d);
+        assertEquals(coerce("1", float.class), (Float) 1f);
+        assertEquals(coerce("1", double.class), (Double)1d);
         assertEquals(coerce("TRUE", boolean.class), (Boolean)true);
         assertEquals(coerce("false", boolean.class), (Boolean)false);
     }
@@ -102,8 +103,8 @@ public class TypeCoercionsTest {
         assertEquals(coerce((short)1, Short.class), (Short)((short)1));
         assertEquals(coerce(1, Integer.class), (Integer)1);
         assertEquals(coerce(1l, Long.class), (Long)1l);
-        assertEquals(coerce(1f, Float.class), 1f);
-        assertEquals(coerce(1d, Double.class), 1d);
+        assertEquals(coerce(1f, Float.class), (Float) 1f);
+        assertEquals(coerce(1d, Double.class), (Double) 1d);
         assertEquals(coerce(true, Boolean.class), (Boolean)true);
     }
     
@@ -114,16 +115,16 @@ public class TypeCoercionsTest {
         assertEquals(coerce(1L, Short.class), (Short)(short)1);
         assertEquals(coerce(1L, Integer.class), (Integer)1);
         assertEquals(coerce(1L, Long.class), (Long)(long)1);
-        assertEquals(coerce(1L, Float.class), (float)1);
-        assertEquals(coerce(1L, Double.class), (double)1);
+        assertEquals(coerce(1L, Float.class), (Float)(float)1);
+        assertEquals(coerce(1L, Double.class), (Double)(double)1);
         
         assertEquals(coerce(1L, char.class), (Character)(char)1);
         assertEquals(coerce(1L, byte.class), (Byte)(byte)1);
         assertEquals(coerce(1L, short.class), (Short)(short)1);
         assertEquals(coerce(1L, int.class), (Integer)1);
         assertEquals(coerce(1L, long.class), (Long)(long)1);
-        assertEquals(coerce(1L, float.class), (float)1);
-        assertEquals(coerce(1L, double.class), (double)1);
+        assertEquals(coerce(1L, float.class), (Float)(float)1);
+        assertEquals(coerce(1L, double.class), (Double)(double)1);
         
         assertEquals(coerce((char)1, Integer.class), (Integer)1);
         assertEquals(coerce((byte)1, Integer.class), (Integer)1);
@@ -182,6 +183,16 @@ public class TypeCoercionsTest {
     public void testCoerceNumberToDate() {
         assertEquals(coerce(1000L, Date.class), new Date(1000));
         assertEquals(coerce(1000, Date.class), new Date(1000));
+        Date d0 = new Date(2022 - 1900, 0, 1);
+        assertEquals(coerce("2022.01.01", Date.class), d0);
+
+        Date d1 = new Date();
+        Date d2 = coerce("now", Date.class);
+        Date d3 = new Date();
+        Assert.assertFalse(d2.before(d1));
+        Assert.assertFalse(d3.before(d2));
+
+        assertEquals(coerce("2022.jan-1", Instant.class), d0.toInstant());
     }
 
     @Test

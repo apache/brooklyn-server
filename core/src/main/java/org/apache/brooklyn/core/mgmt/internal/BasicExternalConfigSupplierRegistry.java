@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.core.BrooklynVersion;
 import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.core.config.ConfigUtils;
 import org.apache.brooklyn.core.config.external.ExternalConfigSupplier;
@@ -57,7 +58,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
 
     public BasicExternalConfigSupplierRegistry(ManagementContext mgmt) {
         addProvider(DEMO_SAMPLE_PROVIDER, new InPlaceExternalConfigSupplier(mgmt, DEMO_SAMPLE_PROVIDER,
-            MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)));
+                MutableMap.of(DEMO_SAMPLE_PROVIDER_PASSWORD_KEY, DEMO_SAMPLE_PROVIDER_PASSWORD_VALUE)));
         updateFromBrooklynProperties(mgmt);
     }
 
@@ -70,7 +71,7 @@ public class BasicExternalConfigSupplierRegistry implements ExternalConfigSuppli
             }
             providersByName.put(name, supplier);
         }
-        LOG.info("Added external config supplier named '" + name + "': " + supplier);
+        LOG.debug("Added external config supplier named '" + name + "': " + supplier);
     }
 
     @Override

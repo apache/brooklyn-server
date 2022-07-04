@@ -120,7 +120,7 @@ public class EntityInfo implements Action {
         }
 
         if (displayBlueprint || displayAll) {
-            final Optional<String> bluePrint = Optional.ofNullable(BrooklynTags.findFirst(BrooklynTags.YAML_SPEC_KIND, entity.get().tags().getTags()))
+            final Optional<String> bluePrint = Optional.ofNullable(BrooklynTags.findFirstNamedStringTag(BrooklynTags.YAML_SPEC_KIND, entity.get().tags().getTags()))
                     .map(BrooklynTags.NamedStringTag::getContents);
             if (bluePrint.isPresent()) {
                 printHeader("Blueprint Information");

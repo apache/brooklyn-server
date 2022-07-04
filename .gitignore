@@ -31,3 +31,4 @@ brooklyn*.log.*
 *brooklyn-persisted-state/
 
 ignored
+.java-version

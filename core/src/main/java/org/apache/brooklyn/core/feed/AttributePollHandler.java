@@ -158,13 +158,13 @@ public class AttributePollHandler<V> implements PollHandler<V> {
             if (!lastWasProblem) {
                 if (expiryTime <= nowTime) {
                     currentProblemLoggedAsWarning = true;
-                    if (entity==null || !Entities.isNoLongerManaged(entity)) {
+                    if (entity==null || Entities.isManagedActive(entity)) {
                         log.warn("Read of " + getBriefDescription() + " gave " + type + ": " + val);
+                        if (log.isDebugEnabled() && val instanceof Throwable)
+                            log.debug("Trace for "+type+" reading "+getBriefDescription()+": "+val, (Throwable)val);
                     } else {
-                        log.debug("Read of " + getBriefDescription() + " gave " + type + ": " + val);
+                        log.debug("Read (unmanaged) of " + getBriefDescription() + " gave " + type + ": " + val);
                     }
-                    if (log.isDebugEnabled() && val instanceof Throwable)
-                        log.debug("Trace for "+type+" reading "+getBriefDescription()+": "+val, (Throwable)val);
                 } else {
                     if (log.isDebugEnabled())
                         log.debug("Read of " + getBriefDescription() + " gave " + type + " (in grace period): " + val);
@@ -174,13 +174,18 @@ public class AttributePollHandler<V> implements PollHandler<V> {
             } else {
                 if (expiryTime <= nowTime) {
                     currentProblemLoggedAsWarning = true;
-                    log.warn("Read of " + getBriefDescription() + " gave " + type + 
-                            " (grace period expired, occurring for "+Duration.millis(nowTime - currentProblemStartTimeCache)+
-                            (config.hasExceptionHandler() ? "" : ", no exception handler set for sensor")+
-                            ")"+
-                            ": " + val);
-                    if (log.isDebugEnabled() && val instanceof Throwable)
-                        log.debug("Trace for "+type+" reading "+getBriefDescription()+": "+val, (Throwable)val);
+                    if (entity==null || Entities.isManagedActive(entity)) {
+                        log.warn("Read of " + getBriefDescription() + " gave " + type +
+                                " (grace period expired, occurring for " + Duration.millis(nowTime - currentProblemStartTimeCache) +
+                                (config.hasExceptionHandler() ? "" : ", no exception handler set for sensor") +
+                                ")" +
+                                ": " + val);
+                        if (log.isDebugEnabled() && val instanceof Throwable)
+                            log.debug("Trace for " + type + " reading " + getBriefDescription() + ": " + val, (Throwable) val);
+                    } else {
+                        if (log.isDebugEnabled())
+                            log.debug("Read (unmanaged) of " + getBriefDescription() + " gave " + type + " (grace period expired): " + val);
+                    }
                 } else {
                     if (log.isDebugEnabled()) 
                         log.debug("Recurring {} reading {} in {} (still in grace period): {}", new Object[] {type, this, getBriefDescription(), val});

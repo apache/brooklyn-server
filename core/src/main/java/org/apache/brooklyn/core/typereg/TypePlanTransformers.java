@@ -18,19 +18,17 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import com.google.common.collect.*;
+import java.util.*;
 
+import java.util.function.Supplier;
 import org.apache.brooklyn.api.framework.FrameworkLookup;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
@@ -41,10 +39,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 
 public class TypePlanTransformers {
 
@@ -89,16 +83,16 @@ public class TypePlanTransformers {
      * which may be able to handle the given plan; the list is sorted with highest-score transformer first */
     @Beta
     public static List<BrooklynTypePlanTransformer> forType(ManagementContext mgmt, RegisteredType type, RegisteredTypeLoadingContext constraint) {
-        Multimap<Double,BrooklynTypePlanTransformer> byScoreMulti = ArrayListMultimap.create(); 
+        Multimap<Double,BrooklynTypePlanTransformer> byScoreMulti = TreeMultimap.create(Comparator.reverseOrder(), (r1, r2) -> 0);
         Collection<BrooklynTypePlanTransformer> transformers = all(mgmt);
         for (BrooklynTypePlanTransformer transformer : transformers) {
             double score = transformer.scoreForType(type, constraint);
+            if (log.isTraceEnabled()) {
+                log.trace("SCORE for '" + type + "' at " + transformer + ": " + score);
+            }
             if (score>0) byScoreMulti.put(score, transformer);
         }
-        Map<Double, Collection<BrooklynTypePlanTransformer>> tree = new TreeMap<Double, Collection<BrooklynTypePlanTransformer>>(byScoreMulti.asMap());
-        List<Collection<BrooklynTypePlanTransformer>> highestFirst = new ArrayList<Collection<BrooklynTypePlanTransformer>>(tree.values());
-        Collections.reverse(highestFirst);
-        return ImmutableList.copyOf(Iterables.concat(highestFirst));
+        return ImmutableList.copyOf(Iterables.concat(byScoreMulti.values()));
     }
 
     /** transforms the given type to an instance, if possible
@@ -111,7 +105,7 @@ public class TypePlanTransformers {
         
         List<BrooklynTypePlanTransformer> transformers = forType(mgmt, type, constraint);
         Collection<String> transformersWhoDontSupport = new ArrayList<String>();
-        Collection<Exception> failuresFromTransformers = new ArrayList<Exception>();
+        List<Exception> failuresFromTransformers = new ArrayList<Exception>();
         for (BrooklynTypePlanTransformer t: transformers) {
             try {
                 Object result = t.create(type, constraint);
@@ -128,35 +122,53 @@ public class TypePlanTransformers {
                 if (log.isTraceEnabled()) {
                     log.trace("Transformer for "+t.getFormatCode()+" gave an error creating this plan (may retry): "+e, e);
                 }
-                failuresFromTransformers.add(new PropagatedRuntimeException(
-                    (type.getSymbolicName()!=null ? 
-                        t.getFormatCode()+" plan creation error in "+type.getId() :
-                        t.getFormatCode()+" plan creation error") + ": "+
-                    Exceptions.collapseText(e), e));
+                PropagatedRuntimeException e1 = new PropagatedRuntimeException(
+                        (type.getSymbolicName() != null ?
+                                t.getFormatCode() + " plan creation error in " + type.getId() :
+                                t.getFormatCode() + " plan creation error") + ": " +
+                                Exceptions.collapseText(e), e);
+                if (Exceptions.getFirstThrowableOfType(e, TypePlanException.class)!=null &&
+                        (type.getPlan().getPlanFormat()==null || Objects.equals(type.getPlan().getPlanFormat(), t.getFormatCode()))) {
+                    // prefer this type of exception unless format is specified and we are opportunistically trying a different converter
+                    failuresFromTransformers.add(0, e1);
+                } else {
+                    failuresFromTransformers.add(e1);
+                }
             }
         }
         
+        if (log.isDebugEnabled()) {
+            Supplier<String> s = () -> "Interim failure transforming plan "
+                + BasicBrooklynCatalog.currentlyResolvingType.get()+"/"+BasicBrooklynCatalog.currentlyValidatingType.get()
+                + "; will throw/return summary failure and catalog routines often wrap and retry, "
+                + "but for reference in the event this failure is unexpected: "
+                + "potentially applicable transformers were "+transformers+", "
+                + "available ones are "+MutableList.builder().addAll(all(mgmt)).build()+"; "
+                + "unsupported by: "+transformersWhoDontSupport+"; "
+                + "failures: "+failuresFromTransformers
+                ;
+            if (BasicBrooklynCatalog.currentlyResolvingType.get()==null && BasicBrooklynCatalog.currentlyValidatingType.get()==null) {
+                // if both are null, we don't know who is calling us, so log it as debug
+                log.debug(s.get());
+            } else if (log.isTraceEnabled()) {
+                // trace can be enabled to get more information if this is occurring unexpectedly
+                log.trace(s.get());
+            }
+        }
+
         // failed
         Exception result;
         if (!failuresFromTransformers.isEmpty()) {
             // at least one thought he could do it
-            if (log.isDebugEnabled()) {
-                log.debug("Failure transforming plan; returning summary failure, but for reference "
-                    + "potentially application transformers were "+transformers+", "
-                    + "available ones are "+MutableList.builder().addAll(all(mgmt))
-                        // when all(mgmt) has a cache, reinstate this and add the word "other" above
-//                        .removeAll(transformers)
-                        .build()+"; "
-                    + "failures: "+failuresFromTransformers);
-            }
             result = failuresFromTransformers.size()==1 ? Exceptions.create(null, failuresFromTransformers) :
-                Exceptions.create("All plan transformers failed", failuresFromTransformers);
+                Exceptions.create("All applicable plan transformers failed", failuresFromTransformers);
         } else {
+            String prefix = Strings.isBlank(type.getPlan().getPlanFormat()) ? "Invalid plan" : "Invalid '"+type.getPlan().getPlanFormat()+"' plan";
             if (transformers.isEmpty()) {
-                result = new UnsupportedTypePlanException("Invalid plan; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+
-                    (type.getId()!=null ? type.getId() : "plan:\n"+type.getPlan().getPlanData()));
+                result = new UnsupportedTypePlanException(prefix + "; format could not be recognized, none of the available transformers "+all(mgmt)+" support "+
+                    (type.getId()!=null ? type.getId() : "plan:\n"+ Sanitizer.sanitizeJsonTypes(type.getPlan().getPlanData())));
             } else {
-                result = new UnsupportedTypePlanException("Invalid plan; potentially applicable transformers "+transformers+" do not support it, and other available transformers "+
+                result = new UnsupportedTypePlanException(prefix + "; potentially applicable transformers "+transformers+" do not support it, and other available transformers "+
 //                    // the removeAll call below won't work until "all" caches it
 //                    MutableList.builder().addAll(all(mgmt)).removeAll(transformers).build()+" "+
                     "do not accept it");

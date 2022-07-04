@@ -79,13 +79,16 @@
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
         </repository>
     </repositories>
 
     <properties>
         <brooklyn.version>1.1.0-SNAPSHOT</brooklyn.version>  <!-- BROOKLYN_VERSION -->
 
-        <org.osgi.core.version>6.0.0</org.osgi.core.version>
+        <org.osgi.core.version>7.0.0</org.osgi.core.version>
 
         <!-- Compilation -->
         <java.version>1.8</java.version>
@@ -101,100 +104,125 @@
         <surefire.failIfNoSpecifiedTests>false</surefire.failIfNoSpecifiedTests>
 
         <!-- Dependency Versions -->
-        <jclouds.version>2.1.2</jclouds.version> <!-- JCLOUDS_VERSION -->
-        <logback.version>1.2.3</logback.version>
+        <jclouds.version>2.4.0</jclouds.version> <!-- JCLOUDS_VERSION -->
+        <logback.version>1.2.9</logback.version>
         <slf4j.version>1.7.25</slf4j.version>  <!-- used for java.util.logging jul-to-slf4j interception -->
-        <!-- Must match jclouds' version. From jclouds 1.9.3+ can be any version in the range [16-20) -->
-        <guava.version>18.0</guava.version>
+        <!-- Must match jclouds' version. From jclouds 2.4.0 it is 27 by default but might use any. -->
+        <guava.version>27.1-jre</guava.version>
         <!--
             This can be different from above and should be used only by Swagger related code.
             Note that some bundles used by Brooklyn will try to bind to the latest version available.
-            For example jclouds and jackson-datatype-guava both depend on guava [16,20).
+            For example jclouds is sensitive, as might be jackson-datatype-guava (might want 16-20?).
         -->
-        <guava-swagger.version>18.0</guava-swagger.version>
+        <guava-swagger.version>${guava.version}</guava-swagger.version>
+        <animal-sniffer.version>1.17</animal-sniffer.version>  <!-- guava version; overridden when pulling in felix -->
+        <guice.version>4.2.3</guice.version> <!-- per jclouds -->
+        <gson.version>2.8.9</gson.version>   <!-- per jclouds -->
 
-        <!-- xstream -->
-        <xstream.version>1.4.11.1</xstream.version>
-        <!-- xstream has dependencies that are not OSGi bundles, the servicemix repackage version embeds them -->
-        <!-- note the servicemix suffix when upgrading xstream -->
-        <xstream.servicemix.version>${xstream.version}_1</xstream.servicemix.version>
-
+        <failureaccess.version>1.0.1</failureaccess.version>
+        <xstream.version>1.4.19</xstream.version>
         <xpp3.servicemix.version>1.1.4c_7</xpp3.servicemix.version>
         <kxml2.servicemix.version>2.3.0_3</kxml2.servicemix.version>
+        <jaxb-api-2.2.servicemix.version>2.9.0</jaxb-api-2.2.servicemix.version> <!-- servicemix -->
+        <jaxb-api.version>2.3.3</jaxb-api.version> <!-- jaxb and old servicemix - excluded from dependencies -->
+        <jaxb-runtime.version>${jaxb-api.version}</jaxb-runtime.version>   <!-- excluded -->
+        <activator.servicemix.version>2.9.0</activator.servicemix.version>
+        <jakarta.activation.version>1.2.2</jakarta.activation.version>
+        <jakarta.mail.version>1.6.5</jakarta.mail.version> <!-- used by karaf -->
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.10.1</fasterxml.jackson.version>
-        <cxf.version>3.3.5</cxf.version>
-        <httpcomponents.httpclient.version>4.5.10</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
-        <httpcomponents.httpcore.version>4.4.12</httpcomponents.httpcore.version> <!-- To match cxf-http-async -->
+        <fasterxml.jackson.version>2.13.3</fasterxml.jackson.version>
+        <cxf.version>3.4.1</cxf.version>
+        <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
+        <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version> <!-- To match cxf -->
         <!-- @deprecated since 0.11 -->
-        <httpclient.version>4.5.10</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
+        <httpclient.version>4.5.13</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.3.2</commons-lang3.version>
         <groovy.version>2.4.15</groovy.version> <!-- Version 2.4.7 supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes; not sure what more recent will be -->
-        <jsr305.version>2.0.1</jsr305.version>
-        <snakeyaml.version>1.25</snakeyaml.version> <!-- 1.25 matches cxf-jackson 3.3.2 -->
+        <snakeyaml.version>1.30</snakeyaml.version> <!-- 1.30 matches jackson 2.13; 1.27 matches cxf-jackson 3.3.9 -->
+        <snakeyaml.jclouds.version>1.26</snakeyaml.jclouds.version> <!-- jclouds 2.4 imports this -->
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
-        <swagger.version>1.5.6</swagger.version>
-        <gson.version>2.5</gson.version>
+        <swagger.version>1.6.2</swagger.version>
         <mx4j.version>3.0.1</mx4j.version>
-        <bouncycastle.version>1.61</bouncycastle.version>
-        <eddsa.version>0.2.0</eddsa.version>
-        <sshj.version>0.22.0</sshj.version>
+        <bouncycastle.version>1.69</bouncycastle.version>  <!-- beyond this gives asn1 errors, needs a new dep probably -->
+        <eddsa.version>0.2.0</eddsa.version>  <!-- eddsa 0.3.0 needs sun x509 -->
+        <sshj.version>0.27.0</sshj.version>  <!-- jclouds 2.4 uses 0.27; 0.32 needs eddsa 0.3.0 -->
+        <!-- jzlib osgi version is 1.1.3.2, but bundle is 1.1.3_2 ; JClouds 2.2.0 pulls in 1.0.7_1 but is happy with 1.1.3.2 -->
+        <jzlib.version>1.1.3_2</jzlib.version>
+        <jzlib.osgi.version>1.1.3.2</jzlib.osgi.version>
         <reflections.version>0.9.10</reflections.version>
         <jetty-schemas.version>3.1.M0</jetty-schemas.version>
         <airline.version>0.7</airline.version>
-        <freemarker.version>2.3.25-incubating</freemarker.version>
-        <commons-io.version>2.4</commons-io.version>
+        <freemarker.version>2.3.31</freemarker.version>
+        <commons-io.version>2.11.0</commons-io.version>
         <jsonPath.version>2.4.0</jsonPath.version>
-        <commons-compress.version>1.20</commons-compress.version>
+        <commons-compress.version>1.21</commons-compress.version>
         <validation-api.version>1.1.0.Final</validation-api.version>
         <geronimo-jms_1.1_spec.version>1.1.1</geronimo-jms_1.1_spec.version>
         <geronimo-jta_1.1_spec.version>1.1.1</geronimo-jta_1.1_spec.version>
         <jtidy.version>r8-20060801</jtidy.version>
         <opendmk_jmxremote_optional_jar.version>1.0-b01-ea</opendmk_jmxremote_optional_jar.version>
         <jopt.version>4.3</jopt.version>
+        <jcip-annotations.bundle.version>1.0_2</jcip-annotations.bundle.version>
+        <jsr305.bundle.version>3.0.2_1</jsr305.bundle.version>
+        <google.findbugs.jsr305.version>2.0.1</google.findbugs.jsr305.version> <!-- only used for pojo build -->
         <javax-servlet.version>3.1.0</javax-servlet.version>
         <javax-servlet-jsp.version>2.0</javax-servlet-jsp.version>
         <xml-apis.version>1.0.b2</xml-apis.version>
         <jsr250-api.version>1.0</jsr250-api.version>
-        <guice.version>3.0</guice.version>
         <javax-inject.version>1</javax-inject.version>
         <aopalliance.version>1.0</aopalliance.version>
         <commons-configuration.version>1.7</commons-configuration.version>
         <commons-lang.version>2.4</commons-lang.version>
-        <jax-rs-api.version>2.1.1</jax-rs-api.version> <!-- differs from jclouds 2.1.2, which depends on v2.0.1 -->
+
+        <jakarta.rs-api.version>2.1.6</jakarta.rs-api.version> <!-- bumped from various; using jakarta now; this has better osgi signature; other maps to 2.1.99.b01 ? -->
+        <old.javax.rs-api.version>2.1.1</old.javax.rs-api.version>  <!-- use jakarta instead, above -->
+        <jax-rs-api.version>${old.javax.rs-api.version}</jax-rs-api.version>  <!-- kept for backwards compatibility, but should definitely not use! -->
+
         <maxmind.version>2.8.0-rc1</maxmind.version>
         <maxmind-db.version>1.2.1</maxmind-db.version>
-        <winrm4j.version>0.9.0</winrm4j.version> <!--  FIXME NO CHECK IN -->
+        <winrm4j.version>0.12.3</winrm4j.version>  <!-- WINRM4J_VERSION -->
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
-        <kubernetes-client.version>4.9.0</kubernetes-client.version>
+        <kubernetes-client.version>5.8.0</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.2.8</karaf.version>
+        <karaf.version>4.3.6</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <jetty.version>9.4.22.v20191022</jetty.version>
+        <pax-web.version>7.3.23</pax-web.version> <!-- karaf 4.3 -->
+        <jetty.version>9.4.43.v20210629</jetty.version> <!-- pax 7.3.23 from karaf 4.3 -->
         <commons-collections.version>3.2.2</commons-collections.version>
-        <pax-web.version>7.2.14</pax-web.version>
-        <jaxb-api.version>2.3.2</jaxb-api.version>
-        <spifly.version>1.2.3</spifly.version> <!-- v1.2.3 from jetty feature; v1.2 from pax-jetty -->
+        <spifly.version>1.3.2</spifly.version> <!-- 1.3.0 from kubernetes; 1.2.4 from pax-jetty; v1.3.2 from erstwhile jetty feature; but 1.3.2 fixes an NPE bug in 1.3.0 so use it -->
+        <jaxb-api.version>2.3.3</jaxb-api.version>
+        <spifly.version>1.3.2</spifly.version> <!-- v1.3.2 from jetty feature; v1.2.4 from pax-jetty -->
+        <felix.framework.version>6.0.5</felix.framework.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
-        <jna.version>4.1.0</jna.version>
+        <jna.version>5.9.0</jna.version>
         <objenesis.version>2.5</objenesis.version>
         <clojure.version>1.4.0</clojure.version>
         <clj-time.version>0.4.1</clj-time.version>
-        <commons-codec.version>1.11</commons-codec.version>
+        <commons-codec.version>1.15</commons-codec.version>
         <log4j.version>1.2.17</log4j.version>
         <commons-logging.version>1.2</commons-logging.version>
-        <jsonSmart.version>2.3</jsonSmart.version>
-        <minidev.accessors-smart.version>1.2</minidev.accessors-smart.version>
-        <ow2.asm.version>5.2</ow2.asm.version> <!-- require 5.x from json-path -> json-smart -> accessors-smart; pax-web-core brings in 7.x -->
+        <jsonSmart.version>2.4.7</jsonSmart.version>
+        <minidev.accessors-smart.version>${jsonSmart.version}</minidev.accessors-smart.version>
+
+        <ow2.asm.version.jsonpath>5.2</ow2.asm.version.jsonpath>
+          <!-- json-path needs objectweb.asm version 5.2 (<6.0.0), and won't accept a bundleReplacement for a higher one; 
+               in addition currently pax-web-core brings in 8.0.1 and aries-proxy 9.0;
+               the addition of 5.2 triggers a refresh of the wiring of proxy because asm is an optional dependency
+               (even though it's a lower version and it shouldn't);
+               and in some weird cases that can cause aries to fail to install blueprints possibly due to too-recent javac byte markers;
+               but compiling with reasonable versions should make it all okay -->
         <commons-beanutils.version>1.9.4</commons-beanutils.version>
         <javax.mail.version>1.4.7</javax.mail.version> <!-- version should align with 'jetty' feature -->
-        <cxf.javax.annotation-api.version>1.3.2</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.3.5 declares v1.3.2; jetty 9.4.22 declares v1.3 -->
+        <jakarta.xml.bind-api.version>2.3.3</jakarta.xml.bind-api.version>
+        <jakarta.annotation-api.version>1.3.5</jakarta.annotation-api.version>
+        <cxf.javax.annotation-api.version>${jakarta.annotation-api.version}</cxf.javax.annotation-api.version> <!-- cxf-specs feature v3.3.9 declares v1.3.5; jetty 9.4.35.v20201120 declares v1.3.2 -->
+        <javax.annotation-api.version>1.3.2</javax.annotation-api.version> <!-- cxf-specs feature v3.3.9 declares v1.3.5; jetty 9.4.35.v20201120 declares v1.3.2 -->
         <okio.version>1.15.0</okio.version>
 
         <!-- Test dependencies -->
-        <testng.version>6.10</testng.version>
+        <testng.version>7.3.0</testng.version>
         <mockito.version>2.7.12</mockito.version>
         <assertj.version>3.11.1</assertj.version>
         <cobertura.plugin.version>2.7</cobertura.plugin.version>
@@ -211,7 +239,7 @@
 
         <!-- Seemingly unused dependencies! -->
         <ivy.version>2.2.0</ivy.version>
-        <jline.version>2.12</jline.version>
+        <jline.version>3.21.0</jline.version>
         <jansi.version>1.2.1</jansi.version> <!-- Also shipped in vanilla karaf, v1.17.1 in karaf:4.1.6 -->
         <sleepycat-je.version>5.0.34</sleepycat-je.version>
         <jcommander.version>1.27</jcommander.version>
@@ -231,6 +259,648 @@
 
         <geronimo-ws-metadata_2.0_spec.version>1.1.3</geronimo-ws-metadata_2.0_spec.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.karaf</groupId>
+                <artifactId>karaf</artifactId>
+                <version>${karaf.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- BEGIN karaf version overrides -->
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna</artifactId>
+                <version>${jna.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.java.dev.jna</groupId>
+                <artifactId>jna-platform</artifactId>
+                <version>${jna.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.objenesis</groupId>
+                <artifactId>objenesis</artifactId>
+                <version>${objenesis.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jul-to-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.fusesource.jansi</groupId>
+                <artifactId>jansi</artifactId>
+                <version>${jansi.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId> <!-- for javax.annotation.Nullable etc -->
+                <version>${jakarta.annotation-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>javax.annotation-api</artifactId>
+                <version>${javax.annotation-api.version}</version>
+                <scope>provided</scope>  <!-- comes from jakarta above -->
+            </dependency>
+
+            <dependency>
+                <!-- used by jackson, jaxb, etc -->
+                <groupId>jakarta.activation</groupId>
+                <artifactId>jakarta.activation-api</artifactId>
+                <version>${jakarta.activation.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.activation</groupId>
+                <artifactId>jakarta.activation</artifactId>
+                <scope>provided</scope>  <!-- comes from jakarta above -->
+            </dependency>
+
+            <dependency>
+                <!-- TODO does this get pulled in anywhere? or just by karaf? 2.3.3 ends up in karaf lib/jdk9plus
+                     whereas (prior to this anyway) 2.3.2 in system even though it isn't in our features -->
+                <groupId>jakarta.xml.bind</groupId>
+                <artifactId>jakarta.xml.bind-api</artifactId>
+                <version>${jakarta.xml.bind-api.version}</version>
+            </dependency>
+            <dependency>
+                <!-- mostly bundled with java8 (org.xml.sax, org.w3c.dom); some in jakarta xml above (javax.xml.bind);
+                     not included in karaf build -->
+                <groupId>xml-apis</groupId>
+                <artifactId>xml-apis</artifactId>
+                <version>${xml-apis.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>jaxb-runtime</artifactId>
+                <version>${jaxb-runtime.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>jsr305</artifactId>
+                <version>${google.findbugs.jsr305.version}</version>
+                <scope>provided</scope>  <!-- at runtime most annotations lost; others should come from jakarta -->
+            </dependency>
+            <dependency>
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>annotations</artifactId>
+                <version>${google.findbugs.jsr305.version}</version>
+                <scope>provided</scope>  <!-- used by airline; most annotations lost, others should come from jakarta -->
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>${commons-codec.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-lang</groupId>
+                <artifactId>commons-lang</artifactId>
+                <version>${commons-lang.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
+
+            <dependency>
+                <!-- despite being defined in karaf's pom, we can't inherit it as they use parameters to -->
+                <!-- select the groupId, artifactId and version -->
+                <groupId>javax.servlet</groupId> <!-- match servlet.spec.groupId in karaf/pom.xml -->
+                <artifactId>javax.servlet-api</artifactId> <!-- match servlet.spec.artifactId in karaf/pom.xml -->
+                <version>${javax-servlet.version}</version> <!-- match servlet.spec.version in karaf/pom.xml -->
+            </dependency>
+
+            <dependency>
+                <groupId>org.ow2.asm</groupId>
+                <artifactId>asm</artifactId>
+                <!-- this oldest one has to be present for jsonpath; if we need to use a later one we might need to replace jsonpath -->
+                <version>${ow2.asm.version.jsonpath}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jline</groupId> <!-- when removing this, replace uses with org.jline -->
+                <artifactId>jline</artifactId>
+                <version>${jline.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.osgi.compendium</artifactId>
+                <version>${felix-osgi-compendium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.karaf.features</groupId>
+                <artifactId>framework</artifactId>
+                <type>kar</type>
+                <version>${karaf.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.ops4j.base</groupId>
+                        <artifactId>ops4j-base-lang</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.ops4j.base</groupId>
+                        <artifactId>ops4j-base-util-property</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.karaf.features</groupId>
+                <artifactId>base</artifactId>
+                <version>${karaf.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.sun.istack</groupId>
+                        <artifactId>istack-commons-runtime</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>animal-sniffer-annotations</artifactId>
+                <version>${animal-sniffer.version}</version>
+            </dependency>
+            <!-- END karaf version overrides -->
+
+            <dependency>
+                <groupId>org.apache.geronimo.specs</groupId>
+                <artifactId>geronimo-ws-metadata_2.0_spec</artifactId>
+                <version>${geronimo-ws-metadata_2.0_spec.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.ivy</groupId>
+                <artifactId>ivy</artifactId>
+                <version>${ivy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.thoughtworks.xstream</groupId>
+                <artifactId>xstream</artifactId>
+                <version>${xstream.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.codehaus.groovy</groupId>
+                <artifactId>groovy-all</artifactId>
+                <version>${groovy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.testng</groupId>
+                <artifactId>testng</artifactId>
+                <exclusions>
+                    <!-- when pulled in as test dependency it seems to ignore the dependency management definition,
+                         giving conflicting versions (4.2.2 from testng vs 4.2.3 used by us) -->
+                    <exclusion>
+                        <groupId>com.google.inject</groupId>
+                        <artifactId>guice</artifactId>
+                    </exclusion>
+                </exclusions>
+                <version>${testng.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${jclouds.groupId}</groupId>
+                <artifactId>jclouds-allcompute</artifactId>
+                <version>${jclouds.version}</version>
+                <type>jar</type>
+            </dependency>
+            <dependency>
+                <groupId>${jclouds.groupId}.driver</groupId>
+                <artifactId>jclouds-sshj</artifactId>
+                <version>${jclouds.version}</version>
+                <type>jar</type>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.ant</groupId>
+                <artifactId>ant</artifactId>
+                <version>${ant.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.ant</groupId>
+                <artifactId>ant-launcher</artifactId>
+                <version>${ant.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-server</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-servlet</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-util</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-security</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-webapp</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-http</artifactId>
+                <version>${jetty.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.jaxrs</groupId>
+                <artifactId>jackson-jaxrs-json-provider</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-jaxb-annotations</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-joda</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-xml</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-yaml</artifactId>
+                <version>${fasterxml.jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-annotations</artifactId>
+                <version>${swagger.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-core</artifactId>
+                <version>${swagger.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-annotations</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.dataformat</groupId>
+                        <artifactId>jackson-dataformat-yaml</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.datatype</groupId>
+                        <artifactId>jackson-datatype-joda</artifactId>
+                    </exclusion>
+
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>io.swagger</groupId>
+                <artifactId>swagger-jaxrs</artifactId>
+                <version>${swagger.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.dataformat</groupId>
+                        <artifactId>jackson-dataformat-xml</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.dataformat</groupId>
+                        <artifactId>jackson-dataformat-yaml</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>com.fasterxml.jackson.jaxrs</groupId>
+                        <artifactId>jackson-jaxrs-json-provider</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>com.beust</groupId>
+                <artifactId>jcommander</artifactId>
+                <version>${jcommander.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpcore</artifactId>
+                <version>${httpcomponents.httpcore.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.annotation</groupId>
+                <artifactId>jsr250-api</artifactId>
+                <version>${jsr250-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.inject</groupId>
+                <artifactId>guice</artifactId>
+                <version>${guice.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.inject</groupId>
+                <artifactId>javax.inject</artifactId>
+                <version>${javax-inject.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>${httpcomponents.httpclient.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <classifier>tests</classifier>
+                <version>${httpcomponents.httpclient.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>aopalliance</groupId>
+                <artifactId>aopalliance</artifactId>
+                <version>${aopalliance.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-ext-jdk15on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-jdk15on</artifactId>
+                <version>${bouncycastle.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.code.gson</groupId>
+                <artifactId>gson</artifactId>
+                <version>${gson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>${commons-beanutils.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-configuration</groupId>
+                <artifactId>commons-configuration</artifactId>
+                <version>${commons-configuration.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.hamcrest</groupId>
+                <artifactId>hamcrest-all</artifactId>
+                <version>${hamcrest.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.reflections</groupId>
+                <artifactId>reflections</artifactId>
+                <version>${reflections.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.glassfish.external</groupId>
+                <artifactId>opendmk_jmxremote_optional_jar</artifactId>
+                <version>${opendmk_jmxremote_optional_jar.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.validation</groupId>
+                <artifactId>validation-api</artifactId>
+                <version>${validation-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.sf.jopt-simple</groupId>
+                <artifactId>jopt-simple</artifactId>
+                <version>${jopt.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.airlift</groupId>
+                <artifactId>airline</artifactId>
+                <version>${airline.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.whirr</groupId>
+                <artifactId>whirr-hadoop</artifactId>
+                <version>${whirr.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.whirr</groupId>
+                <artifactId>whirr-core</artifactId>
+                <version>${whirr.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.whirr</groupId>
+                <artifactId>whirr-cli</artifactId>
+                <version>${whirr.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.whirr</groupId>
+                <artifactId>whirr-elasticsearch</artifactId>
+                <version>${whirr.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.hierynomus</groupId>
+                <artifactId>sshj</artifactId>
+                <version>${sshj.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.freemarker</groupId>
+                <artifactId>freemarker</artifactId>
+                <version>${freemarker.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>mx4j</groupId>
+                <artifactId>mx4j-tools</artifactId>
+                <version>${mx4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.mockwebserver</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${mockwebserver.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>${mockito.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.jayway.jsonpath</groupId>
+                <artifactId>json-path</artifactId>
+                <version>${jsonPath.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.minidev</groupId>
+                <artifactId>json-smart</artifactId>
+                <version>${jsonSmart.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.minidev</groupId>
+                <artifactId>accessors-smart</artifactId>
+                <version>${minidev.accessors-smart.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.maxmind.geoip2</groupId>
+                <artifactId>geoip2</artifactId>
+                <version>${maxmind.version}</version>
+            </dependency>
+
+            <!-- JAX-RS dependencies-->
+            <!--  JAX-RS 2.0 API -->
+            <dependency>
+                <groupId>jakarta.ws.rs</groupId>
+                <artifactId>jakarta.ws.rs-api</artifactId>
+                <version>${jakarta.rs-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.ws.rs</groupId>
+                <artifactId>javax.ws.rs-api</artifactId>
+                <version>${old.javax.rs-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>javax.ws.rs</groupId>
+                <artifactId>jsr311-api</artifactId>
+                <scope>provided</scope>  <!-- conflicts with javax.ws-rs-api -->
+            </dependency>
+            <!--  JAX-RS 2.0 Apache CXF Implementation -->
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-rt-frontend-jaxrs</artifactId>
+                <version>${cxf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-core</artifactId>
+                <version>${cxf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-rt-transports-local</artifactId>
+                <version>${cxf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-rt-transports-http</artifactId>
+                <version>${cxf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-rt-transports-http-jetty</artifactId>
+                <version>${cxf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.cxf</groupId>
+                <artifactId>cxf-rt-rs-client</artifactId>
+                <version>${cxf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.fabric8</groupId>
+                <artifactId>kubernetes-client</artifactId>
+                <version>${kubernetes-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.fabric8</groupId>
+                <artifactId>openshift-client</artifactId>
+                <version>${kubernetes-client.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okio</groupId>
+                <artifactId>okio</artifactId>
+                <version>${okio.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>${assertj.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.apache.felix.framework</artifactId>
+                <version>${felix.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${jclouds.groupId}</groupId>
+                <artifactId>jclouds-core</artifactId>
+                <version>${jclouds.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.cloudsoft.windows</groupId>
+                <artifactId>winrm4j</artifactId>
+                <version>${winrm4j.version}</version>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
 
     <modules>
         <module>parent</module>
@@ -268,7 +938,5 @@
         <module>karaf</module>
 
         <module>utils/rt-felix</module>
-
     </modules>
-
 </project>

@@ -18,17 +18,16 @@
  */
 package org.apache.brooklyn.core.config;
 
-import static org.testng.Assert.assertEquals;
-
-import java.util.Map;
-
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import java.io.ByteArrayInputStream;
+import java.util.Map;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
+import static org.testng.Assert.assertEquals;
+import org.testng.annotations.Test;
 
 public class SanitizerTest {
 
@@ -46,7 +45,7 @@ public class SanitizerTest {
                 .put("mykey", "myval")
                 .build();
         Map<String, Object> expected = MutableMap.<String, Object>builder()
-                .putAll(Maps.transformValues(map, Functions.constant("xxxxxxxx")))
+                .putAll(Maps.transformValues(map, Sanitizer::suppress))
                 .put("mykey", "myval")
                 .build();
         
@@ -69,5 +68,22 @@ public class SanitizerTest {
         assertEquals(Sanitizer.sanitize((ConfigBag)null), null);
         assertEquals(Sanitizer.sanitize((Map<?,?>)null), null);
         assertEquals(Sanitizer.newInstance().apply((Map<?,?>)null), null);
+    }
+
+    @Test
+    public void testSanitizeMultiline() throws Exception {
+        String hashPassword2 = "6CB75F652A9B52798EB6CF2201057C73";
+        assertEquals(Sanitizer.sanitizeMultilineString(Strings.lines(
+                "public: password",
+                "private: password2",
+                "private: ",
+                "  allowedOnNewLine"
+            )), Strings.lines(
+                "public: password",
+                "private: <suppressed> (MD5 hash: " + hashPassword2.substring(0, 8) + ")",
+                "private: ",
+                "  allowedOnNewLine"
+            ));
+        assertEquals(hashPassword2, Streams.getMd5Checksum(new ByteArrayInputStream(("password2").getBytes())));
     }
 }

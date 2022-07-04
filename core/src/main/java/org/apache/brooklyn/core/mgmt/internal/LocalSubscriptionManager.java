@@ -117,6 +117,11 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
     @SuppressWarnings("unchecked")
     protected synchronized <T> SubscriptionHandle subscribe(Map<String, Object> flags, final Subscription<T> s) {
         Entity producer = s.producer;
+        if (producer!=null && Entities.isReadOnly(producer)) {
+            LOG.trace("Skipping subscription in read only mode {} {}", s, flags);
+            return s;
+        }
+
         Sensor<T> sensor= s.sensor;
         s.subscriber = getSubscriber(flags, s);
         s.subscriptionDescription = getSubscriptionDescription(flags, s);
@@ -326,7 +331,14 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
             }
             @Override
             public void run() {
-                BasicExecutionContext oldEC = ec instanceof BasicExecutionContext ? BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext)ec) : null;
+                BasicExecutionContext oldEC = null;
+                boolean setEC;
+                if (ec instanceof BasicExecutionContext) {
+                    oldEC = BasicExecutionContext.setPerThreadExecutionContext((BasicExecutionContext) ec);
+                    setEC = true;
+                } else {
+                    setEC = false;
+                }
                 try {
                     
                     if (isEntityStarting) {
@@ -357,7 +369,9 @@ public class LocalSubscriptionManager extends AbstractSubscriptionManager {
                         LOG.warn("Error processing subscriptions to "+this+": "+t, t);
                     }
                 } finally {
-                    BasicExecutionContext.setPerThreadExecutionContext(oldEC);
+                    if (setEC) {
+                        BasicExecutionContext.setPerThreadExecutionContext(oldEC);
+                    }
                 }
             }};
         if (!isInitialPublicationOfOldValueInCorrectScheduledThread) {

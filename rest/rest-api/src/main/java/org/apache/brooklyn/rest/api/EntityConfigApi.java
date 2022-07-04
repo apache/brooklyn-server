@@ -50,7 +50,11 @@ public interface EntityConfigApi {
             response = org.apache.brooklyn.rest.domain.ConfigSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<ConfigSummary> list(
             @ApiParam(value = "Application ID or name", required = true)
@@ -63,12 +67,28 @@ public interface EntityConfigApi {
     @GET
     @Path("/current-state")
     @ApiOperation(value = "Fetch config key values in batch", notes="Returns a map of config name to value")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Map<String, Object> batchConfigRead(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") String entityToken,
-            @ApiParam(value = "Return raw config data instead of display values", required = false)
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHint") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Whether to skip resolution of all values", required = false)
+            @QueryParam("skipResolution") @DefaultValue("false") final Boolean skipResolution,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") @DefaultValue("false") final Boolean suppressSecrets,
+
+            @ApiParam(value = "Return raw config data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated
             @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     //To call this endpoint set the Accept request field e.g curl -H "Accept: application/json" ...
@@ -76,7 +96,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Fetch config value (json)", response = Object.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.APPLICATION_JSON)
     public Object get(
@@ -86,7 +110,16 @@ public interface EntityConfigApi {
             @PathParam("entity") String entityToken,
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("config") String configKeyName,
-            @ApiParam(value = "Return raw config data instead of display values", required = false)
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHint") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Whether to skip resolution of all values", required = false)
+            @QueryParam("skipResolution") @DefaultValue("false") final Boolean skipResolution,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") @DefaultValue("false") final Boolean suppressSecrets,
+
+            @ApiParam(value = "Return raw config data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated
             @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     // if user requests plain value we skip some json post-processing
@@ -94,7 +127,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Fetch config value (text/plain)", response = Object.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.TEXT_PLAIN + ";qs=0.9")
     public String getPlain(
@@ -104,13 +141,26 @@ public interface EntityConfigApi {
             @PathParam("entity") String entityToken,
             @ApiParam(value = "Config key ID", required = true)
             @PathParam("config") String configKeyName,
-            @ApiParam(value = "Return raw config data instead of display values", required = false)
+
+            @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
+            @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
+            @ApiParam(value = "Whether to skip resolution of all values", required = false)
+            @QueryParam("skipResolution") @DefaultValue("false") final Boolean skipResolution,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") @DefaultValue("false") final Boolean suppressSecrets,
+
+            @ApiParam(value = "Return raw config data instead of display values (deprecated, see useDisplayHints)", required = false)
+            @Deprecated
             @QueryParam("raw") @DefaultValue("false") final Boolean raw);
 
     @POST
     @ApiOperation(value = "Manually set multiple config values")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application or entity")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application or entity"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @SuppressWarnings("rawtypes")
     public void setFromMap(
@@ -127,7 +177,11 @@ public interface EntityConfigApi {
     @Path("/{config}")
     @ApiOperation(value = "Manually set a config value")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find application, entity or config key")
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find application, entity or config key"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void set(
             @ApiParam(value = "Application ID or name", required = true)

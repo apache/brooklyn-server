@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -207,9 +208,17 @@ public class AbstractYamlRebindTest extends RebindTestFixture<StartableApplicati
     protected void addCatalogItems(String... catalogYaml) {
         addCatalogItems(joinLines(catalogYaml));
     }
-
     protected Iterable<? extends CatalogItem<?,?>> addCatalogItems(String catalogYaml) {
         return mgmt().getCatalog().addItems(catalogYaml);
+    }
+
+    // TODO replace methods above with method below
+
+    protected Iterable<RegisteredType> addRegisteredTypes(String ...catalogYaml) {
+        return addRegisteredTypes(joinLines(catalogYaml));
+    }
+    protected Iterable<RegisteredType> addRegisteredTypes(String catalogYaml) {
+        return mgmt().getCatalog().addTypesAndValidateAllowInconsistent(catalogYaml, null, false);
     }
 
     protected void deleteCatalogEntity(String catalogItem) {

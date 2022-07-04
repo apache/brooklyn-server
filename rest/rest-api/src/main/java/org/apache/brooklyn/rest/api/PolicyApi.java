@@ -33,7 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 @Path("/applications/{application}/entities/{entity}/policies")
-@Api("Entity Policies")
+@Api(value="Entity Policies (deprecated; use Entity Adjuncts endpoint)", hidden = true)
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 /** @deprecated since 1.0.0 use AdjunctApi */

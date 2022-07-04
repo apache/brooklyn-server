@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
+import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import static org.testng.Assert.assertEquals;
 
 import java.net.InetAddress;
@@ -113,7 +114,9 @@ public class XmlMementoSerializerTest {
     
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
-        serializer = new XmlMementoSerializer<Object>(XmlMementoSerializerTest.class.getClassLoader());
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(XmlMementoSerializerTest.class.getClassLoader())
+                .withBrooklynDeserializingClassRenames()
+                .build();
     }
 
     @AfterMethod(alwaysRun=true)
@@ -126,8 +129,8 @@ public class XmlMementoSerializerTest {
     
     @Test
     public void testRenamedClass() throws Exception {
-        serializer = new XmlMementoSerializer<Object>(XmlMementoSerializerTest.class.getClassLoader(),
-                ImmutableMap.of("old.package.name.UserAndHostAndPort", UserAndHostAndPort.class.getName()));
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(XmlMementoSerializerTest.class.getClassLoader()).
+                withDeserializingClassRenames(ImmutableMap.of("old.package.name.UserAndHostAndPort", UserAndHostAndPort.class.getName())).build();
         
         String serializedForm = Joiner.on("\n").join(
                 "<org.apache.brooklyn.util.net.UserAndHostAndPort>",
@@ -145,8 +148,8 @@ public class XmlMementoSerializerTest {
 
     @Test
     public void testRenamedStaticInner() throws Exception {
-        serializer = new XmlMementoSerializer<Object>(XmlMementoSerializerTest.class.getClassLoader(),
-                ImmutableMap.of("old.package.name.XmlMementoSerializerTest", XmlMementoSerializerTest.class.getName()));
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(XmlMementoSerializerTest.class.getClassLoader()).
+                withDeserializingClassRenames(ImmutableMap.of("old.package.name.XmlMementoSerializerTest", XmlMementoSerializerTest.class.getName())).build();
         
         String serializedForm = Joiner.on("\n").join(
                 "<org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializerTest_-MyStaticInner>",
@@ -159,8 +162,8 @@ public class XmlMementoSerializerTest {
 
     @Test
     public void testRenamedNonStaticInner() throws Exception {
-        serializer = new XmlMementoSerializer<Object>(XmlMementoSerializerTest.class.getClassLoader(),
-                ImmutableMap.of("old.package.name.XmlMementoSerializerTest", XmlMementoSerializerTest.class.getName()));
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(XmlMementoSerializerTest.class.getClassLoader()).
+                withDeserializingClassRenames(ImmutableMap.of("old.package.name.XmlMementoSerializerTest", XmlMementoSerializerTest.class.getName())).build();
         
         String serializedForm = Joiner.on("\n").join(
                 "<org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializerTest_-MyStaticInner_-MyNonStaticInner>",
@@ -177,8 +180,8 @@ public class XmlMementoSerializerTest {
 
     @Test
     public void testRenamedAnonymousInner() throws Exception {
-        serializer = new XmlMementoSerializer<Object>(XmlMementoSerializerTest.class.getClassLoader(),
-                ImmutableMap.of("old.package.name.XmlMementoSerializerTest", XmlMementoSerializerTest.class.getName()));
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(XmlMementoSerializerTest.class.getClassLoader()).
+                withDeserializingClassRenames(ImmutableMap.of("old.package.name.XmlMementoSerializerTest", XmlMementoSerializerTest.class.getName())).build();
         
         String serializedForm = Joiner.on("\n").join(
                 "<org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializerTest_-MySuper_-1>",
@@ -457,8 +460,9 @@ public class XmlMementoSerializerTest {
         Class<?> osgiObjectClazz = bundle.loadClass(classname);
         Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
 
-        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
-                ImmutableMap.<String,String>of());
+        serializer = XmlMementoSerializerBuilder.empty()
+                .withDeserializingClassRenames(null)
+                .withClassLoader(mgmt.getCatalogClassLoader()).build();
         
         serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
 
@@ -487,8 +491,9 @@ public class XmlMementoSerializerTest {
         Class<?> osgiObjectClazz = bundle.loadClass(classname);
         Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
 
-        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
-                ImmutableMap.of(oldBundlePrefix + ":" + classname, bundlePrefix + ":" + classname));
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(mgmt.getCatalogClassLoader())
+                .withDeserializingClassRenames(ImmutableMap.of(oldBundlePrefix + ":" + classname, bundlePrefix + ":" + classname))
+                .build();
         
         serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
 
@@ -518,8 +523,9 @@ public class XmlMementoSerializerTest {
         Class<?> osgiObjectClazz = bundle.loadClass(classname);
         Object obj = Reflections.invokeConstructorFromArgs(osgiObjectClazz, "myval").get();
 
-        serializer = new XmlMementoSerializer<Object>(mgmt.getCatalogClassLoader(),
-                ImmutableMap.of(oldClassname, classname));
+        serializer = XmlMementoSerializerBuilder.empty().withClassLoader(mgmt.getCatalogClassLoader())
+                .withDeserializingClassRenames( ImmutableMap.of(oldClassname, classname) )
+                .build();
         serializer.setLookupContext(newEmptyLookupManagementContext(mgmt, true));
 
         // i.e. prepended with bundle name

@@ -34,17 +34,23 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     private String symbolicName;
     private String version;
     private String url;
+    private Boolean deleteable;
     private Credentials credential;
 
     // for deserializing (not sure if needed?)
     @SuppressWarnings("unused")
     private BasicOsgiBundleWithUrl() {}
 
+    @Deprecated /** @deprecated since 1.1 use larger constructor */
     public BasicOsgiBundleWithUrl(String name, String version, String url) {
         this(name, version, url, null);
     }
-
+    @Deprecated /** @deprecated since 1.1 use larger constructor */
     public BasicOsgiBundleWithUrl(String name, String version, String url, @Nullable Credentials cred) {
+        this(name, version, url, cred, null);
+    }
+
+    public BasicOsgiBundleWithUrl(String name, String version, String url, @Nullable Credentials cred, @Nullable Boolean deleteable) {
         if (name == null && version == null) {
             Preconditions.checkNotNull(url, "Either a URL or both name and version are required");
         } else {
@@ -56,10 +62,11 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
         this.version = version;
         this.url = url;
         this.credential = cred;
+        this.deleteable = deleteable;
     }
     
     public BasicOsgiBundleWithUrl(OsgiBundleWithUrl b) {
-        this(b.getSymbolicName(), b.getSuppliedVersionString(), b.getUrl());
+        this(b.getSymbolicName(), b.getSuppliedVersionString(), b.getUrl(), b.getUrlCredential(), b.getDeleteable());
     }
 
     @Override
@@ -96,6 +103,11 @@ public class BasicOsgiBundleWithUrl implements CatalogBundle, OsgiBundleWithUrl 
     @Override
     public Credentials getUrlCredential() {
         return credential;
+    }
+
+    @Override
+    public Boolean getDeleteable() {
+        return deleteable;
     }
 
     @Override

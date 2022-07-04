@@ -18,13 +18,13 @@
  */
 package org.apache.brooklyn.core.sensor;
 
-import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers.InitializerPatternWithFieldsFromConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -58,11 +58,10 @@ import org.slf4j.LoggerFactory;
  * }
  * </pre>
  */
-public class MaxConcurrencySensor implements EntityInitializer {
+public class MaxConcurrencySensor extends InitializerPatternWithFieldsFromConfigKeys {
     private static final Logger log = LoggerFactory.getLogger(MaxConcurrencySensor.class);
 
     public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
-    public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newConfigKeyWithDefault(AddSensor.SENSOR_TYPE, ReleaseableLatch.class.getName());
     public static final ConfigKey<Integer> MAX_CONCURRENCY = ConfigKeys.newIntegerConfigKey(
             "latch.concurrency.max",
             "The maximum number of threads that can execute the step for the latch this sensors is used at, in parallel.",
@@ -71,10 +70,16 @@ public class MaxConcurrencySensor implements EntityInitializer {
     private Object maxConcurrency;
     private String sensorName;
 
-    public MaxConcurrencySensor(ConfigBag params) {
-        this.sensorName = params.get(SENSOR_NAME);
-        this.maxConcurrency = params.getStringKey(MAX_CONCURRENCY.getName());
+    {
+        addInitConfigMapping(SENSOR_NAME, v -> sensorName = v);
+        addInitConfigRule((params,isFirst) -> {
+            if (params.containsKey(MAX_CONCURRENCY) || isFirst)
+                maxConcurrency = params.getStringKey(MAX_CONCURRENCY.getName());
+        });
     }
+
+    public MaxConcurrencySensor() {}
+    public MaxConcurrencySensor(ConfigBag params) { super(params); }
 
     @Override
     public void apply(@SuppressWarnings("deprecation") final org.apache.brooklyn.api.entity.EntityLocal entity) {

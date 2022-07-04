@@ -140,16 +140,37 @@ public interface BrooklynCatalog {
      * Optionally updates a supplied (empty) map containing newly added types as keys
      * and any previously existing type they replace as values, for reference or for use rolling back
      * (this is populated with work done so far if the method throws an error).
+     * <p>
+     * A null bundle can be supplied although that will cause oddness in production installations
+     * that assume bundles for persistence, lookup and other capabilities. (But it's fine for tests.)
+     * <p>
+     * Most callers will want to use the OsgiManager to install a bundle. This is primarily to support that.
      */
     @Beta  // method may move elsewhere, or return type may change
-    public void addTypesFromBundleBom(String yaml, ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result);
-    
-    /** As {@link #validateType(RegisteredType)} but taking a set of types, returning a map whose keys are
-     * those types where validation failed, mapped to the collection of errors validating that type. 
+    public void addTypesFromBundleBom(String yaml, @Nullable ManagedBundle bundle, boolean forceUpdate, Map<RegisteredType, RegisteredType> result);
+
+    /** As {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} followed by {@link #validateType(RegisteredType, RegisteredTypeLoadingContext, boolean)}
+     * e.g. for use in tests and ad hoc setup when there is just a YAML file.  In OSGi mode this adds a bundle; otherwise it uses legacy catalog item addition mode.
+     * <p>
+     * Note that if addition or validation fails, this throws, unlike {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)},
+     * and the type registry may have some of the items updated.  It is the caller's responsibility to clean up if required
+     * (note, clean up is only possible if an empty results map is supplied to collect the items, and even then finding the bundle needs work;
+     * or, most commonly, where the management context is just being thrown away, like in tests).
+     * <p>
+     * Most callers will want to use the OsgiManager to install a bundle. This is primarily to support that.
+     */
+    @Beta
+    Collection<RegisteredType> addTypesAndValidateAllowInconsistent(String catalogYaml, @Nullable Map<RegisteredType, RegisteredType> result, boolean forceUpdate);
+
+    /** As {@link #validateType(RegisteredType, RegisteredTypeLoadingContext, boolean)} allowing unresolved, taking a set of types,
+     * and returning a map whose keys are those types where validation failed, mapped to the collection of errors validating that type.
      * An empty map result indicates no validation errors in the types passed in. 
      */
     @Beta  // method may move elsewhere
     public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate);
+
+    @Beta  // method may move elsewhere
+    public Map<RegisteredType,Collection<Throwable>> validateTypes(Iterable<RegisteredType> typesToValidate, boolean skipIfValidated);
 
     /** Performs YAML validation on the given type, returning a collection of errors. 
      * An empty result indicates no validation errors in the type passed in. 
@@ -158,37 +179,15 @@ public interface BrooklynCatalog {
      * for the given registered type.
      */
     @Beta  // method may move elsewhere
-    Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint);
+    Collection<Throwable> validateType(RegisteredType typeToValidate, @Nullable RegisteredTypeLoadingContext optionalConstraint, boolean allowUnresolved);
 
-    /**
-     * As {@link #addItemsFromBundle(String, ManagedBundle)} with a null bundle.
-     * (Only used for legacy-mode additions.) 
+    /** As {@link #addItems(String, boolean, boolean)}
+     *
+     * @deprecated since 1.1, use {@link #addTypesAndValidateAllowInconsistent(String, Map, boolean)} for direct access to catalog (non-OSGi, eg tests) or use the OsgiManager
+     * (Used in tests.)
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml);
-    
-    /**
-     * Adds items (represented in yaml) to the catalog coming from the indicated managed bundle.
-     * Fails if the same version exists in catalog (unless snapshot).
-     * (Only used for legacy-mode additions.) 
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     */
-    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, @Nullable ManagedBundle definingBundle);
-    
-    /**
-     * Adds items (represented in yaml) to the catalog.
-     * (Only used for legacy-mode additions.) 
-     * 
-     * @param forceUpdate If true allows catalog update even when an
-     * item exists with the same symbolicName and version
-     *
-     * @throws IllegalArgumentException if the yaml was invalid
-     * 
-     * @deprecated since 1.0.0 use {@link #addItems(String)} or {@link #addItems(String, boolean, boolean)}
-     */
-    @Deprecated
-    Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean forceUpdate);
-    
+
     /**
      * Adds items (represented in yaml) to the catalog.
      * (Only used for legacy-mode additions.) 
@@ -199,11 +198,24 @@ public interface BrooklynCatalog {
      * item exists with the same symbolicName and version
      *
      * @throws IllegalArgumentException if the yaml was invalid
+     *
+     * @deprecated Since 1.1, use {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} for direct access to catalog (non/partial-OSGi, eg tests) or use the OsgiManager
+     * (Used for REST API, a few tests, and legacy-compatibility additions.)
      */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, boolean validate, boolean forceUpdate);
-    
-    /** As {@link #addItems(String, ManagedBundle)} but exposing forcing option as per {@link #addItem(String, boolean)}. 
-     * (Only used for legacy-mode additions.) */
+
+    /**
+     * Adds items (represented in yaml) to the catalog coming from the indicated managed bundle.
+     * Fails if the same version exists in catalog (unless snapshot).
+     * (Only used for legacy-mode additions.)
+     *
+     * @param forceUpdate If true allows catalog update even when an
+     * item exists with the same symbolicName and version
+     *
+     * @throws IllegalArgumentException if the yaml was invalid
+     *
+     * @deprecated Since 1.1, use {@link #addTypesFromBundleBom(String, ManagedBundle, boolean, Map)} for direct access to catalog (non/partial-OSGi, eg tests) or use the OsgiManager
+     * (Only used for legacy OSGi bundles.) */
     Iterable<? extends CatalogItem<?,?>> addItems(String yaml, ManagedBundle bundle, boolean forceUpdate);
     
     /**
@@ -212,7 +224,6 @@ public interface BrooklynCatalog {
      *
      * @deprecated since 0.7.0 Construct catalogs with yaml (referencing OSGi bundles) instead
      */
-    // TODO maybe this should stay on the API? -AH Apr 2015 
     @Deprecated
     void addItem(CatalogItem<?,?> item);
 
@@ -244,6 +255,10 @@ public interface BrooklynCatalog {
     @VisibleForTesting
     CatalogItem<?,?> addItem(Class<?> clazz);
 
+    /** @deprecated since 1.1 remove all bundles, that should clear the catalog
+     * Used for legacy catalog initialization and rebind.
+     */
+    @Deprecated
     void reset(Collection<CatalogItem<?, ?>> entries);
 
 }

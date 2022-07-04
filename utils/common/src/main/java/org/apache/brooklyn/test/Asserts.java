@@ -19,13 +19,7 @@
 package org.apache.brooklyn.test;
 
 import java.lang.reflect.Array;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Enumeration;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
@@ -33,14 +27,17 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.CompoundRuntimeException;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.text.ByteSizeStrings;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -1095,22 +1092,33 @@ public class Asserts {
     }
 
     public static void assertFailsWith(Runnable r, Predicate<? super Throwable> exceptionChecker) {
-        assertFailsWith(toCallable(r), exceptionChecker);
+        assertFailsWith(toCallable(r), exceptionChecker, false);
     }
     
     public static void assertFailsWith(Callable<?> c, Predicate<? super Throwable> exceptionChecker) {
+        assertFailsWith(c, exceptionChecker, true);
+    }
+
+    private static void assertFailsWith(Callable<?> c, Predicate<? super Throwable> exceptionChecker, boolean showResult) {
         boolean failed = false;
+        Object result = null;
         try {
-            c.call();
+            result = c.call();
         } catch (Throwable e) {
             failed = true;
-            if (!exceptionChecker.apply(e)) {
-                log.debug("Test threw invalid exception (failing)", e);
-                fail("Test threw invalid exception: "+e);
+            try {
+                if (!exceptionChecker.apply(e)) {
+                    log.warn("Test threw invalid exception (failing)", e);
+                    fail("Test threw invalid exception: " + e);
+                }
+                log.debug("Test for exception successful (" + e + ")");
+            } catch (Exception e2) {
+                log.warn("Test threw invalid exception (failing)", e);
+                throw Exceptions.propagate(e2);
             }
-            log.debug("Test for exception successful ("+e+")");
         }
-        if (!failed) fail("Test code should have thrown exception but did not");
+        if (!failed) fail("Test code should have thrown exception but did not" +
+                (showResult ? "; returned: "+result : ""));
     }
 
     public static void assertReturnsEventually(final Runnable r, Duration timeout) throws InterruptedException, ExecutionException, TimeoutException {
@@ -1280,39 +1288,54 @@ public class Asserts {
     
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
-     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
-    public static void expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+     * @return as per {@link #expectedFailureOfType(Throwable, Class, Class...)} */
+    public static boolean expectedFailureContains(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
             assertStringContains(Exceptions.collapseText(e), phrase1ToContain, optionalOtherPhrasesToContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
+        return true;
     }
 
     /** As {@link #expectedFailureContains(Throwable, String, String...)} but case insensitive */
-    public static void expectedFailureContainsIgnoreCase(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+    public static boolean expectedFailureContainsIgnoreCase(Throwable e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
             assertStringContainsIgnoreCase(Exceptions.collapseText(e), phrase1ToContain, optionalOtherPhrasesToContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
+        return true;
+    }
+
+    /** As {@link #expectedFailureContains(Throwable, String, String...)} but case insensitive */
+    public static boolean expectedCompoundExceptionContainsIgnoreCase(CompoundRuntimeException e, String phrase1ToContain, String ...optionalOtherPhrasesToContain) {
+        for (Throwable t : e.getAllCauses()) {
+            if (t instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)t;
+            try {
+                expectedFailureContainsIgnoreCase(t, phrase1ToContain, optionalOtherPhrasesToContain);
+                return true;
+            } catch (AssertionError ee) {}
+        }
+        throw new CompoundRuntimeException("Expected literals not found: " + phrase1ToContain + ", " + optionalOtherPhrasesToContain, e);
     }
 
     /** Tests {@link #expectedFailure(Throwable)} and that the <code>toString</code>
      * satisfies {@link #assertStringContains(String, String, String...)}.
-     * @return as per {@link #expectedFailureOfType(Throwable, Class...)} */
-    public static void expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
+     * @return as per {@link #expectedFailureOfType(Throwable, Class, Class...)} */
+    public static boolean expectedFailureDoesNotContain(Throwable e, String phrase1ToNotContain, String ...optionalOtherPhrasesToNotContain) {
         if (e instanceof ShouldHaveFailedPreviouslyAssertionError) throw (Error)e;
         try {
             assertStringDoesNotContain(Exceptions.collapseText(e), phrase1ToNotContain, optionalOtherPhrasesToNotContain);
         } catch (AssertionError ee) {
             rethrowPreferredException(e, ee);
         }
+        return true;
     }
     
-    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class...)} and others,
+    /** Implements the return behavior for {@link #expectedFailureOfType(Throwable, Class, Class...)} and others,
      * to log interesting earlier errors but to suppress those which are internal or redundant. */
     private static void rethrowPreferredException(Throwable earlierPreferredIfFatalElseLogged, Throwable laterPreferredOtherwise) throws AssertionError {
         if (!(earlierPreferredIfFatalElseLogged instanceof AssertionError)) {
@@ -1387,7 +1410,7 @@ public class Asserts {
         throw Exceptions.propagate(t);
     }
 
-    /** As {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration, boolean)} with default timeout. */
+    /** As {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration)} with default timeout. */
     public static <T> void eventuallyOnNotify(Object notifyTarget, Supplier<T> supplier, Predicate<T> predicate) {
         eventuallyOnNotify(notifyTarget, supplier, predicate, null);
     }
@@ -1422,7 +1445,7 @@ public class Asserts {
             ")");
     }
 
-    /** Convenience for {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration, boolean)} 
+    /** Convenience for {@link #eventuallyOnNotify(Object, Supplier, Predicate, Duration)}
      * when the notify target and the value under test are the same. */
     public static <T> void eventuallyOnNotify(T object, Predicate<T> predicate, Duration timeout) {
         eventuallyOnNotify(object, Suppliers.ofInstance(object), predicate, timeout);
@@ -1468,4 +1491,66 @@ public class Asserts {
         fail("Expected absent value; instead got: "+candidate.get());
     }
 
+    public static MemoryAssertions startMemoryAssertions(String message) {
+        MemoryAssertions result = new MemoryAssertions();
+        result.pushUsedMemory(message);
+        return result;
+    }
+
+    public static class MemoryAssertions {
+        public MemoryAssertions() {
+        }
+
+        Runnable extraTaskOnNoteMemory;
+        Deque<Long> usedMemoryQueue = new ArrayDeque<Long>();
+
+        public void setExtraTaskOnNoteMemory(Runnable extraTaskOnNoteMemory) {
+            this.extraTaskOnNoteMemory = extraTaskOnNoteMemory;
+        }
+
+        public long pushUsedMemory(String message) {
+            Time.sleep(Duration.millis(200));
+            if (extraTaskOnNoteMemory!=null) {
+                extraTaskOnNoteMemory.run();
+            }
+            System.gc(); System.gc();
+            Time.sleep(Duration.millis(50));
+            System.gc(); System.gc();
+            long mem = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
+            usedMemoryQueue.addLast(mem);
+            log.info("Memory used - "+message+": "+ByteSizeStrings.java().apply(mem));
+            return mem;
+        }
+
+        public long popUsedMemory() {
+            return usedMemoryQueue.removeLast();
+        }
+
+        public long peekLastUsedMemory() {
+            return usedMemoryQueue.peekLast();
+        }
+
+        public void assertUsedMemoryLessThan(String event, long max, boolean push) {
+            assertUsedMemoryLessThan(event, max, push, null);
+        }
+
+        public void assertUsedMemoryLessThan(String event, long max, boolean push, String extraFailMessage) {
+            long nowUsed = pushUsedMemory(event);
+            if (nowUsed > max) {
+                // aggressively try to force GC
+                Time.sleep(Duration.ONE_SECOND);
+                popUsedMemory();
+                nowUsed = pushUsedMemory(event+" (extra GC)");
+                if (nowUsed > max) {
+                    fail("Too much memory used - "+ ByteSizeStrings.java().apply(nowUsed)+" > max "+ByteSizeStrings.java().apply(max)+
+                            (extraFailMessage==null ? "" : " "+extraFailMessage));
+                }
+            }
+            if (!push) popUsedMemory();
+        }
+        public void assertUsedMemoryMaxDelta(String event, long deltaMegabytes, boolean push) {
+            final long last = peekLastUsedMemory();
+            assertUsedMemoryLessThan(event, last + deltaMegabytes*1024*1024, push, "(prev was "+ByteSizeStrings.java().apply(last)+", delta limit was "+ByteSizeStrings.java().apply(deltaMegabytes*1024*1024)+")");
+        }
+    }
 }

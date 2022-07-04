@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.brooklyn.util.core.flags.MethodCoercions;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.javalang.coerce.TryCoercer;
 import org.jclouds.json.SerializedNames;
 
@@ -56,7 +57,7 @@ public class JcloudsTypeCoercions {
     static class CoercionFromAutoValueBuilder implements TryCoercer {
         @Override
         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetTypeToken) {
-            Class<? super T> targetType = targetTypeToken.getRawType();
+            Class<? super T> targetType = TypeTokens.getRawRawType(targetTypeToken);
 
             // If we don't have a map of named params, we can't map it to builder methods
             if (!(input instanceof Map)) {
@@ -120,7 +121,7 @@ public class JcloudsTypeCoercions {
     static class CoercionFromAutoValueCreate implements TryCoercer {
         @Override
         public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> targetTypeToken) {
-            Class<? super T> targetType = targetTypeToken.getRawType();
+            Class<? super T> targetType = TypeTokens.getRawRawType(targetTypeToken);
             Maybe<?> result = null;
             Maybe<?> firstError = null;
 

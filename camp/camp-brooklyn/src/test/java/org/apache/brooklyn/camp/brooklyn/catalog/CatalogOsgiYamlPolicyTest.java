@@ -51,7 +51,7 @@ public class CatalogOsgiYamlPolicyTest extends AbstractYamlTest {
         assertEquals(item.getSymbolicName(), symbolicName);
         assertEquals(countCatalogPolicies(), 1);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -65,7 +65,7 @@ public class CatalogOsgiYamlPolicyTest extends AbstractYamlTest {
         assertEquals(item.getSymbolicName(), symbolicName);
         assertEquals(countCatalogPolicies(), 1);
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -90,7 +90,7 @@ public class CatalogOsgiYamlPolicyTest extends AbstractYamlTest {
         assertEquals(policy.getConfig(new BasicConfigKey<String>(String.class, "config2")), "config2 override");
         assertEquals(policy.getConfig(new BasicConfigKey<String>(String.class, "config3")), "config3");
 
-        deleteCatalogEntity(symbolicName);
+        deleteCatalogRegisteredType(symbolicName);
     }
 
     @Test
@@ -120,7 +120,7 @@ public class CatalogOsgiYamlPolicyTest extends AbstractYamlTest {
         Policy policy = Iterables.getOnlyElement(entity.policies());
         assertEquals(policy.getPolicyType().getName(), SIMPLE_POLICY_TYPE);
 
-        deleteCatalogEntity(referencedSymbolicName);
+        deleteCatalogRegisteredType(referencedSymbolicName);
     }
 
     private void addCatalogOsgiPolicy(String symbolicName, String policyType) {

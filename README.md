@@ -8,7 +8,7 @@ from the API and utils through to the core implementation and the REST server.
 
 ### Building the project
 
-2 methods are available to build this project: within a docker container or directly with maven.
+Two methods are available to build this project: within a docker container or directly with maven.
 
 #### Using docker
 
@@ -32,3 +32,4 @@ Simply run:
 ```bash
 mvn clean install
 ```
+

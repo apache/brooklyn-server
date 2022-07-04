@@ -181,9 +181,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
     public void testAddedEarly() throws Exception {
         final TestEntity entity2 = app.addChild(EntitySpec.create(TestEntity.class)
             .location(machine)
-            .addInitializer(new EntityInitializer() {
-                @Override
-                public void apply(EntityLocal entity) {
+            .addInitializer(entity -> {
                     SshFeed.builder()
                         .entity(entity)
                         .onlyIfServiceUp()
@@ -191,8 +189,7 @@ public class SshFeedIntegrationTest extends BrooklynAppUnitTestSupport {
                             .command("echo hello")
                             .onSuccess(SshValueFunctions.stdout()))
                         .build();
-                }
-            }));
+                }));
 
         // TODO would be nice to hook in and assert no errors
         EntityAsserts.assertAttributeEqualsContinually(entity2, SENSOR_STRING, null);

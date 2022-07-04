@@ -67,11 +67,13 @@ public class DashboardAggregator extends AbstractEnricher {
                 .dynamic(false)
                 .body(new AggregationJob(entity))
                 .displayName("DashboardAggregator task")
-                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+//                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
                 .description("Retrieves and aggregates sensor values")
                 .build();
 
-        task = ScheduledTask.builder(taskFactory).period(duration).displayName("scheduled:[DashboardAggregator task]").tagTransient().build();
+        task = ScheduledTask.builder(taskFactory).period(duration).displayName("scheduled:[DashboardAggregator task]")
+                //.tagTransient()
+                .build();
         this.getManagementContext().getExecutionManager().submit(task);
 
     }

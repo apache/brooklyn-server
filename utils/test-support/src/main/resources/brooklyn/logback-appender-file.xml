@@ -23,7 +23,8 @@
     <file>${logging.dir:-./}${logging.basename:-brooklyn}-tests.log</file>
     <append>true</append>
     <encoder>
-      <pattern>%d %-5level %logger{30} [%thread{15}]: %msg%n</pattern>
+      <pattern>%d{ISO8601} %8X{task.id}-%-23X{entity.ids} %-5.5p [%.16t] %-48c{1}  %m%n</pattern>
+<!--      <pattern>%d %-5level %logger{30} [%thread{15}]: %msg%n</pattern>-->
     </encoder>
   </appender>
 

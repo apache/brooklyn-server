@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import java.util.Map;
-
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
@@ -31,8 +29,14 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+
 public class ConfigTypeCoercionYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(ConfigTypeCoercionYamlTest.class);
+    @Override
+    protected Logger getLogger() {
+        return log;
+    }
 
     @BeforeMethod(alwaysRun=true)
     @Override
@@ -40,7 +44,7 @@ public class ConfigTypeCoercionYamlTest extends AbstractYamlTest {
         super.setUp();
         RecordingSshTool.clear();
     }
-    
+
     @Test
     public void testSshConfigFromDefault() throws Exception {
         RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse", null));
@@ -69,9 +73,5 @@ public class ConfigTypeCoercionYamlTest extends AbstractYamlTest {
         // (previous to Oct 2016 this would have returned just "30003+", no json)
         Asserts.assertStringContains((String)props.get("RANGE_PORT_DEFAULT_CONFIG"), "{\"start\"", "30003");
     }
-    
-    @Override
-    protected Logger getLogger() {
-        return log;
-    }
+
 }

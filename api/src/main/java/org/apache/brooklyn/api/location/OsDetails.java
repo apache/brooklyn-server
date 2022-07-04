@@ -42,5 +42,5 @@ public interface OsDetails {
     boolean isWindows();
     boolean isLinux();
     boolean isMac();
-
+    default boolean isArm(){ return false; }
 }

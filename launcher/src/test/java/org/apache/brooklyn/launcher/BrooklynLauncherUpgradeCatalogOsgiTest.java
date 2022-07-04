@@ -61,7 +61,7 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
     
     @Override
     protected boolean reuseOsgi() {
-        return false;
+        return true;
     }
 
     private BrooklynLauncher newLauncherForTests(String catalogInitial) {
@@ -216,7 +216,7 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
     public void testForciblyRemovedBundleNotAdded() throws Exception {
         runForciblyRemovedBundleNotAdded(true);
     }
-    
+
     @Test
     public void testForciblyRemovedBundleNotAddedWithNoUpgradeTarget() throws Exception {
         runForciblyRemovedBundleNotAdded(false);
@@ -295,7 +295,7 @@ public class BrooklynLauncherUpgradeCatalogOsgiTest extends AbstractBrooklynLaun
 
         launcher.terminate();
     }
-    
+
     @Test
     public void testForciblyRemovedBundleNotAddedWhenReferencedByName() throws Exception {
         VersionedName one_1_0_0 = VersionedName.fromString("one:1.0.0");

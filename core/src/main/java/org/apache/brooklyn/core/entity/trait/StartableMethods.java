@@ -48,22 +48,23 @@ public class StartableMethods {
 
     /** Common implementation for start in parent nodes; just invokes start on all children of the entity */
     public static void start(Entity e, Collection<? extends Location> locations) {
-        log.debug("Starting entity "+e+" at "+locations);
+        log.debug("Starting children of entity "+e+" at "+locations);
         DynamicTasks.get(startingChildren(e, locations), e);
+        log.debug("Started children of entity "+e);
     }
     
     /** Common implementation for stop in parent nodes; just invokes stop on all children of the entity */
     public static void stop(Entity e) {
-        log.debug("Stopping entity "+e);
+        log.debug("Stopping children of entity "+e);
         DynamicTasks.get(stoppingChildren(e), e);
-        if (log.isDebugEnabled()) log.debug("Stopped entity "+e);
+        log.debug("Stopped children of entity "+e);
     }
 
     /** Common implementation for restart in parent nodes; just invokes restart on all children of the entity */
     public static void restart(Entity e) {
-        log.debug("Restarting entity "+e);
+        log.debug("Restarting children of entity "+e);
         DynamicTasks.get(restartingChildren(e), e);
-        if (log.isDebugEnabled()) log.debug("Restarted entity "+e);
+        log.debug("Restarted children of entity "+e);
     }
     
     private static <T extends Entity> Iterable<T> filterStartableManagedEntities(Iterable<T> contenders) {
@@ -75,7 +76,7 @@ public class StartableMethods {
         List<Startable> failedEntities = Lists.newArrayList();
         
         for (final Startable entity : entities) {
-            if (!Entities.isManaged((Entity)entity)) {
+            if (!Entities.isManagedActive((Entity)entity)) {
                 log.debug("Not stopping {} because it is not managed; continuing", entity);
                 continue;
             }

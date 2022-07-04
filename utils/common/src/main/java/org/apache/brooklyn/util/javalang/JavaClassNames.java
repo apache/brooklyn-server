@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.javalang;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.apache.brooklyn.util.guava.TypeTokens;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -36,7 +37,7 @@ public class JavaClassNames {
     public static Class<?> type(Object x) {
         if (x==null) return null;
         if (x instanceof Class) return (Class<?>)x;
-        if (x instanceof TypeToken) return ((TypeToken<?>)x).getRawType();
+        if (x instanceof TypeToken) return TypeTokens.getRawRawType( (TypeToken<?>)x );
         return x.getClass();
     }
 

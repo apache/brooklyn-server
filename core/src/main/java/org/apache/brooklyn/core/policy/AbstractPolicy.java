@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.rebind.mementos.PolicyMemento;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicyType;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.mgmt.rebind.BasicPolicyRebindSupport;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.slf4j.Logger;
@@ -37,7 +38,7 @@ import com.google.common.base.MoreObjects;
 /**
  * Base {@link Policy} implementation; all policies should extend this or its children
  */
-public abstract class AbstractPolicy extends AbstractEntityAdjunct implements Policy, Configurable {
+public abstract class AbstractPolicy extends AbstractEntityAdjunct implements Policy, Configurable, EntityAdjuncts.EntityAdjunctProxyable {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(AbstractPolicy.class);
 

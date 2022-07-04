@@ -48,42 +48,40 @@ import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
 
 @Path("/catalog")
-@Api("Catalog")
+@Api(value = "Catalog (deprecated; use Catalog Types endpoint)", hidden = true)
 @Consumes(MediaType.APPLICATION_JSON)
 @Produces(MediaType.APPLICATION_JSON)
+@Deprecated
+/** @deprecated since 1.1 use {@link TypeApi} instead */
 public interface CatalogApi {
 
-    /** @deprecated since 0.11.0 use {@link #createFromYaml(String)} instead */
+    /** @deprecated since 0.11.0 use {@link #createFromYaml(String, boolean)} instead */
     @Deprecated
-    @Consumes("application/json-deprecated")  // prevent this from taking things
+    @Consumes("application/deprecated-yaml-old")  // prevent this from taking things
     @POST
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor (deprecated, use POST of yaml or ZIP/JAR instead)",
-            notes = "Return value is map of ID to CatalogItemSummary.",
-            response = String.class,
-            hidden = true
-    )
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given YAML"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response create(String yaml,
             @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false") boolean forceUpdate);
 
+    /** @deprecated since 1.1 use {@link #create(byte[], String, boolean, boolean, boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes({MediaType.APPLICATION_JSON, "application/x-yaml",
-        // see http://stackoverflow.com/questions/332129/yaml-mime-type
-        "text/yaml", "text/x-yaml", "application/yaml"})
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading YAML descriptor.",
-            notes = "Return value is map of ID to CatalogItemSummary.",
-            response = String.class,
-            hidden = true
-    )
+    @Consumes("application/deprecated-yaml")
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given YAML"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response createFromYaml(
             @ApiParam(name = "yaml", value = "YAML descriptor of catalog item", required = true)
@@ -92,28 +90,17 @@ public interface CatalogApi {
             @QueryParam("forceUpdate") @DefaultValue("false")
             boolean forceUpdate);
 
-    @Beta
-    /* TODO the polymorphic return type dependent on 'detail' is ugly, 
-     * but we're stuck in this API because backwards compatibility expects the types map
-     * whereas typical usage wants more feedback. we should introduce a 
-     * /registry and/or /types and/or /bundles endpoint that always provides details
-     * (and an approach to handling types more aligned with BrooklynTypeRegistry and OSGi bundling).
-     * Not too concerned here as this method is beta and the above switch will probably naturally happen soon. 
-     * The main client who cares about this is the Go CLI. */
+    /** @deprecated since 1.1 use {@link #create(byte[], String, boolean, boolean, boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes({"application/x-zip", "application/x-jar"})
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading a ZIP/JAR archive.",
-            notes = "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
-                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
-                    + "Return value is map of ID to CatalogItemSummary unless detail=true is passed as a parameter in which "
-                    + "case the return value is a BundleInstallationRestResult map containing the types map in types along "
-                    + "with a message, bundle, and code.",
-            response = String.class,
-            hidden = true)
+    @Consumes("application/deprecated-x-zip")
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response createFromArchive(
             @ApiParam(
@@ -129,19 +116,17 @@ public interface CatalogApi {
             boolean forceUpdate);
 
     @Beta
+    /** @deprecated since 1.1 use {@link #create(byte[], String, boolean, boolean, boolean)} instead */
+    @Deprecated
     @POST
-    @Consumes // anything (if doesn't match other methods with specific content types
-    @ApiOperation(
-            value = "Add a catalog items (e.g. new type of entity, policy or location) by uploading either YAML or ZIP/JAR archive (format autodetected)",
-            notes = "Specify a content-type header to skip auto-detection and invoke one of the more specific methods. "
-                    + "Accepts either an OSGi bundle JAR, or ZIP which will be turned into bundle JAR. Bother format must "
-                    + "contain a catalog.bom at the root of the archive, which must contain the bundle and version key."
-                    + "Return value is map of ID to CatalogItemSummary.",
-            response = String.class
-    )
+    @Consumes("application/deprecated-autodetect")
+    @ApiOperation(value = "(deprecated)", hidden = true, response = String.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
-            @ApiResponse(code = 201, message = "Catalog items added successfully")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response createFromUpload(
             @ApiParam(
@@ -149,6 +134,49 @@ public interface CatalogApi {
                     value = "Item to install, as JAR/ZIP or Catalog YAML (autodetected)",
                     required = true)
                     byte[] item,
+            @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
+            @QueryParam("forceUpdate") @DefaultValue("false")
+                    boolean forceUpdate);
+
+    /** @deprecated since 1.1.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    // the /bundles endpoint is preferred and things (Go client and UI) should be switched to use it exclusively
+    @Deprecated
+    @Beta
+    @POST
+    @Consumes // anything - now autodetect is done for everything unless 'format' is specified
+    // (mime type is ignored; though it could be useful in the "score" function, and probably is available on the thread)
+    @ApiOperation(
+            value = "Add a bundle of types (entities, etc) to the type registry (deprecated, use /catalog/bundles endpoint instead)",
+            notes = "This will auto-detect the format, with the 'brooklyn-bom-bundle' being common and consisting of "
+                    + "a ZIP/JAR containing a catalog.bom. "
+                    + "Return value is map of ID to CatalogItemSummary unless detail=true is passed as a parameter in which "
+                    + "case the return value is a BundleInstallationRestResult map containing the types map in types along "
+                    + "with a message, bundle, and code.",
+            response = String.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 201, message = "Catalog items added successfully"),
+            @ApiResponse(code = 400, message = "Error processing the given archive, or the catalog.bom is invalid"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response create(
+            @ApiParam(
+                    name = "bundle",
+                    value = "Bundle contents to install, eg for brooklyn-catalog-bundle a ZIP or JAR containing a catalog.bom file (deprecated, use /catalog/bundles endpoint instead)",
+                    required = true)
+                    byte[] archive,
+            @ApiParam(name="format", value="Specify the format to indicate a specific resolver for handling this", required=false)
+            @QueryParam("format") @DefaultValue("")
+                    String format,
+            @ApiParam(name="detail", value="Provide a wrapping details map (false for backwards compatibility, but true is recommended for migration to bundle API)", required=false)
+            @QueryParam("detail") @DefaultValue("false")
+                    boolean detail,
+            @ApiParam(name="itemDetails", value="Include legacy item details in the map of types (true for backwards compatibility, but false is recommended for migration to bundle API)", required=false)
+            @QueryParam("itemDetails") @DefaultValue("true")
+                    boolean itemDetails,
             @ApiParam(name="forceUpdate", value="Force update of catalog item (overwriting existing catalog items with same name and version)")
             @QueryParam("forceUpdate") @DefaultValue("false")
                     boolean forceUpdate);
@@ -164,7 +192,11 @@ public interface CatalogApi {
                     "pick up the latest version for the given 'symbolicName'"
     )
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void deleteApplication(
         @ApiParam(name = "symbolicName", value = "The symbolic name of the application or template to delete", required = true)
@@ -184,7 +216,11 @@ public interface CatalogApi {
                     "pick up the latest version for the given 'symbolicName'"
     )
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void deleteEntity(
         @ApiParam(name = "symbolicName", value = "The symbolic name of the entity or template to delete", required = true)
@@ -203,7 +239,11 @@ public interface CatalogApi {
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'policyId'")
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Policy not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void deletePolicy(
         @ApiParam(name = "policyId", value = "The ID of the policy to delete", required = true)
@@ -223,7 +263,11 @@ public interface CatalogApi {
                     "pick up the latest version for the given 'locationId'"
     )
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Location not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void deleteLocation(
         @ApiParam(name = "locationId", value = "The ID of the location to delete", required = true)
@@ -240,6 +284,13 @@ public interface CatalogApi {
     @ApiOperation(value = "List available entity types optionally matching a query  (deprecated, use /catalog/types endpoint instead, with supertype=entity)", 
             response = CatalogItemSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<CatalogEntitySummary> listEntities(
         @ApiParam(name = "regex", value = "Regular expression to search for")
         @QueryParam("regex") @DefaultValue("") String regex,
@@ -257,6 +308,13 @@ public interface CatalogApi {
     @ApiOperation(value = "Fetch a list of templates (for applications) optionally matching a query (deprecated, use /catalog/types endpoint instead, with supertype=application; note some semantics of templates are changing as definition becomes more precise)", 
             response = CatalogItemSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<CatalogItemSummary> listApplications(
             @ApiParam(name = "regex", value = "Regular expression to search for")
             @QueryParam("regex") @DefaultValue("") String regex,
@@ -277,7 +335,11 @@ public interface CatalogApi {
             response = CatalogEntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public CatalogEntitySummary getEntity(
         @ApiParam(name = "symbolicName", value = "The symbolic name of the entity or template to retrieve", required = true)
@@ -298,7 +360,11 @@ public interface CatalogApi {
             response = CatalogEntitySummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public CatalogEntitySummary getApplication(
         @ApiParam(name = "symbolicName", value = "The symbolic name of the application to retrieve", required = true)
@@ -315,6 +381,13 @@ public interface CatalogApi {
     @ApiOperation(value = "List available policies optionally matching a query (deprecated, use /catalog/types endpoint instead)", 
             response = CatalogPolicySummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<CatalogPolicySummary> listPolicies(
             @ApiParam(name = "regex", value = "Regular expression to search for")
             @QueryParam("regex") @DefaultValue("") String regex,
@@ -335,7 +408,11 @@ public interface CatalogApi {
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public CatalogPolicySummary getPolicy(
         @ApiParam(name = "policyId", value = "The ID of the policy to retrieve", required = true)
@@ -351,6 +428,13 @@ public interface CatalogApi {
     @ApiOperation(value = "List available locations optionally matching a query (deprecated, use /catalog/types endpoint instead)", 
             response = CatalogLocationSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<CatalogLocationSummary> listLocations(
             @ApiParam(name = "regex", value = "Regular expression to search for")
             @QueryParam("regex") @DefaultValue("") String regex,
@@ -371,7 +455,11 @@ public interface CatalogApi {
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-        @ApiResponse(code = 404, message = "Entity not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public CatalogItemSummary getLocation(
         @ApiParam(name = "locationId", value = "The ID of the location to retrieve", required = true)
@@ -379,16 +467,23 @@ public interface CatalogApi {
         @ApiParam(name = "version", value = "The version identifier of the application to retrieve", required = true)
         @PathParam("version") String version) throws Exception;
 
+    /** @deprecated since 1.1.0 delete the bundle via DELETE /catalog/bundles/xxx */
+    // but we will probably keep this around for a while as many places use it
+    @Deprecated
     @GET
     @Path("/icon/{itemId}/{version}")
     @ApiOperation(
-            value = "Return the icon for a given catalog entry (application/image or HTTP redirect)",
+            value = "Return the icon for a given catalog entry (application/image or HTTP redirect) (deprecated, use /catalog/types/.../icon endpoint instead)",
             notes = "Version must exists, otherwise the API will return a 404. Alternatively, passing 'latest' will" +
                     "pick up the latest version for the given 'itemId'"
     )
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Item not found")
-        })
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     @Produces("application/image")
     public Response getIcon(
         @ApiParam(name = "itemId", value = "ID of catalog item (application, entity, policy, location)", required=true)
@@ -404,7 +499,11 @@ public interface CatalogApi {
     @POST
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined catalog item"),
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @ApiOperation(value = "Deprecate an item (deprecated, use /catalog/types endpoint instead, but disabled/deprecating is not supported for individual types)")
     @Path("/entities/{itemId}/deprecated")
@@ -422,7 +521,11 @@ public interface CatalogApi {
     @Consumes({MediaType.APPLICATION_JSON, MediaType.APPLICATION_OCTET_STREAM, MediaType.TEXT_PLAIN})
     @ApiOperation(value = "Disable an item (deprecated, use /catalog/types endpoint instead, but disabled/deprecating is not supported for individual types)")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Undefined catalog item"),
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Path("/entities/{itemId}/disabled")
     public void setDisabled(
@@ -439,6 +542,13 @@ public interface CatalogApi {
     @ApiOperation(value = "List available enrichers types optionally matching a query (deprecated, use /catalog/types endpoint instead)",
             response = CatalogItemSummary.class,
             responseContainer = "List")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public List<CatalogEnricherSummary> listEnrichers(
             @ApiParam(name = "regex", value = "Regular expression to search for")
             @QueryParam("regex") @DefaultValue("") String regex,
@@ -456,7 +566,11 @@ public interface CatalogApi {
             response = CatalogItemSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Enricher not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Enricher not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public CatalogEnricherSummary getEnricher(
             @ApiParam(name = "enricherId", value = "The ID of the enricher to retrieve", required = true)
@@ -471,7 +585,11 @@ public interface CatalogApi {
     @Path("/enrichers/{enricherId}/{version}")
     @ApiOperation(value = "Deletes a specific version of an enricher's definition from the catalog (deprecated, use /catalog/types endpoint instead)")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Enricher not found")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Enricher not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public void deleteEnricher(
             @ApiParam(name = "enricherId", value = "The ID of the enricher to delete", required = true)

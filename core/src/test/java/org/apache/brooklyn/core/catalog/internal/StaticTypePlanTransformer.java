@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -78,18 +77,6 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // not supported
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // not supported
-        return null;
-    }
-
-    @Override
     protected double scoreForNullFormat(Object planData, RegisteredType type, RegisteredTypeLoadingContext context) {
         if (REGISTERED_SPECS.containsKey(type.getId())) return 1;
         if (REGISTERED_SPECS.containsKey(planData)) return 1;
@@ -105,9 +92,9 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         if (REGISTERED_SPECS.containsKey(type.getSymbolicName()))
-            return get(type.getSymbolicName());
+            return decorateWithCommonTagsModifyingSpecSummary(get(type.getSymbolicName()), type, null, null, null);
         if (type.getPlan().getPlanData()!=null && REGISTERED_SPECS.containsKey(type.getPlan().getPlanData()))
-            return get((String)type.getPlan().getPlanData());
+            return decorateWithCommonTagsModifyingSpecSummary(get((String)type.getPlan().getPlanData()), type, null, null, null);
         return null;
     }
 
@@ -120,6 +107,4 @@ public class StaticTypePlanTransformer extends AbstractTypePlanTransformer {
     public static AbstractBrooklynObjectSpec<?, ?> get(String typeName) {
         return REGISTERED_SPECS.get(typeName);
     }
-
-
 }

@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutionException;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigInheritance;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
@@ -36,6 +37,8 @@ import org.apache.brooklyn.core.config.ConfigKeys.InheritanceContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ConfigKeySelfExtracting;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.Tasks.ForTestingAndLegacyCompatibilityOnly;
+import org.apache.brooklyn.util.core.task.Tasks.ForTestingAndLegacyCompatibilityOnly.LegacyDeepResolutionMode;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.TypeTokens;
@@ -295,6 +298,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         return deprecatedNames;
     }
 
+    @JsonIgnore
     /** @see ConfigKey#getTypeName() */
     @Override public String getTypeName() { return getTypeToken().toString(); }
 
@@ -343,7 +347,8 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
         
         return null;
     }
-    
+
+    @JsonIgnore
     @Override
     public Map<ConfigInheritanceContext,ConfigInheritance> getInheritanceByContext() {
         MutableMap<ConfigInheritanceContext, ConfigInheritance> result = MutableMap.of();
@@ -396,6 +401,7 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
 
     /** @see ConfigKey#getNameParts() */
+    @JsonIgnore
     @Deprecated
     @Override public Collection<String> getNameParts() {
         return Lists.newArrayList(dots.split(name));
@@ -441,10 +447,33 @@ public class BasicConfigKey<T> implements ConfigKeySelfExtracting<T>, Serializab
     }
     
     protected Object resolveValue(Object v, ExecutionContext exec) throws ExecutionException, InterruptedException {
-        if (ValueResolver.supportsDeepResolution(v)) {
-            return Tasks.resolveDeepValue(v, Object.class, exec, "Resolving deep config "+name);
-        } else {
-            return Tasks.resolveValue(v, getTypeToken(), exec, "Resolving config "+name);
+        Exception e1 = null;
+        if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE != LegacyDeepResolutionMode.ONLY_LEGACY) {
+            try {
+                return Tasks.resolveDeepValueCoerced(v, getTypeToken(), exec, "config " + name);
+            } catch (Exception e) {
+                if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.DISALLOW_LEGACY) {
+                    throw Exceptions.propagateAnnotated("Cannot resolve "+v+" for "+this, e);
+                }
+                e1 = e;
+            }
+        }
+
+        try {
+            // legacy mode didn't do coercion if the object was a map/list/etc
+            Object result;
+            if (ValueResolver.supportsDeepResolution(v, null)) {
+                result = Tasks.resolveDeepValueWithoutCoercion(v, exec, "Resolving deep config " + name);
+            } else {
+                result = Tasks.resolveValue(v, getTypeToken(), exec, "Resolving config " + name);
+            }
+            if (ForTestingAndLegacyCompatibilityOnly.LEGACY_DEEP_RESOLUTION_MODE == LegacyDeepResolutionMode.WARN) {
+                log.warn("Conversion of '" + this + "' (" + v + ") to " + type + " failed; leaving as map/list type for legacy compatibility, but this feature may be removed in future");
+            }
+            return result;
+        } catch (Exception e2) {
+            Exceptions.propagateIfFatal(e2);
+            throw Exceptions.propagateAnnotated("Cannot resolve "+v+" for "+this, e1);
         }
     }
 

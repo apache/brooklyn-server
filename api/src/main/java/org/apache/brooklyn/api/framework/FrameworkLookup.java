@@ -133,8 +133,12 @@ public class FrameworkLookup {
         if (bundle != null) {
             LOG.trace("Looking up all " + clazz.getSimpleName() + " in OSGI");
             BundleContext ctx = bundle.getBundleContext();
-            for (ServiceReference<T> reference: getServiceReferences(clazz, ctx)) {
-                result.add(ctx.getService(reference));
+            if (ctx==null) {
+                LOG.debug("No context (yet?) for bundle '"+bundle+"'; returning empty lookup for "+clazz);
+            } else {
+                for (ServiceReference<T> reference : getServiceReferences(clazz, ctx)) {
+                    result.add(ctx.getService(reference));
+                }
             }
         }
         return result;

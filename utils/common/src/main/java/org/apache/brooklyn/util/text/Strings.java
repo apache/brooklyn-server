@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.MutableList;
@@ -81,7 +82,7 @@ public class Strings {
      * @see #isNonBlank(CharSequence)
      */
     public static boolean isBlank(CharSequence s) {
-        return isEmpty(s) || CharMatcher.WHITESPACE.matchesAllOf(s);
+        return isEmpty(s) || CharMatcher.whitespace().matchesAllOf(s);
     }
 
     /**
@@ -116,6 +117,22 @@ public class Strings {
     public static <T extends CharSequence> Maybe<T> maybeNonBlank(T s) {
         if (isNonBlank(s)) return Maybe.of(s);
         return Maybe.absent();
+    }
+
+    public static <T extends CharSequence> T firstNonBlank(T ...s) {
+        if (s==null) return null;
+        for (T si: s) {
+            if (isNonBlank(si)) return si;
+        }
+        return null;
+    }
+
+    public static String firstNonNull(Object ...s) {
+        if (s==null) return null;
+        for (Object si: s) {
+            if (si!=null) return ""+si;
+        }
+        return null;
     }
 
     /** throws IllegalArgument if string not empty; cf. guava Preconditions.checkXxxx */
@@ -198,20 +215,20 @@ public class Strings {
      * Removes everything after the marker, optionally also removing the marker.
      * If marker not found the string is unchanged.
      */
-    public static String removeAfter(String string, String marker, boolean includeMarker) {
-        int i = string.indexOf(marker);
-        if (i==-1) return string;
-        return string.substring(0, i + (includeMarker ? marker.length() : 0));
+    public static String removeAfter(String input, String marker, boolean keepMarker) {
+        int i = input.indexOf(marker);
+        if (i==-1) return input;
+        return input.substring(0, i + (keepMarker ? marker.length() : 0));
     }
     
     /**
      * Removes everything before the marker, optionally also removing the marker.
      * If marker not found the string is unchanged.
      */
-    public static String removeBefore(String string, String marker, boolean includeMarker) {
-        int i = string.indexOf(marker);
-        if (i==-1) return string;
-        return string.substring(i + (includeMarker ? 0 : marker.length()));
+    public static String removeBefore(String input, String marker, boolean keepMarker) {
+        int i = input.indexOf(marker);
+        if (i==-1) return input;
+        return input.substring(i + (keepMarker ? 0 : marker.length()));
     }
     
     /** convenience for {@link com.google.common.base.Joiner} */
@@ -314,7 +331,7 @@ public class Strings {
     public static String makeValidFilename(String s) {
         Preconditions.checkNotNull(s, "Cannot make valid filename from null string");
         Preconditions.checkArgument(isNonBlank(s), "Cannot make valid filename from blank string");
-        return CharMatcher.anyOf(VALID_NON_ALPHANUM_FILE_CHARS).or(CharMatcher.JAVA_LETTER_OR_DIGIT)
+        return CharMatcher.anyOf(VALID_NON_ALPHANUM_FILE_CHARS).or(CharMatcher.javaLetterOrDigit())
                 .negate()
                 .trimAndCollapseFrom(s, '_');
     }
@@ -649,6 +666,11 @@ public class Strings {
     public static String toInitialCapOnly(String value) {
         if (value==null || value.length()==0) return value;
         return value.substring(0, 1).toUpperCase(Locale.ENGLISH) + value.substring(1).toLowerCase(Locale.ENGLISH);
+    }
+
+    public static String toInitialLowerCase(String value) {
+        if (value==null || value.length()==0) return value;
+        return value.substring(0, 1).toLowerCase(Locale.ENGLISH) + value.substring(1);
     }
 
     public static String reverse(String name) {
@@ -1011,4 +1033,43 @@ public class Strings {
         return result;
     }
 
+    public static int countOccurrences(String phrase, String target) {
+        if (phrase == null || isEmpty(target)) return 0;
+        int count = 0;
+        while (true) {
+            int index = phrase.indexOf(target);
+            if (index<0) return count;
+            count++;
+            phrase = phrase.substring(index+1);
+        }
+    }
+
+    /** indents every line in `body` by the given count of spaces */
+    public static String indent(int count, String body) {
+        return prefixAddedToEachLine(Strings.makePaddedString("", count, " ", ""), body);
+    }
+
+    /** prefixes every line in `body` (second argument) by the given string (first argument) */
+    public static String prefixAddedToEachLine(String prefix, String body) {
+        if (body==null) return null;
+        return Arrays.stream(body.split("\n")).map(s -> prefix + s).collect(Collectors.joining("\n"));
+    }
+
+    public static boolean containsLiteralAsWord(String context, String word) {
+        if (context==null || word==null) return false;
+
+        int i=-1;
+        while ((i = context.indexOf(word, i+1)) > -1) {
+            if (i==0 || !isAlphaOrDigit(context.charAt(i-1))) {
+                if (i+word.length()==context.length() || !isAlphaOrDigit(context.charAt(i+word.length()))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public static boolean isAlphaOrDigit(char c) {
+        return Character.isDigit(c) || Character.isAlphabetic(c);
+    }
 }

@@ -21,7 +21,10 @@ package org.apache.brooklyn.core.entity;
 import java.util.Iterator;
 import java.util.List;
 
+import com.google.common.base.Function;
+import com.google.common.base.Optional;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -30,12 +33,17 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.core.objs.proxy.EntityAdjunctProxyImpl;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Convenience methods for working with entity adjunts.
@@ -91,6 +99,45 @@ public class EntityAdjuncts {
         // Enricher doesn't support suspend so if not running or destroyed then
         // it is just created
         return Lifecycle.CREATED;
+    }
+
+    public static <T extends EntityAdjunct> T createProxyForInstance(Class<T> adjunctType, @Nonnull T delegate) {
+        return (T) java.lang.reflect.Proxy.newProxyInstance(
+                /** must have sight of all interfaces */ EntityAdjuncts.class.getClassLoader(),
+                new Class[] { adjunctType, EntityAdjuncts.EntityAdjunctProxyable.class},
+
+                new EntityAdjunctProxyImpl(Preconditions.checkNotNull(delegate)));
+    }
+
+    public static <T extends EntityAdjunct> T createProxyForId(Class<T> adjunctType, String id) {
+        return (T) java.lang.reflect.Proxy.newProxyInstance(
+                /** must have sight of all interfaces */ EntityAdjuncts.class.getClassLoader(),
+                new Class[] { adjunctType, EntityAdjuncts.EntityAdjunctProxyable.class},
+
+                new EntityAdjunctProxyImpl(id));
+    }
+
+    /** all real EntityAdjunct items support getEntity, but via two different paths, depending whether it is proxied or not */
+    public static <T extends EntityAdjunct> Maybe<Entity> getEntity(T value, boolean treatDefinitelyMissingAsAbsent) {
+        final Function<Maybe<Entity>,Maybe<Entity>> handleNull = mv -> {
+            if (!treatDefinitelyMissingAsAbsent || mv.isAbsent() || mv.isPresentAndNonNull()) return mv;
+            return Maybe.absentNull("entity definitely not set on adjunct");
+        };
+        if (value instanceof EntityAdjuncts.EntityAdjunctProxyable) {
+            // works for proxies and almost all real instances
+            return handleNull.apply(Maybe.ofAllowingNull( ((EntityAdjuncts.EntityAdjunctProxyable)value).getEntity() ));
+        }
+        if (value instanceof AbstractEntityAdjunct) {
+            // needed for items that don't extend the standard Abstracts, eg something that implements Enricher but don't extend AbstractEnricher
+            // (we might be able to get rid of those; and maybe move getEntity to the EntityAdjunct interface, but that is for another day)
+            return handleNull.apply(Maybe.ofAllowingNull( ((AbstractEntityAdjunct)value).getEntity() ));
+        }
+        return Maybe.absent("adjunct does not supply way to detect if entity set");
+    }
+
+    /** supported by nearly all EntityAdjuncts, but a few in the wild might that don't extend the standard AbstractEntityAdjunct might not implement this; see {@link #getEntity()} */
+    public interface EntityAdjunctProxyable extends EntityAdjunct {
+        Entity getEntity();
     }
 
 }

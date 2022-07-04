@@ -21,14 +21,7 @@ package org.apache.brooklyn.core.mgmt.internal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.lang.reflect.Proxy;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
-import java.util.WeakHashMap;
+import java.util.*;
 import java.util.concurrent.ConcurrentMap;
 import java.util.regex.Pattern;
 
@@ -39,9 +32,11 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.EntityTypeRegistry;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.AccessController;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -56,23 +51,27 @@ import org.apache.brooklyn.core.internal.storage.BrooklynStorage;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.mgmt.entitlement.WebEntitlementContext;
 import org.apache.brooklyn.core.objs.BasicEntityTypeRegistry;
 import org.apache.brooklyn.core.objs.proxy.EntityProxy;
 import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
 import org.apache.brooklyn.core.objs.proxy.InternalEntityFactory;
 import org.apache.brooklyn.core.objs.proxy.InternalPolicyFactory;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.collections.SetFromLiveMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -157,30 +156,48 @@ public class LocalEntityManager implements EntityManagerInternal {
     }
 
     @Override
-    public <T extends Entity> T createEntity(EntitySpec<T> spec) {
-        return createEntity(spec, Optional.absent());
-    }
-    
-    @Beta
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
-        if (entityId.isPresent()) {
-            if (!ENTITY_ID_PATTERN.matcher(entityId.get()).matches()) {
-                throw new IllegalArgumentException("Invalid entity id '"+entityId.get()+"'");
+    public <T extends Entity> T createEntity(EntitySpec<T> spec, EntityCreationOptions options) {
+        String entityId = options.getRequiredUniqueId();
+
+        if (entityId!=null) {
+            if (!ENTITY_ID_PATTERN.matcher(entityId).matches()) {
+                throw new IllegalArgumentException("Invalid entity id '"+entityId+"'");
             }
         }
         
         try {
-            T entity = entityFactory.createEntity(spec, entityId);
-            Entity proxy = ((AbstractEntity)entity).getProxy();
-            checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
-            
-            manage(entity);
-            
-            return (T) proxy;
+            T entity = entityFactory.createEntity(spec, options);
+
+            if (options.isDryRun()) {
+                unmanageDryRun(entity);
+                // also need to do this to remove tasks etc
+                managementContext.getGarbageCollector().onUnmanaged(entity);
+                return entity;
+
+            } else {
+                Entity proxy = ((AbstractEntity)entity).getProxy();
+                checkNotNull(proxy, "proxy for entity %s, spec %s", entity, spec);
+
+                manage(entity);
+                if (options.persistAfterCreation()) {
+                    try {
+                        managementContext.getRebindManager().forcePersistNow(false, null);
+                    } catch (Exception e) {
+                        log.warn("Error persisting "+entity+" after creation; will unmanage then rethrow: "+e);
+                        try {
+                            unmanage(entity);
+                        } catch (Exception e2) {
+                            log.error("Could not unmanage "+entity+" which failed persistence after creation; manual removal will be required: "+e2, e2);
+                        }
+                        throw Exceptions.propagate(e);
+                    }
+                }
+                return (T) proxy;
+            }
+
         } catch (Throwable e) {
-            log.warn("Failed to create entity using spec "+spec+" (rethrowing)", e);
+            // this may be expected, eg if parent is being unmanaged; rely on catcher to handle
+            log.debug("Failed to create entity using spec "+spec+" (rethrowing)", e);
             throw Exceptions.propagate(e);
         }
     }
@@ -378,7 +395,8 @@ public class LocalEntityManager implements EntityManagerInternal {
             if (mode==null) {
                 setManagementTransitionMode(it, mode = initialMode);
             }
-            
+            log.debug("Starting management of {} mode {}", it, mode);
+
             Boolean isReadOnlyFromEntity = it.getManagementSupport().isReadOnlyRaw();
             if (isReadOnlyFromEntity==null) {
                 if (mode.isReadOnly()) {
@@ -504,10 +522,19 @@ public class LocalEntityManager implements EntityManagerInternal {
         }
     }
 
+    private void unmanageDryRun(final Entity e) {
+        final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext,
+                ManagementTransitionMode.transitioning(BrooklynObjectManagementMode.NONEXISTENT, BrooklynObjectManagementMode.NONEXISTENT));
+        discardPremanaged(e);
+
+        ((EntityInternal)e).getManagementSupport().onManagementStopping(info, true);
+        stopTasks(e);
+        ((EntityInternal)e).getManagementSupport().onManagementStopped(info, true);
+    }
+
     private void unmanage(final Entity e, ManagementTransitionMode mode, boolean hasBeenReplaced) {
-        if (shouldSkipUnmanagement(e)) return;
+        if (shouldSkipUnmanagement(e, hasBeenReplaced)) return;
         final ManagementTransitionInfo info = new ManagementTransitionInfo(managementContext, mode);
-        
         if (hasBeenReplaced) {
             // we are unmanaging an old instance after having replaced it
             // don't unmanage or even clear its fields, because there might be references to it
@@ -519,19 +546,20 @@ public class LocalEntityManager implements EntityManagerInternal {
                     log.warn("Unexpected mode "+mode+" for unmanage-replace "+e+" (applying anyway)");
                 }
                 // migrating away or in-place active partial rebind:
-                ((EntityInternal)e).getManagementSupport().onManagementStopping(info);
+                ((EntityInternal)e).getManagementSupport().onManagementStopping(info, false);
                 stopTasks(e);
-                ((EntityInternal)e).getManagementSupport().onManagementStopped(info);
+                ((EntityInternal)e).getManagementSupport().onManagementStopped(info, false);
             }
             // do not remove from maps below, bail out now
             return;
             
         } else if (mode.wasReadOnly() && mode.isNoLongerLoaded()) {
             // we are unmanaging an instance (secondary); either stopping here or primary destroyed elsewhere
-            ((EntityInternal)e).getManagementSupport().onManagementStopping(info);
-            unmanageNonRecursive(e);
-            stopTasks(e);
-            ((EntityInternal)e).getManagementSupport().onManagementStopped(info);
+            ((EntityInternal)e).getManagementSupport().onManagementStopping(info, false);
+            if (unmanageNonRecursive(e)) {
+                stopTasks(e);
+            }
+            ((EntityInternal)e).getManagementSupport().onManagementStopped(info, false);
             managementContext.getRebindManager().getChangeListener().onUnmanaged(e);
             if (managementContext.getGarbageCollector() != null) managementContext.getGarbageCollector().onUnmanaged(e);
             
@@ -547,24 +575,73 @@ public class LocalEntityManager implements EntityManagerInternal {
              */
             
             // Need to store all child entities as onManagementStopping removes a child from the parent entity
-            final List<EntityInternal> allEntities =  Lists.newArrayList();
-            recursively(e, new Predicate<EntityInternal>() { @Override public boolean apply(EntityInternal it) {
-                if (shouldSkipUnmanagement(it)) return false;
-                allEntities.add(it);
-                it.getManagementSupport().onManagementStopping(info);
-                return true;
-            } });
+            final Set<EntityInternal> allEntities =  new LinkedHashSet<>();
+            int iteration = 0;
 
-            for (EntityInternal it : allEntities) {
-                if (shouldSkipUnmanagement(it)) continue;
-                unmanageNonRecursive(it);
-                stopTasks(it);
-            }
-            for (EntityInternal it : allEntities) {
-                it.getManagementSupport().onManagementStopped(info);
-                managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
-                if (managementContext.getGarbageCollector() != null) managementContext.getGarbageCollector().onUnmanaged(e);
-            }
+            do {
+                List<Entity> entitiesToUnmanageRecursively = MutableList.of();
+
+                if (iteration>0) {
+                    log.info("Re-running descendant unmanagement on descendants of "+e+" which were added concurrently during previous iteration: "+allEntities);
+                    if (iteration>=20) throw new IllegalStateException("Too many iterations detected trying to unmanage descendants of "+e+" ("+iteration+")");
+                    entitiesToUnmanageRecursively.addAll(allEntities);
+                } else {
+                    entitiesToUnmanageRecursively.add(e);
+                }
+
+                entitiesToUnmanageRecursively.forEach(ei -> recursively(ei, new Predicate<EntityInternal>() {
+                    @Override
+                    public boolean apply(EntityInternal it) {
+                        if (shouldSkipUnmanagement(it, false)) return false;
+                        allEntities.add(it);
+                        it.getManagementSupport().onManagementStopping(info, false);
+                        return true;
+                    }
+                }));
+
+                if (!allEntities.isEmpty()) {
+                    MutableList<EntityInternal> allEntitiesExceptApp = MutableList.copyOf(allEntities);
+                    EntityInternal app = allEntitiesExceptApp.remove(0);
+                    Collections.reverse(allEntitiesExceptApp);
+                    // log in reverse order, so that ancestor nodes logged later because they are more interesting
+                    // (and application is the last one logged)
+                    allEntitiesExceptApp.forEach(it -> {
+                        BrooklynLoggingCategories.ENTITY_LIFECYCLE_LOG.debug("Deleting entity " + it.getId() + " (" + it + ") in application " + it.getApplicationId() + " for user " + Entitlements.getEntitlementContextUser());
+                    });
+                    BrooklynLoggingCategories.APPLICATION_LIFECYCLE_LOG.debug("Deleting application " + app.getId() + " (" + app + ") mode " + mode + " for user " + Entitlements.getEntitlementContextUser());
+                }
+
+                for (EntityInternal it : allEntities) {
+                    if (shouldSkipUnmanagement(it, false)) continue;
+
+                    if (unmanageNonRecursive(it)) {
+                        stopTasks(it);
+                    }
+                }
+                for (EntityInternal it : allEntities) {
+                    it.getManagementSupport().onManagementStopped(info, false);
+                    managementContext.getRebindManager().getChangeListener().onUnmanaged(it);
+                    if (managementContext.getGarbageCollector() != null)
+                        managementContext.getGarbageCollector().onUnmanaged(e);
+                }
+
+                // re-run in case a child has been added
+                final Set<EntityInternal> allEntitiesAgain = new LinkedHashSet<>();
+                // here loop through each entity because the children will normally be cleared during unmanagement
+                allEntities.forEach(ei -> recursively(ei, new Predicate<EntityInternal>() {
+                    @Override
+                    public boolean apply(EntityInternal it) {
+                        allEntitiesAgain.add(it);
+                        return true;
+                    }
+                }));
+                allEntitiesAgain.removeAll(allEntities);
+                allEntities.clear();
+                allEntities.addAll(allEntitiesAgain);
+                iteration++;
+
+            } while (!allEntities.isEmpty());
+
             
         } else {
             log.warn("Invalid mode for unmanage: "+mode+" on "+e+" (ignoring)");
@@ -589,13 +666,33 @@ public class LocalEntityManager implements EntityManagerInternal {
         // try forcibly interrupting tasks on managed entities
         Collection<Exception> exceptions = MutableSet.of();
         try {
+            boolean inTaskForThisEntity = entity.equals(BrooklynTaskTags.getContextEntity(Tasks.current()));
+            Set<String> currentAncestorIds = null;
             Set<Task<?>> tasksCancelled = MutableSet.of();
-            for (Task<?> t: managementContext.getExecutionContext(entity).getTasks()) {
-                if (entity.equals(BrooklynTaskTags.getContextEntity(Tasks.current())) && hasTaskAsAncestor(t, Tasks.current())) {
-                    // don't cancel if we are running inside a task on the target entity and
-                    // the task being considered is one we have submitted -- e.g. on "stop" don't cancel ourselves!
-                    // but if our current task is from another entity we probably do want to cancel them (we are probably invoking unmanage)
-                    continue;
+            Set<Task<?>> tasks;
+            try {
+                tasks = managementContext.getExecutionContext(entity).getTasks();
+            } catch (Exception e) {
+                log.debug("Unable to stop tasks for "+entity+"; probably it was added but management cancelled: "+e);
+                log.trace("Trace for failure to stop tasks", e);
+                return;
+            }
+            for (Task<?> t: tasks) {
+                if (inTaskForThisEntity) {
+                    if (currentAncestorIds==null) {
+                        currentAncestorIds = getAncestorTaskIds(Tasks.current());
+                    }
+                    if (getAncestorTaskIds(t).stream().anyMatch(currentAncestorIds::contains)) {
+                        // don't cancel the task if:
+                        // - the current task is against this entity, and
+                        // - the current task and target task are part of the same root tree
+                        // e.g. on "stop" don't cancel ourselves, don't cancel things our ancestors have submitted
+                        // (direct ancestry check is not good enough, because we might be in a subtask of a deletion which has a DST manager,
+                        // and cancelling the DST manager is almost as bad as cancelling ourselves);
+                        // however if our current task is from another entity we maybe do want to cancel other things running at this node
+                        // (although maybe not; we could remote the "inTaskForThisEntity" check)
+                        continue;
+                    }
                 }
                 
                 if (!t.isDone()) {
@@ -643,6 +740,16 @@ public class LocalEntityManager implements EntityManagerInternal {
         if (t==null || potentialAncestor==null) return false;
         if (t.equals(potentialAncestor)) return true;
         return hasTaskAsAncestor(t.getSubmittedByTask(), potentialAncestor);
+    }
+
+    private Set<String> getAncestorTaskIds(Task<?> t) {
+        List<String> ancestorIds = MutableList.of();
+        while (t!=null) {
+            ancestorIds.add(t.getId());
+            t = t.getSubmittedByTask();
+        }
+        Collections.reverse(ancestorIds);
+        return MutableSet.copyOf(ancestorIds);
     }
 
     /**
@@ -713,7 +820,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         Entity realE = toRealEntity(e);
         
         Object old = preManagedEntitiesById.put(e.getId(), realE);
-        preRegisteredEntitiesById.remove(e.getId());
+        Object pre = preRegisteredEntitiesById.remove(e.getId());
         
         if (old!=null && mode.wasNotLoaded()) {
             if (old.equals(e)) {
@@ -723,6 +830,11 @@ public class LocalEntityManager implements EntityManagerInternal {
             }
             return false;
         } else {
+            if (pre==null) {
+                // assume everything is pre-pre-managed
+                preManagedEntitiesById.remove(e.getId());
+                throw new IllegalStateException("Entity "+e+" not known as pre-registered when starting management of it; probably it was unmanaged concurrently");
+            }
             if (log.isTraceEnabled()) log.trace("{} pre-start management of entity {}, mode {}", 
                 new Object[] { this, e, mode });
             return true;
@@ -768,8 +880,15 @@ public class LocalEntityManager implements EntityManagerInternal {
         entityProxiesById.put(e.getId(), proxyE);
         entityTypes.put(e.getId(), realE.getClass().getName());
         entitiesById.put(e.getId(), realE);
-        
-        preManagedEntitiesById.remove(e.getId());
+
+        Entity preManaged = preManagedEntitiesById.remove(e.getId());
+        if (preManaged==null) {
+            // assume everything is pre-managed
+            log.warn(this+" cannot start management for "+e+" because it is not or no longer pre-managed; probably its ancestor was concurrently unmanaged (unmanaging then throwing)");
+            unmanage(e, mode);
+            throw new IllegalStateException(this+" cannot start management for "+e+" because it is not or no longer pre-managed; probably its ancestor was concurrently unmanaged");
+        }
+
         if ((e instanceof Application) && (e.getParent()==null)) {
             applications.add((Application)proxyE);
             applicationIds.add(e.getId());
@@ -779,6 +898,7 @@ public class LocalEntityManager implements EntityManagerInternal {
         
         if (old!=null && old!=e) {
             // passing the transition info will ensure the right shutdown steps invoked for old instance
+            log.debug("Unmanaging previous instance {} being replaced by {} {}", old, e, mode);
             unmanage(old, mode, true);
         }
         
@@ -787,7 +907,7 @@ public class LocalEntityManager implements EntityManagerInternal {
 
     /**
      * Should ensure that the entity is no longer managed anywhere, remove from all lists.
-     * Returns true if the entity has been removed from management; if it was not previously managed (anything else throws exception) 
+     * Returns true if the entity has been removed from management; false if it is not known or pre-pre-managed (anything else throws exception)
      */
     private boolean unmanageNonRecursive(Entity e) {
         /*
@@ -806,8 +926,9 @@ public class LocalEntityManager implements EntityManagerInternal {
          * this is happening? Should abstractEntity.onManagementStopped or some such remove the entity
          * from its groups?
          */
-        
-        if (!getLastManagementTransitionMode(e.getId()).isReadOnly()) {
+
+        ManagementTransitionMode lastTM = getLastManagementTransitionMode(e.getId());
+        if (lastTM!=null && !lastTM.isReadOnly()) {
             e.clearParent();
             for (Group group : e.groups()) {
                 if (!Entities.isNoLongerManaged(group)) group.removeMember(e);
@@ -819,7 +940,7 @@ public class LocalEntityManager implements EntityManagerInternal {
                 }
             }
         } else {
-            log.debug("No relations being updated on unmanage of read only {}", e);
+            log.trace("No groups being updated on unmanage of read only {} (mode {})", e, lastTM);
         }
 
         unmanageOwnedLocations(e);
@@ -833,20 +954,42 @@ public class LocalEntityManager implements EntityManagerInternal {
 
             entities.remove(proxyE);
             entityProxiesById.remove(e.getId());
-            entityModesById.remove(e.getId());
+            ManagementTransitionMode oldMode = entityModesById.remove(e.getId());
             
             Object old = entitiesById.remove(e.getId());
 
             entityTypes.remove(e.getId());
             if (old==null) {
-                log.warn("{} call to stop management of unknown entity (already unmanaged?) {}; ignoring", this, e);
+                if (preRegisteredEntitiesById.remove(e.getId())!=null) {
+                    // concurrent IEF creation should fail if we do the above removal
+                    log.info("{} stopping management of pre-pre-managed entity {} {}/{}; removed from pre-pre-managed list (management of that should fail)", this, e, oldMode, lastTM);
+                    discardPremanaged(e);
+                } else if (preManagedEntitiesById.remove(e.getId())!=null) {
+                    // concurrent management should fail if we do the above removal
+                    log.info("{} stopping management of pre-managed entity {} {}/{}; removed from pre-managed list (promotion of that should fail)", this, e, oldMode, lastTM);
+                    discardPremanaged(e);
+                } else {
+                    // can happen even in concurrent case if removal completed by candidate adder, or two things try to unmanage
+                    if (!Entities.isNoLongerManaged(e)) {
+                        // slim chance we fall into this block if the concurrent unmanagement has not completed; give it a bit of time to do so
+                        log.debug("Unexpected call to unmanage {}, possibly a race, delaying slightly to allow to complete");
+                        log.trace("Trace for unexpected unmanage call", new Throwable("trace"));
+                        Time.sleep(Duration.millis(10));
+                    }
+                    if (Entities.isNoLongerManaged(e)) {
+                        log.debug("Confirmed redundant call to unmanage {} (e.g. an entity ensuring things are removed by policy when also unmanaging)", e);
+                    } else {
+                        log.warn("{} call to stop management of unknown/unexpected entity (possibly due to redundant concurrent calls) {} {}/{}; ignoring", this, e, oldMode, lastTM);
+                    }
+                }
                 return false;
+
             } else if (!old.equals(e)) {
                 // shouldn't happen...
-                log.error("{} call to stop management of entity {} removed different entity {}", new Object[] { this, e, old });
+                log.error("{} call to stop management of entity {} removed different entity {} {}/{}", new Object[] { this, e, old, oldMode, lastTM });
                 return true;
             } else {
-                if (log.isDebugEnabled()) log.debug("{} stopped management of entity {}", this, e);
+                if (log.isDebugEnabled()) log.debug("{} stopped management of entity {} {}/{}", this, e, oldMode, lastTM);
                 return true;
             }
         }
@@ -854,7 +997,7 @@ public class LocalEntityManager implements EntityManagerInternal {
 
     private void unmanageOwnedLocations(Entity e) {
         for (Location loc : e.getLocations()) {
-            NamedStringTag ownerEntityTag = BrooklynTags.findFirst(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
+            NamedStringTag ownerEntityTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.OWNER_ENTITY_ID, loc.tags().getTags());
             if (ownerEntityTag != null) {
                 if (e.getId().equals(ownerEntityTag.getContents())) {
                     managementContext.getLocationManager().unmanage(loc);
@@ -881,14 +1024,35 @@ public class LocalEntityManager implements EntityManagerInternal {
         entities.removeListener(wrappedListener);
     }
     
-    private boolean shouldSkipUnmanagement(Entity e) {
+    private boolean shouldSkipUnmanagement(Entity e, boolean hasBeenReplaced) {
         if (e==null) {
             log.warn(""+this+" call to unmanage null entity; skipping",  
                 new IllegalStateException("source of null unmanagement call to "+this));
             return true;
         }
         if (!isManaged(e)) {
-            log.warn("{} call to stop management of unknown entity (already unmanaged?) {}; skipping, and all descendants", this, e);
+            if (!hasBeenReplaced) {
+
+                // check duplicated in unmanageNonRecursive
+                if (((EntityInternal)e).getManagementSupport().wasDeployed() && !Entities.isNoLongerManaged(e)) {
+                    // slim chance we fall into this block if the concurrent unmanagement has not completed; give it a bit of time to do so
+                    log.debug("Unexpected call to skippable unmanagement of {}, possibly a race, delaying slightly to allow to complete");
+                    log.trace("Trace for unexpected unmanage call", new Throwable("trace"));
+                    Time.sleep(Duration.millis(10));
+                }
+
+                if (Entities.isNoLongerManaged(e)) {
+                    log.debug("Confirmed redundant call to skippable unmanage {} (e.g. an entity ensuring things are removed by policy when also unmanaging); skipping, and all descendants", e);
+                } else if ( !((EntityInternal)e).getManagementSupport().wasDeployed() ) {
+                    log.debug("Call to unmanage {} which is not (yet?) deployed; assume concurrent creator will unmanage; here we are skipping, and all descendants", e);
+                } else {
+                    // race can still occur with parallel creator, but unlikely so log warning
+                    log.warn("{} call to skippable unmanagement of unknown/unexpected entity (possibly due to redundant concurrent calls); skipping, and all descendants", this, e);
+                }
+
+            } else {
+                log.trace("{} call to unmanagement of replaced entity (previous already unmanaged?) {}; skipping, and all descendants", this, e);
+            }
             return true;
         }
         return false;

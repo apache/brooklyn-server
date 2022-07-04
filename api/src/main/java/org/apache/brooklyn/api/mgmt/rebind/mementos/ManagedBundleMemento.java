@@ -27,6 +27,8 @@ public interface ManagedBundleMemento extends Memento {
     String getSymbolicName();
     String getVersion();
 
+    String getFormat();
+
     String getUrl();
     
     @Nullable
@@ -34,5 +36,9 @@ public interface ManagedBundleMemento extends Memento {
     
     ByteSource getJarContent();
     void setJarContent(ByteSource byteSource);
+
+    @Nullable
+    /** whether the bundle is known to be able to be permanently deleteable (eg it was installed by a user) */
+    Boolean getDeleteable();
 
 }

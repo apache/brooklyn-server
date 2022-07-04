@@ -18,6 +18,9 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializerBase.*;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
@@ -78,6 +81,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Joiner;
@@ -522,71 +526,105 @@ public class EntitiesYamlTest extends AbstractYamlTest {
             }
         }
     }
-    
-    @Test
-    public void testScopeReferences() throws Exception {
+
+    private void doTestScopeReferences(String reference) throws Exception {
         addCatalogItems(
                 "brooklyn.catalog:",
                 "  itemType: entity",
                 "  items:",
                 "  - id: ref_child",
                 "    item:",
-                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      type: " + reference,
+                "      name: RC",
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
                 "      brooklyn.children:",
-                "      - type: " + ReferencingYamlTestEntity.class.getName(),
+                "      - type: " + reference,
+                "        name: RC-child",
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
 
                 "  - id: ref_parent",
                 "    item:",
-                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      type: " + reference,
+                "      name: RP",
                 "      test.reference.root: $brooklyn:root()",
                 "      test.reference.scope_root: $brooklyn:scopeRoot()",
                 "      brooklyn.children:",
-                "      - type: " + ReferencingYamlTestEntity.class.getName(),
+                "      - type: " + reference,
+                "        name: RP-child",
                 "        test.reference.root: $brooklyn:root()",
                 "        test.reference.scope_root: $brooklyn:scopeRoot()",
                 "        brooklyn.children:",
-                "        - type: ref_child");
-        
+                "        - type: ref_child",
+                "          name: RP-grandchild=RC",
+                "          test.reference.scope_root2: $brooklyn:scopeRoot()");
+
         Entity app = createAndStartApplication(
                 "brooklyn.config:",
                 "  test.reference.root: $brooklyn:root()",
                 "  test.reference.scope_root: $brooklyn:scopeRoot()",
+                "name: APP",
                 "services:",
-                "- type: " + ReferencingYamlTestEntity.class.getName(),
+                "- type: " + reference,
+                "  name: APP-child",
                 "  test.reference.root: $brooklyn:root()",
                 "  test.reference.scope_root: $brooklyn:scopeRoot()",
                 "  brooklyn.children:",
-                "  - type: " + ReferencingYamlTestEntity.class.getName(),
+                "  - type: " + reference,
+                "    name: APP-grandchild",
                 "    test.reference.root: $brooklyn:root()",
                 "    test.reference.scope_root: $brooklyn:scopeRoot()",
                 "    brooklyn.children:",
-                "    - type: ref_parent");
-        
-        assertScopes(app, app, app);
+                "    - type: ref_parent",
+                "      name: APP-greatgrandchild=RP",
+                "      test.reference.scope_root2: $brooklyn:scopeRoot()");
+
+        assertScopes(app, "APP", app, app);
         Entity e1 = nextChild(app);
-        assertScopes(e1, app, app);
+        assertScopes(e1, "APP-child", app, app);
         Entity e2 = nextChild(e1);
-        assertScopes(e2, app, app);
+        assertScopes(e2, "APP-grandchild", app, app);
         Entity e3 = nextChild(e2);
-        assertScopes(e3, app, e3);
+        // see logic in CampResolver which ensures scopeRoot in a nested blueprint refer to the root of that nested blueprint
+        assertScopes(e3, "APP-greatgrandchild=RP", app, e3, app);
         Entity e4 = nextChild(e3);
-        assertScopes(e4, app, e3);
+        assertScopes(e4, "RP-child", app, e3);
         Entity e5 = nextChild(e4);
-        assertScopes(e5, app, e5);
+        assertScopes(e5, "RP-grandchild=RC", app, e5, e3);
         Entity e6 = nextChild(e5);
-        assertScopes(e6, app, e5);
+        assertScopes(e6, "RC-child", app, e5);
+    }
+
+    @Test
+    public void testScopeReferences() throws Exception {
+        doTestScopeReferences(ReferencingYamlTestEntity.class.getName());
+    }
+
+    @Test
+    public void testScopeReferencesComplex() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+                "  - id: ref_entity",
+                "    item:",
+                "      type: " + ReferencingYamlTestEntity.class.getName(),
+                "      name: RE");
+        doTestScopeReferences("ref_entity");
     }
     
     private static Entity nextChild(Entity entity) {
         return Iterables.getOnlyElement(entity.getChildren());
     }
-    private static void assertScopes(Entity entity, Entity root, Entity scopeRoot) {
+    private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot) {
+        assertScopes(entity, name, root, scopeRoot, null);
+    }
+    private static void assertScopes(Entity entity, String name, Entity root, Entity scopeRoot, Entity scopeRoot2) {
+        if (name!=null) assertEquals(entity.getDisplayName(), name);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_ROOT), root);
         assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT), scopeRoot);
+        assertEquals(entity.config().get(ReferencingYamlTestEntity.TEST_REFERENCE_SCOPE_ROOT2), scopeRoot2);
     }
 
     private void checkReferences(final Entity entity, Map<ConfigKey<Entity>, Entity> keyToEntity) throws Exception {
@@ -784,7 +822,7 @@ public class EntitiesYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testEntitySpecConfig() throws Exception {
+    public void testEntitySpecConfigDsl() throws Exception {
         String yaml =
                 "services:\n"+
                 "- serviceType: org.apache.brooklyn.core.test.entity.TestEntity\n"+
@@ -798,6 +836,25 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
+        TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
+        assertEquals(child.getConfig(TestEntity.CONF_NAME), "inchildspec");
+    }
+
+    @Test
+    public void testEntitySpecConfigCoerced() throws Exception {
+        String yaml =
+                "services:\n"+
+                        "- serviceType: org.apache.brooklyn.core.test.entity.TestEntity\n"+
+                        "  brooklyn.config:\n"+
+                        "   test.childSpec:\n"+
+                        //"     $brooklyn:entitySpec:\n"+
+                        "       type: org.apache.brooklyn.core.test.entity.TestEntity\n"+
+                        "       brooklyn.config:\n"+
+                        "         test.confName: inchildspec\n";
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
         TestEntity child = (TestEntity) entity.createAndManageChildFromConfig();
         assertEquals(child.getConfig(TestEntity.CONF_NAME), "inchildspec");
     }
@@ -963,61 +1020,106 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         String yaml =
                 "services:\n"+
                 "- type: "+TestEntity.class.getName()+"\n"+
-                "  brooklyn.initializers: [ { type: "+TestSensorAndEffectorInitializer.class.getName()+" } ]";
+                "  brooklyn.initializers: [ { type: "+ TestConfigurableInitializerStatic.class.getName()+" } ]";
         
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        Effector<?> hi = entity.getEffector(TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO);
+        Effector<?> hi = entity.getEffector(TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO);
         Assert.assertNotNull(hi);
         
-        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED) );
-        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED_EMITTED) );
-        Assert.assertNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializer.SENSOR_LAST_HELLO) );
+        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED) );
+        Assert.assertNotNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED_EMITTED) );
+        Assert.assertNull( entity.getEntityType().getSensor(TestSensorAndEffectorInitializerBase.SENSOR_LAST_HELLO) );
         
-        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_LAST_HELLO)) );
-        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED)) );
-        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_HELLO_DEFINED_EMITTED)),
+        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_LAST_HELLO)) );
+        Assert.assertNull( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED)) );
+        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_HELLO_DEFINED_EMITTED)),
             "1");
         
-        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
             MutableMap.of("name", "Bob"));
         Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hello Bob");
-        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializer.SENSOR_LAST_HELLO)),
+        Assert.assertEquals( entity.getAttribute(Sensors.newStringSensor(TestSensorAndEffectorInitializerBase.SENSOR_LAST_HELLO)),
             "Bob");
     }
 
-    @Test
-    public void testEntityWithConfigurableInitializerEmpty() throws Exception {
+    @Test(dataProvider = "initializersToTest")
+    public void testEntityWithConfigurableInitializerEmpty(Class<? extends EntityInitializer> init) throws Exception {
+        new TestConfigurableInitializerFieldsWithConfigKeys(ConfigBag.newInstance());
         String yaml =
                 "services:\n"+
                 "- type: "+TestEntity.class.getName()+"\n"+
-                "  brooklyn.initializers: [ { type: "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.class.getName()+" } ]";
+                "  brooklyn.initializers: [ { type: "+init.getName()+" } ]";
         
         Application app = (Application) createStartWaitAndLogApplication(yaml);
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
             MutableMap.of("name", "Bob"));
         Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hello Bob");
     }
 
-    @Test
-    public void testEntityWithConfigurableInitializerNonEmpty() throws Exception {
+    @Test(dataProvider = "initializersToTest")
+    public void testEntityWithConfigurableInitializerBrooklynConfig(Class<? extends EntityInitializer> init) throws Exception {
         String yaml =
                 "services:\n"+
                 "- type: "+TestEntity.class.getName()+"\n"+
                 "  brooklyn.initializers: [ { "
-                  + "type: "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.class.getName()+","
-                  + "brooklyn.config: { "+TestSensorAndEffectorInitializer.TestConfigurableInitializer.HELLO_WORD+": Hey }"
+                  + "type: "+init.getName()+","
+                  + "brooklyn.config: { " + TestConfigurableInitializerConfigBag.HELLO_WORD.getName() + ": Hey }"
                   + " } ]";
-        
-        Application app = (Application) createStartWaitAndLogApplication(yaml);
+
+
+        Application app;
+        try {
+            app = (Application) createStartWaitAndLogApplication(yaml);
+        } catch (Exception e) {
+            if (init == TestConfigurableInitializerSimpleField.class) {
+                // brooklyn.config shouldn't be supported here
+                Asserts.expectedFailureContains(e, "Unrecognized field \"brooklyn.config\"", "TestConfigurableInitializerSimpleField");
+                return;
+            }
+            throw Exceptions.propagate(e);
+        }
         TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
         
-        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializer.EFFECTOR_SAY_HELLO).buildAbstract(), 
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
             MutableMap.of("name", "Bob"));
         Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hey Bob");
+    }
+
+    @Test(dataProvider = "initializersToTest")
+    public void testEntityWithConfigurableInitializerFields(Class<? extends EntityInitializer> init) throws Exception {
+        String yaml =
+                "services:\n"+
+                        "- type: "+TestEntity.class.getName()+"\n"+
+                        "  brooklyn.initializers: [ { "
+                        + "type: "+init.getName()+","
+                        + TestConfigurableInitializerConfigBag.HELLO_WORD.getName() + ": Hey"
+                        + " } ]";
+
+        Application app = (Application) createStartWaitAndLogApplication(yaml);
+        TestEntity entity = (TestEntity) Iterables.getOnlyElement(app.getChildren());
+
+        Task<String> saying = entity.invoke(Effectors.effector(String.class, TestSensorAndEffectorInitializerBase.EFFECTOR_SAY_HELLO).buildAbstract(),
+                MutableMap.of("name", "Bob"));
+        if (init==TestConfigurableInitializerOld.class) {
+            // configuration outside brooklyn.config not supported with old style
+            Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hello Bob");
+        } else {
+            Assert.assertEquals(saying.get(Duration.TEN_SECONDS), "Hey Bob");
+        }
+    }
+
+    @DataProvider(name="initializersToTest")
+    protected Object[][] initializersToTest() {
+        return new Object[][] {
+                new Object[] { TestConfigurableInitializerOld.class },
+                new Object[] { TestConfigurableInitializerSimpleField.class },
+                new Object[] { TestConfigurableInitializerConfigBag.class },
+                new Object[] { TestConfigurableInitializerFieldsWithConfigKeys.class },
+        };
     }
 
     @Test

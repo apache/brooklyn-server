@@ -18,44 +18,56 @@
  */
 package org.apache.brooklyn.core.sensor.ssh;
 
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityInitializer;
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
-import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
-import org.apache.brooklyn.feed.CommandPollConfig;
-import org.apache.brooklyn.feed.ssh.SshFeed;
-import org.apache.brooklyn.feed.ssh.SshValueFunctions;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Functionals;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.text.StringFunctions;
-import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.MapConfigKey;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInitializers;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
+import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
+import org.apache.brooklyn.feed.CommandPollConfig;
+import org.apache.brooklyn.feed.ssh.SshFeed;
+import org.apache.brooklyn.feed.ssh.SshValueFunctions;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ssh.SshTasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.StringFunctions;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yaml.Yamls;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -70,29 +82,69 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandSensor.class);
 
     public static final ConfigKey<String> SENSOR_COMMAND = ConfigKeys.newStringConfigKey("command", "SSH command to execute for sensor");
+    public static final ConfigKey<String> SENSOR_COMMAND_URL = ConfigKeys.newStringConfigKey("commandUrl", "Remote SSH command to execute for sensor (takes precedence over command)");
     public static final ConfigKey<String> SENSOR_EXECUTION_DIR = ConfigKeys.newStringConfigKey("executionDir", "Directory where the command should run; "
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
         + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
     public static final ConfigKey<Object> VALUE_ON_ERROR = ConfigKeys.newConfigKey(Object.class, "value.on.error",
             "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
+    public static final ConfigKey<String> FORMAT = ConfigKeys.newStringConfigKey("format",
+                    "Format to expect for the output; default to auto which will attempt a yaml/json parse for complex types, falling back to string, then coerce; " +
+                    "other options are just 'string' (previous default) or 'yaml'", "auto");
+    public static final ConfigKey<Boolean> LAST_YAML_DOCUMENT = ConfigKeys.newBooleanConfigKey("useLastYaml",
+                    "Whether to trim the output ignoring everything up to and before the last `---` line if present when expecting yaml; " +
+                    "useful if the script has quite a lot of output which should be ignored prior, with the value to be used for the sensor output last; " +
+                    "default true (ignored if format is 'string')", true);
 
-    // Fields are kept for deserialization purposes; however will rely on the values being
-    // re-computed from the config map, rather than being restored from persistence.
-    @SuppressWarnings("unused")
-    private String command;
-    @SuppressWarnings("unused")
-    private String executionDir;
-    @SuppressWarnings("unused")
-    private Map<String,Object> sensorEnv;
-    
-    public SshCommandSensor(final ConfigBag params) {
+    final private AtomicBoolean commandUrlInstalled = new AtomicBoolean(false);
+
+    protected SshCommandSensor() {}
+    public SshCommandSensor(ConfigBag params) {
         super(params);
     }
 
     @Override
     public void apply(final EntityLocal entity) {
-        super.apply(entity);
+        ConfigBag params = initParams();
+
+        String commandUrl = EntityInitializers.resolve(initParams(), SENSOR_COMMAND_URL);
+        if (Objects.nonNull(commandUrl)) {
+
+            entity.subscriptions().subscribe(entity, BrooklynConfigKeys.INSTALL_DIR, booleanSensorEvent -> {
+                if (Strings.isNonBlank(booleanSensorEvent.getValue()) && !commandUrlInstalled.get()) {
+
+                    // Prepare path for a remote command script.
+                    // Take into account possibility of multiple ssh commands initialized at the same entity.
+                    String commandUrlPath = booleanSensorEvent.getValue() + "/command-url-" + Identifiers.makeRandomId(4)+ ".sh";
+
+                    // Look for SshMachineLocation and install remote command script.
+                    Maybe<SshMachineLocation> locationMaybe = Locations.findUniqueSshMachineLocation(entity.getLocations());
+                    if (locationMaybe.isPresent()) {
+                        TaskFactory<?> install = SshTasks.installFromUrl(locationMaybe.get(), commandUrl, commandUrlPath);
+                        Object ret = DynamicTasks.queueIfPossible(install.newTask()).orSubmitAsync(entity).andWaitForSuccess();
+
+                        // Prevent command duplicates in case if INSTALL_DIR changed from the outside.
+                        commandUrlInstalled.set(true);
+                    } else {
+                        throw new IllegalStateException("Could not find SshMachineLocation to run 'commandUrl'");
+                    }
+
+                    // Run a deferred command.
+                    params.putStringKey(SENSOR_COMMAND.getName(), "bash " + commandUrlPath);
+                    apply(entity, params);
+                }
+            });
+        } else {
+            apply(entity, params);
+        }
+    }
+
+    private void apply(final EntityLocal entity, final ConfigBag params) {
+
+        AttributeSensor<T> sensor = addSensor(entity);
+
+        String name = initParam(SENSOR_NAME);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding SSH sensor {} to {}", name, entity);
@@ -103,20 +155,17 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
         final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
 
         Supplier<Map<String,String>> envSupplier = new EnvSupplier(entity, params);
-        
+
         Supplier<String> commandSupplier = new CommandSupplier(entity, params);
 
         CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
-                .period(period)
+                .period(initParam(SENSOR_PERIOD))
                 .env(envSupplier)
                 .command(commandSupplier)
                 .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
                 .onFailureOrException(Functions.constant((T)params.get(VALUE_ON_ERROR)))
-                .onSuccess(Functionals.chain(
-                        SshValueFunctions.stdout(),
-                        StringFunctions.trimEnd(),
-                        TypeCoercions.function((Class<T>) sensor.getType())))
+                .onSuccess(Functionals.chain(SshValueFunctions.stdout(), new CoerceOutputFunction<>(sensor.getTypeToken(), initParam(FORMAT), initParam(LAST_YAML_DOCUMENT))))
                 .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
                 .logWarningGraceTime(logWarningGraceTime);
 
@@ -137,12 +186,12 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 Map<String, Object> env = MutableMap.copyOf(entity.getConfig(BrooklynConfigKeys.SHELL_ENVIRONMENT));
 
                 // Add the shell environment entries from our configuration
-                Map<String,Object> sensorEnv = params.get(SENSOR_SHELL_ENVIRONMENT);
+                Map<String,Object> sensorEnv = initParams().get(SENSOR_SHELL_ENVIRONMENT);
                 if (sensorEnv != null) env.putAll(sensorEnv);
 
                 // Try to resolve the configuration in the env Map
                 try {
-                    env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+                    env = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, ((EntityInternal) entity).getExecutionContext());
                 } catch (InterruptedException | ExecutionException e) {
                     Exceptions.propagateIfFatal(e);
                 }
@@ -160,8 +209,8 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 // Note that entity may be null during rebind (e.g. if this SshFeed is orphaned, with no associated entity):
                 // See https://issues.apache.org/jira/browse/BROOKLYN-568.
                 // We therefore guard against null in makeCommandExecutingInDirectory.
-                String command = Preconditions.checkNotNull(EntityInitializers.resolve(params, SENSOR_COMMAND));
-                String dir = EntityInitializers.resolve(params, SENSOR_EXECUTION_DIR);
+                String command = Preconditions.checkNotNull(EntityInitializers.resolve(initParams(), SENSOR_COMMAND));
+                String dir = EntityInitializers.resolve(initParams(), SENSOR_EXECUTION_DIR);
                 return makeCommandExecutingInDirectory(command, dir, entity);
             }
         };
@@ -172,6 +221,57 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
             }
         };
+    }
+
+    @Beta
+    public static class CoerceOutputFunction<T> implements Function<String,T> {
+        final TypeToken<T> typeToken;
+        final String format;
+        final Boolean useLastYamlDocument;
+
+        public CoerceOutputFunction(TypeToken<T> typeToken, String format, Boolean useLastYamlDocument) {
+            this.typeToken = typeToken;
+            this.format = format;
+            this.useLastYamlDocument = useLastYamlDocument;
+        }
+
+        public T apply(String input) {
+            boolean doYaml = !"string".equalsIgnoreCase(format);
+            boolean doString = !"yaml".equalsIgnoreCase(format);
+
+            if ("auto".equalsIgnoreCase(format)) {
+                if (String.class.equals(typeToken.getRawType()) || Boxing.isPrimitiveOrBoxedClass(typeToken.getRawType())) {
+                    // don't do yaml if we want a string or a primitive
+                    doYaml = false;
+                }
+            }
+
+            Maybe<T> result1 = null;
+
+            if (doYaml) {
+                try {
+                    String yamlInS = input;
+                    if (!Boolean.FALSE.equals(useLastYamlDocument)) {
+                        yamlInS = Yamls.lastDocumentFunction().apply(yamlInS);
+                    }
+                    Object yamlInO = Iterables.getOnlyElement(Yamls.parseAll(yamlInS));
+                    result1 = TypeCoercions.tryCoerce(yamlInO, typeToken);
+                    if (result1.isPresent()) doString = false;
+                } catch (Exception e) {
+                    if (result1==null) result1 = Maybe.absent(e);
+                }
+            }
+
+            if (doString) {
+                try {
+                    return (T) Functionals.chain(StringFunctions.trimEnd(), TypeCoercions.function(typeToken.getRawType())).apply(input);
+                } catch (Exception e) {
+                    if (result1==null) result1 = Maybe.absent(e);
+                }
+            }
+
+            return result1.get();
+        }
     }
 
     @Beta
@@ -220,7 +320,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
             // Try to resolve the configuration in the env Map
             try {
-                env = (Map<String, Object>) Tasks.resolveDeepValue(env, Object.class, ((EntityInternal) entity).getExecutionContext());
+                env = (Map<String, Object>) Tasks.resolveDeepValueWithoutCoercion(env, ((EntityInternal) entity).getExecutionContext());
             } catch (InterruptedException | ExecutionException e) {
                 Exceptions.propagateIfFatal(e);
             }
@@ -259,4 +359,23 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             return makeCommandExecutingInDirectory(command, dir, entity);
         }
     }
+
+    private String command;
+    private String executionDir;
+    private Map<String,Object> sensorEnv;
+    // introduced in 1.1 for legacy compatibility
+    protected Object readResolve() {
+        super.readResolve();
+        initFromConfigBag(ConfigBag.newInstance()
+                .putIfAbsentAndNotNull(SENSOR_COMMAND, command)
+                .putIfAbsentAndNotNull(SENSOR_EXECUTION_DIR, executionDir)
+                .putIfAbsentAndNotNull(SENSOR_SHELL_ENVIRONMENT, sensorEnv)
+        );
+        command = null;
+        executionDir = null;
+        sensorEnv = null;
+
+        return this;
+    }
+
 }

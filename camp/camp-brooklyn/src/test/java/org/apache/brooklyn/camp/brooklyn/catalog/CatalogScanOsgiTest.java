@@ -18,15 +18,26 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.function.Predicate;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.InputStreamSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -51,6 +62,8 @@ import org.testng.annotations.Test;
 import com.google.common.collect.Iterables;
 
 public class CatalogScanOsgiTest extends AbstractYamlTest {
+
+    private static final Logger LOG = LoggerFactory.getLogger(CatalogScanOsgiTest.class);
 
     @Override protected boolean disableOsgi() { return false; }
     
@@ -84,7 +97,7 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
                 "brooklyn.catalog:",
                 "  scanJavaAnnotations: true").getBytes() ) ));
         
-        ((ManagementContextInternal)mgmt).getOsgiManager().get().install(new FileInputStream(f)).checkNoError();
+        ((ManagementContextInternal)mgmt).getOsgiManager().get().install(InputStreamSource.of("test:"+f, f)).checkNoError();
     }
     
     @Test
@@ -145,10 +158,104 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
 
     static String bomAnonymous() {
         return Strings.lines("brooklyn.catalog:",
+                "    items:",
+                "    - item:",
+                "        id: sample",
+                "        type: "+BasicEntity.class.getName());
+    }
+
+    @Test
+    public void testAddOverwritingSnapshotBoms() throws IOException {
+        installBom(bom("aaa", "2-SNAPSHOT", 1), ResultCode.INSTALLED_NEW_BUNDLE);
+        checkInstalled("aaa", 1);
+
+        installBom(bom("aaa", "2-SNAPSHOT", 2), ResultCode.UPDATED_EXISTING_BUNDLE);
+        checkInstalled("aaa", 2);
+
+        // fixed by ea4518ed7ee018d7af2996ec8da44ac3780c4469 - previously the bundle would be ignored
+        installBom(bom("aaa", "2-SNAPSHOT", 1), ResultCode.UPDATED_EXISTING_BUNDLE);
+        checkInstalled("aaa", 1);
+
+        // but this fails with ea4518ed7ee018d7af2996ec8da44ac3780c4469 - now the bundle is reinstalled
+        installBom(bom("aaa", "2-SNAPSHOT", 1), ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED);
+        checkInstalled("aaa", 1);
+    }
+
+    @Test
+    public void testAddOverwritingSnapshotAndNonSnapshotBoms() throws IOException {
+        installBom(bomSnapshot("bbb"));
+        checkInstalled("bbb", null);
+
+        // overwrites snapshot
+        installBom(bom("bbb", "1.0", 1));
+        checkInstalled("bbb", 1);
+
+        // same one can be installed
+        installBom(bom("bbb", "1.0", 1));
+        checkInstalled("bbb", 1);
+
+        // different one at non-snapshot version cannot be reinstalled
+        Asserts.assertFailsWith(() -> installBom(bom("bbb", "1.0", 2)), e -> {
+            Asserts.expectedFailureContainsIgnoreCase(e, "already installed", "bbb");
+            return true;
+        });
+
+        // new snapshot can be installed but is not preferred
+        installBom(bom("bbb", "3.0-SNAPSHOT", 2));
+        checkInstalled("bbb", 1);
+
+    }
+
+    public void installBom(String bom) {
+        installBom(bom, null);
+    }
+
+    public void installBom(String bom, ResultCode expectedResultCode) {
+        try {
+            File f = Os.newTempFile(this.getClass(), "zip");
+            ZipOutputStream out = new ZipOutputStream(new FileOutputStream(f));
+            out.putNextEntry(new ZipEntry("catalog.bom"));
+            Streams.copy(new ByteArrayInputStream(bom.getBytes(StandardCharsets.UTF_8)), out);
+            out.closeEntry();
+            Streams.closeQuietly(out);
+
+            OsgiBundleInstallationResult result = ((ManagementContextInternal) mgmt()).getOsgiManager().get().install(InputStreamSource.of("test:" + f, f)).getWithError();
+            LOG.info("Installed "+result.getVersionedName()+": "+result.getCode()+" - "+result.getMessage() + " ("+result.getMetadata().getChecksum()+")");
+            if (expectedResultCode!=null) Asserts.assertEquals(result.getCode(), expectedResultCode);
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+    }
+
+    public void checkInstalled(String name, Integer fooConfig) throws IOException {
+        RegisteredType t = mgmt().getTypeRegistry().get(name);
+        Asserts.assertNotNull(t, "Could not find type '"+name+"'");
+        Asserts.assertEquals(t.getDisplayName(), name);
+        EntitySpec spec = (EntitySpec) mgmt().getTypeRegistry().create(t, null, null);
+        Object realFooConfig = spec.getConfig().get(ConfigKeys.newConfigKey(Object.class, "foo"));
+        Asserts.assertEquals(realFooConfig, fooConfig);
+    }
+
+    static String bomSnapshot(String name) {
+        return bom(name, "2.0-SNAPSHOT");
+    }
+    static String bom(String name, String version) {
+        return Strings.lines("brooklyn.catalog:",
+            "    version: "+version,
+            "    bundle: "+name,
             "    items:",
             "    - item:",
-            "        id: sample",
+            "        id: "+name,
+            "        name: "+name,
+            "        displayName: "+name,
             "        type: "+BasicEntity.class.getName());
     }
+
+    static String bom(String name, String version, Integer fooConfig) {
+        return Strings.lines(bom(name, version),
+                "        brooklyn.config:",
+                "          foo: "+fooConfig);
+    }
+
     
 }

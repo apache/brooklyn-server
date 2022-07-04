@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
+import org.apache.brooklyn.core.entity.Dumper;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -83,11 +84,13 @@ public class RebindHistoricSshCommandSensorTest extends AbstractRebindHistoricTe
     public void testSshFeed_2018_02() throws Exception {
         addMemento(BrooklynObjectType.ENTITY, "ssh-command-sensor-entity", "dnlz7hpbdg");
         addMemento(BrooklynObjectType.FEED, "ssh-command-sensor-feed", "a9ekg3cnu0");
+        String input1 = readMemento(BrooklynObjectType.FEED, "a9ekg3cnu0");
         rebind();
-        
+
         EntityInternal entity = (EntityInternal) mgmt().getEntityManager().getEntity("dnlz7hpbdg");
         entity.feeds().getFeeds();
-        
+        Dumper.dumpInfo(entity);
+
         SshMachineLocation recordingLocalhostMachine = mgmt().getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
                 .configure("address", BLACKHOLE_IP)
                 .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()));
@@ -99,6 +102,13 @@ public class RebindHistoricSshCommandSensorTest extends AbstractRebindHistoricTe
         assertTrue(cmd.commands.toString().contains("echo 'myval'"), "cmds="+cmd.commands);
         assertEquals(cmd.env.get("MY_ENV"), "myEnvVal", "env="+cmd.env);
         assertTrue(cmd.commands.toString().contains("/path/to/myexecutiondir"), "cmds="+cmd.commands);
+
+        switchOriginalToNewManagementContext();
+        rebind();
+        String input2 = readMemento(BrooklynObjectType.FEED, "a9ekg3cnu0");
+
+        // cheap way of asserting we've reduced the size; but i've inspected and yes we have removed the legacy fields in outer-class
+        Asserts.assertTrue(input1.length() > input2.length(), "Expected input to shrink, but was:\n"+input1+"\n---\n"+input2);
     }
     
     // This test is similar to testSshFeed_2017_01, except the persisted state file has been 

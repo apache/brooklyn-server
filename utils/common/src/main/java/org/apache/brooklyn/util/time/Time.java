@@ -22,6 +22,9 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
@@ -83,12 +86,22 @@ public class Time {
         return makeDateString(date, DATE_FORMAT_PREFERRED);
     }
     /** as {@link #makeDateString(Date, String, TimeZone)} for the local time zone */
-    public static String makeDateString(Date date, String format) {
+    public static String makeDateString(Date date, @Nullable String format) {
         return makeDateString(date, format, null);
     }
-    /** as {@link #makeDateString(Date, String, TimeZone)} for the given time zone; consider {@link TimeZone#GMT} */
-    public static String makeDateString(Date date, String format, @Nullable TimeZone tz) {
-        SimpleDateFormat fmt = new SimpleDateFormat(format);
+    public static String makeDateStringUtc(Date date, String format) {
+        return makeDateString(date, format, TimeZone.getTimeZone("UTC"));
+    }
+    public static String makeDateStringUtc(Date date) {
+        return makeDateString(date, TimeZone.getTimeZone("UTC"));
+    }
+    public static String makeDateString(Date date, @Nullable TimeZone tz) {
+        return makeDateString(date, null, null);
+    }
+    /** as {@link #makeDateString(Date, String, TimeZone)} for the given time zone; consider {@link TimeZone#getTimeZone(String)} with "GMT" */
+    public static String makeDateString(Date date, @Nullable String format, @Nullable TimeZone tz) {
+        SimpleDateFormat fmt = new SimpleDateFormat(format!=null ? format :
+                tz==null ? DATE_FORMAT_PREFERRED : DATE_FORMAT_PREFERRED_W_TZ);
         if (tz!=null) fmt.setTimeZone(tz);
         return fmt.format(date);
     }
@@ -100,6 +113,20 @@ public class Time {
     public static String makeDateString(Calendar date, String format) {
         return makeDateString(date.getTime(), format, date.getTimeZone());
     }
+
+    /** as {@link #makeDateString(Date)} with the given format*/
+    public static String makeDateString(Instant date, String format, Locale locale, ZoneId zone) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern(format).withLocale(locale==null ? Locale.ROOT : locale).withZone(zone==null ? ZoneId.of("UTC") : zone);
+        return fmt.format(date);
+    }
+    /** as {@link #makeDateString(Date)} with the simple preferred format (no TZ), dropping trailing zero millis and seconds */
+    public static String makeDateString(Instant date) {
+        String result = makeDateString(date, DATE_FORMAT_PREFERRED, null, null);
+        result = Strings.removeFromEnd(result, ".000");
+        result = Strings.removeFromEnd(result, ":00");
+        return result;
+    }
+
 
     public static Function<Long, String> toDateString() {
         return dateString;
@@ -118,6 +145,60 @@ public class Time {
     public static String makeDateStampString() {
         return makeDateStampString(System.currentTimeMillis());
     }
+
+    /** as {@link #makeDateStampString()} with 'Z' at the end to indicate UTC */
+    public static String makeDateStampStringZ() {
+        return makeDateStampString(System.currentTimeMillis())+"Z";
+    }
+
+    /** as {@link #makeDateStampString()}, with millis and possibly seconds removed if 0, with 'Z' at the end to indicate UTC */
+    public static String makeDateStampStringZ(Instant instant) {
+        String s = makeDateStampString(instant.toEpochMilli());
+        if (s.endsWith("000")) {
+            s = Strings.removeFromEnd(s, "000");
+            s = Strings.removeFromEnd(s, "00");
+        }
+        return s+"Z";
+    }
+
+    /** as {@link #makeDateStampString()}, with millis and possibly seconds removed if 0, with 'Z' at the end to indicate UTC */
+    public static String makeDateStampStringZ(Date date) {
+        String s = makeDateStampString(date.getTime());
+        if (s.endsWith("000")) {
+            s = Strings.removeFromEnd(s, "000");
+            s = Strings.removeFromEnd(s, "00");
+        }
+        return s+"Z";
+    }
+
+    public static String makeIso8601DateString() {
+        return replaceZeroZoneWithZ(makeIso8601DateStringLocal(Instant.now()));
+    }
+
+    /** ISO 8601 format for UTC */
+    public static String makeIso8601DateStringZ(Instant instant) {
+        return replaceZeroZoneWithZ(makeDateString(instant, DATE_FORMAT_ISO8601, null, null));
+    }
+
+    private static String replaceZeroZoneWithZ(String s) {
+        if (s==null) return s;
+        String sz = null;
+        if (s.endsWith("+0000")) sz = Strings.removeFromEnd(s, "+0000");
+        else if (s.endsWith("+00:00")) sz = Strings.removeFromEnd(s, "+00:00");
+        if (sz==null) return s;
+        return sz+"Z";
+    }
+
+    /** ISO 8601 format for local */
+    public static String makeIso8601DateStringLocal(Instant instant) {
+        return makeDateString(instant, DATE_FORMAT_ISO8601, Locale.getDefault(), ZoneId.systemDefault());
+    }
+
+    /** ISO 8601 format for UTC */
+    public static String makeIso8601DateString(Date date) {
+        return replaceZeroZoneWithZ(makeDateStringUtc(date, DATE_FORMAT_ISO8601));
+    }
+
 
     /** returns the time in {@value #DATE_FORMAT_STAMP} format, given a long (e.g. returned by System.currentTimeMillis);
      * cf {@link #makeDateStampString()} */
@@ -446,77 +527,113 @@ public class Time {
      * Parses a string eg '5s' or '20m 22.123ms', returning the number of milliseconds it represents; 
      * -1 on blank or never or off or false.
      * Assumes unit is millisections if no unit is specified.
-     * 
+     * <p>
+     * Negation is permitted if there is just one unit or if it is at the start with a space.
+     * Negative values are not permitted elsewhere.  So the following are allowed:
+     *
+     * * -1m is clear (-60 seconds) -- initial negation with just one unit
+     * * - 1m 1s = -61 seconds -- ie initial negation _with space_ applies to entire line
+     *
+     * But these are not:
+     *
+     * * -1m 1s
+     * * -1m -1s
+     * * - 1m -1s
+     * * 1m -1s
+     *
      * @throws NullPointerException if arg is null
      * @throws NumberFormatException if cannot be parsed
      */
-    public static double parseElapsedTimeAsDouble(final String timeStringOrig) {
-        String timeString = timeStringOrig;
+    public static double parseElapsedTimeAsDouble(final String timeString) {
+        return parseElapsedTimeAsDouble(timeString, timeString, true, true);
+    }
+
+    private static double parseElapsedTimeAsDouble(final String timeStringOrig, String timeString, boolean allowNonUnit, boolean allowNegative) {
         if (timeString==null)
             throw new NullPointerException("GeneralHelper.parseTimeString cannot parse a null string");
         try {
-            double d = Double.parseDouble(timeString);
-            return d;
-        } catch (NumberFormatException e) {
-            try {
-                //look for a type marker
-                timeString = timeString.trim();
-                String s = Strings.getLastWord(timeString).toLowerCase();
-                timeString = timeString.substring(0, timeString.length()-s.length()).trim();
-                int i=0;
-                while (s.length()>i) {
-                    char c = s.charAt(i);
-                    if (c=='.' || Character.isDigit(c)) i++;
-                    else break;
-                }
-                String num = s.substring(0, i);
-                if (i==0) {
-                    if (Strings.isNonBlank(timeString)) {
-                        num = Strings.getLastWord(timeString).toLowerCase();
-                        timeString = timeString.substring(0, timeString.length()-num.length()).trim();
-                    }
+            if (allowNonUnit) {
+                if (timeString.trim().matches(".*[A-Za-z]$")) {
+                    // disable parsing eg 1d as a double
                 } else {
-                    s = s.substring(i);
+                    double d = Double.parseDouble(timeString);
+                    return d;
                 }
-                long multiplier = 0;
-                if (num.length()==0) {
-                    //must be never or something
-                    // TODO does 'never' work?
-                    if (s.equalsIgnoreCase("never") || s.equalsIgnoreCase("off") || s.equalsIgnoreCase("false"))
-                        return -1;
-                    throw new NumberFormatException("unrecognised word  '"+s+"' in time string");
-                }
-                if (s.equalsIgnoreCase("ms") || s.equalsIgnoreCase("milli") || s.equalsIgnoreCase("millis")
-                    || s.equalsIgnoreCase("millisec") || s.equalsIgnoreCase("millisecs")
-                    || s.equalsIgnoreCase("millisecond") || s.equalsIgnoreCase("milliseconds"))
-                    multiplier = 1;
-                else if (s.equalsIgnoreCase("s") || s.equalsIgnoreCase("sec") || s.equalsIgnoreCase("secs")
-                    || s.equalsIgnoreCase("second") || s.equalsIgnoreCase("seconds"))
-                    multiplier = 1000;
-                else if (s.equalsIgnoreCase("m") || s.equalsIgnoreCase("min") || s.equalsIgnoreCase("mins")
-                    || s.equalsIgnoreCase("minute") || s.equalsIgnoreCase("minutes"))
-                    multiplier = 60*1000;
-                else if (s.equalsIgnoreCase("h") || s.equalsIgnoreCase("hr") || s.equalsIgnoreCase("hrs")
-                    || s.equalsIgnoreCase("hour") || s.equalsIgnoreCase("hours"))
-                    multiplier = 60*60*1000;
-                else if (s.equalsIgnoreCase("d") || s.equalsIgnoreCase("day") || s.equalsIgnoreCase("days"))
-                    multiplier = 24*60*60*1000;
-                else
-                    throw new NumberFormatException("Unknown unit '"+s+"' in time string '"+timeStringOrig+"'");
-                double d = Double.parseDouble(num);
-                double dd = 0;
-                if (timeString.length()>0) {
-                    dd = parseElapsedTimeAsDouble(timeString);
-                    if (dd==-1) {
-                        throw new NumberFormatException("Cannot combine '"+timeString+"' with '"+num+" "+s+"'");
-                    }
-                }
-                return d*multiplier + dd;
-            } catch (Exception ex) {
-                if (ex instanceof NumberFormatException) throw (NumberFormatException)ex;
-                log.trace("Details of parse failure:", ex);
-                throw new NumberFormatException("Cannot parse time string '"+timeStringOrig+"'");
             }
+        } catch (NumberFormatException e) {
+            log.trace("Unable to parse '%s' as pure number. Trying smart parse.", timeStringOrig, e);
+        }
+        boolean isNegative = false;
+        String multipleUnitsDisallowedBecause = null;
+        try {
+            //look for a type marker
+            timeString = timeString.trim();
+            int i=0;
+            if (timeString.startsWith("-")) {
+                if (allowNegative) {
+                    isNegative = true;
+                } else {
+                    throw new NumberFormatException("Negation is not permitted on an individual time unit in a duration");
+                }
+                timeString = timeString.substring(1);
+                if (!timeString.startsWith(" ")) {
+                    multipleUnitsDisallowedBecause = "Negation must have a space after it to apply to mulitple units";
+                } else while (timeString.startsWith(" ")) {
+                    timeString = timeString.substring(1);
+                }
+            }
+            while (i < timeString.length()) {
+                char c = timeString.charAt(i);
+                if (c=='.' || Character.isDigit(c)) i++;
+                else break;
+            }
+            String num = timeString.substring(0, i);
+            timeString = timeString.substring(i).trim();
+            long multiplier = 0;
+            if (num.isEmpty()) {
+                //must be never or something
+                // TODO does 'never' work?
+                if (allowNegative && !isNegative && (timeString.equalsIgnoreCase("never") || timeString.equalsIgnoreCase("off") || timeString.equalsIgnoreCase("false"))) {
+                    return -1;
+                }
+                throw new NumberFormatException("Invalid duration string '"+timeStringOrig+"'");
+            }
+            String s = Strings.getFirstWord(timeString);
+            timeString = timeString.substring(s.length()).trim();
+            if (s.equalsIgnoreCase("ms") || s.equalsIgnoreCase("milli") || s.equalsIgnoreCase("millis")
+                || s.equalsIgnoreCase("millisec") || s.equalsIgnoreCase("millisecs")
+                || s.equalsIgnoreCase("millisecond") || s.equalsIgnoreCase("milliseconds"))
+                multiplier = 1;
+            else if (s.equalsIgnoreCase("s") || s.equalsIgnoreCase("sec") || s.equalsIgnoreCase("secs")
+                || s.equalsIgnoreCase("second") || s.equalsIgnoreCase("seconds"))
+                multiplier = 1000;
+            else if (s.equalsIgnoreCase("m") || s.equalsIgnoreCase("min") || s.equalsIgnoreCase("mins")
+                || s.equalsIgnoreCase("minute") || s.equalsIgnoreCase("minutes"))
+                multiplier = 60*1000;
+            else if (s.equalsIgnoreCase("h") || s.equalsIgnoreCase("hr") || s.equalsIgnoreCase("hrs")
+                || s.equalsIgnoreCase("hour") || s.equalsIgnoreCase("hours"))
+                multiplier = 60*60*1000;
+            else if (s.equalsIgnoreCase("d") || s.equalsIgnoreCase("day") || s.equalsIgnoreCase("days"))
+                multiplier = 24*60*60*1000;
+            else
+                throw new NumberFormatException("Unknown unit '"+s+"' in time string '"+timeStringOrig+"'");
+
+            double d = Double.parseDouble(num);
+            double dd = 0;
+            if (timeString.length()>0) {
+                if (multipleUnitsDisallowedBecause!=null) {
+                    throw new NumberFormatException(multipleUnitsDisallowedBecause);
+                }
+                dd = parseElapsedTimeAsDouble(timeStringOrig, timeString, false, false);
+                if (dd==-1) {
+                    throw new NumberFormatException("Cannot combine '"+timeString+"' with '"+num+" "+s+"'");
+                }
+            }
+            return (d*multiplier + dd) * (isNegative ? -1 : 1);
+        } catch (Exception ex) {
+            if (ex instanceof NumberFormatException) throw (NumberFormatException)ex;
+            log.trace("Details of parse failure:", ex);
+            throw new NumberFormatException("Cannot parse time string '"+timeStringOrig+"'");
         }
     }
 
@@ -535,6 +652,10 @@ public class Time {
     public static Date parseDate(@Nullable String input) {
         if (input==null) return null;
         return parseCalendarMaybe(input).get().getTime();
+    }
+
+    public static Instant parseInstant(@Nullable String input) {
+        return parseCalendarMaybe(input).get().toInstant();
     }
 
     /** Parses dates from string, accepting many formats including ISO-8601 and http://yaml.org/type/timestamp.html, 
@@ -556,6 +677,8 @@ public class Time {
         if (input==null) return Maybe.absent("value is null");
         input = input.trim();
         Maybe<Calendar> result;
+
+        if (input.equalsIgnoreCase("now")) return Maybe.of(Calendar.getInstance());
 
         result = parseCalendarUtc(input);
         if (result.isPresent()) return result;

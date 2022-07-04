@@ -34,6 +34,7 @@ import org.apache.brooklyn.rest.api.SensorApi;
 import org.apache.brooklyn.rest.domain.SensorSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.SensorTransformer;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -72,7 +73,7 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
     }
 
     @Override
-    public Map<String, Object> batchSensorRead(final String application, final String entityToken, final Boolean raw) {
+    public Map<String, Object> batchSensorRead(final String application, final String entityToken, final Boolean useDisplayHints, final Boolean raw) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see entity '%s'",
@@ -91,14 +92,14 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
                 continue;
             }
 
-            Object value = entity.getAttribute(findSensor(entity, sensor.getName()));
-            sensorMap.put(sensor.getName(), 
-                resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor).resolve());
+            Object value = EntityAttributesUtils.tryGetAttribute(entity, findSensor(entity, sensor.getName()));
+            sensorMap.put(sensor.getName(),
+                resolving(value).preferJson(true).asJerseyOutermostReturnValue(false).useDisplayHints(useDisplayHints).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(sensor).resolve());
         }
         return sensorMap;
     }
 
-    protected Object get(boolean preferJson, String application, String entityToken, String sensorName, Boolean raw) {
+    protected Object get(boolean preferJson, String application, String entityToken, String sensorName, Boolean useDisplayHints, Boolean raw) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
         AttributeSensor<?> sensor = findSensor(entity, sensorName);
         
@@ -111,18 +112,19 @@ public class SensorResource extends AbstractBrooklynRestResource implements Sens
                     Entitlements.getEntitlementContext().user(), entity, sensor.getName());
         }
         
-        Object value = entity.getAttribute(sensor);
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).immediately(true).renderAs(sensor).resolve();
+        Object value = EntityAttributesUtils.tryGetAttribute(entity, sensor);
+        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).useDisplayHints(useDisplayHints).raw(raw).context(entity).immediately(true).renderAs(sensor).resolve();
     }
 
     @Override
-    public String getPlain(String application, String entityToken, String sensorName, final Boolean raw) {
-        return (String) get(false, application, entityToken, sensorName, raw);
+    public String getPlain(String application, String entityToken, String sensorName,
+                           Boolean useDisplayHints, Boolean raw) {
+        return (String) get(false, application, entityToken, sensorName, useDisplayHints, raw);
     }
 
     @Override
-    public Object get(final String application, final String entityToken, String sensorName, final Boolean raw) {
-        return get(true, application, entityToken, sensorName, raw);
+    public Object get(final String application, final String entityToken, String sensorName, Boolean useDisplayHints, Boolean raw) {
+        return get(true, application, entityToken, sensorName, useDisplayHints, raw);
     }
 
     private AttributeSensor<?> findSensor(Entity entity, String name) {

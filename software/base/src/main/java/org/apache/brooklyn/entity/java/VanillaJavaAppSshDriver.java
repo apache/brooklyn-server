@@ -85,9 +85,11 @@ public class VanillaJavaAppSshDriver extends JavaSoftwareProcessSshDriver implem
         SshMachineLocation machine = getMachine();
         VanillaJavaApp entity = getEntity();
         for (String entry : entity.getClasspath()) {
+            List<File> filesToDelete = MutableList.of();
             // If a local folder, then create archive from contents first
             if (Urls.isDirectory(entry)) {
                 File jarFile = ArchiveBuilder.jar().addDirContentsAt(new File(entry), "").create();
+                filesToDelete.add(jarFile);
                 entry = jarFile.getAbsolutePath();
             }
 
@@ -96,6 +98,7 @@ public class VanillaJavaAppSshDriver extends JavaSoftwareProcessSshDriver implem
             destFile = destFile.substring(destFile.lastIndexOf('/') + 1);
 
             ArchiveUtils.deploy(MutableMap.<String, Object>of(), entry, machine, getRunDir(), Os.mergePaths(getRunDir(), "lib"), destFile);
+            filesToDelete.forEach(f -> f.delete());
         }
 
         ScriptHelper helper = newScript(CUSTOMIZING+"-classpath")
@@ -113,7 +116,7 @@ public class VanillaJavaAppSshDriver extends JavaSoftwareProcessSshDriver implem
             getEntity().sensors().set(VanillaJavaApp.CLASSPATH_FILES, ImmutableList.of(Os.mergePaths(getRunDir(), "lib")));
         } else {
             // FIXME Cannot handle spaces in paths properly
-            Iterable<String> lines = Splitter.on(CharMatcher.BREAKING_WHITESPACE).omitEmptyStrings().trimResults().split(stdout);
+            Iterable<String> lines = Splitter.on(CharMatcher.breakingWhitespace()).omitEmptyStrings().trimResults().split(stdout);
             Iterable<String> files = Iterables.transform(lines, new Function<String, String>() {
                         @Override
                         public String apply(@Nullable String input) {

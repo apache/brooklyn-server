@@ -1,5 +1,5 @@
 /*
- * Copyright 2015 The Apache Software Foundation.
+ * Copyright 2015-2021 The Apache Software Foundation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,8 @@ package org.apache.brooklyn.rest.util;
 import org.apache.brooklyn.rest.apidoc.RestApiResourceScanner;
 import org.apache.cxf.jaxrs.JAXRSServerFactoryBean;
 
-import io.swagger.config.ScannerFactory;
-
 public class ScannerInjectHelper {
     public void setServer(JAXRSServerFactoryBean server) {
-        ScannerFactory.setScanner(new RestApiResourceScanner(server.getResourceClasses()));
+        RestApiResourceScanner.install(server.getResourceClasses());
     }
 }

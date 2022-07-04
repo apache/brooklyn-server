@@ -42,7 +42,11 @@ public interface ActivityApi {
     @Path("/{task}")
     @ApiOperation(value = "Fetch task details", response = org.apache.brooklyn.rest.domain.TaskSummary.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find task")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find task"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public TaskSummary get(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
@@ -51,7 +55,11 @@ public interface ActivityApi {
     @Path("/{task}/children")
     @ApiOperation(value = "Fetch list of children tasks of this task")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find task")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find task"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public List<TaskSummary> children(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
@@ -64,21 +72,33 @@ public interface ActivityApi {
             value = "Fetch all child tasks and their descendants with details as Map<String,TaskSummary> map key == Task ID",
             response = Map.class)
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find task")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find task"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Map<String,TaskSummary> getAllChildrenAsMap(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
-            @ApiParam(value = "Max number of tasks to include, or -1 for all (default 200)", required = false) 
+            @ApiParam(value = "Max number of tasks to include, or -1 for all (default 200)", required = false)
             @QueryParam("limit") @DefaultValue("200") int limit,
-            @ApiParam(value = "Max depth to traverse, or -1 for all (default)", required = false) 
+            @ApiParam(value = "Max depth to traverse, or -1 for all (default)", required = false)
             @QueryParam("maxDepth") @DefaultValue("-1") int maxDepth);
 
     /** @deprecated since 0.12.0 use {@link #getAllChildrenAsMap(String, int, int)} with depth -1 */
     @GET
     @Path("/{task}/children/recurse/deprecated")
     @ApiOperation(
-            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID",
+            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID. Deprecated since 0.12.0. Use " +
+                    "/activities/{task}/children/recurse instead.",
             response = Map.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find task"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     @Deprecated
     public Map<String,TaskSummary> getAllChildrenAsMap(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
@@ -87,7 +107,11 @@ public interface ActivityApi {
     @Path("/{task}/stream/{streamId}")
     @ApiOperation(value = "Return the contents of the given stream")
     @ApiResponses(value = {
-            @ApiResponse(code = 404, message = "Could not find task or stream")
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find task"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
     })
     @Produces(MediaType.TEXT_PLAIN)
     public String stream(

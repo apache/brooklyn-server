@@ -19,6 +19,8 @@
 package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static groovy.ui.Console.ICON_PATH;
+import static org.apache.brooklyn.util.osgi.OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -601,7 +603,7 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
                 .post(Streams.readFully(new FileInputStream(f)));
 
         assertEquals(response.getStatus(), Response.Status.BAD_REQUEST.getStatusCode());
-        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "Catalog BOM must define version");
+        Asserts.assertStringContainsIgnoreCase(response.readEntity(String.class), "BOM", "bundle", "version");
     }
 
     @Test
@@ -762,7 +764,7 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         final String version = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION;
         final String bundleUrl = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL;
         final String entityType = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ENTITY;
-        final String iconPath = OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
+        final String iconPath = BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH;
         BundleMaker bm = new BundleMaker(manager);
         File f = Os.newTempFile("osgi", "jar");
         Files.copyFile(ResourceUtils.create(this).getResourceFromUrl(bundleUrl), f);
@@ -805,6 +807,9 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
         Assert.assertNull(lib.getUrl());
 
+        // check we can find it with ResourceUtils
+        ResourceUtils.create(item, getManagementContext(), false).checkUrlExists("classpath://"+BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_ICON_PATH);
+
         assertEquals(lib.getSymbolicName(), symbolicName);
         assertEquals(lib.getSuppliedVersionString(), version);
 
@@ -824,6 +829,9 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         }
     
         byte[] iconData = client().path("/catalog/types/" + symbolicName + "/" + version + "/icon").get(byte[].class);
+        assertEquals(iconData.length, 43);
+
+        iconData = client().path("/catalog/bundles/"+symbolicName+"/"+version + "/types/"+symbolicName+"/"+version + "/icon").get(byte[].class);
         assertEquals(iconData.length, 43);
 
         // Check that the catalog item is useable (i.e. can deploy the entity)
@@ -1157,11 +1165,9 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
     }
     
     @Test
-    // different metadata is allowed as that doesn't affect operation (but different definition is not, see below)
-    // if in same bundle, it's deduped and last one wins; should warn and could disallow, but if type is pulled in 
-    // multiple times from copied files, it feels convenient just to dedupe and forgive minor metadata changes;
-    // if in different bundles, see other test below, but in that case both are added
-    public void testAddSameTypeTwiceInSameBundleDifferentDisplayName_LastOneWins() throws Exception {
+    // 2021-06 validation changed in Brooklyn, from taking the last, to disallowing the bundle,
+    // if the same symbolic name added multiple times
+    public void testAddSameTypeTwiceInSameBundleDifferentDisplayName_NotAllowed() throws Exception {
         final String symbolicName = "test.duplicate.type."+JavaClassNames.niceClassAndMethod();
         final String entityName = symbolicName+".type";
 
@@ -1184,21 +1190,14 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         Response result = client().path("/catalog/bundles")
             .header(HttpHeaders.CONTENT_TYPE, "application/x-jar")
             .post(Streams.readFully(new FileInputStream(jar)));
-        HttpAsserts.assertHealthyStatusCode(result.getStatus());
 
-        TypeSummary entity = client().path("/catalog/types/" + entityName + "/" + TEST_VERSION)
-                .get(TypeSummary.class);
-        assertEquals(entity.getDisplayName(), "U");
-        
-        List<TypeSummary> entities = client().path("/catalog/types/" + entityName)
-                .get(new GenericType<List<TypeSummary>>() {});
-        Asserts.assertSize(entities, 1);
-        assertEquals(Iterables.getOnlyElement(entities), entity);
-        
-        BundleSummary bundle = client().path("/catalog/bundles/" + symbolicName + "/" + TEST_VERSION)
-            .get(BundleSummary.class);
-        Asserts.assertSize(bundle.getTypes(), 1);
-        assertEquals(Iterables.getOnlyElement(bundle.getTypes()), entity);
+        HttpAsserts.assertNotHealthyStatusCode(result.getStatus());
+        Map resultO = result.readEntity(Map.class);
+        String message = (String) resultO.get("message");
+        Asserts.assertStringContainsIgnoreCase(message,
+                "Cannot define two different items with the same name in a bundle",
+                "type:0.1.2",
+                "test.duplicate.type");
     }
     
     @Test

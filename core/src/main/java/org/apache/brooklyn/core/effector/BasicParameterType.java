@@ -27,6 +27,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Objects;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.util.guava.TypeTokens;
 
 public class BasicParameterType<T> implements ParameterType<T> {
     private static final long serialVersionUID = -5521879180483663919L;
@@ -91,9 +92,9 @@ public class BasicParameterType<T> implements ParameterType<T> {
     @SuppressWarnings("unchecked")
     public BasicParameterType(String name, TypeToken<T> type, String description, T defaultValue, boolean hasDefaultValue) {
         this.name = name;
-        if (type!=null && type.equals(TypeToken.of(type.getRawType()))) {
+        if (type!=null && TypeTokens.isRaw(type)) {
             // prefer Class if it's already a raw type; keeps persistence simpler (and the same as before)
-            this.type = (Class<T>) type.getRawType();
+            this.type = (Class<T>) TypeTokens.getRawRawType(type);
         } else {
             this.typeT = type;
         }
@@ -112,7 +113,7 @@ public class BasicParameterType<T> implements ParameterType<T> {
     @SuppressWarnings("unchecked")
     @Override
     public Class<T> getParameterClass() {
-        if (typeT!=null) return (Class<T>) typeT.getRawType();
+        if (typeT!=null) return TypeTokens.getRawRawType(typeT);
         if (type!=null) return type;
         return null;
     }

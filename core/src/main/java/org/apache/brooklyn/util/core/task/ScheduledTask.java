@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import org.apache.brooklyn.api.internal.BrooklynLoggingCategories;
+import org.apache.brooklyn.api.mgmt.ExecutionContext;
+import org.apache.brooklyn.core.BrooklynLogging;
+import org.apache.brooklyn.core.BrooklynLogging.LoggingLevel;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
 
@@ -33,6 +37,7 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -73,6 +78,7 @@ public class ScheduledTask extends BasicTask<Object> {
      */
     protected boolean cancelOnException = true;
 
+    protected ExecutionContext executionContext;
     protected int runCount=0;
     protected Task<?> recentRun, nextRun;
     Class<? extends Exception> lastThrownType;
@@ -149,7 +155,7 @@ public class ScheduledTask extends BasicTask<Object> {
         }
         
         public Builder displayName(String val) { this.displayName = val; return this; }
-        public Builder tag(Object val) { this.tags.add(val); return this; }
+        public Builder tag(Object val) { if (val!=null) this.tags.add(val); return this; }
         public Builder tagTransient() { return tag(BrooklynTaskTags.TRANSIENT_TASK_TAG); }
         public Builder delay(Duration val) { this.delay = val; return this; }
         public Builder period(Duration val) { this.period = val; return this; }
@@ -158,7 +164,11 @@ public class ScheduledTask extends BasicTask<Object> {
         public Builder addFlags(Map<String,?> val) { this.flags.putAll(val); return this; }
 
     }
-    
+
+    public static String prefixScheduledName(String taskName){
+        return "scheduled:["+taskName+"]";
+    }
+
     public ScheduledTask delay(Duration d) {
         this.delay = d;
         return this;
@@ -221,10 +231,12 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     public boolean isDone(boolean andTaskNoLongerRunning) {
+        boolean done = isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
         if (andTaskNoLongerRunning) {
-            return super.isDone(true);
+            return done && super.isDone(true);
+        } else {
+            return done;
         }
-        return isCancelled() || (maxIterations!=null && maxIterations <= runCount) || (period==null && nextRun!=null && nextRun.isDone());
     }
     
     public synchronized void blockUntilFirstScheduleStarted() {
@@ -257,6 +269,7 @@ public class ScheduledTask extends BasicTask<Object> {
     
     @Override
     protected boolean doCancel(org.apache.brooklyn.util.core.task.TaskInternal.TaskCancellationMode mode) {
+        BrooklynLogging.log(BrooklynLoggingCategories.TASK_LIFECYCLE_LOG, LoggingLevel.DEBUG, "Cancelling scheduled task "+this);
         if (nextRun!=null) {
             ((TaskInternal<?>)nextRun).cancel(mode);
             try {

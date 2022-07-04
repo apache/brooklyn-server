@@ -85,13 +85,13 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
         assertEquals(producer.getAttribute(deltaSensor), null);
         delta.onEvent(intSensor.newEvent(producer, 0), 2000);
-        assertEquals(producer.getAttribute(deltaSensor), 0d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 0d);
         delta.onEvent(intSensor.newEvent(producer, 1), 3000);
-        assertEquals(producer.getAttribute(deltaSensor), 1d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 1d);
         delta.onEvent(intSensor.newEvent(producer, 3), 4000);
-        assertEquals(producer.getAttribute(deltaSensor), 2d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 2d);
         delta.onEvent(intSensor.newEvent(producer, 8), 5000);
-        assertEquals(producer.getAttribute(deltaSensor), 5d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 5d);
     }
     
     @Test
@@ -106,15 +106,15 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
         
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
         delta.onEvent(intSensor.newEvent(producer, 0), 3000);
-        assertEquals(producer.getAttribute(deltaSensor), 0d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 0d);
         delta.onEvent(intSensor.newEvent(producer, 3), 6000);
-        assertEquals(producer.getAttribute(deltaSensor), 1d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 1d);
         delta.onEvent(intSensor.newEvent(producer, 7), 8000);
-        assertEquals(producer.getAttribute(deltaSensor), 2d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 2d);
         delta.onEvent(intSensor.newEvent(producer, 12), 8500);
-        assertEquals(producer.getAttribute(deltaSensor), 10d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 10d);
         delta.onEvent(intSensor.newEvent(producer, 15), 10500);
-        assertEquals(producer.getAttribute(deltaSensor), 1.5d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) 1.5d);
     }
 
     @Test
@@ -130,9 +130,9 @@ public class DeltaEnrichersTests extends BrooklynAppUnitTestSupport {
         
         delta.onEvent(intSensor.newEvent(producer, 0), 1000);
         delta.onEvent(intSensor.newEvent(producer, 0), 2000);
-        assertEquals(producer.getAttribute(deltaSensor), 123+0d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) (123+0d));
         delta.onEvent(intSensor.newEvent(producer, 1), 3000);
-        assertEquals(producer.getAttribute(deltaSensor), 123+1d);
+        assertEquals(producer.getAttribute(deltaSensor), (Double) (123+1d));
     }
 
     private static class AddConstant implements Function<Double, Double> {

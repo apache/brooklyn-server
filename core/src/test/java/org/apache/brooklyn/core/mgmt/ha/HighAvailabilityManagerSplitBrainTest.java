@@ -152,8 +152,9 @@ public class HighAvailabilityManagerSplitBrainTest {
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
         try {
-            for (HaMgmtNode n: nodes)
-                n.tearDown();
+            for (HaMgmtNode n: nodes) {
+                if (n!=null) n.tearDown();
+            }
         } finally {
             if (prevThrowOnRebind != null) TestEntityFailingRebind.setThrowOnRebind(prevThrowOnRebind);
         }

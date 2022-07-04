@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.yaml;
 
+import com.google.common.base.Function;
 import java.io.Reader;
 import java.io.StringReader;
 import java.util.ArrayList;
@@ -28,6 +29,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.collections.Jsonya;
@@ -35,10 +38,12 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.internal.BrooklynSystemProperties;
+import org.apache.brooklyn.util.javalang.coerce.PrimitiveStringTypeCoercions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.BaseConstructor;
 import org.yaml.snakeyaml.constructor.Constructor;
 import org.yaml.snakeyaml.constructor.SafeConstructor;
 import org.yaml.snakeyaml.error.Mark;
@@ -51,17 +56,63 @@ import org.yaml.snakeyaml.nodes.SequenceNode;
 
 import com.google.common.annotations.Beta;
 import com.google.common.collect.Iterables;
+import org.yaml.snakeyaml.nodes.Tag;
 
 public class Yamls {
 
     private static final Logger log = LoggerFactory.getLogger(Yamls.class);
 
     private static Yaml newYaml() {
+        BaseConstructor constructor;
+        if (BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled()) {
+            // allows instantiation of arbitrary Java types;
+            constructor = new Constructor() {
+
+            };
+        } else {
+            constructor = new SafeConstructor() {
+
+            };
+        }
         return new Yaml(
                 BrooklynSystemProperties.YAML_TYPE_INSTANTIATION.isEnabled()
-                        ? new Constructor() // allows instantiation of arbitrary Java types
-                        : new SafeConstructor() // allows instantiation of limited set of types only
+                        ? new ConstructorExcludingNonNumbers() // allows instantiation of arbitrary Java types
+                        : new SafeConstructorExcludingNonNumbers() // allows instantiation of limited set of types only
         );
+    }
+
+    private static class ConstructorExcludingNonNumbers extends Constructor {
+        public ConstructorExcludingNonNumbers() {
+            super();
+            this.yamlConstructors.put(Tag.FLOAT, new ConstructYamlFloatExcludingNonNumbers());
+        }
+        class ConstructYamlFloatExcludingNonNumbers extends ConstructYamlFloat {
+            @Override
+            public Object construct(Node node) {
+                return numericDoublesOnly(super.construct(node), node);
+            }
+        }
+    }
+
+    private static class SafeConstructorExcludingNonNumbers extends SafeConstructor {
+        public SafeConstructorExcludingNonNumbers() {
+            super();
+            this.yamlConstructors.put(Tag.FLOAT, new ConstructYamlFloatExcludingNonNumbers());
+        }
+        class ConstructYamlFloatExcludingNonNumbers extends ConstructYamlFloat {
+            @Override
+            public Object construct(Node node) {
+                return numericDoublesOnly(super.construct(node), node);
+            }
+        }
+    }
+
+    private static Object numericDoublesOnly(Object construct, Node node) {
+        if (PrimitiveStringTypeCoercions.isNanOrInf(construct)) {
+            throw new IllegalStateException("YAML parser forbids out of range doubles; consider wrapping as string and coercing to type BigDecimal: "+node);
+        }
+
+        return construct;
     }
 
     /** returns the given (yaml-parsed) object as the given yaml type.
@@ -99,7 +150,7 @@ public class Yamls {
     /**
      * Parses the given yaml, and walks the given path to return the referenced object.
      * 
-     * @see #getAt(Object, List)
+     * @see #getAtPreParsed(Object, List)
      */
     @Beta
     public static Object getAt(String yaml, List<String> path) {
@@ -539,7 +590,7 @@ b: 1
      * this will find the YAML text for that element
      * <p>
      * If not found this will return a {@link YamlExtract} 
-     * where {@link YamlExtract#isMatch()} is false and {@link YamlExtract#getError()} is set. */
+     * where {@link YamlExtract#found()} is false and {@link YamlExtract#getError()} is set. */
     public static YamlExtract getTextOfYamlAtPath(String yaml, Object ...path) {
         YamlExtract result = new YamlExtract();
         if (yaml==null) return result;
@@ -555,9 +606,29 @@ b: 1
                 + "which is an older version, dragging in an older version of SnakeYAML which does not support Mark.getIndex.", e);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            log.debug("Unable to find element in yaml (setting in result): "+e);
+            if (log.isTraceEnabled()) log.trace("Unable to find element in yaml (setting in result): "+e);
             result.error = e;
             return result;
         }
     }
+
+    static class LastDocumentFunction implements Function<String,String> {
+
+        @Override
+        public String apply(String input) {
+            if (input==null) return null;
+            Matcher match = Pattern.compile("^---$[\\n\\r]?", Pattern.MULTILINE).matcher(input);
+            int lastEnd = 0;
+            while (match.find()) {
+                lastEnd = match.end();
+            }
+            return input.substring(lastEnd);
+        }
+    }
+    private static final LastDocumentFunction LAST_DOCUMENT_FUNCTION_INSTANCE = new LastDocumentFunction();
+
+    public static Function<String,String> lastDocumentFunction() {
+        return LAST_DOCUMENT_FUNCTION_INSTANCE;
+    }
+
 }

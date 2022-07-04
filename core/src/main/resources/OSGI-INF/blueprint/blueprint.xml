@@ -42,6 +42,13 @@ limitations under the License.
     <service ref="containerFramework"
           interface="org.apache.brooklyn.util.osgi.SystemFramework" />
 
+
+    <bean id="beanWithTypePlanTransformer" scope="prototype"
+          class="org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer"/>
+    <service id="beanWithTypePlanTransformerService" ref="beanWithTypePlanTransformer"
+             interface="org.apache.brooklyn.core.typereg.BrooklynTypePlanTransformer" />
+
+
     <bean id="javaClassNameTypePlanTransformer" scope="prototype"
           class="org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer"/>
     <service id="javaClassNameTypePlanTransformerService" ref="javaClassNameTypePlanTransformer"
@@ -51,6 +58,17 @@ limitations under the License.
           class="org.apache.brooklyn.core.catalog.internal.JavaCatalogToSpecTransformer"/>
     <service id="javaCatalogToSpecTransformerService" ref="javaCatalogToSpecTransformer"
              interface="org.apache.brooklyn.core.plan.PlanToSpecTransformer"/>
+
+
+    <bean id="brooklynBomBundleCatalogBundleResolver" scope="prototype"
+          class="org.apache.brooklyn.core.typereg.BrooklynBomBundleCatalogBundleResolver"/>
+    <service id="brooklynBomBundleCatalogBundleResolverService" ref="brooklynBomBundleCatalogBundleResolver"
+             interface="org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver" />
+
+    <bean id="brooklynBomYamlCatalogBundleResolver" scope="prototype"
+          class="org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver"/>
+    <service id="brooklynBomYamlCatalogBundleResolverService" ref="brooklynBomYamlCatalogBundleResolver"
+             interface="org.apache.brooklyn.core.typereg.BrooklynCatalogBundleResolver" />
 
 
     <bean id="javaEntitySpecResolver" scope="prototype"

@@ -23,7 +23,6 @@ import static org.testng.Assert.assertTrue;
 import java.io.InputStream;
 import java.lang.reflect.Field;
 
-import org.apache.brooklyn.util.core.xstream.CompilerIndependentOuterClassFieldMapper;
 import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.EnclosingClass.DynamicClass;
 import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.EnclosingClass.DynamicExtendingClass;
 import org.apache.brooklyn.util.core.xstream.CompilerCompatibilityTest.EnclosingClass.EnclosingDynamicClass;
@@ -124,7 +123,7 @@ public class CompilerCompatibilityTest {
                 return new CompilerIndependentOuterClassFieldMapper(super.wrapMapper(next));
             }
         };
-
+        XmlSerializer.allowAllTypes(xstream);
         InputStream in = this.getClass().getResourceAsStream(inputUrl);
         try {
             Object obj = xstream.fromXML(in);

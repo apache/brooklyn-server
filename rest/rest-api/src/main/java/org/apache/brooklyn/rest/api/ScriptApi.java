@@ -18,10 +18,8 @@
  */
 package org.apache.brooklyn.rest.api;
 
-import io.swagger.annotations.Api;
+import io.swagger.annotations.*;
 import org.apache.brooklyn.rest.domain.ScriptExecutionSummary;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Consumes;
@@ -49,6 +47,12 @@ public interface ScriptApi {
     @Consumes("application/text")
     @ApiOperation(value = "Execute a groovy script",
             response = org.apache.brooklyn.rest.domain.SensorSummary.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public ScriptExecutionSummary groovy(
             @Context HttpServletRequest request,
             @ApiParam(name = "script", value = "Groovy script to execute", required = true)

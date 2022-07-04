@@ -57,7 +57,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         DefaultConnectivityResolver customizer = new DefaultConnectivityResolver();
         ConfigBag configBag = jcloudsLocation.config().getBag();
         ManagementAddressResolveResult result = customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
-        assertEquals(result.hostAndPort().getHostText(), "10.1.1.4");
+        assertEquals(result.hostAndPort().getHost(), "10.1.1.4");
         assertEquals(result.hostAndPort().getPort(), 4361);
     }
 
@@ -76,7 +76,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         ConfigBag configBag = jcloudsLocation.config().getBag();
         ManagementAddressResolveResult result = customizer.resolve(
                 jcloudsLocation, newNodeMetadata(), configBag, options);
-        assertEquals(result.hostAndPort().getHostText(), expectedHostname);
+        assertEquals(result.hostAndPort().getHost(), expectedHostname);
     }
 
     @Test
@@ -198,7 +198,7 @@ public class DefaultConnectivityResolverTest extends AbstractJcloudsStubbedUnitT
         ConfigBag configBag = jcloudsLocation.config().getBag();
 
         ManagementAddressResolveResult result = customizer.resolve(jcloudsLocation, newNodeMetadata(), configBag, options);
-        assertEquals(result.hostAndPort().getHostText(), expectedIp);
+        assertEquals(result.hostAndPort().getHost(), expectedIp);
     }
 
     @DataProvider(name = "fallibleModes")

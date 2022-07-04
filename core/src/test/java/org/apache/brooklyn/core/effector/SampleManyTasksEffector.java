@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
+import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -58,16 +59,21 @@ services:
 </pre>
 
  */
-public class SampleManyTasksEffector extends AddEffector {
+public class SampleManyTasksEffector extends AddEffectorInitializerAbstract {
 
     public static final ConfigKey<Integer> RANDOM_SEED = ConfigKeys.newIntegerConfigKey("random.seed");
 
-    public SampleManyTasksEffector(ConfigBag params) {
-        super(Effectors.effector(String.class, params.get(EFFECTOR_NAME)).name("eatand").impl(body(params)).build());
+    private SampleManyTasksEffector() {}
+    public SampleManyTasksEffector(ConfigBag params) { super(params); }
+
+    @Override
+    protected EffectorBuilder<String> newEffectorBuilder() {
+        return Effectors.effector(String.class, initParam(EFFECTOR_NAME)).name("eatand").impl(body(initParams()));
     }
 
+    @Deprecated
     public Effector<?> getEffector() {
-        return effector;
+        return super.effector();
     }
     
     private static EffectorTaskFactory<String> body(ConfigBag params) {

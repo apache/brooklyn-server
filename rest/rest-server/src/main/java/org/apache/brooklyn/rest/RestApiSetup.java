@@ -67,7 +67,7 @@ public class RestApiSetup {
     }
 
     public static void initSwagger() {
-        ScannerFactory.setScanner(new RestApiResourceScanner());
+        RestApiResourceScanner.install(null);
     }
 
 }

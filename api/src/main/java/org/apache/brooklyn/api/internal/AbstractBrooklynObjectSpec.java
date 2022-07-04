@@ -28,6 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.google.common.base.Predicate;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -116,9 +118,10 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
      * Set the immediate catalog item ID of this object, and the search path of other catalog items used to define it.
      */
     public synchronized SpecT catalogItemIdAndSearchPath(String catalogItemId, Collection<String> searchPath) {
-        // TODO if ID is null should we really ignore search path?
         if (catalogItemId != null) {
             catalogItemId(catalogItemId);
+        }
+        if (searchPath!=null) {
             synchronized (catalogItemIdSearchPath) {
                 catalogItemIdSearchPath.clear();
                 if (searchPath!=null) {
@@ -137,7 +140,18 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
         }
         return self();
     }
-    
+
+    public synchronized SpecT addSearchPathAtStart(List<String> searchPath) {
+        if (searchPath!=null) {
+            synchronized (catalogItemIdSearchPath) {
+                Set<String> newPath = MutableSet.copyOf(searchPath).putAll(catalogItemIdSearchPath);
+                catalogItemIdSearchPath.clear();
+                catalogItemIdSearchPath.addAll(newPath);
+            }
+        }
+        return self();
+    }
+
     /**
      * @deprecated since 0.11.0, most callers would want {@link #stackCatalogItemId(String)} instead, though semantics are different
      */
@@ -173,12 +187,8 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     public SpecT stackCatalogItemId(String val) {
         if (null != val) {
             if (null != catalogItemId && !catalogItemId.equals(val)) {
-                synchronized (catalogItemIdSearchPath) {
-                    Set<String> newPath = MutableSet.of();
-                    newPath.add(catalogItemId);
-                    newPath.addAll(catalogItemIdSearchPath);
-                    catalogItemIdSearchPath.clear();
-                    catalogItemIdSearchPath.addAll(newPath);
+                if (!catalogItemIdSearchPath.contains(catalogItemId)) {
+                    addSearchPathAtStart(Collections.singletonList(catalogItemId));
                 }
             }
             catalogItemId(val);
@@ -202,6 +212,7 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     /**
      * adds the given tags
      */
+    @JsonSetter("brooklyn.tags")
     public SpecT tagsAdd(Iterable<? extends Object> tagsToAdd) {
         Iterables.addAll(this.tags, tagsToAdd);
         return self();
@@ -286,6 +297,10 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
 
     public final Set<Object> getTags() {
         return ImmutableSet.copyOf(tags);
+    }
+
+    public final Object getTag(Predicate<Object> predicate) {
+        return tags.stream().filter(predicate::apply).findAny().orElse(null);
     }
 
     /**
@@ -440,6 +455,16 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
      */
     public Map<ConfigKey<?>, Object> getConfig() {
         return Collections.unmodifiableMap(config);
+    }
+
+    @JsonSetter("name")
+    private void jsonSetName(String val) {
+        displayName(val);
+    }
+
+    @JsonSetter("brooklyn.config")
+    private void jsonSetConfig(Map<String,Object> val) {
+        configure(val);
     }
 
 }

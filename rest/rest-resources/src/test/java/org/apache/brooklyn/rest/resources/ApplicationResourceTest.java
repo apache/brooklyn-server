@@ -20,6 +20,10 @@ package org.apache.brooklyn.rest.resources;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Iterables.find;
+
+import org.apache.brooklyn.core.sensor.StaticSensor;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
+import org.apache.brooklyn.util.text.Strings;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -30,10 +34,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
@@ -86,6 +90,7 @@ import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.cxf.jaxrs.client.WebClient;
+import org.apache.cxf.jaxrs.ext.multipart.Attachment;
 import org.apache.http.HttpHeaders;
 import org.apache.http.entity.ContentType;
 import org.slf4j.Logger;
@@ -126,7 +131,12 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
      */
 
     private static final Logger log = LoggerFactory.getLogger(ApplicationResourceTest.class);
-    
+
+    @Override
+    protected boolean useOsgi() {
+        return true;
+    }
+
     private final ApplicationSpec simpleSpec = ApplicationSpec.builder().name("simple-app")
           .entities(ImmutableSet.of(
                   new EntitySpec("simple-ent", RestMockSimpleEntity.class.getName()),
@@ -141,17 +151,6 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
             @Override
             public boolean apply(EntitySummary input) {
                 return name.equals(input.getName());
-            }
-        };
-    }
-
-    // Convenience for finding a Map within a collection, based on the value of one of its keys
-    private static Predicate<? super Map<?,?>> withValueForKey(final Object key, final Object value) {
-        return new Predicate<Object>() {
-            @Override
-            public boolean apply(Object input) {
-                if (!(input instanceof Map)) return false;
-                return value.equals(((Map<?, ?>) input).get(key));
             }
         };
     }
@@ -236,10 +235,63 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "simple-app-yaml");
     }
 
+    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    public void testDeployWithInvalidSensorType() {
+        final String SENSOR_TEXT_VALUE = "TEXT";
+        String yaml = Joiner.on("\n").join(
+                "name: app-with-invalid-sensor-type",
+                "location: localhost",
+                "services:",
+                "- type: " + EmptySoftwareProcess.class.getName(),
+                "brooklyn.initializers:",
+                "- type: " + StaticSensor.class.getName(),
+                "  brooklyn.config:",
+                "    name: service.isUp",
+                "    static.value: " + SENSOR_TEXT_VALUE);
+        Response response = client().path("/applications")
+                .post(Entity.entity(yaml, "application/x-yaml"));
+        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+
+        // Fetch applications, find 'simple-app-yaml-with-invalid-sensor-type' application and inspect details.
+        Collection apps = client().path("/applications/fetch").get(Collection.class);
+        log.info("Applications fetched are: " + apps);
+
+        // Expect application data to be available.
+        Map app = ((Collection<Map>)apps).stream().filter(m -> "app-with-invalid-sensor-type".equals(m.get("name"))).findFirst().orElse(null);
+        Assert.assertNotNull(app, "did not find 'app-with-invalid-sensor-type'");
+
+        // Expect serviceUp to be NULL because of ClassCoercionException since text has been written to it with the StaticSensor.
+        Asserts.assertNull(app.get("serviceUp"), "'serviceUp' is expected to be null");
+    }
+
+    @Test(dependsOnMethods = { "testDeployApplication", "testLocatedLocation" })
+    public void testDeployApplicationYamlWithFormat() throws Exception {
+        String yaml = "{ name: deploy-format-app-yaml, location: localhost, services: [ { serviceType: "+BasicApplication.class.getCanonicalName()+" } ] }";
+
+        List<Attachment> body = new LinkedList<Attachment>();
+        body.add(new Attachment("plan", "text/plain", yaml));
+        body.add(new Attachment("format", "text/plain", "brooklyn-camp"));
+
+        Response response = client().path("/applications")
+                .header(HttpHeaders.CONTENT_TYPE, ContentType.MULTIPART_FORM_DATA)
+                .post(body);
+        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+
+        // Expect app to be running
+        URI appUri = response.getLocation();
+        waitForApplicationToBeRunning(response.getLocation());
+        assertEquals(client().path(appUri).get(ApplicationSummary.class).getSpec().getName(), "deploy-format-app-yaml");
+    }
+
     @Test
     public void testReferenceCatalogEntity() throws Exception {
-        getManagementContext().getCatalog().addItems("{ name: "+BasicEntity.class.getName()+", "
-            + "services: [ { type: "+BasicEntity.class.getName()+" } ] }");
+        getManagementContext().getCatalog().addItems(Strings.lines(
+                "brooklyn.catalog:",
+                "  id: test-reference",
+                "  version: 0.0.1",
+                "  item:",
+                "    name: "+BasicEntity.class.getName(),
+                "    services: [ { type: "+BasicEntity.class.getName()+" } ]"));
 
         String yaml = "{ name: simple-app-yaml, location: localhost, services: [ { type: " + BasicEntity.class.getName() + " } ] }";
 

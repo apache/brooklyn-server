@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task.system.internal;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.config.ConfigKey;
@@ -68,7 +69,7 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     }
     
     @Override
-    public T machine(SshMachineLocation machine) {
+    public T machine(MachineLocation machine) {
         markDirty();
         this.machine = machine;
         return self();
@@ -169,12 +170,13 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
 
     /** creates the TaskBuilder which can be further customized; typically invoked by the initial {@link #newTask()} */
     public TaskBuilder<Object> constructCustomizedTaskBuilder() {
-        TaskBuilder<Object> tb = TaskBuilder.builder().dynamic(false).displayName("ssh: "+getSummary());
+        String displayName = config.containsKey("displayName") ? String.valueOf(config.getStringKey("displayName")) : getSummary();
+        TaskBuilder<Object> tb = TaskBuilder.builder().dynamic(false).displayName(displayName);
         
         tb.tag(BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_STDIN, 
                 Streams.byteArrayOfString(Strings.join(commands, "\n"))));
         tb.tag(BrooklynTaskTags.tagForEnvStream(BrooklynTaskTags.STREAM_ENV, shellEnvironment));
-        
+
         return tb;
     }
     

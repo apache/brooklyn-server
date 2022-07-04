@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.mgmt.EntityManager;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
+import org.apache.brooklyn.util.guava.Maybe;
 
 public interface EntityManagerInternal extends EntityManager, BrooklynObjectManagerInternal<Entity> {
 
@@ -36,9 +37,17 @@ public interface EntityManagerInternal extends EntityManager, BrooklynObjectMana
     /**
      * Same as {@link #createEntity(EntitySpec)}, but takes an optional entity id that will be 
      * used for the entity.
+     *
+     * @deprecated since 1.1.0 use the options
      */
-    @Beta
-    <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId);
+    @Beta @Deprecated
+    default <T extends Entity> T createEntity(EntitySpec<T> spec, Optional<String> entityId) {
+        return createEntity(spec, new EntityCreationOptions() {
+            public String getRequiredUniqueId() {
+                return entityId.orNull();
+            }
+        });
+    }
     
     /**
      * Similar to {@link #unmanage(Entity)}, but used to discard partially constructed entities.

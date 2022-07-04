@@ -20,7 +20,10 @@ package org.apache.brooklyn.api.mgmt;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.entity.Application;
@@ -43,7 +46,7 @@ public interface EntityManager {
      * Returns the type registry, used to identify the entity implementation when instantiating an
      * entity of a given type.
      * 
-     * @see EntityManager.createEntity(EntitySpec)
+     * @see #createEntity(EntitySpec)
      */
     EntityTypeRegistry getEntityTypeRegistry();
     
@@ -53,14 +56,37 @@ public interface EntityManager {
      * @param spec
      * @return A proxy to the created entity (rather than the actual entity itself).
      */
-    <T extends Entity> T createEntity(EntitySpec<T> spec);
-    
+    default <T extends Entity> T createEntity(EntitySpec<T> spec) {
+        return createEntity(spec, new EntityCreationOptions() {});
+    }
+
+    <T extends Entity> T createEntity(EntitySpec<T> spec, EntityCreationOptions options);
+
+    public static interface EntityCreationOptions {
+        /** listener for exceptions, in case caller wants to allow it to proceed on some;
+         * strongly typed exceptions are recommended in those instances, depending on the domain,
+         * such as ConstraintViolationException in core
+         */
+        default <T extends Throwable> void onException(T e, @Nonnull Consumer<? super T> suggestedHandler) {
+            suggestedHandler.accept(e);
+        }
+        /** whether this is just a dry run; there should be no record of anything (entity, task, etc) in the target
+         * after execution; for entities, they will not have an active executor so cannot run tasks,
+         * but their init (and post init if present) methods are called */
+        default boolean isDryRun() { return false; }
+        /** whether the item should have a specific identifier; may fail or return existing if it already exists */
+        default String getRequiredUniqueId() { return null; }
+        /** whether to persist as part of creation (forces failure if creation fails, in the creating thread) */
+        default boolean persistAfterCreation() { return true; }
+    }
+
     /**
      * Convenience (particularly for groovy code) to create an entity.
      * Equivalent to {@code createEntity(EntitySpec.create(type).configure(config))}
      * 
-     * @see createEntity(EntitySpec)
+     * @see #createEntity(EntitySpec)
      */
+    @Deprecated /* since 1.1.0 - everyone uses specs */
     <T extends Entity> T createEntity(Map<?,?> config, Class<T> type);
 
     /**

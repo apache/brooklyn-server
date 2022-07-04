@@ -276,7 +276,7 @@ public class AsyncApplicationImpl extends AbstractApplication implements AsyncAp
 
         @Override
         protected void onUpdated() {
-            if (entity == null || !isRunning() || !Entities.isManaged(entity)) {
+            if (entity == null || !isRunning() || !Entities.isManagedActive(entity)) {
                 // e.g. invoked during setup or entity has become unmanaged; just ignore
                 BrooklynLogging.log(LOG, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
                     "Ignoring {} onUpdated when entity is not in valid state ({})", this, entity);

@@ -79,3 +79,20 @@ brooklyn.catalog:
         type: org.apache.brooklyn.entity.machine.pool.ServerPool
         name: Server Pool
         description: Creates a pre-allocated server pool, which other applications can deploy to
+
+      #-----------------------------------------kubectl effector & sensor-------------------------------------------------------
+    - id: org.apache.brooklyn.tasks.kubectl.ContainerSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.tasks.kubectl.ContainerSensor
+        name: Container Sensor
+        description: A sensor that exposes a value produced by a Kubectl Job
+
+    - id: org.apache.brooklyn.tasks.kubectl.ContainerEffector
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.tasks.kubectl.ContainerEffector
+        name: Container Effector
+        description: An effector that runs a Kubectl Job

@@ -25,16 +25,16 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.StreamSupport;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
-import com.google.common.collect.Iterators;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -333,7 +333,7 @@ public class RegisteredTypes {
     @Beta
     public static RegisteredType addTag(RegisteredType type, Object tag) {
         if (tag!=null) {
-            ((BasicRegisteredType)type).tags.add( tag );
+            ((BasicRegisteredType) type).tags.add(tag);
         }
         return type;
     }
@@ -350,7 +350,7 @@ public class RegisteredTypes {
     public static String getImplementationDataStringForSpec(RegisteredType item) {
         if (item==null || item.getPlan()==null) return null;
         Object data = item.getPlan().getPlanData();
-        if (data==null) throw new IllegalStateException("No plan data for "+item);
+        if (data==null) return null;
         if (!(data instanceof String)) throw new IllegalStateException("Expected plan data for "+item+" to be a string");
         return (String)data;
     }
@@ -647,7 +647,7 @@ public class RegisteredTypes {
     public static String getIconUrl(BrooklynObject object) {
         if (object==null) return null;
         
-        NamedStringTag fromTag = BrooklynTags.findFirst(BrooklynTags.ICON_URL, object.tags().getTags());
+        NamedStringTag fromTag = BrooklynTags.findFirstNamedStringTag(BrooklynTags.ICON_URL, object.tags().getTags());
         if (fromTag!=null) return fromTag.getContents();
         
         ManagementContext mgmt = ((BrooklynObjectInternal)object).getManagementContext();
@@ -753,4 +753,7 @@ public class RegisteredTypes {
         return type.getTags().contains(BrooklynTags.CATALOG_TEMPLATE);
     }
 
+    public static BrooklynClassLoadingContext getClassLoadingContext(Entity entity) {
+        return CatalogUtils.getClassLoadingContext(entity);
+    }
 }

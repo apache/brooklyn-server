@@ -105,12 +105,16 @@ public class BasicEntityTypeRegistry implements EntityTypeRegistry {
     }
 
     private <T extends Entity> Class<? extends T> getFromAnnotation(Class<T> type) {
+      try {
         ImplementedBy annotation = type.getAnnotation(org.apache.brooklyn.api.entity.ImplementedBy.class);
         if (annotation == null) 
             return null;
         Class<? extends Entity> value = annotation.value();
         checkIsImplementation(type, value);
         return (Class<? extends T>) value;
+      } catch (Exception e) {
+        throw Exceptions.propagateAnnotated("Error reading ImplementedBy on "+type, e);
+      }
     }
 
     private <T extends Entity> Class<? super T> getInterfaceWithAnnotationMatching(Class<T> implClazz) {

@@ -43,17 +43,9 @@
         </dependency>
         <dependency>
             <groupId>org.osgi</groupId>
-            <artifactId>org.osgi.core</artifactId>
+            <artifactId>osgi.core</artifactId>
             <version>${org.osgi.core.version}</version>
             <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -70,5 +62,5 @@
             <artifactId>geronimo-ws-metadata_2.0_spec</artifactId>
         </dependency>
     </dependencies>
-    
+
 </project>

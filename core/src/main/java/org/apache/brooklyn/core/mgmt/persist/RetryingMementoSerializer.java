@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.persist;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.ConcurrentModificationException;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.LookupContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,8 +50,14 @@ public class RetryingMementoSerializer<T> implements MementoSerializer<T> {
                     LOG.info("Success following previous serialization error");
                 return result;
             } catch (RuntimeException e) {
-                LOG.warn("Error serializing memento (attempt "+attempt+" of "+maxAttempts+") for "+memento+
-                        "; expected sometimes if attribute value modified", e);
+                if (e.toString().contains(ConcurrentModificationException.class.getSimpleName())) {
+                    // suppress stack trace in this common case
+                    LOG.warn("Error serializing memento (attempt " + attempt + " of " + maxAttempts + ") for " + memento +
+                            "; appears to be concurrent modification which is not unusual if other values are changing, and should be fixed after retry");
+                } else {
+                    LOG.warn("Error serializing memento (attempt " + attempt + " of " + maxAttempts + ") for " + memento +
+                            "; expected sometimes if attribute value modified", e);
+                }
                 lastException = e;
             }
         } while (attempt < maxAttempts);

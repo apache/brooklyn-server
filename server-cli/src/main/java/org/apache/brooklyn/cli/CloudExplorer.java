@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.cli;
 
+import com.google.common.base.MoreObjects;
+import com.google.common.base.MoreObjects.ToStringHelper;
 import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport;
 import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.BlobstoreListContainer;
 import org.apache.brooklyn.launcher.command.support.CloudExplorerSupport.BlobstoreListContainers;
@@ -33,8 +35,6 @@ import io.airlift.airline.Option;
 import io.airlift.airline.ParseException;
 
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-
-import com.google.common.base.Objects.ToStringHelper;
 
 /**
  * Makes use of {@link CloudExplorerSupport} to provide cloud explorer commands at Brooklyn server command line.

@@ -15,8 +15,10 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import static org.testng.Assert.assertEquals;
 
+import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -35,6 +37,8 @@ import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslS
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.custom.UserSuppliedPackageType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -45,6 +49,7 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
 
@@ -256,18 +261,40 @@ public class DslYamlTest extends AbstractYamlTest {
                 "  - type: wrapping-simple");
         Entity child1 = Iterables.get(app.getChildren(), 0);
         Entity child2 = Iterables.get(app.getChildren(), 1);
-        assertScopeRoot(child1, false);
-        // TODO Not the result I'd expect - in both cases the entity argument should the the scopeRoot element, not its child
-        assertScopeRoot(child2, true);
+        assertChildScopeRootReferenceIs(child1);
+        assertChildScopeRootReferenceIs(child2);
     }
 
-    private void assertScopeRoot(Entity entity, boolean isScopeBugged) throws Exception {
+    private void assertChildScopeRootReferenceIs(Entity entity) throws Exception {
         Entity child = Iterables.getOnlyElement(entity.getChildren());
-        if (!isScopeBugged) {
-            assertEquals(getConfigEventually(child, DEST), entity);
-        } else {
-            assertEquals(getConfigEventually(child, DEST), child);
-        }
+        assertEquals(getConfigEventually(child, DEST), entity);
+    }
+
+    @Test
+    public void testDslScopeRootEdgeCases() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: simple-item",
+                "    itemType: entity",
+                "    item:",
+                "      type: "+ BasicEntity.class.getName(),
+                "      brooklyn.config:",
+                "        v: 1",
+                "        refInDsl: $brooklyn:formatString(\"%s\", scopeRoot().config(\"v\"))",
+                "        refInMap:",
+                "          v: $brooklyn:scopeRoot().config(\"v\")");
+
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: simple-item",
+                "brooklyn.config:",
+                "  v: 2");
+        Entity child = Iterables.get(app.getChildren(), 0);
+        // TODO - these should both be 1, but scopeRoot for the simple-item goes to the blueprint where it is used; see notes in CampResolver.fixScopeRoot
+        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInDsl")), "2" );
+        Asserts.assertEquals( child.getConfig(ConfigKeys.newConfigKey(Object.class, "refInMap")), MutableMap.of("v", 2) );
     }
 
     @Test
@@ -662,7 +689,7 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
-    @Test
+    @Test(groups="Integration")  // because takes 3 seconds ... not sure why!?
     public void testDeferredDslObjectAsFirstArgument() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -768,6 +795,9 @@ public class DslYamlTest extends AbstractYamlTest {
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
 
+    // TODO this and the next method used to work with DslTestCallableAlsoSupplier; but now if it is a supplier we get it when resolving,
+    // otherwise we don't get the values we want in certain cases; things should be DslFunctionSource or DeferredSupplier but not both.
+    // that might however cause problems when we try to evaluate $brooklyn:component("xxx").attributeWhenReady() if we get the entity from the first one
     @Test
     public void testDeferredDslChainingWithCustomCallable() throws Exception {
         final Entity app = createAndStartApplication(
@@ -779,7 +809,6 @@ public class DslYamlTest extends AbstractYamlTest {
         app.config().set(customCallableWrapperKey, new DslTestSupplierWrapper(new DslTestCallable()));
         assertEquals(getConfigEventually(app, DEST), Boolean.TRUE);
     }
-
     @Test
     public void testDeferredDslChainingWithNestedEvaluation() throws Exception {
         final Entity app = createAndStartApplication(
@@ -860,6 +889,48 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testDslSelectorFromList() throws Exception {
+        final Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + BasicApplication.class.getName(),
+            "  brooklyn.config:",
+            "    key1: [a,b,c]",
+            "    key2: $brooklyn:config(\"key1\")[1]");
+        Dumper.dumpInfo(app);
+
+        assertEquals(getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
+            "b");
+    }
+
+    @Test
+    public void testDslSelectorFromMap() throws Exception {
+        final Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + BasicApplication.class.getName(),
+            "  brooklyn.config:",
+            "    key1: {a: 3}",
+            "    key2: $brooklyn:config(\"key1\")[\"a\"]");
+        Dumper.dumpInfo(app);
+        assertEquals(
+            getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
+            3);
+    }
+
+    @Test
+    public void testDslSelectorFromMapOfLists() throws Exception {
+        final Entity app = createAndStartApplication(
+            "services:",
+            "- type: " + BasicApplication.class.getName(),
+            "  brooklyn.config:",
+            "    key1: {a: [1,2,3], b: [4,5,6] }",
+            "    key2: $brooklyn:config(\"key1\")[\"b\"][2]");
+        Dumper.dumpInfo(app);
+        assertEquals(
+            getConfigEventually(app, ConfigKeys.newConfigKey(Object.class, "key2")),
+            6);
+    }
+
+    @Test
     public void testDslRecursiveFails() throws Exception {
         final Entity app = createAndStartApplication(
                 "services:",
@@ -919,19 +990,11 @@ public class DslYamlTest extends AbstractYamlTest {
     }
 
     private static <T> T getConfigEventually(final Entity entity, final ConfigKey<T> configKey) throws Exception {
-        // Use an executor, in case config().get() blocks forever, waiting for the config value.
-        ExecutorService executor = Executors.newSingleThreadExecutor();
-        try {
-            Future<T> future = executor.submit(new Callable<T>() {
-                public T call() {
-                    T blockingValue = entity.config().get(configKey);
-                    Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
-                    assertEquals(immediateValue.get(), blockingValue);
-                    return blockingValue;
-                }});
-            return future.get(Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
-        } finally {
-            executor.shutdownNow();
-        }
+        return (T) Entities.submit(entity, Tasks.builder().body(() -> {
+            T blockingValue = entity.config().get(configKey);
+            Maybe<T> immediateValue = ((EntityInternal)entity).config().getNonBlocking(configKey);
+            assertEquals(immediateValue.get(), blockingValue);
+            return blockingValue;
+        }).build()).get();
     }
 }

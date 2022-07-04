@@ -18,12 +18,9 @@
  */
 package org.apache.brooklyn.entity.software.base;
 
+import java.io.*;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -42,6 +39,7 @@ import org.apache.brooklyn.entity.software.base.lifecycle.NativeWindowsScriptRun
 import org.apache.brooklyn.entity.software.base.lifecycle.WinRmExecuteHelper;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
@@ -104,8 +102,8 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
     }
 
     protected WinRmExecuteHelper newEmptyScript(String taskNamePrefix) {
-        if (!Entities.isManaged(getEntity()))
-            throw new IllegalStateException(getEntity() + " is no longer managed; cannot create script to run here (" + taskNamePrefix + ")");
+        if (!Entities.isManagedActive(getEntity()))
+            throw new IllegalStateException(getEntity() + " is not managed here; cannot create script to run here (" + taskNamePrefix + ")");
 
         WinRmExecuteHelper s = new WinRmExecuteHelper(this, taskNamePrefix + " " + elvis(entity, this));
         return s;
@@ -333,20 +331,20 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         }
 
         ByteArrayOutputStream stdIn = new ByteArrayOutputStream();
-        ByteArrayOutputStream stdOut = flags.get("out") != null ? (ByteArrayOutputStream)flags.get("out") : new ByteArrayOutputStream();
-        ByteArrayOutputStream stdErr = flags.get("err") != null ? (ByteArrayOutputStream)flags.get("err") : new ByteArrayOutputStream();
+        OutputStream stdOut = flags.get("out") != null ? (OutputStream)flags.get("out") : new ByteArrayOutputStream();
+        OutputStream stdErr = flags.get("err") != null ? (OutputStream)flags.get("err") : new ByteArrayOutputStream();
 
         Task<?> currentTask = Tasks.current();
         if (currentTask != null) {
             if (BrooklynTaskTags.stream(Tasks.current(), BrooklynTaskTags.STREAM_STDIN)==null) {
-                writeToStream(stdIn, Strings.isBlank(regularCommand) ? powerShellCommand : regularCommand);
+                writeToStreamIfEmpty(stdIn, Strings.isBlank(regularCommand) ? powerShellCommand : regularCommand);
                 Tasks.addTagDynamically(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDIN, stdIn));
             }
 
             if (BrooklynTaskTags.stream(currentTask, BrooklynTaskTags.STREAM_STDOUT)==null) {
-                Tasks.addTagDynamically(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, stdOut));
+                Tasks.addTagDynamically(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDOUT, (ByteArrayOutputStream) stdOut));
                 flags.put("out", stdOut);
-                Tasks.addTagDynamically(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, stdErr));
+                Tasks.addTagDynamically(BrooklynTaskTags.tagForStreamSoft(BrooklynTaskTags.STREAM_STDERR, (ByteArrayOutputStream) stdErr));
                 flags.put("err", stdErr);
             }
         }
@@ -361,6 +359,9 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
             winrmProps.put(WinRmTool.ENVIRONMENT, flags.get(WinRmTool.ENVIRONMENT));
         }
 
+        if (stdOut!=null) winrmProps.put(ShellTool.PROP_OUT_STREAM, stdOut);
+        if (stdErr!=null) winrmProps.put(ShellTool.PROP_ERR_STREAM, stdErr);
+
         if (Strings.isBlank(regularCommand)) {
             response = getLocation().executePsScript(winrmProps.build(), ImmutableList.of(powerShellCommand));
         } else {
@@ -368,16 +369,23 @@ public abstract class AbstractSoftwareProcessWinRmDriver extends AbstractSoftwar
         }
 
         if (currentTask != null) {
-            writeToStream(stdOut, response.getStdOut());
-            writeToStream(stdErr, response.getStdErr());
+            // because passed to winrm4j this shouldn't be necessary any longer
+
+            // TODO in winrm4j should check, the response is only valid if it is given a ByteArrayOutputStream
+            // (or something whose toString returns the contents)
+
+            if (stdOut instanceof ByteArrayOutputStream) writeToStreamIfEmpty((ByteArrayOutputStream) stdOut, response.getStdOut());
+            if (stdErr instanceof ByteArrayOutputStream) writeToStreamIfEmpty((ByteArrayOutputStream) stdErr, response.getStdErr());
         }
 
         return response.getStatusCode();
     }
 
-    private void writeToStream(ByteArrayOutputStream stream, String string) {
+    private void writeToStreamIfEmpty(ByteArrayOutputStream stream, String string) {
         try {
-            stream.write(string.getBytes());
+            if (stream.size()==0) {
+                stream.write(string.getBytes());
+            }
         } catch (IOException e) {
             LOG.warn("Problem populating one of the std streams for task of entity " + getEntity(), e);
         }

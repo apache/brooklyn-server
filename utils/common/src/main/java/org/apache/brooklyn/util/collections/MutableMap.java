@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -114,7 +116,25 @@ public class MutableMap<K,V> extends LinkedHashMap<K,V> {
             result.putAll(orig);
         return result;
     }
-    
+
+    /** creates a copy of a map, transforming the values */
+    public static <K,V1,V2> MutableMap<K,V2> copyOf(@Nullable Map<? extends K, ? extends V1> orig, Function<V1,V2> transform) {
+        MutableMap<K,V2> result = new MutableMap<>();
+        if (orig!=null) {
+            orig.forEach( (k,v) -> result.put(k, transform.apply(v)) );
+        }
+        return result;
+    }
+
+    /** creates a copy of a map, transforming the values */
+    public static <K,V1,V2> MutableMap<K,V2> copyOf(@Nullable Map<? extends K, ? extends V1> orig, BiFunction<K,V1,V2> transform) {
+        MutableMap<K,V2> result = new MutableMap<>();
+        if (orig!=null) {
+            orig.forEach( (k,v) -> result.put(k, transform.apply(k, v)) );
+        }
+        return result;
+    }
+
     public MutableMap() {}
     @SuppressWarnings("unchecked")
     public MutableMap(@SuppressWarnings("rawtypes") Map source) { super(source); }

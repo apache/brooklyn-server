@@ -44,6 +44,10 @@ public interface OsgiBundleWithUrl {
     /** @return true if we have a name and version for this bundle;
      * false if not, e.g. if we only know the URL and we haven't loaded it yet */
     public boolean isNameResolved();
+
+    /** @return whether this is known to be deleteable (eg installed by user) or known not to be (eg installed at boot and will be reinstalled)
+     * or unknown (null, probably installed at boot or before this info was kept) */
+    public Boolean getDeleteable();
     
     /** @return the {@link VersionedName} for this bundle, or null if not available */
     public VersionedName getVersionedName();

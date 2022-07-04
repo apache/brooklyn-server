@@ -49,6 +49,8 @@ import com.google.common.collect.ImmutableMap;
 import javax.ws.rs.core.UriBuilder;
 import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.EntityApi;
+import org.apache.brooklyn.rest.util.EntityAttributesUtils;
+
 import static org.apache.brooklyn.rest.util.WebResourceUtils.resourceUriBuilder;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
@@ -65,9 +67,9 @@ public class ApplicationTransformer {
 
     public static Status statusFromApplication(Application application) {
         if (application == null) return UNKNOWN;
-        Lifecycle state = application.getAttribute(Attributes.SERVICE_STATE_ACTUAL);
+        Lifecycle state = EntityAttributesUtils.tryGetAttribute(application, Attributes.SERVICE_STATE_ACTUAL);
         if (state != null) return statusFromLifecycle(state);
-        Boolean up = application.getAttribute(Startable.SERVICE_UP);
+        Boolean up = EntityAttributesUtils.tryGetAttribute(application, Attributes.SERVICE_UP);
         if (up != null && up.booleanValue()) return RUNNING;
         return UNKNOWN;
     }

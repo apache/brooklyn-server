@@ -270,8 +270,8 @@ public class ScriptHelper {
         return this;
     }
     
-    /** indicates explicitly that the task can be safely forgotten about after it runs; useful for things like
-     * check_running which run repeatedly */
+    /** indicates explicitly that the task can be safely forgotten about after it runs;
+     * possibly useful for things like check_running which run repeatedly, though improved task GC heuristics (name-based limits) mean this is often unnecessary */
     public void setTransient() {
         isTransient = true;
     }
@@ -288,7 +288,7 @@ public class ScriptHelper {
     /** creates a task which will execute this script; note this can only be run once per instance of this class */
     public synchronized Task<Integer> newTask() {
         if (task!=null) throw new IllegalStateException("task can only be generated once");
-        TaskBuilder<Integer> tb = Tasks.<Integer>builder().displayName("ssh: "+summary).body(
+        TaskBuilder<Integer> tb = Tasks.<Integer>builder().displayName(summary).body(
                 new Callable<Integer>() {
                     @Override
                     public Integer call() throws Exception {

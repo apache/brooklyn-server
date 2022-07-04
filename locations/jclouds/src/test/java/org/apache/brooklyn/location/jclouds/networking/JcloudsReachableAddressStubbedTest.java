@@ -413,7 +413,7 @@ public class JcloudsReachableAddressStubbedTest extends AbstractJcloudsStubbedUn
         
         @Override public boolean apply(HostAndPort input) {
             calls.add(input);
-            return isReachable(input.getHostText());
+            return isReachable(input.getHost());
         }
         
         public void assertCalled() {

@@ -19,16 +19,20 @@
 
 package org.apache.brooklyn.location.jclouds;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.core.location.MachineLifecycleUtils;
+import org.apache.brooklyn.core.location.MachineLifecycleUtils.MachineStatus;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testng.Assert;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-
-import com.google.common.collect.ImmutableMap;
 
 public class JcloudsLocationSuspendResumeMachineLiveTest extends AbstractJcloudsLiveTest {
 
@@ -46,17 +50,45 @@ public class JcloudsLocationSuspendResumeMachineLiveTest extends AbstractJclouds
 
     @Test(groups = "Live")
     public void testObtainThenSuspendThenResumeMachine() throws Exception {
-        MachineLocation machine = obtainMachine(ImmutableMap.of(
-                "imageId", EUWEST_IMAGE_ID));
+        MachineLocation machine = obtainMachine(ConfigBag.newInstance()
+                .configure(JcloudsLocationConfig.IMAGE_ID, EUWEST_IMAGE_ID)
+                .configure(JcloudsLocationConfig.OPEN_IPTABLES, false)  // optimization
+                .getAllConfig());
         JcloudsSshMachineLocation sshMachine = (JcloudsSshMachineLocation) machine;
         assertTrue(sshMachine.isSshable(), "Cannot SSH to " + sshMachine);
 
         suspendMachine(machine);
+        ((SshMachineLocation)machine).setSshCheckTimeout(Duration.FIVE_SECONDS);
         assertFalse(sshMachine.isSshable(), "Should not be able to SSH to suspended machine");
 
+        ((SshMachineLocation)machine).setSshCheckTimeout(null);
         MachineLocation machine2 = resumeMachine(ImmutableMap.of("id", sshMachine.getJcloudsId()));
         assertTrue(machine2 instanceof JcloudsSshMachineLocation);
         assertTrue(((JcloudsSshMachineLocation) machine2).isSshable(), "Cannot SSH to " + machine2);
+    }
+
+    @Test(groups = "Live")
+    public void testObtainThenShutdownThenRestart() throws Exception {
+        MachineLocation machine = obtainMachine(ConfigBag.newInstance()
+                .configure(JcloudsLocationConfig.IMAGE_ID, EUWEST_IMAGE_ID)
+                .configure(JcloudsLocationConfig.OPEN_IPTABLES, false)  // optimization
+                .getAllConfig());
+        JcloudsSshMachineLocation sshMachine = (JcloudsSshMachineLocation) machine;
+        Assert.assertEquals(new MachineLifecycleUtils(sshMachine).getStatus(), MachineStatus.RUNNING);
+        assertTrue(sshMachine.isSshable(), "Cannot SSH to " + sshMachine);
+
+        jcloudsLocation.shutdownMachine(sshMachine);
+        sshMachine.setSshCheckTimeout(Duration.FIVE_SECONDS);
+        assertFalse(sshMachine.isSshable(), "Should not be able to SSH to suspended machine");
+
+        Assert.assertEquals(new MachineLifecycleUtils(sshMachine).exists(), Boolean.TRUE);
+        Assert.assertEquals(new MachineLifecycleUtils(sshMachine).getStatus(), MachineStatus.SUSPENDED);  // shutdown suspends in AWS
+        sshMachine.setSshCheckTimeout(null);
+
+        MachineLocation machine2 = new MachineLifecycleUtils(sshMachine).makeRunning().get();
+        assertTrue(machine2 instanceof JcloudsSshMachineLocation);
+        assertTrue(((JcloudsSshMachineLocation) machine2).isSshable(), "Cannot SSH to " + machine2);
+        Assert.assertEquals(new MachineLifecycleUtils(machine2).getStatus(), MachineStatus.RUNNING);
     }
 
 }

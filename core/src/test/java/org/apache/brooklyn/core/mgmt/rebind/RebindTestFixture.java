@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.rebind;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
@@ -38,7 +39,10 @@ import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
+import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -123,7 +127,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         return true;
     }
     
-    /** As {@link #createNewManagementContext(File)} using the default memento dir */
+    /** As {@link #createNewManagementContext(File, Map)} using the default memento dir */
     protected LocalManagementContext createNewManagementContext() {
         return createNewManagementContext(mementoDir, null);
     }
@@ -151,10 +155,12 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
     /** terminates the original management context (not destroying items) and points it at the new one (and same for apps); 
      * then clears the variables for the new one, so you can re-rebind */
     protected void switchOriginalToNewManagementContext() {
-        origManagementContext.getRebindManager().stopPersistence();
-        for (Application e: origManagementContext.getApplications()) ((Startable)e).stop();
-        waitForTaskCountToBecome(origManagementContext, 0, true);
-        origManagementContext.terminate();
+        if (origManagementContext!=null && origManagementContext.isRunning()) {
+            origManagementContext.getRebindManager().stopPersistence();
+            for (Application e : origManagementContext.getApplications()) ((Startable) e).stop();
+            waitForTaskCountToBecome(origManagementContext, 0, true);
+            origManagementContext.terminate();
+        }
         origManagementContext = (LocalManagementContext) newManagementContext;
         origApp = newApp;
         newManagementContext = null;

@@ -79,7 +79,7 @@ public class BrooklynLauncherHighAvailabilityTest extends AbstractBrooklynLaunch
         primaryManagementContext.getRebindManager().getPersister().waitForWritesCompleted(Asserts.DEFAULT_LONG_TIMEOUT);
         
         // Secondary will come up as standby
-        secondary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.AUTO)
+        secondary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.STANDBY)
                 .haHeartbeatTimeout(Duration.millis(1000))
                 .start();
         ManagementContext secondaryManagementContext = secondary.getServerDetails().getManagementContext();
@@ -120,6 +120,7 @@ public class BrooklynLauncherHighAvailabilityTest extends AbstractBrooklynLaunch
         assertOnlyAppEventually(tertiaryManagementContext, TestApplication.class);
     }
     
+    @Test
     public void testHighAvailabilityMasterModeFailsIfAlreadyHasMaster() throws Exception {
         primary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.AUTO)
                 .start();
@@ -127,13 +128,14 @@ public class BrooklynLauncherHighAvailabilityTest extends AbstractBrooklynLaunch
         try {
             // Secondary will come up as standby
             secondary = newLauncherForTests(PersistMode.AUTO, HighAvailabilityMode.MASTER)
+                    .ignorePersistenceErrors(false)
                     .start();
             Asserts.shouldHaveFailedPreviously();
         } catch (IllegalStateException e) {
             // success
         }
     }
-    
+
     @Test
     public void testHighAvailabilityStandbyModeFailsIfNoExistingMaster() throws Exception {
         try {

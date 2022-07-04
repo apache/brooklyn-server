@@ -44,7 +44,7 @@ public class DslToStringHelpers {
     }
 
     /** convenience for functions, inserting parentheses and commas */
-    public static String fn(String functionName, Iterable<Object> args) {
+    public static String fn(String functionName, Iterable<?> args) {
         StringBuilder out = new StringBuilder();
         out.append(BrooklynDslCommon.PREFIX);
         out.append(functionName);

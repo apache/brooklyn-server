@@ -18,13 +18,18 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import java.util.List;
+import java.lang.reflect.Constructor;
+import java.util.Map;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 
 /**
  * Instantiates classes from a registered type which simply
@@ -63,29 +68,44 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
     @SuppressWarnings({ "unchecked" })
     @Override
     protected AbstractBrooklynObjectSpec<?,?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return RegisteredTypes.newSpecInstance(mgmt, (Class<? extends BrooklynObject>) getType(type, context));
+        return decorateWithCommonTagsModifyingSpecSummary(RegisteredTypes.newSpecInstance(mgmt, (Class<? extends BrooklynObject>) getType(type, context)), type, null, null, null);
     }
 
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return getType(type, context).newInstance();
+        Class<?> clz = getType(type, context);
+        Constructor<?> constr;
+        try {
+            constr = clz.getDeclaredConstructor();
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("No 0-arg constructor found for "+clz+" for "+type.getId(), e);
+        }
+        return constr.newInstance();
     }
 
     private Class<?> getType(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
-        return RegisteredTypes.loadActualJavaType((String)type.getPlan().getPlanData(), mgmt, type, context);
-    }
-    
-    
-    // not supported as a catalog format (yet? should we?)
-    
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        return 0;
-    }
+        String planData = ((String)type.getPlan().getPlanData()).trim();
 
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        throw new UnsupportedTypePlanException("this transformer does not support YAML catalog additions");
-    }
+        // expects a string; caller might have given us 'type: xxx' yaml, or automatically wrapped;
+        // in those simple cases, unpack it
+        try {
+            Iterable<Object> yaml = Yamls.parseAll(planData);
+            if (Iterables.size(yaml) == 1) {
+                Object ym = yaml.iterator().next();
+                if (ym instanceof Map) {
+                    Object yt = ((Map) ym).get("type");
+                    if (yt instanceof String) {
+                        planData = (String) yt;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            // swallow if not parseable yaml; treat as string
+        }
 
+        return RegisteredTypes.loadActualJavaType(planData, mgmt, type, context);
+    }
+    
+    
 }

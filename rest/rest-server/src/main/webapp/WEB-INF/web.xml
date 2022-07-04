@@ -56,6 +56,7 @@
                 org.apache.brooklyn.rest.resources.EntityConfigResource,
                 org.apache.brooklyn.rest.resources.EntityResource,
                 org.apache.brooklyn.rest.resources.LocationResource,
+                org.apache.brooklyn.rest.resources.LogbookResource,
                 org.apache.brooklyn.rest.resources.LogoutResource,
                 org.apache.brooklyn.rest.resources.PolicyConfigResource,
                 org.apache.brooklyn.rest.resources.PolicyResource,

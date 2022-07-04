@@ -28,14 +28,16 @@ import org.apache.brooklyn.api.sensor.Feed;
  * Instances of this class supply logic which can be used to initialize entities. 
  * These can be added to an {@link EntitySpec} programmatically, or declared as part
  * of YAML recipes in a <code>brooklyn.initializers</code> section.
- * In the case of the latter, implementing classes should define a no-arg constructor
- * or a {@link Map} constructor so that YAML parameters can be supplied.
+ * In the case of the latter, implementing classes should design as
+ * beans (for fields to be set) or following one of the patterns in EntityInitializers (in core)
+ * which provide a one-arg constructor taking a ConfigBag (for parameters passed in through a <code>brooklyn.config</code> key
+ * under the <code>brooklyn.initializers</code>).
  * <p>
  * Note that initializers are only invoked on first creation; they are not called 
  * during a rebind. Instead, the typical pattern is that initializers will create
  * {@link EntityAdjunct} instances such as {@link Policy} and {@link Feed}
  * which will be attached during rebind.
- **/ 
+ **/
 public interface EntityInitializer {
     
     /** Applies initialization logic to a just-built entity.

@@ -306,6 +306,12 @@ public class BrooklynConfigKeys {
 
     public static final ConfigKey<String> ICON_URL = newStringConfigKey("iconUrl");
 
+    public static final ConfigKey<String> PLAN_ID = ConfigKeys.builder(String.class, "camp.plan.id")
+            .description("Identifier supplied in the deployment plan for component to which this entity corresponds "
+                    + "(human-readable, for correlating across plan, template, and instance)")
+            .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
+            .build();
+
     private BrooklynConfigKeys() {}
 
 }

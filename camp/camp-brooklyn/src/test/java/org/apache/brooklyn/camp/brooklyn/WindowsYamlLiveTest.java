@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
+import org.apache.brooklyn.location.winrm.PlainWinRmExecTaskFactory;
 import static org.testng.Assert.fail;
 
 import java.util.List;
@@ -38,7 +40,6 @@ import org.apache.brooklyn.entity.software.base.test.location.WindowsTestFixture
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.TaskPredicates;
-import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
@@ -66,8 +67,6 @@ import com.google.common.collect.Lists;
 public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
     
     // set EXISTING_WINDOWS_TEST_USER_PASS_HOST_ENV_VAR as per WindowsTestFixture to re-use existing machines
-    
-    // TODO Remove duplication of assertStreams and VanillaWindowsProcessWinrmStreamsLiveTest.assertStreams
     
     private static final Logger log = LoggerFactory.getLogger(WindowsYamlLiveTest.class);
 
@@ -106,8 +105,8 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 "location:",
                 "  byon:",
                 "    hosts:",
-                "    - winrm: "+machine.getAddress().getHostAddress() 
-                        // this is the default, probably not necessary but kept for posterity 
+                "    - winrm: "+machine.getAddress().getHostAddress()
+                        // this is the default, probably not necessary but kept for posterity
                         +":5985",
                 "      password: "+JavaStringEscapes.wrapJavaString(machine.config().get(WinRmMachineLocation.PASSWORD)),
                 "      user: "+machine.config().get(WinRmMachineLocation.USER),
@@ -142,12 +141,12 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
             app = null;
         }
     }
-    
+
     @Override
     protected ManagementContextInternal mgmt() {
         return (ManagementContextInternal) super.mgmt();
     }
-    
+
     @Test(groups="Live")
     public void testPowershellMinimalist() throws Exception {
         Map<String, String> cmds = ImmutableMap.<String, String>builder()
@@ -155,12 +154,12 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("launch.powershell.command", JavaStringEscapes.wrapJavaString("& \"$Env:INSTALL_DIR\\exit0.ps1\""))
                 .put("checkRunning.powershell.command", JavaStringEscapes.wrapJavaString("& \"$Env:INSTALL_DIR\\exit0.bat\""))
                 .build();
-        
+
         Map<String, List<String>> stdouts = ImmutableMap.of();
-        
+
         runWindowsApp(cmds, stdouts, true, null);
     }
-    
+
     @Test(groups="Live")
     public void testPowershell() throws Exception {
         Map<String, String> cmds = ImmutableMap.<String, String>builder()
@@ -175,17 +174,17 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("checkRunning.powershell.command", "\"& c:\\\\exit0.ps1\"")
                 .put("stop.powershell.command", "\"& c:\\\\exit0.ps1\"")
                 .build();
-        
+
         Map<String, List<String>> stdouts = ImmutableMap.<String, List<String>>builder()
                 .put("winrm: install.*", ImmutableList.of("myInstall"))
                 .put("winrm: post-install-command.*", ImmutableList.of("myPostInstall"))
                 .put("winrm: customize.*", ImmutableList.of("myval"))
                 .put("winrm: pre-launch-command.*", ImmutableList.of("myval"))
                 .build();
-        
+
         runWindowsApp(cmds, stdouts, false, null);
     }
-    
+
     @Test(groups="Live")
     public void testBatch() throws Exception {
         Map<String, String> cmds = ImmutableMap.<String, String>builder()
@@ -207,10 +206,10 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("winrm: customize.*", ImmutableList.of("myval"))
                 .put("winrm: pre-launch-command.*", ImmutableList.of("myval"))
                 .build();
-        
+
         runWindowsApp(cmds, stdouts, false, null);
     }
-    
+
     @Test(groups="Live")
     public void testPowershellExit1() throws Exception {
         Map<String, String> cmds = ImmutableMap.<String, String>builder()
@@ -225,12 +224,12 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("checkRunning.powershell.command", "\"& c:\\\\exit0.ps1\"")
                 .put("stop.powershell.command", "\"& c:\\\\exit0.ps1\"")
                 .build();
-        
+
         Map<String, List<String>> stdouts = ImmutableMap.of();
-        
+
         runWindowsApp(cmds, stdouts, false, "winrm: pre-install-command.*");
     }
-    
+
     // FIXME Failing to match the expected exception, but looks fine! Needs more investigation.
     @Test(groups="Live")
     public void testPowershellCheckRunningExit1() throws Exception {
@@ -246,12 +245,12 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("checkRunning.powershell.command", "\"& c:\\\\exit1.ps1\"")
                 .put("stop.powershell.command", "\"& c:\\\\exit0.ps1\"")
                 .build();
-        
+
         Map<String, List<String>> stdouts = ImmutableMap.of();
-        
+
         runWindowsApp(cmds, stdouts, false, "winrm: is-running-command.*");
     }
-    
+
     // FIXME Needs more work to get the stop's task that failed, so can assert got the right error message
     @Test(groups="Live")
     public void testPowershellStopExit1() throws Exception {
@@ -267,15 +266,15 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 .put("checkRunning.powershell.command", "\"& c:\\\\exit0.ps1\"")
                 .put("stop.powershell.command", "\"& c:\\\\exit1.ps1\"")
                 .build();
-        
+
         Map<String, List<String>> stdouts = ImmutableMap.of();
-        
+
         runWindowsApp(cmds, stdouts, false, "winrm: stop-command.*");
     }
-    
+
     protected void runWindowsApp(Map<String, String> commands, Map<String, List<String>> stdouts, boolean useInstallDir, String taskRegexFailed) throws Exception {
         String cmdFailed = (taskRegexFailed == null) ? null : TASK_REGEX_TO_COMMAND.get(taskRegexFailed);
-        
+
         List<String> yaml = Lists.newArrayList();
         yaml.addAll(yamlLocation);
         String prefix = useInstallDir ? "" : "c:\\";
@@ -294,7 +293,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
                 "      classpath://org/apache/brooklyn/camp/brooklyn/exit0.ps1: "+prefix+"exit0.ps1",
                 "      classpath://org/apache/brooklyn/camp/brooklyn/exit1.ps1: "+prefix+"exit1.ps1",
                 ""));
-        
+
         for (Map.Entry<String, String> entry : commands.entrySet()) {
             yaml.add("    "+entry.getKey()+": "+entry.getValue());
         }
@@ -304,12 +303,12 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
             waitForApplicationTasks(app);
             log.info("App started:");
             Dumper.dumpInfo(app);
-            
+
             VanillaWindowsProcess entity = (VanillaWindowsProcess) app.getChildren().iterator().next();
-            
+
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
             assertStreams(entity, stdouts);
-            
+
         } else if (cmdFailed.equals("stop-command")) {
             app = createAndStartApplication(Joiner.on("\n").join(yaml));
             waitForApplicationTasks(app);
@@ -317,10 +316,10 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
             Dumper.dumpInfo(app);
             VanillaWindowsProcess entity = (VanillaWindowsProcess) app.getChildren().iterator().next();
             EntityAsserts.assertAttributeEqualsEventually(entity, Attributes.SERVICE_UP, true);
-            
+
             entity.stop();
             assertSubTaskFailures(entity, ImmutableMap.of(taskRegexFailed, StringPredicates.containsLiteral("for "+cmdFailed)));
-            
+
         } else {
             try {
                 app = createAndStartApplication(Joiner.on("\n").join(yaml));
@@ -338,33 +337,103 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
         String in = "%KEY1%: %ADDR_RESOLVED%";
         yaml.addAll(ImmutableList.of(
             "services:",
-            "  - type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess", 
-            "    brooklyn.config:", 
-            "      install.command: "+JavaStringEscapes.wrapJavaString("echo "+in), 
-            "      customize.command: "+JavaStringEscapes.wrapJavaString("echo "+in), 
-            "      launch.command: "+JavaStringEscapes.wrapJavaString("echo "+in), 
-            "      stop.command: echo true", 
-            "      checkRunning.command: echo true", 
-            "      shell.env:", 
-            "        KEY1: Address", 
+            "  - type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess",
+            "    brooklyn.config:",
+            "      install.command: "+JavaStringEscapes.wrapJavaString("echo "+in),
+            "      customize.command: "+JavaStringEscapes.wrapJavaString("echo "+in),
+            "      launch.command: "+JavaStringEscapes.wrapJavaString("echo "+in),
+            "      stop.command: echo true",
+            "      checkRunning.command: echo true",
+            "      shell.env:",
+            "        KEY1: Address",
             "        ADDR_RESOLVED: $brooklyn:attributeWhenReady(\"host.address\")"));
 
         app = createAndStartApplication(Joiner.on("\n").join(yaml));
         waitForApplicationTasks(app);
         log.info("App started:");
         Dumper.dumpInfo(app);
-        
-        
+
+
         Entity win = Iterables.getOnlyElement(app.getChildren());
         String out = "Address: "+win.sensors().get(SoftwareProcess.ADDRESS);
-        assertPhaseStreamEquals(win, "install", "stdout", Predicates.equalTo(in));
-        assertPhaseStreamEquals(win, "customize", "stdout", Predicates.equalTo(out));
-        assertPhaseStreamEquals(win, "launch", "stdout", Predicates.equalTo(out));
+        assertPhaseStreamSatisfies(win, "install", "stdout", Predicates.equalTo(in));
+        assertPhaseStreamSatisfies(win, "customize", "stdout", Predicates.equalTo(out));
+        assertPhaseStreamSatisfies(win, "launch", "stdout", Predicates.equalTo(out));
+    }
+
+    @Test(groups="Live")
+    public void testDifferentLogLevels() throws Exception {
+        List<String> yaml = Lists.newArrayList();
+        yaml.addAll(yamlLocation);
+
+        String hostMsg = "Host Message";
+        String progressMsg = "Progress Message";
+        String outputMsg = "Output Message";
+        String errMsg = "Error Message";
+        String warningMsg = "Warning Message";
+        String verboseMsg = "Verbose Message";
+        String debugMsg = "Debug Message";
+        String informationMsg = "Information Message";
+
+        String cmd =
+                "$DebugPreference = \"Continue\"\n" +
+                "$VerbosePreference = \"Continue\"\n" +
+                "\n" +
+                "Write-Host \"" + hostMsg + "\"\n" +
+                "Write-Output \"" + outputMsg + "\"\n" +
+                "Write-Progress \"" + progressMsg + "\"\n" +
+                "Write-Error \"" + errMsg + "\" \n" +
+                "Write-Warning \"" + warningMsg + "\"\n" +
+                "Write-Verbose \"" + verboseMsg + "\"\n" +
+                "Write-Debug \"" + debugMsg + "\" \n" +
+                // "Write-Information \"" + informationMsg + "\" \n" + // Write-Host is a wrapper for Write-Information since PowerShell 5.0
+                "";
+
+        yaml.addAll(ImmutableList.of(
+                "services:",
+                "  - type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess",
+                "    brooklyn.config:",
+                "      checkRunning.command: echo true",
+                "      install.powershell.command: |",
+                Strings.indent(8, cmd) ));
+
+        app = createAndStartApplication(Joiner.on("\n").join(yaml));
+        waitForApplicationTasks(app);
+        log.info("App started:");
+        Dumper.dumpInfo(app);
+
+
+        Entity win = Iterables.getOnlyElement(app.getChildren());
+
+        // Verify stdout output.
+        assertPhaseStreamSatisfies(win, "install", "stdout", s ->
+                s.trim().equalsIgnoreCase(hostMsg+"\n"+outputMsg));
+
+        // Verify WinRM output to contain error, warning, verbose and debug messages in CLI XML format.
+        assertPhaseStreamSatisfies(win, "install", PlainWinRmExecTaskFactory.WINRM_STREAM, s ->
+                Strings.countOccurrences(s, errMsg + "_x000D__x000A_</S>") == 1 && // error always includes \r\n markers
+                Strings.countOccurrences(s, warningMsg + "</S>") == 1 &&
+                Strings.countOccurrences(s, verboseMsg + "</S>") == 1 &&
+                Strings.countOccurrences(s, debugMsg + "</S>") == 1 &&
+                Strings.countOccurrences(s, "<Obj S=\"progress\"") == 1 && // Progress is a composite object;
+                Strings.countOccurrences(s, progressMsg + "</AV>") == 1 && // message is wrapped with 'AV' tag.
+                // host and output are not included
+                Strings.countOccurrences(s, hostMsg + "</S>") == 0 &&
+                Strings.countOccurrences(s, outputMsg + "</S>") == 0 &&
+                Strings.countOccurrences(s, informationMsg + "</S>") == 0);
     }
     
-    private void assertPhaseStreamEquals(Entity entity, String phase, String stream, Predicate<String> check) {
-        Optional<Task<?>> t = findTaskOrSubTask(entity, TaskPredicates.displayNameSatisfies(StringPredicates.startsWith("winrm: "+phase)));
-        Asserts.assertThat(BrooklynTaskTags.stream(t.get(), stream).streamContents.get().trim(), check);
+    private void assertPhaseStreamSatisfies(Entity entity, String phase, String stream, Predicate<String> check) {
+        WrappedStream streamV = getWrappedStream(entity, phase, stream);
+        Asserts.assertNotNull(streamV, "phase "+phase+" stream "+stream+" not found");
+        Asserts.assertThat(streamV.streamContents.get().trim(), check, "phase "+phase+" stream "+stream+" not as expected: '"+streamV.streamContents.get().trim()+"'");
+    }
+
+    private WrappedStream getWrappedStream(Entity entity, String phase, String stream) {
+        Optional<Task<?>> t = findTaskOrSubTask(entity, TaskPredicates.displayNameSatisfies(StringPredicates.startsWith("winrm: "+ phase)));
+        Asserts.assertTrue(t.isPresent(), "phase "+ phase +" not found in tasks");
+        WrappedStream streamV = BrooklynTaskTags.stream(t.get(), stream);
+        return streamV;
     }
 
     @Override

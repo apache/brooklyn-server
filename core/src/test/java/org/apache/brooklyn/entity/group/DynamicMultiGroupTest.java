@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
@@ -53,6 +54,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
                 EntitySpec.create(DynamicMultiGroup.class)
                         .configure(ENTITY_FILTER, instanceOf(TestEntity.class))
                         .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
+                        .configure(DynamicMultiGroup.BUCKET_ID_FUNCTION, bucketFromAttribute(SENSOR))
         );
         app.subscriptions().subscribeToChildren(group, SENSOR, new SensorEventListener<String>() {
             @Override
@@ -73,6 +75,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
                 EntitySpec.create(DynamicMultiGroup.class)
                         .configure(ENTITY_FILTER, instanceOf(TestEntity.class))
                         .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
+                        .configure(DynamicMultiGroup.BUCKET_ID_FUNCTION, bucketFromAttribute(SENSOR))
                         .configure(RESCAN_INTERVAL, 1L)
         );
 
@@ -129,6 +132,7 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
                 Group bucketA = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketA"), null);
                 Group bucketB = (Group) find(dmg.getChildren(), displayNameEqualTo("bucketB"), null);
                 assertNotNull(bucketA);
+                assertEquals(bucketA.getConfig(BrooklynConfigKeys.PLAN_ID), "bucketA");
                 assertNull(bucketB);
                 assertEquals(ImmutableSet.copyOf(bucketA.getMembers()), ImmutableSet.of(child1, child2));
             }

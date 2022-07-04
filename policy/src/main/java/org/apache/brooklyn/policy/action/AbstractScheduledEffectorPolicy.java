@@ -32,6 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.SensorEvent;
 import org.apache.brooklyn.api.sensor.SensorEventListener;
@@ -54,6 +55,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -77,6 +79,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .constraint(Predicates.notNull())
             .build();
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<Map<String, Object>> EFFECTOR_ARGUMENTS = ConfigKeys.builder(new TypeToken<Map<String, Object>>() { })
             .name("args")
             .description("The effector arguments and their values")
@@ -95,11 +98,18 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .constraint(Predicates.or(Predicates.isNull(), DurationPredicates.positive()))
             .build();
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<AttributeSensor<Boolean>> START_SENSOR = ConfigKeys.builder(new TypeToken<AttributeSensor<Boolean>>() { })
             .name("start.sensor")
             .description("The sensor which should trigger starting the periodic execution scheduler")
             .defaultValue(Startable.SERVICE_UP)
             .build();
+
+    @SuppressWarnings("serial")
+    public static final ConfigKey<AttributeSensor<Boolean>> ENABLED_SENSOR = ConfigKeys.builder(new TypeToken<AttributeSensor<Boolean>>() { })
+        .name("enabled.sensor")
+        .description("A sensor which can trigger starting and stopping the periodic execution")
+        .build();
 
     public static final ConfigKey<Boolean> RUNNING = ConfigKeys.builder(Boolean.class)
             .name("running")
@@ -108,6 +118,7 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
             .reconfigurable(true)
             .build();
 
+    @SuppressWarnings("serial")
     public static final ConfigKey<List<Long>> SCHEDULED = ConfigKeys.builder(new TypeToken<List<Long>>() { })
             .name("scheduled")
             .description("List of all scheduled execution start times")
@@ -156,6 +167,10 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
 
         AttributeSensor<Boolean> sensor = config().get(START_SENSOR);
         subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, sensor, this);
+        AttributeSensor<Boolean> sensor2 = config().get(ENABLED_SENSOR);
+        if (sensor2!=null) {
+            subscriptions().subscribe(ImmutableMap.of("notifyOfInitialValue", true), entity, sensor2, this);
+        }
     }
 
     @Override
@@ -268,7 +283,9 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
                     .get();
 
             LOG.debug("{}: Invoking effector on {}, {}({})", new Object[] { this, entity, effector.getName(), resolved });
-            Object result = entity.invoke(effector, resolved).getUnchecked();
+            Task<?> invocation = entity.invoke(effector, resolved);
+            highlightAction("Invoking effector", invocation);
+            Object result = invocation.getUnchecked();
             LOG.debug("{}: Effector {} returned {}", new Object[] { this, effector.getName(), result });
         } catch (RuntimeInterruptedException rie) {
             // Gracefully stop
@@ -284,10 +301,26 @@ public abstract class AbstractScheduledEffectorPolicy extends AbstractPolicy imp
         LOG.debug("{}: Got event {}", this, event);
         AttributeSensor<Boolean> sensor = config().get(START_SENSOR);
         if (event.getSensor().getName().equals(sensor.getName())) {
-            Boolean start = Boolean.TRUE.equals(event.getValue());
+            boolean start = Boolean.TRUE.equals(event.getValue());
             if (start && running.compareAndSet(false, true)) {
                 config().set(RUNNING, true);
+                highlightConfirmation("Starting effector invocation schedule");
                 start();
+            }
+        }
+        
+        AttributeSensor<Boolean> sensor2 = config().get(ENABLED_SENSOR);
+        if (sensor2!=null && event.getSensor().getName().equals(sensor2.getName())) {
+            boolean enable = Boolean.TRUE.equals(event.getValue());
+            if (running.compareAndSet(!enable, enable)) {
+                config().set(RUNNING, enable);
+                if (enable) {
+                    highlightConfirmation("Resuming effector invocation schedule");
+                    resume();
+                } else {
+                    highlightViolation("Suspending effector invocation");
+                    suspend();
+                }
             }
         }
     }

@@ -107,7 +107,11 @@ public class CatalogEntitySpecResolver extends AbstractEntitySpecResolver {
         if (item.isDisabled()) {
             throw new IllegalStateException("Illegal use of disabled catalog item "+item.getSymbolicName()+":"+item.getVersion());
         } else if (item.isDeprecated()) {
-            log.warn("Use of deprecated catalog item "+item.getSymbolicName()+":"+item.getVersion());
+            if (org.apache.brooklyn.util.javalang.StackTraceSimplifier.toString(new Throwable()).contains("BasicBrooklynCatalog.validate")) {
+                // don't warn when adding to the catalog
+            } else {
+                log.warn("Use of deprecated catalog item "+item.getSymbolicName()+":"+item.getVersion(), new Throwable("source"));
+            }
         }
     }
 

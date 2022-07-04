@@ -77,6 +77,7 @@ limitations under the License.
     <bean id="serverResourceBean" class="org.apache.brooklyn.rest.resources.ServerResource"/>
     <bean id="typeResourceBean" class="org.apache.brooklyn.rest.resources.TypeResource"/>
     <bean id="usageResourceBean" class="org.apache.brooklyn.rest.resources.UsageResource"/>
+    <bean id="logbookResourceBean" class="org.apache.brooklyn.rest.resources.LogbookResource"/>
 
     <jaxrs:server id="brooklynRestApiV1" address="/">
         <jaxrs:serviceBeans>
@@ -99,6 +100,7 @@ limitations under the License.
             <ref component-id="serverResourceBean"/>
             <ref component-id="typeResourceBean"/>
             <ref component-id="usageResourceBean"/>
+            <ref component-id="logbookResourceBean"/>
         </jaxrs:serviceBeans>
 
         <jaxrs:providers>

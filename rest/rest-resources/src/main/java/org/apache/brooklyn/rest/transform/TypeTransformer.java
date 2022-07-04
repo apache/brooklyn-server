@@ -21,10 +21,7 @@ package org.apache.brooklyn.rest.transform;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 import java.net.URI;
-import java.util.Collections;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.ws.rs.core.UriBuilder;
@@ -45,7 +42,10 @@ import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.creation.CampTypePlanTransformer;
 import org.apache.brooklyn.core.entity.EntityDynamicType;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.objs.BrooklynTypes;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
@@ -61,10 +61,12 @@ import org.apache.brooklyn.rest.domain.SummaryComparators;
 import org.apache.brooklyn.rest.domain.TypeDetail;
 import org.apache.brooklyn.rest.domain.TypeSummary;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Sets;
@@ -74,14 +76,18 @@ public class TypeTransformer {
     private static final org.slf4j.Logger log = LoggerFactory.getLogger(TypeTransformer.class);
     
     public static <T extends Entity> TypeSummary summary(BrooklynRestResourceUtils b, RegisteredType item, UriBuilder ub) {
-        return embellish(new TypeSummary(item), item, false, b, ub);
+        return embellish(new TypeSummary(item), item, false, false, b, ub);
     }
 
     public static TypeDetail detail(BrooklynRestResourceUtils b, RegisteredType item, UriBuilder ub) {
-        return embellish(new TypeDetail(item), item, true, b, ub);
+        return embellish(new TypeDetail(item), item, true, false, b, ub);
     }
 
-    private static <T extends TypeSummary> T embellish(T result, RegisteredType item, boolean detail, BrooklynRestResourceUtils b, UriBuilder ub) {
+    public static TypeDetail detailIncludingLegacyItemFields(BrooklynRestResourceUtils b, RegisteredType item, UriBuilder ub) {
+        return embellish(new TypeDetail(item), item, true, true, b, ub);
+    }
+
+    private static <T extends TypeSummary> T embellish(T result, RegisteredType item, boolean detail, boolean legacyDetailFields, BrooklynRestResourceUtils b, UriBuilder ub) {
         result.setExtraField("links", makeLinks(item, ub));
         
         if (RegisteredTypes.isTemplate(item)) {
@@ -94,6 +100,26 @@ public class TypeTransformer {
                 result.setExtraField("iconUrlSource", item.getIconUrl());
             }
         }
+
+        // create summary tag for the current plan
+        SpecSummary currentSpec = SpecSummary.builder()
+                .format(StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat())
+                // the default type implementation is camp in this location, but hierarchy tag provides the original implementation, so it takes precedence.
+                .summary((StringUtils.isBlank(item.getPlan().getPlanFormat()) ? CampTypePlanTransformer.FORMAT : item.getPlan().getPlanFormat()) + " implementation")
+                .contents(item.getPlan().getPlanData())
+                .build();
+
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(item.getTags());
+        List<SpecSummary> specList = MutableList.of(currentSpec);
+        if(specTag!= null){
+            // put the original spec tags first
+            SpecSummary.modifyHeadSpecSummary(specList, s ->
+                    s.summary.startsWith(s.format) ? "Converted to "+s.summary :
+                    s.summary.contains(s.format) ? s.summary + ", converted" :
+                    s.summary + ", converted to "+s.format);
+            SpecSummary.pushToList(specList, specTag);
+        }
+        result.setExtraField("specList", specList);
         
         if (detail) {
             if (RegisteredTypes.isSubtypeOf(item, Entity.class)) {
@@ -101,26 +127,31 @@ public class TypeTransformer {
             } else if (RegisteredTypes.isSubtypeOf(item, EntityAdjunct.class) ||
                     // when implied supertypes are used we won't need the code below
                     RegisteredTypes.isSubtypeOf(item, Policy.class) || RegisteredTypes.isSubtypeOf(item, Enricher.class) || RegisteredTypes.isSubtypeOf(item, Feed.class)
-                    ) {
+            ) {
                 try {
                     Set<ConfigSummary> config = Sets.newLinkedHashSet();
-                    
-                    AbstractBrooklynObjectSpec<?,?> spec = b.getTypeRegistry().createSpec(item, null, null);
+
+                    AbstractBrooklynObjectSpec<?, ?> spec = b.getTypeRegistry().createSpec(item, null, null);
                     AtomicInteger priority = new AtomicInteger(0);
-                    for (final SpecParameter<?> input : spec.getParameters()){
+                    for (final SpecParameter<?> input : spec.getParameters()) {
                         config.add(ConfigTransformer.of(input).uiIncrementAndSetPriorityIfPinned(priority).transform());
                     }
-                    
+
                     result.setExtraField("config", config);
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
-                    log.trace("Unable to create spec for "+item+": "+e, e);
+                    log.trace("Unable to create spec for " + item + ": " + e, e);
                 }
-                
+
             } else if (RegisteredTypes.isSubtypeOf(item, Location.class)) {
                 // TODO include config on location specs?  (wasn't done previously so not needed, but good for completeness)
-                result.setExtraField("config", Collections.emptyMap());
+                result.setExtraField("config", Collections.emptySet());
             }
+        }
+        if (legacyDetailFields) {
+            // for legacy compatibility
+            result.setExtraField("planYaml", item.getPlan()==null ? null : item.getPlan().getPlanData());
+            result.setExtraField("name", item.getDisplayName());
         }
         return result;
     }
@@ -165,6 +196,9 @@ public class TypeTransformer {
         if (detail) {
             result.setExtraField("osgiVersion", b.getOsgiVersionString());
             result.setExtraField("checksum", b.getChecksum());            
+            if (b.getFormat()!=null) {
+                result.setExtraField("format", b.getFormat());
+            }
         }
         if (detail) {
             for (RegisteredType t: mgmt.getTypeRegistry().getMatching(RegisteredTypePredicates.containingBundle(b))) {
@@ -180,9 +214,19 @@ public class TypeTransformer {
 
     public static BundleInstallationRestResult bundleInstallationResult(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {
         BundleInstallationRestResult result = new BundleInstallationRestResult(
-            in.getMessage(), in.getVersionedName() != null ? in.getVersionedName().toString() : "", in.getCode());
+                in.getMessage(), in.getVersionedName() != null ? in.getVersionedName().toString() : "", in.getCode());
         for (RegisteredType t: in.getTypesInstalled()) {
             TypeSummary summary = TypeTransformer.summary(brooklynU, t, ui.getBaseUriBuilder());
+            result.getTypes().put(t.getId(), summary);
+        }
+        return result;
+    }
+
+    public static BundleInstallationRestResult bundleInstallationResultLegacyItemDetails(OsgiBundleInstallationResult in, ManagementContext mgmt, BrooklynRestResourceUtils brooklynU, UriInfo ui) {
+        BundleInstallationRestResult result = new BundleInstallationRestResult(
+            in.getMessage(), in.getVersionedName() != null ? in.getVersionedName().toString() : "", in.getCode());
+        for (RegisteredType t: in.getTypesInstalled()) {
+            TypeSummary summary = TypeTransformer.detailIncludingLegacyItemFields(brooklynU, t, ui.getBaseUriBuilder());
             result.getTypes().put(t.getId(), summary);
         }
         return result;
@@ -203,7 +247,15 @@ public class TypeTransformer {
     }
     private static String tidyIconLink(BrooklynRestResourceUtils b, RegisteredType item, String iconUrl, UriBuilder ub) {
         if (b.isUrlServerSideAndSafe(iconUrl)) {
-            return serviceUriBuilder(ub, TypeApi.class, "icon").build(item.getSymbolicName(), item.getVersion()).toString();
+            Maybe<VersionedName> bundleM = VersionedName.parseMaybe(item.getContainingBundle(), true);
+            if (bundleM.isAbsent()) {
+                return serviceUriBuilder(ub, BundleApi.class, "getTypeExplicitVersionIcon").build(
+                        bundleM.get().getSymbolicName(), bundleM.get().getVersionString(),
+                        item.getSymbolicName(), item.getVersion()).toString();
+            } else {
+                return serviceUriBuilder(ub, TypeApi.class, "icon").build(
+                        item.getSymbolicName(), item.getVersion()).toString();
+            }
         }
         return iconUrl;
     }

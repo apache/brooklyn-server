@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.rest;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigMap;
@@ -26,6 +28,9 @@ import org.apache.brooklyn.core.config.ConfigPredicates;
 import org.apache.brooklyn.rest.security.provider.DelegatingSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.ExplicitUsersSecurityProvider;
 import org.apache.brooklyn.rest.security.provider.SecurityProvider;
+import org.apache.brooklyn.util.text.Strings;
+
+import java.util.List;
 
 public class BrooklynWebConfig {
 
@@ -73,7 +78,13 @@ public class BrooklynWebConfig {
     public final static ConfigKey<String> SHA256_FOR_USER(String user) {
         return ConfigKeys.newStringConfigKey(BASE_NAME_SECURITY + ".user." + user + ".sha256");
     }
-    
+
+    public final static ConfigKey<String> LDAP_DOMAIN_REGEX = ConfigKeys.newStringConfigKey(
+            BASE_NAME_SECURITY+".ldap.domain_name_regex","Regex pattern for the domain","");
+
+    public final static ConfigKey<String> LDAP_USERNAME_REGEX = ConfigKeys.newStringConfigKey(
+            BASE_NAME_SECURITY+".ldap.user_name_regex","Regex pattern for the username","");
+
     public final static ConfigKey<String> LDAP_URL = ConfigKeys.newStringConfigKey(
             BASE_NAME_SECURITY+".ldap.url");
 
@@ -82,6 +93,22 @@ public class BrooklynWebConfig {
 
     public final static ConfigKey<String> LDAP_OU = ConfigKeys.newStringConfigKey(
             BASE_NAME_SECURITY+".ldap.ou");
+
+    public final static ConfigKey<Boolean> LDAP_FETCH_USER_GROUPS = ConfigKeys.newBooleanConfigKey(
+            BASE_NAME_SECURITY+".ldap.fetch_user_group",
+            "Whether user groups should be fetched from the LDAP server",
+            false);
+
+    public final static ConfigKey<Boolean> LDAP_LOGIN_INFO_LOG = ConfigKeys.newBooleanConfigKey(
+            BASE_NAME_SECURITY+".ldap.login_info_log",
+            "Whether the users attempt to login and its groups are print on the `info` log",
+            false);
+
+    public final static ConfigKey<List<String>> GROUP_CONFIG_KEY_NAME = ConfigKeys.newConfigKey(
+            new TypeToken<List<String>>() {},
+            BASE_NAME_SECURITY+".ldap.group_config_keys",
+            "Config key names for defining list of valid keys for creating the groups-role relationship",
+            ImmutableList.of());
 
     public final static ConfigKey<Boolean> HTTPS_REQUIRED = ConfigKeys.newBooleanConfigKey(
             BASE_NAME+".security.https.required",

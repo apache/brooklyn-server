@@ -50,27 +50,27 @@ public class VanillaSoftwareProcessStreamsIntegrationTest extends AbstractSoftwa
         VanillaSoftwareProcess entity = app.createAndManageChild(EntitySpec.create(VanillaSoftwareProcess.class)
                 .configure(VanillaSoftwareProcess.INSTALL_UNIQUE_LABEL, Identifiers.makeRandomId(8))
                 .configure(VanillaSoftwareProcess.PRE_INSTALL_COMMAND, "echo " + cmds.get("pre-install-command"))
-                .configure(VanillaSoftwareProcess.INSTALL_COMMAND, "echo " + cmds.get("ssh: installing.*"))
+                .configure(VanillaSoftwareProcess.INSTALL_COMMAND, "echo " + cmds.get("installing.*"))
                 .configure(VanillaSoftwareProcess.POST_INSTALL_COMMAND, "echo " + cmds.get("post-install-command"))
-                .configure(VanillaSoftwareProcess.CUSTOMIZE_COMMAND, "echo " + cmds.get("ssh: customizing.*"))
+                .configure(VanillaSoftwareProcess.CUSTOMIZE_COMMAND, "echo " + cmds.get("customizing.*"))
                 .configure(VanillaSoftwareProcess.PRE_LAUNCH_COMMAND, "echo " + cmds.get("pre-launch-command"))
-                .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "echo " + cmds.get("ssh: launching.*"))
+                .configure(VanillaSoftwareProcess.LAUNCH_COMMAND, "echo " + cmds.get("launching.*"))
                 .configure(VanillaSoftwareProcess.POST_LAUNCH_COMMAND, "echo " + cmds.get("post-launch-command"))
                 .configure(VanillaSoftwareProcess.CHECK_RUNNING_COMMAND, "true"));
         app.start(ImmutableList.of(localhost));
 
-        assertStreams(entity);
+        assertStdStreams(entity);
     }
 
     @Override
     protected Map<String, String> getCommands() {
         return ImmutableMap.<String, String>builder()
                 .put("pre-install-command", "myPreInstall")
-                .put("ssh: installing.*", "myInstall")
+                .put("installing.*", "myInstall")
                 .put("post-install-command", "myPostInstall")
-                .put("ssh: customizing.*", "myCustomizing")
+                .put("customizing.*", "myCustomizing")
                 .put("pre-launch-command", "myPreLaunch")
-                .put("ssh: launching.*", "myLaunch")
+                .put("launching.*", "myLaunch")
                 .put("post-launch-command", "myPostLaunch")
                 .build();
     }

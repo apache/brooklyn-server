@@ -22,6 +22,7 @@ import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
@@ -46,5 +47,8 @@ public interface StartableApplication extends Application, Startable {
 
     @SetFromFlag("startLatch")
     ConfigKey<Boolean> START_LATCH = BrooklynConfigKeys.START_LATCH;
+
+    public void logApplicationLifecycle(String message);
+    public void setExpectedStateAndRecordLifecycleEvent(Lifecycle state);
 
 }

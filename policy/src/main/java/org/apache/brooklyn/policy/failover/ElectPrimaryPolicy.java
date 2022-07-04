@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Sensor;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.entity.group.DynamicGroup;
+import org.apache.brooklyn.policy.failover.ElectPrimaryEffector.ResultCode;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.QuorumCheck.QuorumChecks;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -111,6 +113,11 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
     @Override
     public void setEntity(@SuppressWarnings("deprecation") org.apache.brooklyn.api.entity.EntityLocal entity) {
         super.setEntity(entity);
+
+        if (Entities.isReadOnly(entity)) {
+            // don't run in hot standby
+            return;
+        }
         
         checkAndMaybeAddEffector(entity);
         checkQuorums(entity);
@@ -141,7 +148,9 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             // effector not defined
             if (config().getRaw(EFFECTOR_NAME).isAbsent()) {
                 log.debug("No effector '"+effName+"' present at "+entity+"; creating default");
-                // if not set, we can create the default
+                // if not set, we can create the default; passing more config than is strictly necessary,
+                // wasteful as this config will be passed to the ssh commands,
+                // but that shouldn't normally be a problem; and if it is, caller can create the effector themselves
                 new ElectPrimaryEffector(config().getBag()).apply(entity);
                 
             } else {
@@ -240,23 +249,30 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             if (log.isTraceEnabled()) {
                 log.trace("Policy "+this+" got event: "+contextString+"; triggering rescan with "+effName);
             }
+
+            // TODO as with during create, would be good to filter what is getting passed, or have another config key to allow it to be restricted/changed
+            // (there is no way to prevent these paramters from all being applied, and filtered down through all calls, being serialized for ssh etc;
+            // ineffieicnt, and could be a risk of leaking details)
             Task<?> task = Effectors.invocation(entity, Preconditions.checkNotNull( ((EntityInternal)entity).getEffector(effName) ), config().getBag()).asTask();
             BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
             
-            highlight("lastScan", "Running "+effName+" on "+contextString, task);
+            highlight("lastScan", "Running "+effName+"; triggered by "+contextString, task);
             
             Object result = DynamicTasks.get(task);
             if (result instanceof Map) code = Strings.toString( ((Map<?,?>)result).get("code") );
             
             if (ElectPrimaryEffector.ResultCode.NEW_PRIMARY_ELECTED.name().equalsIgnoreCase(code)) {
-                highlightAction("New primary elected: "+((Map<?,?>)result).get("primary"), null);
+                highlightAction("New primary elected: "+niceName(((Map<?,?>)result).get("primary")), null);
             }
             if (ElectPrimaryEffector.ResultCode.NO_PRIMARY_AVAILABLE.name().equalsIgnoreCase(code)) {
                 highlightViolation("No primary available");
             }
+            if (ResultCode.PRIMARY_UNCHANGED.name().equalsIgnoreCase(code)) {
+                highlightConfirmation("Primary re-elected: "+niceName(((Map<?,?>)result).get("primary")));
+            }
         } catch (Throwable e) {
             Exceptions.propagateIfFatal(e);
-            if (Entities.isNoLongerManaged(entity)) throw Exceptions.propagate(e);
+            if (!Entities.isManagedActive(entity)) throw Exceptions.propagate(e);
             
             Throwable root = Throwables.getRootCause(e);
             if (root instanceof UserFacingException) {
@@ -276,5 +292,18 @@ public class ElectPrimaryPolicy extends AbstractPolicy implements ElectPrimaryCo
             rescanInProgress = false;
         }
     }
-    
+
+    protected String niceName(Object primary) {
+        if (primary instanceof BrooklynObject) {
+            if (Strings.isNonBlank( ((BrooklynObject)primary).getDisplayName() )) {
+                String name = ((BrooklynObject)primary).getDisplayName();
+                if (!name.contains( ((BrooklynObject)primary).getId() )) {
+                    name += " ("+((BrooklynObject)primary).getId()+")";
+                }
+                return name;
+            }
+        }
+        return ""+primary;
+    }
+
 }

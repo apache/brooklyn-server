@@ -64,14 +64,18 @@ public class CatalogBundleLoader {
     }
     
     public void scanForCatalog(Bundle bundle, boolean force, boolean validate, Map<RegisteredType, RegisteredType> result) {
-        scanForCatalogInternal(bundle, force, validate, false, result);
+        scanForCatalog(bundle, null, force, validate, result);
+    }
+
+    public void scanForCatalog(Bundle bundle, String bomText, boolean force, boolean validate, Map<RegisteredType, RegisteredType> result) {
+        scanForCatalogInternal(bundle, bomText, force, validate, false, result);
     }
 
     /** @deprecated since 0.12.0 */
     @Deprecated // scans a bundle which is installed but Brooklyn isn't managing (will probably remove)
     public Iterable<? extends CatalogItem<?, ?>> scanForCatalogLegacy(Bundle bundle, boolean force) {
         LOG.warn("Bundle "+bundle+" being loaded with deprecated legacy loader");
-        return scanForCatalogInternal(bundle, force, true, true, null).legacyResult;
+        return scanForCatalogInternal(bundle, null, force, true, true, null).legacyResult;
     }
     
     private static class TemporaryInternalScanResult {
@@ -79,7 +83,7 @@ public class CatalogBundleLoader {
         Map<RegisteredType, RegisteredType> mapOfNewToReplaced;
         
     }
-    private TemporaryInternalScanResult scanForCatalogInternal(Bundle bundle, boolean force, boolean validate, boolean legacy, Map<RegisteredType, RegisteredType> resultNewFormat) {
+    private TemporaryInternalScanResult scanForCatalogInternal(Bundle bundle, String bomText, boolean force, boolean validate, boolean legacy, Map<RegisteredType, RegisteredType> resultNewFormat) {
         ManagedBundle mb = ((ManagementContextInternal)managementContext).getOsgiManager().get().getManagedBundle(
             new VersionedName(bundle));
 
@@ -87,10 +91,12 @@ public class CatalogBundleLoader {
         result.legacyResult = MutableList.of();
         result.mapOfNewToReplaced = resultNewFormat;
 
-        final URL bom = bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
-        if (null != bom) {
+        final URL bomUrl = bomText!=null ? null : bundle.getResource(CatalogBundleLoader.CATALOG_BOM_URL);
+        if (null != bomUrl) {
             LOG.debug("Catalog load, found catalog BOM in {} {} {}", CatalogUtils.bundleIds(bundle));
-            String bomText = readBom(bom);
+            bomText = readBom(bomUrl);
+        }
+        if (null != bomText) {
             if (mb==null) {
                 LOG.warn("Bundle "+bundle+" containing BOM is not managed by Brooklyn; using legacy item installation");
                 legacy = true;

@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.core.config.internal;
 
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigValueAtContainer;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -27,27 +29,34 @@ import org.apache.brooklyn.util.guava.Maybe;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 
+import java.util.function.BiFunction;
+
 public class LazyContainerAndKeyValue<TContainer,TValue> implements ConfigValueAtContainer<TContainer,TValue> {
     
     @Nullable private final TContainer container;
     @Nullable private final ConfigKey<TValue> key;
     private final Function<TContainer,Maybe<Object>> lookupResolutionFunction;
-    private final Function<Maybe<Object>,Maybe<TValue>> conversionFunction;
+    private final Function<Maybe<Object>, Maybe<TValue>> conversionFunction;
     private Maybe<TValue> resolved;
     
-    public LazyContainerAndKeyValue(@Nullable ConfigKey<TValue> key, @Nullable TContainer container, 
-            Function<TContainer, Maybe<Object>> lookupResolutionFunction,
-            Function<Maybe<Object>, Maybe<TValue>> conversionFunction) {
+    public LazyContainerAndKeyValue(@Nullable ConfigKey<TValue> key, @Nullable TContainer container,
+            @Nonnull Function<TContainer, Maybe<Object>> lookupResolutionFunction,
+            @Nonnull  Function<Maybe<Object>,Maybe<TValue>> conversionFunction) {
         this.key = key;
         this.container = container;
         this.lookupResolutionFunction = Preconditions.checkNotNull(lookupResolutionFunction);
         this.conversionFunction = Preconditions.checkNotNull(conversionFunction);
     }
+    public LazyContainerAndKeyValue(@Nullable ConfigKey<TValue> key, @Nullable TContainer container,
+                                    Function<TContainer, Maybe<Object>> lookupResolutionFunction,
+                                    BiFunction<Maybe<Object>, TypeToken<? super TValue>, Maybe<TValue>> conversionFunction) {
+        this(key, container, lookupResolutionFunction, conversionFunction==null ? null : (o1) -> conversionFunction.apply(o1, key==null ? TypeToken.of(Object.class) : key.getTypeToken()));
+    }
 
     protected synchronized Maybe<TValue> resolve() {
         if (resolved==null) { 
             resolved = conversionFunction.apply(
-                lookupResolutionFunction.apply(getContainer()));
+                    lookupResolutionFunction.apply(getContainer()));
         }
         return resolved;
     }

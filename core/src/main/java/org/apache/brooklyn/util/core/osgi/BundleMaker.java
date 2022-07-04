@@ -269,7 +269,8 @@ public class BundleMaker {
     @Deprecated
     public Bundle installBundle(File f, boolean start) {
         try {
-            Bundle b = Osgis.install( framework, "file://"+f.getAbsolutePath() );
+
+            Bundle b = Osgis.install( framework, f.toURI().toString() );
             if (start) {
                 // benefits of start:
                 // a) we get wiring issues thrown here, and

@@ -38,6 +38,7 @@ public class CatalogItemBuilder<CIConcreteType extends CatalogItemDtoAbstract<?,
         case POLICY: return newPolicy(symbolicName, version);
         case ENRICHER: return newEnricher(symbolicName, version);
         case LOCATION: return newLocation(symbolicName, version);
+        case BEAN: throw new IllegalStateException("Beans not supported in catalog mode; must use type registry");
         }
         throw new IllegalStateException("Unexpected itemType: "+itemType);
     }

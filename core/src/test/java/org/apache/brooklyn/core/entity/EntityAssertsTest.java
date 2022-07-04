@@ -84,7 +84,7 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
         final String after = "after";
 
         Task<?> assertValue = entity.getExecutionContext().submit("assert attr equals", 
-            () -> EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, after));
+            () -> { EntityAsserts.assertAttributeEqualsEventually(entity, TestEntity.NAME, after); });
         entity.sensors().set(TestEntity.NAME, after);
         assertValue.get();
     }
@@ -128,11 +128,11 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     public void shouldAssertPredicateEventuallyTrue() throws Exception {
         final int testVal = 987654321;
         final CountDownLatch eventuallyEntered = new CountDownLatch(2);
-        Task<?> assertValue = entity.getExecutionContext().submit("assert predicate", () -> EntityAsserts.assertPredicateEventuallyTrue(entity, 
+        Task<?> assertValue = entity.getExecutionContext().submit("assert predicate", () -> { EntityAsserts.assertPredicateEventuallyTrue(entity,
             (input) -> {
                 eventuallyEntered.countDown();
                 return testVal == input.getSequenceValue();
-            }));
+            }); });
         eventuallyEntered.await();
         entity.setSequenceValue(testVal);
         assertValue.get();
@@ -150,7 +150,7 @@ public class EntityAssertsTest extends BrooklynAppUnitTestSupport {
     public void shouldFailAssertAttributeEqualsContinually() throws Throwable {
         final String myName = "myname";
         entity.sensors().set(TestEntity.NAME, myName);
-        Task<?> assertValue = entity.getExecutionContext().submit("check attr equals", () -> EntityAsserts.assertAttributeEqualsContinually(entity, TestEntity.NAME, myName));
+        Task<?> assertValue = entity.getExecutionContext().submit("check attr equals", () -> { EntityAsserts.assertAttributeEqualsContinually(entity, TestEntity.NAME, myName); });
         entity.sensors().set(TestEntity.NAME, "something");
         try {
             assertValue.get();

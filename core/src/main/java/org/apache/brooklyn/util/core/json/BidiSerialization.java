@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 
@@ -41,6 +42,7 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.base.Optional;
+import org.apache.brooklyn.util.guava.Maybe;
 
 public class BidiSerialization {
 
@@ -121,6 +123,7 @@ public class BidiSerialization {
 
         public T deserialize(JsonParser jp, DeserializationContext ctxt) throws IOException {
             @SuppressWarnings("unchecked")
+            // see BrooklynJacksonSerializationUtils.readObject, if this throws on trailing data
             Map<Object,Object> values = jp.readValueAs(Map.class);
             String type = (String) values.get("type");
             return customReadBody(type, values, jp, ctxt);
@@ -178,25 +181,21 @@ public class BidiSerialization {
         }
         @Override
         public void customWriteBody(T value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-            Optional<String> entityId = getEntityId(value);
+            Maybe<String> entityId = getEntityId(value);
             jgen.writeStringField("id", value.getId());
             if (entityId.isPresent()) jgen.writeStringField("entityId", entityId.get());
         }
         @Override
         protected T customReadBody(String type, Map<Object, Object> values, JsonParser jp, DeserializationContext ctxt) throws IOException {
-            Optional<String> entityId = Optional.fromNullable((String) values.get("entityId"));
-            Optional<Entity> entity = Optional.fromNullable(entityId.isPresent() ? null: mgmt.getEntityManager().getEntity(entityId.get()));
+            Maybe<String> entityId = Maybe.ofDisallowingNull((String) values.get("entityId"));
+            Maybe<Entity> entity = Maybe.ofDisallowingNull(entityId.isPresent() ? null : mgmt.getEntityManager().getEntity(entityId.get()));
             String id = (String) values.get("id");
             return getInstanceFromId(entity, id);
         }
-        protected Optional<String> getEntityId(T value) {
-            if (value instanceof AbstractEntityAdjunct) {
-                Entity entity = ((AbstractEntityAdjunct)value).getEntity();
-                return Optional.fromNullable(entity == null ? null : entity.getId());
-            }
-            return Optional.absent();
+        protected Maybe<String> getEntityId(T value) {
+            return EntityAdjuncts.getEntity(value, true).map(Entity::getId);
         }
-        protected abstract T getInstanceFromId(Optional<Entity> entity, String id);
+        protected abstract T getInstanceFromId(Maybe<Entity> entity, String id);
     }
 
     public static class EntitySerialization extends AbstractBrooklynObjectSerialization<Entity> {
@@ -213,7 +212,7 @@ public class BidiSerialization {
         public PolicySerialization(ManagementContext mgmt) {
             super(Policy.class, mgmt);
         }
-        @Override protected Policy getInstanceFromId(Optional<Entity> entity, String id) {
+        @Override protected Policy getInstanceFromId(Maybe<Entity> entity, String id) {
             if (id == null || !entity.isPresent()) return null;
             for (Policy policy : entity.get().policies()) {
                 if (id.equals(policy.getId())) {
@@ -228,7 +227,7 @@ public class BidiSerialization {
         public EnricherSerialization(ManagementContext mgmt) {
             super(Enricher.class, mgmt);
         }
-        @Override protected Enricher getInstanceFromId(Optional<Entity> entity, String id) {
+        @Override protected Enricher getInstanceFromId(Maybe<Entity> entity, String id) {
             if (id == null || !entity.isPresent()) return null;
             for (Enricher enricher : entity.get().enrichers()) {
                 if (id.equals(enricher.getId())) {
@@ -243,7 +242,7 @@ public class BidiSerialization {
         public FeedSerialization(ManagementContext mgmt) {
             super(Feed.class, mgmt);
         }
-        @Override protected Feed getInstanceFromId(Optional<Entity> entity, String id) {
+        @Override protected Feed getInstanceFromId(Maybe<Entity> entity, String id) {
             if (id == null || !entity.isPresent()) return null;
             for (Feed feed : ((EntityInternal)entity).feeds().getFeeds()) {
                 if (id.equals(feed.getId())) {

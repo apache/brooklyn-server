@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import java.util.List;
+import org.apache.brooklyn.api.entity.*;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 
 import java.util.Map;
@@ -63,5 +67,48 @@ public class EntityInitializersTest extends BrooklynAppUnitTestSupport {
     
     private Object resolve(Map<?,?> config, ConfigKey<?> key) {
         return EntityInitializers.resolve(ConfigBag.newInstance(config), key, app.getExecutionContext()); 
+    }
+
+    static List<String> sequenceMessages = MutableList.of();
+
+    @ImplementedBy(InitSequenceTestEntityImpl.class)
+    public static interface InitSequenceTestEntity extends Entity, EntityPostInitializable {
+        final ConfigKey<String> NAME = ConfigKeys.newStringConfigKey("name");
+    }
+    public static class InitSequenceTestEntityImpl extends AbstractEntity implements InitSequenceTestEntity {
+
+        @Override
+        public void init() {
+            super.init();
+            sequenceMessages.add(config().get(NAME)+":"+"init");
+        }
+
+        @Override
+        public void postInit() {
+            sequenceMessages.add(config().get(NAME)+":"+"postInit");
+        }
+    }
+
+    public static class InitSequenceEntityInitializer implements EntityInitializer {
+        @Override
+        public void apply(EntityLocal entity) {
+            sequenceMessages.add(entity.config().get(InitSequenceTestEntity.NAME)+":"+"initializer");
+        }
+    }
+
+    @Test
+    public void testSequence() {
+        sequenceMessages.clear();
+        try {
+            mgmt.getEntityManager().createEntity(EntitySpec.create(InitSequenceTestEntity.class)
+                    .addInitializer(InitSequenceEntityInitializer.class)
+                    .configure(InitSequenceTestEntity.NAME, "A")
+                    .child(EntitySpec.create(InitSequenceTestEntity.class)
+                            .addInitializer(InitSequenceEntityInitializer.class)
+                            .configure(InitSequenceTestEntity.NAME, "B")));
+            Assert.assertEquals(MutableList.of("A:init", "A:initializer", "B:init", "B:initializer", "B:postInit", "A:postInit"), sequenceMessages);
+        } finally {
+            sequenceMessages.clear();
+        }
     }
 }

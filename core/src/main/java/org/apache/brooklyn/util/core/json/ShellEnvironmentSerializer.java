@@ -15,18 +15,17 @@
  */
 package org.apache.brooklyn.util.core.json;
 
-import java.util.Map;
-import java.util.Map.Entry;
-
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.commons.lang3.StringUtils;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.StringEscapes;
+import org.apache.commons.lang3.StringUtils;
+
+import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class ShellEnvironmentSerializer {
     private ObjectMapper mapper;
@@ -40,9 +39,15 @@ public class ShellEnvironmentSerializer {
         if (value instanceof String) return (String)value;
         try {
             String str = mapper.writeValueAsString(value);
-            // Avoid dealing with unquoting and unescaping the serialized result is a string
             if (isJsonString(str)) {
-                return value.toString();
+                // previously (2022-06) we would just write value.toString() in this block; but some things are serialized more nicely than toString, so prefer that format
+                // however if it is unambiguously a string then unwrap
+                // (not strictly the JSON unwrapping, but for the subset we treat unescaped it is okay)
+                String unescaped = StringEscapes.BashStringEscapes.unwrapBashQuotesAndEscapes(str);
+                if (unescaped.matches("[A-Za-z0-9 :,./*?!_+^=-]*")) {
+                    return unescaped;
+                }
+                return str;
             } else {
                 return str;
             }

@@ -403,4 +403,15 @@ public class StringsTest extends FixedLocaleTest {
         assertEquals(Strings.countOccurrences("aa", 'a'), 2);
         assertEquals(Strings.countOccurrences("abba", 'a'), 2);
     }
+
+    public void testContainsAsWord() {
+        assertTrue(Strings.containsLiteralAsWord("hello cruel world", "cruel"));
+        assertFalse(Strings.containsLiteralAsWord("hello cruel world", "crue"));
+        assertFalse(Strings.containsLiteralAsWord("hello cruel world", "ruel"));
+        assertTrue(Strings.containsLiteralAsWord("hello cruel world", "hello"));
+        assertFalse(Strings.containsLiteralAsWord("hello cruel world", "hell"));
+        assertTrue(Strings.containsLiteralAsWord("hello cruel world", "world"));
+        assertFalse(Strings.containsLiteralAsWord("hello cruel world", "d"));
+    }
+
 }

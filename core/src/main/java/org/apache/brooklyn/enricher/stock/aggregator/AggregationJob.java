@@ -32,6 +32,8 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 
 @Beta
+@Deprecated
+/** @Deprecated since 1.1.0 No planed replacement */
 public final class AggregationJob implements Runnable {
 
     public static BasicAttributeSensorAndConfigKey<Map<String, String>> DASHBOARD_COST_PER_MONTH = new BasicAttributeSensorAndConfigKey(Map.class,

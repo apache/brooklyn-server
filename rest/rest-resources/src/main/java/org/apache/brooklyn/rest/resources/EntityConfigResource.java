@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.rest.resources;
 
+import io.swagger.annotations.ApiParam;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.QueryParam;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
@@ -81,7 +84,9 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     // TODO support parameters  ?show=value,summary&name=xxx &format={string,json,xml}
     // (and in sensors class)
     @Override
-    public Map<String, Object> batchConfigRead(String application, String entityToken, Boolean raw) {
+    public Map<String, Object> batchConfigRead(String application, String entityToken,
+                                               Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                                               Boolean raw) {
         // TODO: add test
         Entity entity = brooklyn().getEntity(application, entityToken);
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
@@ -92,19 +97,24 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         // wrap in a task for better runtime view
         return Entities.submit(entity, Tasks.<Map<String,Object>>builder().displayName("REST API batch config read")
             .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-            .body(new BatchConfigRead(mgmt(), this, entity, raw)).build()).getUnchecked();
+            .body(new BatchConfigRead(mgmt(), this, entity, useDisplayHints, skipResolution, suppressSecrets, raw)).build()).getUnchecked();
     }
     
     private static class BatchConfigRead implements Callable<Map<String,Object>> {
         private final ManagementContext mgmt;
         private final EntityConfigResource resource;
         private final Entity entity;
-        private final Boolean raw;
+        private final Boolean useDisplayHints, skipResolution, suppressSecrets, raw;
 
-        public BatchConfigRead(ManagementContext mgmt, EntityConfigResource resource, Entity entity, Boolean raw) {
+        public BatchConfigRead(ManagementContext mgmt, EntityConfigResource resource, Entity entity,
+                               Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                               @Deprecated Boolean raw) {
             this.mgmt = mgmt;
             this.resource = resource;
             this.entity = entity;
+            this.useDisplayHints = useDisplayHints;
+            this.skipResolution = skipResolution;
+            this.suppressSecrets = suppressSecrets;
             this.raw = raw;
         }
 
@@ -123,24 +133,41 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                             new Object[] {Entitlements.getEntitlementContext().user(), ek.getKey().getName(), entity});
                     continue;
                 }
-                result.put(key.getName(), 
-                    resource.resolving(value, mgmt).preferJson(true).asJerseyOutermostReturnValue(false).raw(raw).context(entity).timeout(Duration.ZERO).renderAs(key).resolve()); 
+                result.put(key.getName(),
+                            resource.resolving(value, mgmt).preferJson(true).asJerseyOutermostReturnValue(false)
+                                    .useDisplayHints(useDisplayHints)
+                                    .skipResolution(skipResolution)
+                                    .suppressIfSecret(key.getName(), suppressSecrets)
+                                    .raw(raw)
+                                    .context(entity).timeout(Duration.ZERO).renderAs(key)
+                                    .resolve());
+
             }
             return result;
         }
     }
 
     @Override
-    public Object get(String application, String entityToken, String configKeyName, Boolean raw) {
-        return get(true, application, entityToken, configKeyName, raw);
+    public Object get(String application, String entityToken, String configKeyName,
+                      Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                      @Deprecated Boolean raw) {
+        return get(true, application, entityToken, configKeyName,
+                useDisplayHints, skipResolution, suppressSecrets,
+                raw);
     }
 
     @Override
-    public String getPlain(String application, String entityToken, String configKeyName, Boolean raw) {
-        return Strings.toString(get(false, application, entityToken, configKeyName, raw));
+    public String getPlain(String application, String entityToken, String configKeyName,
+                           Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                           @Deprecated Boolean raw) {
+        return Strings.toString(get(false, application, entityToken, configKeyName,
+                useDisplayHints, skipResolution, suppressSecrets,
+                raw));
     }
 
-    public Object get(boolean preferJson, String application, String entityToken, String configKeyName, Boolean raw) {
+    public Object get(boolean preferJson, String application, String entityToken, String configKeyName,
+                      Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                      @Deprecated Boolean raw) {
         Entity entity = brooklyn().getEntity(application, entityToken);
         ConfigKey<?> ck = findConfig(entity, configKeyName);
         
@@ -154,7 +181,12 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
         }
         
         Object value = ((EntityInternal)entity).config().getRaw(ck).orNull();
-        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true).raw(raw).context(entity).immediately(true).renderAs(ck).resolve();
+        return resolving(value).preferJson(preferJson).asJerseyOutermostReturnValue(true)
+                .useDisplayHints(useDisplayHints)
+                .skipResolution(skipResolution)
+                .suppressIfSecret(ck.getName(), suppressSecrets)
+                .raw(raw)
+                .context(entity).immediately(true).renderAs(ck).resolve();
     }
 
     private ConfigKey<?> findConfig(Entity entity, String configKeyName) {

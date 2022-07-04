@@ -64,6 +64,8 @@ public interface RebindManager {
     @VisibleForTesting
     public BrooklynMementoPersister getPersister();
 
+    public PersistenceExceptionHandler getPersisterExceptionHandler();
+
     /** Causes this management context to rebind, loading data from the given backing store.
      * use wisely, as this can cause local entities to be completely lost, or will throw in many other situations.
      * in general it may be invoked for a new node becoming {@link ManagementNodeState#MASTER} 
@@ -95,6 +97,11 @@ public interface RebindManager {
      * Interrupts any current activity and waits for it to cease. */
     public void stopReadOnly();
 
+    @Beta
+    public void stopEntityTasksAndCleanUp(String reason, Duration delayBeforeCancelling, Duration delayBeforeAbandoning);
+
+    public boolean isReadOnly();
+
     /**
      * Resets the effects of previously being read-only, ready to be used again (e.g. when promoting to master).
      * Expected to be called after {@link #stopReadOnly()} (thus long after {@link #setPersister(BrooklynMementoPersister)}, 
@@ -103,7 +110,7 @@ public interface RebindManager {
     public void reset();
 
     /** Starts the appropriate background processes, {@link #startPersistence()} if {@link ManagementNodeState#MASTER},
-     * {@link #startReadOnly()} if {@link ManagementNodeState#HOT_STANDBY} or {@link ManagementNodeState#HOT_BACKUP} */
+     * {@link #startReadOnly(ManagementNodeState)} if {@link ManagementNodeState#HOT_STANDBY} or {@link ManagementNodeState#HOT_BACKUP} */
     public void start();
     /** Stops the appropriate background processes, {@link #stopPersistence()} or {@link #stopReadOnly()},
      * waiting for activity there to cease (interrupting in the case of {@link #stopReadOnly()}). */

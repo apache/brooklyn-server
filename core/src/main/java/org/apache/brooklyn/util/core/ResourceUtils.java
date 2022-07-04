@@ -38,10 +38,12 @@ import javax.annotation.Nullable;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
@@ -51,6 +53,7 @@ import org.apache.brooklyn.util.http.HttpTool.HttpClientBuilder;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpEntity;
@@ -132,6 +135,14 @@ public class ResourceUtils {
      */
     public static final ResourceUtils create(Object contextObject) {
         return new ResourceUtils(contextObject);
+    }
+
+    public static final ResourceUtils create(RegisteredType type, ManagementContext mgmt, boolean includeThreadAndJavaClassLoader) {
+        if (includeThreadAndJavaClassLoader) {
+            return create(CatalogUtils.newClassLoadingContext(mgmt, type), type.getId());
+        } else {
+            return create(new OsgiBrooklynClassLoadingContext(mgmt, type.getId(), type.getLibraries()), type.getId());
+        }
     }
 
     /**
@@ -225,6 +236,17 @@ public class ResourceUtils {
      */
     public InputStream getResourceFromUrl(String url) {
         return getResourceFromUrl(url, null, null);
+    }
+
+    public InputStreamSource getResourceInputStreamSourceFromUrl(String url) {
+        InputStreamSource result = InputStreamSource.ofRenewableSupplier(url, () -> getResourceFromUrl(url, null, null));
+        try {
+            // make sure here that it is accessible
+            result.get().close();
+        } catch (IOException e) {
+            throw Exceptions.propagate(e);
+        }
+        return result;
     }
 
     private InputStream getResourceFromUrl(String url, String username, String password) {

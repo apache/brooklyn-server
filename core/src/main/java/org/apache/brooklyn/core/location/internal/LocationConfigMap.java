@@ -29,7 +29,9 @@ import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.config.internal.AbstractConfigMapImpl;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.AbstractLocation;
@@ -74,6 +76,11 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
     }
 
     @Override
+    public <T> void assertValid(ConfigKey<T> key, T val) {
+        ConfigConstraints.assertValid((Location) getContainer(), key, val);
+    }
+
+    @Override
     protected void postLocalEvaluate(ConfigKey<?> key, BrooklynObject bo, Maybe<?> rawValue, Maybe<?> resolvedValue) {
         /* nothing needed */
     }
@@ -89,16 +96,17 @@ public class LocationConfigMap extends AbstractConfigMapImpl<Location> {
     }
 
     @Override
-    protected Object coerceConfigVal(ConfigKey<?> key, Object v) {
+    protected <T> Object coerceConfigValAndValidate(ConfigKey<T> key, Object v, boolean validate) {
         if ((Class.class.isAssignableFrom(key.getType()) || Function.class.isAssignableFrom(key.getType())) && v instanceof String) {
-            // strings can be written where classes/functions are permitted; 
+            // for locations only strings can be written where classes/functions are permitted;
             // this because an occasional pattern only for locations because validation wasn't enforced there
             // (and locations do a lot more config in brooklyn.properties) - eg ImageChooser in jclouds
-            // TODO slowly warn on this then phase it out
+            // TODO phase it out -- just image chooser? since 1.0
+            log.warn("Setting string where class/function is wanted for location, on "+getContainer()+" key "+key+" value "+v+"; key should be changed to take appropriate type");
             return v;
         }
         
-        return super.coerceConfigVal(key, v);
+        return super.coerceConfigValAndValidate(key, v, validate);
     }
 
     @Override

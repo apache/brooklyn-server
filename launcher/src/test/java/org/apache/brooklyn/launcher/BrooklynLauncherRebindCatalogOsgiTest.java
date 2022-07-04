@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.launcher;
 
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -630,8 +631,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
         assertEquals(getPersistenceListing(BrooklynObjectType.MANAGED_BUNDLE), ImmutableSet.of(bundlePersistenceId2));
 
         if (isT1KeptRunningWhenT2Starts()) {
-            // would like if we could make them the same but currently code should _always_ change
-            Assert.assertNotEquals(bundlePersistenceId1, bundlePersistenceId2);
+            // now we keep these the same!
+            Assert.assertEquals(bundlePersistenceId1, bundlePersistenceId2);
         }
     }
     
@@ -767,7 +768,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             "      brooklyn.children:",
             "      - type: simple-entity:1.0");
         File zipIn = newTmpBundle(ImmutableMap.of(BasicBrooklynCatalog.CATALOG_BOM, bundleBom.getBytes(StandardCharsets.UTF_8)), bundleName);
-        ((ManagementContextInternal)launcherLast.getManagementContext()).getOsgiManager().get().install(new FileInputStream(zipIn)).checkNoError();
+        ((ManagementContextInternal)launcherLast.getManagementContext()).getOsgiManager().get().install(
+                InputStreamSource.of("testRebindUpgradeReferencedEntityFromCatalogAndDeployment", zipIn)).checkNoError();
         
         startupAssertions = () -> {
             String v = launcherT2==null ? "1.0.0" : "2.0.0";
@@ -902,9 +904,8 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
     
     protected ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBundle(BrooklynLauncher launcher, File bundleFile, boolean force) throws Exception {
         OsgiManager osgiManager = ((ManagementContextInternal)launcher.getManagementContext()).getOsgiManager().get();
-        try (FileInputStream bundleStream = new FileInputStream(bundleFile)) {
-            return osgiManager.install(null, bundleStream, true, true, force);
-        }
+        InputStreamSource bundleStream = InputStreamSource.of("test:" + bundleFile, bundleFile);
+        return osgiManager.install(bundleStream, null, force);
     }
     
     protected void assertOnlyBundle(BrooklynLauncher launcher, VersionedName bundleName, Bundle expectedBundle) {

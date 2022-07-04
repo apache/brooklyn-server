@@ -33,17 +33,17 @@ public class RuntimeInterruptedException extends RuntimeException {
 
     private static final long serialVersionUID = 915050245927866175L;
 
-    public RuntimeInterruptedException(InterruptedException cause) {
+    public RuntimeInterruptedException(String msg) {
+        super(msg);
+        Thread.currentThread().interrupt();
+    }
+
+    public RuntimeInterruptedException(Throwable cause) {
         super(cause);
         Thread.currentThread().interrupt();
     }
 
-    public RuntimeInterruptedException(String msg, InterruptedException cause) {
-        super(msg, cause);
-        Thread.currentThread().interrupt();
-    }
-    
-    public RuntimeInterruptedException(String msg, RuntimeInterruptedException cause) {
+    public RuntimeInterruptedException(String msg, Throwable cause) {
         super(msg, cause);
         Thread.currentThread().interrupt();
     }

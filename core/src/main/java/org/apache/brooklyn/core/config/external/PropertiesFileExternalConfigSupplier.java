@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.stream.Streams;
 
 
@@ -33,7 +34,7 @@ import org.apache.brooklyn.util.stream.Streams;
  * under the <code>propertiesUrl</code> key:
  *
  * <pre>
- * brooklyn.external.foo = brooklyn.management.config.external.PropertiesFileExternalConfigSupplier
+ * brooklyn.external.foo = org.apache.brooklyn.core.config.external.PropertiesFileExternalConfigSupplier
  * brooklyn.external.foo.propertiesUrl = http://brooklyn.example.com/config/foo.properties
  * </pre>
  */
@@ -56,7 +57,7 @@ public class PropertiesFileExternalConfigSupplier extends AbstractExternalConfig
     private static Properties loadProperties(String propertiesUrl) throws IOException {
         InputStream is = null;
         try {
-            is = new URL(propertiesUrl).openStream();
+            is = ResourceUtils.create().getResourceFromUrl(propertiesUrl);
             Properties p = new Properties();
             p.load(is);
             return p;

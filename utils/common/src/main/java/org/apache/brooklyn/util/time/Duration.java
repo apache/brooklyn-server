@@ -18,21 +18,18 @@
  */
 package org.apache.brooklyn.util.time;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import static com.google.common.base.Preconditions.checkNotNull;
-
+import com.google.common.base.Stopwatch;
 import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
-
 import javax.annotation.Nullable;
-
 import org.apache.brooklyn.util.text.Strings;
-
-import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Stopwatch;
 
 /** simple class determines a length of time */
 public class Duration implements Comparable<Duration>, Serializable {
@@ -56,6 +53,8 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     private final long nanos;
 
+    /** JSON constructor */
+    private Duration() { nanos = 0; }
     public Duration(long value, TimeUnit unit) {
         if (value != 0) {
             Preconditions.checkNotNull(unit, "Cannot accept null timeunit (unless value is 0)");
@@ -72,6 +71,7 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     @Override
     public String toString() {
+        if (equals(PRACTICALLY_FOREVER)) return "forever";
         return Time.makeTimeStringExact(this);
     }
 
@@ -221,6 +221,7 @@ public class Duration implements Comparable<Duration>, Serializable {
     public static Duration of(Object o) {
         if (o == null) return null;
         if (o instanceof Duration) return (Duration)o;
+        if (o instanceof java.time.Duration) return Duration.millis( ((java.time.Duration)o).toMillis() );
         if (o instanceof String) return parse((String)o);
         if (o instanceof Number) return millis((Number)o);
         if (o instanceof Stopwatch) return millis(((Stopwatch)o).elapsed(TimeUnit.MILLISECONDS));
@@ -293,10 +294,12 @@ public class Duration implements Comparable<Duration>, Serializable {
         return CountdownTimer.newInstanceStarted(this);
     }
 
+    @JsonIgnore
     public boolean isPositive() {
         return nanos() > 0;
     }
 
+    @JsonIgnore
     public boolean isNegative() {
         return nanos() < 0;
     }
@@ -328,4 +331,5 @@ public class Duration implements Comparable<Duration>, Serializable {
         if (isLongerThan(alternateMaximumValue)) return alternateMaximumValue;
         return this;
     }
+
 }

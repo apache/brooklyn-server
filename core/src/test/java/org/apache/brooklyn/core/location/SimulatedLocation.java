@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.location;
 
 import java.net.InetAddress;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -162,7 +163,22 @@ public class SimulatedLocation extends AbstractLocation implements MachineProvis
         OsDetails osDetails = BasicOsDetails.Factory.ANONYMOUS_LINUX;
         return new BasicMachineDetails(hardwareDetails, osDetails);
     }
-    
+
+    @Override
+    public String getUser() {
+        return null;
+    }
+
+    @Override
+    public int execCommands(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        return 0;
+    }
+
+    @Override
+    public int execScript(Map<String, ?> props, String summaryForLogging, List<String> commands, Map<String, ?> env) {
+        return 0;
+    }
+
     private RuntimeException newException(String msg) {
         try {
             Exception result = getConfig(EXCEPTION_CLAZZ).getConstructor(String.class).newInstance(msg);

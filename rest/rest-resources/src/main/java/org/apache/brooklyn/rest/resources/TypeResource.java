@@ -30,6 +30,7 @@ import javax.ws.rs.core.UriBuilder;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -159,28 +160,36 @@ public class TypeResource extends AbstractBrooklynRestResource implements TypeAp
         return item;
     }
 
-    @Override
+    @Deprecated /** @deprecated since 1.1, include iconUrl */
     public Response icon(String symbolicName, String version) {
-        RegisteredType item = lookup(symbolicName, version);
-        return produceIcon(item);
+        return icon(symbolicName, version, null);
     }
 
-    private Response produceIcon(RegisteredType result) {
-        String url = result.getIconUrl();
+    @Override
+    public Response icon(String symbolicName, String version, String iconUrl) {
+        RegisteredType item = lookup(symbolicName, version);
+        return produceIcon(mgmt(), brooklyn(), item, iconUrl);
+    }
+
+    static Response produceIcon(ManagementContext mgmt, BrooklynRestResourceUtils brooklyn, RegisteredType result) {
+        return produceIcon(mgmt, brooklyn, result, null);
+    }
+    static Response produceIcon(ManagementContext mgmt, BrooklynRestResourceUtils brooklyn, RegisteredType result, String url) {
+        if (Strings.isBlank(url)) url = result.getIconUrl();
         if (url==null) {
             log.debug("No icon available for "+result+"; returning "+Status.NO_CONTENT);
             return Response.status(Status.NO_CONTENT).build();
         }
         
-        if (brooklyn().isUrlServerSideAndSafe(url)) {
+        if (brooklyn.isUrlServerSideAndSafe(url)) {
             // classpath URL's we will serve IF they end with a recognised image format;
             // paths (ie non-protocol) and 
             // NB, for security, file URL's are NOT served
-            log.debug("Loading and returning "+url+" as icon for "+result);
+            log.trace("Loading and returning "+url+" as icon for "+result);
             
             MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
             try {
-                Object content = ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt(), result)).getResourceFromUrl(url);
+                Object content = ResourceUtils.create(result, mgmt, true).getResourceFromUrl(url);
                 return Response.ok(content, mime).build();
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);

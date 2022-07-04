@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import static org.apache.brooklyn.core.catalog.internal.CatalogUtils.newClassLoadingContextForCatalogItems;
 
 import java.lang.reflect.InvocationTargetException;
@@ -126,10 +127,13 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                     return apply(internal.getManagementSupport());
                 }
                 
-                if (input instanceof EntityManagementSupport)
-                    return apply(((EntityManagementSupport)input).getManagementContext());
-                if (input instanceof ManagementContext)
+                if (input instanceof EntityManagementSupport) {
+                    return apply(((EntityManagementSupport) input).getManagementContext());
+                }
+
+                if (input instanceof ManagementContext) {
                     return JavaBrooklynClassLoadingContext.create((ManagementContext) input);
+                }
                 return null;
             }
         });

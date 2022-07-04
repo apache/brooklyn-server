@@ -201,6 +201,14 @@ public class YamlsTest {
         }
     }
 
+    @Test
+    public void testLastDocument() {
+        Asserts.assertEquals(Yamls.lastDocumentFunction().apply("foo\n---\nbar"), "bar");
+        Asserts.assertEquals(Yamls.lastDocumentFunction().apply("foo\n--- \nbar"), "foo\n--- \nbar");
+        Asserts.assertEquals(Yamls.lastDocumentFunction().apply("foo"), "foo");
+        Asserts.assertEquals(Yamls.lastDocumentFunction().apply(null), null);
+    }
+
     // convenience, since running with older TestNG IDE plugin will fail (older snakeyaml dependency);
     // if you run as a java app it doesn't bring in the IDE TestNG jar version, and it works
     public static void main(String[] args) {
@@ -209,5 +217,5 @@ public class YamlsTest {
 //        testng.setVerbose(9);
         testng.run();
     }
-    
+
 }

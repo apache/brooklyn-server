@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.feed;
 
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Callable;
 
@@ -27,7 +26,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.DynamicSequentialTask;
@@ -74,17 +72,17 @@ public class Poller<V> {
                 public void run() {
                     try {
                         V val = job.call();
-                        loggedPreviousException = false;
                         if (handler.checkSuccess(val)) {
                             handler.onSuccess(val);
                         } else {
                             handler.onFailure(val);
                         }
+                        loggedPreviousException = false;
                     } catch (Exception e) {
                         if (loggedPreviousException) {
-                            if (log.isTraceEnabled()) log.trace("PollJob for {}, repeated consecutive failures, handling {} using {}", new Object[] {job, e, handler});
+                            if (log.isTraceEnabled()) log.trace("PollJob for {}, repeated consecutive failures, handling {} using {}", job, e, handler);
                         } else {
-                            if (log.isDebugEnabled()) log.debug("PollJob for {} handling {} using {}", new Object[] {job, e, handler});
+                            if (log.isDebugEnabled()) log.debug("PollJob for {}, repeated consecutive failures, handling {} using {}", job, e, handler);
                             loggedPreviousException = true;
                         }
                         handler.onException(e);
@@ -149,7 +147,7 @@ public class Poller<V> {
                 ScheduledTask t = ScheduledTask.builder(() -> {
                             DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity), 
                                 new Callable<Void>() { @Override public Void call() {
-                                    if (!Entities.isManaged(entity)) {
+                                    if (!Entities.isManagedActive(entity)) {
                                         return null;
                                     }
                                     if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
@@ -158,12 +156,14 @@ public class Poller<V> {
                                     pollJob.wrappedJob.run();
                                     return null; 
                                 } } );
-                            BrooklynTaskTags.setTransient(task);
+                            // explicitly make non-transient -- we want to see its execution, even if parent is transient
+                            BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                             return task;
                         })
                         .displayName("scheduled:" + scheduleName)
                         .period(pollJob.pollPeriod)
                         .cancelOnException(false)
+                        .tag(feed!=null ? BrooklynTaskTags.tagForContextAdjunct(feed) : null)
                         .build();
                 tasks.add(Entities.submit(entity, t));
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {

@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.mgmt.persist;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.io.Writer;
 import java.lang.reflect.Method;
@@ -28,6 +29,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.concurrent.ExecutionException;
 
+import java.util.function.Function;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -42,6 +44,7 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.StringConfigMap;
 import org.apache.brooklyn.core.catalog.internal.CatalogBundleDto;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.BasicConfigKey;
@@ -50,6 +53,7 @@ import org.apache.brooklyn.core.effector.EffectorAndBody;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromStackOfBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicCatalogItemMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEnricherMemento;
 import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEntityMemento;
@@ -60,6 +64,9 @@ import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet.Builder;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -90,13 +97,75 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
 
     private final ClassLoaderFromStackOfBrooklynClassLoadingContext delegatingClassLoader;
     private LookupContext lookupContext;
-    
+
+
+    public static class XmlMementoSerializerBuilder<T> {
+        public static <T> XmlMementoSerializerBuilder<T> empty() {
+            return new XmlMementoSerializerBuilder<>();
+        }
+
+        public static <T> XmlMementoSerializerBuilder<T> from(ManagementContext mgmt) {
+            return XmlMementoSerializerBuilder.<T>empty()
+                    .withClassLoader(mgmt.getClass().getClassLoader())
+                    .withConfig( ((ManagementContextInternal)mgmt).getBrooklynProperties());
+        }
+
+        public static <T> XmlMementoSerializerBuilder<T> from(StringConfigMap cfg) {
+            return XmlMementoSerializerBuilder.<T>empty().withConfig(cfg);
+        }
+
+        public static <T> XmlMementoSerializerBuilder<T> from(ConfigBag cfg) {
+            return XmlMementoSerializerBuilder.<T>empty().withConfig(cfg);
+        }
+
+        ClassLoader classLoader = null;
+        Map<String, String> deserializingClassRenames = null;
+        Function<MapperWrapper,MapperWrapper> mapperCustomizer = null;
+
+        public XmlMementoSerializer<T> build() {
+            return new XmlMementoSerializer<T>(classLoader, deserializingClassRenames, mapperCustomizer);
+        }
+
+        public XmlMementoSerializerBuilder<T> withConfig(StringConfigMap cfg) {
+            return withConfig(ConfigBag.newInstance().putAll(cfg.getAllConfigLocalRaw()));
+        }
+        public XmlMementoSerializerBuilder<T> withConfig(ConfigBag cfg) {
+            return withMapperCustomizer(LambdaPreventionMapper.factory(cfg));
+        }
+
+        public XmlMementoSerializerBuilder<T> withClassLoader(ClassLoader classLoader) {
+            this.classLoader = classLoader;
+            return this;
+        }
+
+        public XmlMementoSerializerBuilder<T> withBrooklynDeserializingClassRenames() {
+            return withDeserializingClassRenames(DeserializingClassRenamesProvider.INSTANCE.loadDeserializingMapping());
+        }
+
+        public XmlMementoSerializerBuilder<T> withDeserializingClassRenames(Map<String, String> deserializingClassRenames) {
+            // only injected in tests; the default one works great
+            this.deserializingClassRenames = deserializingClassRenames==null ? ImmutableMap.of() : deserializingClassRenames;
+            return this;
+        }
+
+        public XmlMementoSerializerBuilder<T> withMapperCustomizer(Function<MapperWrapper, MapperWrapper> mapperCustomizer) {
+            this.mapperCustomizer = mapperCustomizer;
+            return this;
+        }
+    }
+
+    @Deprecated /** @deprecated since 1.1, use {@link XmlMementoSerializerBuilder} */
     public XmlMementoSerializer(ClassLoader classLoader) {
         this(classLoader, DeserializingClassRenamesProvider.INSTANCE.loadDeserializingMapping());
     }
-    
+
+    @Deprecated /** @deprecated since 1.1, use {@link XmlMementoSerializerBuilder} */
     public XmlMementoSerializer(ClassLoader classLoader, Map<String, String> deserializingClassRenames) {
-        super(new ClassLoaderFromStackOfBrooklynClassLoadingContext(classLoader), deserializingClassRenames);
+        this(classLoader, deserializingClassRenames, null);
+    }
+
+    protected XmlMementoSerializer(ClassLoader classLoader, Map<String, String> deserializingClassRenames, Function<MapperWrapper,MapperWrapper> mapperCustomizer) {
+        super(new ClassLoaderFromStackOfBrooklynClassLoadingContext(classLoader), deserializingClassRenames, mapperCustomizer);
         this.delegatingClassLoader = (ClassLoaderFromStackOfBrooklynClassLoadingContext) xstream.getClassLoader();
         
         xstream.alias("entity", BasicEntityMemento.class);
@@ -149,6 +218,10 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         MapperWrapper mapper = super.wrapMapperForNormalUsage(next);
         mapper = new CustomMapper(mapper, Entity.class, "entityProxy");
         mapper = new CustomMapper(mapper, Location.class, "locationProxy");
+
+        mapper = new CustomMapper(mapper, Policy.class, "policyRef");
+        mapper = new CustomMapper(mapper, Enricher.class, "enricherRef");
+
         mapper = new UnwantedStateLoggingMapper(mapper);
         return mapper;
     }

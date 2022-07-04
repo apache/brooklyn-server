@@ -70,7 +70,7 @@ public class CatalogYamlCombiTest extends AbstractYamlTest {
         Assert.assertEquals(b.config().get(ConfigKeys.newIntegerConfigKey("a")), (Integer)1);
         Assert.assertEquals(b.config().get(ConfigKeys.newIntegerConfigKey("b")), (Integer)1);
 
-        deleteCatalogEntity("A");
+        deleteCatalogRegisteredType("A");
         
         // now loading B makes an error
         try {
@@ -81,7 +81,7 @@ public class CatalogYamlCombiTest extends AbstractYamlTest {
             log.info("Got expected error: "+e);
         }
         
-        deleteCatalogEntity("B");
+        deleteCatalogRegisteredType("B");
     }
 
     @Test
@@ -125,9 +125,9 @@ public class CatalogYamlCombiTest extends AbstractYamlTest {
         Assert.assertTrue(ServiceRestarter.class.isInstance(p), "Wrong type: "+p);
         Assert.assertEquals(p.getConfig(ConfigKeys.newIntegerConfigKey("a")), (Integer)99);
         
-        deleteCatalogEntity("A");
-        deleteCatalogEntity("B");
-        deleteCatalogEntity("Z");
+        deleteCatalogRegisteredType("A");
+        deleteCatalogRegisteredType("B");
+        deleteCatalogRegisteredType("Z");
     }
 
     private Entity launchEntity(String symbolicName) throws Exception {

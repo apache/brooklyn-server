@@ -27,12 +27,10 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import io.swagger.annotations.*;
 import org.apache.brooklyn.rest.domain.AccessSummary;
 
 import com.google.common.annotations.Beta;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 
 @Beta
 @Path("/access")
@@ -51,11 +49,23 @@ public interface AccessApi {
             value = "Fetch access control summary",
             response = org.apache.brooklyn.rest.domain.AccessSummary.class
             )
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public AccessSummary get();
 
     @POST
     @Path("/locationProvisioningAllowed")
     @ApiOperation(value = "Sets whether location provisioning is permitted (beta feature)")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
     public Response locationProvisioningAllowed(
             @ApiParam(name = "allowed", value = "Whether allowed or not", required = true)
             @QueryParam("allowed") boolean allowed);

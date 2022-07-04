@@ -1,0 +1,192 @@
+<!--
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+-->
+
+<entity>
+  <brooklynVersion>1.1.0-SNAPSHOT</brooklynVersion>
+  <type>org.apache.brooklyn.core.test.entity.TestApplicationNoEnrichersImpl</type>
+  <id>hrxo4j0dcs</id>
+  <displayName>Load Balancer (nginx)</displayName>
+  <tags>
+    <org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+      <kind>yaml_spec</kind>
+      <contents>services:
+- type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+  name: Nginx Server
+  description: A single Nginx server. Provides HTTP and reverse proxy services</contents>
+    </org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-NamedStringTag>
+    <MutableMap>
+      <spec__hierarchy>
+        <MutableList serialization="custom">
+          <unserializable-parents/>
+          <list>
+            <default>
+              <size>1</size>
+            </default>
+            <int>1</int>
+            <org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-SpecSummary>
+              <summary>brooklyn-camp plan for type org.apache.brooklyn.entity.proxy.nginx.NginxController</summary>
+              <format>brooklyn-camp</format>
+              <contents class="string">services:
+- type: org.apache.brooklyn.entity.proxy.nginx.NginxController
+  name: Nginx Server
+  description: A single Nginx server. Provides HTTP and reverse proxy services</contents>
+            </org.apache.brooklyn.core:org.apache.brooklyn.core.mgmt.BrooklynTags_-SpecSummary>
+          </list>
+        </MutableList>
+      </spec__hierarchy>
+    </MutableMap>
+    <MutableMap>
+      <depth__in__ancestor type="int">1</depth__in__ancestor>
+    </MutableMap>
+  </tags>
+
+  <attributes>
+    <service.notUp.diagnostics>
+      <com.google.guava:com.google.common.collect.EmptyImmutableBiMap/>
+    </service.notUp.diagnostics>
+    <dashboard.locations>
+      <com.google.guava:com.google.common.collect.SingletonImmutableBiMap>
+        <entry>
+          <string>resources</string>
+          <set>
+            <java.util.Collections_-UnmodifiableMap>
+              <m class="MutableMap">
+                <id>us-east-1/i-0e1d6bd972a305499</id>
+                <name>3.83.112.67</name>
+                <provider>aws-ec2</provider>
+                <region>us-east-1</region>
+                <icon>
+                  <null/>
+                </icon>
+                <resourceType>server</resourceType>
+              </m>
+            </java.util.Collections_-UnmodifiableMap>
+          </set>
+        </entry>
+      </com.google.guava:com.google.common.collect.SingletonImmutableBiMap>
+    </dashboard.locations>
+    <host.addresses.private>
+      <com.google.guava:com.google.common.collect.SingletonImmutableSet>
+        <string>172.31.78.228</string>
+      </com.google.guava:com.google.common.collect.SingletonImmutableSet>
+    </host.addresses.private>
+    <member.sensor.portNumber>
+      <org.apache.brooklyn.core:org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey>
+        <typeToken class="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="java-class">java.lang.Integer</runtimeType>
+        </typeToken>
+        <name>http.port</name>
+        <description>HTTP port</description>
+        <persistence>REQUIRED</persistence>
+        <configKey class="configKey">
+          <name>http.port</name>
+          <deprecatedNames class="ImmutableList"/>
+          <typeToken class="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+            <runtimeType class="java-class">org.apache.brooklyn.api:org.apache.brooklyn.api.location.PortRange</runtimeType>
+          </typeToken>
+          <description>HTTP port</description>
+          <defaultValue class="org.apache.brooklyn.core:org.apache.brooklyn.core.location.PortRanges$AggregatePortRange">
+            <ranges class="ImmutableList">
+              <org.apache.brooklyn.core:org.apache.brooklyn.core.location.PortRanges_-SinglePort>
+                <port>8080</port>
+              </org.apache.brooklyn.core:org.apache.brooklyn.core.location.PortRanges_-SinglePort>
+              <org.apache.brooklyn.core:org.apache.brooklyn.core.location.PortRanges_-LinearPortRange>
+                <start>18080</start>
+                <end>65535</end>
+                <delta>1</delta>
+              </org.apache.brooklyn.core:org.apache.brooklyn.core.location.PortRanges_-LinearPortRange>
+            </ranges>
+          </defaultValue>
+          <reconfigurable>false</reconfigurable>
+          <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+        </configKey>
+      </org.apache.brooklyn.core:org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey>
+    </member.sensor.portNumber>
+  </attributes>
+
+  <attributeKeys>
+    <service.notUp.indicators>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core:org.apache.brooklyn.core.entity.Attributes$1" resolves-to="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.guava:com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.notUp.indicators</name>
+        <description>A map of namespaced indicators that the service is not up</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.notUp.indicators>
+    <service.notUp.diagnostics>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.core:org.apache.brooklyn.core.entity.Attributes$3" resolves-to="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.guava:com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+              <java-class>java.lang.Object</java-class>
+            </argumentsList>
+            <rawType>java.util.Map</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>service.notUp.diagnostics</name>
+        <description>A map of namespaced diagnostics, from when the service is not up</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </service.notUp.diagnostics>
+    <dashboard.locations>
+      <org.apache.brooklyn.core:org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey>
+        <typeToken class="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="java-class">java.util.Map</runtimeType>
+        </typeToken>
+        <name>dashboard.locations</name>
+        <description>Locations in which the VMs are running. A map where the key is category of location (e.g. server) and the value is a list of maps containing name/icon/count</description>
+        <persistence>REQUIRED</persistence>
+        <configKey class="configKey">
+          <name>dashboard.locations</name>
+          <deprecatedNames class="ImmutableList" reference="../../../../../attributes/member.sensor.portNumber/org.apache.brooklyn.core:org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey/configKey/deprecatedNames"/>
+          <typeToken class="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+            <runtimeType class="java-class">java.util.Map</runtimeType>
+          </typeToken>
+          <description>Locations in which the VMs are running. A map where the key is category of location (e.g. server) and the value is a list of maps containing name/icon/count</description>
+          <reconfigurable>false</reconfigurable>
+          <constraint class="com.google.common.base.Predicates$ObjectPredicate">ALWAYS_TRUE</constraint>
+        </configKey>
+      </org.apache.brooklyn.core:org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey>
+    </dashboard.locations>
+    <host.addresses.private>
+      <attributeSensor>
+        <typeToken class="org.apache.brooklyn.locations-jclouds:org.apache.brooklyn.location.jclouds.ConnectivityResolver$2" resolves-to="com.google.guava:com.google.common.reflect.TypeToken$SimpleTypeToken">
+          <runtimeType class="com.google.guava:com.google.common.reflect.Types$ParameterizedTypeImpl">
+            <argumentsList>
+              <java-class>java.lang.String</java-class>
+            </argumentsList>
+            <rawType>java.lang.Iterable</rawType>
+          </runtimeType>
+        </typeToken>
+        <name>host.addresses.private</name>
+        <description>Private addresses on an instance</description>
+        <persistence>REQUIRED</persistence>
+      </attributeSensor>
+    </host.addresses.private>
+  </attributeKeys>
+</entity>

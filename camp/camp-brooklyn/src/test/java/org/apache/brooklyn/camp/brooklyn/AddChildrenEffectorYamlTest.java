@@ -22,11 +22,16 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddChildrenEffector;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,18 +40,13 @@ import org.testng.annotations.Test;
 
 import com.google.common.collect.Iterables;
 
+import java.util.function.Supplier;
+
 public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
     private static final Logger log = LoggerFactory.getLogger(AddChildrenEffectorYamlTest.class);
 
-    protected Entity makeAppAndAddChild(boolean includeDeclaredParameters, MutableMap<String,?> effectorInvocationParameters, String ...lines) throws Exception {
-        Entity app = createAndStartApplication(
-            "services:",
-            "- type: " + BasicApplication.class.getName(),
-            "  brooklyn.config:",
-            "    p.parent: parent",
-            "    p.child: parent",
-            "    p.param1: parent",
-            "  brooklyn.initializers:",
+    protected Entity makeAppAndAddChild(boolean includeDeclaredParameters, MutableMap<String,?> effectorInvocationParameters, String ...lines) {
+        return makeAppAndAddChild(Strings.lines(
             "  - type: "+AddChildrenEffector.class.getName(),
             "    brooklyn.config:",
             "      name: add",
@@ -55,20 +55,38 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
                 "  p.param1:",
                 "    defaultValue: default",
                 "  p.param2:",
-                "    defaultValue: default")) : ""),
-            Strings.lines(indent("      ", lines))
+                "    defaultValue: default")) : "")),
+            effectorInvocationParameters, lines);
+    }
+
+    protected Entity makeAppAndAddChild(String customInitialzerBlock, MutableMap<String,?> effectorInvocationParameters, String ...lines) {
+        try {
+            Entity app = createAndStartApplication(
+                    "services:",
+                    "- type: " + BasicApplication.class.getName(),
+                    "  brooklyn.config:",
+                    "    p.parent: parent",
+                    "    p.child: parent",
+                    "    p.param1: parent",
+                    "  brooklyn.initializers:",
+                    customInitialzerBlock,
+                    Strings.lines(indent("      ", lines))
             );
-        waitForApplicationTasks(app);
-        
-        Asserts.assertThat(app.getChildren(), CollectionFunctionals.empty());
-        
-        Object result = app.invoke(Effectors.effector(Object.class, "add").buildAbstract(), effectorInvocationParameters).get();
-        Asserts.assertThat((Iterable<?>)result, CollectionFunctionals.sizeEquals(1));
-        Asserts.assertThat(app.getChildren(), CollectionFunctionals.sizeEquals(1));
-        Entity child = Iterables.getOnlyElement(app.getChildren());
-        Assert.assertEquals(child.getId(), Iterables.getOnlyElement((Iterable<?>)result));
-        
-        return child;
+            waitForApplicationTasks(app);
+
+            Asserts.assertThat(app.getChildren(), CollectionFunctionals.empty());
+
+            Object result = app.invoke(Effectors.effector(Object.class, "add").buildAbstract(), effectorInvocationParameters).get();
+            Asserts.assertThat((Iterable<?>)result, CollectionFunctionals.sizeEquals(1));
+            Asserts.assertThat(app.getChildren(), CollectionFunctionals.sizeEquals(1));
+            Entity child = Iterables.getOnlyElement(app.getChildren());
+            Assert.assertEquals(child.getId(), Iterables.getOnlyElement((Iterable<?>)result));
+
+            return child;
+
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
     }
     
     private String[] indent(String prefix, String ...lines) {
@@ -79,17 +97,23 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
         return result;
     }
 
-    @Test
-    public void testAddChildrenWithServicesBlock() throws Exception {
-        Entity child = makeAppAndAddChild(true, MutableMap.of("p.param1", "effector_param"),
-            "blueprint_yaml: |",
-            "  services:", 
-            "  - type: "+BasicEntity.class.getName()
-            );
+    void testAddChildrenWithServicesBlock(Supplier<Entity> childS) throws Exception {
+        Entity child = childS.get();
+
         Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.parent")), "parent");
         Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param2")), "default");
-        
+
         Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.param1")), "effector_param");
+    }
+
+    @Test
+    public void testAddChildrenWithServicesBlock() throws Exception {
+        testAddChildrenWithServicesBlock(() ->
+                makeAppAndAddChild(true, MutableMap.of("p.param1", "effector_param"),
+                    "blueprint_yaml: |",
+                    "  services:",
+                    "  - type: "+BasicEntity.class.getName()
+                    ));
     }
     
     @Test
@@ -186,5 +210,52 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
     protected Logger getLogger() {
         return log;
     }
-    
+
+    // ------
+
+    @Test
+    public void testAddChildrenWithServicesBlock_RegisteredType() throws Exception {
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(
+                RegisteredTypes.bean("add-child", "1",
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
+                        "type: "+AddChildrenEffector.class.getName()+"\n" +
+                        "brooklyn.config:\n" +
+                        "  name: add\n"+
+                        "  blueprint_yaml: OVERRIDE")), false);
+        testAddChildrenWithServicesBlock(() ->
+                makeAppAndAddChild(Strings.lines(
+                        "  - type: add-child",
+                        "    brooklyn.config:",
+                        Strings.lines(indent("      ",
+                                "parameters:",
+                                "  p.param1:",
+                                "    defaultValue: default",
+                                "  p.param2:",
+                                "    defaultValue: default"))),
+                        MutableMap.of("p.param1", "effector_param"),
+                        "blueprint_yaml: |",
+                        "  services:",
+                        "  - type: "+BasicEntity.class.getName()
+                ));
+    }
+
+    @Test
+    public void testAddChildrenWithServicesBlock_Fields() throws Exception {
+        testAddChildrenWithServicesBlock(() ->
+                makeAppAndAddChild(Strings.lines(
+                        "    - type: "+AddChildrenEffector.class.getName(),
+                        "      name: add",
+                        Strings.lines(indent("      ",
+                                "parameters:",
+                                "  p.param1:",
+                                "    defaultValue: default",
+                                "  p.param2:",
+                                "    defaultValue: default"))),
+                        MutableMap.of("p.param1", "effector_param"),
+                        "blueprint_yaml: |",
+                        "  services:",
+                        "  - type: "+BasicEntity.class.getName()
+                ));
+    }
+
 }

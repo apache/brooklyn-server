@@ -22,6 +22,7 @@ import java.util.Date;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -52,7 +53,8 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
         assertSerialize(0.140, "0.14");
         assertSerialize(Boolean.TRUE, "true");
         assertSerialize(Boolean.FALSE, "false");
-        assertSerialize(date, Long.toString(date.getTime()));
+        assertSerialize(date, Time.makeIso8601DateStringZ(date.toInstant()));
+        assertSerialize(date.toInstant(), Time.makeIso8601DateStringZ(date.toInstant()));
         assertSerialize(Duration.FIVE_MINUTES, "5m");
         assertSerialize(null, null);
         assertSerialize(ImmutableList.of(str, 3.14, 0.14));
@@ -65,7 +67,7 @@ public class ShellEnvironmentSerializerTest extends BrooklynAppUnitTestSupport {
         assertSerialize(mgmt, "{\"type\":\"org.apache.brooklyn.api.mgmt.ManagementContext\"}");
         // https://issues.apache.org/jira/browse/BROOKLYN-304
         assertSerialize(getClass().getClassLoader(), "{\"type\":\""+getClass().getClassLoader().getClass().getCanonicalName()+"\"}");
-        assertSerialize(getClass(), "class "+getClass().getName());
+        assertSerialize(getClass(), getClass().getName());
     }
 
     private void assertSerialize(Object actual, String expected) {

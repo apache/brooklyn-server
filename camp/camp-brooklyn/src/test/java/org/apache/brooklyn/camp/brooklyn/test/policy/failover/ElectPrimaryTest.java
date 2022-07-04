@@ -29,9 +29,10 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.effector.AddEffector;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
 import org.apache.brooklyn.core.effector.EffectorBody;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
@@ -259,9 +260,17 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     }
     
     List<String> promoteDemoteEffectorMessages = Collections.synchronizedList(MutableList.of());
-    private class MockPromoteDemoteEffector extends AddEffector {
+    private class MockPromoteDemoteEffector extends AddEffectorInitializerAbstract {
+        private final Effector<String> base;
+
         public MockPromoteDemoteEffector(Effector<String> base) {
-            super(Effectors.effector(base).impl(new MockPromoteDemoteEffectorBody(base.getName())).build());
+            super();
+            this.base = base;
+        }
+
+        @Override
+        protected EffectorBuilder<String> newEffectorBuilder() {
+            return Effectors.effector(base).impl(new MockPromoteDemoteEffectorBody(base.getName()));
         }
     }
     private class MockPromoteDemoteEffectorBody extends EffectorBody<String> {

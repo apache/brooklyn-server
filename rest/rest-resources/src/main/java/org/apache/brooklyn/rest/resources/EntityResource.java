@@ -21,12 +21,12 @@ package org.apache.brooklyn.rest.resources;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 import java.net.URI;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
@@ -35,6 +35,7 @@ import javax.ws.rs.core.Response.ResponseBuilder;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import com.google.common.collect.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -47,26 +48,23 @@ import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.domain.EntitySummary;
-import org.apache.brooklyn.rest.domain.LocationSummary;
-import org.apache.brooklyn.rest.domain.TaskSummary;
+import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer.LocationDetailLevel;
 import org.apache.brooklyn.rest.transform.TaskTransformer;
+import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Objects;
-import com.google.common.collect.FluentIterable;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 @HaHotStateRequired
@@ -104,6 +102,15 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
                 .filter(EntitlementPredicates.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY))
                 .transform(EntityTransformer.fromEntity(ui.getBaseUriBuilder()))
                 .toList();
+    }
+
+    @Override
+    public List<RelationSummary> getRelations(final String applicationId, final String entityId) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        if (entity != null) {
+            return EntityRelationUtils.getRelations(entity);
+        }
+        return Collections.emptyList();
     }
 
     @Override
@@ -168,46 +175,57 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
             if (!Objects.equal(o1.isSubmitted(), o2.isSubmitted())) {
                 return o1.isSubmitted() ? -1 : 1;
             }
+            // followed by absolute pref for active items
+            if (!Objects.equal(o1.isDone(), o2.isDone())) {
+                return !o1.isDone() ? -1 : 1;
+            }
 
-            // big pref for top-level tasks (manual operations), where submitter null
-            int weight = 0;
-            Task<?> o1s = o1.getSubmittedByTask();
-            Task<?> o2s = o2.getSubmittedByTask();
-            if ("start".equals(o1.getDisplayName()) ||"start".equals(o2.getDisplayName())) {
-                weight = 0;
+            // followed by absolute pref for things not started yet
+            if (!Objects.equal(o1.isBegun(), o2.isBegun())) {
+                return !o1.isBegun() ? -1 : 1;
             }
-            if (!Objects.equal(o1s==null, o2s==null))
-                weight += 2*60*60 * (o1s==null ? -1 : 1);
-            
-            // pretty big pref for things invoked by other entities
-            if (context!=null && o1s!=null && o2s!=null) {
-                boolean o1se = context.equals(BrooklynTaskTags.getContextEntity(o1s));
-                boolean o2se = context.equals(BrooklynTaskTags.getContextEntity(o2s));
-                if (!Objects.equal(o1se, o2se))
-                    weight += 10*60 *  (o2se ? -1 : 1);
-            }
-            // slight pref for things in progress
-            if (!Objects.equal(o1.isBegun() && !o1.isDone(), o2.isBegun() && !o2.isDone()))
-                weight += 60 * (o1.isBegun() && !o1.isDone() ? -1 : 1);
-            // and very slight pref for things not begun
-            if (!Objects.equal(o1.isBegun(), o2.isBegun())) 
-                weight += 10 * (!o1.isBegun() ? -1 : 1);
-            
-            // sort based on how recently the task changed state
+
+//            if (!o1.isDone()) {
+//                // among active items, scheduled ones
+//                if (!Objects.equal(o1 instanceof ScheduledTask, o2 instanceof ScheduledTask)) {
+//                    return !(o1 instanceof ScheduledTask) ? -1 : 1;
+//                }
+//            }
+
+//            // if all else is equal:
+//            // big pref for top-level tasks (manual operations), where submitter null, or submitted by other entities
+//            int weight = 0;
+//            Task<?> o1s = o1.getSubmittedByTask();
+//            Task<?> o2s = o2.getSubmittedByTask();
+//            if (!Objects.equal(o1s==null, o2s==null)) {
+//                weight += 20 * 60 * (o1s == null ? -1 : 1);
+//            }
+//            // then pref for things invoked by other entities
+//            if (context!=null && o1s!=null && o2s!=null) {
+//                boolean o1se = context.equals(BrooklynTaskTags.getContextEntity(o1s));
+//                boolean o2se = context.equals(BrooklynTaskTags.getContextEntity(o2s));
+//                if (!Objects.equal(o1se, o2se)) {
+//                    weight += 10 * 60 * (o2se ? -1 : 1);
+//                }
+//            }
+
+            // then sort based on how recently the task changed state
             long now = System.currentTimeMillis();
             long t1 = o1.isDone() ? o1.getEndTimeUtc() : o1.isBegun() ? o1.getStartTimeUtc() : o1.getSubmitTimeUtc();
             long t2 = o2.isDone() ? o2.getEndTimeUtc() : o2.isBegun() ? o2.getStartTimeUtc() : o2.getSubmitTimeUtc();
             long u1 = now - t1;
             long u2 = now - t2;
-            // so smaller = more recent
-            // and if there is a weight, increase the other side so it is de-emphasised
-            // IE if weight was -10 that means T1 is "10 times more interesting"
-            // or more precisely, a task T1 from 10 mins ago equals a task T2 from 1 min ago
-            if (weight<0) u2 *= -weight;
-            else if (weight>0) u1 *= weight;
+//            // so smaller = more recent
+//            // and if there is a weight, increase the other side so it is de-emphasised
+//            // IE if weight was -10 that means T1 is "10 times more interesting"
+//            // or more precisely, a task T1 from 10 mins ago equals a task T2 from 1 min ago
+//            if (weight<0) u2 *= -weight;
+//            else if (weight>0) u1 *= weight;
             if (u1!=u2) return u1 > u2 ? 1 : -1;
-            // if equal under mapping, use weight
-            if (weight!=0) return weight < 0 ? -1 : 1;
+
+//            // if equal under mapping, use weight
+//            if (weight!=0) return weight < 0 ? -1 : 1;
+
             // lastly use ID to ensure canonical order
             return o1.getId().compareTo(o2.getId());
         }
@@ -237,6 +255,30 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public List<Object> listTags(String applicationId, String entityId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         return (List<Object>) resolving(MutableList.copyOf(entity.tags().getTags())).preferJson(true).resolve();
+    }
+
+    @Override
+    public void addTag(String applicationId, String entityId, Object tag) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        entity.tags().addTag(tag);
+    }
+
+    @Override
+    public boolean deleteTag(String applicationId, String entityId, Object tag) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        return entity.tags().removeTag(tag);
+    }
+
+    @Override
+    public void upsertTag(String applicationId, String entityId, String tagKey, Object tagValue) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        BrooklynTags.upsertSingleKeyMapValueTag(entity.tags(), tagKey, tagValue);
+    }
+
+    @Override
+    public Object getTag(String applicationId, String entityId, String tagKey) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        return BrooklynTags.findSingleKeyMapValue(tagKey, Object.class, entity.tags().getTags());
     }
 
     @Override
@@ -302,9 +344,16 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public String getSpec(String applicationToken, String entityToken) {
         Entity entity = brooklyn().getEntity(applicationToken, entityToken);
-        NamedStringTag spec = BrooklynTags.findFirst(BrooklynTags.YAML_SPEC_KIND, entity.tags().getTags());
+        NamedStringTag spec = BrooklynTags.findFirstNamedStringTag(BrooklynTags.YAML_SPEC_KIND, entity.tags().getTags());
         if (spec == null)
             return null;
         return (String) WebResourceUtils.getValueForDisplay(spec.getContents(), false, true);
+    }
+
+    @Override
+    public List<Object>  getSpecList(String applicationId, String entityId) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
+        return (List<Object>) resolving(specTag).preferJson(true).resolve();
     }
 }

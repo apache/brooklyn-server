@@ -80,6 +80,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         String inputType = "string";
         String defaultValue = "VALUE";
         Boolean pinned = false;
+        Boolean reconfigurable = true;
         String constraint = "required";
         SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.builder()
                 .put("name", name)
@@ -88,6 +89,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
                 .put("type", inputType)
                 .put("default", defaultValue)
                 .put("pinned", pinned)
+                .put("reconfigurable", reconfigurable)
                 .put("constraints", constraint)
                 .build());
 
@@ -100,6 +102,7 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
         assertEquals(type.getDefaultValue(), defaultValue);
         assertEquals(type.getDescription(), description);
         assertTrue(type.getInheritanceByContext().values().isEmpty(), "Unexpected inheritance: "+type.getInheritanceByContext());
+        assertTrue(type.isReconfigurable());
         assertConstraint(type.getConstraint(), ConfigConstraints.required());
     }
 
@@ -178,6 +181,32 @@ public class BasicSpecParameterFromListTest extends BrooklynMgmtUnitTestSupport 
                 "description", description));
 
         assertTrue(input.isPinned());
+    }
+
+    @Test
+    public void testDefaultReconfigurable() {
+        String name = "reconfigurable";
+        String label = "Is reconfigurable";
+        String description = "Is reconfigurable description";
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
+                "name", name,
+                "label", label,
+                "description", description));
+
+        ConfigKey<?> type = input.getConfigKey();
+        // default is false
+        assertFalse(type.isReconfigurable());
+    }
+
+    @Test
+    public void testReconfigurableCoercedFromString() {
+        String name = "reconfigurable coerced from string";
+        SpecParameter<?> input = parseSpecParameterDefinition(ImmutableMap.of(
+                "name", name,
+                "reconfigurable","true"));
+
+        ConfigKey<?> type = input.getConfigKey();
+        assertTrue(type.isReconfigurable());
     }
 
     private SpecParameter<?> parseSpecParameterDefinition(Object def) {

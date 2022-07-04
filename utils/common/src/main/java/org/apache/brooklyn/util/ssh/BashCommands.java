@@ -570,6 +570,17 @@ public class BashCommands {
         return Arrays.asList(INSTALL_CURL, 
                 require(simpleDownloadUrlAs(urls, saveAs), "Could not retrieve "+saveAs+". Tried: " + Joiner.on(", ").join(urls), 9));
     }
+
+    /**
+     * Returns commands to download the URL, saving as the given file. Will try each URL in turn until one is successful.
+     * It allows setting a minimum TLS version to avoid this error: <code> <curl: (35) Peer reports incompatible or unsupported protocol version./code>
+     * (see `curl -f` documentation).
+     */
+    public static List<String> commandsToDownloadUrlsAsWithMinimumTlsVersion(List<String> urls, String saveAs, String tlsVersion) {
+        return Arrays.asList(INSTALL_CURL,
+                require(simpleDownloadUrlAs(urls, saveAs, tlsVersion), "Could not retrieve "+saveAs+". Tried: " + Joiner.on(", ").join(urls), 9));
+    }
+
     public static String commandToDownloadUrlsAs(List<String> urls, String saveAs) {
         return chain(INSTALL_CURL, 
                 require(simpleDownloadUrlAs(urls, saveAs), "Could not retrieve "+saveAs+". Tried: " + Joiner.on(", ").join(urls), 9));
@@ -597,19 +608,29 @@ public class BashCommands {
     }
 
     /**
-     * Same as {@link downloadUrlAs(List, String)}, except does not install curl, and does not exit on failure,
+     * Same as {@link simpleDownloadUrlAs(List, String)}, except does not install curl, and does not exit on failure,
      * and if saveAs is null it downloads it so stdout.
      */
     public static String simpleDownloadUrlAs(List<String> urls, String saveAs) {
-        return simpleDownloadUrlAs(urls, null, null, saveAs);
+        return simpleDownloadUrlAs(urls, null, null, saveAs, null);
     }
 
-    public static String simpleDownloadUrlAs(List<String> urls, String user, String password, String saveAs) {
+    /**
+     * Same as {@link simpleDownloadUrlAs(List, String, String)}, except does not install curl, and does not exit on failure,
+     * and if saveAs is null it downloads it so stdout.
+     */
+    public static String simpleDownloadUrlAs(List<String> urls, String saveAs, String tlsVersion) {
+        return simpleDownloadUrlAs(urls, null, null, saveAs, tlsVersion);
+    }
+
+    public static String simpleDownloadUrlAs(List<String> urls, String user, String password, String saveAs, String tlsVersion) {
         if (urls.isEmpty()) throw new IllegalArgumentException("No URLs supplied to download "+saveAs);
         
         List<String> commands = new ArrayList<String>();
         for (String url : urls) {
-            String command = "curl -f -L -k --retry 10 --keepalive-time 30 --speed-time 30 ";
+            String command = tlsVersion == null ?
+                    "curl -f -L -k --retry 10 --keepalive-time 30 --speed-time 30 " :
+                    "curl --tlsv" + tlsVersion + " -f -L -k --retry 10 --keepalive-time 30 --speed-time 30 " ;
             if (user!=null && password!=null) {
                command = command + format("-u %s:%s ", user, password);
             }

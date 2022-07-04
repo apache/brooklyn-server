@@ -136,6 +136,12 @@ brooklyn.catalog:
         type: org.apache.brooklyn.enricher.stock.Propagator
         name: Propagator
         description: Propagates sensors from one entity to another
+    - id: org.apache.brooklyn.enricher.stock.PropagateToMembers
+      itemType: enricher
+      item:
+        type: org.apache.brooklyn.enricher.stock.PropagateToMembers
+        name: PropagateToMembers
+        description: Propagates sensors from entity to members
     - id: org.apache.brooklyn.enricher.stock.Transformer
       itemType: enricher
       item:
@@ -148,22 +154,56 @@ brooklyn.catalog:
         type: org.apache.brooklyn.enricher.stock.UpdatingMap
         name: Map Updater
         description: Updates an entry in a sensor Map
-    - id: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
-      itemType: enricher
-      item:
-        type: org.apache.brooklyn.enricher.stock.YamlRollingTimeWindowMeanEnricher
-        name: YAML Rolling Average
-        description: Transforms sensor data into a rolling average based on a time window.")
-    - id: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
-      itemType: enricher
-      item:
-        type: org.apache.brooklyn.enricher.stock.YamlTimeWeightedDeltaEnricher
-        name: YAML Time-weighted Delta
-        description: Converts an absolute count sensor into a delta sensor
     - id: org.apache.brooklyn.enricher.stock.reducer.Reducer
       itemType: enricher
       item:
         type: org.apache.brooklyn.enricher.stock.reducer.Reducer
         name: Reducer
         description: Applies a transformation to a sensor
-        
+    - id: org.apache.brooklyn.entity.group.GroupsChangePolicy
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.entity.group.GroupsChangePolicy
+        name: GroupsChangePolicy
+        description: Applies policies (or enrichers, adjuncts, etc) to entities as they are added to DynamicGroups
+    - id: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+      itemType: policy
+      item:
+        type: org.apache.brooklyn.policy.InvokeEffectorOnSensorChange
+        name: Invoke Effector on Sensor Change
+        description: Invokes an effector whenever the indicated sensor changes
+    - id: org.apache.brooklyn.core.sensor.StaticSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.StaticSensor
+    - id: org.apache.brooklyn.core.sensor.password.CreatePasswordSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.password.CreatePasswordSensor
+    - id: org.apache.brooklyn.core.sensor.http.HttpRequestSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.http.HttpRequestSensor
+    - id: org.apache.brooklyn.core.sensor.function.FunctionSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.function.FunctionSensor
+    - id: org.apache.brooklyn.entity.java.JmxAttributeSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.entity.java.JmxAttributeSensor
+    - id: org.apache.brooklyn.core.sensor.DurationSinceSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.DurationSinceSensor
+    - id: org.apache.brooklyn.core.effector.http.HttpCommandEffector
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.effector.http.HttpCommandEffector

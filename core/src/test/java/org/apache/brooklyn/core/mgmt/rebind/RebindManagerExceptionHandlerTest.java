@@ -23,6 +23,9 @@ import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.Tasks.ForTestingAndLegacyCompatibilityOnly.LegacyDeepResolutionMode;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableMap;
@@ -32,10 +35,15 @@ public class RebindManagerExceptionHandlerTest extends RebindTestFixtureWithApp 
     @Override
     protected TestApplication createApp() {
         TestApplication app = super.createApp();
-        app.createAndManageChild(EntitySpec.create(TestEntity.class)
-                .configure(TestEntity.CONF_MAP_THING.getName(), 
-                     // misconfigured map value, should be a string key, but forced (by using a flag) so failure won't be enforced until persist/rebind
-                    ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4))));
+        try {
+            Tasks.ForTestingAndLegacyCompatibilityOnly.withLegacyDeepResolutionMode(LegacyDeepResolutionMode.ALLOW_LEGACY, () ->
+                    app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                            .configure(TestEntity.CONF_MAP_THING.getName(),
+                                    // misconfigured map value, should be a string key, but forced (by using a flag) so failure won't be enforced until persist/rebind
+                                    ImmutableMap.of("keyWithMapValue", ImmutableMap.of("minRam", 4)))));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
         return app;
     }
 

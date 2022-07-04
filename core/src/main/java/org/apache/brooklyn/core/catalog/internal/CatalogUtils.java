@@ -18,10 +18,7 @@
  */
 package org.apache.brooklyn.core.catalog.internal;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import java.util.*;
 
 import javax.annotation.Nullable;
 
@@ -56,6 +53,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.text.Strings;
@@ -134,12 +132,31 @@ public class CatalogUtils {
         return result;
     }
 
+    /** Creates a new loading context using the primary bundle first and the search bundles. */
     public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
-        ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
+            ManagementContext managementContext, String primaryItemId, List<String> searchPath) {
+        return newClassLoadingContextForCatalogItems(managementContext, primaryItemId, searchPath,
+                /* added as parameter and changed default from true 2021-06 because in nested situations it usually is wanted */
+                // specifically if i have an entity with the same name as the bundle, and it is used nested in an entity from another bundle
+                // "true" means the classpath has the containing entity's bundle first
+                false);
+    }
+
+    /** Creates a new loading context using the primary bundle and the search bundles.
+     *  Optionally if the primary bundle is included in the search bundles, then it can be
+     *  specified to read in the order it lies within the search bundle, otherwise add it first. */
+    public static BrooklynClassLoadingContext newClassLoadingContextForCatalogItems(
+            ManagementContext managementContext, String primaryItemId, List<String> searchPath, boolean omitPrimaryIfContainedInSearchPath) {
 
         BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
-        addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
-        for (String searchId : searchPath) {
+        Set<String> path = MutableSet.copyOf(searchPath);
+
+        if (!omitPrimaryIfContainedInSearchPath || !searchPath.contains(primaryItemId)) {
+            addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
+            path.remove(primaryItemId);
+        }
+
+        for (String searchId : path) {
             addSearchItem(managementContext, seqLoader, searchId, true);
         }
         return seqLoader;
@@ -169,11 +186,14 @@ public class CatalogUtils {
             Stopwatch timer = Stopwatch.createStarted();
             List<OsgiBundleInstallationResult> results = MutableList.of();
             for (CatalogBundle bundle : libraries) {
-                OsgiBundleInstallationResult result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true).get();
+                ReferenceWithError<OsgiBundleInstallationResult> result = osgi.get().installDeferredStart(BasicManagedBundle.of(bundle), null, true);
                 if (log.isDebugEnabled()) {
                     logDebugOrTraceIfRebinding(log, "Installation of library "+bundle+": "+result);
                 }
-                results.add(result);
+                if (result.hasError()) {
+                    throw Exceptions.propagateAnnotated("Error installing "+bundle, result.getError());
+                }
+                results.add(result.get());
             }
             Map<String, Throwable> errors = MutableMap.of();
             if (startBundlesAndInstallToBrooklyn) {
@@ -224,13 +244,13 @@ public class CatalogUtils {
             if (itemBeingAdded.getCatalogItemId()==null) {
                 if (log.isDebugEnabled())
                     BrooklynLogging.log(log, BrooklynLogging.levelDebugOrTraceIfReadOnly(entity),
-                        "Catalog item addition: "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
+                        "Entity "+entity+" from "+entity.getCatalogItemId()+" applying its catalog item ID to "+itemBeingAdded);
                 final BrooklynObjectInternal addInternal = (BrooklynObjectInternal) itemBeingAdded;
                 addInternal.setCatalogItemIdAndSearchPath(entity.getCatalogItemId(), entity.getCatalogItemIdSearchPath());
             } else {
                 if (!itemBeingAdded.getCatalogItemId().equals(entity.getCatalogItemId())) {
-                    // not a problem, but something to watch out for
-                    log.debug("Cross-catalog item detected: "+entity+" from "+entity.getCatalogItemId()+" has "+itemBeingAdded+" from "+itemBeingAdded.getCatalogItemId());
+                    // not a problem, but something worth noting
+                    log.debug("Blueprint for "+entity+" from "+entity.getCatalogItemId()+" includes "+itemBeingAdded+" from other catalog "+itemBeingAdded.getCatalogItemId());
                 }
             }
         } else if (itemBeingAdded.getCatalogItemId()!=null) {
@@ -250,7 +270,7 @@ public class CatalogUtils {
 
     /** @deprecated since 0.12.0 - the "version starts with number" test this does is hokey; use 
      * either {@link RegisteredTypeNaming#isUsableTypeColonVersion(String)} for weak enforcement
-     * or {@link RegisteredTypeNaming#isGoodTypeColonVersion(String)} for OSGi enforcement. */
+     * or {@link RegisteredTypeNaming#isUsableTypeColonVersion(String)} for OSGi enforcement. */
     // several references, but all deprecated, most safe to remove after a cycle or two and bad verisons have been warned
     @Deprecated
     public static boolean looksLikeVersionedId(String versionedId) {

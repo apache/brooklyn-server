@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Predicate;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -27,14 +29,15 @@ import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredType.TypeImplementationPlan;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
-import org.apache.brooklyn.core.typereg.AbstractFormatSpecificTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.text.Strings;
 
 public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
 
@@ -99,9 +102,19 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     }
 
     @Override
+    public double scoreForType(RegisteredType type, RegisteredTypeLoadingContext context) {
+        if (RegisteredTypeKind.BEAN.equals(type.getKind())) return 0;
+        return super.scoreForType(type, context);
+    }
+
+    @Override
     protected AbstractBrooklynObjectSpec<?, ?> createSpec(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         try {
-            return new CampResolver(mgmt, type, context).createSpec();
+            return decorateWithCommonTagsModifyingSpecSummary(new CampResolver(mgmt, type, context).createSpec(),
+                    type, null, null, prevHeadSpecSummary ->
+                            prevHeadSpecSummary.summary.startsWith(prevHeadSpecSummary.format) ? "Based on "+prevHeadSpecSummary.summary :
+                                    prevHeadSpecSummary.summary);
+
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             String message = null;
@@ -130,19 +143,7 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     @Override
     protected Object createBean(RegisteredType type, RegisteredTypeLoadingContext context) throws Exception {
         // beans not supported by this?
-        throw new IllegalStateException("beans not supported here");
-    }
-
-    @Override
-    public double scoreForTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return 0;
-    }
-
-    @Override
-    public List<RegisteredType> createFromTypeDefinition(String formatCode, Object catalogData) {
-        // TODO catalog parsing
-        return null;
+        throw new UnsupportedTypePlanException("beans not supported here");
     }
 
     public static class CampTypeImplementationPlan extends AbstractFormatSpecificTypeImplementationPlan<String> {

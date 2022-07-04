@@ -88,7 +88,7 @@ public class JcloudsTypeCoercionsWithBuilderTest {
             coerce(ImmutableMap.of("arg1", "val1"), MyClazzWithNoNoargBuilderMethod.class);
             Asserts.shouldHaveFailedPreviously();
         } catch (ClassCoercionException e) {
-            Asserts.expectedFailureContains(e, "MyClazzWithNoNoargBuilderMethod", "no adapter known");
+            Asserts.expectedFailureContains(e, "MyClazzWithNoNoargBuilderMethod", "BeanWithType");
         }
     }
 

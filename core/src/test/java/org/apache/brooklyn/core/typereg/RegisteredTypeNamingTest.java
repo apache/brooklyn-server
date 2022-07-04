@@ -45,8 +45,12 @@ public class RegisteredTypeNamingTest {
         assertVersion("1", true, true, true);
         assertVersion("1.0.0", true, true, true);
         assertVersion("1.0.0.SNAPSHOT", true, true, false);
+        assertVersion("1.0.SNAPSHOT", true, false, false);
         assertVersion("1.0.0-SNAPSHOT", true, false, true);
-        
+        assertVersion("1.0-SNAPSHOT", true, false, true);
+        assertVersion("1.0.0-1-2.3_b", true, false, true);
+        assertVersion("1.0.0-1-2!3_b", true, false, false);
+
         assertVersion("", false, false, false);
         assertVersion(null, false, false, false);
         assertVersion("1:1", false, false, false);

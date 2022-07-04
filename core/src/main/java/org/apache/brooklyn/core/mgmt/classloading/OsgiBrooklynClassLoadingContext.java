@@ -22,9 +22,11 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -35,7 +37,7 @@ import com.google.common.base.Objects;
 public class OsgiBrooklynClassLoadingContext extends AbstractBrooklynClassLoadingContext {
 
     private final String catalogItemId;
-    private boolean hasBundles = false;
+    private final boolean hasBundles;
     private transient Collection<? extends OsgiBundleWithUrl> _bundles;
 
     public OsgiBrooklynClassLoadingContext(ManagementContext mgmt, String catalogItemId, Collection<? extends OsgiBundleWithUrl> bundles) {
@@ -44,15 +46,22 @@ public class OsgiBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
         this.hasBundles = bundles!=null && !bundles.isEmpty();
         this.catalogItemId = catalogItemId;
     }
+    /** classloader using _only_ the things in view of this entity. for broader loader, use RegisteredTypes.getClassLoadingContext(entity). */
+    public OsgiBrooklynClassLoadingContext(Entity entity) {
+        this(((EntityInternal)entity).getManagementContext(), entity.getCatalogItemId(), null);
+    }
 
     public Collection<? extends OsgiBundleWithUrl> getBundles() {
-        if (_bundles!=null || !hasBundles) return _bundles;
-        RegisteredType item = mgmt.getTypeRegistry().get(catalogItemId);
-        if (item==null) {
-            throw new IllegalStateException("Catalog item not found for "+catalogItemId+"; cannot create loading context");
+        if (hasBundles) return _bundles;
+        if (catalogItemId!=null) {
+            RegisteredType item = mgmt.getTypeRegistry().get(catalogItemId);
+            if (item == null) {
+                throw new IllegalStateException("Catalog item not found for " + catalogItemId + "; cannot create loading context");
+            }
+            _bundles = item.getLibraries();
+            return _bundles;
         }
-        _bundles = item.getLibraries();
-        return _bundles;
+        return Collections.emptyList();
     }
     
     @Override

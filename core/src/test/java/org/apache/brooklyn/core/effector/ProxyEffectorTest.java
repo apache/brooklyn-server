@@ -76,7 +76,8 @@ public class ProxyEffectorTest extends BrooklynAppUnitTestSupport {
         new ProxyEffector(MutableMap.of(
                 AddEffector.EFFECTOR_NAME, "proxy-effector",
                 ProxyEffector.TARGET_ENTITY, null,
-                ProxyEffector.TARGET_EFFECTOR_NAME, "kajnfksjdnfkjsdnf"));
+                ProxyEffector.TARGET_EFFECTOR_NAME, "kajnfksjdnfkjsdnf"))
+        .newEffectorBuilder();
     }
 
     @Test(expectedExceptions = NullPointerException.class)
@@ -84,7 +85,8 @@ public class ProxyEffectorTest extends BrooklynAppUnitTestSupport {
         new ProxyEffector(MutableMap.of(
                 AddEffector.EFFECTOR_NAME, "proxy-effector",
                 ProxyEffector.TARGET_ENTITY, app,
-                ProxyEffector.TARGET_EFFECTOR_NAME, null));
+                ProxyEffector.TARGET_EFFECTOR_NAME, null))
+        .newEffectorBuilder();
     }
 
 }

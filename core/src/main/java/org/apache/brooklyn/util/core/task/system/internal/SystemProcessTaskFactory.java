@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.core.task.system.internal;
 
 import java.io.File;
 
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.core.config.Sanitizer;
@@ -57,7 +58,7 @@ public class SystemProcessTaskFactory<T extends SystemProcessTaskFactory<T,RET>,
     }
     
     @Override
-    public T machine(SshMachineLocation machine) {
+    public T machine(MachineLocation machine) {
         log.warn("Not permitted to set machines on "+this+" (ignoring - "+machine+")");
         if (log.isDebugEnabled())
             log.debug("Source of attempt to set machines on "+this+" ("+machine+")",
