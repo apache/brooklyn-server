@@ -21,27 +21,33 @@ package org.apache.brooklyn.tasks.kubectl;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.time.Duration;
+import org.testng.annotations.Ignore;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
 import java.util.List;
 
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.testng.AssertJUnit.assertTrue;
 
+/**
+ * These tests require Minikube installed locally
+ */
+@Test(groups = {"Live"})
 public class DockerTaskTest extends BrooklynAppUnitTestSupport {
 
-    @Test(groups = "Live") // requires docker installed locally
+    @Test
     public void testSuccessfulDockerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
@@ -49,6 +55,7 @@ public class DockerTaskTest extends BrooklynAppUnitTestSupport {
         configBag.put("name", "test-docker-task");
         configBag.put("image", "perl");
         configBag.put("commands", Lists.newArrayList("/bin/bash", "-c","echo 'hello test'"));
+        configBag.put("imagePullPolicy", PullPolicy.IF_NOT_PRESENT);
 
         Task<String> dockerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
                 .summary("Running docker task")
@@ -63,11 +70,11 @@ public class DockerTaskTest extends BrooklynAppUnitTestSupport {
         assertTrue(res2.startsWith("hello test"));
     }
 
-    @Test(groups = "Integration") // tries to execute local command, wants it to fail but even so best as integration
+    @Test// tries to execute local command, wants it to fail, but even so best as integration
     public void testFailingDockerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        List<String> commands = MutableList.of("/bin/bash", "-c","echo 'hello test'", "exit 1");
+        List<String> commands = MutableList.of("/bin/bash", "-c","echo 'hello test' & exit 1");
 
         Map<String,Object> configBag = new HashMap<>();
         configBag.put("name", "test-docker-task");
@@ -78,10 +85,15 @@ public class DockerTaskTest extends BrooklynAppUnitTestSupport {
                 .summary("Running docker task")
                 .configure(configBag)
                 .newTask();
-
         try {
             DynamicTasks.queueIfPossible(dockerTask).orSubmitAsync(entity).getTask().get();
-            Asserts.shouldHaveFailedPreviously();
+            if (dockerTask instanceof HasTaskChildren) {
+                for (Task<?> child: ((HasTaskChildren)dockerTask).getChildren()) {
+                    if(child.getTags().contains(BrooklynTaskTags.INESSENTIAL_TASK) && child.isError()) {
+                       child.get();
+                    }
+                }
+            }
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "Process task ended with exit code", "when 0 was required");
         }

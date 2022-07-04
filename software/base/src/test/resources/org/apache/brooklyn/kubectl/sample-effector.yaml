@@ -26,6 +26,7 @@ services:
           shell.env:
             hello: world-amp
           image: perl
+          imagePullPolicy: IfNotPresent
           commands:
           - /bin/bash
           - -c

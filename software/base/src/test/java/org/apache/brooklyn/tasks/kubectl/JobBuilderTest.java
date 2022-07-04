@@ -40,6 +40,7 @@ public class JobBuilderTest {
         String yamlJobLocation =
                 new JobBuilder().withImage("perl").withName("perl-args-test")
                         .withArgs(Lists.newArrayList( "echo", "aaa"))
+                        .withImagePullPolicy(PullPolicy.ALWAYS) // explicit "Always"
                         .build();
         assertNotNull(yamlJobLocation);
         String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
@@ -48,6 +49,9 @@ public class JobBuilderTest {
                 "metadata:\n" +
                 "  name: perl-args-test\n" +
                 "spec:\n" +
+                "  backoffLimit: 1\n" +
+                "  completions: 1\n" +
+                "  parallelism: 1\n" +
                 "  template:\n" +
                 "    spec:\n" +
                 "      automountServiceAccountToken: false\n" +
@@ -56,6 +60,7 @@ public class JobBuilderTest {
                 "        - echo\n" +
                 "        - aaa\n" +
                 "        image: perl\n" +
+                "        imagePullPolicy: Always\n" +
                 "        name: test\n" +
                 "      restartPolicy: Never";
         assertEquals(expected,actual);
@@ -67,6 +72,7 @@ public class JobBuilderTest {
                 new JobBuilder().withImage("perl").withName("perl-args-and-command-test")
                         .withCommands(Lists.newArrayList("/bin/bash"))
                         .withArgs(Lists.newArrayList("-c", "echo aaa"))
+                        .withImagePullPolicy(PullPolicy.NEVER)
                         .build();
         assertNotNull(yamlJobLocation);
         String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
@@ -75,6 +81,9 @@ public class JobBuilderTest {
                 "metadata:\n" +
                 "  name: perl-args-and-command-test\n" +
                 "spec:\n" +
+                "  backoffLimit: 1\n" +
+                "  completions: 1\n" +
+                "  parallelism: 1\n" +
                 "  template:\n" +
                 "    spec:\n" +
                 "      automountServiceAccountToken: false\n" +
@@ -85,6 +94,7 @@ public class JobBuilderTest {
                 "        command:\n" +
                 "        - /bin/bash\n" +
                 "        image: perl\n" +
+                "        imagePullPolicy: Never\n" +
                 "        name: test\n" +
                 "      restartPolicy: Never";
         assertEquals(expected,actual);
@@ -95,6 +105,7 @@ public class JobBuilderTest {
         String yamlJobLocation =
                 new JobBuilder().withImage("perl").withName("perl-command-test")
                         .withCommands(Lists.newArrayList("/bin/bash", "-c", "echo aaa"))
+                        .withImagePullPolicy(PullPolicy.IF_NOT_PRESENT)
                         .build();
         assertNotNull(yamlJobLocation);
         String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
@@ -103,6 +114,9 @@ public class JobBuilderTest {
                 "metadata:\n" +
                 "  name: perl-command-test\n" +
                 "spec:\n" +
+                "  backoffLimit: 1\n" +
+                "  completions: 1\n" +
+                "  parallelism: 1\n" +
                 "  template:\n" +
                 "    spec:\n" +
                 "      automountServiceAccountToken: false\n" +
@@ -112,6 +126,7 @@ public class JobBuilderTest {
                 "        - -c\n" +
                 "        - echo aaa\n" +
                 "        image: perl\n" +
+                "        imagePullPolicy: IfNotPresent\n" +
                 "        name: test\n" +
                 "      restartPolicy: Never";
         assertEquals(expected,actual);
@@ -136,6 +151,9 @@ public class JobBuilderTest {
                 "metadata:\n" +
                 "  name: tf-version\n" +
                 "spec:\n" +
+                "  backoffLimit: 1\n" +
+                "  completions: 1\n" +
+                "  parallelism: 1\n" +
                 "  template:\n" +
                 "    spec:\n" +
                 "      automountServiceAccountToken: false\n" +
@@ -144,6 +162,7 @@ public class JobBuilderTest {
                 "        - terraform\n" +
                 "        - version\n" +
                 "        image: hashicorp/terraform\n" +
+                // implicit "Always" for imagePullPolicy, let Kubernetes make the decision
                 "        name: test\n" +
                 "        volumeMounts:\n" +
                 "        - mountPath: /tfws\n" +

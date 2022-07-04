@@ -24,6 +24,7 @@ services:
           shell.env:
             hello: hello-amp-docker-effector
           image: bash
+          imagePullPolicy: NEVER
           args:
           - -c
           - HELLO=$(ls -la) ; sleep 5 ; echo $HELLO ; echo $hello
@@ -31,6 +32,7 @@ services:
       - type: org.apache.brooklyn.tasks.kubectl.DockerSensor
         brooklyn.config:
           image: perl
+          imagePullPolicy: never
           args:
             - echo
             - hello

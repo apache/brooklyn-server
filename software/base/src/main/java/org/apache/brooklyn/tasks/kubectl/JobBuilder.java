@@ -41,8 +41,11 @@ import java.util.stream.Collectors;
  */
 public class JobBuilder {
     private static final Logger LOG = LoggerFactory.getLogger(JobBuilder.class);
+
     String jobName;
     String imageName;
+
+    String imagePullPolicy;
 
     String workingDir;
 
@@ -64,6 +67,18 @@ public class JobBuilder {
 
     public JobBuilder withImage(final String image){
         this.imageName = image;
+        return this;
+    }
+
+    /**
+     * If {@code imagePullPolicy} is not set for a container, Kubernetes defaults to Always.
+     * @param eimagePullPolicy
+     * @return
+     */
+    public JobBuilder withImagePullPolicy(final PullPolicy eimagePullPolicy){
+        if (eimagePullPolicy != null) {
+            this.imagePullPolicy = eimagePullPolicy.val();
+        }
         return this;
     }
 
@@ -115,12 +130,14 @@ public class JobBuilder {
     public String build(){
         JobTemplate jobTemplate = new JobTemplate(jobName);
 
-        ContainerSpec containerSpec = jobTemplate.getSpec().get("template").getContainerSpec(0);
+        ContainerSpec containerSpec = jobTemplate.getSpec().getTemplate().getContainerSpec(0);
 
         if(Strings.isNonBlank(workingDir)) {
             containerSpec.setWorkingDir(workingDir);
         }
         containerSpec.setImage(imageName);
+        containerSpec.setImagePullPolicy(imagePullPolicy);
+
         if (!env.isEmpty()) {
             List<Map<String,String>> envList = env.entrySet().stream().map (e ->  {
                     Map<String,String> envItem = new HashMap<>();
@@ -139,7 +156,8 @@ public class JobBuilder {
 
         final Set<String> volumeNames = new HashSet<>();
         if (!volumes.isEmpty()) {
-            jobTemplate.getSpec().get("template").getSpec().setVolumes(volumes);
+            jobTemplate.getSpec().getTemplate().getSpec().setVolumes(volumes);
+
             volumes.stream().map(volumeSpec -> (String)volumeSpec.get("name")).forEach(volumeNames::add);
         }
 
@@ -193,11 +211,70 @@ public class JobBuilder {
     }
 }
 
+/**
+ * Type mapping to the value of the {@code spec} element
+ */
+class TemplateSpec {
+
+    /**
+     * As pods successfully complete, the Job tracks the successful completions. When a specified number of successful completions is reached, the task (ie, Job) is complete.
+     * Note that even if you specify .spec.parallelism = 1 and .spec.completions = 1 and .spec.template.spec.restartPolicy = "Never", the same program may sometimes be started twice.
+     */
+    Integer completions = 1;
+    Integer parallelism = 1;
+
+    /**
+     * To do so, set .spec.backoffLimit to specify the number of retries before considering a Job as failed. The back-off limit is set by default to 6.
+     */
+    Integer backoffLimit = 1;
+
+    JobSpec template;
+
+    public TemplateSpec() {
+        template = new JobSpec();
+    }
+
+    public Integer getCompletions() {
+        return completions;
+    }
+
+    public void setCompletions(Integer completions) {
+        this.completions = completions;
+    }
+
+    public Integer getParallelism() {
+        return parallelism;
+    }
+
+    public void setParallelism(Integer parallelism) {
+        this.parallelism = parallelism;
+    }
+
+    public JobSpec getTemplate() {
+        return template;
+    }
+
+    public void setTemplate(JobSpec template) {
+        this.template = template;
+    }
+
+    public Integer getBackoffLimit() {
+        return backoffLimit;
+    }
+
+    public void setBackoffLimit(Integer backoffLimit) {
+        this.backoffLimit = backoffLimit;
+    }
+}
+
+/**
+ * Matches the root of the yaml file
+ */
 class JobTemplate {
     String kind = "Job";
     String apiVersion = "batch/v1";
     Map<String, String> metadata;
-    Map<String, JobSpec> spec;
+    TemplateSpec spec;
 
     public JobTemplate() {
     }
@@ -205,8 +282,7 @@ class JobTemplate {
     public JobTemplate(String name) {
         metadata = Maps.newHashMap();
         metadata.put("name", name);
-        spec = new HashMap<>();
-        spec.put("template", new JobSpec());
+        spec = new TemplateSpec();
     }
 
     public String getApiVersion() {
@@ -235,16 +311,18 @@ class JobTemplate {
         this.metadata = metadata;
     }
 
-    public Map<String, JobSpec> getSpec() {
+    public TemplateSpec getSpec() {
         return spec;
     }
 
-    public void setSpec(Map<String, JobSpec> spec) {
+    public void setSpec(TemplateSpec spec) {
         this.spec = spec;
     }
-
 }
 
+/**
+ * Type mapping to the value of the {@code template} element
+ */
 class JobSpec {
     ContainerSpecs spec;
 
@@ -269,6 +347,9 @@ class JobSpec {
 }
 
 
+/**
+ * Type mapping to the value of the {@code template.spec} element
+ */
 class ContainerSpecs {
     List<ContainerSpec> containers;
 
@@ -314,9 +395,14 @@ class ContainerSpecs {
     }
 }
 
+/**
+ * Type mapping to the value of the {@code template.spec.containers} element
+ */
 class ContainerSpec {
     String name = "test";
     String image = "defaultImage";
+
+    String imagePullPolicy = "IfNotPresent";
 
     String workingDir = null; // default is /
 
@@ -341,6 +427,14 @@ class ContainerSpec {
 
     public String getImage() {
         return image;
+    }
+
+    public String getImagePullPolicy() {
+        return imagePullPolicy;
+    }
+
+    public void setImagePullPolicy(String imagePullPolicy) {
+        this.imagePullPolicy = imagePullPolicy;
     }
 
     public void setImage(String image) {
@@ -387,6 +481,9 @@ class ContainerSpec {
     }
 }
 
+/**
+ * Type mapping to the value of the {@code template.spec.containers.volumeMounts} element
+ */
 class VolumeMount {
     String name;
     String mountPath;

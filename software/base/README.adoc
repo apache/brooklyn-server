@@ -1,0 +1,110 @@
+////
+Licensed to the Apache Software Foundation (ASF) under one
+or more contributor license agreements.  See the NOTICE file
+distributed with this work for additional information
+regarding copyright ownership.  The ASF licenses this file
+to you under the Apache License, Version 2.0 (the
+"License"); you may not use this file except in compliance
+with the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing,
+software distributed under the License is distributed on an
+"AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+KIND, either express or implied.  See the License for the
+specific language governing permissions and limitations
+under the License.
+////
+
+= Apache Brooklyn Software Components
+
+This project contains useful software types for building applications.
+
+== Kubectl components
+
+The `org.apache.brooklyn.tasks.kubectl` package contains types `DockerSensor` and `DockerEffector` that can be used to 
+declare simple actions to be executed on a container managed by a kubernetes cluster. To use them you have to make sure
+the location where the app was deployed has `kubectl` installed and configured to use local or remote Kubernetes cluster. 
+
+For development, we recommend using Minikube locally.
+
+=== The Job Builder
+
+In package `org.apache.brooklyn.tasks.kubectl`  there is also a class named `JobBuilder`. This class takes Brooklyn properties and injects them into a Kubernetes job template. It does so by creating matching Java objects, populating them with the property values, sometimes formatting them and serializing them all into a temporary YAML file that is run with `kubectl`. Files are saved in the temporary system folder.
+
+*Note:*  Not all Kubernetes configuration properties are supported at the moment. Use the `JobBuilderTest` class to check the contents of the YAML file being created to check if a property is supported or not.
+
+*Note:* Job template properties `completions`, `parallelism` and `backoffLimit` have been enforced to 1 in an attempt to prevent Kubernetes to attempt more than one job run. In case of failure, it tried to run the same job 6 times, thus creating six pods.
+
+=== Set up Minikube for development
+
+Download Minikube from here  https://minikube.sigs.k8s.io or install it on your local using package manager.
+
+For `macOS` this is the recommended use:
+
+[source]
+----
+minikube config set driver hyperkit
+----
+
+Check the driver was correctly configured.
+
+[source]
+----
+cat ~/.minikube/machines/minikube/config.json | grep DriverName
+----
+
+Check the version of Minikube used.
+
+[source]
+----
+cat ~/.minikube/machines/minikube/config.json | grep -i ISO
+----
+
+When minikube misbehaves, just delete it and start with a new one.
+
+[source]
+----
+minikube delete
+----
+
+==== Observations about volume mounting
+
+* cannot mount directories on your computer that are not owned completely by the user running minikube (e.g: cannot mount the `/tmp` directory)
+* cannot mount on non-existing mounting points with minikube mount `<source directory>:<target directory| mounting point>` . Here is the solution:
+**  `minikube ssh; cd /; sudo mkdir <mounting-point>`
+** then exit and run `minikube mount <source directory>:<mounting-point>`
+* stop minikube and restart with `minikube  start --memory=16384 --cpus=4 --mount --mount-string="$HOME/<local-dir>:/<mounting-point>"` results in a persistent mounting point
+
+The other option is to specify the mounting point and the local directory when starting Minikube:
+[source]
+----
+# start minikube
+minikube  start --memory=16384 --cpus=4 --mount --mount-string="$HOME/<local-dir>:/<mounting-point>"
+----
+
+=== Useful Kubernetes Commands
+
+Check out the containers in the cluster:
+
+[source]
+----
+kubectl get po -A
+----
+
+Start the dashboard:
+
+[source]
+----
+minikube dashboard
+----
+
+=== Run jobs in their own namespace
+
+In case you want to test the job syntax outside AMP, you can create your own `job.yaml` file then run this:
+
+[source]
+----
+kubectl delete namespace tf-sample; kubectl create namespace tf-sample ; kubectl config set-context --current --namespace=tf-sample; kubectl apply -f job.yaml
+----
