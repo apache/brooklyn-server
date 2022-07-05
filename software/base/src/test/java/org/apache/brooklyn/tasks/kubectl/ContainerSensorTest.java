@@ -111,7 +111,7 @@ public class ContainerSensorTest extends BrooklynAppUnitTestSupport {
     @Test
     public void testTfVersionSensor() {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
-                ContainerCommons.CONTAINER_IMAGE, "hashicorp/terraform",
+                ContainerCommons.CONTAINER_IMAGE, "hashicorp/terraform:1.3.0-alpha20220622",
                 ContainerCommons.COMMANDS, ImmutableList.of("terraform", "version" ),
                 ContainerSensor.SENSOR_PERIOD, "1s",
                 ContainerSensor.SENSOR_NAME, "tf-version-sensor"));
