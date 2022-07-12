@@ -68,10 +68,8 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET>  im
 
         final String containerName = (Strings.isBlank(containerNameFromCfg)
                 ? ( (Strings.isNonBlank(this.tag) ? this.tag + "-" : "").concat(cleanImageName).concat("-").concat(Strings.makeRandomId(10)))
-                : containerNameFromCfg).replace(" ", "-")
-                .replace("/", "-")
-                .replace("_", "-")
-                .replaceAll("[^a-z0-9-]", "") // remove other symbols
+                : containerNameFromCfg)
+                .replaceAll("[^A-Za-z0-9-]", "") // remove all symbols
                 .toLowerCase();
 
         final String jobYamlLocation =  new JobBuilder()

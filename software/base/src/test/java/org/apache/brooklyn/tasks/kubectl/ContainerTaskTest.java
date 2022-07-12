@@ -103,6 +103,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
         configBag.put("name", "test-container-task");
         configBag.put("image", "perl");
         configBag.put("commands", commands);
+        configBag.put("timeout", "1m");
 
         Task<String> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
                 .summary("Running docker task")
