@@ -1048,19 +1048,25 @@ public class Time {
     }
     public static Maybe<Calendar> parseCalendarFormat(String dateString, DateFormat format) {
         if (dateString == null) { 
-            throw new NumberFormatException("GeneralHelper.parseDateString cannot parse a null string");
+            return Maybe.absent(() -> new NumberFormatException("GeneralHelper.parseDateString cannot parse a null string"));
         }
-        Preconditions.checkNotNull(format, "date format");
-        dateString = dateString.trim();
-        
-        ParsePosition p = new ParsePosition(0);
-        Date result = format.parse(dateString, p);
-        if (result!=null) {
-            // accept results even if the entire thing wasn't parsed, as enough was to match the requested format
-            return Maybe.of(newCalendarFromDate(result));
+        try {
+            Preconditions.checkNotNull(format, "date format");
+            dateString = dateString.trim();
+
+            ParsePosition p = new ParsePosition(0);
+            Date result = format.parse(dateString, p);
+            if (result != null) {
+                // accept results even if the entire thing wasn't parsed, as enough was to match the requested format
+                return Maybe.of(newCalendarFromDate(result));
+            }
+            if (log.isTraceEnabled())
+                log.trace("Could not parse date " + dateString + " using format " + format + ": " + p);
+            return Maybe.absent();
+        } catch (Exception e) {
+            if (log.isTraceEnabled()) e = new IllegalArgumentException("Could not parse date " + dateString + " using format " + format, e);
+            return Maybe.absent(e);
         }
-        if (log.isTraceEnabled()) log.trace("Could not parse date "+dateString+" using format "+format+": "+p);
-        return Maybe.absent();
     }
 
     /** removes milliseconds from the date object; needed if serializing to ISO-8601 format 
