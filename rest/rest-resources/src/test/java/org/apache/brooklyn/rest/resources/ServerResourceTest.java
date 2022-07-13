@@ -23,6 +23,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +31,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -37,10 +40,18 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.core.BrooklynVersion;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
@@ -49,8 +60,15 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Suppliers;
+import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringPredicates;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +83,10 @@ import com.google.common.collect.Iterables;
 public class ServerResourceTest extends BrooklynRestResourceTest {
 
     private static final Logger log = LoggerFactory.getLogger(ServerResourceTest.class);
-    
+
+    @Override
+    protected boolean useOsgi() { return true; }
+
     @Test
     public void testGetVersion() throws Exception {
         VersionSummary version = client().path("/server/version").get(VersionSummary.class);
@@ -93,6 +114,79 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
         List<String> entryNames = listEntryNames(zip);
         assertTrue(Iterables.tryFind(entryNames, StringPredicates.containsLiteral(app.getId())).isPresent(), "entries="+entryNames);
         assertTrue(Iterables.tryFind(entryNames, StringPredicates.containsLiteral(loc.getId())).isPresent(), "entries="+entryNames);
+
+        Entities.unmanage(app);
+    }
+
+    @Test
+    public void testExportPersistedStateWithBundlesThenReimport() throws Exception {
+        // export seems to preserve install order probably to minimise conflicts, so use deferred start to get the problematic order
+        OsgiBundleInstallationResult r2 = ((ManagementContextInternal) manager).getOsgiManager().get().installDeferredStart(null,
+                () -> new ByteArrayInputStream(Strings.lines(
+                        "brooklyn.catalog:",
+                        "  bundle: b2",
+                        "  version: 1",
+                        "  id: b2",
+                        "  itemType: entity",
+                        "  item:",
+                        "    type: b1"
+                ).getBytes()),
+                false).get();
+
+        ((ManagementContextInternal) manager).getOsgiManager().get().install(
+                () -> new ByteArrayInputStream(Strings.lines(
+                        "brooklyn.catalog:",
+                        "  bundle: b1",
+                        "  version: 1",
+                        "  id: b1",
+                        "  itemType: entity",
+                        "  item:",
+                        "    type: org.apache.brooklyn.core.test.entity.TestEntity"
+                ).getBytes()),
+                BrooklynBomYamlCatalogBundleResolver.FORMAT, false, null).get();
+
+        r2.getDeferredStart().run();
+
+        String yaml = "services: [ { type: b2 } ]";
+        Response response = client().path("/applications")
+                .post(Entity.entity(yaml, "application/x-yaml"));
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
+
+        org.apache.brooklyn.api.entity.Entity b2 = Iterables.getOnlyElement(Iterables.getOnlyElement(manager.getApplications()).getChildren());
+        Asserts.assertInstanceOf(b2, TestEntity.class);
+
+        byte[] zip = client().path("/server/ha/persist/export").get(byte[].class);
+
+        // restart the server, so it has nothing, then try importing
+        destroyClass();
+
+        File mementoDir = Os.newTempDir(getClass());
+        manager = RebindTestUtils.managementContextBuilder(mementoDir, getClass().getClassLoader())
+                .persistPeriodMillis(Duration.ONE_MINUTE.toMilliseconds())
+                .haMode(HighAvailabilityMode.MASTER)
+                .forLive(true)
+                .enablePersistenceBackups(false)
+                .emptyCatalog(true)
+//                .properties(false)
+                .setOsgiEnablementAndReuse(useOsgi(), true)
+                .buildStarted();
+        new BrooklynCampPlatformLauncherNoServer()
+                .useManagementContext(manager)
+                .launch();
+
+        initClass();
+
+        Asserts.assertNull(manager.getTypeRegistry().get("b2"));
+        Asserts.assertSize(manager.getApplications(), 0);
+
+        Response importResponse = client().path("/server/ha/persist/import").post(Entity.entity(zip, MediaType.APPLICATION_OCTET_STREAM_TYPE));
+        HttpAsserts.assertHealthyStatusCode(importResponse.getStatus());
+
+        Asserts.assertNotNull(manager.getTypeRegistry().get("b1"));
+        Asserts.assertNotNull(manager.getTypeRegistry().get("b2"));
+        org.apache.brooklyn.api.entity.Entity b2b = Iterables.getOnlyElement(Iterables.getOnlyElement(manager.getApplications()).getChildren());
+        Asserts.assertInstanceOf(b2b, TestEntity.class);
+        Asserts.assertEquals(b2b.getId(), b2.getId());
     }
 
     private List<String> listEntryNames(byte[] zip) throws Exception {

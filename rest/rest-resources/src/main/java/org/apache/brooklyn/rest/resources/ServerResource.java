@@ -661,6 +661,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
             ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
+            log.warn("Error importing persisted state: "+e, e);
             error.message(e.getMessage());
             return error.build().asJsonResponse();
         } finally {
