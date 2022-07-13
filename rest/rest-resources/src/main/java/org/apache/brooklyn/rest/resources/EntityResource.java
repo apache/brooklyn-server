@@ -185,6 +185,8 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
                 return !o1.isBegun() ? -1 : 1;
             }
 
+            // we no longer do this analysis, but instead we first take at least one of each task with a distinct name
+
 //            if (!o1.isDone()) {
 //                // among active items, scheduled ones
 //                if (!Objects.equal(o1 instanceof ScheduledTask, o2 instanceof ScheduledTask)) {

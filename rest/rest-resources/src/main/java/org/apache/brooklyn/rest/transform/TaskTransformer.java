@@ -20,14 +20,13 @@ package org.apache.brooklyn.rest.transform;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.rest.resources.EntityResource;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,11 +163,40 @@ public class TaskTransformer {
     
     public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, Entity entity, UriInfo ui) {
         int sizeRemaining = limit;
-        if (limit>0) {
-            tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).leastOf(tasksToScan, limit));
-        } else {
-            tasksToScan = MutableList.copyOf(Ordering.from(new InterestingTasksFirstComparator(entity)).sortedCopy(tasksToScan));
+        InterestingTasksFirstComparator comparator = new InterestingTasksFirstComparator(entity);
+        if (limit>0 && tasksToScan.size() > limit) {
+            Map<String,Task<?>> mostRecentByName = MutableMap.of();
+            List<Task<?>> otherTasks = MutableList.of();
+
+            tasksToScan.forEach(t -> {
+                String name = t.getDisplayName();
+                if (name==null) name = "";
+                Task<?> mostRecentOfSameName = mostRecentByName.put(name, t);
+                if (mostRecentOfSameName!=null) {
+                    if (comparator.compare(mostRecentOfSameName, t) < 0) {
+                        // prefer the mostRecentOfSameName; put it back
+                        mostRecentByName.put(name, mostRecentOfSameName);
+                        otherTasks.add(t);
+                    } else {
+                        otherTasks.add(mostRecentOfSameName);
+                    }
+                }
+            });
+
+            if (mostRecentByName.size()<=limit) {
+                // take at least one of each name
+                tasksToScan = MutableList.copyOf(mostRecentByName.values());
+                // fill the remaining with the most interesting
+                tasksToScan.addAll(Ordering.from(comparator).leastOf(otherTasks, limit - mostRecentByName.size()));
+
+            } else {
+                // even taking distinct there are a lot, so apply limit to the distinct ones
+                tasksToScan = MutableList.copyOf(Ordering.from(comparator).leastOf(mostRecentByName.values(), limit));
+            }
         }
+
+        tasksToScan = MutableList.copyOf(Ordering.from(comparator).sortedCopy(tasksToScan));
+
         Map<String,Task<?>> tasksLoaded = MutableMap.of();
         
         while (!tasksToScan.isEmpty()) {

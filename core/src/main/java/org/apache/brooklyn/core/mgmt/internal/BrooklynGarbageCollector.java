@@ -266,7 +266,7 @@ public class BrooklynGarbageCollector {
             executionManager.getNumActiveTasks()+" active, "+
             executionManager.getNumIncompleteTasks()+" unfinished; "+
             executionManager.getNumInMemoryTasks()+" remembered, "+
-            executionManager.getTotalTasksSubmitted()+" total submitted)";
+            executionManager.getTotalTasksSubmitted()+" total submitted";
     }
     
     public void shutdownNow() {
