@@ -254,39 +254,12 @@ public class CatalogInitialization implements ManagementContextInjectable {
                 throw new IllegalStateException("Catalog initialization already run for initial catalog by mechanism other than populating persisted state; mode="+mode);      
             }
 
-            // Always install the bundles from persisted state; installed (but not started) prior to catalog,
-            // so that OSGi unique IDs might be picked up when initial catalog is populated
-            Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(persistedState.getBundles(), exceptionHandler, rebindLogger);
-
-            // now we install and start the bundles from the catalog;
-            // 2021-12-03 now this only will look for classes in active bundles, so it won't resolve persisted bundles
-            // and we can safely filter them out later
-            populateInitialCatalogImpl(true);
-
-            final Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
-            if (maybesOsgiManager.isAbsent()) {
-                // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
-                CatalogUpgrades.storeInManagementContext(CatalogUpgrades.EMPTY, managementContext);
-            } else {
-                final OsgiManager osgiManager = maybesOsgiManager.get();
-                final BundleContext bundleContext = osgiManager.getFramework().getBundleContext();
-                final CatalogUpgrades catalogUpgrades =
-                        catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
-                CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
-            }
-
-            PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
-
-            // 2021-09-14 previously we effectively installed here, after populating; but now we do it earlier and then uninstall if needed, to preserve IDs
-//            Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(filteredPersistedState.getBundles(), exceptionHandler, rebindLogger);
-
-            try {
-                startPersistedBundles(filteredPersistedState, persistenceInstalls, exceptionHandler, rebindLogger);
-                BrooklynCatalog catalog = managementContext.getCatalog();
-                catalog.addCatalogLegacyItemsOnRebind(filteredPersistedState.getLegacyCatalogItems());
-            } finally {
-                hasRunPersistenceInitialization = true;
-            }
+            installPersistedBundles(persistedState, () -> {
+                // now we install and start the bundles from the catalog;
+                // 2021-12-03 now this only will look for classes in active bundles, so it won't resolve persisted bundles
+                // and we can safely filter them out later
+                populateInitialCatalogImpl(true);
+            }, exceptionHandler, rebindLogger);
 
             if (mode == ManagementNodeState.MASTER) {
                 // TODO ideally this would remain false until it has *persisted* the changed catalog;
@@ -300,6 +273,41 @@ public class CatalogInitialization implements ManagementContextInjectable {
                 // once up and running the typical way to add items is via the REST API
                 onFinalCatalog();
             }
+        }
+    }
+
+    /** shared routine between above "normal" initialization, and special addition via ServerResource.import */
+    @Beta
+    public void installPersistedBundles(PersistedCatalogState persistedState, Runnable beforeDeferredStartAndSetRunPersistence, RebindExceptionHandler exceptionHandler, RebindLogger rebindLogger) {
+        // Always install the bundles from persisted state; installed (but not started) prior to catalog,
+        // so that OSGi unique IDs might be picked up when initial catalog is populated
+        Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(persistedState.getBundles(), exceptionHandler, rebindLogger);
+
+        if (beforeDeferredStartAndSetRunPersistence!=null) beforeDeferredStartAndSetRunPersistence.run();
+
+        final Maybe<OsgiManager> maybesOsgiManager = managementContext.getOsgiManager();
+        if (maybesOsgiManager.isAbsent()) {
+            // Can't find any bundles to tell if there are upgrades. Could be running tests; do no filtering.
+            CatalogUpgrades.storeInManagementContext(CatalogUpgrades.EMPTY, managementContext);
+        } else {
+            final OsgiManager osgiManager = maybesOsgiManager.get();
+            final BundleContext bundleContext = osgiManager.getFramework().getBundleContext();
+            final CatalogUpgrades catalogUpgrades =
+                    catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
+            CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
+        }
+
+        PersistedCatalogState filteredPersistedState = filterBundlesAndCatalogInPersistedState(persistedState, rebindLogger);
+
+        // 2021-09-14 previously we effectively installed here, after populating; but now we do it earlier and then uninstall if needed, to preserve IDs
+//            Map<InstallableManagedBundle, OsgiBundleInstallationResult> persistenceInstalls = installPersistedBundlesDontStart(filteredPersistedState.getBundles(), exceptionHandler, rebindLogger);
+
+        try {
+            startPersistedBundles(filteredPersistedState, persistenceInstalls, exceptionHandler, rebindLogger);
+            BrooklynCatalog catalog = managementContext.getCatalog();
+            catalog.addCatalogLegacyItemsOnRebind(filteredPersistedState.getLegacyCatalogItems());
+        } finally {
+            if (beforeDeferredStartAndSetRunPersistence!=null) hasRunPersistenceInitialization = true;
         }
     }
 
