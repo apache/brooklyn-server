@@ -415,6 +415,30 @@ public class EntityPredicates {
         };
     }
 
+    /**
+     * Returns a predicate that determines if a given entity is a descendant of (or equal to) this {@code ancestor}.
+     */
+    public static Predicate<Entity> isDescendantOf(final Entity ancestor) {
+        return new IsDescendantOf(ancestor);
+    }
+
+    protected static class IsDescendantOf implements SerializablePredicate<Entity> {
+        protected final Entity ancestor;
+        protected IsDescendantOf(Entity ancestor) {
+            this.ancestor = ancestor;
+        }
+        @Override
+        public boolean apply(@Nullable Entity input) {
+            if (input==null) return false;
+            if (Objects.equal(input, ancestor)) return true;
+            return apply(input.getParent());
+        }
+        @Override
+        public String toString() {
+            return "isDescendantOf("+ancestor+")";
+        }
+    }
+
     // ---------------------------
     
     public static Predicate<Entity> isMemberOf(final Group group) {

@@ -57,7 +57,6 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
 
     @Override
     public void setEntityFilter(Predicate<? super Entity> filter) {
-        // TODO Sould this be "evenIfOwned"?
         setConfigEvenIfOwned(ENTITY_FILTER, filter);
         rescanEntities();
     }
@@ -77,9 +76,20 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
         if (entityFilter == null) {
             entityFilter = Predicates.alwaysFalse();
         }
+        Entity ancestor = getAncestorToScan();
+        Predicate<Entity> ancestorFilter;
+        if (ancestor==null) ancestorFilter = EntityPredicates.applicationIdEqualTo(getApplicationId());
+        else if (ancestor.getParent()==null) ancestorFilter = EntityPredicates.applicationIdEqualTo(ancestor.getId());
+        else ancestorFilter = EntityPredicates.isDescendantOf(ancestor);
         return Predicates.and(
-                EntityPredicates.applicationIdEqualTo(getApplicationId()),
+                ancestorFilter,
                 entityFilter);
+    }
+
+    protected Entity getAncestorToScan() {
+        Entity ancestor = getConfig(ANCESTOR);
+        if (ancestor==null) return getApplication();
+        return ancestor;
     }
 
     private boolean isRunning() {
@@ -200,7 +210,7 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
                 if (log.isDebugEnabled()) log.debug("{} not scanning for children: stopped", this);
                 return;
             }
-            if (getApplication() == null) {
+            if (getAncestorToScan() == null) {
                 BrooklynLogging.log(log, BrooklynLogging.levelDependingIfReadOnly(this, LoggingLevel.WARN, LoggingLevel.TRACE, LoggingLevel.TRACE),
                     "{} not (yet) scanning for children: no application defined", this);
                 return;
@@ -209,7 +219,7 @@ public class DynamicGroupImpl extends AbstractGroupImpl implements DynamicGroup 
             Collection<Entity> currentMembers = getMembers();
             Collection<Entity> toRemove = Sets.newLinkedHashSet(currentMembers);
 
-            final Iterable<Entity> unfiltered = Entities.descendantsAndSelf(getApplication());
+            final Iterable<Entity> unfiltered = Entities.descendantsAndSelf(getAncestorToScan());
             log.debug("{} filtering {} with {}", new Object[]{this, unfiltered, entityFilter()});
             for (Entity it : Iterables.filter(unfiltered, entityFilter())) {
                 toRemove.remove(it);
