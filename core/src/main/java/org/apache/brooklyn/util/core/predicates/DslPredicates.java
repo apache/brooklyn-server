@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.predicates;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
@@ -168,6 +169,7 @@ public class DslPredicates {
         return isStringOrPrimitive(value) ? test.test(value.toString()) : false;
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class DslPredicateBase<T> {
         public Object implicitEquals;
         public Object equals;
@@ -189,25 +191,39 @@ public class DslPredicates {
         public @JsonProperty("java-instance-of") Object javaInstanceOf;
 
         public static class CheckCounts {
-            int checksTried = 0;
+            int checksDefined = 0;
+            int checksApplicable = 0;
             int checksPassed = 0;
             public <T> void check(T test, java.util.function.Predicate<T> check) {
                 if (test!=null) {
-                    checksTried++;
+                    checksDefined++;
+                    checksApplicable++;
                     if (check.test(test)) checksPassed++;
                 }
             }
             public <T> void check(T test, Maybe<Object> value, java.util.function.BiPredicate<T,Object> check) {
-                if (value.isPresent()) check(test, t -> check.test(t, value.get()));
+                if (value.isPresent()) {
+                    check(test, t -> check.test(t, value.get()));
+                } else {
+                    if (test!=null) {
+                        checksDefined++;
+                    }
+                }
             }
 
+            @Deprecated /** @deprecated since 1.1 when introduced; pass boolean */
             public boolean allPassed() {
-                return checksPassed == checksTried;
+                return checksPassed == checksDefined;
+            }
+
+            public boolean allPassed(boolean requireAtLeastOne) {
+                if (checksDefined ==0 && requireAtLeastOne) return false;
+                return checksPassed == checksDefined;
             }
 
             public void add(CheckCounts other) {
                 checksPassed += other.checksPassed;
-                checksTried += other.checksTried;
+                checksDefined += other.checksDefined;
             }
         }
 
@@ -223,7 +239,8 @@ public class DslPredicates {
         public boolean applyToResolved(Maybe<Object> result) {
             CheckCounts counts = new CheckCounts();
             applyToResolved(result, counts);
-            return counts.allPassed();
+            if (counts.checksDefined==0) throw new IllegalStateException("Predicate does not define any checks; if always true or always false is desired, use 'when'");
+            return counts.allPassed(true);
         }
 
         public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
@@ -346,7 +363,7 @@ public class DslPredicates {
                 for (Object v : ((Iterable) result.get())) {
                     CheckCounts checker2 = new CheckCounts();
                     applyToResolvedFlattened(v instanceof Maybe ? (Maybe) v : Maybe.of(v), checker2);
-                    if (checker2.allPassed()) {
+                    if (checker2.allPassed(true)) {
                         checker.add(checker2);
                         return;
                     }
@@ -392,8 +409,8 @@ public class DslPredicates {
             super.applyToResolved(result, checker);
             checker.check(tag, result, this::checkTag);
 
-            if (checker.checksTried==0) {
-                if (target!=null || config!=null) {
+            if (checker.checksDefined==0) {
+                if (target!=null || config!=null || sensor!=null) {
                     // if no test specified, but test or config is, then treat as implicit presence check
                     checkWhen(WhenPresencePredicate.PRESENT_NON_NULL, result, checker);
                 }

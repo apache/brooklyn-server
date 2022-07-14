@@ -26,12 +26,14 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.annotations.Test;
 
@@ -50,11 +52,28 @@ public class DslPredicateEntityTest extends BrooklynAppUnitTestSupport {
                 "config", TestEntity.CONF_OBJECT.getName(),
                 "equals", "x"), DslPredicates.DslPredicate.class);
 
-        app.config().set(TestEntity.CONF_OBJECT, "x");
-        Asserts.assertTrue(p.test(app));
+        app.getExecutionContext().submit(Tasks.create("test", () -> {
+            app.config().set(TestEntity.CONF_OBJECT, "x");
+            Asserts.assertTrue(p.test(app));
 
-        app.config().set(TestEntity.CONF_OBJECT, "y");
-        Asserts.assertFalse(p.test(app));
+            app.config().set(TestEntity.CONF_OBJECT, "y");
+            Asserts.assertFalse(p.test(app));
+        })).getUnchecked();
+    }
+
+    @Test
+    public void testSensorEquals() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "sensor", "sensor1",
+                "equals", "x"), DslPredicates.DslPredicate.class);
+
+        app.getExecutionContext().submit(Tasks.create("test", () -> {
+            app.sensors().set(Sensors.newStringSensor("sensor1"), "x");
+            Asserts.assertTrue(p.test(app));
+
+            app.sensors().set(Sensors.newStringSensor("sensor1"), "y");
+            Asserts.assertFalse(p.test(app));
+        })).getUnchecked();
     }
 
     @Test
