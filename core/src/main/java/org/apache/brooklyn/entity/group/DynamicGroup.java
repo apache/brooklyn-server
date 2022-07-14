@@ -46,6 +46,10 @@ public interface DynamicGroup extends AbstractGroup {
             "dynamicgroup.entityfilter", 
             "Filter for entities which will automatically be in the group");
 
+    ConfigKey<Entity> ANCESTOR = ConfigKeys.newConfigKey(Entity.class,
+            "dynamicgroup.ancestor",
+            "Ancestor (or application) under which to search, or null to use containing application");
+
     AttributeSensor<Boolean> RUNNING = Sensors.newBooleanSensor(
             "dynamicgroup.running", "Whether the entity is running, and will automatically update group membership");
 

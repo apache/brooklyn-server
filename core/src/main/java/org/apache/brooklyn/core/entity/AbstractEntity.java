@@ -1198,6 +1198,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
     // TODO can this be replaced with config().set ?
     // seems only used for configure(Map) -- where validation might want to be skipped;
     // and also in a couple places where i don't think it matters
+    // (difference is that this one skips the onChanging and onChanged calls)
     @SuppressWarnings("unchecked")
     public <T> T setConfigEvenIfOwned(ConfigKey<T> key, T val) {
         return (T) configsInternal.setConfig(key, val);
