@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import java.util.List;
-
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.gson.Gson;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -29,10 +31,7 @@ import org.apache.brooklyn.util.text.StringPredicates;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.gson.Gson;
+import java.util.List;
 
 public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
 
@@ -145,7 +144,16 @@ public class ConstraintSerializationTest extends BrooklynMgmtUnitTestSupport {
         Predicate<String> p = StringPredicates.matchesGlob("???*");
         assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson("matchesGlob(\"???*\")"), p);
     }
-    
+
+    @Test
+    public void testAcceptsArray() {
+        Predicate<String> p1 = StringPredicates.matchesGlob("???*");
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson("matchesGlob([???*])"), p1);
+
+        Predicate<String> p2 = StringPredicates.matchesGlob("???*, b, 1");
+        assertSamePredicate(ConstraintSerialization.INSTANCE.toPredicateFromJson("matchesGlob([???*, b, 1])"), p2);
+    }
+
     @Test
     public void testAltPred() {
         Predicate<?> p = StringPredicates.isNonBlank();

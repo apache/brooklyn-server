@@ -18,18 +18,12 @@
  */
 package org.apache.brooklyn.core.objs;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.function.Supplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
+import com.google.common.annotations.Beta;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigConstraints;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -42,12 +36,12 @@ import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.StringPredicates;
 import org.apache.brooklyn.util.text.Strings;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
+import java.util.*;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Beta
 public class ConstraintSerialization {
@@ -163,10 +157,12 @@ public class ConstraintSerialization {
     
     private static String DOUBLE_QUOTED_STRING = "\""+GROUP(ZERO_OR_MORE(OR_GROUP(NOT_CHARSET("\\", "\""), "\\.")))+"\"";
     private static String SINGLE_QUOTED_STRING = "\'"+GROUP(ZERO_OR_MORE(OR_GROUP(NOT_CHARSET("\\", "\'"), "\\.")))+"\'";
-    
+    private static String SQUARE_BRACKETS = "\\["+GROUP(ZERO_OR_MORE(OR_GROUP(NOT_CHARSET("\\", "["), "\\.")))+"\\]";
+
     private static String PREDICATE = "[A-Za-z0-9_\\-\\.]+";
     
     private static Pattern PATTERN_START_WITH_QUOTED_STRING = Pattern.compile("^"+OR_GROUP(DOUBLE_QUOTED_STRING, SINGLE_QUOTED_STRING));
+    private static Pattern PATTERN_START_WITH_ARRAY = Pattern.compile("^"+OR_GROUP(SQUARE_BRACKETS));
     private static Pattern PATTERN_START_WITH_PREDICATE = Pattern.compile("^"+GROUP(PREDICATE));
 
     {
@@ -266,11 +262,19 @@ public class ConstraintSerialization {
                 }
                 // and allow strings
                 m = PATTERN_START_WITH_QUOTED_STRING.matcher(remaining);
-                if (!m.find()) {
-                    return false;
+                if (m.find()) {
+                    result = JavaStringEscapes.unwrapJavaString(m.group());
+                    remaining = remaining.substring(m.end());
+                } else {
+                    // and allow arrays
+                    m = PATTERN_START_WITH_ARRAY.matcher(remaining);
+                    if (m.find()) {
+                        result = m.group().substring(1, m.group().length() - 1);
+                        remaining = remaining.substring(m.end());
+                    } else {
+                        return false;
+                    }
                 }
-                result = JavaStringEscapes.unwrapJavaString(m.group());
-                remaining = remaining.substring(m.end());
             } else {
                 String p1 = m.group(1);
                 String p2 = serialization.predicateToStringToPreferredName.get(p1);
@@ -333,7 +337,10 @@ public class ConstraintSerialization {
             if (key.indexOf("(")>=0) {
                 // it wasn't json; delegate to the parser again
                 StringConstraintParser parser = StringConstraintParser.forConstraint(this, key);
-                if (!parser.parse()) throw new IllegalStateException("cannot match: "+key);
+                if (!parser.parse()) {
+                    Object a = parser.result;
+                    throw new IllegalStateException("cannot match: "+key);
+                }
                 return toPredicateFromJson(parser.result);
             }
             args = MutableList.of();
