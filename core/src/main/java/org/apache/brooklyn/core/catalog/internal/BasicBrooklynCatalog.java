@@ -1607,8 +1607,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     itemSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
 
                     if (!candidateYaml.contains("services:")) {
-                        // 'services:' blueprints still need legacy plan-to-spec converter
-                        log.warn("Instantiation of this blueprint was only possible with legacy plan-to-spec converter, will likely not be supported in future versions:\n" + candidateYaml);
+                        // 'services:' blueprints still need legacy plan-to-spec converter, don't even debug on that.
+                        // for others
+                        log.debug("Instantiation of this blueprint was only possible with legacy plan-to-spec converter, may not be supported in future versions:\n" + candidateYaml);
                     }
                 }
 

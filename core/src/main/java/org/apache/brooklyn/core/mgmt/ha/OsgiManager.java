@@ -440,7 +440,7 @@ public class OsgiManager {
             @Nullable ManagedBundle knownBundleMetadata, @Nullable Supplier<InputStream> zipIn, boolean validateTypes) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setDeferredStart(true);
-        options.setFormat(knownBundleMetadata.getFormat());
+        if (knownBundleMetadata!=null) options.setFormat(knownBundleMetadata.getFormat());
         options.setValidateTypes(validateTypes);
         options.setKnownBundleMetadata(knownBundleMetadata);
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), zipIn, options);
@@ -464,11 +464,20 @@ public class OsgiManager {
     public ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBomBundle(
             @Nullable ManagedBundle knownBundleMetadata, Supplier<InputStream> input,
             boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots) {
+        return installBrooklynBomBundle(knownBundleMetadata, input, start, loadCatalogBom, forceUpdateOfNonSnapshots, true, false);
+    }
+
+    @Beta
+    public ReferenceWithError<OsgiBundleInstallationResult> installBrooklynBomBundle(
+            @Nullable ManagedBundle knownBundleMetadata, Supplier<InputStream> input,
+            boolean start, boolean loadCatalogBom, boolean forceUpdateOfNonSnapshots, boolean validate, boolean deferredStart) {
         BundleInstallationOptions options = new BundleInstallationOptions();
         options.setKnownBundleMetadata(knownBundleMetadata);
         options.setStart(start);
         options.setLoadCatalogBom(loadCatalogBom);
         options.setForceUpdateOfNonSnapshots(forceUpdateOfNonSnapshots);
+        options.setValidateTypes(validate);
+        options.setDeferredStart(deferredStart);
         return BrooklynCatalogBundleResolvers.install(getManagementContext(), input, options);
     }
     

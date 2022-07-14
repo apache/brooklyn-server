@@ -28,7 +28,11 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Callables;
 
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -67,6 +71,8 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
 
     private final AtomicInteger lineCount = new AtomicInteger();
 
+    protected List<ManagementContext> extraMgmts = MutableList.of();
+
     @Override
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
@@ -77,6 +83,14 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
     @BeforeMethod
     public void reSet() {
         lineCount.set(0);
+    }
+
+    @AfterMethod(alwaysRun = true, timeOut = Asserts.THIRTY_SECONDS_TIMEOUT_MS)
+    @Override
+    public void tearDown() throws Exception {
+        extraMgmts.forEach(this::destroyManagementContextSafely);
+        extraMgmts.clear();
+        super.tearDown();
     }
 
     @Test
@@ -452,7 +466,6 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         assertEquals(1, brooklynLogEntries.size());
         assertTrue(brooklynLogEntries.stream().allMatch(e -> e.getLevel().equals("INFO")));
         assertFalse(brooklynLogEntries.stream().anyMatch(Predicates.not(e -> e.getTaskId().equals(logBookQueryParams.getTaskId()))));
-
     }
 
     /* one INFO log entry, as for #testQueryLogSampleWithoutRecursion */
@@ -494,6 +507,8 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
     }
 
     private ManagementContextInternal newMock(ManagementContextInternal mgmt) {
+        extraMgmts.add(mgmt);
+
         File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(JAVA_LOG_SAMPLE_PATH)).getFile());
         mgmt.getBrooklynProperties().put(LOGBOOK_LOG_STORE_PATH.getName(), file.getAbsolutePath());
 

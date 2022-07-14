@@ -47,8 +47,10 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoManifest;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.ManagedBundleMemento;
+import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
+import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Attributes;
@@ -64,6 +66,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.*;
 import org.apache.brooklyn.core.mgmt.rebind.PersistenceExceptionHandlerImpl;
+import org.apache.brooklyn.core.mgmt.rebind.RebindIteration;
 import org.apache.brooklyn.core.mgmt.rebind.RebindManagerImpl;
 import org.apache.brooklyn.core.server.BrooklynServerPaths;
 import org.apache.brooklyn.rest.api.ServerApi;
@@ -83,6 +86,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -95,6 +99,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
+
+import static org.apache.brooklyn.api.mgmt.ha.ManagementNodeState.INITIALIZING;
 
 public class ServerResource extends AbstractBrooklynRestResource implements ServerApi {
 
@@ -436,7 +442,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
             throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         
         Maybe<ManagementContext> mm = mgmtMaybe();
-        if (mm.isAbsent()) return ManagementNodeState.INITIALIZING;
+        if (mm.isAbsent()) return INITIALIZING;
         return mm.get().getHighAvailabilityManager().getNodeState();
     }
 
@@ -609,30 +615,23 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                     ((RebindManagerImpl)rebindManager).newExceptionHandler());
 
             // install bundles to active management context
-            for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()){
-                ManagedBundleMemento memento = mementoManifest.getBundle(bundleJar.getKey());
-                log.debug("Installing "+memento+" as part of persisted state import");
-                ReferenceWithError<OsgiBundleInstallationResult> bundleInstallResult = ((ManagementContextInternal)mgmt()).getOsgiManager().get()
-                        .install(InputStreamSource.of("Persistence import - bundle install - "+memento, bundleJar.getValue().read()), "", false, memento.getDeleteable());
-
-                if (bundleInstallResult.hasError()) {
-                    log.debug("Unable to create "+memento+", format '', throwing: "+bundleInstallResult.getError().getMessage(), bundleInstallResult.getError());
-                    String errorMsg = "";
-                    if (bundleInstallResult.getWithoutError()!=null) {
-                        errorMsg = bundleInstallResult.getWithoutError().getMessage();
-                    } else {
-                        errorMsg = Strings.isNonBlank(bundleInstallResult.getError().getMessage()) ? bundleInstallResult.getError().getMessage() : bundleInstallResult.getError().toString();
-                    }
-                    throw new Exception(errorMsg);
-                }
-                if (!OsgiBundleInstallationResult.ResultCode.IGNORING_BUNDLE_AREADY_INSTALLED.equals(bundleInstallResult.get().getCode()) && !OsgiBundleInstallationResult.ResultCode.UPDATED_EXISTING_BUNDLE.equals(bundleInstallResult.get().getCode())) {
-                    BundleInstallationRestResult result = TypeTransformer.bundleInstallationResult(bundleInstallResult.get(), mgmt(), brooklyn(), ui);
-                    log.debug("Installed "+memento+" as part of persisted state import: "+result);
-                } else {
-                    log.debug("Installation of " + memento + " reported: " + bundleInstallResult.get());
-                }
+            Map<VersionedName, CatalogInitialization.InstallableManagedBundle> bundles = new LinkedHashMap<>();
+            for (Map.Entry<String, ByteSource> bundleJar : newMementoRawData.getBundleJars().entrySet()) {
+                ManagedBundleMemento bundleMemento = mementoManifest.getBundle(bundleJar.getKey());
+                ManagedBundle b = RebindIteration.newManagedBundle(bundleMemento);
+                bundles.put(b.getVersionedName(), new RebindIteration.InstallableManagedBundleImpl(bundleMemento, b));
+                log.debug("Installing "+bundleMemento+" for "+b+" as part of persisted state import");
             }
-
+            CatalogInitialization.PersistedCatalogState persistedCatalogState = new CatalogInitialization.PersistedCatalogState(bundles, Collections.emptySet());
+            CatalogInitialization.RebindLogger rebindLogger = new CatalogInitialization.RebindLogger() {
+                @Override public void debug(String message, Object... args) {
+                    log.debug(message, args);
+                }
+                @Override public void info(String message, Object... args) {
+                    log.warn(message, args);
+                }
+            };
+            mgmtInternal().getCatalogInitialization().installPersistedBundles(persistedCatalogState, null, ((RebindManagerImpl)mgmt().getRebindManager()).newExceptionHandler(), rebindLogger);
 
             // store persisted items and rebind to load applications
             BrooklynMementoRawData.Builder result = BrooklynMementoRawData.builder();
@@ -661,6 +660,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         } catch (Exception e){
             Exceptions.propagateIfFatal(e);
             ApiError.Builder error = ApiError.builder().errorCode(Response.Status.BAD_REQUEST);
+            log.warn("Error importing persisted state: "+e, e);
             error.message(e.getMessage());
             return error.build().asJsonResponse();
         } finally {

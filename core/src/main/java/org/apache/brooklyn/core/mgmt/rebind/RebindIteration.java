@@ -32,6 +32,7 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import com.google.common.annotations.Beta;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.entity.Application;
@@ -333,6 +334,33 @@ public abstract class RebindIteration {
         isEmpty = mementoManifest.isEmpty();
     }
 
+    @Beta
+    public static class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
+        private final ManagedBundleMemento memento;
+        private final ManagedBundle managedBundle;
+
+        public InstallableManagedBundleImpl(ManagedBundleMemento memento, ManagedBundle managedBundle) {
+            this.memento = memento;
+            this.managedBundle = managedBundle;
+        }
+
+        @Override
+        public ManagedBundle getManagedBundle() {
+            return managedBundle;
+        }
+
+        @Override
+        public Supplier<InputStream> getInputStreamSource() throws IOException {
+            return InputStreamSource.ofRenewableSupplier("JAR for " + memento, () -> {
+                try {
+                    return memento.getJarContent().openStream();
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+            });
+        }
+    }
+
     protected void installBundlesAndRebuildCatalog() {
         // Build catalog early so we can load other things.
         // Reads the persisted catalog contents, and passes it all to CatalogInitialization, which decides what to do with it.
@@ -349,32 +377,6 @@ public abstract class RebindIteration {
                 logRebindingInfo(message, args);
             }
         };
-
-        class InstallableManagedBundleImpl implements CatalogInitialization.InstallableManagedBundle {
-            private final ManagedBundleMemento memento;
-            private final ManagedBundle managedBundle;
-
-            InstallableManagedBundleImpl(ManagedBundleMemento memento, ManagedBundle managedBundle) {
-                this.memento = memento;
-                this.managedBundle = managedBundle;
-            }
-
-            @Override
-            public ManagedBundle getManagedBundle() {
-                return managedBundle;
-            }
-
-            @Override
-            public Supplier<InputStream> getInputStreamSource() throws IOException {
-                return InputStreamSource.ofRenewableSupplier("JAR for " + memento, () -> {
-                    try {
-                        return memento.getJarContent().openStream();
-                    } catch (IOException e) {
-                        throw Exceptions.propagate(e);
-                    }
-                });
-            }
-        }
 
         Map<VersionedName, InstallableManagedBundle> bundles = new LinkedHashMap<>();
         Collection<CatalogItem<?, ?>> legacyCatalogItems = new ArrayList<>();
@@ -1411,13 +1413,6 @@ public abstract class RebindIteration {
             return invokeConstructor(reflections, clazz, new Object[]{});
         }
 
-        protected ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
-            ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(),
-                    memento.getFormat(), null, memento.getChecksum(), memento.getDeleteable());
-            FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
-            return result;
-        }
-
         protected <T> T invokeConstructor(Reflections reflections, Class<T> clazz, Object[]... possibleArgs) {
             for (Object[] args : possibleArgs) {
                 try {
@@ -1441,6 +1436,10 @@ public abstract class RebindIteration {
             }
             throw new IllegalStateException("Cannot instantiate instance of type " + clazz +
                     "; expected constructor signature not found (" + args + ")");
+        }
+
+        protected ManagedBundle newManagedBundle(ManagedBundleMemento bundleMemento) {
+            return RebindIteration.newManagedBundle(bundleMemento);
         }
     }
 
@@ -1487,6 +1486,14 @@ public abstract class RebindIteration {
 
     protected boolean shouldLogRebinding() {
         return (readOnlyRebindCount.get() < 5) || (readOnlyRebindCount.get() % 1000 == 0);
+    }
+
+    @Beta
+    public static ManagedBundle newManagedBundle(ManagedBundleMemento memento) {
+        ManagedBundle result = new BasicManagedBundle(memento.getSymbolicName(), memento.getVersion(), memento.getUrl(),
+                memento.getFormat(), null, memento.getChecksum(), memento.getDeleteable());
+        FlagUtils.setFieldsFromFlags(ImmutableMap.of("id", memento.getId()), result);
+        return result;
     }
 
 }

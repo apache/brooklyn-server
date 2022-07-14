@@ -213,7 +213,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                 .build();
 
         Response response = clientDeploy(spec);
-        assertTrue(response.getStatus() / 100 == 2, "response is " + response);
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
 
         // Expect app to be running
         URI appUri = response.getLocation();
@@ -227,7 +227,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
 
         Response response = client().path("/applications")
                 .post(Entity.entity(yaml, "application/x-yaml"));
-        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
 
         // Expect app to be running
         URI appUri = response.getLocation();
@@ -250,7 +250,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
                 "    static.value: " + SENSOR_TEXT_VALUE);
         Response response = client().path("/applications")
                 .post(Entity.entity(yaml, "application/x-yaml"));
-        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
 
         // Fetch applications, find 'simple-app-yaml-with-invalid-sensor-type' application and inspect details.
         Collection apps = client().path("/applications/fetch").get(Collection.class);
@@ -275,7 +275,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
         Response response = client().path("/applications")
                 .header(HttpHeaders.CONTENT_TYPE, ContentType.MULTIPART_FORM_DATA)
                 .post(body);
-        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
 
         // Expect app to be running
         URI appUri = response.getLocation();
@@ -297,7 +297,7 @@ public class ApplicationResourceTest extends BrooklynRestResourceTest {
 
         Response response = client().path("/applications")
                 .post(Entity.entity(yaml, "application/x-yaml"));
-        assertTrue(response.getStatus()/100 == 2, "response is "+response);
+        HttpAsserts.assertHealthyStatusCode(response.getStatus());
 
         // Expect app to be running
         URI appUri = response.getLocation();

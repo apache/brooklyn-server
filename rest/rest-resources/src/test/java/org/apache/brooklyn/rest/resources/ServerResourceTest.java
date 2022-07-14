@@ -23,6 +23,7 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -30,6 +31,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import javax.ws.rs.client.Entity;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -37,10 +40,18 @@ import org.apache.brooklyn.api.entity.ImplementedBy;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.ha.HighAvailabilityMode;
 import org.apache.brooklyn.api.mgmt.ha.ManagementNodeState;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatformLauncherNoServer;
 import org.apache.brooklyn.core.BrooklynVersion;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.typereg.BrooklynBomYamlCatalogBundleResolver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessDriver;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcessImpl;
@@ -49,8 +60,15 @@ import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.rest.domain.HighAvailabilitySummary;
 import org.apache.brooklyn.rest.domain.VersionSummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Suppliers;
+import org.apache.brooklyn.util.http.HttpAsserts;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringPredicates;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.cxf.jaxrs.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +83,10 @@ import com.google.common.collect.Iterables;
 public class ServerResourceTest extends BrooklynRestResourceTest {
 
     private static final Logger log = LoggerFactory.getLogger(ServerResourceTest.class);
-    
+
+    @Override
+    protected boolean useOsgi() { return true; }
+
     @Test
     public void testGetVersion() throws Exception {
         VersionSummary version = client().path("/server/version").get(VersionSummary.class);
@@ -84,27 +105,6 @@ public class ServerResourceTest extends BrooklynRestResourceTest {
         assertEquals(nodeState.name(), "MASTER");
     }
 
-    @Test
-    public void testExportPersistedState() throws Exception {
-        BasicApplication app = manager.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        Location loc = manager.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class));
-        byte[] zip = client().path("/server/ha/persist/export").get(byte[].class);
-        
-        List<String> entryNames = listEntryNames(zip);
-        assertTrue(Iterables.tryFind(entryNames, StringPredicates.containsLiteral(app.getId())).isPresent(), "entries="+entryNames);
-        assertTrue(Iterables.tryFind(entryNames, StringPredicates.containsLiteral(loc.getId())).isPresent(), "entries="+entryNames);
-    }
-
-    private List<String> listEntryNames(byte[] zip) throws Exception {
-        List<String> result = new ArrayList<>();
-        ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(zip));
-        ZipEntry entry;
-        while ((entry = zipInputStream.getNextEntry()) != null) {
-            result.add(entry.getName());
-        }
-        return result;
-    }
-    
     @Test
     public void testGetHighAvailability() throws Exception {
         // Note by default management context from super is started without HA enabled.

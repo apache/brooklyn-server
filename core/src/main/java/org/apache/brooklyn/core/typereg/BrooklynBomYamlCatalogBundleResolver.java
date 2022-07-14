@@ -134,7 +134,8 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
                 basicManagedBundle.tags().addTags((Iterable<?>)cm.get("tags"));
             }
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
-                    basicManagedBundle, InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots()).get();
+                    basicManagedBundle, InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots(),
+                    options.isValidateTypes(), options.isDeferredStart()).get();
         } finally {
             bf.delete();
         }
