@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -233,4 +234,13 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
         Maybe<Object> rawInitializers = config().getRaw(key);
         return rawInitializers.isPresent() ? (List<Map<String, Object>>) rawInitializers.get() : ImmutableList.of();
     }
+
+    /** default to the entity where attached, eg if attached to a group no need to specify $brooklyn:self() */
+    protected Group getGroup() {
+        Group result = super.getGroup();
+        if (result!=null) return result;
+        if (entity instanceof Group) return (Group)entity;
+        return null;
+    }
+
 }
