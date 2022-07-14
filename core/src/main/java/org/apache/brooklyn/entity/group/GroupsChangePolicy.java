@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -105,22 +106,31 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
 
     public static final ConfigKey<List<Map<String, Object>>> LOCATIONS = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>() {})
             .name("member.locations")
+            .description("Locations to add to any joining member when it joins")
             .defaultValue(ImmutableList.of())
             .build();
 
     public static final ConfigKey<List<Map<String, Object>>> POLICIES = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>() {})
             .name("member.policies")
-            .description("List of policies of the form [{type: policyType, brooklyn.config: {configKey: configValue}}]")
+            .description("Policies to add to any joining member when it joins, of the form [{type: policyType, brooklyn.config: {configKey: configValue}}]")
             .defaultValue(ImmutableList.of())
             .build();
 
     public static final ConfigKey<List<Map<String, Object>>> INITIALIZERS = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>(){})
             .name("member.initializers")
+            .description("Initializers to run on any joining member when it joins")
             .defaultValue(ImmutableList.of())
             .build();
 
     public static final ConfigKey<List<Map<String, Object>>> ENRICHERS = ConfigKeys.builder(new TypeToken<List<Map<String, Object>>>(){})
             .name("member.enrichers")
+            .description("Enrichers to add to any joining member when it joins")
+            .defaultValue(ImmutableList.of())
+            .build();
+
+    public static final ConfigKey<List<String>> INVOKE = ConfigKeys.builder(new TypeToken<List<String>>(){})
+            .name("member.invoke")
+            .description("Effectors to invoke on any joining member when it joins (run in parallel asynchronously, after initializers so they can add new effectors)")
             .defaultValue(ImmutableList.of())
             .build();
 
@@ -223,6 +233,10 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     member.enrichers().add(enricherSpec);
                 }
         );
+
+        config().get(INVOKE).forEach(effName -> {
+            member.invoke( ((EntityInternal)member).getEffector(effName), MutableMap.of() );
+        });
     }
 
     @SuppressWarnings("unchecked")
