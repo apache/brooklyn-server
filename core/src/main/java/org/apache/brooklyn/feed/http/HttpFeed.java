@@ -416,6 +416,7 @@ public class HttpFeed extends AbstractFeed {
                                 pollInfo.credentials.get().getPassword());
                     }
 
+                    final long startTime = System.currentTimeMillis();
                     HttpResponse response =  pollInfo.httpExecutor.execute(new HttpRequest.Builder()
                             .headers(pollInfo.headers)
                             .uri(pollInfo.uriProvider.get())
@@ -428,7 +429,7 @@ public class HttpFeed extends AbstractFeed {
                                     .laxRedirect(true)
                                     .build())
                             .build());
-                    return createHttpToolRespose(response);
+                    return createHttpToolRespose(response, startTime);
                 }};
                 getPoller().scheduleAtFixedRate(pollJob, new DelegatingPollHandler<HttpToolResponse>(handlers), minPeriod);
         }
@@ -441,7 +442,7 @@ public class HttpFeed extends AbstractFeed {
     }
 
     @SuppressWarnings("unchecked")
-    private HttpToolResponse createHttpToolRespose(HttpResponse response) throws IOException {
+    private HttpToolResponse createHttpToolRespose(HttpResponse response, long startTime) throws IOException {
         int responseCode = response.code();
 
         Map<String,? extends List<String>> headers = (Map<String, List<String>>) (Map<?, ?>) response.headers().asMap();
@@ -449,7 +450,6 @@ public class HttpFeed extends AbstractFeed {
         byte[] content = null;
         final long durationMillisOfFirstResponse;
         final long durationMillisOfFullContent;
-        final long startTime = System.currentTimeMillis();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         durationMillisOfFirstResponse = Duration.sinceUtc(startTime).toMilliseconds();
