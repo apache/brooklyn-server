@@ -102,7 +102,7 @@ public class HttpToolResponse {
     
     public int getResponseCode() {
         synchronized (mutex) {
-            if (responseCode == 0) {
+            if (responseCode == 0 && response!=null) {
                 responseCode = response.getStatusLine().getStatusCode();
             }
         }
@@ -112,7 +112,7 @@ public class HttpToolResponse {
     public String getReasonPhrase() {
         synchronized (mutex) {
             if (reasonPhrase == null) {
-                reasonPhrase = response.getStatusLine().getReasonPhrase();
+                if (response!=null && response.getStatusLine()!=null) reasonPhrase = response.getStatusLine().getReasonPhrase();
             }
         }
         return reasonPhrase;

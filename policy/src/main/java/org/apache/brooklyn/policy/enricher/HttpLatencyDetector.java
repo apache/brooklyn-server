@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
+import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.feed.http.HttpFeed;
@@ -46,12 +47,14 @@ import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.math.MathFunctions;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringFunctions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,6 +62,8 @@ import org.slf4j.LoggerFactory;
 import com.google.common.base.Function;
 import com.google.common.base.Suppliers;
 import com.google.common.reflect.TypeToken;
+
+import javax.annotation.Nullable;
 
 /**
  * An Enricher which computes latency in accessing a URL. 
@@ -143,7 +148,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
                 .period(getConfig(PERIOD))
                 .baseUri(Suppliers.compose(Urls.stringToUriFunction(), AtomicReferences.supplier(url)))
                 .poll(new HttpPollConfig<Double>(REQUEST_LATENCY_IN_SECONDS_MOST_RECENT)
-                        .onResult(Functionals.chain(HttpValueFunctions.latency(), MathFunctions.divide(1000.0d)))
+                        .onResult(new ComputeLatencyAndRecordError())
                         .setOnException(null))
                 .suspended()
                 .build();
@@ -151,6 +156,27 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
         if (getUniqueTag()==null) 
             uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+
                 (getConfig(URL)!=null ? getConfig(URL) : getConfig(URL_SENSOR));
+    }
+
+    class ComputeLatencyAndRecordError implements Function<HttpToolResponse, Double> {
+        @Override
+        public @Nullable Double apply(@Nullable HttpToolResponse input) {
+            entity.sensors().set(Sensors.newSensor(Integer.class, "web.request.latencyDetector.lastCode"), input.getResponseCode());
+            if (input.getResponseCode() >= 200 && input.getResponseCode()<=399) {
+                entity.sensors().set(Sensors.newSensor(String.class, "web.request.latencyDetector.lastCodeError"), null);
+                ServiceStateLogic.ServiceProblemsLogic.clearProblemsIndicator(entity, "web.request.latencyDetector");
+            } else {
+                String msg = Strings.firstNonBlank(input.getReasonPhrase(), "Error, response code " + input.getResponseCode());
+                entity.sensors().set(Sensors.newSensor(String.class, "web.request.latencyDetector.lastCodeError"), msg);
+                ServiceStateLogic.ServiceProblemsLogic.updateProblemsIndicator(entity, "web.request.latencyDetector", msg);
+            }
+            return Functionals.chain(HttpValueFunctions.latency(), MathFunctions.divide(1000.0d)).apply(input);
+        }
+
+        @Override
+        public boolean equals(@Nullable Object object) {
+            return false;
+        }
     }
 
     protected void startSubscriptions(EntityLocal entity) {
@@ -308,7 +334,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
 
         /**
          * Returns the detector. note that callers should then add this to the entity,
-         * typically using {@link Entity#addEnricher(Enricher)}.
+         * typically using {@link Entity#enrichers()} add.
          * 
          * @deprecated since 0.12.0; instead use {@link #buildSpec()} or directly use {@link EnricherSpec}
          */
@@ -326,7 +352,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
         
         /**
          * Returns the detector. note that callers should then add this to the entity,
-         * typically using {@link Entity#addEnricher(EnricherSpec)}
+         * typically using {@link Entity#enrichers()} add
          * 
          * @see {@link EnricherSpec}
          */
