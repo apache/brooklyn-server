@@ -182,7 +182,7 @@
         <maxmind-db.version>1.2.1</maxmind-db.version>
         <winrm4j.version>0.12.3</winrm4j.version>  <!-- WINRM4J_VERSION -->
         <felix-osgi-compendium.version>1.4.0</felix-osgi-compendium.version>
-        <kubernetes-client.version>5.8.0</kubernetes-client.version>
+        <kubernetes-client.version>5.8.1</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
         <karaf.version>4.3.6</karaf.version>
