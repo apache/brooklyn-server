@@ -443,6 +443,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
         // This is functionally equivalent to new scheduledExecutor.schedule(job, delay, TimeUnit.MILLISECONDS).
         // It uses the entity's execution context to schedule and thus execute the job.
         ScheduledTask scheduledTask = ScheduledTask.builder(jobFactory)
+                .displayName("Schedule connect sensors on rebind")
                 .delay(delay)
                 .maxIterations(1)
                 .cancelOnException(true)
