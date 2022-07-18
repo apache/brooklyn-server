@@ -18,9 +18,11 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+import com.beust.jcommander.internal.Maps;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -121,6 +123,37 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
         } catch (Exception e) {
             Asserts.expectedFailureContains(e, "Process task ended with exit code", "when 0 was required");
         }
+    }
+
+    @Test
+    public void testScriptContainerTask() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        Map<String,Object> volumes = Maps.newHashMap();
+        volumes.put("name", "tf-ws");
+        volumes.put("hostPath", Maps.newHashMap("path", "/tfws"));
+
+        List<String> commands = MutableList.of("./hello.sh");
+
+        Map<String,Object> configBag = new HashMap<>();
+        configBag.put("name", "test-container-task");
+        configBag.put("image", "hhwang927/ubuntu_base");
+        configBag.put("imagePullPolicy", "never");
+        configBag.put("commands", commands);
+        configBag.put("workingDir", "/tfws/scripts");
+        configBag.put("volumes", Sets.newHashSet(volumes));
+        configBag.put("volumeMounts", Sets.newHashSet(Maps.newHashMap("name", "tf-ws", "mountPath", "/tfws")));
+
+        Task<String> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                .summary("Running docker task")
+                .configure(configBag)
+                .newTask();
+        DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
+        Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
+        List<String> res = (List<String>) result;
+        while(!res.isEmpty() && Iterables.getLast(res).matches("namespace .* deleted\\s*")) res = res.subList(0, res.size()-1);
+
+        String res2 = res.isEmpty() ? null : Iterables.getLast(res);
+        assertTrue(res2.contains("hello"));
     }
 
 }
