@@ -289,7 +289,7 @@
     <feature name="brooklyn-software-base"  version="${project.version}"  description="Brooklyn Software Base">
         <feature prerequisite="true">brooklyn-essential-deps</feature>
         <bundle>mvn:org.apache.brooklyn/brooklyn-software-base/${project.version}</bundle>
-        <bundle>wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}$Import-Package=javax.management.openmbean,*</bundle>
+        <bundle>wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}$Bundle-SymbolicName=glassfish-opendmk-jmxremote-optional&amp;Bundle-Version=1&amp;Import-Package=javax.management.openmbean,*</bundle>
         <feature>brooklyn-software-winrm</feature>
         <feature>brooklyn-policy</feature>
     </feature>
@@ -297,7 +297,7 @@
     <feature name="brooklyn-jmxmp-agent" version="${project.version}" description="Brooklyn Secure JMXMP Agent">
         <bundle>mvn:org.apache.brooklyn/brooklyn-jmxmp-agent/${project.version}</bundle>
         <feature>brooklyn-core</feature>
-        <bundle dependency="true">wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}$Import-Package=javax.management.openmbean,*</bundle>
+        <bundle dependency="true">wrap:mvn:org.glassfish.external/opendmk_jmxremote_optional_jar/${opendmk_jmxremote_optional_jar.version}$Bundle-SymbolicName=glassfish-opendmk-jmxremote-optional&amp;Bundle-Version=1&amp;Import-Package=javax.management.openmbean,*</bundle>
     </feature>
 
     <feature name="brooklyn-jmxrmi-agent" version="${project.version}" description="Brooklyn JMX RMI Agent">
