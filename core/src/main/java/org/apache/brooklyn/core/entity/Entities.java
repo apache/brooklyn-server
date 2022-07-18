@@ -832,7 +832,8 @@ public class Entities {
     @Beta @VisibleForTesting
     public static AbstractEntity deproxy(Entity e) {
         if (!(Proxy.isProxyClass(e.getClass()))) {
-            log.warn("Attempt to deproxy non-proxy "+e, new Throwable("Location of attempt to deproxy non-proxy "+e));
+        // there are a few valid cases where callers might want to deproxy, so don't warn
+//            log.warn("Attempt to deproxy non-proxy "+e, new Throwable("Location of attempt to deproxy non-proxy "+e));
             return (AbstractEntity) e;
         }
         return (AbstractEntity) ((EntityProxyImpl)Proxy.getInvocationHandler(e)).getDelegate();
