@@ -144,8 +144,9 @@
         <swagger.version>1.6.2</swagger.version>
         <mx4j.version>3.0.1</mx4j.version>
         <bouncycastle.version>1.69</bouncycastle.version>  <!-- beyond this gives asn1 errors, needs a new dep probably -->
-        <eddsa.version>0.2.0</eddsa.version>  <!-- eddsa 0.3.0 needs sun x509 -->
-        <sshj.version>0.27.0</sshj.version>  <!-- jclouds 2.4 uses 0.27; 0.32 needs eddsa 0.3.0 -->
+        <eddsa.version>0.3.0</eddsa.version>  <!-- eddsa 0.3.0 needs sun x509 -->
+        <sshj.version>0.33.0</sshj.version>  <!-- jclouds 2.4 uses 0.27; 0.32 needs eddsa 0.3.0 -->
+        <sshj.asn1.version>0.6.0</sshj.asn1.version>
         <!-- jzlib osgi version is 1.1.3.2, but bundle is 1.1.3_2 ; JClouds 2.2.0 pulls in 1.0.7_1 but is happy with 1.1.3.2 -->
         <jzlib.version>1.1.3_2</jzlib.version>
         <jzlib.osgi.version>1.1.3.2</jzlib.osgi.version>
