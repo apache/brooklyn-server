@@ -283,7 +283,27 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         ((TestEntity)childEntity).sensors().set(TestEntity.NAME, "New Name");
         Asserts.eventually(Entities.attributeSupplier(parentEntity, TestEntity.NAME), Predicates.<String>equalTo("New Name"));
     }
-    
+
+    @Test
+    public void testPropogateChildSensorAtRoot() throws Exception {
+        Entity app = createAndStartApplication(loadYaml("test-entity-basic-template.yaml",
+                "  id: c1",
+                "brooklyn.enrichers:",
+                "  - type: org.apache.brooklyn.enricher.stock.Propagator",
+                "    brooklyn.config:",
+                "      enricher.producer: $brooklyn:component(\"c1\")",
+                "      enricher.propagating.inclusions: [ main.uri ]"));
+        waitForApplicationTasks(app);
+
+        log.info("App started:");
+        Dumper.dumpInfo(app);
+        Assert.assertEquals(app.getChildren().size(), 1);
+        final Entity c1 = app.getChildren().iterator().next();
+        AttributeSensor<String> mainUri = Sensors.newSensor(String.class, "main.uri");
+        c1.sensors().set(mainUri, "http://foo/");
+        EntityAsserts.assertAttributeEqualsEventually(app, mainUri, "http://foo/");
+    }
+
     @Test
     public void testMultipleEnricherReferences() throws Exception {
         final Entity app = createAndStartApplication(loadYaml("test-referencing-enrichers.yaml"));
