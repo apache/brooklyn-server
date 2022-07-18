@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.effector.util;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -44,7 +45,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Effector to  invoking an effector across children or members,
+ * Effector to invoke an effector across children (or, in the case of a Group, members)
  */
 public class ChildrenBatchEffector extends AddEffectorInitializerAbstract {
     public static final Effector<Object> EFFECTOR = Effectors.effector(Object.class, "childrenBatchEffector").
@@ -56,7 +57,7 @@ public class ChildrenBatchEffector extends AddEffectorInitializerAbstract {
             .build();
     public static final ConfigKey<Integer> BATCH_SIZE = ConfigKeys.builder(Integer.class)
             .name("batchSize")
-            .description("Supply a limit to the number of elements replaced at a time; 0 (default) means no limit")
+            .description("Supply a limit to the number of children updated at a time; 0 (default) means no limit, 1 means do them sequentially")
             .defaultValue(0)
             .build();
     public static final ConfigKey<String> EFFECTOR_TO_INVOKE = ConfigKeys.builder(String.class)
@@ -137,7 +138,7 @@ public class ChildrenBatchEffector extends AddEffectorInitializerAbstract {
             final boolean failOnEffectorFailure = params.get(FAIL_ON_EFFECTOR_FAILURE);
 
             List<Task<?>> activeTasks = MutableList.of();
-            List<Entity> items = MutableList.copyOf(entity().getChildren());
+            List<Entity> items = MutableList.copyOf(entity() instanceof Group ? ((Group)entity()).getMembers() : entity().getChildren());
             int initialSize = items.size();
             int count = 0;
 
