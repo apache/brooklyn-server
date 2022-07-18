@@ -28,6 +28,7 @@ import org.apache.brooklyn.util.time.Duration;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @SuppressWarnings({ "rawtypes"})
 public interface ContainerCommons {
@@ -45,10 +46,10 @@ public interface ContainerCommons {
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout", "Container wait timeout", Duration.minutes(1));
 
     ConfigKey<String> WORKING_DIR = ConfigKeys.newStringConfigKey("workingDir", "Location where the container commands are executed");
-    BasicConfigKey<Map<String,String>> VOLUME_MOUNTS = SetConfigKey.builder(new TypeToken<Map<String,String>>()  {}, "volumeMounts")
+    ConfigKey<Set<Map<String,String>>> VOLUME_MOUNTS =  new SetConfigKey.Builder<>(new TypeToken<Map<String,String>>()  {}, "volumeMounts")
             .description("Configuration to mount a volume into a container.").defaultValue(null).build();
 
-    BasicConfigKey<Map<String,Object>> VOLUMES = SetConfigKey.builder(new TypeToken<Map<String,Object>>()  {}, "volumes")
+    ConfigKey<Set<Map<String,Object>>> VOLUMES = new SetConfigKey.Builder(new TypeToken<Map<String,Object>>()  {}, "volumes")
             .description("List of directories with data that is accessible across multiple containers").defaultValue(null).build();
 
     String NAMESPACE_CREATE_CMD = "kubectl create namespace brooklyn-%s"; // namespace name
