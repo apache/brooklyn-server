@@ -47,7 +47,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testSuccessfulContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -65,7 +65,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testContainerTaskWithVar() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -85,25 +85,25 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testSuccessfulContainerTerraformTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        Task<String> containerTask = ContainerTaskFactory.newInstance()
                 .summary("Running terraform-container task")
                 .jobIdentifier("test-container-task")
                 .timeout(Duration.TWO_MINUTES)
                 .image("hashicorp/terraform:latest")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
                 .command( "terraform", "version" )
+                .returningStdout()
                 .newTask();
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
 
-        ContainerTaskFactory.ContainerTaskResult result = containerTask.getUnchecked();
-        assertTrue(result.getMainStdout().startsWith("Terraform"));
+        assertTrue(containerTask.getUnchecked().startsWith("Terraform"));
     }
 
     @Test // execute local command, assert we get exit code, and it fails
     public void testExpectedFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -125,7 +125,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testSleepingAndExpectedFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -159,7 +159,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testNotExpectedFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -191,7 +191,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
         configBag.put("volumes", Sets.newHashSet(volumes));
         configBag.put("volumeMounts", Sets.newHashSet(Maps.newHashMap("name", volumeId, "mountPath", "/brooklyn-mount-dir")));
 
-        ContainerTaskFactory.ConcreteContainerTaskFactory baseFactory = new ContainerTaskFactory.ConcreteContainerTaskFactory()
+        ContainerTaskFactory.ConcreteContainerTaskFactory baseFactory = ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)

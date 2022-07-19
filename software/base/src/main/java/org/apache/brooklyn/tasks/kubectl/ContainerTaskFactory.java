@@ -55,11 +55,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.tasks.kubectl.ContainerCommons.*;
 
-public class ContainerTaskFactory<T extends ContainerTaskFactory<T>> implements TaskFactory<Task<ContainerTaskFactory.ContainerTaskResult>> {
+public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> implements TaskFactory<Task<RET>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ContainerTaskFactory.class);
 
@@ -69,11 +70,12 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T>> implements 
     private String namespace;
     private Boolean createNamespace;
     private Boolean deleteNamespace;
+    Function<ContainerTaskResult,RET> returnConversion;
 
     @Override
-    public Task<ContainerTaskResult> newTask() {
+    public Task<RET> newTask() {
         final ByteArrayOutputStream stdout = new ByteArrayOutputStream();
-        TaskBuilder<ContainerTaskResult> taskBuilder = Tasks.<ContainerTaskResult>builder().dynamic(true)
+        TaskBuilder<RET> taskBuilder = Tasks.<RET>builder().dynamic(true)
                 .displayName(this.summary)
                 .tag(BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_STDOUT, stdout))
                 .body(()-> {
@@ -265,7 +267,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T>> implements 
                                 throw new IllegalStateException("Non-zero exit code (" + result.mainExitCode + ") disallowed");
                             }
 
-                            return result;
+                            return returnConversion==null ? (RET) result : returnConversion.apply(result);
 
                         } finally {
                             // clean up - delete namespace
@@ -305,6 +307,17 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T>> implements 
     }
     public T env(String key, Object val) {
         return env(MutableMap.copyOf( config.get(BrooklynConfigKeys.SHELL_ENVIRONMENT) ).add(key, val));
+    }
+    public <RET2,T2 extends ContainerTaskFactory<T2,RET2>> T2 returning(Function<ContainerTaskResult,RET2> conversion) {
+        T2 result = (T2) self();
+        result.returnConversion = conversion;
+        return result;
+    }
+    public <T2 extends ContainerTaskFactory<T2,String>> T2 returningStdout() {
+        return returning(ContainerTaskResult::getMainStdout);
+    }
+    public <T2 extends ContainerTaskFactory<T2,Integer>> T2 returningExitCode() {
+        return returning(ContainerTaskResult::getMainExitCode);
     }
 
     /** specify the namespace to use, and whether to create or delete it. by default a randomly generated namespace is used and always cleaned up,
@@ -347,8 +360,12 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T>> implements 
                 .requiringExitCodeZero();
     }
 
-    public static class ConcreteContainerTaskFactory extends ContainerTaskFactory<ConcreteContainerTaskFactory> {
-        public ConcreteContainerTaskFactory() {
+    public static ConcreteContainerTaskFactory<ContainerTaskResult> newInstance() {
+        return new ConcreteContainerTaskFactory<>();
+    }
+
+    public static class ConcreteContainerTaskFactory<RET> extends ContainerTaskFactory<ConcreteContainerTaskFactory<RET>,RET> {
+        private ConcreteContainerTaskFactory() {
             super();
         }
     }

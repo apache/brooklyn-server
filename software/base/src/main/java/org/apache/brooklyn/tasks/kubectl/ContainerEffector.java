@@ -66,7 +66,7 @@ public class ContainerEffector extends AddEffectorInitializerAbstract implements
         @Override
         public String call(ConfigBag parameters) {
             ConfigBag configBag = ConfigBag.newInstanceCopying(this.params).putAll(parameters);
-            Task<ContainerTaskFactory.ContainerTaskResult> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory()
+            Task<ContainerTaskFactory.ContainerTaskResult> containerTask = ContainerTaskFactory.newInstance()
                     .summary("Executing Container Image: " + EntityInitializers.resolve(configBag, CONTAINER_IMAGE))
                     .jobIdentifier(entity().getId() + "-" + EFFECTOR_TAG)
                     .configure(configBag.getAllConfig())
