@@ -21,35 +21,36 @@ package org.apache.brooklyn.tasks.kubectl;
 import com.beust.jcommander.internal.Maps;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
-public class JobBuilderTest {
-    private static final Logger LOG = LoggerFactory.getLogger(JobBuilderTest.class);
+public class KubeJobSpecCreatorTest {
+    private static final Logger LOG = LoggerFactory.getLogger(KubeJobSpecCreatorTest.class);
 
     @Test
     public void testPerlWithArgs() throws  Exception{
-        String yamlJobLocation =
-                new JobBuilder().withImage("perl").withName("perl-args-test")
+        BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> yamlJobLocation =
+                new KubeJobFileCreator().withImage("perl").withName("perl-args-test")
                         .withArgs(Lists.newArrayList( "echo", "aaa"))
                         .withImagePullPolicy(PullPolicy.ALWAYS) // explicit "Always"
-                        .build();
+                        .createFile();
         assertNotNull(yamlJobLocation);
-        String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
+        String actual = String.join("\n", Files.readAllLines(yamlJobLocation.getFile().toPath()));
         String expected = "apiVersion: batch/v1\n" +
                 "kind: Job\n" +
                 "metadata:\n" +
                 "  name: perl-args-test\n" +
                 "spec:\n" +
-                "  backoffLimit: 1\n" +
+                "  backoffLimit: 0\n" +
                 "  completions: 1\n" +
                 "  parallelism: 1\n" +
                 "  template:\n" +
@@ -68,20 +69,20 @@ public class JobBuilderTest {
 
     @Test
     public void testPerlWithArgsAndCommand() throws  Exception{
-        String yamlJobLocation =
-                new JobBuilder().withImage("perl").withName("perl-args-and-command-test")
-                        .withCommands(Lists.newArrayList("/bin/bash"))
+        BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> yamlJobLocation =
+                new KubeJobFileCreator().withImage("perl").withName("perl-args-and-command-test")
+                        .withCommand(Lists.newArrayList("/bin/bash"))
                         .withArgs(Lists.newArrayList("-c", "echo aaa"))
                         .withImagePullPolicy(PullPolicy.NEVER)
-                        .build();
+                        .createFile();
         assertNotNull(yamlJobLocation);
-        String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
+        String actual = String.join("\n", Files.readAllLines(yamlJobLocation.getFile().toPath()));
         String expected = "apiVersion: batch/v1\n" +
                 "kind: Job\n" +
                 "metadata:\n" +
                 "  name: perl-args-and-command-test\n" +
                 "spec:\n" +
-                "  backoffLimit: 1\n" +
+                "  backoffLimit: 0\n" +
                 "  completions: 1\n" +
                 "  parallelism: 1\n" +
                 "  template:\n" +
@@ -102,19 +103,19 @@ public class JobBuilderTest {
 
     @Test
     public void testPerlCommand() throws  Exception{
-        String yamlJobLocation =
-                new JobBuilder().withImage("perl").withName("perl-command-test")
-                        .withCommands(Lists.newArrayList("/bin/bash", "-c", "echo aaa"))
+        BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> yamlJobLocation =
+                new KubeJobFileCreator().withImage("perl").withName("perl-command-test")
+                        .withCommand(Lists.newArrayList("/bin/bash", "-c", "echo aaa"))
                         .withImagePullPolicy(PullPolicy.IF_NOT_PRESENT)
-                        .build();
+                        .createFile();
         assertNotNull(yamlJobLocation);
-        String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
+        String actual = String.join("\n", Files.readAllLines(yamlJobLocation.getFile().toPath()));
         String expected = "apiVersion: batch/v1\n" +
                 "kind: Job\n" +
                 "metadata:\n" +
                 "  name: perl-command-test\n" +
                 "spec:\n" +
-                "  backoffLimit: 1\n" +
+                "  backoffLimit: 0\n" +
                 "  completions: 1\n" +
                 "  parallelism: 1\n" +
                 "  template:\n" +
@@ -137,21 +138,20 @@ public class JobBuilderTest {
         Map<String,Object> volumes = Maps.newHashMap();
         volumes.put("name", "tf-ws");
         volumes.put("hostPath", Maps.newHashMap("path", "/tfws"));
-        String yamlJobLocation =
-                new JobBuilder().withImage("hashicorp/terraform").withName("tf-version")
-                        .withVolumes(Sets.newHashSet(volumes))
-                        .withVolumeMounts(Sets.newHashSet(Maps.newHashMap("name", "tf-ws", "mountPath", "/tfws")))
-                        .withCommands(Lists.newArrayList("terraform", "version"))
-                        .withWorkingDir("/tfws/app1")
-                        .build();
+        BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> yamlJobLocation = new KubeJobFileCreator().withImage("hashicorp/terraform").withName("tf-version")
+                .withVolumes(Sets.newHashSet(volumes))
+                .withVolumeMounts(Sets.newHashSet(Maps.newHashMap("name", "tf-ws", "mountPath", "/tfws")))
+                .withCommand(Lists.newArrayList("terraform", "version"))
+                .withWorkingDir("/tfws/app1")
+                .createFile();
         assertNotNull(yamlJobLocation);
-        String actual = String.join("\n", Files.readAllLines(Paths.get(yamlJobLocation)));
+        String actual = String.join("\n", Files.readAllLines(yamlJobLocation.getFile().toPath()));
         String expected = "apiVersion: batch/v1\n" +
                 "kind: Job\n" +
                 "metadata:\n" +
                 "  name: tf-version\n" +
                 "spec:\n" +
-                "  backoffLimit: 1\n" +
+                "  backoffLimit: 0\n" +
                 "  completions: 1\n" +
                 "  parallelism: 1\n" +
                 "  template:\n" +

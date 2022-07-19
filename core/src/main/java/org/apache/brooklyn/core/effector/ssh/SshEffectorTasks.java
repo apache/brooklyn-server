@@ -122,6 +122,7 @@ public class SshEffectorTasks {
         }
         @Override
         public synchronized ProcessTaskWrapper<RET> newTask() {
+            dirty = false;
             Entity entity = BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
             if (machine==null) {
                 if (log.isDebugEnabled())

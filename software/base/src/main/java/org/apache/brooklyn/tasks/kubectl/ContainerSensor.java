@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
-import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -35,7 +34,6 @@ import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
@@ -77,18 +75,14 @@ public class ContainerSensor<T> extends AbstractAddSensorFeed<T> implements Cont
                         .callable(new Callable<Object>() {
                             @Override
                             public Object call() throws Exception {
-                                Task<String> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+                                Task<ContainerTaskFactory.ContainerTaskResult> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory()
                                         .summary("Running " + EntityInitializers.resolve(configBag, SENSOR_NAME))
-                                        .tag(entity.getId() + "-" + SENSOR_TAG)
+                                        .jobIdentifier(entity.getId() + "-" + SENSOR_TAG)
                                         .configure(configBag.getAllConfig())
                                         .newTask();
                                 DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
-                                Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
-                                List<String> res = (List<String>) result;
-                                while(!res.isEmpty() && Iterables.getLast(res).matches("namespace .* deleted\\s*")) res = res.subList(0, res.size()-1);
-
-                                String res2 = res.isEmpty() ? null : Iterables.getLast(res);
-                                return (new SshCommandSensor.CoerceOutputFunction<>(sensor.getTypeToken(), initParam(FORMAT), initParam(LAST_YAML_DOCUMENT))).apply(res2);
+                                String mainStdout = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES)).getMainStdout();
+                                return (new SshCommandSensor.CoerceOutputFunction<>(sensor.getTypeToken(), initParam(FORMAT), initParam(LAST_YAML_DOCUMENT))).apply(mainStdout);
                             }
                         })
                         .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))

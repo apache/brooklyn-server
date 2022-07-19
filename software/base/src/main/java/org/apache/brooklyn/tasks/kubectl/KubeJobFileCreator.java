@@ -20,6 +20,7 @@ package org.apache.brooklyn.tasks.kubectl;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.apache.brooklyn.core.mgmt.ha.BrooklynBomOsgiArchiveInstaller;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,8 +40,8 @@ import java.util.stream.Collectors;
 /**
  * This was needed to ensure our Kubernetes Yaml Job configurations are valid.
  */
-public class JobBuilder {
-    private static final Logger LOG = LoggerFactory.getLogger(JobBuilder.class);
+public class KubeJobFileCreator {
+    private static final Logger LOG = LoggerFactory.getLogger(KubeJobFileCreator.class);
 
     String jobName;
     String imageName;
@@ -51,21 +52,21 @@ public class JobBuilder {
 
     String prefix = "brooklyn-job";
 
-    List<String> commands = Lists.newArrayList();
+    List<String> command = Lists.newArrayList();
     List<String> args = Lists.newArrayList();
 
-    Map<String, Object> env = Maps.newHashMap();
+    Map<String, String> env = Maps.newHashMap();
 
     List<Map<String,String>> volumeMounts = Lists.newArrayList();
 
     List<Map<String, Object>> volumes = Lists.newArrayList();
 
-    public JobBuilder withName(final String name) {
+    public KubeJobFileCreator withName(final String name) {
         this.jobName = name;
         return this;
     }
 
-    public JobBuilder withImage(final String image){
+    public KubeJobFileCreator withImage(final String image){
         this.imageName = image;
         return this;
     }
@@ -75,59 +76,59 @@ public class JobBuilder {
      * @param eimagePullPolicy
      * @return
      */
-    public JobBuilder withImagePullPolicy(final PullPolicy eimagePullPolicy){
+    public KubeJobFileCreator withImagePullPolicy(final PullPolicy eimagePullPolicy){
         if (eimagePullPolicy != null) {
             this.imagePullPolicy = eimagePullPolicy.val();
         }
         return this;
     }
 
-    public JobBuilder withCommands(final List<String> commandsArg){
-        if (commandsArg != null) {
-            this.commands.addAll(commandsArg);
+    public KubeJobFileCreator withCommand(final List<String> commandAndEntryPointArgs){
+        if (commandAndEntryPointArgs != null) {
+            this.command.addAll(commandAndEntryPointArgs);
         }
         return this;
     }
 
-    public JobBuilder withArgs(final List<String> args){
+    public KubeJobFileCreator withArgs(final List<String> args){
         if (args != null) {
             this.args.addAll(args);
         }
         return this;
     }
 
-    public JobBuilder withVolumeMounts(final Set<Map<String,String>> volumeMounts) {
+    public KubeJobFileCreator withVolumeMounts(final Set<Map<String,String>> volumeMounts) {
         if (volumeMounts != null) {
             this.volumeMounts.addAll(volumeMounts);
         }
         return this;
     }
 
-    public JobBuilder withVolumes(final Set<Map<String, Object>> volumes) {
+    public KubeJobFileCreator withVolumes(final Set<Map<String, Object>> volumes) {
         if (volumes != null) {
             this.volumes.addAll(volumes);
         }
         return this;
     }
 
-    public JobBuilder withWorkingDir(String workingDir) {
+    public KubeJobFileCreator withWorkingDir(String workingDir) {
         this.workingDir = workingDir;
         return this;
     }
 
-    public JobBuilder withPrefix(final String prefixArg){
+    public KubeJobFileCreator withPrefix(final String prefixArg){
         this.prefix = prefixArg;
         return this;
     }
 
-    public JobBuilder withEnv(final Map<String,Object> env){
+    public KubeJobFileCreator withEnv(final Map<String,String> env){
         if (env != null) {
             this.env.putAll(env);
         }
         return this;
     }
 
-    public String build(){
+    public BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> createFile(){
         JobTemplate jobTemplate = new JobTemplate(jobName);
 
         ContainerSpec containerSpec = jobTemplate.getSpec().getTemplate().getContainerSpec(0);
@@ -142,13 +143,13 @@ public class JobBuilder {
             List<Map<String,String>> envList = env.entrySet().stream().map (e ->  {
                     Map<String,String> envItem = new HashMap<>();
                     envItem.put("name", e.getKey());
-                    envItem.put("value", e.getValue().toString());
+                    envItem.put("value", e.getValue());
                     return envItem;
                 }).collect(Collectors.toList());
             containerSpec.setEnv(envList);
         }
-        if (!commands.isEmpty()) {
-            containerSpec.setCommand(this.commands);
+        if (!command.isEmpty()) {
+            containerSpec.setCommand(this.command);
         }
         if (!args.isEmpty()) {
             containerSpec.setArgs(this.args);
@@ -177,7 +178,7 @@ public class JobBuilder {
         return serializeAndWriteToTempFile(jobTemplate);
     }
 
-    private String serializeAndWriteToTempFile(JobTemplate jobTemplate) {
+    private BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> serializeAndWriteToTempFile(JobTemplate jobTemplate) {
         DumperOptions options = new DumperOptions();
         options.setIndent(2);
         options.setPrettyFlow(true);
@@ -203,8 +204,8 @@ public class JobBuilder {
             PrintWriter sw = new PrintWriter(jobBodyPath);
             Yaml yaml = new Yaml(representer, options);
             yaml.dump(jobTemplate, sw);
-            LOG.info("Job body dumped at: {}" , jobBodyPath.getAbsolutePath());
-            return jobBodyPath.getAbsolutePath();
+            LOG.debug("Job body dumped at: {}" , jobBodyPath.getAbsolutePath());
+            return new BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<>(jobBodyPath, true);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create temp file for container", e);
         }
@@ -226,7 +227,7 @@ class TemplateSpec {
     /**
      * To do so, set .spec.backoffLimit to specify the number of retries before considering a Job as failed. The back-off limit is set by default to 6.
      */
-    Integer backoffLimit = 1;
+    Integer backoffLimit = 0;
 
     JobSpec template;
 

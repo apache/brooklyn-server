@@ -49,7 +49,8 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
                 ContainerEffector.EFFECTOR_NAME, "test-container-effector",
                 ContainerCommons.CONTAINER_IMAGE, "perl",
                 ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
-                ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash", "-c", "echo " + message),
+//                ContainerCommons.COMMAND, ImmutableList.of("/bin/bash", "-c", "echo " + message),
+                ContainerCommons.BASH_SCRIPT, "echo "+message+" ${HELLO}",
                 BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "WORLD")));
 
         ContainerEffector initializer = new ContainerEffector(parameters);
@@ -58,7 +59,7 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
 
         EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
         Object output = Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-container-effector")).getUnchecked(Duration.ONE_MINUTE);
-        assertTrue(output.toString().contains(message));
+        assertTrue(output.toString().contains(message+" WORLD"));
     }
 
     @Test

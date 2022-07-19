@@ -26,11 +26,8 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.apache.brooklyn.core.mgmt.BrooklynTaskTags.EFFECTOR_TAG;
@@ -69,14 +66,13 @@ public class ContainerEffector extends AddEffectorInitializerAbstract implements
         @Override
         public String call(ConfigBag parameters) {
             ConfigBag configBag = ConfigBag.newInstanceCopying(this.params).putAll(parameters);
-            Task<String> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory<String>()
+            Task<ContainerTaskFactory.ContainerTaskResult> containerTask = new ContainerTaskFactory.ConcreteContainerTaskFactory()
                     .summary("Executing Container Image: " + EntityInitializers.resolve(configBag, CONTAINER_IMAGE))
-                    .tag(entity().getId() + "-" + EFFECTOR_TAG)
+                    .jobIdentifier(entity().getId() + "-" + EFFECTOR_TAG)
                     .configure(configBag.getAllConfig())
                     .newTask();
             DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity());
-            Object result = containerTask.getUnchecked(Duration.of(5, TimeUnit.MINUTES));
-            return result.toString();
+            return containerTask.getUnchecked().getMainStdout();
         }
     }
 }

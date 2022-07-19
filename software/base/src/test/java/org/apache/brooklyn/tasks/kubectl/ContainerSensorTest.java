@@ -41,7 +41,7 @@ public class ContainerSensorTest extends BrooklynAppUnitTestSupport {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "perl",
                 ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
-                ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash", "-c","echo " + message) ,
+                ContainerCommons.COMMAND, ImmutableList.of("/bin/bash", "-c","echo " + message) ,
                 ContainerSensor.SENSOR_PERIOD, "1s",
                 ContainerSensor.SENSOR_NAME, "test-echo-sensor"));
 
@@ -59,7 +59,7 @@ public class ContainerSensorTest extends BrooklynAppUnitTestSupport {
 
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "perl",
-                ContainerCommons.COMMANDS, ImmutableList.of("/bin/bash") ,
+                ContainerCommons.COMMAND, ImmutableList.of("/bin/bash") ,
                 ContainerCommons.ARGUMENTS, ImmutableList.of("-c", "echo " + message) ,
                 ContainerSensor.SENSOR_PERIOD, "1s",
                 ContainerSensor.SENSOR_NAME, "test-echo-sensor"));
@@ -112,7 +112,7 @@ public class ContainerSensorTest extends BrooklynAppUnitTestSupport {
     public void testTfVersionSensor() {
         ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                 ContainerCommons.CONTAINER_IMAGE, "hashicorp/terraform:1.3.0-alpha20220622",
-                ContainerCommons.COMMANDS, ImmutableList.of("terraform", "version" ),
+                ContainerCommons.COMMAND, ImmutableList.of("terraform", "version" ),
                 ContainerSensor.SENSOR_PERIOD, "1s",
                 ContainerSensor.SENSOR_NAME, "tf-version-sensor"));
 

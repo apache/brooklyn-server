@@ -68,6 +68,7 @@ public class SystemProcessTaskFactory<T extends SystemProcessTaskFactory<T,RET>,
 
     @Override
     public ProcessTaskWrapper<RET> newTask() {
+        dirty = false;
         return new SystemProcessTaskWrapper();
     }
 

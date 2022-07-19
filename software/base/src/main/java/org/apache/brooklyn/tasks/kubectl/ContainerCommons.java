@@ -21,7 +21,6 @@ package org.apache.brooklyn.tasks.kubectl;
 import com.google.common.collect.Lists;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.SetConfigKey;
 import org.apache.brooklyn.util.time.Duration;
@@ -36,14 +35,16 @@ public interface ContainerCommons {
     ConfigKey<PullPolicy> CONTAINER_IMAGE_PULL_POLICY = ConfigKeys.newConfigKey(new TypeToken<PullPolicy>() {} ,
             "imagePullPolicy", "Container image pull policy. Allowed values: {IfNotPresent, Always, Never}. ", PullPolicy.ALWAYS);
 
-    ConfigKey<String> CONTAINER_NAME = ConfigKeys.newStringConfigKey("containerName", "Container name");
     ConfigKey<Boolean> KEEP_CONTAINER_FOR_DEBUGGING = ConfigKeys.newBooleanConfigKey("keepContainerForDebugging", "When set to true, the namespace" +
             " and associated resources and services are not destroyed after execution. Defaults value is 'false'.", Boolean.FALSE);
 
-    ConfigKey<List> COMMANDS = ConfigKeys.newConfigKey(List.class,"commands", "Commands to execute for container", Lists.newArrayList());
-    ConfigKey<List> ARGUMENTS = ConfigKeys.newConfigKey(List.class,"args", "Arguments to execute for container", Lists.newArrayList());
+    ConfigKey<Object> BASH_SCRIPT = ConfigKeys.newConfigKey(Object.class,"bashScript", "A bash script (as string or list of strings) to run, implies command '/bin/bash' '-c' and replaces arguments");
+    ConfigKey<List> COMMAND = ConfigKeys.newConfigKey(List.class,"command", "Single command and optional arguments to execute for the container (overrides image EntryPoint and Cmd)", Lists.newArrayList());
+    ConfigKey<List> ARGUMENTS = ConfigKeys.newConfigKey(List.class,"args", "Additional arguments to pass to the command at the container (in addition to the command supplied here or the default in the image)", Lists.newArrayList());
 
-    ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout", "Container wait timeout", Duration.minutes(1));
+    ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout", "Container execution timeout (default 5 minutes)", Duration.minutes(5));
+
+    ConfigKey<Boolean> REQUIRE_EXIT_CODE_ZERO = ConfigKeys.newConfigKey(Boolean.class, "requireExitCodeZero", "Whether task should fail if container returns non-zero exit code (default true)", true);
 
     ConfigKey<String> WORKING_DIR = ConfigKeys.newStringConfigKey("workingDir", "Location where the container commands are executed");
     ConfigKey<Set<Map<String,String>>> VOLUME_MOUNTS =  new SetConfigKey.Builder<>(new TypeToken<Map<String,String>>()  {}, "volumeMounts")
@@ -52,11 +53,13 @@ public interface ContainerCommons {
     ConfigKey<Set<Map<String,Object>>> VOLUMES = new SetConfigKey.Builder(new TypeToken<Map<String,Object>>()  {}, "volumes")
             .description("List of directories with data that is accessible across multiple containers").defaultValue(null).build();
 
-    String NAMESPACE_CREATE_CMD = "kubectl create namespace brooklyn-%s"; // namespace name
-    String NAMESPACE_SET_CMD = "kubectl config set-context --current --namespace=brooklyn-%s"; // namespace name
-    String JOBS_CREATE_CMD = "kubectl apply -f %s"; // deployment.yaml absolute path
-    String JOBS_FEED_CMD = "kubectl wait --timeout=%ds --for=condition=complete job/%s"; // timeout, containerName
-    String JOBS_LOGS_CMD = "kubectl logs jobs/%s"; // containerName
-    String NAMESPACE_DELETE_CMD = "kubectl delete namespace brooklyn-%s"; // namespace name
+    String NAMESPACE_CREATE_CMD = "kubectl create namespace %s";
+    String NAMESPACE_SET_CMD = "kubectl config set-context --current --namespace=%s";
+    String JOBS_CREATE_CMD = "kubectl apply -f %s --namespace=%s";
+    String JOBS_FEED_CMD = "kubectl wait --timeout=%ds --for=condition=complete job/%s --namespace=%s";
+    String JOBS_FEED_FAILED_CMD = "kubectl wait --timeout=%ds --for=condition=failed job/%s --namespace=%s";
+    String JOBS_LOGS_CMD = "kubectl logs jobs/%s --namespace=%s";
+    String PODS_EXIT_CODE_CMD = "kubectl get pods --namespace=%s -ojsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'";
+    String NAMESPACE_DELETE_CMD = "kubectl delete namespace %s";
 
 }
