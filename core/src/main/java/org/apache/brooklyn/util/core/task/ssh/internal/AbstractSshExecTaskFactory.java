@@ -35,7 +35,7 @@ import org.apache.commons.io.output.TeeOutputStream;
 import org.apache.commons.io.output.WriterOutputStream;
 
 // cannot be (cleanly) instantiated due to nested generic self-referential type; however trivial subclasses do allow it 
-public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFactory<T,RET>,RET> extends AbstractProcessTaskFactory<T,RET> implements ProcessTaskFactory<RET> {
+public abstract class AbstractSshExecTaskFactory<T extends AbstractProcessTaskFactory<T,RET>,RET> extends AbstractProcessTaskFactory<T,RET> {
     
     /** constructor where machine will be added later */
     public AbstractSshExecTaskFactory(String ...commands) {

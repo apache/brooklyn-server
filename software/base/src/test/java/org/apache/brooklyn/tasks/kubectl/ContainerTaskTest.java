@@ -53,7 +53,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
                 .timeout(Duration.TWO_MINUTES)
                 .image("perl")
-                .command( "/bin/bash", "-c","echo 'hello test'" )
+                .command( "/bin/bash", "-c", "echo 'hello test'" )
                 .newTask();
 
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
@@ -71,7 +71,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
                 .timeout(Duration.TWO_MINUTES)
                 .image("perl")
-                .env("test_name", "EnvTest")
+                .environmentVariable("test_name", "EnvTest")
                 .bashScriptCommands("echo hello ${test_name}" )
                 .newTask();
 
@@ -110,7 +110,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .timeout(Duration.TWO_MINUTES)
                 .image("perl")
                 .command( "/bin/bash", "-c","echo 'hello test' && exit 42" )
-                .allowNonZeroExitCode()
+                .allowingNonZeroExitCode()
                 .newTask();
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
 
@@ -132,7 +132,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .timeout(Duration.TWO_MINUTES)
                 .image("perl")
                 .bashScriptCommands("echo starting", "sleep 6", "echo done", "exit 42", "echo ignored")
-                .allowNonZeroExitCode()
+                .allowingNonZeroExitCode()
                 .newTask();
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
 

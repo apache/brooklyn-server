@@ -20,13 +20,13 @@ package org.apache.brooklyn.util.core.task.system.internal;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskStub;
@@ -34,7 +34,6 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 
@@ -54,7 +53,7 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     protected void markDirty() {
         dirty = true;
     }
-    
+
     @Override
     public T add(String ...commandsToAdd) {
         markDirty();
@@ -112,6 +111,16 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     public ProcessTaskFactory<String> requiringZeroAndReturningStdout() {
         requiringExitCodeZero();
         return this.<String>returning(ScriptReturnType.STDOUT_STRING);
+    }
+
+    @Override
+    public ProcessTaskFactory<String> returningStdout() {
+        return returning(ScriptReturnType.STDOUT_STRING);
+    }
+
+    @Override
+    public ProcessTaskFactory<Integer> returningExitCodeAllowingNonZero() {
+        return allowingNonZeroExitCode().returning(ScriptReturnType.EXIT_CODE);
     }
 
     @Override

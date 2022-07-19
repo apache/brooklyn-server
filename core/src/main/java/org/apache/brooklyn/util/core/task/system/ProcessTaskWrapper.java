@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task.system;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
 
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskWrapper;
@@ -35,9 +36,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-
-/** Wraps a fully constructed process task, and allows callers to inspect status. 
+/** Wraps a fully constructed process task, and allows callers to inspect status.
  * Note that methods in here such as {@link #getStdout()} will return partially completed streams while the task is ongoing
  * (and exit code will be null). You can {@link #block()} or {@link #get()} as conveniences on the underlying {@link #getTask()}. */ 
 public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements TaskWrapper<RET> {

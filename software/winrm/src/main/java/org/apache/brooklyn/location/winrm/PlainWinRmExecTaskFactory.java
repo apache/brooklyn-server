@@ -19,9 +19,10 @@
 package org.apache.brooklyn.location.winrm;
 
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
+import java.util.function.Function;
+
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.internal.winrm.winrm4j.PrettyXmlWriter;
 import org.apache.brooklyn.util.core.task.TaskBuilder;

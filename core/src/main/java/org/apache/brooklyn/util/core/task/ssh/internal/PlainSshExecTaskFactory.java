@@ -19,11 +19,10 @@
 package org.apache.brooklyn.util.core.task.ssh.internal;
 
 import java.util.List;
+import java.util.function.Function;
 
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
-
-import com.google.common.base.Function;
 
 /** the "Plain" class exists purely so we can massage return types for callers' convenience */
 public class PlainSshExecTaskFactory<RET> extends AbstractSshExecTaskFactory<PlainSshExecTaskFactory<RET>,RET> {

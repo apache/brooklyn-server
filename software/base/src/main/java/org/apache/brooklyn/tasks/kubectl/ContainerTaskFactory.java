@@ -21,7 +21,6 @@ package org.apache.brooklyn.tasks.kubectl;
 import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInitializers;
@@ -38,6 +37,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskStub;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.core.task.system.SimpleProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.internal.SystemProcessTaskFactory;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
@@ -60,7 +60,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.tasks.kubectl.ContainerCommons.*;
 
-public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> implements TaskFactory<Task<RET>> {
+public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> implements SimpleProcessTaskFactory<T,ContainerTaskFactory.ContainerTaskResult,RET, Task<RET>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ContainerTaskFactory.class);
 
@@ -88,7 +88,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                         if (!argumentsCfg.isEmpty()) LOG.warn("Ignoring 'args' "+argumentsCfg+" because bashScript is set");
 
                         commandsCfg = MutableList.of("/bin/bash", "-c");
-                        List<Object> argumentsCfgO = bashScript instanceof Iterable ? MutableList.copyOf((Iterable) commandsCfg) : MutableList.of(bashScript);
+                        List<Object> argumentsCfgO = bashScript instanceof Iterable ? MutableList.copyOf((Iterable) bashScript) : MutableList.of(bashScript);
                         argumentsCfg = MutableList.of(argumentsCfgO.stream().map(x -> ""+x).collect(Collectors.joining("\n")));
                     }
 
@@ -126,9 +126,9 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                             .withImage(containerImage)
                             .withImagePullPolicy(containerImagePullPolicy)
                             .withName(containerName)
+                            .withCommand(Lists.newArrayList(commandsCfg))
                             .withArgs(argumentsCfg)
                             .withEnv(env)
-                            .withCommand(Lists.newArrayList(commandsCfg))
                             .withVolumeMounts(volumeMounts)
                             .withVolumes(volumes)
                             .withWorkingDir(workingDir)
@@ -263,7 +263,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                             else result.mainExitCode = -1;
 
                             if (result.mainExitCode!=0 && config.get(REQUIRE_EXIT_CODE_ZERO)) {
-                                LOG.info("Failed container job "+namespace+" (exit code "+result.mainExitCode+") output: "+result.mainExitCode);
+                                LOG.info("Failed container job "+namespace+" (exit code "+result.mainExitCode+") output: "+result.mainStdout);
                                 throw new IllegalStateException("Non-zero exit code (" + result.mainExitCode + ") disallowed");
                             }
 
@@ -298,26 +298,39 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
     }
     public T bashScriptCommands(String firstCommandAndArgs, String ...otherCommandAndArgs) { return bashScriptCommands(MutableList.of(firstCommandAndArgs).appendAll(Arrays.asList(otherCommandAndArgs))); }
     public T image(String image) { config.put(CONTAINER_IMAGE, image); return self(); }
-    public T allowNonZeroExitCode() { return allowNonZeroExitCode(true); }
-    public T allowNonZeroExitCode(boolean allowNonZero) { config.put(REQUIRE_EXIT_CODE_ZERO, !allowNonZero); return self(); }
+    public T allowingNonZeroExitCode() { return allowingNonZeroExitCode(true); }
+    public T allowingNonZeroExitCode(boolean allowNonZero) { config.put(REQUIRE_EXIT_CODE_ZERO, !allowNonZero); return self(); }
     public T imagePullPolicy(PullPolicy policy) { config.put(CONTAINER_IMAGE_PULL_POLICY, policy); return self(); }
-    public T env(Map<String,?> map) {
+    @Override
+    public T environmentVariables(Map<String,String> map) {
+        return environmentVariablesRaw(map);
+    }
+    public T environmentVariablesRaw(Map<String,?> map) {
         config.put(BrooklynConfigKeys.SHELL_ENVIRONMENT, MutableMap.copyOf( map ) );
         return self();
     }
-    public T env(String key, Object val) {
-        return env(MutableMap.copyOf( config.get(BrooklynConfigKeys.SHELL_ENVIRONMENT) ).add(key, val));
+
+    @Override
+    public T environmentVariable(String key, String val) {
+        return this.environmentVariableRaw(key, (Object)val);
     }
-    public <RET2,T2 extends ContainerTaskFactory<T2,RET2>> T2 returning(Function<ContainerTaskResult,RET2> conversion) {
-        T2 result = (T2) self();
+    public T environmentVariableRaw(String key, Object val) {
+        return environmentVariablesRaw(MutableMap.copyOf( config.get(BrooklynConfigKeys.SHELL_ENVIRONMENT) ).add(key, val));
+    }
+
+    @Override
+    public <RET2> ContainerTaskFactory<?,RET2> returning(Function<ContainerTaskResult,RET2> conversion) {
+        ContainerTaskFactory<?,RET2> result = (ContainerTaskFactory<?,RET2>) self();
         result.returnConversion = conversion;
         return result;
     }
-    public <T2 extends ContainerTaskFactory<T2,String>> T2 returningStdout() {
+    @Override
+    public ContainerTaskFactory<?,String> returningStdout() {
         return returning(ContainerTaskResult::getMainStdout);
     }
-    public <T2 extends ContainerTaskFactory<T2,Integer>> T2 returningExitCode() {
-        return returning(ContainerTaskResult::getMainExitCode);
+    @Override
+    public ContainerTaskFactory<?,Integer> returningExitCodeAllowingNonZero() {
+        return allowingNonZeroExitCode().returning(ContainerTaskResult::getMainExitCode);
     }
 
     /** specify the namespace to use, and whether to create or delete it. by default a randomly generated namespace is used and always cleaned up,

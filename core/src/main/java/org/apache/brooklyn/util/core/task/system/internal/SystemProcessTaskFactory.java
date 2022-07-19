@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task.system.internal;
 import java.io.File;
 
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.util.core.task.system.SimpleProcessTaskFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.core.config.Sanitizer;
