@@ -75,7 +75,7 @@ public class ContainerSensor<T> extends AbstractAddSensorFeed<T> implements Cont
                         .callable(new Callable<Object>() {
                             @Override
                             public Object call() throws Exception {
-                                Task<ContainerTaskFactory.ContainerTaskResult> containerTask = ContainerTaskFactory.newInstance()
+                                Task<ContainerTaskResult> containerTask = ContainerTaskFactory.newInstance()
                                         .summary("Running " + EntityInitializers.resolve(configBag, SENSOR_NAME))
                                         .jobIdentifier(entity.getId() + "-" + SENSOR_TAG)
                                         .configure(configBag.getAllConfig())

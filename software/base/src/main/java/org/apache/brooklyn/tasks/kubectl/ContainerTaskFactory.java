@@ -40,6 +40,8 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.SimpleProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.internal.SystemProcessTaskFactory;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.StringShortener;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
@@ -60,7 +62,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.brooklyn.tasks.kubectl.ContainerCommons.*;
 
-public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> implements SimpleProcessTaskFactory<T,ContainerTaskFactory.ContainerTaskResult,RET, Task<RET>> {
+public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> implements SimpleProcessTaskFactory<T, ContainerTaskResult,RET, Task<RET>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ContainerTaskFactory.class);
 
@@ -111,9 +113,12 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
 
                     final String cleanImageName = containerImage.contains(":") ? containerImage.substring(0, containerImage.indexOf(":")) : containerImage;
 
-                    final String containerName = (Strings.isNonBlank(this.jobIdentifier) ? this.jobIdentifier + "-" : "")
-                            .concat(cleanImageName).concat("-").concat(Strings.makeRandomId(10))
-                            .replaceAll("[^A-Za-z0-9-]", "") // remove all symbols
+                    StringShortener ss = new StringShortener().separator("-");
+                    if (Strings.isNonBlank(this.jobIdentifier)) ss.append("job", this.jobIdentifier).canTruncate("job", 10);
+                    ss.append("image", cleanImageName).canTruncate("image", 10);
+                    ss.append("uid", Strings.makeRandomId(9)+Identifiers.makeRandomPassword(1, Identifiers.LOWER_CASE_ALPHA));
+                    final String containerName = ss.getStringOfMaxLength(50)
+                            .replaceAll("[^A-Za-z0-9-]+", "-") // remove all symbols
                             .toLowerCase();
                     if (namespace==null) {
                         namespace = "brooklyn-" + containerName;
@@ -235,10 +240,15 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                                         throw new IllegalStateException("Timeout waiting for success or failure");
 
                                     // any other one-off checks for job error, we could do here
+                                    // e.g. if image can't be pulled for instance
 
                                     // finally get the partial log for reporting
-                                    ProcessTaskWrapper<String> outputSoFarCmd = DynamicTasks.queue(newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, containerName, namespace)).summary("Retrieve output so far").newTask());
+                                    ProcessTaskWrapper<String> outputSoFarCmd = DynamicTasks.queue(newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, containerName, namespace)).summary("Retrieve output so far").allowingNonZeroExitCode().newTask());
                                     BrooklynTaskTags.setTransient(outputSoFarCmd.asTask());
+                                    outputSoFarCmd.block();
+                                    if (outputSoFarCmd.getExitCode()!=0) {
+                                        throw new IllegalStateException("Error detected with container job while reading logs (exit code "+outputSoFarCmd.getExitCode()+"): "+outputSoFarCmd.getStdout() + " / "+outputSoFarCmd.getStderr());
+                                    }
                                     String outputSoFar = outputSoFarCmd.get();
                                     String newOutput = outputSoFar.substring(stdout.size());
                                     LOG.debug("Container job "+namespace+" output: "+newOutput);
@@ -383,20 +393,4 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
         }
     }
 
-    public static class ContainerTaskResult {
-        private List<ProcessTaskWrapper<?>> interestingJobs;
-        private String mainStdout;
-        private Integer mainExitCode;
-
-        /** This will be 0 unless allowNonZeroExitCode was specified */
-        public Integer getMainExitCode() {
-            return mainExitCode;
-        }
-        public String getMainStdout() {
-            return mainStdout;
-        }
-        public List<ProcessTaskWrapper<?>> getInterestingJobs() {
-            return interestingJobs;
-        }
-    }
 }

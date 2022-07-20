@@ -47,7 +47,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testSuccessfulContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
+        Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -57,7 +57,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .newTask();
 
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
-        ContainerTaskFactory.ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
+        ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
         Asserts.assertEquals(result.getMainStdout().trim(), "hello test");
     }
 
@@ -65,7 +65,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testContainerTaskWithVar() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
+        Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -76,7 +76,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .newTask();
 
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
-        ContainerTaskFactory.ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
+        ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
         Asserts.assertEquals(result.getMainStdout().trim(), "hello EnvTest");
         Asserts.assertEquals(BrooklynTaskTags.stream(containerTask, BrooklynTaskTags.STREAM_ENV).streamContents.get().trim(), "test_name=\"EnvTest\"");
     }
@@ -103,7 +103,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testExpectedFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
+        Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -125,7 +125,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testSleepingAndExpectedFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
+        Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -159,7 +159,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
     public void testNotExpectedFailingContainerTask() {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
-        Task<ContainerTaskFactory.ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
+        Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
                 .imagePullPolicy(PullPolicy.IF_NOT_PRESENT)
@@ -170,7 +170,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
                 .newTask();
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
 
-        Asserts.assertTrue(containerTask.blockUntilEnded(Duration.ONE_MINUTE));  // should complete in 1 minute, i.e. we detect the failed
+        Asserts.assertTrue(containerTask.blockUntilEnded(Duration.THIRTY_SECONDS));  // should complete quickly when we detect the failed
         Asserts.assertTrue(containerTask.isDone());
         Asserts.assertTrue(containerTask.isError());
         Asserts.assertFailsWith(() -> containerTask.getUnchecked(), error -> Asserts.expectedFailureContainsIgnoreCase(error, "Non-zero", "42"));
@@ -202,7 +202,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
 
         try {
             // first create the script
-            Task<ContainerTaskFactory.ContainerTaskResult> setup = baseFactory.bashScriptCommands(
+            Task<ContainerTaskResult> setup = baseFactory.bashScriptCommands(
                     "mkdir -p /brooklyn-mount-dir/scripts",
                     "cd /brooklyn-mount-dir/scripts",
                     "echo echo hello " + uid + " > hello-"+uid+".sh",
@@ -211,12 +211,12 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
             DynamicTasks.queueIfPossible(setup).orSubmitAsync(entity).getTask().getUnchecked();
 
             // now make a new container that should see the same mount point, and try running the command
-            Task<ContainerTaskFactory.ContainerTaskResult> containerTask = baseFactory.bashScriptCommands(
+            Task<ContainerTaskResult> containerTask = baseFactory.bashScriptCommands(
                             "./hello-"+uid+".sh"
                     )
                     .newTask();
             DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
-            ContainerTaskFactory.ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
+            ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
             Asserts.assertEquals(result.getMainStdout().trim(), "hello " + uid);
 
         } finally {
@@ -224,4 +224,24 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
         }
     }
 
+    @Test
+    public void testImageNotAvailable() {
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
+                .summary("Invalid image test")
+                .jobIdentifier("test-container-task")
+                .imagePullPolicy(PullPolicy.NEVER)
+                .timeout(Duration.TWO_MINUTES)
+                .image("image-should-not-exist-"+Identifiers.makeRandomId(4))
+                .command( "bad-command-too" )
+                .allowingNonZeroExitCode()
+                .newTask();
+        DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
+
+        Asserts.assertTrue(containerTask.blockUntilEnded(Duration.THIRTY_SECONDS));  // should complete quickly when we detect the failed
+        Asserts.assertTrue(containerTask.isDone());
+        Asserts.assertTrue(containerTask.isError());
+        Asserts.assertFailsWith(() -> containerTask.getUnchecked(), error -> Asserts.expectedFailureContainsIgnoreCase(error, "image"));
+    }
 }

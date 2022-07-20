@@ -33,7 +33,7 @@ import java.util.Set;
 public interface ContainerCommons {
     ConfigKey<String> CONTAINER_IMAGE = ConfigKeys.newStringConfigKey("image", "Container image");
     ConfigKey<PullPolicy> CONTAINER_IMAGE_PULL_POLICY = ConfigKeys.newConfigKey(new TypeToken<PullPolicy>() {} ,
-            "imagePullPolicy", "Container image pull policy. Allowed values: {IfNotPresent, Always, Never}. ", PullPolicy.ALWAYS);
+            "imagePullPolicy", "Container image pull policy. Allowed values: {IfNotPresent, Always, Never}. Default IfNotPresent.", PullPolicy.IF_NOT_PRESENT);
 
     ConfigKey<Boolean> KEEP_CONTAINER_FOR_DEBUGGING = ConfigKeys.newBooleanConfigKey("keepContainerForDebugging", "When set to true, the namespace" +
             " and associated resources and services are not destroyed after execution. Defaults value is 'false'.", Boolean.FALSE);
