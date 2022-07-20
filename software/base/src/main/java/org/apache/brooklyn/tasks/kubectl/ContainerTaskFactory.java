@@ -319,9 +319,17 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                                         throw new IllegalStateException("Error detected with container job while reading logs (exit code "+outputSoFarCmd.getExitCode()+"): "+outputSoFarCmd.getStdout() + " / "+outputSoFarCmd.getStderr());
                                     }
                                     String outputSoFar = outputSoFarCmd.get();
-                                    String newOutput = outputSoFar.substring(stdout.size());
-                                    LOG.debug("Container job "+namespace+" output: "+newOutput);
-                                    stdout.write(newOutput.getBytes(StandardCharsets.UTF_8));
+                                    int bytesAlreadyRead = stdout.size();
+                                    if (bytesAlreadyRead <= outputSoFar.length()) {
+                                        String newOutput = outputSoFar.substring(stdout.size());
+                                        LOG.debug("Container job " + namespace + " output: " + newOutput);
+                                        stdout.write(newOutput.getBytes(StandardCharsets.UTF_8));
+                                    } else {
+                                        // not sure why this happens, but it does sometimes; for now just reset
+                                        LOG.debug("Container job " + namespace + " output reset, length "+outputSoFar.length()+" less than "+bytesAlreadyRead+"; ignoring new output:\n" + outputSoFar +"\n"+new String(stdout.toByteArray()));
+                                        stdout.reset();
+                                        stdout.write(outputSoFar.getBytes(StandardCharsets.UTF_8));
+                                    }
 
                                     if (timer.isExpired())
                                         throw new IllegalStateException("Timeout waiting for success or failure");
