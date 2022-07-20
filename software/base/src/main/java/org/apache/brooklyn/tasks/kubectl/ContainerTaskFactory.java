@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -33,6 +34,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskStub;
@@ -57,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -80,6 +83,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
         TaskBuilder<RET> taskBuilder = Tasks.<RET>builder().dynamic(true)
                 .displayName(this.summary)
                 .tag(BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_STDOUT, stdout))
+                .tag(new ContainerTaskResult())
                 .body(()-> {
                     List<String> commandsCfg =  EntityInitializers.resolve(config, COMMAND);
                     List<String> argumentsCfg =  EntityInitializers.resolve(config, ARGUMENTS);
@@ -114,23 +118,29 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                     final String cleanImageName = containerImage.contains(":") ? containerImage.substring(0, containerImage.indexOf(":")) : containerImage;
 
                     StringShortener ss = new StringShortener().separator("-");
-                    if (Strings.isNonBlank(this.jobIdentifier)) ss.append("job", this.jobIdentifier).canTruncate("job", 10);
-                    ss.append("image", cleanImageName).canTruncate("image", 10);
+                    if (Strings.isNonBlank(this.jobIdentifier)) {
+                        ss.append("job", this.jobIdentifier).canTruncate("job", 20);
+                    } else {
+                        ss.append("brooklyn", "brooklyn").canTruncate("brooklyn", 2);
+                        ss.append("appId", entity.getApplicationId()).canTruncate("appId", 4);
+                        ss.append("entityId", entity.getId()).canTruncate("entityId", 4);
+                        ss.append("image", cleanImageName).canTruncate("image", 10);
+                    }
                     ss.append("uid", Strings.makeRandomId(9)+Identifiers.makeRandomPassword(1, Identifiers.LOWER_CASE_ALPHA));
-                    final String containerName = ss.getStringOfMaxLength(50)
+                    final String kubeJobName = ss.getStringOfMaxLength(50)
                             .replaceAll("[^A-Za-z0-9-]+", "-") // remove all symbols
                             .toLowerCase();
                     if (namespace==null) {
-                        namespace = "brooklyn-" + containerName;
+                        namespace = kubeJobName;
                     }
 
-                    LOG.debug("Submitting container job in namespace "+namespace);
+                    LOG.debug("Submitting container job in namespace "+namespace+", name "+kubeJobName);
 
                     Map<String, String> env = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext()).serialize(EntityInitializers.resolve(config, BrooklynConfigKeys.SHELL_ENVIRONMENT));
                     final BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> jobYaml =  new KubeJobFileCreator()
                             .withImage(containerImage)
                             .withImagePullPolicy(containerImagePullPolicy)
-                            .withName(containerName)
+                            .withName(kubeJobName)
                             .withCommand(Lists.newArrayList(commandsCfg))
                             .withArgs(argumentsCfg)
                             .withEnv(env)
@@ -144,8 +154,18 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
 
                         Duration timeout = EntityInitializers.resolve(config, TIMEOUT);
 
-                        ContainerTaskResult result = new ContainerTaskResult();
-                        result.interestingJobs = MutableList.of();
+                        ContainerTaskResult result = (ContainerTaskResult) TaskTags.getTagsFast(Tasks.current()).stream().filter(x -> x instanceof ContainerTaskResult).findAny().orElseGet(() -> {
+                            LOG.warn("Result object not set on tag at "+Tasks.current()+"; creating");
+                            ContainerTaskResult x = new ContainerTaskResult();
+                            TaskTags.addTagDynamically(Tasks.current(), x);
+                            return x;
+                        });
+                        result.namespace = namespace;
+                        result.kubeJobName = kubeJobName;
+
+                        // validate these as they are passed to shell script, prevent injection
+                        if (!namespace.matches("[A-Za-z0-9_.-]+")) throw new IllegalStateException("Invalid namespace: "+namespace);
+                        if (!kubeJobName.matches("[A-Za-z0-9_.-]+")) throw new IllegalStateException("Invalid job name: "+kubeJobName);
 
                         ProcessTaskWrapper<ProcessTaskWrapper<?>> createNsJob = null;
                         if (!Boolean.FALSE.equals(createNamespace)) {
@@ -181,24 +201,76 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                                 }
                             }
 
-                            result.interestingJobs.add(DynamicTasks.queue(
-                                    newSimpleTaskFactory(String.format(JOBS_CREATE_CMD, jobYaml.getFile().getAbsolutePath(), namespace)).summary("Submit job").newTask()));
+                            DynamicTasks.queue(
+                                    newSimpleTaskFactory(String.format(JOBS_CREATE_CMD, jobYaml.getFile().getAbsolutePath(), namespace)).summary("Submit job").newTask());
 
                             final CountdownTimer timer = CountdownTimer.newInstanceStarted(timeout);
 
+                            // wait for it to be running (or failed / succeeded) -
+                            PodPhases podPhase = DynamicTasks.queue(Tasks.<PodPhases>builder().dynamic(true).displayName("Wait for container to be running (or fail)").body(() -> {
+                                String phase = null;
+                                long first = System.currentTimeMillis();
+                                long last = first;
+                                long backoffMillis = 10;
+                                while (timer.isNotExpired()) {
+                                    phase = DynamicTasks.queue(newSimpleTaskFactory(String.format(PODS_STATUS_PHASE_CMD, namespace, kubeJobName)).summary("Get pod phase").allowingNonZeroExitCode().newTask()).get().trim();
+                                    if (PodPhases.Running.name().equalsIgnoreCase(phase)) return PodPhases.Running;
+                                    if (PodPhases.Failed.name().equalsIgnoreCase(phase)) return PodPhases.Failed;
+                                    if (PodPhases.Succeeded.name().equalsIgnoreCase(phase)) return PodPhases.Succeeded;
+
+                                    if (Strings.isNonBlank(phase) && Strings.isBlank(result.kubePodName)) {
+                                        result.kubePodName = DynamicTasks.queue(newSimpleTaskFactory(String.format(PODS_NAME_CMD, namespace, kubeJobName)).summary("Get pod name").allowingNonZeroExitCode().newTask()).get().trim();
+                                    }
+                                    if (PodPhases.Pending.name().equals(phase) && Strings.isNonBlank(result.kubePodName)) {
+                                        // if pending, look for errors
+                                        String failedEvents = DynamicTasks.queue(newSimpleTaskFactory(String.format(SCOPED_EVENTS_FAILED_JSON_CMD, namespace, result.kubePodName)).summary("Get pod failed events").allowingNonZeroExitCode().newTask()).get().trim();
+                                        if (!"[]".equals(failedEvents)) {
+                                            String events = DynamicTasks.queue(newSimpleTaskFactory(String.format(SCOPED_EVENTS_CMD, namespace, result.kubePodName)).summary("Get pod events").allowingNonZeroExitCode().newTask()).get().trim();
+                                            throw new IllegalStateException("Job pod failed: "+failedEvents+"\n"+events);
+                                        }
+                                    }
+
+                                    if (System.currentTimeMillis() - last > 10*1000) {
+                                        last = System.currentTimeMillis();
+                                        // every 10s log info
+                                        LOG.info("Container taking long time to start ("+Duration.millis(last-first)+"): "+namespace+" "+kubeJobName+" "+result.kubePodName+" / phase '"+phase+"'");
+                                        if (Strings.isNonBlank(result.kubePodName)) {
+                                            String events = DynamicTasks.queue(newSimpleTaskFactory(String.format(SCOPED_EVENTS_CMD, namespace, result.kubePodName)).summary("Get pod events").allowingNonZeroExitCode().newTask()).get().trim();
+                                            LOG.info("Pod events: \n"+events);
+                                        } else {
+                                            String events = DynamicTasks.queue(newSimpleTaskFactory(String.format(SCOPED_EVENTS_CMD, namespace, kubeJobName)).summary("Get job events").allowingNonZeroExitCode().newTask()).get().trim();
+                                            LOG.info("Job events: \n"+events);
+                                        }
+                                    }
+                                    long backoffMillis2 = backoffMillis;
+                                    Tasks.withBlockingDetails("waiting "+backoffMillis2+"ms for pod to be available (current status '" + phase + "')", () -> {
+                                        Time.sleep(backoffMillis2);
+                                        return null;
+                                    });
+                                    if (backoffMillis<80) backoffMillis*=2;
+                                }
+                                throw new IllegalStateException("Timeout waiting for pod to be available; current status is '" + phase + "'");
+                            }).build()).getUnchecked();
+
+                            // notify once pod is available
+                            synchronized (result) {
+                                result.notifyAll();
+                            }
+
                             // use `wait --for` api, but in a 5s loop in case there are other issues
-                            boolean succeeded = DynamicTasks.queue(Tasks.<Boolean>builder().dynamic(true).displayName("Wait for success or failure").body(() -> {
+                            boolean succeeded = podPhase == PodPhases.Succeeded ? true : podPhase == PodPhases.Failed ? false : DynamicTasks.queue(Tasks.<Boolean>builder().dynamic(true).displayName("Wait for success or failure").body(() -> {
                                 while (true) {
                                     LOG.debug("Container job submitted, now waiting on success or failure");
 
                                     long secondsLeft = Math.min(Math.max(1, timer.getDurationRemaining().toSeconds()), 5);
                                     final AtomicInteger finishCount = new AtomicInteger(0);
 
-                                    ProcessTaskWrapper<String> waitForSuccess = Entities.submit(entity, newSimpleTaskFactory(String.format(JOBS_FEED_CMD, secondsLeft, containerName, namespace))
+                                    ProcessTaskWrapper<String> waitForSuccess = Entities.submit(entity, newSimpleTaskFactory(String.format(JOBS_FEED_CMD, secondsLeft, kubeJobName, namespace))
                                             .summary("Wait for success ('complete')").allowingNonZeroExitCode().newTask());
                                     Entities.submit(entity, Tasks.create("Wait for success then notify", () -> {
                                         try {
-                                            if (waitForSuccess.get().contains("condition met")) LOG.debug("Container job "+namespace+" detected as completed (succeeded) in kubernetes");
+                                            if (waitForSuccess.get().contains("condition met"))
+                                                LOG.debug("Container job " + namespace + " detected as completed (succeeded) in kubernetes");
                                         } finally {
                                             synchronized (finishCount) {
                                                 finishCount.incrementAndGet();
@@ -207,11 +279,12 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                                         }
                                     }));
 
-                                    ProcessTaskWrapper<String> waitForFailed = Entities.submit(entity, newSimpleTaskFactory(String.format(JOBS_FEED_FAILED_CMD, secondsLeft, containerName, namespace))
+                                    ProcessTaskWrapper<String> waitForFailed = Entities.submit(entity, newSimpleTaskFactory(String.format(JOBS_FEED_FAILED_CMD, secondsLeft, kubeJobName, namespace))
                                             .summary("Wait for failed").allowingNonZeroExitCode().newTask());
                                     Entities.submit(entity, Tasks.create("Wait for failed then notify", () -> {
                                         try {
-                                            if (waitForFailed.get().contains("condition met")) LOG.debug("Container job "+namespace+" detected as failed in kubernetes (may be valid non-zero exit)");
+                                            if (waitForFailed.get().contains("condition met"))
+                                                LOG.debug("Container job " + namespace + " detected as failed in kubernetes (may be valid non-zero exit)");
                                         } finally {
                                             synchronized (finishCount) {
                                                 finishCount.incrementAndGet();
@@ -221,7 +294,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                                     }));
 
                                     while (finishCount.get() == 0) {
-                                        LOG.debug("Container job "+namespace+" waiting on complete or failed");
+                                        LOG.debug("Container job " + namespace + " waiting on complete or failed");
                                         try {
                                             synchronized (finishCount) {
                                                 finishCount.wait(Duration.TEN_SECONDS.toMilliseconds());
@@ -233,17 +306,13 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
 
                                     if (waitForSuccess.isDone() && waitForSuccess.getExitCode() == 0) return true;
                                     if (waitForFailed.isDone() && waitForFailed.getExitCode() == 0) return false;
-                                    LOG.debug("Container job "+namespace+" not yet complete, will retry");
-                                    // probably timed out or job not yet available; short wait then retry
-                                    Time.sleep(Duration.millis(50));
-                                    if (timer.isExpired())
-                                        throw new IllegalStateException("Timeout waiting for success or failure");
+                                    LOG.debug("Container job " + namespace + " not yet complete, will retry");
 
-                                    // any other one-off checks for job error, we could do here
-                                    // e.g. if image can't be pulled for instance
+                                    // other one-off checks for job error, we could do here
+                                    // e.g. if image can't be pulled, for instance
 
                                     // finally get the partial log for reporting
-                                    ProcessTaskWrapper<String> outputSoFarCmd = DynamicTasks.queue(newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, containerName, namespace)).summary("Retrieve output so far").allowingNonZeroExitCode().newTask());
+                                    ProcessTaskWrapper<String> outputSoFarCmd = DynamicTasks.queue(newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, kubeJobName, namespace)).summary("Retrieve output so far").allowingNonZeroExitCode().newTask());
                                     BrooklynTaskTags.setTransient(outputSoFarCmd.asTask());
                                     outputSoFarCmd.block();
                                     if (outputSoFarCmd.getExitCode()!=0) {
@@ -253,16 +322,19 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                                     String newOutput = outputSoFar.substring(stdout.size());
                                     LOG.debug("Container job "+namespace+" output: "+newOutput);
                                     stdout.write(newOutput.getBytes(StandardCharsets.UTF_8));
+
+                                    if (timer.isExpired())
+                                        throw new IllegalStateException("Timeout waiting for success or failure");
+
+                                    // probably timed out or job not yet available; short wait then retry
+                                    Time.sleep(Duration.millis(50));
                                 }
 
                             }).build()).getUnchecked();
                             LOG.debug("Container job "+namespace+" completed, success "+succeeded);
 
-                            ProcessTaskWrapper<String> retrieveOutput = DynamicTasks.queue(newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, containerName, namespace)).summary("Retrieve output").newTask());
-                            result.interestingJobs.add(retrieveOutput);
-
-                            ProcessTaskWrapper<String> retrieveExitCode = DynamicTasks.queue(newSimpleTaskFactory(String.format(PODS_EXIT_CODE_CMD, namespace)).summary("Retrieve exit code").newTask());
-                            result.interestingJobs.add(retrieveExitCode);
+                            ProcessTaskWrapper<String> retrieveOutput = DynamicTasks.queue(newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, kubeJobName, namespace)).summary("Retrieve output").newTask());
+                            ProcessTaskWrapper<String> retrieveExitCode = DynamicTasks.queue(newSimpleTaskFactory(String.format(PODS_EXIT_CODE_CMD, namespace, kubeJobName)).summary("Retrieve exit code").newTask());
 
                             DynamicTasks.waitForLast();
                             result.mainStdout = retrieveOutput.get();

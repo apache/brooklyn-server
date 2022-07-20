@@ -77,7 +77,7 @@ public class ContainerSensor<T> extends AbstractAddSensorFeed<T> implements Cont
                             public Object call() throws Exception {
                                 Task<ContainerTaskResult> containerTask = ContainerTaskFactory.newInstance()
                                         .summary("Running " + EntityInitializers.resolve(configBag, SENSOR_NAME))
-                                        .jobIdentifier(entity.getId() + "-" + SENSOR_TAG)
+                                        .jobIdentifier(entity.getApplication()+"-"+entity.getId() + "-" + SENSOR_TAG)
                                         .configure(configBag.getAllConfig())
                                         .newTask();
                                 DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);

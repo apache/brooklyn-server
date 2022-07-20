@@ -68,7 +68,7 @@ public class ContainerEffector extends AddEffectorInitializerAbstract implements
             ConfigBag configBag = ConfigBag.newInstanceCopying(this.params).putAll(parameters);
             Task<ContainerTaskResult> containerTask = ContainerTaskFactory.newInstance()
                     .summary("Executing Container Image: " + EntityInitializers.resolve(configBag, CONTAINER_IMAGE))
-                    .jobIdentifier(entity().getId() + "-" + EFFECTOR_TAG)
+                    .jobIdentifier(entity().getApplicationId()+"-"+entity().getId() + "-"+EFFECTOR_TAG)
                     .configure(configBag.getAllConfig())
                     .newTask();
             DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity());

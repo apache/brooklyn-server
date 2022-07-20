@@ -59,7 +59,16 @@ public interface ContainerCommons {
     String JOBS_FEED_CMD = "kubectl wait --timeout=%ds --for=condition=complete job/%s --namespace=%s";
     String JOBS_FEED_FAILED_CMD = "kubectl wait --timeout=%ds --for=condition=failed job/%s --namespace=%s";
     String JOBS_LOGS_CMD = "kubectl logs jobs/%s --namespace=%s";
-    String PODS_EXIT_CODE_CMD = "kubectl get pods --namespace=%s -ojsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'";
+    String PODS_CMD_PREFIX = "kubectl get pods --namespace=%s --selector=job-name=%s ";
+    String PODS_STATUS_PHASE_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].status.phase}'";
+    String PODS_NAME_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].metadata.name}'";
+    String PODS_EXIT_CODE_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'";
+    String SCOPED_EVENTS_CMD = "kubectl --namespace %s get events --field-selector=involvedObject.name=%s";
+    String SCOPED_EVENTS_FAILED_JSON_CMD = "kubectl --namespace %s get events --field-selector=reason=Failed,involvedObject.name=%s -ojsonpath='{.items}'";
     String NAMESPACE_DELETE_CMD = "kubectl delete namespace %s";
 
+    public static enum PodPhases {
+        // from https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/
+        Failed, Running, Succeeded, Unknown, Pending
+    }
 }

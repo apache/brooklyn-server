@@ -18,14 +18,12 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
-
-import java.util.List;
-
 public class ContainerTaskResult {
-    List<ProcessTaskWrapper<?>> interestingJobs;
     String mainStdout;
     Integer mainExitCode;
+    String namespace;
+    String kubeJobName;
+    public String kubePodName;
 
     /**
      * This will be 0 unless allowNonZeroExitCode was specified
@@ -38,7 +36,15 @@ public class ContainerTaskResult {
         return mainStdout;
     }
 
-    public List<ProcessTaskWrapper<?>> getInterestingJobs() {
-        return interestingJobs;
+    public String getNamespace() {
+        return namespace;
+    }
+
+    public String getKubeJobName() {
+        return kubeJobName;
+    }
+
+    public String getKubePodName() {
+        return kubePodName;
     }
 }

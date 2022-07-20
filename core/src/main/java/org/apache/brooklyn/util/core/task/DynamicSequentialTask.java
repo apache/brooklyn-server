@@ -498,9 +498,15 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
         if (throwFirstError) {
             if (isError()) 
                 getUnchecked();
-            for (Task<?> t: getQueue())
-                if (t.isError() && !TaskTags.isInessential(t))
-                    t.getUnchecked();
+            for (Task<?> t: getQueue()) {
+                if (t.isError() && !TaskTags.isInessential(t)) {
+                    try {
+                        t.getUnchecked();
+                    } catch (Exception e) {
+                        throw Exceptions.propagate("Error while draining tasks (preceding task in queue failed)", e);
+                    }
+                }
+            }
         }
     }
 

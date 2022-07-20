@@ -242,6 +242,6 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
         Asserts.assertTrue(containerTask.blockUntilEnded(Duration.THIRTY_SECONDS));  // should complete quickly when we detect the failed
         Asserts.assertTrue(containerTask.isDone());
         Asserts.assertTrue(containerTask.isError());
-        Asserts.assertFailsWith(() -> containerTask.getUnchecked(), error -> Asserts.expectedFailureContainsIgnoreCase(error, "image"));
+        Asserts.assertFailsWith(() -> containerTask.getUnchecked(), error -> Asserts.expectedFailureContainsIgnoreCase(error, "job pod failed", "image"));
     }
 }
