@@ -18,15 +18,14 @@
  */
 package org.apache.brooklyn.core.mgmt;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.Callable;
-
-import java.util.function.Function;
-import javax.annotation.Nullable;
-
+import com.google.common.annotations.Beta;
+import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.Runnables;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -47,20 +46,16 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Optional;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
-import com.google.common.util.concurrent.Runnables;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Utility methods for working with entities and applications */
 public class EntityManagementUtils {
@@ -333,7 +328,7 @@ public class EntityManagementUtils {
      *
      * @see #WRAPPER_APP_MARKER  */
     public static boolean canUnwrapEntity(EntitySpec<? extends Entity> spec, boolean allowUnwrappingApplicationsWithoutWrapperAppMarker) {
-        return ((allowUnwrappingApplicationsWithoutWrapperAppMarker && Application.class.isAssignableFrom(spec.getType())) 
+        return ((allowUnwrappingApplicationsWithoutWrapperAppMarker && Application.class.isAssignableFrom(spec.getType()))
                 || isWrapperApp(spec)) &&
             hasMergeableSingleChild(spec);
     }
@@ -345,9 +340,16 @@ public class EntityManagementUtils {
         EntitySpec<? extends Entity> child = Iterables.getOnlyElement(spec.getChildren());
         if (!allParentSubsetOfChild(spec, child, EntitySpec::getEnricherSpecs, EntitySpec::getInitializers, EntitySpec::getPolicySpecs)) return false;
 
-        // prevent merge only if a location is defined at both levels
+        // prevent merge if a location is defined at both levels
         if (! ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) ||
-                (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && Iterables.getOnlyElement(spec.getChildren()).getLocationSpecs().isEmpty())) {
+                (Iterables.getOnlyElement(spec.getChildren()).getLocations().isEmpty()) && child.getLocationSpecs().isEmpty())) {
+            return false;
+        }
+
+        Set<String> parentParamsWithDefaults = spec.getParameters().stream().filter(p -> p.getConfigKey().getDefaultValue()!=null).map(p -> p.getConfigKey().getName()).collect(Collectors.toSet());
+        if (child.getConfig().keySet().stream().anyMatch(k -> parentParamsWithDefaults.contains(k.getName()))) {
+            // don't merge if child sets a config value where the parent declares a parameter with a default value
+            // the default value will be clobbered even though someone else might be depending on it
             return false;
         }
 
