@@ -29,13 +29,15 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
+import org.apache.brooklyn.camp.spi.PlatformRootSummary;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.resolve.jackson.*;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -46,13 +48,13 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.BidiSerialization;
 import org.apache.brooklyn.util.core.units.ByteSize;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.net.UserAndHostAndPort;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
-import org.apache.brooklyn.util.time.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -60,8 +62,12 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.NotSerializableException;
+import java.lang.reflect.Field;
 import java.time.Instant;
-import java.util.*;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -595,4 +601,50 @@ public class BrooklynJacksonSerializerTest {
         }
     }
 
+    public static class ObjectWithWrappedValueStringAndAnother extends WrappedValuesSerializationTest.ObjectWithWrappedValueString {
+        public String y;
+    }
+
+    @Test
+    public void testDslSupplier() throws Exception {
+        LocalManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            BrooklynCampPlatform platform = new BrooklynCampPlatform(
+                    PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
+                    mgmt)
+                    .setConfigKeyAtManagmentContext();
+            TestEntity entity = mgmt.getEntityManager().createEntity(EntitySpec.create(TestEntity.class).configure("fk", "foo"));
+            Object dsl = DslUtils.parseBrooklynDsl(mgmt, "$brooklyn:config(\"fk\")");
+            ObjectWithWrappedValueStringAndAnother obj = new ObjectWithWrappedValueStringAndAnother();
+            obj.x = WrappedValue.of(dsl);
+            obj.y = "yyy";
+
+            mgmt.getExecutionContext(entity).submit("resolve", () -> Asserts.assertEquals(obj.x.get(), "foo")).get();
+
+            List result = BeanWithTypeUtils.convert(mgmt, MutableList.of(obj), TypeToken.of(List.class), true, null, true);
+
+            mgmt.getExecutionContext(entity).submit("resolve", () -> Asserts.assertEquals(
+                    ((WrappedValuesSerializationTest.ObjectWithWrappedValueString) result.get(0)).x.get(), "foo")).get();
+
+            // if dsl field is cleared, we can still read it, this time using class instantiation
+            Field dslField = Reflections.findField(dsl.getClass(), "dsl");
+            dslField.setAccessible(true);
+            dslField.set(dsl, null);
+
+            dslField = Reflections.findField(((DslComponent.DslConfigSupplier)dsl).getComponent().getClass(), "dsl");
+            dslField.setAccessible(true);
+            dslField.set( ((DslComponent.DslConfigSupplier)dsl).getComponent() , null);
+
+            List result2 = BeanWithTypeUtils.convert(mgmt, MutableList.of(obj), TypeToken.of(List.class), true, null, true);
+
+            mgmt.getExecutionContext(entity).submit("resolve", () -> Asserts.assertEquals(
+                    ((WrappedValuesSerializationTest.ObjectWithWrappedValueString) result2.get(0)).x.get(), "foo")).get();
+
+            // (above test was to investigate a situation where ultimately a downstream "shorthand" serializer was using
+            // findRootValueDeserializer rather than findContextualValueDeserializer, so not attending to our custom type info rules;
+            // the test is useful however, so has been added
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
 }

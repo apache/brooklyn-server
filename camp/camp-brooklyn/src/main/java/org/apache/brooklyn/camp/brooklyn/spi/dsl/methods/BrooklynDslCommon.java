@@ -448,7 +448,7 @@ public class BrooklynDslCommon {
 
         public DslLiteral(Object input) {
             this.literalString = input instanceof String ? (String)input : null;
-            this.literalObjectJson = input instanceof String ? null : Jsonya.render(input);
+            this.literalObjectJson = (input==null || input instanceof String) ? null : Jsonya.render(input);
         }
 
         public String getLiteralObjectJson() {
