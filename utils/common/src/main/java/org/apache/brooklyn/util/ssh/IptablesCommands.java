@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.ssh;
 
 import static org.apache.brooklyn.util.ssh.BashCommands.alternatives;
 import static org.apache.brooklyn.util.ssh.BashCommands.chain;
+import static org.apache.brooklyn.util.ssh.BashCommands.ifExecutableElse1;
 import static org.apache.brooklyn.util.ssh.BashCommands.installPackage;
 import static org.apache.brooklyn.util.ssh.BashCommands.sudo;
 
@@ -94,7 +95,7 @@ public class IptablesCommands {
     @Beta // implementation not portable across distros
     public static String firewalldService(String cmd) {
         return sudo(alternatives(
-                BashCommands.ifExecutableElse1("systemctl", "systemctl " + cmd + " firewalld"),
+                ifExecutableElse1("systemctl", "systemctl " + cmd + " firewalld"),
                 "/usr/bin/systemctl " + cmd + " firewalld"));
     }
 
@@ -130,8 +131,9 @@ public class IptablesCommands {
      *
      */
     public static String saveIptablesRules() {
-        return alternatives(sudo("service iptables save"),
-                            chain(installPackage("iptables-persistent"), sudo("/etc/init.d/iptables-persistent save")));
+        return alternatives(
+                ifExecutableElse1("iptables–save", "if [ ${UID} -eq 0 ] ; then iptables–save > /etc/sysconfig/iptables ; else sudo iptables-save | sudo tee /etc/sysconfig/iptables ; fi"),
+                chain(installPackage("iptables-persistent"), sudo("/etc/init.d/iptables-persistent save")));
     }
 
     /**
@@ -140,7 +142,7 @@ public class IptablesCommands {
      * @return Returns the command that cleans up iptables rules.
      */
     public static String cleanUpIptablesRules() {
-       return sudo("/sbin/iptables -F");
+        return sudo("/sbin/iptables -F");
     }
 
     /**
@@ -149,7 +151,7 @@ public class IptablesCommands {
      * @return Returns the command that list all the iptables rules.
      */
     public static String listIptablesRule() {
-       return sudo("/sbin/iptables -L -v -n");
+        return sudo("/sbin/iptables -L -v -n");
     }
 
     /**
@@ -213,7 +215,7 @@ public class IptablesCommands {
     public static String addFirewalldRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
         return addFirewalldRule(chain, Optional.<String>absent(), protocol, port, policy);
     }
-    
+
     /**
      * Returns the command that adds firewalld direct rule.
      *
@@ -222,12 +224,12 @@ public class IptablesCommands {
     public static String addFirewalldRule(Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
         String command = new String("/usr/bin/firewall-cmd");
         String commandPermanent = new String("/usr/bin/firewall-cmd --permanent");
-        
+
         String interfaceParameter = String.format("%s", networkInterface.isPresent() ? " -i " + networkInterface.get() : "");
-        
-        String commandParameters = String.format(" --direct --add-rule ipv4 filter %s 0 %s -p %s --dport %d -j %s", 
+
+        String commandParameters = String.format(" --direct --add-rule ipv4 filter %s 0 %s -p %s --dport %d -j %s",
                                                                 chain, interfaceParameter,  protocol, port, policy);
-        
+
         return sudo(chain(command + commandParameters, commandPermanent + commandParameters));
     }
 }
