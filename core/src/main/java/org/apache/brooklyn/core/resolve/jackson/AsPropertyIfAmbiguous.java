@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
 import java.lang.reflect.AccessibleObject;
@@ -136,27 +137,106 @@ public class AsPropertyIfAmbiguous {
 
         @Override
         public Object deserializeTypedFromObject(JsonParser p, DeserializationContext ctxt) throws IOException {
-            if (_idResolver instanceof HasBaseType) {
-                if (// object has field with same name as the type property - don't treat the type property supplied here as the type
-                        presentAndNotJsonIgnored(Reflections.findFieldMaybe(((HasBaseType) _idResolver).getBaseType().getRawClass(), _typePropertyName))
-                                || // or object has getter with same name as the type property
-                                presentAndNotJsonIgnored(Reflections.findMethodMaybe(((HasBaseType) _idResolver).getBaseType().getRawClass(), "get" + Strings.toInitialCapOnly(_typePropertyName)))
-                ) {
-                    // look for an '@' type
-                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName).deserializeTypedFromObject(p, ctxt);
+            AsPropertyButNotIfFieldConflictTypeDeserializer target = this;
+            boolean mustUseConflictingTypePrefix = false;
 
-                    // previous behaviour:
+            if (_idResolver instanceof HasBaseType) {
+                JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
+                if (baseType != null ) {
+                    if (// object has field with same name as the type property - don't treat the type property supplied here as the type
+                            presentAndNotJsonIgnored(Reflections.findFieldMaybe(baseType.getRawClass(), _typePropertyName))
+                                    || // or object has getter with same name as the type property
+                                    presentAndNotJsonIgnored(Reflections.findMethodMaybe(baseType.getRawClass(), "get" + Strings.toInitialCapOnly(_typePropertyName)))
+                    ) {
+                        // look for an '@' type
+//                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName).deserializeTypedFromObject(p, ctxt);
+                        // now we always look for @ first, in case the type is not known but that field is present; but if we know 'type' is a bean field, don't allow it to be used
+                        mustUseConflictingTypePrefix = true;
+
+                        // previous behaviour:
 //                    // don't read type id, just deserialize
 //                    JsonDeserializer<Object> deser = ctxt.findContextualValueDeserializer(((HasBaseType)_idResolver).getBaseType(), _property);
 //                    return deser.deserialize(p, ctxt);
-                }
-                // ? - MapperFeature.USE_BASE_TYPE_AS_DEFAULT_IMPL should do this
-                if (!Objects.equals(_defaultImpl, ((HasBaseType) _idResolver).getBaseType())) {
-                    AsPropertyButNotIfFieldConflictTypeDeserializer delegate = new AsPropertyButNotIfFieldConflictTypeDeserializer(_baseType, _idResolver, _typePropertyName, _typeIdVisible, ((HasBaseType) _idResolver).getBaseType(), _inclusion);
-                    return delegate.deserializeTypedFromObject(p, ctxt);
+                    }
+
+                    // ? - MapperFeature.USE_BASE_TYPE_AS_DEFAULT_IMPL should do this
+                    if (!Objects.equals(_defaultImpl, baseType)) {
+                        // note: needed even if baseType is object
+                        target = new AsPropertyButNotIfFieldConflictTypeDeserializer(_baseType, _idResolver, _typePropertyName, _typeIdVisible, ((HasBaseType) _idResolver).getBaseType(), _inclusion);
+                    }
                 }
             }
-            return super.deserializeTypedFromObject(p, ctxt);
+            return target.deserializeTypedFromObjectSuper(p, ctxt, mustUseConflictingTypePrefix);
+        }
+
+        // copied from super class
+        private Object deserializeTypedFromObjectSuper(JsonParser p, DeserializationContext ctxt, boolean mustUseConflictingTypePrefix) throws IOException {
+//            return super.deserializeTypedFromObject(p, ctxt);
+
+            // 02-Aug-2013, tatu: May need to use native type ids
+            Object typeId;
+            if (p.canReadTypeId()) {
+                typeId = p.getTypeId();
+                if (typeId != null) {
+                    return _deserializeWithNativeTypeId(p, ctxt, typeId);
+                }
+            }
+
+            // but first, sanity check to ensure we have START_OBJECT or FIELD_NAME
+            JsonToken t = p.currentToken();
+            if (t == JsonToken.START_OBJECT) {
+                t = p.nextToken();
+            } else if (/*t == JsonToken.START_ARRAY ||*/ t != JsonToken.FIELD_NAME) {
+                /* This is most likely due to the fact that not all Java types are
+                 * serialized as JSON Objects; so if "as-property" inclusion is requested,
+                 * serialization of things like Lists must be instead handled as if
+                 * "as-wrapper-array" was requested.
+                 * But this can also be due to some custom handling: so, if "defaultImpl"
+                 * is defined, it will be asked to handle this case.
+                 */
+                return _deserializeTypedUsingDefaultImpl(p, ctxt, null, _msgForMissingId);
+            }
+            // Ok, let's try to find the property. But first, need token buffer...
+            TokenBuffer tb = null;
+            boolean ignoreCase = ctxt.isEnabled(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
+
+            // changed to look for conflicting property first
+            Pair<String, TokenBuffer> typeIdFindResult = findTypeIdOrUnambiguous(p, ctxt, t, tb, ignoreCase, mustUseConflictingTypePrefix);
+            tb = typeIdFindResult.getRight();
+//            if (typeIdFindResult.getLeft()==null && !mustUseConflictingTypePrefix) {
+//                p = tb.asParserOnFirstToken();
+//                tb = null;
+//                typeIdFindResult = findTypeId(p, ctxt, t, tb, ignoreCase, _typePropertyName);
+//            }
+//            tb = typeIdFindResult.getRight();
+
+            if (typeIdFindResult.getLeft()!=null) return _deserializeTypedForId(p, ctxt, tb, typeIdFindResult.getLeft());
+            else return _deserializeTypedUsingDefaultImpl(p, ctxt, tb, _msgForMissingId);
+        }
+
+        private Pair<String,TokenBuffer> findTypeIdOrUnambiguous(JsonParser p, DeserializationContext ctxt, JsonToken t, TokenBuffer tb, boolean ignoreCase, boolean mustUseConflictingTypePrefix) throws IOException {
+            String typeUnambiguous = CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName;
+
+            for (; t == JsonToken.FIELD_NAME; t = p.nextToken()) {
+                final String name = p.currentName();
+                p.nextToken(); // to point to the value
+
+                // require unambiguous one is first if present; otherwise maintaining the parser and token buffer in the desired states is too hard
+                if (name.equals(typeUnambiguous) || (!mustUseConflictingTypePrefix && (name.equals(_typePropertyName)
+                        || (ignoreCase && name.equalsIgnoreCase(_typePropertyName))))) { // gotcha!
+                    // 09-Sep-2021, tatu: [databind#3271]: Avoid converting null to "null"
+                    String typeId = p.getValueAsString();
+                    if (typeId != null) {
+                        return Pair.of(typeId, tb);
+                    }
+                }
+                if (tb == null) {
+                    tb = ctxt.bufferForInputBuffering(p);
+                }
+                tb.writeFieldName(name);
+                tb.copyCurrentStructure(p);
+            }
+            return Pair.of(null, tb);
         }
 
         private boolean presentAndNotJsonIgnored(Maybe<? extends AccessibleObject> fm) {

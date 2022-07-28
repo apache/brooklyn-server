@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.base.Preconditions;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -37,6 +38,7 @@ import org.apache.brooklyn.util.core.task.DeferredSupplier;
  *
  * When deserialized, this will parse Brooklyn DSL expressions.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class WrappedValue<T> implements Supplier<T>, com.google.common.base.Supplier<T>, DeferredSupplier<T> {
     final static WrappedValue<?> NULL_WRAPPED_VALUE = new WrappedValue<>(null, false);
     final T value;
