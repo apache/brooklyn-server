@@ -29,15 +29,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import com.google.gson.Gson;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.internal.StringSystemProperty;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
@@ -173,6 +177,14 @@ public final class Sanitizer {
         return "<suppressed> (MD5 hash: " + md5Checksum + ")";
     }
 
+    public static String suppressJson(Object value, boolean excludeBrooklynDslExpressions) {
+        if (value==null || Boxing.isPrimitiveOrBoxedObject(value) || value instanceof CharSequence) {
+            if (excludeBrooklynDslExpressions && value instanceof String && ((String)value).startsWith("$brooklyn:")) return (String)value;
+            return suppress(value);
+        }
+        return suppress(new Gson().toJson(value));
+    }
+
     public static String suppressIfSecret(Object key, String value) {
         if (value!=null && Sanitizer.IS_SECRET_PREDICATE.apply(key)) {
             return suppress(value);
@@ -214,6 +226,25 @@ public final class Sanitizer {
     /** applies to strings, sets, lists, maps */
     public static <K> K sanitizeJsonTypes(K obj) {
         return Sanitizer.newInstance().apply(obj);
+    }
+
+    public static Object suppressNestedSecretsJson(Object x, boolean excludeBrooklynDslExpressions) {
+        if (x==null || Boxing.isPrimitiveOrBoxedObject(x) || x instanceof CharSequence) {
+            // no further action needed
+            return x;
+        } else if (x instanceof Map) {
+            Map y = MutableMap.of();
+            ((Map)x).forEach((k,v) -> {
+                y.put(k, v!=null && Sanitizer.IS_SECRET_PREDICATE.apply(k) ? suppressJson(v, excludeBrooklynDslExpressions) : v);
+            });
+            return y;
+        } else if (x instanceof Iterable) {
+            List y = MutableList.of();
+            ((Iterable)x).forEach(xi -> y.add(suppressNestedSecretsJson(xi, excludeBrooklynDslExpressions)));
+            return y;
+        } else {
+            throw new IllegalStateException("Non-JSON input received when not expected: "+x.getClass());
+        }
     }
 
     private static class IsSecretPredicate implements Predicate<Object> {

@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.internal.EntityConfigMap;
@@ -160,14 +161,21 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     public String getPlain(String application, String entityToken, String configKeyName,
                            Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
                            @Deprecated Boolean raw) {
-        return Strings.toString(get(false, application, entityToken, configKeyName,
+        return (String) get(false, application, entityToken, configKeyName,
                 useDisplayHints, skipResolution, suppressSecrets,
-                raw));
+                raw, true);
     }
 
     public Object get(boolean preferJson, String application, String entityToken, String configKeyName,
                       Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
                       @Deprecated Boolean raw) {
+        return get(preferJson, application, entityToken, configKeyName, useDisplayHints, skipResolution, suppressSecrets, raw, false);
+    }
+
+    public Object get(boolean preferJson, String application, String entityToken, String configKeyName,
+                      Boolean useDisplayHints, Boolean skipResolution, Boolean suppressSecrets,
+                      @Deprecated Boolean raw, boolean plain) {
+
         Entity entity = brooklyn().getEntity(application, entityToken);
         ConfigKey<?> ck = findConfig(entity, configKeyName);
         

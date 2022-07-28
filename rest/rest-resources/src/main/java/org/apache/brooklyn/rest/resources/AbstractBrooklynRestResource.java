@@ -24,6 +24,8 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriInfo;
 import javax.ws.rs.ext.ContextResolver;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.gson.Gson;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
@@ -37,6 +39,7 @@ import org.apache.brooklyn.rest.util.ManagementContextProvider;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -116,6 +119,7 @@ public abstract class AbstractBrooklynRestResource {
         private @Nullable Boolean useDisplayHints;
         private @Nullable Boolean skipResolution;
         private @Nullable Boolean suppressBecauseSecret;
+        private @Nullable Boolean suppressSecrets;
 
         public static RestValueResolver resolving(Object v) { return new RestValueResolver(v); }
         
@@ -161,11 +165,18 @@ public abstract class AbstractBrooklynRestResource {
             if (useDisplayHints!=null) return useDisplayHints;
             return true;
         }
+
+        public boolean isSuppressedBecauseSecret() {
+            return Boolean.TRUE.equals(suppressBecauseSecret);
+        }
+
         public RestValueResolver skipResolution(Boolean skipResolution) {
             this.skipResolution = skipResolution;
             return this;
         }
         public RestValueResolver suppressIfSecret(String keyName, Boolean suppressIfSecret) {
+            suppressSecrets = suppressIfSecret;
+
             if (Boolean.TRUE.equals(suppressIfSecret)) {
                 if (Sanitizer.IS_SECRET_PREDICATE.apply(keyName)) {
                     suppressBecauseSecret = true;
@@ -190,15 +201,12 @@ public abstract class AbstractBrooklynRestResource {
                 valueResult = RendererHints.applyDisplayValueHintUnchecked(rendererHintSource, valueResult);
             }
             if (Boolean.TRUE.equals(suppressBecauseSecret)) {
-                if (valueResult instanceof BrooklynDslDeferredSupplier) {
-                    // deferred supplier not suppressed
-                } else {
-                    valueResult = Sanitizer.suppress(valueResult);
-                }
+                valueResult = WebResourceUtils.suppressAsMinimalizedJson(mapper, valueResult);
+
             }
-            return WebResourceUtils.getValueForDisplay(mapper, valueResult, preferJson, isJerseyReturnValue);
+            return WebResourceUtils.getValueForDisplay(mapper, valueResult, preferJson, isJerseyReturnValue, Boolean.TRUE.equals(suppressSecrets) && !Boolean.TRUE.equals(suppressBecauseSecret));
         }
-        
+
         private static Object UNRESOLVED = "UNRESOLVED".toCharArray();
         
         private static Object getImmediateValue(Object value, @Nullable Entity context, @Nullable Boolean immediately, @Nullable Duration timeout) {
@@ -212,7 +220,6 @@ public abstract class AbstractBrooklynRestResource {
                     .swallowExceptions()
                     .get();
         }
-
     }
 
 }

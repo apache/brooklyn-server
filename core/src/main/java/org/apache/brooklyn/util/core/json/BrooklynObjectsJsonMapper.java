@@ -15,6 +15,10 @@
  */
 package org.apache.brooklyn.util.core.json;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.datatype.jsr310.JSR310Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -25,8 +29,15 @@ import org.apache.brooklyn.util.time.Duration;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Date;
 
 public class BrooklynObjectsJsonMapper {
+
+    private static final Logger LOG = LoggerFactory.getLogger(BrooklynObjectsJsonMapper.class);
 
     /** TODO {@link org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils#newMapper(ManagementContext, boolean, BrooklynClassLoadingContext, boolean)}
      * is better in most ways; ideally that and this should be combined */
@@ -61,4 +72,38 @@ public class BrooklynObjectsJsonMapper {
 
         return mapper;
     }
+
+    public static ObjectMapper newDslToStringSerializingMapper(ManagementContext mgmt) {
+        ObjectMapper mapper = newMapper(mgmt);
+
+        SimpleModule module = new SimpleModule("Brooklyn-DSL-ToString");
+        if (DslToStringSerialization.BROOKLYN_DSL_INTERFACE!=null) {
+            new DslToStringSerialization().apply(module);
+        } else {
+            LOG.debug("No DSL interface defined; will not serialize DSL expressions in this instance");
+        }
+        mapper.registerModule(module);
+
+        return mapper;
+    }
+
+    public static class DslToStringSerialization extends CommonTypesSerialization.ObjectAsStringSerializerAndDeserializer {
+        public static Class BROOKLYN_DSL_INTERFACE = null;
+
+        @Override
+        public Class getType() {
+            return BROOKLYN_DSL_INTERFACE;
+        }
+
+        @Override
+        public String convertObjectToString(Object value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            return value.toString();
+        }
+
+        @Override
+        public Object convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            throw new IllegalStateException("DSL deserialization not supported by this serializer");
+        }
+    }
+
 }
