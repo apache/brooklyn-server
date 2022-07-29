@@ -103,12 +103,18 @@ public class HttpTool {
 
     static final ExecutorService executor = Executors.newCachedThreadPool();
 
+    @Deprecated /** @deprecated since 1.1, use #getContentUnsafe if you don't need to trust the remote endpoint, otherwise use a more sophisticated method */
+    public static URLConnection connectToUrl(String u) throws Exception {
+        return connectToUrlUnsafe(u);
+    }
     /**
      * Connects to the given url and returns the connection.
      * Caller should {@code connection.getInputStream().close()} the result of this
      * (especially if they are making heavy use of this method).
-     */
-    public static URLConnection connectToUrl(String u) throws Exception {
+     *
+     * trusts all connections, so the content could be hacked and should not be relied upon */
+    // only used in tests and test assertions
+    public static URLConnection connectToUrlUnsafe(String u) throws Exception {
         final URL url = new URL(u);
         final AtomicReference<Exception> exception = new AtomicReference<Exception>();
 
@@ -117,16 +123,8 @@ public class HttpTool {
             @Override
             public URLConnection call() {
                 try {
-                    HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
-                        @Override
-                        public boolean verify(String s, SSLSession sslSession) {
-                            return true;
-                        }
-                    });
-                    URLConnection connection = url.openConnection();
-                    TrustingSslSocketFactory.configure(connection);
+                    URLConnection connection = SslTrustUtils.trustAll(url.openConnection());
                     connection.connect();
-
                     connection.getContentLength(); // Make sure the connection is made.
                     return connection;
                 } catch (Exception e) {
@@ -157,10 +155,14 @@ public class HttpTool {
         }
     }
 
-
-
+    @Deprecated /** @deprecated since 1.1, use #getContentUnsafe if you don't need to trust the remote endpoint, otherwise use a more sophisticated method */
     public static int getHttpStatusCode(String url) throws Exception {
-        URLConnection connection = connectToUrl(url);
+        return getHttpStatusCodeUnsafe(url);
+    }
+    /** trusts all connections, so the content could be hacked */
+    // only used in tests, test assertions, and pre-checks
+    public static int getHttpStatusCodeUnsafe(String url) throws Exception {
+        URLConnection connection = connectToUrlUnsafe(url);
         long startTime = System.currentTimeMillis();
         int status = ((HttpURLConnection) connection).getResponseCode();
 
@@ -172,8 +174,9 @@ public class HttpTool {
         return status;
     }
 
-
-    public static String getContent(String url) {
+    /** trusts all connections, so the content could be hacked */
+    // only used in tests and test assertions
+    public static String getContentUnsafe(String url) {
         try {
             return Streams.readFullyStringAndClose(SslTrustUtils.trustAll(new URL(url).openConnection()).getInputStream());
         } catch (Exception e) {
@@ -181,9 +184,20 @@ public class HttpTool {
         }
     }
 
+    @Deprecated /** @deprecated since 1.1, use #getContentUnsafe if you don't need to trust the remote endpoint, otherwise use a more sophisticated method */
+    public static String getContent(String url) {
+        return getContentUnsafe(url);
+    }
+
+    @Deprecated /** @deprecated since 1.1, use #getErrorContentUnsafe if you don't need to trust the remote endpoint, otherwise use a more sophisticated method */
     public static String getErrorContent(String url) {
+        return getErrorContentUnsafe(url);
+    }
+    /** trusts all connections, so the content could be hacked */
+    // only used in tests and test assertions
+    public static String getErrorContentUnsafe(String url) {
         try {
-            HttpURLConnection connection = (HttpURLConnection) connectToUrl(url);
+            HttpURLConnection connection = (HttpURLConnection) connectToUrlUnsafe(url);
             long startTime = System.currentTimeMillis();
 
             String err;
@@ -242,7 +256,7 @@ public class HttpTool {
     public static HttpClientBuilder httpClientBuilder() {
         return new HttpClientBuilder();
     }
-    
+
     // TODO deprecate this and use the new Apache Commons HttpClientBuilder instead
     @SuppressWarnings("deprecation")
     public static class HttpClientBuilder {

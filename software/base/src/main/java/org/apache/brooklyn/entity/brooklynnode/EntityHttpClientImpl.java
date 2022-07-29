@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -67,10 +68,7 @@ public class EntityHttpClientImpl implements EntityHttpClient {
     @Override
     public HttpTool.HttpClientBuilder getHttpClientForBrooklynNode() {
         String baseUrl = getEntityUrl();
-        HttpTool.HttpClientBuilder builder = HttpTool.httpClientBuilder()
-                .trustAll()
-                .laxRedirect(true)
-                .uri(baseUrl);
+        HttpTool.HttpClientBuilder builder = BrooklynHttpConfig.httpClientBuilder(entity).uri(baseUrl);
         if (entity.getConfig(BrooklynNode.MANAGEMENT_USER) != null) {
             UsernamePasswordCredentials credentials = new UsernamePasswordCredentials(
                     entity.getConfig(BrooklynNode.MANAGEMENT_USER),

@@ -59,6 +59,13 @@ public class HttpExecutorImpl implements HttpExecutor {
     public HttpExecutorImpl() {
     }
 
+    HttpConfig config = DEFAULT_CONFIG;
+
+    public HttpExecutorImpl withConfig(HttpConfig config) {
+        this.config = config;
+        return this;
+    }
+
     @Override
     public HttpResponse execute(HttpRequest request) throws IOException {
         HttpConfig config = (request.config() != null) ? request.config() : DEFAULT_CONFIG;

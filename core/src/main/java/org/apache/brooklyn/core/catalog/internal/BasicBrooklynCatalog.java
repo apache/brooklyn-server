@@ -1233,7 +1233,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // org.reflections requires the URL to be "file:" containg ".jar"
         File fJar = Os.newTempFile(containingBundle.getVersionedName().toOsgiString(), ".jar");
         try {
-            Streams.copy(ResourceUtils.create().getResourceFromUrl(url), new FileOutputStream(fJar));
+            Streams.copy(ResourceUtils.create(mgmt).getResourceFromUrl(url), new FileOutputStream(fJar));
             subCatalog.addToClasspath(new String[] { "file:"+fJar.getAbsolutePath() });
             Collection<CatalogItemDtoAbstract<?, ?>> result = scanAnnotationsInternal(mgmt, subCatalog, MutableMap.of("version", containingBundle.getSuppliedVersionString()), containingBundle);
             return result;

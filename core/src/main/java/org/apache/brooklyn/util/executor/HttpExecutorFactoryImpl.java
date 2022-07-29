@@ -18,11 +18,10 @@
  */
 package org.apache.brooklyn.util.executor;
 
-import java.util.Map;
-import java.util.Map.Entry;
-
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
@@ -31,7 +30,8 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Maps;
+import java.util.Map;
+import java.util.Map.Entry;
 
 public class HttpExecutorFactoryImpl implements HttpExecutorFactory {
     private static final Logger LOG = LoggerFactory.getLogger(HttpExecutorFactoryImpl.class);
@@ -62,7 +62,7 @@ public class HttpExecutorFactoryImpl implements HttpExecutorFactory {
 
         } else {
             LOG.info(HTTP_EXECUTOR_CLASS_CONFIG + " parameter not provided. Using the default implementation " + HttpExecutorImpl.class.getName());
-            httpExecutor = HttpExecutorImpl.newInstance();
+            httpExecutor = BrooklynHttpConfig.newHttpExecutorDefault();
         }
 
         return httpExecutor;

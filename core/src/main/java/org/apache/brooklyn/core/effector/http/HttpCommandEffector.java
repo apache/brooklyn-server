@@ -18,21 +18,14 @@
  */
 package org.apache.brooklyn.core.effector.http;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.concurrent.Callable;
-
+import com.google.common.annotations.Beta;
+import com.google.common.base.Enums;
+import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
+import com.google.common.base.Throwables;
+import com.google.common.io.ByteStreams;
+import com.google.common.net.HttpHeaders;
+import com.jayway.jsonpath.JsonPath;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
@@ -45,26 +38,27 @@ import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.http.executor.HttpConfig;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
-import org.apache.brooklyn.util.http.auth.UsernamePassword;
-import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Enums;
-import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
-import com.google.common.base.Throwables;
-import com.google.common.io.ByteStreams;
-import com.google.common.net.HttpHeaders;
-import com.jayway.jsonpath.JsonPath;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.concurrent.Callable;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * An {@link Effector} to invoke REST endpoints.
@@ -141,7 +135,7 @@ public final class HttpCommandEffector extends AddEffectorInitializerAbstract {
             if(!Strings.isEmpty(jsonPath) && !pathsAndSensors.isEmpty()) {
                 throw new IllegalArgumentException("Both jsonPath and pathsAndSensors are defined, please pick just one to resolve the ambiguity");
             }
-            final HttpExecutor httpExecutor = HttpExecutorImpl.newInstance();
+            final HttpExecutor httpExecutor = BrooklynHttpConfig.newHttpExecutor(entity());
 
             final HttpRequest request = buildHttpRequest(httpVerb, uri, headers, httpUsername, httpPassword, payload);
             Task t = Tasks.builder().displayName(effector.getName()).body(new Callable<Object>() {
@@ -205,11 +199,7 @@ public final class HttpCommandEffector extends AddEffectorInitializerAbstract {
             HttpRequest.Builder httpRequestBuilder = new HttpRequest.Builder()
                     .uri(uri)
                     .method(httpVerb)
-                    .config(HttpConfig.builder()
-                            .trustSelfSigned(true)
-                            .trustAll(true)
-                            .laxRedirect(true)
-                            .build());
+                    .config(BrooklynHttpConfig.httpConfigBuilder(entity()).build());
 
             if (headers != null) {
                 httpRequestBuilder.headers(headers);

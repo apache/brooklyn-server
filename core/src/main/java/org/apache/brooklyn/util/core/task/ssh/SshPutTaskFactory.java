@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.task.ssh;
 import java.io.InputStream;
 import java.io.Reader;
 
+import com.google.common.base.Supplier;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,6 +87,12 @@ public class SshPutTaskFactory extends SshPutTaskStub implements TaskFactory<Ssh
     public SshPutTaskFactory contents(InputStream stream) {
         markDirty();
         this.contents = Suppliers.ofInstance(stream);  
+        return self();
+    }
+
+    public SshPutTaskFactory contents(Supplier<InputStream> stream) {
+        markDirty();
+        this.contents = stream;
         return self();
     }
 

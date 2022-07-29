@@ -54,10 +54,10 @@ public class PropertiesFileExternalConfigSupplier extends AbstractExternalConfig
         return properties.getProperty(key);
     }
 
-    private static Properties loadProperties(String propertiesUrl) throws IOException {
+    private Properties loadProperties(String propertiesUrl) throws IOException {
         InputStream is = null;
         try {
-            is = ResourceUtils.create().getResourceFromUrl(propertiesUrl);
+            is = ResourceUtils.create(getManagementContext()).getResourceFromUrl(propertiesUrl);
             Properties p = new Properties();
             p.load(is);
             return p;

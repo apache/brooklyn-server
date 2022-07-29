@@ -77,11 +77,11 @@ public class DeployBlueprintTest extends BrooklynRestResourceTest {
 
         log.info("got: "+id);
 
-        String apps = HttpTool.getContent(getEndpointAddress() + "/applications");
+        String apps = HttpTool.getContentUnsafe(getEndpointAddress() + "/applications");
         List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
         assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
 
-        String status = HttpTool.getContent(getEndpointAddress()+"/applications/"+id+"/entities/"+id+"/sensors/service.status");
+        String status = HttpTool.getContentUnsafe(getEndpointAddress()+"/applications/"+id+"/entities/"+id+"/sensors/service.status");
         log.info("STATUS: "+status);
     }
 

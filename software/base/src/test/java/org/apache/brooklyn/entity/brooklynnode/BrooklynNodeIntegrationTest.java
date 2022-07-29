@@ -57,6 +57,7 @@ import org.apache.brooklyn.test.HttpTestUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.http.HttpAsserts;
@@ -253,7 +254,7 @@ services:
         app.start(locs);
         log.info("started "+app+" containing "+brooklynNode+" for "+JavaClassNames.niceClassAndMethod());
 
-        assertEquals(ResourceUtils.create().getResourceAsString(pseudoBrooklynCatalogFile.getAbsolutePath()), catalogContents);
+        assertEquals(ResourceUtils.create(app).getResourceAsString(pseudoBrooklynCatalogFile.getAbsolutePath()), catalogContents);
         
         // Confirm the catalog item has taken effect (by deploying an app)
         final URI webConsoleUri = brooklynNode.getAttribute(BrooklynNode.WEB_CONSOLE_URI);
@@ -263,7 +264,7 @@ services:
             .configure(DeployBlueprintEffector.BLUEPRINT_TYPE, "BrooklynNodeIntegrationTest.mycatalog:1.0")
             .getAllConfig()).get();
         
-        String apps = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+        String apps = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/applications");
         List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
         assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
         
@@ -465,7 +466,7 @@ services:
 
         URI webConsoleUri = brooklynNode.getAttribute(BrooklynNode.WEB_CONSOLE_URI);
         waitForApps(webConsoleUri, 1);
-        String apps = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+        String apps = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/applications");
         List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
         assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
     }
@@ -484,7 +485,7 @@ services:
             @Override
             public void run() {
                 //Wait all apps to become managed
-                String appsContent = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+                String appsContent = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/applications");
                 List<String> appIds = parseJsonList(appsContent, ImmutableList.of("id"), String.class);
                 assertEquals(appIds.size(), num);
                 
@@ -510,7 +511,7 @@ services:
             .configure(DeployBlueprintEffector.BLUEPRINT_TYPE, BasicApplication.class.getName())
             .getAllConfig()).get();
         
-        String apps = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+        String apps = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/applications");
         List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
         assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
         
@@ -538,17 +539,17 @@ services:
         waitForApps(webConsoleUri, 1);
 
         // Check that "mynamedloc" has been picked up from the brooklyn.properties
-        String locsContent = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/locations");
+        String locsContent = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/locations");
         List<String> locNames = parseJsonList(locsContent, ImmutableList.of("name"), String.class);
         assertTrue(locNames.contains("mynamedloc"), "locNames="+locNames);
 
         // Find the id of the concrete location instance of the app
-        String appsContent = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+        String appsContent = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/applications");
         List<String[]> appLocationIds = parseJsonList(appsContent, ImmutableList.of("spec", "locations"), String[].class);
         String appLocationId = Iterables.getOnlyElement(appLocationIds)[0];  // app.getManagementContext().getLocationRegistry()
 
         // Check that the concrete location is of the required type
-        String locatedLocationsContent = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/locations/usage/LocatedLocations");
+        String locatedLocationsContent = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/locations/usage/LocatedLocations");
         assertEquals(parseJson(locatedLocationsContent, ImmutableList.of(appLocationId, "name"), String.class), "myname");
         assertEquals(parseJson(locatedLocationsContent, ImmutableList.of(appLocationId, "longitude"), Double.class), 45.6, 0.00001);
     }
@@ -576,10 +577,8 @@ services:
         Assert.assertTrue(webConsoleUri.toString().contains(""+httpsPort), "web console not using right https port ("+httpsPort+"): "+webConsoleUri);
         HttpTestUtils.assertHttpStatusCodeEquals(webConsoleUri.toString(), 401);
 
-        HttpClient http = HttpTool.httpClientBuilder()
-            .trustAll()
+        HttpClient http = BrooklynHttpConfig.httpClientBuilder(app)
             .uri(webConsoleUri)
-            .laxRedirect(true)
             .credentials(new UsernamePasswordCredentials("admin", adminPassword))
             .build();
         HttpToolResponse response = HttpTool.httpGet(http, webConsoleUri, MutableMap.<String,String>of());
@@ -653,7 +652,7 @@ services:
                 BrooklynNode.RestartSoftwareParameters.RESTART_MACHINE.getName(), "false")).getUnchecked();
 
         waitForApps(webConsoleUri.toString());
-        String apps = HttpTestUtils.getContent(webConsoleUri.toString()+"/v1/applications");
+        String apps = HttpTool.getContentUnsafe(webConsoleUri.toString()+"/v1/applications");
         List<String> appType = parseJsonList(apps, ImmutableList.of("spec", "type"), String.class);
         assertEquals(appType, ImmutableList.of(BasicApplication.class.getName()));
     }

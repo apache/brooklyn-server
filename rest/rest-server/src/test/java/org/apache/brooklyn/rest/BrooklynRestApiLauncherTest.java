@@ -55,7 +55,7 @@ public class BrooklynRestApiLauncherTest extends BrooklynRestApiLauncherTestFixt
         int code = Asserts.succeedsEventually(new Callable<Integer>() {
             @Override
             public Integer call() throws Exception {
-                int code = HttpTool.getHttpStatusCode(rootUrl+"catalog/entities");
+                int code = HttpTool.getHttpStatusCodeUnsafe(rootUrl+"catalog/entities");
                 if (code == HttpStatus.SC_FORBIDDEN) {
                     throw new RuntimeException("Retry request");
                 } else {

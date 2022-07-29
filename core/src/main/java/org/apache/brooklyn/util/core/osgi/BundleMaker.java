@@ -75,7 +75,7 @@ public class BundleMaker {
     }
     
     public BundleMaker(@Nonnull ManagementContext mgmt) {
-        this(((ManagementContextInternal) mgmt).getOsgiManager().get().getFramework(), ResourceUtils.create());
+        this(((ManagementContextInternal) mgmt).getOsgiManager().get().getFramework(), ResourceUtils.create(mgmt));
     }
 
     /** if set, this will be used to resolve relative classpath fragments;

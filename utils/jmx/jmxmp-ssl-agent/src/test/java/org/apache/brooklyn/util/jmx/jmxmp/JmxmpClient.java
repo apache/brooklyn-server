@@ -40,6 +40,7 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 
+import com.google.common.base.Preconditions;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.crypto.SslTrustUtils;
 import org.apache.brooklyn.util.jmx.jmxmp.JmxmpAgent;
@@ -59,12 +60,16 @@ public class JmxmpClient {
         } 
 
         jmxc.close();
-    } 
+    }
+
+    public void connectTls(String urlString, KeyStore keyStore, String keyStorePass, KeyStore trustStore) throws NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, InvalidKeyException, CertificateException, SecurityException, SignatureException, IOException, KeyManagementException {
+        connectTls(urlString, keyStore, keyStorePass, SecureKeys.getTrustManager(Preconditions.checkNotNull(trustStore, "trust store must be provided or explicit TRUST ALL manager")));
+    }
 
     /** tries to connect to the given JMX url over tls, 
      * optionally using the given keystore (if null using a randomly generated key)
      * and optionally using the given truststore (if null trusting all) */
-    public void connectTls(String urlString, KeyStore keyStore, String keyStorePass, KeyStore trustStore) throws NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, InvalidKeyException, CertificateException, SecurityException, SignatureException, IOException, KeyManagementException { 
+    public void connectTls(String urlString, KeyStore keyStore, String keyStorePass, TrustManager tms) throws NoSuchAlgorithmException, UnrecoverableKeyException, KeyStoreException, InvalidKeyException, CertificateException, SecurityException, SignatureException, IOException, KeyManagementException {
         Map env = new LinkedHashMap(); 
 
         env.put("jmx.remote.profiles", JmxmpAgent.TLS_JMX_REMOTE_PROFILES);
@@ -72,8 +77,6 @@ public class JmxmpClient {
         if (keyStore==null) throw new NullPointerException("keyStore must be supplied");
         KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()); //"SunX509");
         kmf.init(keyStore, (keyStorePass!=null ? keyStorePass : "").toCharArray());
-
-        TrustManager tms = trustStore!=null ? SecureKeys.getTrustManager(trustStore) : SslTrustUtils.TRUST_ALL;
 
         SSLContext ctx = SSLContext.getInstance("TLSv1");
         ctx.init(kmf.getKeyManagers(), new TrustManager[] { tms }, null);

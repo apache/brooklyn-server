@@ -26,6 +26,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 import org.apache.brooklyn.core.location.LocationConfigUtils;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -129,7 +130,7 @@ public class CreateUserStatements {
                         : null;
         final boolean dontCreateUser = config.get(JcloudsLocation.DONT_CREATE_USER);
         final boolean grantUserSudo = config.get(JcloudsLocation.GRANT_USER_SUDO);
-        final LocationConfigUtils.OsCredential credential = LocationConfigUtils.getOsCredential(config);
+        final LocationConfigUtils.OsCredential credential = LocationConfigUtils.getOsCredential(config, ResourceUtils.create(location));
         credential.checkNoErrors().logAnyWarnings();
         final String passwordToSet =
                 Strings.isNonBlank(credential.getPassword()) ? credential.getPassword() : Identifiers.makeRandomId(12);

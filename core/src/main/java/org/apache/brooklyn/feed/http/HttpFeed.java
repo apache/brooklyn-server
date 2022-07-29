@@ -18,20 +18,11 @@
  */
 package org.apache.brooklyn.feed.http;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.base.*;
+import com.google.common.collect.*;
+import com.google.common.io.BaseEncoding;
+import com.google.common.io.ByteStreams;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.Location;
@@ -46,15 +37,14 @@ import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.executor.HttpExecutorFactory;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.http.executor.HttpConfig;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
-import org.apache.brooklyn.util.http.auth.UsernamePassword;
-import org.apache.brooklyn.util.http.executor.apacheclient.HttpExecutorImpl;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.auth.Credentials;
@@ -62,20 +52,19 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Optional;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.base.Throwables;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
-import com.google.common.io.BaseEncoding;
-import com.google.common.io.ByteStreams;
-import com.google.common.reflect.TypeToken;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Provides a feed of attribute values, by polling over http.
@@ -346,7 +335,8 @@ public class HttpFeed extends AbstractFeed {
                 Map<String, Object> httpExecutorProps = ((LocationInternal)location.get()).config().getBag().getAllConfig();
                 httpExecutor = httpExecutorFactory.getHttpExecutor(httpExecutorProps);
             } else {
-                httpExecutor = HttpExecutorImpl.newInstance();
+                httpExecutor = BrooklynHttpConfig.newHttpExecutor(
+                        Preconditions.checkNotNull(location.isPresent() ? location.get() : builder.entity, "feed requires a location or entity") );
             }
         }
 
@@ -423,11 +413,7 @@ public class HttpFeed extends AbstractFeed {
                             .credentials(creds)
                             .method(pollInfo.method)
                             .body(pollInfo.body)
-                            .config(HttpConfig.builder()
-                                    .trustSelfSigned(true)
-                                    .trustAll(true)
-                                    .laxRedirect(true)
-                                    .build())
+                            .config(BrooklynHttpConfig.httpConfigBuilder(getEntity()).build())
                             .build());
                     return createHttpToolRespose(response, startTime);
                 }};

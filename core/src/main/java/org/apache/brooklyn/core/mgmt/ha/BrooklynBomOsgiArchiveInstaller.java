@@ -330,7 +330,7 @@ public class BrooklynBomOsgiArchiveInstaller {
                             // get a handle on the zip file (although we could skip if not doing persistence - but that feels even worse than this!)
                             try {
                                 url = Strings.removeFromStart(url, "system:");
-                                File zipTemp = new BundleMaker(ResourceUtils.create()).createJarFromClasspathDir(url);
+                                File zipTemp = new BundleMaker(ResourceUtils.create(mgmt)).createJarFromClasspathDir(url);
                                 zipIn = new FileInputStream(zipTemp);
                             } catch (FileNotFoundException e) {
                                 throw Exceptions.propagate(e);

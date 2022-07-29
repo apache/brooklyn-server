@@ -32,20 +32,26 @@ import java.net.URL;
 import java.net.URLDecoder;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.DataUriSchemeParser;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
@@ -139,9 +145,9 @@ public class ResourceUtils {
 
     public static final ResourceUtils create(RegisteredType type, ManagementContext mgmt, boolean includeThreadAndJavaClassLoader) {
         if (includeThreadAndJavaClassLoader) {
-            return create(CatalogUtils.newClassLoadingContext(mgmt, type), type.getId());
+            return create(CatalogUtils.newClassLoadingContext(mgmt, type), type.getId()).withHttpClientBuilder(() -> BrooklynHttpConfig.httpClientBuilder(mgmt, true));
         } else {
-            return create(new OsgiBrooklynClassLoadingContext(mgmt, type.getId(), type.getLibraries()), type.getId());
+            return create(new OsgiBrooklynClassLoadingContext(mgmt, type.getId(), type.getLibraries()), type.getId()).withHttpClientBuilder(() -> BrooklynHttpConfig.httpClientBuilder(mgmt, true));
         }
     }
 
@@ -149,6 +155,7 @@ public class ResourceUtils {
      * Creates a {@link ResourceUtils} object with itself as the context.
      *
      * @see ResourceUtils#create(Object)
+     * @deprecated since 1.1, supply an object such as an entity or adjunct to use the correct classpaths and correct certificate trust settings
      */
     public static final ResourceUtils create() {
         return new ResourceUtils(null);
@@ -165,7 +172,7 @@ public class ResourceUtils {
     }
 
     public ResourceUtils(Object contextObject, String contextMessage) {
-        this(contextObject==null ? null : getClassLoadingContextInternal(null, contextObject), contextObject, contextMessage);
+        this(contextObject==null || contextObject instanceof String ? null : getClassLoadingContextInternal(null, contextObject), contextObject, contextMessage);
     }
 
     public ResourceUtils(Object contextObject) {
@@ -203,7 +210,7 @@ public class ResourceUtils {
      * Better for callers use {@link CatalogUtils#getClassLoadingContext(org.apache.brooklyn.api.entity.Entity)} or similar. }.
      */
     private BrooklynClassLoadingContext getLoader() {
-        return (loader!=null ? loader : getClassLoadingContextInternal(null, contextObject!=null ? contextObject : this));
+        return (loader!=null ? loader : getClassLoadingContextInternal(null, contextObject!=null && !(contextObject instanceof String) ? contextObject : this));
     }
 
     /**
@@ -430,11 +437,28 @@ public class ResourceUtils {
         }
     }
 
+    Supplier<HttpClientBuilder> httpClientBuilderSupplier;
+
+    public ResourceUtils withHttpClientBuilder(Supplier<HttpClientBuilder> httpClientBuilderSupplier) {
+        this.httpClientBuilderSupplier = httpClientBuilderSupplier;
+        return this;
+    }
+
+    protected HttpClientBuilder newHttpClientBuilder() {
+        if (httpClientBuilderSupplier!=null) return httpClientBuilderSupplier.get();
+
+        if (contextObject instanceof ManagementContext) return BrooklynHttpConfig.httpClientBuilder( (ManagementContext) contextObject, true );
+        else if (contextObject instanceof BrooklynObject) return BrooklynHttpConfig.httpClientBuilder((BrooklynObject) contextObject);
+
+        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        if (entity!=null) return BrooklynHttpConfig.httpClientBuilder(entity);
+
+        return BrooklynHttpConfig.httpClientBuilderDefaultStrict();
+    }
+
     private InputStream getResourceViaHttp(String resource, @Nullable String username, @Nullable String password) throws IOException {
         URI uri = URI.create(resource);
-        HttpClientBuilder builder = HttpTool.httpClientBuilder()
-                .laxRedirect(true)
-                .uri(uri);
+        HttpClientBuilder builder = newHttpClientBuilder().uri(uri);
         Credentials credentials;
         if (username != null) {
             credentials = new UsernamePasswordCredentials(username, password);

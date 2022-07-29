@@ -1018,7 +1018,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
 
     /** returns the un-passphrased key-pair info if a key is being used, or else null */
     public KeyPair findKeyPair() {
-        OsCredential creds = LocationConfigUtils.getOsCredential(config().getBag());
+        OsCredential creds = LocationConfigUtils.getOsCredential(config().getBag(), ResourceUtils.create(this));
         if (creds.hasKey()) {
             String data = creds.getPrivateKeyData();
             return SecureKeys.readPem(data.getBytes(), getConfig(SshTool.PROP_PRIVATE_KEY_PASSPHRASE));

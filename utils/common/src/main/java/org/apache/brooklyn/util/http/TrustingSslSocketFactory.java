@@ -36,8 +36,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Throwables;
 
-// FIXME copied from brooklyn-core because core not visible here
-
+@Deprecated /** since 1.1 use org.apache.brooklyn.util.crypto.TrustingSslSocketFactory */
 public class TrustingSslSocketFactory extends SSLSocketFactory {
     
     private static final Logger logger = LoggerFactory.getLogger(TrustingSslSocketFactory.class);
@@ -57,7 +56,8 @@ public class TrustingSslSocketFactory extends SSLSocketFactory {
         }
     }
 
-    /** configures a connection to accept all certificates, if it is for https */
+    /** configures a connection to accept all certificates, if it is for https
+     * @deprecated use {@link org.apache.brooklyn.util.crypto.SslTrustUtils#trustAll(URLConnection)} if required. */
     public static <T extends URLConnection> T configure(T connection) {
         if (connection instanceof HttpsURLConnection) {
             ((HttpsURLConnection)connection).setSSLSocketFactory(getInstance());

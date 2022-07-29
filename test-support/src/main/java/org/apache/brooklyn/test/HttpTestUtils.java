@@ -18,42 +18,30 @@
  */
 package org.apache.brooklyn.test;
 
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLConnection;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
-
-import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.HttpsURLConnection;
-import javax.net.ssl.SSLSession;
-
+import com.google.common.base.Throwables;
+import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.crypto.SslTrustUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
-import org.apache.brooklyn.util.http.TrustingSslSocketFactory;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 
-import com.google.common.base.Throwables;
-import com.google.common.collect.Lists;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListeningExecutorService;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URLConnection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  * Utility methods to aid testing HTTP.
@@ -69,76 +57,20 @@ public class HttpTestUtils {
     private static final Logger LOG = LoggerFactory.getLogger(HttpTestUtils.class);
 
     static final ExecutorService executor = Executors.newCachedThreadPool();
-    
-    /**
-     * Connects to the given url and returns the connection.
-     * Caller should {@code connection.getInputStream().close()} the result of this
-     * (especially if they are making heavy use of this method).
-     */
+
+    @Deprecated /** @deprecated since 1.1, refer to (and replace per) method in HttpTool */
     public static URLConnection connectToUrl(String u) throws Exception {
-        final URL url = new URL(u);
-        final AtomicReference<Exception> exception = new AtomicReference<Exception>();
-        
-        // sometimes openConnection hangs, so run in background
-        Future<URLConnection> f = executor.submit(new Callable<URLConnection>() {
-            @Override
-            public URLConnection call() {
-                try {
-                    HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
-                        @Override public boolean verify(String s, SSLSession sslSession) {
-                            return true;
-                        }
-                    });
-                    URLConnection connection = url.openConnection();
-                    TrustingSslSocketFactory.configure(connection);
-                    connection.connect();
-    
-                    connection.getContentLength(); // Make sure the connection is made.
-                    return connection;
-                } catch (Exception e) {
-                    exception.set(e);
-                    LOG.debug("Error connecting to url "+url+" (propagating): "+e, e);
-                }
-                return null;
-            }
-        });
-        try {
-            URLConnection result = null;
-            try {
-                result = f.get(60, TimeUnit.SECONDS);
-            } catch (InterruptedException e) {
-                throw e;
-            } catch (Exception e) {
-                LOG.debug("Error connecting to url "+url+", probably timed out (rethrowing): "+e);
-                throw new IllegalStateException("Connect to URL not complete within 60 seconds, for url "+url+": "+e);
-            }
-            if (exception.get() != null) {
-                LOG.debug("Error connecting to url "+url+", thread caller of "+exception, new Throwable("source of rethrown error "+exception));
-                throw exception.get();
-            } else {
-                return result;
-            }
-        } finally {
-            f.cancel(true);
-        }
+        return HttpTool.connectToUrlUnsafe(u);
     }
 
     public static void assertHealthyStatusCode(int code) {
         if (code>=200 && code<=299) return;
         Assert.fail("Wrong status code: "+code);
     }
-    
+
+    @Deprecated /** @deprecated since 1.1, refer to (and replace per) method in HttpTool */
     public static int getHttpStatusCode(String url) throws Exception {
-        URLConnection connection = connectToUrl(url);
-        long startTime = System.currentTimeMillis();
-        int status = ((HttpURLConnection) connection).getResponseCode();
-        
-        // read fully if possible, then close everything, trying to prevent cached threads at server
-        consumeAndCloseQuietly((HttpURLConnection) connection);
-        
-        if (LOG.isDebugEnabled())
-            LOG.debug("connection to {} ({}ms) gives {}", new Object[] { url, (System.currentTimeMillis()-startTime), status });
-        return status;
+        return HttpTool.getHttpStatusCodeUnsafe(url);
     }
 
     /**
@@ -147,7 +79,7 @@ public class HttpTestUtils {
      */
     public static void assertUrlReachable(String url) {
         try {
-            getHttpStatusCode(url);
+            HttpTool.getHttpStatusCodeUnsafe(url);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted for "+url+" (in assertion that is reachable)", e);
@@ -158,7 +90,7 @@ public class HttpTestUtils {
 
     public static void assertUrlUnreachable(String url) {
         try {
-            int statusCode = getHttpStatusCode(url);
+            int statusCode = HttpTool.getHttpStatusCodeUnsafe(url);
             fail("Expected url "+url+" unreachable, but got status code "+statusCode);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -192,7 +124,7 @@ public class HttpTestUtils {
             acceptableCodes.add(code);
         }
         try {
-            int actualCode = getHttpStatusCode(url);
+            int actualCode = HttpTool.getHttpStatusCodeUnsafe(url);
             assertTrue(acceptableCodes.contains(actualCode), "code="+actualCode+"; expected="+acceptableCodes+"; url="+url);
             
         } catch (InterruptedException e) {
@@ -218,7 +150,7 @@ public class HttpTestUtils {
 
     public static void assertContentContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String contents = getContent(url);
+            String contents = HttpTool.getContentUnsafe(url);
             Assert.assertTrue(contents != null && contents.length() > 0);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (!contents.contains(text)) {
@@ -233,7 +165,7 @@ public class HttpTestUtils {
 
     public static void assertContentNotContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String contents = getContent(url);
+            String contents = HttpTool.getContentUnsafe(url);
             Assert.assertTrue(contents != null);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (contents.contains(text)) {
@@ -248,7 +180,7 @@ public class HttpTestUtils {
 
     public static void assertErrorContentContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String contents = getErrorContent(url);
+            String contents = HttpTool.getErrorContent(url);
             Assert.assertTrue(contents != null && contents.length() > 0);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (!contents.contains(text)) {
@@ -264,7 +196,7 @@ public class HttpTestUtils {
 
     public static void assertErrorContentNotContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String err = getErrorContent(url);
+            String err = HttpTool.getErrorContent(url);
             Assert.assertTrue(err != null);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (err.contains(text)) {
@@ -291,7 +223,7 @@ public class HttpTestUtils {
     }
     
     public static void assertContentMatches(String url, String regex) {
-        String contents = getContent(url);
+        String contents = HttpTool.getContentUnsafe(url);
         Assert.assertNotNull(contents);
         Assert.assertTrue(contents.matches(regex), "Contents does not match expected regex ("+regex+"): "+contents);
     }
@@ -308,7 +240,8 @@ public class HttpTestUtils {
             }
         });
     }
-    
+
+    @Deprecated /** @deprecated since 1.1, refer to (and replace per) method in HttpTool */
     public static String getErrorContent(String url) {
         try {
             HttpURLConnection connection = (HttpURLConnection) connectToUrl(url);
@@ -332,13 +265,10 @@ public class HttpTestUtils {
             throw Exceptions.propagate(e);
         }
     }
-    
+
+    @Deprecated /** @deprecated since 1.1, refer to (and replace per) method in HttpTool */
     public static String getContent(String url) {
-        try {
-            return Streams.readFullyStringAndClose(SslTrustUtils.trustAll(new URL(url).openConnection()).getInputStream());
-        } catch (Exception e) {
-            throw Throwables.propagate(e);
-        }
+        return HttpTool.getContentUnsafe(url);
     }
 
     /**
@@ -380,7 +310,7 @@ public class HttpTestUtils {
      * Ignores all exceptions completely, not even logging them!
      * 
      * Consuming the stream fully is useful for preventing idle TCP connections. 
-     * See {@linkplain http://docs.oracle.com/javase/8/docs/technotes/guides/net/http-keepalive.html}.
+     * See http://docs.oracle.com/javase/8/docs/technotes/guides/net/http-keepalive.html
      */
     public static void consumeAndCloseQuietly(HttpURLConnection connection) {
         try { Streams.readFully(connection.getInputStream()); } catch (Exception e) {}

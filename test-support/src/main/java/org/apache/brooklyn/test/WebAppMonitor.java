@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.testng.Assert;
@@ -80,7 +81,7 @@ public class WebAppMonitor implements Runnable {
             long startTime = System.currentTimeMillis();
             try {
                 if (preAttempt()) {
-                    int code = HttpTestUtils.getHttpStatusCode(url);
+                    int code = HttpTool.getHttpStatusCodeUnsafe(url);
                     lastTime.set(System.currentTimeMillis() - startTime);
                     lastStatus.set(code);
                     if (isResponseOkay(code)) {

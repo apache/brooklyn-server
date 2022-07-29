@@ -29,6 +29,7 @@ import com.google.gson.JsonObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.external.AbstractExternalConfigSupplier;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.HttpToolResponse;
@@ -69,7 +70,7 @@ public abstract class VaultExternalConfigSupplier extends AbstractExternalConfig
         super(managementContext, name);
         this.config = config;
         this.name = name;
-        httpClient = HttpTool.httpClientBuilder().build();
+        httpClient = BrooklynHttpConfig.httpClientBuilder(managementContext, true).build();
         gson = new GsonBuilder().create();
 
         List<String> errors = Lists.newArrayListWithCapacity(2);

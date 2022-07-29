@@ -63,12 +63,18 @@ public class LocationConfigUtils {
      * {@link LocationConfigKeys#PRIVATE_KEY_DATA} and {@link LocationConfigKeys#PRIVATE_KEY_FILE}
      * (defaulting to the private key file + ".pub"). 
      **/
+    public static OsCredential getOsCredential(ConfigBag config, ResourceUtils ru) {
+        return OsCredential.newInstance(config).withResourceUtils(ru);
+    }
+
+    @Deprecated /** @deprecated since 1.1, pass a ResourceUtils for external lookup */
+    // only used in tests
     public static OsCredential getOsCredential(ConfigBag config) {
         return OsCredential.newInstance(config);
     }
     
     /** Convenience class for holding private/public keys and passwords, inferring from config keys.
-     * See {@link LocationConfigUtils#getOsCredential(ConfigBag)}. */
+     * See {@link LocationConfigUtils#getOsCredential(ConfigBag, ResourceUtils)}. */
     @Beta // would be nice to replace with a builder pattern 
     public static class OsCredential {
         private final ConfigBag config;
@@ -84,9 +90,15 @@ public class LocationConfigUtils {
         private String privateKeyData;
         private String publicKeyData;
         private String password;
+        private ResourceUtils resourceUtils;
         
         private OsCredential(ConfigBag config) {
             this.config = config;
+        }
+
+        public OsCredential withResourceUtils(ResourceUtils ru) {
+            this.resourceUtils = ru;
+            return this;
         }
 
         /** throws if there are any problems */
@@ -200,7 +212,12 @@ public class LocationConfigUtils {
         public static OsCredential newInstance(ConfigBag config) {
             return new OsCredential(config);
         }
-        
+
+        private ResourceUtils getResourceUtils() {
+            if (resourceUtils==null) resourceUtils = ResourceUtils.create("OsCredentials-uninitialized");  //shouldn't be used
+            return resourceUtils;
+        }
+
         private synchronized void infer() {
             if (!dirty) return;
             warningMessages.clear(); 
@@ -208,7 +225,7 @@ public class LocationConfigUtils {
             log.debug("Inferring OS credentials");
             privateKeyData = config.get(LocationConfigKeys.PRIVATE_KEY_DATA);
             password = config.get(LocationConfigKeys.PASSWORD);
-            publicKeyData = getKeyDataFromDataKeyOrFileKey(config, LocationConfigKeys.PUBLIC_KEY_DATA, LocationConfigKeys.PUBLIC_KEY_FILE);
+            publicKeyData = getKeyDataFromDataKeyOrFileKey(config, LocationConfigKeys.PUBLIC_KEY_DATA, LocationConfigKeys.PUBLIC_KEY_FILE, getResourceUtils());
 
             KeyPair privateKey = null;
             
@@ -228,7 +245,7 @@ public class LocationConfigUtils {
                                 // not real important, but we get it for free if "files" is a list instead.
                                 // using ResourceUtils is useful for classpath resources
                                 if (file!=null)
-                                    privateKeyData = ResourceUtils.create().getResourceAsString(file);
+                                    privateKeyData = getResourceUtils().getResourceAsString(file);
                                 // else use data already set
                                 
                                 privateKey = getValidatedPrivateKey(file);
@@ -241,7 +258,7 @@ public class LocationConfigUtils {
                                 } else {
                                     String publicKeyFile = (file!=null ? file+".pub" : "(data)");
                                     try {
-                                        publicKeyData = ResourceUtils.create().getResourceAsString(publicKeyFile);
+                                        publicKeyData = getResourceUtils().getResourceAsString(publicKeyFile);
                                         
                                         log.debug("Loaded private key data from "+file+
                                             " and public key data from "+publicKeyFile);
@@ -363,7 +380,7 @@ public class LocationConfigUtils {
         }
     }
 
-    private static String getKeyDataFromDataKeyOrFileKey(ConfigBag config, ConfigKey<String> dataKey, ConfigKey<String> fileKey) {
+    private static String getKeyDataFromDataKeyOrFileKey(ConfigBag config, ConfigKey<String> dataKey, ConfigKey<String> fileKey, ResourceUtils ru) {
         boolean unused = config.isUnused(dataKey);
         String data = config.get(dataKey);
         if (Strings.isNonBlank(data) && !unused) {
@@ -374,7 +391,7 @@ public class LocationConfigUtils {
         if (groovyTruth(file)) {
             List<String> files = Arrays.asList(file.split(File.pathSeparator));
             List<String> filesTidied = tidyFilePaths(files);
-            String fileData = getFileContents(filesTidied);
+            String fileData = getFileContents(filesTidied, ru);
             if (fileData == null) {
                 log.warn("Invalid file" + (files.size() > 1 ? "s" : "") + " for " + fileKey + " (given " + files + 
                         (files.equals(filesTidied) ? "" : "; converted to " + filesTidied) + ") " +
@@ -398,14 +415,14 @@ public class LocationConfigUtils {
      *  
      * @param files             list of file paths
      */
-    private static String getFileContents(Iterable<String> files) {
+    private static String getFileContents(Iterable<String> files, ResourceUtils ru) {
         Iterator<String> fi = files.iterator();
         while (fi.hasNext()) {
             String file = fi.next();
             if (groovyTruth(file)) {
                 try {
                     // see comment above
-                    String result = ResourceUtils.create().getResourceAsString(file);
+                    String result = ru.getResourceAsString(file);
                     if (result!=null) return result;
                     log.debug("Invalid file "+file+" ; " + (!fi.hasNext() ? "no more files to try" : "trying next file")+" (null)");
                 } catch (Exception e) {

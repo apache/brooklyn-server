@@ -1045,7 +1045,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     } else {
                         List<String> extraKeyDataToAuth = MutableList.of();
                         for (String keyUrl : extraKeyUrlsToAuth) {
-                            extraKeyDataToAuth.add(ResourceUtils.create().getResourceAsString(keyUrl));
+                            extraKeyDataToAuth.add(ResourceUtils.create(this).getResourceAsString(keyUrl));
                         }
                         executeCommandThrowingOnError(
                                 (SshMachineLocation)machineLocation,
@@ -1978,7 +1978,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
         }
         NodeMetadata node = Iterables.getOnlyElement(candidateNodes);
 
-        OsCredential osCredentials = LocationConfigUtils.getOsCredential(config).checkNoErrors().logAnyWarnings();
+        OsCredential osCredentials = LocationConfigUtils.getOsCredential(config, ResourceUtils.create(this)).checkNoErrors().logAnyWarnings();
         String pkd = osCredentials.getPrivateKeyData();
         String password = osCredentials.getPassword();
         LoginCredentials expectedCredentials = node.getCredentials();
@@ -2490,7 +2490,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
     protected LoginCredentials extractVmCredentials(ConfigBag setup, NodeMetadata node, LoginCredentials nodeCredentials) {
         boolean windows = isWindows(node, setup);
         String user = getUser(setup);
-        OsCredential localCredentials = LocationConfigUtils.getOsCredential(setup).checkNoErrors();
+        OsCredential localCredentials = LocationConfigUtils.getOsCredential(setup, ResourceUtils.create(this)).checkNoErrors();
         
         LOG.debug("Credentials extracted for {}: {}/{} with {}/{}", new Object[] {
                 node, user, nodeCredentials.getUser(), localCredentials, nodeCredentials });

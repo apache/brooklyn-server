@@ -89,7 +89,7 @@ public class HttpAsserts {
      */
     public static void assertUrlReachable(String url) {
         try {
-            HttpTool.getHttpStatusCode(url);
+            HttpTool.getHttpStatusCodeUnsafe(url);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted for "+url+" (in assertion that is reachable)", e);
@@ -106,7 +106,7 @@ public class HttpAsserts {
 
     public static void assertUrlUnreachable(String url) {
         try {
-            int statusCode = HttpTool.getHttpStatusCode(url);
+            int statusCode = HttpTool.getHttpStatusCodeUnsafe(url);
             Asserts.fail("Expected url " + url + " unreachable, but got status code " + statusCode);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -159,7 +159,7 @@ public class HttpAsserts {
             acceptableCodes.add(code);
         }
         try {
-            int actualCode = HttpTool.getHttpStatusCode(url);
+            int actualCode = HttpTool.getHttpStatusCodeUnsafe(url);
             Asserts.assertTrue(acceptableCodes.contains(actualCode), "code=" + actualCode + "; expected=" + acceptableCodes + "; url=" + url);
             
         } catch (InterruptedException e) {
@@ -185,7 +185,7 @@ public class HttpAsserts {
 
     public static void assertContentContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String contents = HttpTool.getContent(url);
+            String contents = HttpTool.getContentUnsafe(url);
             Asserts.assertTrue(contents != null && contents.length() > 0);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (!contents.contains(text)) {
@@ -200,7 +200,7 @@ public class HttpAsserts {
 
     public static void assertContentNotContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String contents = HttpTool.getContent(url);
+            String contents = HttpTool.getContentUnsafe(url);
             Asserts.assertTrue(contents != null);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (contents.contains(text)) {
@@ -215,7 +215,7 @@ public class HttpAsserts {
 
     public static void assertErrorContentContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String contents = HttpTool.getErrorContent(url);
+            String contents = HttpTool.getErrorContentUnsafe(url);
             Asserts.assertTrue(contents != null && contents.length() > 0);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (!contents.contains(text)) {
@@ -231,7 +231,7 @@ public class HttpAsserts {
 
     public static void assertErrorContentNotContainsText(final String url, final String phrase, final String ...additionalPhrases) {
         try {
-            String err = HttpTool.getErrorContent(url);
+            String err = HttpTool.getErrorContentUnsafe(url);
             Asserts.assertTrue(err != null);
             for (String text: Lists.asList(phrase, additionalPhrases)) {
                 if (err.contains(text)) {
@@ -279,7 +279,7 @@ public class HttpAsserts {
     }
 
     public static void assertContentMatches(String url, String regex) {
-        String contents = HttpTool.getContent(url);
+        String contents = HttpTool.getContentUnsafe(url);
         Asserts.assertNotNull(contents);
         Asserts.assertTrue(contents.matches(regex), "Contents does not match expected regex ("+regex+"): "+contents);
     }

@@ -182,7 +182,7 @@ public class ResourceUtilsTest {
 
     @Test
     public void testGetResources() {
-        Iterable<URL> manifests = ResourceUtils.create().getResources("META-INF/MANIFEST.MF");
+        Iterable<URL> manifests = ResourceUtils.create("test").getResources("META-INF/MANIFEST.MF");
         assertFalse(Iterables.isEmpty(manifests));
     }
 
