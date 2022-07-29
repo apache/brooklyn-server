@@ -75,6 +75,7 @@ import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.crypto.SecureKeys;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
@@ -92,7 +93,7 @@ import org.apache.brooklyn.util.guava.KeyTransformingLoadingCache.KeyTransformin
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.pool.BasicPool;
 import org.apache.brooklyn.util.pool.Pool;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.stream.KnownSizeInputStream;
 import org.apache.brooklyn.util.stream.ReaderInputStream;
 import org.apache.brooklyn.util.stream.StreamGobbler;
@@ -869,15 +870,16 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         LOG.debug("installing {} to {} on {}, attempting remote curl", new Object[] { url, destPath, this });
 
         try {
+            BashCommandsConfigurable bash = BrooklynOsCommands.bash(getManagementContext());
             PipedInputStream insO = new PipedInputStream(); OutputStream outO = new PipedOutputStream(insO);
             PipedInputStream insE = new PipedInputStream(); OutputStream outE = new PipedOutputStream(insE);
             StreamGobbler sgsO = new StreamGobbler(insO, null, LOG); sgsO.setLogPrefix("[curl @ "+address+":stdout] ").start();
             StreamGobbler sgsE = new StreamGobbler(insE, null, LOG); sgsE.setLogPrefix("[curl @ "+address+":stderr] ").start();
             Map<String, ?> sshProps = MutableMap.<String, Object>builder().putAll(props).put("out", outO).put("err", outE).build();
             int result = execScript(sshProps, "copying remote resource "+url+" to server",  ImmutableList.of(
-                    BashCommands.INSTALL_CURL, // TODO should hold the 'installing' mutex
+                    bash.INSTALL_CURL, // TODO should hold the 'installing' mutex
                     "mkdir -p `dirname '"+destPath+"'`",
-                    "curl "+url+" -L --silent --insecure --show-error --fail --connect-timeout 60 --max-time 600 --retry 5 -o '"+destPath+"'"));
+                    "curl "+url+" -L --silent"+(bash.isIgnoreCerts() ? " --insecure" : "")+" --show-error --fail --connect-timeout 60 --max-time 600 --retry 5 -o '"+destPath+"'"));
             sgsO.close();
             sgsE.close();
             if (result != 0) {
@@ -1061,10 +1063,10 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     @Override
     public String resolveOnBoxDirFor(Entity entity, String unresolvedPath) {
         ProcessTaskWrapper<Integer> baseTask = SshEffectorTasks.ssh(
-            BashCommands.alternatives("mkdir -p \"${BASE_DIR}\"",
-                BashCommands.chain(
-                    BashCommands.sudo("mkdir -p \"${BASE_DIR}\""),
-                    BashCommands.sudo("chown "+getUser()+" \"${BASE_DIR}\""))),
+            BrooklynOsCommands.bash(entity).alternatives("mkdir -p \"${BASE_DIR}\"",
+                BrooklynOsCommands.bash(entity).chain(
+                    BrooklynOsCommands.bash(entity).sudo("mkdir -p \"${BASE_DIR}\""),
+                    BrooklynOsCommands.bash(entity).sudo("chown "+getUser()+" \"${BASE_DIR}\""))),
             "cd ~",
             "cd ${BASE_DIR}",
             "echo BASE_DIR_RESULT':'`pwd`:BASE_DIR_RESULT")
