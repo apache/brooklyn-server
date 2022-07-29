@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
@@ -92,7 +93,7 @@ public abstract class AbstractMultiDistroLiveTest extends BrooklynAppLiveTestSup
         }
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
+        brooklynProperties.remove(BrooklynConfigKeys.SSH_CONFIG_SCRIPT_HEADER.getName());
         
         LocalManagementContextForTests localManagementContextForTests = new LocalManagementContextForTests(brooklynProperties);
         localManagementContextForTests.generateManagementPlaneId();

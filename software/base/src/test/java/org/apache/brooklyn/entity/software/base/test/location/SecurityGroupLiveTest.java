@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
@@ -88,7 +89,7 @@ public class SecurityGroupLiveTest extends BrooklynAppLiveTestSupport  {
         brooklynProperties.remove("brooklyn.jclouds."+PROVIDER+".hardware-id");
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
+        brooklynProperties.remove(BrooklynConfigKeys.SSH_CONFIG_SCRIPT_HEADER.getName());
 
         mgmt = new LocalManagementContextForTests(brooklynProperties);
 

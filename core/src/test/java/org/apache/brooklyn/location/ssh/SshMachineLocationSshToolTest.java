@@ -25,7 +25,10 @@ import java.util.Map;
 
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineProvisioningLocation;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecCmd;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
@@ -43,7 +46,8 @@ import com.google.common.collect.Iterables;
  */
 public class SshMachineLocationSshToolTest extends BrooklynAppUnitTestSupport {
 
-    // TODO See SshEffectorTasks.getSshFlags, called by AbstractSoftwareProcessSshDriver.getSshFlags.
+    // Also see SshEffectorTasks.getSshFlags, called by AbstractSoftwareProcessSshDriver.getSshFlags.
+    //
     // That retrieves all the mgmt.config, entity.config and location.config to search for ssh-related
     // configuration options. If you *just* instantiate the location directly, then it doesn't get the
     // mgmt.config options.
@@ -72,7 +76,24 @@ public class SshMachineLocationSshToolTest extends BrooklynAppUnitTestSupport {
                 .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()));
         runCustomSshToolClass(machine);
     }
-    
+
+    @Test
+    public void testCustomSshToolClassNotViaBrooklynPropertiesUnlessEffector() throws Exception {
+        ((ManagementContextInternal)mgmt).getBrooklynProperties().put(BrooklynConfigKeys.SSH_TOOL_CLASS, RecordingSshTool.class.getName());
+        SshMachineLocation machine = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "localhost"));
+        // fails because the machine doesn't get the properties; it is the SshEffectorTasks which does it
+        // see also EntitySshToolTest
+        Asserts.assertFails(() -> { runCustomSshToolClass(machine); return null; });
+    }
+
+    @Test
+    public void testCustomSshToolClassNotSet() throws Exception {
+        SshMachineLocation machine = mgmt.getLocationManager().createLocation(LocationSpec.create(SshMachineLocation.class)
+                .configure("address", "localhost"));
+        Asserts.assertFails(() -> { runCustomSshToolClass(machine); return null; });
+    }
+
     @Test
     @SuppressWarnings("deprecation")
     public void testCustomSshToolClassUsingLegacy() throws Exception {

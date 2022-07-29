@@ -22,6 +22,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
@@ -29,10 +30,10 @@ import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable;
 
 public class BrooklynOsCommands {
 
-    public static final ConfigKey<Boolean> OS_COMMANDS_IGNORE_CERTS = ConfigKeys.newBooleanConfigKey("brooklyn.os.commands.ignoreCerts", "Whether to generate OS commands that ignore certs, e.g. curl -k");
+    public static final ConfigKey<Boolean> SSH_CONFIG_SCRIPT_IGNORE_CERTS = BrooklynConfigKeys.SSH_CONFIG_SCRIPTS_IGNORE_CERTS;
 
     public static BashCommandsConfigurable bash(ManagementContext mgmt) {
-        return BashCommandsConfigurable.newInstance().withIgnoreCerts( ((ManagementContextInternal)mgmt).getBrooklynProperties().getConfig(OS_COMMANDS_IGNORE_CERTS) );
+        return BashCommandsConfigurable.newInstance().withIgnoreCerts( ((ManagementContextInternal)mgmt).getBrooklynProperties().getConfig(SSH_CONFIG_SCRIPT_IGNORE_CERTS) );
     }
 
     public static IptablesCommandsConfigurable bashIptables(ManagementContext mgmt) {
@@ -40,7 +41,7 @@ public class BrooklynOsCommands {
     }
 
     public static BashCommandsConfigurable bash(Entity entity) {
-        Boolean ignoreCerts = entity.config().get(OS_COMMANDS_IGNORE_CERTS);
+        Boolean ignoreCerts = entity.config().get(SSH_CONFIG_SCRIPT_IGNORE_CERTS);
         if (ignoreCerts!=null) return BashCommandsConfigurable.newInstance().withIgnoreCerts(ignoreCerts);
         return bash( ((EntityInternal)entity).getManagementContext() );
     }

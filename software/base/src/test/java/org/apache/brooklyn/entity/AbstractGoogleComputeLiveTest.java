@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -61,7 +62,7 @@ public abstract class AbstractGoogleComputeLiveTest extends BrooklynAppLiveTestS
         }
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        result.remove("brooklyn.ssh.config.scriptHeader");
+        result.remove(BrooklynConfigKeys.SSH_CONFIG_SCRIPT_HEADER.getName());
         
         return result;
     }

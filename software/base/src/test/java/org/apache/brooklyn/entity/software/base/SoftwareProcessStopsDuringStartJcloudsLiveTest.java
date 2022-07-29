@@ -95,7 +95,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
         brooklynProperties = BrooklynProperties.Factory.newDefault();
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
+        brooklynProperties.remove(BrooklynConfigKeys.SSH_CONFIG_SCRIPT_HEADER.getName());
 
         mgmt = new LocalManagementContextForTests(brooklynProperties);
         super.setUp();

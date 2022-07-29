@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
@@ -76,7 +77,7 @@ class CarrenzaLocationLiveTest {
         brooklynProperties.remove("brooklyn.jclouds."+PROVIDER+".hardware-id");
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
+        brooklynProperties.remove(BrooklynConfigKeys.SSH_CONFIG_SCRIPT_HEADER.getName());
         
         brooklynProperties.put("brooklyn.jclouds."+PROVIDER+".jclouds.endpoint", ENDPOINT);
         brooklynProperties.put("brooklyn.jclouds."+PROVIDER+".imageId", WINDOWS_IMAGE_ID);

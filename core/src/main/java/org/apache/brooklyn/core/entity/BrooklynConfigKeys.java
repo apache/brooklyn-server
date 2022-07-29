@@ -18,10 +18,9 @@
  */
 package org.apache.brooklyn.core.entity;
 
-import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKey;
-import static org.apache.brooklyn.core.config.ConfigKeys.newConfigKeyWithPrefix;
-import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
-
+import com.google.common.annotations.Beta;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
@@ -35,9 +34,7 @@ import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.time.Duration;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
+import static org.apache.brooklyn.core.config.ConfigKeys.*;
 
 /** Commonly used config keys, for use in entities. Similar to {@link Attributes}.
  * See also {@link BrooklynServerConfig} for config keys for controlling the server. */
@@ -87,11 +84,11 @@ public class BrooklynConfigKeys {
             .build();
 
     /**
-     * Set this configuration value to true to skip the entity startup process as with {@link #ENTITY_STARTED} if the process or
+     * Set this configuration value to true to skip the entity startup process as with {@link #SKIP_ENTITY_START} if the process or
      * service represented by the entity is already running, otherwise proceed normally. This is determined using the driver's
      * {@code isRunning()} method.
      * <p>
-     * If this key is set on a {@link Location} then all entities in that location will be treated in this way, again as with {@link #ENTITY_STARTED}.
+     * If this key is set on a {@link Location} then all entities in that location will be treated in this way, again as with {@link #SKIP_ENTITY_START}.
      *
      * @see #SKIP_ENTITY_START
      */
@@ -296,6 +293,9 @@ public class BrooklynConfigKeys {
     public static final ConfigKey<String> SSH_CONFIG_SCRIPT_HEADER = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_SCRIPT_HEADER);
     public static final ConfigKey<String> SSH_CONFIG_DIRECT_HEADER = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_DIRECT_HEADER);
     public static final ConfigKey<Boolean> SSH_CONFIG_NO_DELETE_SCRIPT = newConfigKeyWithPrefix(BROOKLYN_SSH_CONFIG_KEY_PREFIX, ShellTool.PROP_NO_DELETE_SCRIPT);
+
+    public static final ConfigKey<Boolean> SSH_CONFIG_SCRIPTS_IGNORE_CERTS = newBooleanConfigKey(BROOKLYN_SSH_CONFIG_KEY_PREFIX + "scripts.ignoreCerts",
+            "Whether to generate OS commands that ignore certs, e.g. curl -k");
 
     public static final MapConfigKey<Object> PROVISIONING_PROPERTIES = new MapConfigKey.Builder<Object>(Object.class, "provisioning.properties")
             .description("Custom properties to be passed in to the location when provisioning a new machine")

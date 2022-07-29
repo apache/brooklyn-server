@@ -75,7 +75,7 @@ public class SetHostnameCustomizerLiveTest extends BrooklynAppLiveTestSupport {
         }
 
         // Also removes scriptHeader (e.g. if doing `. ~/.bashrc` and `. ~/.profile`, then that can cause "stdin: is not a tty")
-        brooklynProperties.remove("brooklyn.ssh.config.scriptHeader");
+        brooklynProperties.remove(BrooklynConfigKeys.SSH_CONFIG_SCRIPT_HEADER.getName());
         
         mgmt = new LocalManagementContext(brooklynProperties);
         
