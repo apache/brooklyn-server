@@ -18,14 +18,10 @@
  */
 package org.apache.brooklyn.util.ssh;
 
-import static org.apache.brooklyn.util.ssh.BashCommands.alternatives;
-import static org.apache.brooklyn.util.ssh.BashCommands.chain;
-import static org.apache.brooklyn.util.ssh.BashCommands.installPackage;
-import static org.apache.brooklyn.util.ssh.BashCommands.sudo;
-
 import com.google.common.annotations.Beta;
 import com.google.common.base.Optional;
 
+@Deprecated /** @deprecated since 1.1 use {@link IptablesCommandsConfigurable} */
 public class IptablesCommands {
 
     public enum Chain {
@@ -36,91 +32,56 @@ public class IptablesCommands {
         ACCEPT, REJECT, DROP, LOG
     }
 
-    /**
-     * @deprecated since 0.7; use {@link org.apache.brooklyn.util.net.Protocol}; kept for persisted state backwards compatibility.
-     */
-    @Deprecated
-    public enum Protocol {
-        TCP("tcp"), UDP("udp"), ALL("all");
+    private static final IptablesCommandsConfigurable instance = new IptablesCommandsConfigurable(BashCommandsConfigurable.newInstance());
 
-        final String protocol;
-
-        private Protocol(String protocol) {
-            this.protocol = protocol;
-        }
-
-        @Override
-        public String toString() {
-            return protocol;
-        }
-
-        org.apache.brooklyn.util.net.Protocol convert() {
-            switch (this) {
-                case TCP: return org.apache.brooklyn.util.net.Protocol.TCP;
-                case UDP: return org.apache.brooklyn.util.net.Protocol.UDP;
-                case ALL: return org.apache.brooklyn.util.net.Protocol.ALL;
-                default: throw new IllegalStateException("Unexpected protocol "+this);
-            }
-        }
+    @Beta // implementation not portable across distros
+    public String iptablesServiceStop() {
+        return instance.iptablesServiceStop();
     }
 
     @Beta // implementation not portable across distros
-    public static String iptablesService(String cmd) {
-        return sudo(alternatives(
-                BashCommands.ifExecutableElse1("service", "service iptables " + cmd),
-                "/sbin/service iptables " + cmd));
+    public String iptablesServiceStart() {
+        return instance.iptablesServiceStart();
     }
 
     @Beta // implementation not portable across distros
-    public static String iptablesServiceStop() {
-        return iptablesService("stop");
+    public String iptablesServiceRestart() {
+        return instance.iptablesServiceRestart();
     }
 
     @Beta // implementation not portable across distros
-    public static String iptablesServiceStart() {
-        return iptablesService("start");
+    public String iptablesServiceStatus() {
+        return instance.iptablesServiceStatus();
     }
 
     @Beta // implementation not portable across distros
-    public static String iptablesServiceRestart() {
-        return iptablesService("restart");
+    public String firewalldService(String cmd) {
+        return instance.firewalldService(cmd);
     }
 
     @Beta // implementation not portable across distros
-    public static String iptablesServiceStatus() {
-        return iptablesService("status");
+    public String firewalldServiceStop() {
+        return instance.firewalldServiceStop();
     }
 
     @Beta // implementation not portable across distros
-    public static String firewalldService(String cmd) {
-        return sudo(alternatives(
-                BashCommands.ifExecutableElse1("systemctl", "systemctl " + cmd + " firewalld"),
-                "/usr/bin/systemctl " + cmd + " firewalld"));
+    public String firewalldServiceStart() {
+        return instance.firewalldServiceStart();
     }
 
     @Beta // implementation not portable across distros
-    public static String firewalldServiceStop() {
-        return firewalldService("stop");
+    public String firewalldServiceRestart() {
+        return instance.firewalldServiceRestart();
     }
 
     @Beta // implementation not portable across distros
-    public static String firewalldServiceStart() {
-        return firewalldService("start");
+    public String firewalldServiceStatus() {
+        return instance.firewalldServiceStatus();
     }
 
     @Beta // implementation not portable across distros
-    public static String firewalldServiceRestart() {
-        return firewalldService("restart");
-    }
-
-    @Beta // implementation not portable across distros
-    public static String firewalldServiceStatus() {
-        return firewalldService("status");
-    }
-
-    @Beta // implementation not portable across distros
-    public static String firewalldServiceIsActive() {
-        return firewalldService("is-active");
+    public String firewalldServiceIsActive() {
+        return instance.firewalldServiceIsActive();
     }
 
     /**
@@ -129,9 +90,8 @@ public class IptablesCommands {
      * @return Returns the command that saves iptables rules on file.
      *
      */
-    public static String saveIptablesRules() {
-        return alternatives(sudo("service iptables save"),
-                            chain(installPackage("iptables-persistent"), sudo("/etc/init.d/iptables-persistent save")));
+    public String saveIptablesRules() {
+        return instance.saveIptablesRules();
     }
 
     /**
@@ -139,8 +99,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that cleans up iptables rules.
      */
-    public static String cleanUpIptablesRules() {
-       return sudo("/sbin/iptables -F");
+    public String cleanUpIptablesRules() {
+        return instance.cleanUpIptablesRules();
     }
 
     /**
@@ -148,8 +108,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that list all the iptables rules.
      */
-    public static String listIptablesRule() {
-       return sudo("/sbin/iptables -L -v -n");
+    public String listIptablesRule() {
+        return instance.listIptablesRule();
     }
 
     /**
@@ -158,8 +118,8 @@ public class IptablesCommands {
      * @return Returns the command that inserts a rule on top of the iptables'
      *         rules.
      */
-    public static String insertIptablesRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        return addIptablesRule("-I", chain, Optional.<String> absent(), protocol, port, policy);
+    public String insertIptablesRule(IptablesCommandsConfigurable.Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+        return instance.insertIptablesRule(chain, protocol, port, policy);
     }
 
     /**
@@ -168,8 +128,8 @@ public class IptablesCommands {
      * @return Returns the command that inserts a rule on top of the iptables'
      *         rules.
      */
-    public static String insertIptablesRule(Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        return addIptablesRule("-I", chain, Optional.of(networkInterface), protocol, port, policy);
+    public String insertIptablesRule(IptablesCommandsConfigurable.Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+        return instance.insertIptablesRule(chain, networkInterface, protocol, port, policy);
     }
 
     /**
@@ -177,8 +137,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that appends a rule to iptables.
      */
-    public static String appendIptablesRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        return addIptablesRule("-A", chain, Optional.<String> absent(), protocol, port, policy);
+    public String appendIptablesRule(IptablesCommandsConfigurable.Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+        return instance.appendIptablesRule(chain, protocol, port, policy);
     }
 
     /**
@@ -186,8 +146,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that appends a rule to iptables.
      */
-    public static String appendIptablesRule(Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        return addIptablesRule("-A", chain, Optional.of(networkInterface), protocol, port, policy);
+    public String appendIptablesRule(IptablesCommandsConfigurable.Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+        return instance.appendIptablesRule(chain, networkInterface, protocol, port, policy);
     }
 
     /**
@@ -195,14 +155,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that creates a rule for iptables.
      */
-    public static String addIptablesRule(String direction, Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        String addIptablesRule;
-        if(networkInterface.isPresent()) {
-           addIptablesRule = String.format("/sbin/iptables %s %s -i %s -p %s --dport %d -j %s", direction, chain, networkInterface.get(), protocol, port, policy);
-        } else {
-           addIptablesRule = String.format("/sbin/iptables %s %s -p %s --dport %d -j %s", direction, chain, protocol, port, policy);
-        }
-        return sudo(addIptablesRule);
+    public String addIptablesRule(String direction, IptablesCommandsConfigurable.Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+        return instance.addIptablesRule(direction, chain, networkInterface, protocol, port, policy);
     }
 
     /**
@@ -210,24 +164,18 @@ public class IptablesCommands {
      *
      * @return Returns the command that adds firewalld direct rule.
      */
-    public static String addFirewalldRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        return addFirewalldRule(chain, Optional.<String>absent(), protocol, port, policy);
+    public String addFirewalldRule(IptablesCommandsConfigurable.Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+        return instance.addFirewalldRule(chain, protocol, port, policy);
     }
-    
+
     /**
      * Returns the command that adds firewalld direct rule.
      *
      * @return Returns the command that adds firewalld direct rule.
      */
-    public static String addFirewalldRule(Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
-        String command = new String("/usr/bin/firewall-cmd");
-        String commandPermanent = new String("/usr/bin/firewall-cmd --permanent");
-        
-        String interfaceParameter = String.format("%s", networkInterface.isPresent() ? " -i " + networkInterface.get() : "");
-        
-        String commandParameters = String.format(" --direct --add-rule ipv4 filter %s 0 %s -p %s --dport %d -j %s", 
-                                                                chain, interfaceParameter,  protocol, port, policy);
-        
-        return sudo(chain(command + commandParameters, commandPermanent + commandParameters));
+    public String addFirewalldRule(IptablesCommandsConfigurable.Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
+
+        return instance.addFirewalldRule(chain, networkInterface, protocol, port, policy);
     }
+
 }
