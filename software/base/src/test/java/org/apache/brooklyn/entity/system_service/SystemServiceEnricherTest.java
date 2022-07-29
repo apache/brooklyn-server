@@ -31,13 +31,13 @@ import org.apache.brooklyn.core.test.BrooklynAppLiveTestSupport;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcessImpl;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcessSshDriver;
-import org.apache.brooklyn.entity.system_service.SystemServiceEnricher;
+import org.apache.brooklyn.util.ssh.BashCommands;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import org.apache.brooklyn.location.jclouds.JcloudsLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.base.Suppliers;

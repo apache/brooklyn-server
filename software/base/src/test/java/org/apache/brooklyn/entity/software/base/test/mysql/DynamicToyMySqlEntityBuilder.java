@@ -18,8 +18,11 @@
  */
 package org.apache.brooklyn.entity.software.base.test.mysql;
 
-import java.io.File;
-
+import com.google.common.base.Predicates;
+import com.google.common.base.Splitter;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -34,21 +37,17 @@ import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation.LocalhostMachine;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
-import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Predicates;
-import com.google.common.base.Splitter;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
-import com.google.common.collect.Iterables;
+import java.io.File;
 
 public class DynamicToyMySqlEntityBuilder {
 
@@ -109,10 +108,10 @@ public class DynamicToyMySqlEntityBuilder {
                         SshEffectorTasks.ssh(
                             "mkdir "+dir(entity),
                             "cd "+dir(entity),
-                            BashCommands.downloadToStdout(downloadUrl(entity, isLocalhost(machineS)))+" | tar xvz"
+                            BrooklynOsCommands.bash(entity).downloadToStdout(downloadUrl(entity, isLocalhost(machineS)))+" | tar xvz"
                         ).summary("download mysql").returning(SshTasks.returningStdoutLoggingInfo(log, true)));
                 if (isLinux(machineS)) {
-                    DynamicTasks.queue(SshEffectorTasks.ssh(BashCommands.installPackage("libaio1")));
+                    DynamicTasks.queue(SshEffectorTasks.ssh(BrooklynOsCommands.bash(entity).installPackage("libaio1")));
                 }
                 DynamicTasks.queue(
                         SshEffectorTasks.put(".my.cnf")
@@ -128,7 +127,7 @@ public class DynamicToyMySqlEntityBuilder {
             protected void postStartCustom(ConfigBag parameters) {
                 // if it's still up after 5s assume we are good
                 Time.sleep(Duration.FIVE_SECONDS);
-                if (!DynamicTasks.queue(SshEffectorTasks.isPidFromFileRunning(dir(entity)+"/*/data/*.pid")).get()) {
+                if (!DynamicTasks.queue(SshEffectorTasks.isPidFromFileRunning(BrooklynOsCommands.bash(entity()), dir(entity)+"/*/data/*.pid")).get()) {
                     // but if it's not up add a bunch of other info
                     log.warn("MySQL did not start: "+dir(entity));
                     ProcessTaskWrapper<Integer> info = DynamicTasks.queue(SshEffectorTasks.ssh(

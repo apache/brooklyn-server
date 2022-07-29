@@ -45,7 +45,8 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.StackTraceSimplifier;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -109,19 +110,23 @@ public class ArchiveUtils {
         }
     }
 
+    @Deprecated /** @deprecated since 1.1 use {@link IptablesCommandsConfigurable} */
+    public static List<String> installCommands(String fileName) {
+        return installCommands(BashCommandsConfigurable.newInstance(), fileName);
+    }
     /**
      * Returns the list of commands used to install support for an archive with the given name.
      */
-    public static List<String> installCommands(String fileName) {
+    public static List<String> installCommands(BashCommandsConfigurable bash, String fileName) {
         List<String> commands = new LinkedList<String>();
         switch (ArchiveType.of(fileName)) {
             case TAR:
             case TGZ:
             case TBZ:
-                commands.add(BashCommands.INSTALL_TAR);
+                commands.add(bash.INSTALL_TAR);
                 break;
             case ZIP:
-                commands.add(BashCommands.INSTALL_UNZIP);
+                commands.add(bash.INSTALL_UNZIP);
                 break;
             case JAR:
             case WAR:
@@ -281,7 +286,7 @@ public class ArchiveUtils {
             }
 
             // extract, now using task if available
-            MutableList<String> commands = MutableList.copyOf(installCommands(destFile))
+            MutableList<String> commands = MutableList.copyOf(installCommands(BrooklynOsCommands.bash(machine.getManagementContext()), destFile))
                     .appendAll(extractCommands(destFile, tmpDir, destDir, false, keepArchiveAfterUnpacking));
             if (DynamicTasks.getTaskQueuingContext()!=null) {
                 result = DynamicTasks.queue(SshTasks.newSshExecTaskFactory(machine, commands.toArray(new String[0])).summary("extracting archive").requiringExitCodeZero()).get();

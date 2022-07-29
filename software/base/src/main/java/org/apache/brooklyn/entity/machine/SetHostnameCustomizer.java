@@ -30,11 +30,12 @@ import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks.SshEffectorTaskFactory;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -172,11 +173,12 @@ public class SetHostnameCustomizer extends BasicMachineLocationCustomizer {
         
         boolean hasDomain = Strings.isNonBlank(domainFixed);
         String fqdn = hasDomain ? hostName+"."+domainFixed : hostName;
-        
+
+        BashCommandsConfigurable bash = BrooklynOsCommands.bash(machine.getManagementContext());
         exec(machine, true, 
-                BashCommands.sudo(String.format("sed -i.bak -e '1i127.0.0.1 %s %s' -e '/^127.0.0.1/d' /etc/hosts", fqdn, hostName)),
-                BashCommands.sudo(String.format("sed -i.bak -e 's/^HOSTNAME=.*$/HOSTNAME=%s/' /etc/sysconfig/network", fqdn)),
-                BashCommands.sudo(String.format("hostname %s", fqdn)));
+                bash.sudo(String.format("sed -i.bak -e '1i127.0.0.1 %s %s' -e '/^127.0.0.1/d' /etc/hosts", fqdn, hostName)),
+                bash.sudo(String.format("sed -i.bak -e 's/^HOSTNAME=.*$/HOSTNAME=%s/' /etc/sysconfig/network", fqdn)),
+                bash.sudo(String.format("hostname %s", fqdn)));
 
         return hostName;
     }

@@ -56,7 +56,7 @@ import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -253,20 +253,24 @@ public class SshEffectorTasks {
     }
 
 
+    @Deprecated /** @deprecated  since 1.1 supply bash context */
+    public static SshEffectorTaskFactory<Integer> codePidFromFileRunning(final String pidFile) {
+        return codePidFromFileRunning(BashCommandsConfigurable.newInstance(), pidFile);
+    }
     /** task which returns 0 if pid in the given file is running;
      * method accepts wildcards so long as they match a single file on the remote end
      * <p>
      * returns 1 if no matching file, 
      * 1 if matching file but no matching process,
      * and 2 if 2+ matching files */
-    public static SshEffectorTaskFactory<Integer> codePidFromFileRunning(final String pidFile) {
-        return ssh(BashCommands.chain(
+    public static SshEffectorTaskFactory<Integer> codePidFromFileRunning(BashCommandsConfigurable bash, final String pidFile) {
+        return ssh(bash.chain(
                 // this fails, but isn't an error
-                BashCommands.requireTest("-f "+pidFile, "The PID file "+pidFile+" does not exist."),
+                bash.requireTest("-f "+pidFile, "The PID file "+pidFile+" does not exist."),
                 // this fails and logs an error picked up later
-                BashCommands.requireTest("`ls "+pidFile+" | wc -w` -eq 1", "ERROR: there are multiple matching PID files"),
+                bash.requireTest("`ls "+pidFile+" | wc -w` -eq 1", "ERROR: there are multiple matching PID files"),
                 // this fails and logs an error picked up later
-                BashCommands.require("cat "+pidFile, "ERROR: the PID file "+pidFile+" cannot be read (permissions?)."),
+                bash.require("cat "+pidFile, "ERROR: the PID file "+pidFile+" cannot be read (permissions?)."),
                 // finally check the process
                 "ps -p `cat "+pidFile+"`")).summary("PID file "+pidFile+" is-running check (exit code)")
                 .allowingNonZeroExitCode()
@@ -279,18 +283,26 @@ public class SshEffectorTasks {
                     }
                 });
     }
-    
+
+    @Deprecated /** @deprecated  since 1.1 supply bash context */
+    public static SshEffectorTaskFactory<?> requirePidFromFileRunning(String pidFile) {
+        return requirePidFromFileRunning(BashCommandsConfigurable.newInstance(), pidFile);
+    }
     /** task which fails if the pid in the given file is not running (or if there is no such PID file);
      * method accepts wildcards so long as they match a single file on the remote end (fails if 0 or 2+ matching files) */
-    public static SshEffectorTaskFactory<?> requirePidFromFileRunning(String pidFile) {
-        return codePidFromFileRunning(pidFile)
+    public static SshEffectorTaskFactory<?> requirePidFromFileRunning(BashCommandsConfigurable bash, String pidFile) {
+        return codePidFromFileRunning(bash, pidFile)
                 .summary("PID file "+pidFile+" is-running check (required)")
                 .requiringExitCodeZero("Process with PID from file "+pidFile+" is required to be running");
     }
 
-    /** as {@link #codePidFromFileRunning(String)} but returning boolean */
+    @Deprecated /** @deprecated  since 1.1 supply bash context */
     public static SshEffectorTaskFactory<Boolean> isPidFromFileRunning(String pidFile) {
-        return codePidFromFileRunning(pidFile).summary("PID file "+pidFile+" is-running check (boolean)").
+        return isPidFromFileRunning(BashCommandsConfigurable.newInstance(), pidFile);
+    }
+    /** as {@link #codePidFromFileRunning(BashCommandsConfigurable, String)} but returning boolean */
+    public static SshEffectorTaskFactory<Boolean> isPidFromFileRunning(BashCommandsConfigurable bash, String pidFile) {
+        return codePidFromFileRunning(bash, pidFile).summary("PID file "+pidFile+" is-running check (boolean)").
                 returning(new Function<ProcessTaskWrapper<?>, Boolean>() {
                     @Override
                     public Boolean apply(@Nullable ProcessTaskWrapper<?> input) { return ((Integer)0).equals(input.getExitCode()); }

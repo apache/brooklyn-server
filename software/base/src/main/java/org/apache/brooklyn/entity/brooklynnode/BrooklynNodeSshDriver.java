@@ -38,12 +38,13 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.file.ArchiveBuilder;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -153,9 +154,9 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
                 getMachine().copyTo(distroStream, getInstallDir()+"/"+saveAs);
             }
         } else {
-            commands.addAll(BashCommands.commandsToDownloadUrlsAs(urls, saveAs));
+            commands.addAll(BrooklynOsCommands.bash(getEntity()).commandsToDownloadUrlsAs(urls, saveAs));
         }
-        commands.add(BashCommands.INSTALL_TAR);
+        commands.add(BrooklynOsCommands.bash(getEntity()).INSTALL_TAR);
         commands.add("tar xzfv " + saveAs);
         
         newScript(INSTALLING).

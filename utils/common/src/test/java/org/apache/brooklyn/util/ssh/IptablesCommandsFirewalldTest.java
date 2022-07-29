@@ -19,9 +19,8 @@
 package org.apache.brooklyn.util.ssh;
 
 import org.apache.brooklyn.util.net.Protocol;
-import org.apache.brooklyn.util.ssh.IptablesCommands;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Chain;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Policy;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Chain;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Policy;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -66,39 +65,41 @@ public class IptablesCommandsFirewalldTest {
             + "else echo \"( { which systemctl && systemctl is-active firewalld ; } || /usr/bin/systemctl is-active firewalld )\" | "
             + "sudo -E -n -S -s -- bash ; fi )";
 
+    static IptablesCommandsConfigurable testInstance = new IptablesCommandsConfigurable(BashCommandsConfigurable.newInstance());
+
     @Test
     public void testAddFirewalldRule() {
-        Assert.assertEquals(IptablesCommands.addFirewalldRule(Chain.INPUT,
+        Assert.assertEquals(testInstance.addFirewalldRule(Chain.INPUT,
                 Protocol.TCP, 3306, Policy.ACCEPT), addFirewalldRule);
     }
 
     @Test
     public void testFirewalldService() {
-        Assert.assertEquals(IptablesCommands.firewalldService("status"), firewalldService);
+        Assert.assertEquals(testInstance.firewalldService("status"), firewalldService);
     }
 
     @Test
     public void testFirewalldServiceRestart() {
-        Assert.assertEquals(IptablesCommands.firewalldServiceRestart(), firewalldServiceRestart);
+        Assert.assertEquals(testInstance.firewalldServiceRestart(), firewalldServiceRestart);
     }
 
     @Test
     public void testFirewalldServiceStart() {
-        Assert.assertEquals(IptablesCommands.firewalldServiceStart(), firewalldServiceStart);
+        Assert.assertEquals(testInstance.firewalldServiceStart(), firewalldServiceStart);
     }
 
     @Test
     public void testFirewalldServiceStatus() {
-        Assert.assertEquals(IptablesCommands.firewalldServiceStatus(), firewalldServiceStatus);
+        Assert.assertEquals(testInstance.firewalldServiceStatus(), firewalldServiceStatus);
     }
 
     @Test
     public void testFirewalldServiceStop() {
-        Assert.assertEquals(IptablesCommands.firewalldServiceStop(), firewalldServiceStop);
+        Assert.assertEquals(testInstance.firewalldServiceStop(), firewalldServiceStop);
     }
 
     @Test
     public void testFirewalldServiceIsActive() {
-        Assert.assertEquals(IptablesCommands.firewalldServiceIsActive(), firewalldServiceIsActive);
+        Assert.assertEquals(testInstance.firewalldServiceIsActive(), firewalldServiceIsActive);
     }
 }

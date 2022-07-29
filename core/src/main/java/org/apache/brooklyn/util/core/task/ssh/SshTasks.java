@@ -42,8 +42,10 @@ import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -52,7 +54,7 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -178,10 +180,17 @@ public class SshTasks {
         }
         
         final String id = Identifiers.makeRandomId(6);
-        return newSshExecTaskFactory(machine, 
-                BashCommands.dontRequireTtyForSudo(),
-                // strange quotes are to ensure we don't match against echoed stdin
-                BashCommands.sudo("echo \"sudo\"-is-working-"+id))
+        return newSshExecTaskFactory(machine, "(commands to modify sudo config to allow tty)")
+                .commandModifier(x -> {
+                    Entity entity = BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
+                    BashCommandsConfigurable bash;
+                    if (entity!=null) bash = BrooklynOsCommands.bash(entity);
+                    else bash = BrooklynOsCommands.bash(machine.getManagementContext());
+                    return MutableList.of(
+                        bash.dontRequireTtyForSudo(),
+                        // strange quotes are to ensure we don't match against echoed stdin
+                        bash.sudo("echo \"sudo\"-is-working-"+id));
+            })
             .summary("patch /etc/sudoers to disable requiretty")
             .configure(SshTool.PROP_ALLOCATE_PTY, true)
             .allowingNonZeroExitCode()
@@ -216,7 +225,7 @@ public class SshTasks {
         return new Function<ProcessTaskWrapper<?>, String>() {
           @Override
           public String apply(@Nullable ProcessTaskWrapper<?> input) {
-            if (logger!=null) logger.info(input+" COMMANDS:\n"+Strings.join(input.getCommands(),"\n"));
+            if (logger!=null) logger.info(input+" COMMANDS:\n"+Strings.join(input.getCommands(true),"\n"));
             if (logger!=null) logger.info(input+" STDOUT:\n"+input.getStdout());
             if (logger!=null) logger.info(input+" STDERR:\n"+input.getStderr());
             if (requireZero && input.getExitCode()!=0) 

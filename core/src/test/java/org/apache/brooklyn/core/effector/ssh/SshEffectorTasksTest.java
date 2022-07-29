@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.core.task.ssh.SshPutTaskWrapper;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
 import org.apache.brooklyn.util.net.Urls;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,9 +189,9 @@ public class SshEffectorTasksTest {
     public void testRunningPidFromFile() throws IOException {
         File f = File.createTempFile("testBrooklynPid", ".pid");
         Files.write( (""+getMyPid()).getBytes(), f );
-        ProcessTaskWrapper<Integer> t = submit(SshEffectorTasks.codePidFromFileRunning(f.getPath()));
+        ProcessTaskWrapper<Integer> t = submit(SshEffectorTasks.codePidFromFileRunning(BashCommandsConfigurable.newInstance(), f.getPath()));
         Assert.assertEquals(t.getTask().getUnchecked(), (Integer)0);
-        ProcessTaskWrapper<Boolean> t2 = submit(SshEffectorTasks.isPidFromFileRunning(f.getPath()));
+        ProcessTaskWrapper<Boolean> t2 = submit(SshEffectorTasks.isPidFromFileRunning(BashCommandsConfigurable.newInstance(), f.getPath()));
         Assert.assertTrue(t2.getTask().getUnchecked());
     }
 

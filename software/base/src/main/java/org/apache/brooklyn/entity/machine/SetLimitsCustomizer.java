@@ -19,7 +19,6 @@
 package org.apache.brooklyn.entity.machine;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static org.apache.brooklyn.util.ssh.BashCommands.sudo;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,6 +35,7 @@ import org.apache.brooklyn.core.objs.BasicConfigurableObject;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -122,7 +122,7 @@ public class SetLimitsCustomizer extends BasicMachineLocationCustomizer implemen
         try {
             List<String> cmds = new ArrayList<>();
             for (String content : contents) {
-                cmds.add(sudo(String.format("echo \"%s\" | tee -a %s", content, file)));
+                cmds.add(BashCommands.sudo(String.format("echo \"%s\" | tee -a %s", content, file)));
             }
             exec((SshMachineLocation)machine, true, cmds.toArray(new String[cmds.size()]));
         } catch (Exception e) {

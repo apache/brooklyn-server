@@ -36,22 +36,20 @@ import org.apache.brooklyn.core.effector.ssh.SshEffectorTasks;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.feed.ConfigToAttributes;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.entity.software.base.lifecycle.NaiveScriptRunner;
 import org.apache.brooklyn.entity.software.base.lifecycle.ScriptHelper;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.sshj.SshjTool;
-import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.mutex.WithMutexes;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.stream.KnownSizeInputStream;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -364,6 +362,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         return result;
     }
 
+    protected BashCommandsConfigurable bashCommands() { return BrooklynOsCommands.bash(getEntity()); }
+
     public void checkNoHostnameBug() {
         try {
             ProcessTaskWrapper<Integer> hostnameTask = DynamicTasks.queue(SshEffectorTasks.ssh("echo FOREMARKER; hostname; echo AFTMARKER")).block();
@@ -373,7 +373,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
                 if (hostname.equals("(none)")) {
                     String newHostname = "br-"+getEntity().getId().toLowerCase();
                     log.info("Detected no-hostname bug with hostname "+hostname+" for "+getEntity()+"; renaming "+getMachine()+"  to hostname "+newHostname);
-                    DynamicTasks.queue(SshEffectorTasks.ssh(BashCommands.setHostname(newHostname, null))).block();
+                    DynamicTasks.queue(SshEffectorTasks.ssh(bashCommands().setHostname(newHostname, null))).block();
                 }
             } else {
                 log.debug("Hostname could not be determined for location "+EffectorTasks.findSshMachine()+"; not doing no-hostname bug check");
@@ -534,8 +534,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
                 // new way, preferred?
                 if (processOwner != null) {
                     s.body.append(
-                            BashCommands.sudoAsUser(processOwner, "test -f "+pidFile) + " || exit 1",
-                            "ps -p $(" + BashCommands.sudoAsUser(processOwner, "cat "+pidFile) + ")"
+                            bashCommands().sudoAsUser(processOwner, "test -f "+pidFile) + " || exit 1",
+                            "ps -p $(" + bashCommands().sudoAsUser(processOwner, "cat "+pidFile) + ")"
                     );
                 } else {
                     s.body.append(
@@ -566,17 +566,17 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
                         "fi",
                         "rm -f " + pidFile);
                 if (processOwner != null) {
-                    s.body.append(BashCommands.sudoAsUser(processOwner, stopCommand));
+                    s.body.append(bashCommands().sudoAsUser(processOwner, stopCommand));
                 } else {
                     s.body.append(stopCommand);
                 }
             } else if (KILLING.equals(phase)) {
                 if (processOwner != null) {
                     s.body.append(
-                            "export PID=$(" + BashCommands.sudoAsUser(processOwner, "cat "+pidFile) + ")",
+                            "export PID=$(" + bashCommands().sudoAsUser(processOwner, "cat "+pidFile) + ")",
                             "test -n \"$PID\" || exit 0",
-                            BashCommands.sudoAsUser(processOwner, "kill -9 $PID"),
-                            BashCommands.sudoAsUser(processOwner, "rm -f "+pidFile)
+                            bashCommands().sudoAsUser(processOwner, "kill -9 $PID"),
+                            bashCommands().sudoAsUser(processOwner, "rm -f "+pidFile)
                     );
                 } else {
                     s.body.append(
@@ -589,8 +589,8 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
             } else if (RESTARTING.equals(phase)) {
                 if (processOwner != null) {
                     s.footer.prepend(
-                            BashCommands.sudoAsUser(processOwner, "test -f "+pidFile) + " || exit 1",
-                            "ps -p $(" + BashCommands.sudoAsUser(processOwner, "cat "+pidFile) + ") || exit 1"
+                            bashCommands().sudoAsUser(processOwner, "test -f "+pidFile) + " || exit 1",
+                            "ps -p $(" + bashCommands().sudoAsUser(processOwner, "cat "+pidFile) + ") || exit 1"
                     );
                 } else {
                     s.footer.prepend(

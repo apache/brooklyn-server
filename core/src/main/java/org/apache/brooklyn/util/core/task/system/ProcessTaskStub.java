@@ -39,6 +39,7 @@ public class ProcessTaskStub {
     
     // config data
     protected String summary;
+    protected Function<List<String>,List<String>> commandModifier;
     protected final ConfigBag config = ConfigBag.newInstance();
     
     public static enum ScriptReturnType { CUSTOM, EXIT_CODE, STDOUT_STRING, STDOUT_BYTES, STDERR_STRING, STDERR_BYTES }
@@ -53,12 +54,13 @@ public class ProcessTaskStub {
     protected final List<Function<ProcessTaskWrapper<?>, Void>> completionListeners = new ArrayList<Function<ProcessTaskWrapper<?>,Void>>();
 
     public ProcessTaskStub() {}
-    
+
     protected ProcessTaskStub(ProcessTaskStub source) {
-        commands.addAll(source.getCommands());
+        commands.addAll(source.getCommands(false));
         machine = source.getMachine();
         summary = source.getSummary();
         config.copy(source.getConfig());
+        commandModifier = source.commandModifier;
         returnResultTransformation = source.returnResultTransformation;
         returnType = source.returnType;
         runAsScript = source.runAsScript;
@@ -89,7 +91,10 @@ public class ProcessTaskStub {
     }
 
     public List<String> getCommands() {
-        return ImmutableList.copyOf(commands);
+        return getCommands(false);
+    }
+    public List<String> getCommands(boolean modified) {
+        return ImmutableList.copyOf(modified && commandModifier!=null ? commandModifier.apply(commands) : commands);
     }
  
     public List<Function<ProcessTaskWrapper<?>, Void>> getCompletionListeners() {

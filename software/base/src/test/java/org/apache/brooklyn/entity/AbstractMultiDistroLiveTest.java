@@ -34,7 +34,8 @@ import org.apache.brooklyn.location.jclouds.JcloudsLocationConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -142,7 +143,7 @@ public abstract class AbstractMultiDistroLiveTest extends BrooklynAppLiveTestSup
         Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.FIVE_MINUTES), new Runnable() {
             @Override
             public void run() {
-                assertExecSsh(server, ImmutableList.of(BashCommands.installPackage("curl"), "netstat -antp", "curl -k --retry 3 "+url));
+                assertExecSsh(server, ImmutableList.of(BrooklynOsCommands.bash(server).installPackage("curl"), "netstat -antp", "curl -k --retry 3 "+url));
             }});
     }
 }

@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.entity.software.base.AbstractSoftwareProcessSshDriver;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,7 +60,7 @@ import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 
@@ -291,7 +292,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
                 return true;
             }
         }
-        return tryJavaInstall(requiredVersion, BashCommands.installJava(requiredJavaMinor)) == 0;
+        return tryJavaInstall(requiredVersion, BrooklynOsCommands.bash(getEntity()).installJava(requiredJavaMinor)) == 0;
     }
 
     /**
@@ -416,7 +417,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
                     // http://mail.openjdk.java.net/pipermail/net-dev/2012-July/004603.html
                     String newHostname = "br-"+getEntity().getId().toLowerCase();
                     log.info("Detected likelihood of Java hostname bug with hostname length "+len+" for "+getEntity()+"; renaming "+getMachine()+"  to hostname "+newHostname);
-                    DynamicTasks.queue(SshEffectorTasks.ssh(BashCommands.setHostname(newHostname, null))).block();
+                    DynamicTasks.queue(SshEffectorTasks.ssh(BrooklynOsCommands.bash(getEntity()).setHostname(newHostname, null))).block();
                 }
             } else {
                 log.debug("Hostname length could not be determined for location "+EffectorTasks.findSshMachine()+"; not doing Java hostname bug check");

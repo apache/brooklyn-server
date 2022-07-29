@@ -26,7 +26,6 @@ import org.apache.brooklyn.core.location.*;
 import org.apache.brooklyn.core.location.MachineLifecycleUtils.MachineStatus;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvis;
 import static org.apache.brooklyn.util.JavaGroovyEquivalents.groovyTruth;
-import static org.apache.brooklyn.util.ssh.BashCommands.sbinPath;
 import static org.jclouds.compute.predicates.NodePredicates.withIds;
 import static org.jclouds.util.Throwables2.getFirstThrowableOfType;
 
@@ -90,6 +89,7 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.config.ResolvingConfigBag;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
@@ -112,10 +112,10 @@ import org.apache.brooklyn.util.net.Cidr;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.net.Protocol;
 import org.apache.brooklyn.util.repeat.Repeater;
-import org.apache.brooklyn.util.ssh.BashCommands;
-import org.apache.brooklyn.util.ssh.IptablesCommands;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Chain;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Policy;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Chain;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Policy;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.KeyValueParser;
 import org.apache.brooklyn.util.text.StringPredicates;
@@ -404,9 +404,12 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 : (OsFamily.WINDOWS == confFamily);
     }
 
+    private BashCommandsConfigurable bashCommands() { return BrooklynOsCommands.bash(getManagementContext()); }
+    private IptablesCommandsConfigurable iptablesCommands() { return new IptablesCommandsConfigurable(bashCommands()); }
+
     public boolean isLocationFirewalldEnabled(SshMachineLocation location) {
         int result = location.execCommands("checking if firewalld is active",
-                ImmutableList.of(IptablesCommands.firewalldServiceIsActive()));
+                ImmutableList.of(iptablesCommands().firewalldServiceIsActive()));
         return result == 0;
     }
 
@@ -939,8 +942,8 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                                 (SshMachineLocation)machineLocation,
                                 "using urandom instead of random",
                                 Arrays.asList(
-                                        BashCommands.sudo("mv /dev/random /dev/random-real"),
-                                        BashCommands.sudo("ln -s /dev/urandom /dev/random")));
+                                        bashCommands().sudo("mv /dev/random /dev/random-real"),
+                                        bashCommands().sudo("ln -s /dev/urandom /dev/random")));
                     }
                 }
 
@@ -955,10 +958,10 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                         executeCommandThrowingOnError(
                                 (SshMachineLocation)machineLocation,
                                 "Generate hostname " + node.getName(),
-                                ImmutableList.of(BashCommands.chainGroup(
-                                        String.format("echo '127.0.0.1 %s' | ( %s )", node.getName(), BashCommands.sudo("tee -a /etc/hosts")),
-                                        "{ " + BashCommands.sudo("sed -i \"s/HOSTNAME=.*/HOSTNAME=" + node.getName() + "/g\" /etc/sysconfig/network") + " || true ; }",
-                                        BashCommands.sudo("hostname " + node.getName()))));
+                                ImmutableList.of(bashCommands().chainGroup(
+                                        String.format("echo '127.0.0.1 %s' | ( %s )", node.getName(), bashCommands().sudo("tee -a /etc/hosts")),
+                                        "{ " + bashCommands().sudo("sed -i \"s/HOSTNAME=.*/HOSTNAME=" + node.getName() + "/g\" /etc/sysconfig/network") + " || true ; }",
+                                        bashCommands().sudo("hostname " + node.getName()))));
                     }
                 }
 
@@ -979,14 +982,14 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
                             if (isLocationFirewalldEnabled((SshMachineLocation)machineLocation)) {
                                 for (Integer port : inboundPorts) {
-                                    iptablesRules.add(IptablesCommands.addFirewalldRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
+                                    iptablesRules.add(iptablesCommands().addFirewalldRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
                                  }
                             } else {
                                 iptablesRules = Lists.newArrayList();
                                 for (Integer port : inboundPorts) {
-                                   iptablesRules.add(IptablesCommands.insertIptablesRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
+                                   iptablesRules.add(iptablesCommands().insertIptablesRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
                                 }
-                                iptablesRules.add(IptablesCommands.saveIptablesRules());
+                                iptablesRules.add(iptablesCommands().saveIptablesRules());
                             }
                             List<String> batch = Lists.newArrayList();
                             // Some entities, such as Riak (erlang based) have a huge range of ports, which leads to a script that
@@ -1010,7 +1013,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                             executeCommandWarningOnError(
                                     (SshMachineLocation)machineLocation,
                                     "List iptables rules",
-                                    ImmutableList.of(IptablesCommands.listIptablesRule()));
+                                    ImmutableList.of(iptablesCommands().listIptablesRule()));
                         }
                     }
                 }
@@ -1025,9 +1028,9 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
 
                         List<String> cmds = ImmutableList.<String>of();
                         if (isLocationFirewalldEnabled((SshMachineLocation)machineLocation)) {
-                            cmds = ImmutableList.of(IptablesCommands.firewalldServiceStop(), IptablesCommands.firewalldServiceStatus());
+                            cmds = ImmutableList.of(iptablesCommands().firewalldServiceStop(), iptablesCommands().firewalldServiceStatus());
                         } else {
-                            cmds = ImmutableList.of(IptablesCommands.iptablesServiceStop(), IptablesCommands.iptablesServiceStatus());
+                            cmds = ImmutableList.of(iptablesCommands().iptablesServiceStop(), iptablesCommands().iptablesServiceStatus());
                         }
                         executeCommandWarningOnError(
                                 (SshMachineLocation)machineLocation,
@@ -1825,7 +1828,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 SshMachineLocation sshLoc = createTemporarySshMachineLocation(managementHostAndPort, initialCredentials, config);
                 try {
                     // BROOKLYN-188: for SUSE, need to specify the path (for groupadd, useradd, etc)
-                    Map<String, ?> env = ImmutableMap.of("PATH", sbinPath());
+                    Map<String, ?> env = ImmutableMap.of("PATH", bashCommands().sbinPath());
 
                     int exitcode = sshLoc.execScript(execProps, "create-user", commands, env);
 
@@ -3067,7 +3070,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                     MutableMap.of("out", outStream, "err", errStream),
                     "get public AWS hostname",
                     ImmutableList.of(
-                            BashCommands.INSTALL_CURL,
+                            bashCommands().INSTALL_CURL,
                             "echo `curl --silent --retry 20 http://169.254.169.254/latest/meta-data/public-hostname`; exit"));
             String outString = new String(outStream.toByteArray());
             String[] outLines = outString.split("\n");

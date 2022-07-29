@@ -145,7 +145,7 @@ public abstract class ProcessTaskWrapper<RET> extends ProcessTaskStub implements
             log.warn(message+" (throwing)");
             logProblemDetails("STDERR", stderrForReading(), 1024);
             logProblemDetails("STDOUT", stdoutForReading(), 1024);
-            logProblemDetails("STDIN", Streams.byteArrayOfString(Strings.join(commands,"\n")), 4096);
+            logProblemDetails("STDIN", Streams.byteArrayOfString(Strings.join(getCommands(true),"\n")), 4096);
             if (optionalCause!=null) throw new IllegalStateException(message, optionalCause);
             throw new IllegalStateException(message);
         }

@@ -25,7 +25,7 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.stream.Streams;
 import org.testng.annotations.Test;
 
@@ -36,7 +36,7 @@ import com.google.common.collect.ImmutableMap;
  * Extra-special tests for deploying SUSE VMs, because we've had so many problems. For example:
  * <ul>
  *   <li>{@code groupadd -f}:  You are using an undocumented option (-f); and exits with 9
- *   <li>path does not by default contain groupadd etc (see {@link BashCommands#sbinPath()}
+ *   <li>path does not by default contain groupadd etc (see {@link BashCommandsConfigurable#sbinPath()}
  * </ul>
  */
 public class JcloudsSuseLiveTest extends AbstractJcloudsLiveTest {

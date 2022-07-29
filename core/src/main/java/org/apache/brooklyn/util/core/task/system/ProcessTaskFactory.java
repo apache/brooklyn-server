@@ -24,6 +24,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskStub.ScriptReturnType;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -46,6 +47,7 @@ public interface ProcessTaskFactory<T> extends SimpleProcessTaskFactory<ProcessT
     ProcessTaskFactory<T> runAsCommand();
     ProcessTaskFactory<T> runAsScript();
     ProcessTaskFactory<T> runAsRoot();
+    ProcessTaskFactory<T> commandModifier(Function<List<String>, List<String>> modifier);
     @Override ProcessTaskFactory<T> environmentVariable(String key, String val);
     @Override ProcessTaskFactory<T> environmentVariables(Map<String,String> vars);
     @Override ProcessTaskFactory<T> summary(String summary);

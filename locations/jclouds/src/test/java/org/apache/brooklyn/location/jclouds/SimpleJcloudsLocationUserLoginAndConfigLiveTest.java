@@ -26,7 +26,8 @@ import java.util.Map;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -214,7 +215,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
                 "grantUserSudo", false,
                 "waitForSshable", 30*1000));
 
-        int exitCode = execWithExitCode(m, ImmutableList.of(BashCommands.sudo("echo yes")));
+        int exitCode = execWithExitCode(m, ImmutableList.of(BrooklynOsCommands.bash(m.getManagementContext()).sudo("echo yes")));
         Assert.assertFalse(exitCode == 0, "exit code for sudo command should not have been 0");
     }
 

@@ -37,13 +37,14 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.SshPutTaskWrapper;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 
 
 public class InitdServiceInstaller implements SystemServiceInstaller {
@@ -79,12 +80,13 @@ public class InitdServiceInstaller implements SystemServiceInstaller {
         SshPutTaskWrapper putServiceTask = SshTasks.newSshPutTaskFactory(sshMachine, tmpServicePath)
                 .contents(service)
                 .newTask();
+        BashCommandsConfigurable bash = BrooklynOsCommands.bash(sshMachine.getManagementContext());
         ProcessTaskWrapper<Integer> installServiceTask = SshTasks.newSshExecTaskFactory(sshMachine,
-                BashCommands.chain(
-                    BashCommands.sudo("mv " + tmpServicePath + " " + servicePath),
-                    BashCommands.sudo("chmod 0755 " + servicePath),
-                    BashCommands.sudo("chkconfig --add " + serviceName),
-                    BashCommands.sudo("chkconfig " + serviceName + " on")))
+                bash.chain(
+                    bash.sudo("mv " + tmpServicePath + " " + servicePath),
+                    bash.sudo("chmod 0755 " + servicePath),
+                    bash.sudo("chkconfig --add " + serviceName),
+                    bash.sudo("chkconfig " + serviceName + " on")))
             .requiringExitCodeZero()
             .newTask();
 

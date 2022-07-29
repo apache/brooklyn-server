@@ -19,9 +19,8 @@
 package org.apache.brooklyn.util.ssh;
 
 import org.apache.brooklyn.util.net.Protocol;
-import org.apache.brooklyn.util.ssh.IptablesCommands;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Chain;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Policy;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Chain;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Policy;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -52,37 +51,40 @@ public class IptablesCommandsTest {
             "(( echo \"WARNING: no known/successful package manager to install iptables-persistent, may fail subsequently\" | tee /dev/stderr ) || true) ) " +
             "&& ( if test \"$UID\" -eq 0; then ( /etc/init.d/iptables-persistent save ); else sudo -E -n -S -- /etc/init.d/iptables-persistent save; fi ) ) )";
 
+    static IptablesCommandsConfigurable testInstance = new IptablesCommandsConfigurable(BashCommandsConfigurable.newInstance());
+
     @Test
     public void testCleanUpIptablesRules() {
-        Assert.assertEquals(IptablesCommands.cleanUpIptablesRules(), cleanUptptablesRules);
+        Assert.assertEquals(testInstance.cleanUpIptablesRules(), cleanUptptablesRules);
     }
 
     @Test
     public void testInsertIptablesRules() {
-        Assert.assertEquals(IptablesCommands.insertIptablesRule(Chain.INPUT, "eth0", Protocol.TCP, 3306, Policy.ACCEPT),
+        Assert.assertEquals(testInstance.insertIptablesRule(Chain.INPUT, "eth0", Protocol.TCP, 3306, Policy.ACCEPT),
                 insertIptablesRule);
     }
 
     @Test
     public void testAppendIptablesRules() {
-        Assert.assertEquals(IptablesCommands.appendIptablesRule(Chain.INPUT, "eth0", Protocol.TCP, 3306, Policy.ACCEPT),
+        Assert.assertEquals(testInstance.appendIptablesRule(Chain.INPUT, "eth0", Protocol.TCP, 3306, Policy.ACCEPT),
                 appendIptablesRule);
     }
 
     @Test
     public void testInsertIptablesRulesForAllInterfaces() {
-        Assert.assertEquals(IptablesCommands.insertIptablesRule(Chain.INPUT, Protocol.TCP, 3306, Policy.ACCEPT),
+        Assert.assertEquals(testInstance.insertIptablesRule(Chain.INPUT, Protocol.TCP, 3306, Policy.ACCEPT),
                 insertIptablesRuleAll);
     }
 
     @Test
     public void testAppendIptablesRulesForAllInterfaces() {
-        Assert.assertEquals(IptablesCommands.appendIptablesRule(Chain.INPUT, Protocol.TCP, 3306, Policy.ACCEPT),
+        Assert.assertEquals(testInstance.appendIptablesRule(Chain.INPUT, Protocol.TCP, 3306, Policy.ACCEPT),
                 appendIptablesRuleAll);
     }
 
     @Test
     public void testSaveIptablesRules() {
-        Assert.assertEquals(IptablesCommands.saveIptablesRules(), saveIptablesRules);
+        Assert.assertEquals(testInstance.saveIptablesRules(), saveIptablesRules);
     }
+
 }

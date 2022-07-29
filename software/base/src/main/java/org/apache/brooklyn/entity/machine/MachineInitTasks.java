@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,10 +38,10 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.net.Protocol;
-import org.apache.brooklyn.util.ssh.BashCommands;
-import org.apache.brooklyn.util.ssh.IptablesCommands;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Chain;
-import org.apache.brooklyn.util.ssh.IptablesCommands.Policy;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Chain;
+import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable.Policy;
 import org.apache.brooklyn.util.text.Strings;
 
 /**
@@ -69,6 +70,8 @@ public class MachineInitTasks {
         });
     }
 
+    private IptablesCommandsConfigurable iptablesCommands(SshMachineLocation m) { return new IptablesCommandsConfigurable(BrooklynOsCommands.bash(m.getManagementContext())); }
+
     protected void stopIptablesImpl(final SshMachineLocation machine) {
 
         log.info("Stopping iptables for {} at {}", entity(), machine);
@@ -78,9 +81,9 @@ public class MachineInitTasks {
         Task<Integer> checkFirewall = checkLocationFirewall(machine);
 
         if (checkFirewall.getUnchecked() == 0) {
-            cmds = ImmutableList.of(IptablesCommands.firewalldServiceStop(), IptablesCommands.firewalldServiceStatus());
+            cmds = ImmutableList.of(iptablesCommands(machine).firewalldServiceStop(), iptablesCommands(machine).firewalldServiceStatus());
         } else {
-            cmds = ImmutableList.of(IptablesCommands.iptablesServiceStop(), IptablesCommands.iptablesServiceStatus());
+            cmds = ImmutableList.of(iptablesCommands(machine).iptablesServiceStop(), iptablesCommands(machine).iptablesServiceStatus());
         }
 
 
@@ -89,7 +92,7 @@ public class MachineInitTasks {
 
 
     /**
-     * See docs in {@link BashCommands#dontRequireTtyForSudo()}
+     * See docs in {@link BashCommandsConfigurable#dontRequireTtyForSudo()}
      */
     public Task<Boolean> dontRequireTtyForSudoAsync(final SshMachineLocation machine) {
         return DynamicTasks.queue(SshTasks.dontRequireTtyForSudo(machine, true).newTask().asTask());
@@ -120,11 +123,11 @@ public class MachineInitTasks {
 
             if (checkFirewall.getUnchecked() == 0) {
                 for (Integer port : inboundPorts) {
-                    iptablesRules.add(IptablesCommands.addFirewalldRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
+                    iptablesRules.add(iptablesCommands(machine).addFirewalldRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
                  }
             } else {
-                iptablesRules = createIptablesRulesForNetworkInterface(inboundPorts);
-                iptablesInstallCommands = IptablesCommands.saveIptablesRules();
+                iptablesRules = createIptablesRulesForNetworkInterface(inboundPorts, machine);
+                iptablesInstallCommands = iptablesCommands(machine).saveIptablesRules();
             }
 
             insertIptablesRules(iptablesRules, iptablesInstallCommands, machine);
@@ -136,7 +139,7 @@ public class MachineInitTasks {
      * Returns a queued {@link Task} which checks if location firewall is enabled.
      */
     public Task<Integer> checkLocationFirewall(final SshMachineLocation machine) {
-        return subTaskHelperAllowingNonZeroExitCode("check if firewall is active", machine, IptablesCommands.firewalldServiceIsActive());
+        return subTaskHelperAllowingNonZeroExitCode("check if firewall is active", machine, iptablesCommands(machine).firewalldServiceIsActive());
     }
 
     /**
@@ -185,7 +188,7 @@ public class MachineInitTasks {
      * Returns a queued {@link Task} which lists the iptables rules.
      */
     private Task<Integer> listIptablesRules(final SshMachineLocation machine) {
-        return subTaskHelperRequiringZeroExitCode("list rules", machine, IptablesCommands.listIptablesRule());
+        return subTaskHelperRequiringZeroExitCode("list rules", machine, iptablesCommands(machine).listIptablesRule());
     }
 
     private Task<Integer> subTaskHelperRequiringZeroExitCode(String taskName, SshMachineLocation machine, String... comands) {
@@ -202,10 +205,10 @@ public class MachineInitTasks {
         return DynamicTasks.queue(taskFactory).asTask();
     }
     
-    private List<String> createIptablesRulesForNetworkInterface(Iterable<Integer> ports) {
+    private List<String> createIptablesRulesForNetworkInterface(Iterable<Integer> ports, SshMachineLocation machine) {
         List<String> iptablesRules = Lists.newArrayList();
         for (Integer port : ports) {
-           iptablesRules.add(IptablesCommands.insertIptablesRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
+           iptablesRules.add(iptablesCommands(machine).insertIptablesRule(Chain.INPUT, Protocol.TCP, port, Policy.ACCEPT));
         }
         return iptablesRules;
      }

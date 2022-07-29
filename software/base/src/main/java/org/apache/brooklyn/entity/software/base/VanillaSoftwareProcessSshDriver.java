@@ -32,10 +32,11 @@ import org.apache.brooklyn.entity.software.base.lifecycle.ScriptHelper;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.file.ArchiveUtils;
+import org.apache.brooklyn.util.core.file.BrooklynOsCommands;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -90,8 +91,9 @@ public class VanillaSoftwareProcessSshDriver extends AbstractSoftwareProcessSshD
             downloadedFilename = resolver.getFilename();
 
             List<String> commands = new LinkedList<String>();
-            commands.addAll(BashCommands.commandsToDownloadUrlsAs(urls, downloadedFilename));
-            commands.addAll(ArchiveUtils.installCommands(downloadedFilename));
+            BashCommandsConfigurable bash = BrooklynOsCommands.bash(getEntity());
+            commands.addAll(bash.commandsToDownloadUrlsAs(urls, downloadedFilename));
+            commands.addAll(ArchiveUtils.installCommands(bash, downloadedFilename));
 
             int result = newScript(ImmutableMap.of(INSTALL_INCOMPLETE, true), INSTALLING)
                     .failOnNonZeroResultCode(false)

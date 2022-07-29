@@ -18,23 +18,14 @@
  */
 package org.apache.brooklyn.util.core.ssh;
 
-import static java.lang.String.format;
-import static org.apache.brooklyn.util.ssh.BashCommands.sudo;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
-
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.net.ServerSocket;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-
+import com.google.common.base.Charsets;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Files;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.DisableOnWindows;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -43,7 +34,7 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -54,13 +45,17 @@ import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 
-import com.google.common.base.Charsets;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.io.Files;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.net.ServerSocket;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+
+import static java.lang.String.format;
+import static org.testng.Assert.*;
 
 public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
 
@@ -83,7 +78,9 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     private File localRepoEntityBasePath;
     private String localRepoEntityVersionPath;
     private File localRepoEntityFile;
-    
+
+    private final BashCommandsConfigurable bashTestInstance = BashCommandsConfigurable.newInstance();
+
     @BeforeMethod(alwaysRun=true)
     public void setUp() throws Exception {
         super.setUp();
@@ -136,7 +133,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @Test(groups="Integration")
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testRemoveRequireTtyFromSudoersFile() throws Exception {
-        String cmds = BashCommands.dontRequireTtyForSudo();
+        String cmds = bashTestInstance.dontRequireTtyForSudo();
 
         
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
@@ -160,7 +157,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     public void testSudo() throws Exception {
         ByteArrayOutputStream outStream = new ByteArrayOutputStream();
         ByteArrayOutputStream errStream = new ByteArrayOutputStream();
-        String cmd = sudo("whoami");
+        String cmd = bashTestInstance.sudo("whoami");
         int exitcode = loc.execCommands(ImmutableMap.of("out", outStream, "err", errStream), "test", ImmutableList.of(cmd));
         String outstr = new String(outStream.toByteArray());
         String errstr = new String(errStream.toByteArray());
@@ -170,7 +167,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     }
     
     public void testDownloadUrl() throws Exception {
-        List<String> cmds = BashCommands.commandsToDownloadUrlsAs(
+        List<String> cmds = bashTestInstance.commandsToDownloadUrlsAs(
                 ImmutableList.of(sourceFileUrl1), 
                 destFile.getAbsolutePath());
         int exitcode = loc.execCommands("test", cmds);
@@ -182,7 +179,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @Test(groups="Integration")
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testDownloadFirstSuccessfulFile() throws Exception {
-        List<String> cmds = BashCommands.commandsToDownloadUrlsAs(
+        List<String> cmds = bashTestInstance.commandsToDownloadUrlsAs(
                 ImmutableList.of(sourceNonExistantFileUrl, sourceFileUrl1, sourceFileUrl2), 
                 destFile.getAbsolutePath());
         int exitcode = loc.execCommands("test", cmds);
@@ -196,7 +193,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     public void testDownloadToStdout() throws Exception {
         ProcessTaskWrapper<String> t = SshTasks.newSshExecTaskFactory(loc, 
                 "cd "+destFile.getParentFile().getAbsolutePath(),
-                BashCommands.downloadToStdout(Arrays.asList(sourceFileUrl1))+" | sed s/my/your/")
+                bashTestInstance.downloadToStdout(Arrays.asList(sourceFileUrl1))+" | sed s/my/your/")
             .requiringZeroAndReturningStdout().newTask();
 
         String result = exec.submit(t).get();
@@ -207,7 +204,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testAlternativesWhereFirstSucceeds() throws Exception {
         ProcessTaskWrapper<Integer> t = SshTasks.newSshExecTaskFactory(loc)
-                .add(BashCommands.alternatives(Arrays.asList("echo first", "exit 88")))
+                .add(bashTestInstance.alternatives(Arrays.asList("echo first", "exit 88")))
                 .newTask();
 
         Integer returnCode = exec.submit(t).get();
@@ -222,7 +219,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testAlternatives() throws Exception {
         ProcessTaskWrapper<Integer> t = SshTasks.newSshExecTaskFactory(loc)
-                .add(BashCommands.alternatives(Arrays.asList("asdfj_no_such_command_1", "exit 88")))
+                .add(bashTestInstance.alternatives(Arrays.asList("asdfj_no_such_command_1", "exit 88")))
                 .newTask();
 
         Integer returnCode = exec.submit(t).get();
@@ -234,7 +231,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireTestHandlesFailure() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
-            .add(BashCommands.requireTest("-f "+sourceNonExistantFile.getPath(),
+            .add(bashTestInstance.requireTest("-f "+sourceNonExistantFile.getPath(),
                     "The requested file does not exist")).newTask();
 
         exec.submit(t).get();
@@ -247,7 +244,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireTestHandlesSuccess() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
-            .add(BashCommands.requireTest("-f "+sourceFile1.getPath(),
+            .add(bashTestInstance.requireTest("-f "+sourceFile1.getPath(),
                     "The requested file does not exist")).newTask();
 
         exec.submit(t).get();
@@ -259,7 +256,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireFileHandlesFailure() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
-            .add(BashCommands.requireFile(sourceNonExistantFile.getPath())).newTask();
+            .add(bashTestInstance.requireFile(sourceNonExistantFile.getPath())).newTask();
 
         exec.submit(t).get();
         assertNotEquals(t.getExitCode(), 0);
@@ -273,7 +270,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireFileHandlesSuccess() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
-            .add(BashCommands.requireFile(sourceFile1.getPath())).newTask();
+            .add(bashTestInstance.requireFile(sourceFile1.getPath())).newTask();
 
         exec.submit(t).get();
         assertEquals(t.getExitCode(), (Integer)0);
@@ -284,7 +281,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs an ssh server listening on port 22 on localhost")
     public void testRequireFailureExitsImmediately() throws Exception {
         ProcessTaskWrapper<?> t = SshTasks.newSshExecTaskFactory(loc)
-            .add(BashCommands.requireTest("-f "+sourceNonExistantFile.getPath(),
+            .add(bashTestInstance.requireTest("-f "+sourceNonExistantFile.getPath(),
                     "The requested file does not exist"))
             .add("echo shouldnae come here").newTask();
 
@@ -299,7 +296,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testPipeMultiline() throws Exception {
         String output = execRequiringZeroAndReturningStdout(loc,
-                BashCommands.pipeTextTo("hello world\n"+"and goodbye\n", "wc")).get();
+                bashTestInstance.pipeTextTo("hello world\n"+"and goodbye\n", "wc")).get();
 
         assertEquals(Strings.replaceAllRegex(output, "\\s+", " ").trim(), "3 4 25");
     }
@@ -308,7 +305,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileContentsWhenAbortingOnFail() throws Exception {
         String fileContent = "mycontents";
-        String cmd = BashCommands.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.ONE_SECOND, true);
+        String cmd = bashTestInstance.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.ONE_SECOND, true);
 
         int exitcode = loc.execCommands("test", ImmutableList.of(cmd));
         assertEquals(exitcode, 1);
@@ -322,7 +319,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileContentsWhenNotAbortingOnFail() throws Exception {
         String fileContent = "mycontents";
-        String cmd = BashCommands.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.ONE_SECOND, false);
+        String cmd = bashTestInstance.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.ONE_SECOND, false);
 
         String output = execRequiringZeroAndReturningStdout(loc, cmd).get();
         assertTrue(output.contains("Couldn't find"), "output="+output);
@@ -337,7 +334,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     public void testWaitForFileContentsWhenContentsAppearAfterStart() throws Exception {
         String fileContent = "mycontents";
 
-        String cmd = BashCommands.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.THIRTY_SECONDS, false);
+        String cmd = bashTestInstance.waitForFileContents(destFile.getAbsolutePath(), fileContent, Duration.THIRTY_SECONDS, false);
         ProcessTaskWrapper<String> t = execRequiringZeroAndReturningStdout(loc, cmd);
         exec.submit(t);
         
@@ -353,7 +350,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @Test(groups="Integration")
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileExistsWhenAbortingOnFail() throws Exception {
-        String cmd = BashCommands.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, true);
+        String cmd = bashTestInstance.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, true);
 
         int exitcode = loc.execCommands("test", ImmutableList.of(cmd));
         assertEquals(exitcode, 0);
@@ -366,7 +363,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
     @Test(groups="Integration")
     @DisableOnWindows(reason = "Needs a bash shell available on localhost")
     public void testWaitForFileExistsWhenNotAbortingOnFail() throws Exception {
-        String cmd = BashCommands.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, false);
+        String cmd = bashTestInstance.waitForFileExists(destFile.getAbsolutePath(), Duration.ONE_SECOND, false);
 
         String output = execRequiringZeroAndReturningStdout(loc, cmd).get();
         assertFalse(output.contains("Couldn't find"), "output="+output);
@@ -382,7 +379,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
         ServerSocket serverSocket = openServerSocket();
         try {
             int port = serverSocket.getLocalPort();
-            String cmd = BashCommands.waitForPortFree(port, Duration.ONE_SECOND, true);
+            String cmd = bashTestInstance.waitForPortFree(port, Duration.ONE_SECOND, true);
     
             int exitcode = loc.execCommands("test", ImmutableList.of(cmd));
             assertEquals(exitcode, 1);
@@ -402,7 +399,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
         ServerSocket serverSocket = openServerSocket();
         try {
             int port = serverSocket.getLocalPort();
-            String cmd = BashCommands.waitForPortFree(port, Duration.ONE_SECOND, false);
+            String cmd = bashTestInstance.waitForPortFree(port, Duration.ONE_SECOND, false);
     
             String output = execRequiringZeroAndReturningStdout(loc, cmd).get();
             assertTrue(output.contains(port+" still in use"), "output="+output);
@@ -423,7 +420,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
         try {
             int port = serverSocket.getLocalPort();
     
-            String cmd = BashCommands.waitForPortFree(port, Duration.THIRTY_SECONDS, false);
+            String cmd = bashTestInstance.waitForPortFree(port, Duration.THIRTY_SECONDS, false);
             ProcessTaskWrapper<String> t = execRequiringZeroAndReturningStdout(loc, cmd);
             exec.submit(t);
             
@@ -470,15 +467,15 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
         LocalManagementContextForTests mgmt = new LocalManagementContextForTests();
         SshMachineLocation loc = mgmt.getLocationManager().createLocation(LocalhostMachineProvisioningLocation.spec()).obtain();
 
-        execRequiringZeroAndReturningStdout(loc, sudo("cp /etc/hosts /etc/hosts-orig-testSetHostname")).get();
-        execRequiringZeroAndReturningStdout(loc, BashCommands.ifFileExistsElse0("/etc/hostname", sudo("cp /etc/hostname /etc/hostname-orig-testSetHostname"))).get();
-        execRequiringZeroAndReturningStdout(loc, BashCommands.ifFileExistsElse0("/etc/sysconfig/network", sudo("cp /etc/sysconfig/network /etc/sysconfig/network-orig-testSetHostname"))).get();
+        execRequiringZeroAndReturningStdout(loc, bashTestInstance.sudo("cp /etc/hosts /etc/hosts-orig-testSetHostname")).get();
+        execRequiringZeroAndReturningStdout(loc, bashTestInstance.ifFileExistsElse0("/etc/hostname", bashTestInstance.sudo("cp /etc/hostname /etc/hostname-orig-testSetHostname"))).get();
+        execRequiringZeroAndReturningStdout(loc, bashTestInstance.ifFileExistsElse0("/etc/sysconfig/network", bashTestInstance.sudo("cp /etc/sysconfig/network /etc/sysconfig/network-orig-testSetHostname"))).get();
         
         String origHostname = getHostnameNoArgs(loc);
         assertTrue(Strings.isNonBlank(origHostname));
         
         try {
-            List<String> cmd = (includeDomain) ? BashCommands.setHostname(newHostname, newDomain) : BashCommands.setHostname(newHostname);
+            List<String> cmd = (includeDomain) ? bashTestInstance.setHostname(newHostname, newDomain) : bashTestInstance.setHostname(newHostname);
             execRequiringZeroAndReturningStdout(loc, cmd).get();
 
             String actualHostnameUnqualified = getHostnameUnqualified(loc);
@@ -500,10 +497,10 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
             log.info("result="+result);
             
         } finally {
-            execRequiringZeroAndReturningStdout(loc, sudo("cp /etc/hosts-orig-testSetHostname /etc/hosts")).get();
-            execRequiringZeroAndReturningStdout(loc, BashCommands.ifFileExistsElse0("/etc/hostname-orig-testSetHostname", sudo("cp /etc/hostname-orig-testSetHostname /etc/hostname"))).get();
-            execRequiringZeroAndReturningStdout(loc, BashCommands.ifFileExistsElse0("/etc/sysconfig/network-orig-testSetHostname", sudo("cp /etc/sysconfig/network-orig-testSetHostname /etc/sysconfig/network"))).get();
-            execRequiringZeroAndReturningStdout(loc, sudo("hostname "+origHostname)).get();
+            execRequiringZeroAndReturningStdout(loc, bashTestInstance.sudo("cp /etc/hosts-orig-testSetHostname /etc/hosts")).get();
+            execRequiringZeroAndReturningStdout(loc, bashTestInstance.ifFileExistsElse0("/etc/hostname-orig-testSetHostname", bashTestInstance.sudo("cp /etc/hostname-orig-testSetHostname /etc/hostname"))).get();
+            execRequiringZeroAndReturningStdout(loc, bashTestInstance.ifFileExistsElse0("/etc/sysconfig/network-orig-testSetHostname", bashTestInstance.sudo("cp /etc/sysconfig/network-orig-testSetHostname /etc/sysconfig/network"))).get();
+            execRequiringZeroAndReturningStdout(loc, bashTestInstance.sudo("hostname "+origHostname)).get();
         }
     }
 
@@ -513,14 +510,14 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
         LocalManagementContextForTests mgmt = new LocalManagementContextForTests();
         SshMachineLocation loc = mgmt.getLocationManager().createLocation(LocalhostMachineProvisioningLocation.spec()).obtain();
 
-        execRequiringZeroAndReturningStdout(loc, sudo("cp /etc/hosts /etc/hosts-orig-testModifyEtcHosts")).get();
+        execRequiringZeroAndReturningStdout(loc, bashTestInstance.sudo("cp /etc/hosts /etc/hosts-orig-testModifyEtcHosts")).get();
         int numLinesOrig = Integer.parseInt(execRequiringZeroAndReturningStdout(loc, "wc -l /etc/hosts").get().trim().split("\\s")[0]);
         
         try {
-            String cmd = BashCommands.prependToEtcHosts("1.2.3.4", "myhostnamefor1234.at.start", "myhostnamefor1234b");
+            String cmd = bashTestInstance.prependToEtcHosts("1.2.3.4", "myhostnamefor1234.at.start", "myhostnamefor1234b");
             execRequiringZeroAndReturningStdout(loc, cmd).get();
             
-            String cmd2 = BashCommands.appendToEtcHosts("5.6.7.8", "myhostnamefor5678.at.end", "myhostnamefor5678");
+            String cmd2 = bashTestInstance.appendToEtcHosts("5.6.7.8", "myhostnamefor5678.at.end", "myhostnamefor5678");
             execRequiringZeroAndReturningStdout(loc, cmd2).get();
             
             String grepFirst = execRequiringZeroAndReturningStdout(loc, "grep -n myhostnamefor1234 /etc/hosts").get();
@@ -532,7 +529,7 @@ public class BashCommandsIntegrationTest extends BrooklynMgmtUnitTestSupport {
             assertTrue(grepLast.startsWith((numLinesOrig+2)+":") && grepLast.contains("5.6.7.8 myhostnamefor5678.at.end myhostnamefor5678"), "last="+grepLast);
             assertEquals(numLinesOrig + 2, numLinesAfter, "lines orig="+numLinesOrig+", after="+numLinesAfter);
         } finally {
-            execRequiringZeroAndReturningStdout(loc, sudo("cp /etc/hosts-orig-testModifyEtcHosts /etc/hosts")).get();
+            execRequiringZeroAndReturningStdout(loc, bashTestInstance.sudo("cp /etc/hosts-orig-testModifyEtcHosts /etc/hosts")).get();
         }
     }
     

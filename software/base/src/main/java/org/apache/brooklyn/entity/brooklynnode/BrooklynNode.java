@@ -45,7 +45,7 @@ import org.apache.brooklyn.entity.software.base.SoftwareProcess;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.ssh.BashCommands;
+import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -99,7 +99,7 @@ public interface BrooklynNode extends SoftwareProcess, UsesJava {
     ConfigKey<String> MANAGEMENT_PASSWORD =
             ConfigKeys.newStringConfigKey("brooklynnode.managementPassword", "Password for MANAGEMENT_USER", null);
 
-    /** useful e.g. with {@link BashCommands#generateKeyInDotSshIdRsaIfNotThere() } */
+    /** useful e.g. with {@link BashCommandsConfigurable#generateKeyInDotSshIdRsaIfNotThere() } */
     @SetFromFlag("extraCustomizationScript")
     ConfigKey<String> EXTRA_CUSTOMIZATION_SCRIPT = ConfigKeys.newStringConfigKey("brooklynnode.customization.extraScript",
         "Optional additional script commands to run as part of customization; this might e.g. ensure id_rsa is set up",

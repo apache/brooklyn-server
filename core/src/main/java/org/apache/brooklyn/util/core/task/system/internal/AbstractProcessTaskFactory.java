@@ -19,8 +19,10 @@
 package org.apache.brooklyn.util.core.task.system.internal;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.slf4j.Logger;
@@ -59,6 +61,10 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
         markDirty();
         for (String commandToAdd: commandsToAdd) this.commands.add(commandToAdd);
         return self();
+    }
+
+    public List<String> getCommands() {
+        return this.commands;
     }
 
     @Override
@@ -183,7 +189,7 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
         TaskBuilder<Object> tb = TaskBuilder.builder().dynamic(false).displayName(displayName);
         
         tb.tag(BrooklynTaskTags.tagForStream(BrooklynTaskTags.STREAM_STDIN, 
-                Streams.byteArrayOfString(Strings.join(commands, "\n"))));
+                Streams.byteArrayOfString(Strings.join(getCommands(true), "\n"))));
         tb.tag(BrooklynTaskTags.tagForEnvStream(BrooklynTaskTags.STREAM_ENV, shellEnvironment));
 
         return tb;
@@ -193,6 +199,12 @@ public abstract class AbstractProcessTaskFactory<T extends AbstractProcessTaskFa
     public T summary(String summary) {
         markDirty();
         this.summary = summary;
+        return self();
+    }
+
+    /** allows caller to supply a command modifier, used to modify the commands set up. */
+    public T commandModifier(Function<List<String>, List<String>> commandModifier) {
+        this.commandModifier = commandModifier;
         return self();
     }
 
