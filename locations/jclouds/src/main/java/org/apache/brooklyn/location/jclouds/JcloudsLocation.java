@@ -404,7 +404,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                 : (OsFamily.WINDOWS == confFamily);
     }
 
-    private BashCommandsConfigurable bashCommands() { return BrooklynOsCommands.bash(getManagementContext()); }
+    private BashCommandsConfigurable bashCommands() { return BrooklynOsCommands.bash(this); }
     private IptablesCommandsConfigurable iptablesCommands() { return new IptablesCommandsConfigurable(bashCommands()); }
 
     public boolean isLocationFirewalldEnabled(SshMachineLocation location) {

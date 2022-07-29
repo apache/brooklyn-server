@@ -292,7 +292,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
                 return true;
             }
         }
-        return tryJavaInstall(requiredVersion, BrooklynOsCommands.bash(getEntity()).installJava(requiredJavaMinor)) == 0;
+        return tryJavaInstall(requiredVersion, BrooklynOsCommands.bash(getMachine()).installJava(requiredJavaMinor)) == 0;
     }
 
     /**
@@ -417,7 +417,7 @@ public abstract class JavaSoftwareProcessSshDriver extends AbstractSoftwareProce
                     // http://mail.openjdk.java.net/pipermail/net-dev/2012-July/004603.html
                     String newHostname = "br-"+getEntity().getId().toLowerCase();
                     log.info("Detected likelihood of Java hostname bug with hostname length "+len+" for "+getEntity()+"; renaming "+getMachine()+"  to hostname "+newHostname);
-                    DynamicTasks.queue(SshEffectorTasks.ssh(BrooklynOsCommands.bash(getEntity()).setHostname(newHostname, null))).block();
+                    DynamicTasks.queue(SshEffectorTasks.ssh(BrooklynOsCommands.bash(getMachine()).setHostname(newHostname, null))).block();
                 }
             } else {
                 log.debug("Hostname length could not be determined for location "+EffectorTasks.findSshMachine()+"; not doing Java hostname bug check");

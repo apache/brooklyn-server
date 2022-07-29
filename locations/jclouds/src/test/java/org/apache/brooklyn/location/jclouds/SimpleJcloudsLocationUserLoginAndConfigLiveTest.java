@@ -215,7 +215,7 @@ public class SimpleJcloudsLocationUserLoginAndConfigLiveTest extends AbstractJcl
                 "grantUserSudo", false,
                 "waitForSshable", 30*1000));
 
-        int exitCode = execWithExitCode(m, ImmutableList.of(BrooklynOsCommands.bash(m.getManagementContext()).sudo("echo yes")));
+        int exitCode = execWithExitCode(m, ImmutableList.of(BrooklynOsCommands.bash(m).sudo("echo yes")));
         Assert.assertFalse(exitCode == 0, "exit code for sudo command should not have been 0");
     }
 

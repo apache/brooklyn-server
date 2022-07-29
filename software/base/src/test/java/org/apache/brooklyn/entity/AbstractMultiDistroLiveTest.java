@@ -144,7 +144,7 @@ public abstract class AbstractMultiDistroLiveTest extends BrooklynAppLiveTestSup
         Asserts.succeedsEventually(ImmutableMap.of("timeout", Duration.FIVE_MINUTES), new Runnable() {
             @Override
             public void run() {
-                assertExecSsh(server, ImmutableList.of(BrooklynOsCommands.bash(server).installPackage("curl"), "netstat -antp", "curl -k --retry 3 "+url));
+                assertExecSsh(server, ImmutableList.of(BrooklynOsCommands.bash(server, true).installPackage("curl"), "netstat -antp", "curl -k --retry 3 "+url));
             }});
     }
 }

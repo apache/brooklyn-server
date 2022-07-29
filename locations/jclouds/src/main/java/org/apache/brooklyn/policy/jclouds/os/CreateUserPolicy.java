@@ -149,7 +149,7 @@ public class CreateUserPolicy extends AbstractPolicy implements SensorEventListe
         String cmd = adminAccess.render(scriptOsFamily);
 
         // Exec command to create the user
-        BashCommandsConfigurable bash = BrooklynOsCommands.bash(entity);
+        BashCommandsConfigurable bash = BrooklynOsCommands.bash(machine);
         int result = machine.execScript(ImmutableMap.of(SshTool.PROP_RUN_AS_ROOT.getName(), true), "create-user-"+user, ImmutableList.of(cmd), ImmutableMap.of("PATH", bash.sbinPath()));
         if (result != 0) {
             throw new IllegalStateException("Failed to auto-generate user, using command "+cmd);

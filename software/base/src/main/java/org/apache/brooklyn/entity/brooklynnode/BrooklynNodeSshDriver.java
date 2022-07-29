@@ -154,9 +154,9 @@ public class BrooklynNodeSshDriver extends JavaSoftwareProcessSshDriver implemen
                 getMachine().copyTo(distroStream, getInstallDir()+"/"+saveAs);
             }
         } else {
-            commands.addAll(BrooklynOsCommands.bash(getEntity()).commandsToDownloadUrlsAs(urls, saveAs));
+            commands.addAll(BrooklynOsCommands.bash(getMachine()).commandsToDownloadUrlsAs(urls, saveAs));
         }
-        commands.add(BrooklynOsCommands.bash(getEntity()).INSTALL_TAR);
+        commands.add(BrooklynOsCommands.bash(getMachine()).INSTALL_TAR);
         commands.add("tar xzfv " + saveAs);
         
         newScript(INSTALLING).

@@ -870,7 +870,7 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
         LOG.debug("installing {} to {} on {}, attempting remote curl", new Object[] { url, destPath, this });
 
         try {
-            BashCommandsConfigurable bash = BrooklynOsCommands.bash(getManagementContext());
+            BashCommandsConfigurable bash = BrooklynOsCommands.bash(this);
             PipedInputStream insO = new PipedInputStream(); OutputStream outO = new PipedOutputStream(insO);
             PipedInputStream insE = new PipedInputStream(); OutputStream outE = new PipedOutputStream(insE);
             StreamGobbler sgsO = new StreamGobbler(insO, null, LOG); sgsO.setLogPrefix("[curl @ "+address+":stdout] ").start();
@@ -1063,10 +1063,10 @@ public class SshMachineLocation extends AbstractMachineLocation implements Machi
     @Override
     public String resolveOnBoxDirFor(Entity entity, String unresolvedPath) {
         ProcessTaskWrapper<Integer> baseTask = SshEffectorTasks.ssh(
-            BrooklynOsCommands.bash(entity).alternatives("mkdir -p \"${BASE_DIR}\"",
-                BrooklynOsCommands.bash(entity).chain(
-                    BrooklynOsCommands.bash(entity).sudo("mkdir -p \"${BASE_DIR}\""),
-                    BrooklynOsCommands.bash(entity).sudo("chown "+getUser()+" \"${BASE_DIR}\""))),
+            BrooklynOsCommands.bash(this).alternatives("mkdir -p \"${BASE_DIR}\"",
+                BrooklynOsCommands.bash(this).chain(
+                    BrooklynOsCommands.bash(this).sudo("mkdir -p \"${BASE_DIR}\""),
+                    BrooklynOsCommands.bash(this).sudo("chown "+getUser()+" \"${BASE_DIR}\""))),
             "cd ~",
             "cd ${BASE_DIR}",
             "echo BASE_DIR_RESULT':'`pwd`:BASE_DIR_RESULT")

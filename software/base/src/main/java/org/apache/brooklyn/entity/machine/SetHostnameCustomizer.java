@@ -174,7 +174,7 @@ public class SetHostnameCustomizer extends BasicMachineLocationCustomizer {
         boolean hasDomain = Strings.isNonBlank(domainFixed);
         String fqdn = hasDomain ? hostName+"."+domainFixed : hostName;
 
-        BashCommandsConfigurable bash = BrooklynOsCommands.bash(machine.getManagementContext());
+        BashCommandsConfigurable bash = BrooklynOsCommands.bash(machine);
         exec(machine, true, 
                 bash.sudo(String.format("sed -i.bak -e '1i127.0.0.1 %s %s' -e '/^127.0.0.1/d' /etc/hosts", fqdn, hostName)),
                 bash.sudo(String.format("sed -i.bak -e 's/^HOSTNAME=.*$/HOSTNAME=%s/' /etc/sysconfig/network", fqdn)),

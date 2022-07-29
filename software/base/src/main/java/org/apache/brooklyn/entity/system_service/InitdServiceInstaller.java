@@ -80,7 +80,7 @@ public class InitdServiceInstaller implements SystemServiceInstaller {
         SshPutTaskWrapper putServiceTask = SshTasks.newSshPutTaskFactory(sshMachine, tmpServicePath)
                 .contents(service)
                 .newTask();
-        BashCommandsConfigurable bash = BrooklynOsCommands.bash(sshMachine.getManagementContext());
+        BashCommandsConfigurable bash = BrooklynOsCommands.bash(sshMachine);
         ProcessTaskWrapper<Integer> installServiceTask = SshTasks.newSshExecTaskFactory(sshMachine,
                 bash.chain(
                     bash.sudo("mv " + tmpServicePath + " " + servicePath),

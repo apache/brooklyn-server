@@ -108,10 +108,10 @@ public class DynamicToyMySqlEntityBuilder {
                         SshEffectorTasks.ssh(
                             "mkdir "+dir(entity),
                             "cd "+dir(entity),
-                            BrooklynOsCommands.bash(entity).downloadToStdout(downloadUrl(entity, isLocalhost(machineS)))+" | tar xvz"
+                            BrooklynOsCommands.bash(machineS.get()).downloadToStdout(downloadUrl(entity, isLocalhost(machineS)))+" | tar xvz"
                         ).summary("download mysql").returning(SshTasks.returningStdoutLoggingInfo(log, true)));
                 if (isLinux(machineS)) {
-                    DynamicTasks.queue(SshEffectorTasks.ssh(BrooklynOsCommands.bash(entity).installPackage("libaio1")));
+                    DynamicTasks.queue(SshEffectorTasks.ssh(BrooklynOsCommands.bash(machineS.get()).installPackage("libaio1")));
                 }
                 DynamicTasks.queue(
                         SshEffectorTasks.put(".my.cnf")
@@ -127,7 +127,7 @@ public class DynamicToyMySqlEntityBuilder {
             protected void postStartCustom(ConfigBag parameters) {
                 // if it's still up after 5s assume we are good
                 Time.sleep(Duration.FIVE_SECONDS);
-                if (!DynamicTasks.queue(SshEffectorTasks.isPidFromFileRunning(BrooklynOsCommands.bash(entity()), dir(entity)+"/*/data/*.pid")).get()) {
+                if (!DynamicTasks.queue(SshEffectorTasks.isPidFromFileRunning(BrooklynOsCommands.bash(entity(), true), dir(entity)+"/*/data/*.pid")).get()) {
                     // but if it's not up add a bunch of other info
                     log.warn("MySQL did not start: "+dir(entity));
                     ProcessTaskWrapper<Integer> info = DynamicTasks.queue(SshEffectorTasks.ssh(

@@ -184,8 +184,8 @@ public class SshTasks {
                 .commandModifier(x -> {
                     Entity entity = BrooklynTaskTags.getTargetOrContextEntity(Tasks.current());
                     BashCommandsConfigurable bash;
-                    if (entity!=null) bash = BrooklynOsCommands.bash(entity);
-                    else bash = BrooklynOsCommands.bash(machine.getManagementContext());
+                    if (entity!=null) bash = BrooklynOsCommands.bash(machine);
+                    else bash = BrooklynOsCommands.bash(machine);
                     return MutableList.of(
                         bash.dontRequireTtyForSudo(),
                         // strange quotes are to ensure we don't match against echoed stdin

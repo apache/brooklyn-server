@@ -19,18 +19,27 @@
 package org.apache.brooklyn.util.core.file;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
 import org.apache.brooklyn.util.ssh.IptablesCommandsConfigurable;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class BrooklynOsCommands {
 
     public static final ConfigKey<Boolean> SSH_CONFIG_SCRIPT_IGNORE_CERTS = BrooklynConfigKeys.SSH_CONFIG_SCRIPTS_IGNORE_CERTS;
+    public static final ConfigKey<Boolean> SCRIPT_IGNORE_CERTS = ConfigKeys.newConfigKeyWithPrefixRemoved(BrooklynConfigKeys.BROOKLYN_SSH_CONFIG_KEY_PREFIX, SSH_CONFIG_SCRIPT_IGNORE_CERTS);
 
     public static BashCommandsConfigurable bash(ManagementContext mgmt) {
         return BashCommandsConfigurable.newInstance().withIgnoreCerts( ((ManagementContextInternal)mgmt).getBrooklynProperties().getConfig(SSH_CONFIG_SCRIPT_IGNORE_CERTS) );
@@ -40,14 +49,42 @@ public class BrooklynOsCommands {
         return new IptablesCommandsConfigurable(bash(mgmt));
     }
 
-    public static BashCommandsConfigurable bash(Entity entity) {
-        Boolean ignoreCerts = entity.config().get(SSH_CONFIG_SCRIPT_IGNORE_CERTS);
-        if (ignoreCerts!=null) return BashCommandsConfigurable.newInstance().withIgnoreCerts(ignoreCerts);
-        return bash( ((EntityInternal)entity).getManagementContext() );
+    public static BashCommandsConfigurable bash(Entity entity, boolean includeMachineLocations) {
+        return bashForBrooklynObjects(includeMachineLocations, entity);
     }
 
-    public static IptablesCommandsConfigurable bashIptables(Entity entity) {
-        return new IptablesCommandsConfigurable(bash(entity));
+    public static BashCommandsConfigurable bash(Location location) {
+        return bashForBrooklynObjects(false, location);
+    }
+
+    public static BashCommandsConfigurable bashForBrooklynObjects(boolean includeMachineLocations, BrooklynObject ...brooklynObjects) {
+        return bashForBrooklynObjects(includeMachineLocations, Arrays.asList(brooklynObjects));
+    }
+    public static BashCommandsConfigurable bashForBrooklynObjects(boolean includeMachineLocations, List<BrooklynObject> brooklynObjects0) {
+        ManagementContext mgmt = null;
+        List<BrooklynObject> brooklynObjects = MutableList.of();
+        for (BrooklynObject bo: brooklynObjects0) {
+            if (includeMachineLocations && bo instanceof Entity) brooklynObjects.addAll( ((Entity)bo).getLocations().stream().filter(l -> l instanceof MachineLocation).collect(Collectors.toList()) );
+
+            brooklynObjects.add(bo);
+        }
+
+        for (BrooklynObject bo: brooklynObjects) {
+            Boolean ignoreCerts = null;
+            // unprefixed key allowed for locations
+            if (bo instanceof Location) ignoreCerts = bo.config().get(SCRIPT_IGNORE_CERTS);
+
+            if (ignoreCerts==null) ignoreCerts = bo.config().get(SSH_CONFIG_SCRIPT_IGNORE_CERTS);
+            if (ignoreCerts!=null) return BashCommandsConfigurable.newInstance().withIgnoreCerts(ignoreCerts);
+
+            if (mgmt==null) mgmt = ((BrooklynObjectInternal)bo).getManagementContext();
+        }
+
+        return bash(mgmt);
+    }
+
+    public static IptablesCommandsConfigurable bashIptables(BrooklynObject entityOrOtherBrooklynObject) {
+        return new IptablesCommandsConfigurable(bashForBrooklynObjects(true, entityOrOtherBrooklynObject));
     }
 
 }

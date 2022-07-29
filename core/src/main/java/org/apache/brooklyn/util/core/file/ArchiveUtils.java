@@ -286,7 +286,7 @@ public class ArchiveUtils {
             }
 
             // extract, now using task if available
-            MutableList<String> commands = MutableList.copyOf(installCommands(BrooklynOsCommands.bash(machine.getManagementContext()), destFile))
+            MutableList<String> commands = MutableList.copyOf(installCommands(BrooklynOsCommands.bash(machine), destFile))
                     .appendAll(extractCommands(destFile, tmpDir, destDir, false, keepArchiveAfterUnpacking));
             if (DynamicTasks.getTaskQueuingContext()!=null) {
                 result = DynamicTasks.queue(SshTasks.newSshExecTaskFactory(machine, commands.toArray(new String[0])).summary("extracting archive").requiringExitCodeZero()).get();

@@ -70,7 +70,7 @@ public class MachineInitTasks {
         });
     }
 
-    private IptablesCommandsConfigurable iptablesCommands(SshMachineLocation m) { return new IptablesCommandsConfigurable(BrooklynOsCommands.bash(m.getManagementContext())); }
+    private IptablesCommandsConfigurable iptablesCommands(SshMachineLocation m) { return BrooklynOsCommands.bashIptables(m); }
 
     protected void stopIptablesImpl(final SshMachineLocation machine) {
 

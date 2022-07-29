@@ -362,7 +362,7 @@ public abstract class AbstractSoftwareProcessSshDriver extends AbstractSoftwareP
         return result;
     }
 
-    protected BashCommandsConfigurable bashCommands() { return BrooklynOsCommands.bash(getEntity()); }
+    protected BashCommandsConfigurable bashCommands() { return BrooklynOsCommands.bash(getMachine()); }
 
     public void checkNoHostnameBug() {
         try {

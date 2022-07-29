@@ -91,7 +91,7 @@ public class VanillaSoftwareProcessSshDriver extends AbstractSoftwareProcessSshD
             downloadedFilename = resolver.getFilename();
 
             List<String> commands = new LinkedList<String>();
-            BashCommandsConfigurable bash = BrooklynOsCommands.bash(getEntity());
+            BashCommandsConfigurable bash = BrooklynOsCommands.bash(getMachine());
             commands.addAll(bash.commandsToDownloadUrlsAs(urls, downloadedFilename));
             commands.addAll(ArchiveUtils.installCommands(bash, downloadedFilename));
 
