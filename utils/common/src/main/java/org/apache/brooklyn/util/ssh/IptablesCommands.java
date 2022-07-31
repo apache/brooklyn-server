@@ -25,62 +25,68 @@ import com.google.common.base.Optional;
 public class IptablesCommands {
 
     public enum Chain {
-        INPUT, FORWARD, OUTPUT
+        INPUT, FORWARD, OUTPUT;
+        public IptablesCommandsConfigurable.Chain adapted() {
+            return IptablesCommandsConfigurable.Chain.valueOf(name());
+        }
     }
 
     public enum Policy {
-        ACCEPT, REJECT, DROP, LOG
+        ACCEPT, REJECT, DROP, LOG;
+        public IptablesCommandsConfigurable.Policy adapted() {
+            return IptablesCommandsConfigurable.Policy.valueOf(name());
+        }
     }
 
     private static final IptablesCommandsConfigurable instance = new IptablesCommandsConfigurable(BashCommandsConfigurable.newInstance());
 
     @Beta // implementation not portable across distros
-    public String iptablesServiceStop() {
+    public static String iptablesServiceStop() {
         return instance.iptablesServiceStop();
     }
 
     @Beta // implementation not portable across distros
-    public String iptablesServiceStart() {
+    public static String iptablesServiceStart() {
         return instance.iptablesServiceStart();
     }
 
     @Beta // implementation not portable across distros
-    public String iptablesServiceRestart() {
+    public static String iptablesServiceRestart() {
         return instance.iptablesServiceRestart();
     }
 
     @Beta // implementation not portable across distros
-    public String iptablesServiceStatus() {
+    public static String iptablesServiceStatus() {
         return instance.iptablesServiceStatus();
     }
 
     @Beta // implementation not portable across distros
-    public String firewalldService(String cmd) {
+    public static String firewalldService(String cmd) {
         return instance.firewalldService(cmd);
     }
 
     @Beta // implementation not portable across distros
-    public String firewalldServiceStop() {
+    public static String firewalldServiceStop() {
         return instance.firewalldServiceStop();
     }
 
     @Beta // implementation not portable across distros
-    public String firewalldServiceStart() {
+    public static String firewalldServiceStart() {
         return instance.firewalldServiceStart();
     }
 
     @Beta // implementation not portable across distros
-    public String firewalldServiceRestart() {
+    public static String firewalldServiceRestart() {
         return instance.firewalldServiceRestart();
     }
 
     @Beta // implementation not portable across distros
-    public String firewalldServiceStatus() {
+    public static String firewalldServiceStatus() {
         return instance.firewalldServiceStatus();
     }
 
     @Beta // implementation not portable across distros
-    public String firewalldServiceIsActive() {
+    public static String firewalldServiceIsActive() {
         return instance.firewalldServiceIsActive();
     }
 
@@ -90,7 +96,7 @@ public class IptablesCommands {
      * @return Returns the command that saves iptables rules on file.
      *
      */
-    public String saveIptablesRules() {
+    public static String saveIptablesRules() {
         return instance.saveIptablesRules();
     }
 
@@ -99,7 +105,7 @@ public class IptablesCommands {
      *
      * @return Returns the command that cleans up iptables rules.
      */
-    public String cleanUpIptablesRules() {
+    public static String cleanUpIptablesRules() {
         return instance.cleanUpIptablesRules();
     }
 
@@ -108,7 +114,7 @@ public class IptablesCommands {
      *
      * @return Returns the command that list all the iptables rules.
      */
-    public String listIptablesRule() {
+    public static String listIptablesRule() {
         return instance.listIptablesRule();
     }
 
@@ -118,8 +124,8 @@ public class IptablesCommands {
      * @return Returns the command that inserts a rule on top of the iptables'
      *         rules.
      */
-    public String insertIptablesRule(IptablesCommandsConfigurable.Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-        return instance.insertIptablesRule(chain, protocol, port, policy);
+    public static String insertIptablesRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.insertIptablesRule(chain.adapted(), protocol, port, policy.adapted());
     }
 
     /**
@@ -128,8 +134,8 @@ public class IptablesCommands {
      * @return Returns the command that inserts a rule on top of the iptables'
      *         rules.
      */
-    public String insertIptablesRule(IptablesCommandsConfigurable.Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-        return instance.insertIptablesRule(chain, networkInterface, protocol, port, policy);
+    public static String insertIptablesRule(Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.insertIptablesRule(chain.adapted(), networkInterface, protocol, port, policy.adapted());
     }
 
     /**
@@ -137,8 +143,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that appends a rule to iptables.
      */
-    public String appendIptablesRule(IptablesCommandsConfigurable.Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-        return instance.appendIptablesRule(chain, protocol, port, policy);
+    public static String appendIptablesRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.appendIptablesRule(chain.adapted(), protocol, port, policy.adapted());
     }
 
     /**
@@ -146,8 +152,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that appends a rule to iptables.
      */
-    public String appendIptablesRule(IptablesCommandsConfigurable.Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-        return instance.appendIptablesRule(chain, networkInterface, protocol, port, policy);
+    public static String appendIptablesRule(Chain chain, String networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.appendIptablesRule(chain.adapted(), networkInterface, protocol, port, policy.adapted());
     }
 
     /**
@@ -155,8 +161,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that creates a rule for iptables.
      */
-    public String addIptablesRule(String direction, IptablesCommandsConfigurable.Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-        return instance.addIptablesRule(direction, chain, networkInterface, protocol, port, policy);
+    public static String addIptablesRule(String direction, Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.addIptablesRule(direction, chain.adapted(), networkInterface, protocol, port, policy.adapted());
     }
 
     /**
@@ -164,8 +170,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that adds firewalld direct rule.
      */
-    public String addFirewalldRule(IptablesCommandsConfigurable.Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-        return instance.addFirewalldRule(chain, protocol, port, policy);
+    public static String addFirewalldRule(Chain chain, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.addFirewalldRule(chain.adapted(), protocol, port, policy.adapted());
     }
 
     /**
@@ -173,9 +179,8 @@ public class IptablesCommands {
      *
      * @return Returns the command that adds firewalld direct rule.
      */
-    public String addFirewalldRule(IptablesCommandsConfigurable.Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, IptablesCommandsConfigurable.Policy policy) {
-
-        return instance.addFirewalldRule(chain, networkInterface, protocol, port, policy);
+    public static String addFirewalldRule(Chain chain, Optional<String> networkInterface, org.apache.brooklyn.util.net.Protocol protocol, int port, Policy policy) {
+        return instance.addFirewalldRule(chain.adapted(), networkInterface, protocol, port, policy.adapted());
     }
 
 }

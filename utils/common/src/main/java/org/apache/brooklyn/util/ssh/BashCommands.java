@@ -18,23 +18,12 @@
  */
 package org.apache.brooklyn.util.ssh;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Lists;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
-import java.util.*;
-
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static java.lang.String.format;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 public class BashCommands {
 
