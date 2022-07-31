@@ -118,7 +118,7 @@ public class BrooklynHttpConfig {
         HttpTool.HttpClientBuilder hcb = HttpTool.httpClientBuilder();
         if (defaultLaxAndTrusting) {
             hcb.trustAll(true);
-            hcb.trustSelfSigned(true);
+            // hcb.trustSelfSigned(true);   // don't set this as trustAll trumps it
             hcb.laxRedirect(true);
         }
         if (lookForContextEntity) {
@@ -152,4 +152,5 @@ public class BrooklynHttpConfig {
     // HttpExecutorImpl -- only used with config supplied by above
     // HttpExecutorFactory not set, except in tests; our HttpExecutorFactoryImpl only used in tests
     // HttpConfig.Builder -- all uses routed through here
+
 }
