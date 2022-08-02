@@ -184,6 +184,7 @@ public class Exceptions {
         if (throwable!=null && (throwable instanceof InterruptedException || throwable instanceof RuntimeInterruptedException || Exceptions.isRootCauseIsInterruption(throwable))) {
             // previously only interrupted if we caught RuntimeInterrupted; but best seems to be to always set the interrupted bit
             Thread.currentThread().interrupt();
+            if (throwable instanceof RuntimeException) throw (RuntimeException) throwable;
             throw new RuntimeInterruptedException(throwable);
         }
     }
