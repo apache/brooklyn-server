@@ -35,6 +35,7 @@ import java.util.Map.Entry;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.ssh.BashCommands;
 import org.apache.brooklyn.util.ssh.BashCommandsConfigurable;
@@ -135,13 +136,14 @@ public abstract class ShellAbstractTool implements ShellTool {
                 closeable.close();
             } catch (IOException e) {
                 if (LOG.isDebugEnabled()) {
-                    String msg = String.format("<< exception during close, for %s -> %s (%s); continuing.", 
+                    String msg = String.format("<< exception during close, for %s -> %s (%s); continuing.",
                             context1, context2, closeable);
                     if (LOG.isTraceEnabled())
                         LOG.debug(msg + ": " + e);
                     else
                         LOG.trace(msg, e);
                 }
+                Exceptions.handleRootCauseIsInterruption(e);
             }
         }
     }

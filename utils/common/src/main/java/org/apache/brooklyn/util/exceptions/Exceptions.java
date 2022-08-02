@@ -20,6 +20,7 @@ package org.apache.brooklyn.util.exceptions;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Predicates.instanceOf;
+import static com.google.common.base.Throwables.getRootCause;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.UndeclaredThrowableException;
@@ -119,11 +120,10 @@ public class Exceptions {
      * <li> wraps as PropagatedRuntimeException for easier filtering
      */
     public static RuntimeException propagate(Throwable throwable) {
-        if (throwable instanceof InterruptedException) {
-            throw new RuntimeInterruptedException((InterruptedException) throwable);
-        } else if (throwable instanceof RuntimeInterruptedException) {
+        if (throwable instanceof InterruptedException || throwable instanceof RuntimeInterruptedException || Exceptions.isRootCauseIsInterruption(throwable)) {
+            // previously only interrupted if we caught RuntimeInterrupted; but best seems to be to always set the interrupted bit
             Thread.currentThread().interrupt();
-            throw (RuntimeInterruptedException) throwable;
+            throw new RuntimeInterruptedException(throwable);
         }
         Throwables.propagateIfPossible(checkNotNull(throwable));
         throw new PropagatedRuntimeException(throwable);
@@ -219,6 +219,18 @@ public class Exceptions {
 
     public static Predicate<Throwable> isFatalPredicate() {
         return IsFatalPredicate.INSTANCE;
+    }
+
+    public static void handleRootCauseIsInterruption(Throwable e) {
+        if (isRootCauseIsInterruption(e)) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeInterruptedException(e);
+        }
+    }
+
+    public static boolean isRootCauseIsInterruption(Throwable e) {
+        Throwable root = getRootCause(e);
+        return (root instanceof InterruptedException || root instanceof RuntimeInterruptedException);
     }
 
     private static class IsFatalPredicate implements Predicate<Throwable> {

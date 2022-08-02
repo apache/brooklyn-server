@@ -18,6 +18,10 @@
  */
 package org.apache.brooklyn.util.core.internal.ssh.sshj;
 
+import static org.apache.brooklyn.util.core.internal.ssh.ShellTool.PROP_ERR_STREAM;
+import static org.apache.brooklyn.util.core.internal.ssh.ShellTool.PROP_OUT_STREAM;
+import static org.apache.brooklyn.util.time.Duration.FIVE_SECONDS;
+import static org.apache.brooklyn.util.time.Duration.ONE_SECOND;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -41,10 +45,14 @@ import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest;
+import org.apache.brooklyn.util.core.task.ssh.SshPutTaskFactory;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import com.google.common.base.Stopwatch;
@@ -57,6 +65,8 @@ import net.schmizz.sshj.connection.channel.direct.Session;
  * Test the operation of the {@link SshjTool} utility class.
  */
 public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
+
+    private static final Logger log = LoggerFactory.getLogger(SshjToolIntegrationTest.class);
 
     @Override
     protected SshTool newUnregisteredTool(Map<String,?> flags) {
@@ -76,7 +86,6 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
     @Test(groups = {"Integration"})
     public void testGivesUpAfterMaxRetries() throws Exception {
         final AtomicInteger callCount = new AtomicInteger();
-        
         final SshTool localtool = new SshjTool(ImmutableMap.of("sshTries", 3, "host", "localhost", "privateKeyFile", "~/.ssh/id_rsa")) {
             @Override
             protected SshAction<Session> newSessionAction() {
@@ -212,7 +221,7 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
                             "err", err, 
                             SshjTool.PROP_EXEC_ASYNC.getName(), true, 
                             SshjTool.PROP_NO_EXTRA_OUTPUT.getName(), true,
-                            SshjTool.PROP_EXEC_ASYNC_POLLING_TIMEOUT.getName(), Duration.ONE_SECOND), 
+                            SshjTool.PROP_EXEC_ASYNC_POLLING_TIMEOUT.getName(), ONE_SECOND),
                     cmds, 
                     ImmutableMap.<String,String>of());
             String outStr = new String(out.toByteArray());
@@ -335,5 +344,53 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
         assertEquals(exitcode, 0, outstr);
         return outstr;
     }
-    
+
+    @Test(groups = {"Integration"})
+    public void testSshIsInterrupted() {
+        log.info("STARTING");
+        final SshTool localTool = new SshjTool(ImmutableMap.of(
+                //  "user", "amp",
+                  "sshTries", 3,
+                "host", "localhost",
+                "privateKeyFile", "~/.ssh/id_rsa"));
+        try {
+            Thread t = new Thread(() -> {
+                try {
+                    log.info("T2 starting - "+Thread.currentThread());
+                    localTool.connect();
+                    log.info("T2 executing");
+                    //localTool.connect();
+                    localTool.execScript(ImmutableMap.of(PROP_OUT_STREAM.getName(), System.out, PROP_ERR_STREAM.getName(), System.err),
+                            ImmutableList.of(
+                                    "echo hello world",
+                                    "ls /path/to/does-not-exist || echo no ls",
+                                    "sleep 10",
+                                    "echo slept")
+                    );
+                } catch (Exception e) {
+                    log.info("T2 error", e);
+                } finally {
+                    log.info("T2 ending - "+Thread.currentThread().isInterrupted());
+                }
+            });
+            log.info("STARTING");
+            t.start();
+            Time.sleep(FIVE_SECONDS);
+            log.info("INTERRUPTING");
+            t.interrupt();
+            Time.sleep(ONE_SECOND);
+            Arrays.asList(t.getStackTrace()).forEach(traceElement -> System.out.println(traceElement));
+            log.info("JOINING");
+            Stopwatch s = Stopwatch.createStarted();
+            t.join();
+            if (Duration.of(s.elapsed()).isLongerThan(ONE_SECOND)) {
+                Asserts.fail("Join should have been immediate as other thread was interrupted, but instead took "+Duration.of(s.elapsed()));
+            }
+        } catch (Exception e) {
+            log.info("FAILED", e);
+            Asserts.fail("Shouldn't throw");
+        }
+        log.info("ENDING");
+    }
+
 }

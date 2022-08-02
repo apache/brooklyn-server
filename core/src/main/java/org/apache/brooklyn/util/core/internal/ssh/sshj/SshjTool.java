@@ -18,56 +18,14 @@
  */
 package org.apache.brooklyn.util.core.internal.ssh.sshj;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Throwables.getCausalChain;
-import static com.google.common.collect.Iterables.any;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
-
-import net.schmizz.sshj.common.SecurityUtils;
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.util.core.internal.ssh.BackoffLimitedRetryHandler;
-import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
-import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
-import org.apache.brooklyn.util.repeat.Repeater;
-import org.apache.brooklyn.util.stream.KnownSizeInputStream;
-import org.apache.brooklyn.util.stream.StreamGobbler;
-import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
-import org.apache.commons.io.input.ProxyInputStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Stopwatch;
-import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
+import com.google.common.base.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.CountingOutputStream;
 import com.google.common.net.HostAndPort;
 import com.google.common.primitives.Ints;
-
+import net.schmizz.sshj.common.SecurityUtils;
 import net.schmizz.sshj.connection.ConnectionException;
 import net.schmizz.sshj.connection.channel.direct.PTYMode;
 import net.schmizz.sshj.connection.channel.direct.Session;
@@ -80,6 +38,37 @@ import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.xfer.FileSystemFile;
 import net.schmizz.sshj.xfer.InMemorySourceFile;
 import net.schmizz.sshj.xfer.LocalDestFile;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.util.core.internal.ssh.BackoffLimitedRetryHandler;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
+import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool;
+import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
+import org.apache.brooklyn.util.repeat.Repeater;
+import org.apache.brooklyn.util.stream.KnownSizeInputStream;
+import org.apache.brooklyn.util.stream.StreamGobbler;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.io.input.ProxyInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Throwables.getCausalChain;
+import static com.google.common.base.Throwables.getRootCause;
+import static com.google.common.collect.Iterables.any;
 
 /**
  * For ssh and scp-style commands, using the sshj library.
@@ -657,6 +646,10 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 } catch (Exception e2) {
                     LOG.debug("<< ("+toString()+") error closing connection: "+e+" / "+e2, e);
                 }
+                if (Thread.currentThread().isInterrupted()) {
+                    LOG.debug("<< {} (rethrowing, interrupted): {}", fullMessage, e.getMessage());
+                    throw propagate(e, fullMessage + "; interrupted");
+                }
                 if (i + 1 == sshTries) {
                     LOG.debug("<< {} (rethrowing, out of retries): {}", fullMessage, e.getMessage());
                     throw propagate(e, fullMessage + "; out of retries");
@@ -1010,8 +1003,14 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                         try {
                             shell.join(1000, TimeUnit.MILLISECONDS);
                         } catch (ConnectionException e) {
+                            LOG.debug("SshjTool exception joining shell", e);
+                            if (isNonRetryableException(e)) {
+                                throw e;
+                            }
+                            // don't automatically give up here, it might be a transient network failure
                             last = e;
                         }
+                        LOG.info("SshjTool looping waiting for shell; thread "+Thread.currentThread()+" interrupted? "+Thread.currentThread().isInterrupted());
                         if (endBecauseReturned) {
                             // shell is still open, ie some process is running
                             // but we have a result code, so main shell is finished
@@ -1047,7 +1046,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                         }
                     } catch (InterruptedException e) {
                         LOG.warn("Interrupted gobbling streams from ssh: "+commands, e);
-                        Thread.currentThread().interrupt();
+                        throw Exceptions.propagate(e);
                     }
                 }
 
@@ -1060,6 +1059,16 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         public String toString() {
             return "Shell(command=[" + commands + "])";
         }
+    }
+
+    protected boolean isNonRetryableException(ConnectionException e) throws ConnectionException {
+        if (Exceptions.isRootCauseIsInterruption(e)) {
+            // if we don't check for ^ wrapped in e then the interrupt is swallowed; that's how sshj works :(
+            Thread.currentThread().interrupt();
+            return true;
+        }
+        // anything else assume transient network failure until something else (eg shell) times out
+        return false;
     }
 
     private byte[] toUTF8ByteArray(String string) {
