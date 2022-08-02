@@ -38,11 +38,13 @@ import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.xfer.FileSystemFile;
 import net.schmizz.sshj.xfer.InMemorySourceFile;
 import net.schmizz.sshj.xfer.LocalDestFile;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.util.core.internal.ssh.BackoffLimitedRetryHandler;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.repeat.Repeater;
@@ -1069,10 +1071,18 @@ public class SshjTool extends SshAbstractTool implements SshTool {
     }
 
     protected boolean checkInterrupted(Throwable t) {
+        // see https://github.com/hierynomus/sshj/issues/800 -- we are trying to improve SSHJ so that the thread should keep its interrupted state
+
         if (Thread.currentThread().isInterrupted()) return true;
         if (t!=null && Exceptions.isRootCauseIsInterruption(t)) {
             // sshj has an ugly habit of catching & clearing thread interrupts, and returning wrapped in ConnectionExceptions
             // restore the interrupt if this is the case
+            Thread.currentThread().interrupt();
+            return true;
+        }
+        Task<?> task = Tasks.current();
+        if (task!=null && task.isCancelled()) {
+            //  interrupt flag and exception might not tell the whole story; if we have a context task let's use it also
             Thread.currentThread().interrupt();
             return true;
         }

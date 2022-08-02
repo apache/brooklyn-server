@@ -21,7 +21,14 @@ package org.apache.brooklyn.util.core.internal.ssh.sshj;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import net.schmizz.concurrent.ExceptionChainer;
+import net.schmizz.sshj.common.SSHException;
+import net.schmizz.sshj.common.StreamCopier;
+import net.schmizz.sshj.connection.ConnectionException;
 import net.schmizz.sshj.connection.channel.direct.Session;
+import net.schmizz.sshj.sftp.SFTPException;
+import net.schmizz.sshj.transport.TransportException;
+import net.schmizz.sshj.userauth.UserAuthException;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
@@ -39,6 +46,8 @@ import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -337,7 +346,41 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
         return outstr;
     }
 
-    @Test(groups = {"Integration"}, invocationCount = 10)
+    // useful if we want to understand why SSHJ is swallowing the exceptions;
+    // shouldn't be needed once we have a solution to https://github.com/hierynomus/sshj/issues/800
+//    static void hackChainerLogging() {
+//        Arrays.asList(SSHException.class, ConnectionException.class, TransportException.class, SFTPException.class, UserAuthException.class
+//                // , StreamCopier.class   // not a public field
+//        ).forEach(clazz -> {
+//            try {
+//                Field f = clazz.getField("chainer");
+//                f.setAccessible(true);
+//
+//                Field modifiersField = Field.class.getDeclaredField("modifiers");
+//                modifiersField.setAccessible(true);
+//                modifiersField.setInt(f, f.getModifiers() & ~Modifier.FINAL);
+//
+//                ExceptionChainer oldValue = (ExceptionChainer) f.get(null);
+//                f.set(null, new ExceptionChainer() {
+//                    @Override
+//                    public Throwable chain(Throwable t) {
+//                        if (Exceptions.isRootCauseIsInterruption(t)) {
+//                            log.warn("Caught interruption (thread interrupted? "+Thread.currentThread().isInterrupted()+")", t);
+//                            log.warn("... caught at", new Throwable("source of catching, in " + clazz));
+//                        }
+//                        return oldValue.chain(t);
+//                    }
+//                });
+//            } catch (Exception e) {
+//                throw Exceptions.propagate(e);
+//            }
+//        });
+//    }
+//    static {
+//        hackChainerLogging();
+//    }
+
+    @Test(groups = {"Integration"})
     public void testSshIsInterrupted() {
         log.info("STARTING");
         final SshTool localTool = new SshjTool(ImmutableMap.of(
