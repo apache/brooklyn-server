@@ -899,9 +899,10 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                         long joinTimeout = 10*1000;
                         if (outgobbler != null) outgobbler.join(joinTimeout);
                         if (errgobbler != null) errgobbler.join(joinTimeout);
-                    } catch (InterruptedException e) {
-                        LOG.warn("Interrupted gobbling streams from ssh: "+command, e);
-                        Thread.currentThread().interrupt();
+                    } catch (Exception e) {
+                        if (checkInterrupted(e)) {
+                            LOG.warn("Interrupted gobbling streams from ssh: " + command, e);
+                        }
                     }
                 }
 
@@ -975,6 +976,9 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                         output.write(toUTF8ByteArray(cmd+"\n"));
                         output.flush();
                     } catch (ConnectionException e) {
+                        if (checkInterrupted(e)) {
+                            throw e;
+                        }
                         if (!shell.isOpen()) {
                             // shell is closed; presumably the user command did `exit`
                             if (LOG.isDebugEnabled()) LOG.debug("Shell closed to {} when executing {}", SshjTool.this.toString(), commands);

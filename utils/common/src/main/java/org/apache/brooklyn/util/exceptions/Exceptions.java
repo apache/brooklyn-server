@@ -120,12 +120,8 @@ public class Exceptions {
      * <li> wraps as PropagatedRuntimeException for easier filtering
      */
     public static RuntimeException propagate(Throwable throwable) {
-        if (throwable instanceof InterruptedException || throwable instanceof RuntimeInterruptedException || Exceptions.isRootCauseIsInterruption(throwable)) {
-            // previously only interrupted if we caught RuntimeInterrupted; but best seems to be to always set the interrupted bit
-            Thread.currentThread().interrupt();
-            throw new RuntimeInterruptedException(throwable);
-        }
-        Throwables.propagateIfPossible(checkNotNull(throwable));
+        propagateIfInterrupt(throwable);
+        Throwables.throwIfUnchecked(throwable);
         throw new PropagatedRuntimeException(throwable);
     }
 
@@ -185,11 +181,10 @@ public class Exceptions {
      * or {@link RuntimeInterruptedException}.
      */
     public static void propagateIfInterrupt(Throwable throwable) {
-        if (throwable instanceof InterruptedException) {
-            throw new RuntimeInterruptedException(throwable);
-        } else if (throwable instanceof RuntimeInterruptedException) {
+        if (throwable!=null && (throwable instanceof InterruptedException || throwable instanceof RuntimeInterruptedException || Exceptions.isRootCauseIsInterruption(throwable))) {
+            // previously only interrupted if we caught RuntimeInterrupted; but best seems to be to always set the interrupted bit
             Thread.currentThread().interrupt();
-            throw (RuntimeInterruptedException) throwable;
+            throw new RuntimeInterruptedException(throwable);
         }
     }
 
