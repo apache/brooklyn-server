@@ -44,7 +44,6 @@ import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.repeat.Repeater;
 import org.apache.brooklyn.util.stream.KnownSizeInputStream;
@@ -67,7 +66,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Throwables.getCausalChain;
-import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.collect.Iterables.any;
 
 /**
@@ -646,7 +644,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 } catch (Exception e2) {
                     LOG.debug("<< ("+toString()+") error closing connection: "+e+" / "+e2, e);
                 }
-                if (Thread.currentThread().isInterrupted()) {
+                if (checkInterrupted(e)) {
                     LOG.debug("<< {} (rethrowing, interrupted): {}", fullMessage, e.getMessage());
                     throw propagate(e, fullMessage + "; interrupted");
                 }
@@ -797,7 +795,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         }
     }
 
-    // TODO simpler not to use predicates
+    // TODO simpler not to use predicates (this seems not to be used)
     @VisibleForTesting
     Predicate<String> causalChainHasMessageContaining(final Exception from) {
         return new Predicate<String>() {
@@ -1003,12 +1001,16 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                         try {
                             shell.join(1000, TimeUnit.MILLISECONDS);
                         } catch (ConnectionException e) {
-                            LOG.debug("SshjTool exception joining shell", e);
-                            if (isNonRetryableException(e)) {
-                                throw e;
+                            if (Throwables.getRootCause(e) instanceof TimeoutException) {
+                                // normal, do nothing
+                            } else {
+                                LOG.debug("SshjTool exception joining shell", e);
+                                if (isNonRetryableException(e)) {
+                                    throw e;
+                                }
+                                // don't automatically give up here, it might be a transient network failure
+                                last = e;
                             }
-                            // don't automatically give up here, it might be a transient network failure
-                            last = e;
                         }
                         LOG.info("SshjTool looping waiting for shell; thread "+Thread.currentThread()+" interrupted? "+Thread.currentThread().isInterrupted());
                         if (endBecauseReturned) {
@@ -1061,10 +1063,19 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         }
     }
 
-    protected boolean isNonRetryableException(ConnectionException e) throws ConnectionException {
-        if (Exceptions.isRootCauseIsInterruption(e)) {
-            // if we don't check for ^ wrapped in e then the interrupt is swallowed; that's how sshj works :(
+    protected boolean checkInterrupted(Throwable t) {
+        if (Thread.currentThread().isInterrupted()) return true;
+        if (t!=null && Exceptions.isRootCauseIsInterruption(t)) {
+            // sshj has an ugly habit of catching & clearing thread interrupts, and returning wrapped in ConnectionExceptions
+            // restore the interrupt if this is the case
             Thread.currentThread().interrupt();
+            return true;
+        }
+        return false;
+    }
+
+    protected boolean isNonRetryableException(ConnectionException e) throws ConnectionException {
+        if (checkInterrupted(e)) {
             return true;
         }
         // anything else assume transient network failure until something else (eg shell) times out

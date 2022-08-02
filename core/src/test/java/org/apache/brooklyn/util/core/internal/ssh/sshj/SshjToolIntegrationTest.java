@@ -18,15 +18,24 @@
  */
 package org.apache.brooklyn.util.core.internal.ssh.sshj;
 
-import static org.apache.brooklyn.util.core.internal.ssh.ShellTool.PROP_ERR_STREAM;
-import static org.apache.brooklyn.util.core.internal.ssh.ShellTool.PROP_OUT_STREAM;
-import static org.apache.brooklyn.util.time.Duration.FIVE_SECONDS;
-import static org.apache.brooklyn.util.time.Duration.ONE_SECOND;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import net.schmizz.sshj.connection.channel.direct.Session;
+import org.apache.brooklyn.core.BrooklynFeatureEnablement;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
+import org.apache.brooklyn.util.core.internal.ssh.SshException;
+import org.apache.brooklyn.util.core.internal.ssh.SshTool;
+import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -39,27 +48,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.brooklyn.core.BrooklynFeatureEnablement;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.core.internal.ssh.ShellTool;
-import org.apache.brooklyn.util.core.internal.ssh.SshException;
-import org.apache.brooklyn.util.core.internal.ssh.SshTool;
-import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest;
-import org.apache.brooklyn.util.core.task.ssh.SshPutTaskFactory;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
-import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.testng.annotations.Test;
-
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-
-import net.schmizz.sshj.connection.channel.direct.Session;
+import static org.apache.brooklyn.util.core.internal.ssh.ShellTool.PROP_ERR_STREAM;
+import static org.apache.brooklyn.util.core.internal.ssh.ShellTool.PROP_OUT_STREAM;
+import static org.apache.brooklyn.util.time.Duration.ONE_SECOND;
+import static org.testng.Assert.*;
 
 /**
  * Test the operation of the {@link SshjTool} utility class.
@@ -345,7 +337,7 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
         return outstr;
     }
 
-    @Test(groups = {"Integration"})
+    @Test(groups = {"Integration"}, invocationCount = 10)
     public void testSshIsInterrupted() {
         log.info("STARTING");
         final SshTool localTool = new SshjTool(ImmutableMap.of(
@@ -375,14 +367,13 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
             });
             log.info("STARTING");
             t.start();
-            Time.sleep(FIVE_SECONDS);
+            if (Math.random()>0.1) Time.sleep(Duration.millis(3*Math.random()*Math.random()));  // sleep for a small amount of time, up to three seconds, but usually much less, and 10% of time not at all
             log.info("INTERRUPTING");
             t.interrupt();
             Time.sleep(ONE_SECOND);
             Arrays.asList(t.getStackTrace()).forEach(traceElement -> System.out.println(traceElement));
             log.info("JOINING");
             Stopwatch s = Stopwatch.createStarted();
-            t.join();
             if (Duration.of(s.elapsed()).isLongerThan(ONE_SECOND)) {
                 Asserts.fail("Join should have been immediate as other thread was interrupted, but instead took "+Duration.of(s.elapsed()));
             }
