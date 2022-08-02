@@ -991,10 +991,10 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 closeWhispering(output, this);
 
                 boolean timedOut = false;
+                Exception last = null;
                 try {
                     long timeoutMillis = Math.min(timeout.toMilliseconds(), Integer.MAX_VALUE);
                     long timeoutEnd = System.currentTimeMillis() + timeoutMillis;
-                    Exception last = null;
                     do {
                         if (!shell.isOpen() && ((SessionChannel)session).getExitStatus()!=null)
                             // shell closed, and exit status returned
@@ -1015,8 +1015,8 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                                 // don't automatically give up here, it might be a transient network failure
                                 last = e;
                             }
+                            LOG.trace("SshjTool threw exception joining shell (timeouts are normal)", e);
                         }
-                        LOG.info("SshjTool looping waiting for shell; thread "+Thread.currentThread()+" interrupted? "+Thread.currentThread().isInterrupted());
                         if (endBecauseReturned) {
                             // shell is still open, ie some process is running
                             // but we have a result code, so main shell is finished
@@ -1036,6 +1036,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                     }
                     return ((SessionChannel)session).getExitStatus();
                 } finally {
+                    LOG.trace("SshjTool shell join completed", last);
                     // wait for all stdout/stderr to have been re-directed
                     closeWhispering(shell, this);
                     shell = null;
