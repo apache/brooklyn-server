@@ -70,6 +70,7 @@ import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -111,6 +112,7 @@ public class BrooklynDslCommon {
     public static synchronized void registerSerializationHooks(boolean forceReinitialization) {
         if (INITIALIZED && !forceReinitialization) return;
         BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION = DslUtils::parseBrooklynDsl;
+        BrooklynObjectsJsonMapper.DslToStringSerialization.BROOKLYN_DSL_INTERFACE = BrooklynDslDeferredSupplier.class;
         registerSpecCoercionAdapter();
         INITIALIZED = true;
     }

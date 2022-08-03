@@ -31,9 +31,13 @@ import javax.annotation.Nullable;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+
+import com.google.gson.Gson;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.DslFormatString;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.rest.domain.ApplicationSpec;
@@ -43,6 +47,8 @@ import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -153,6 +159,85 @@ public class EntityConfigResourceTest extends BrooklynRestResourceTest {
         assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), JavaStringEscapes.wrapJavaString("<suppressed> (MD5 hash: 20953121)"));
         assertEquals(getSecretWithQueryParams.apply("skipResolution=true"), JavaStringEscapes.wrapJavaString(HELLO_WORLD_DSL));
         assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), JavaStringEscapes.wrapJavaString(HELLO_WORLD_DSL));
+    }
+
+    @Test
+    public void testGetBatchWithParameters() throws Exception {
+        Function<String,Map> getSecretWithQueryParams1 = qp ->
+                client().path(
+                        URI.create("/applications/simple-app/entities/simple-ent/config/current-state"))
+                        .replaceQuery(qp)
+                        .accept(MediaType.APPLICATION_JSON_TYPE)
+                        .get(Map.class);
+        Function<String,String> getSecretWithQueryParams = qp ->
+                Strings.toString(getSecretWithQueryParams1.apply(qp).get(RestMockSimpleEntity.SECRET_CONFIG.getName()));
+
+        assertEquals(getSecretWithQueryParams.apply(""), "hello-world");
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true"), "<suppressed> (MD5 hash: 20953121)");
+        assertEquals(getSecretWithQueryParams.apply("skipResolution=true"), HELLO_WORLD_DSL);
+        assertEquals(getSecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), HELLO_WORLD_DSL);
+    }
+
+    @Test
+    public void testGetJsonNestedSecret() throws Exception {
+        MutableMap<String, Object> input = MutableMap.of("public", "visible", "secret", new DslFormatString("%s-%s", "hello", "world"));
+        entity.config().set(ConfigKeys.newConfigKey(Object.class, "deep-see-cret"), input);
+
+        Function<String,Map> getDeepSeecretWithQueryParams = qp ->
+                client().path(
+                        URI.create("/applications/simple-app/entities/simple-ent/config/deep-see-cret"))
+                        .replaceQuery(qp)
+                        .accept(MediaType.APPLICATION_JSON_TYPE)
+                        .get(Map.class);
+
+        assertEquals(getDeepSeecretWithQueryParams.apply(""), MutableMap.copyOf(input).add("secret", "hello-world"));
+        assertEquals(getDeepSeecretWithQueryParams.apply("suppressSecrets=true"), MutableMap.copyOf(input).add("secret", "<suppressed> (MD5 hash: 20953121)"));
+        assertEquals(getDeepSeecretWithQueryParams.apply("skipResolution=true"), MutableMap.copyOf(input).add("secret", HELLO_WORLD_DSL));
+        assertEquals(getDeepSeecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), MutableMap.copyOf(input).add("secret", HELLO_WORLD_DSL));
+    }
+
+    @Test
+    public void testGetBatchNestedSecret() throws Exception {
+        MutableMap<String, Object> input = MutableMap.of("public", "visible", "secret", new DslFormatString("%s-%s", "hello", "world"));
+        ConfigKey<Object> DEEP_SEECRET = ConfigKeys.newConfigKey(Object.class, "deep-see-cret");
+        entity.config().set(DEEP_SEECRET, input);
+
+        Function<String,Map> getDeepSeecretWithQueryParams1 = qp ->
+                client().path(
+                        URI.create("/applications/simple-app/entities/simple-ent/config/current-state"))
+                        .replaceQuery(qp)
+                        .accept(MediaType.APPLICATION_JSON_TYPE)
+                        .get(Map.class);
+
+        Function<String,Map> getDeepSeecretWithQueryParams = qp ->
+                (Map)getDeepSeecretWithQueryParams1.apply(qp).get(DEEP_SEECRET.getName());
+
+        assertEquals(getDeepSeecretWithQueryParams.apply(""), MutableMap.copyOf(input).add("secret", "hello-world"));
+        assertEquals(getDeepSeecretWithQueryParams.apply("suppressSecrets=true"), MutableMap.copyOf(input).add("secret", "<suppressed> (MD5 hash: 20953121)"));
+        assertEquals(getDeepSeecretWithQueryParams.apply("skipResolution=true"), MutableMap.copyOf(input).add("secret", HELLO_WORLD_DSL));
+        assertEquals(getDeepSeecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), MutableMap.copyOf(input).add("secret", HELLO_WORLD_DSL));
+    }
+
+    @Test
+    public void testGetPlainNestedSecret() throws Exception {
+        MutableMap<String, Object> input = MutableMap.of("public", "visible", "secret", new DslFormatString("%s-%s", "hello", "world"));
+        ConfigKey<Object> DEEP_SEECRET = ConfigKeys.newConfigKey(Object.class, "deep-see-cret");
+        entity.config().set(DEEP_SEECRET, input);
+
+        Function<String,String> getDeepSeecretWithQueryParams = qp ->
+                client().path(
+                        URI.create("/applications/simple-app/entities/simple-ent/config/deep-see-cret"))
+                        .replaceQuery(qp)
+                        .accept(MediaType.TEXT_PLAIN_TYPE)
+                        .get(String.class);
+
+        MutableMap<String, Object> resolved = MutableMap.copyOf(input).add("secret", "hello-world");
+        MutableMap<String, Object> resolutionSkipped = MutableMap.copyOf(input).add("secret", HELLO_WORLD_DSL);
+
+        assertEquals(getDeepSeecretWithQueryParams.apply(""), resolved.toString());
+        assertEquals(getDeepSeecretWithQueryParams.apply("suppressSecrets=true"), Sanitizer.suppress(new Gson().toJson(resolved)));
+        assertEquals(getDeepSeecretWithQueryParams.apply("skipResolution=true"), resolutionSkipped.toString());
+        assertEquals(getDeepSeecretWithQueryParams.apply("suppressSecrets=true&skipResolution=true"), Sanitizer.suppress(new Gson().toJson(resolutionSkipped)));
     }
 
     @Test

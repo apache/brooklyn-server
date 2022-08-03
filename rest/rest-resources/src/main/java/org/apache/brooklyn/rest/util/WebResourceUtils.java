@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.util;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Map;
 
 import javax.servlet.http.HttpServletResponse;
@@ -27,16 +28,26 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.UriBuilder;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonStreamParser;
+import com.google.gson.stream.JsonReader;
+import io.swagger.util.Json;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
+import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.rest.domain.ApiError;
 import org.apache.brooklyn.rest.util.json.BrooklynJacksonJsonProvider;
+import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.PropagatedRuntimeException;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -152,6 +163,9 @@ public class WebResourceUtils {
      * sometimes wrapping in quotes if needed (for outermost json return types);
      * if json is not preferred, this simply applies a toString-style rendering */ 
     public static Object getValueForDisplay(ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue) {
+        return getValueForDisplay(mapper, value, preferJson, isJerseyReturnValue, false);
+    }
+    public static Object getValueForDisplay(ObjectMapper mapper, Object value, boolean preferJson, boolean isJerseyReturnValue, boolean suppressNestedSecrets) {
         if (preferJson) {
             if (value==null) return null;
             Object result = value;
@@ -169,11 +183,50 @@ public class WebResourceUtils {
                     result = JavaStringEscapes.wrapJavaString((String)result);
                 }
             }
+
+            if (suppressNestedSecrets) {
+                if (result==null || Boxing.isPrimitiveOrBoxedObject(result) || result instanceof CharSequence) {
+                    // no action needed
+                } else {
+                    // go ahead and convert to json and suppress deep
+                    try {
+                        String resultS = mapper.writeValueAsString(result);
+                        result = new Gson().fromJson(resultS, Object.class);
+                        return Sanitizer.suppressNestedSecretsJson(result, true);
+                    } catch (JsonProcessingException e) {
+                        throw Exceptions.propagateAnnotated("Cannot serialize REST result", e);
+                    }
+                }
+            }
             
             return result;
         } else {
             if (value==null) return "";
-            return value.toString();            
+
+            String resultS = value.toString();
+            if (suppressNestedSecrets) {
+                if (Sanitizer.IS_SECRET_PREDICATE.apply(resultS)) {
+                    return suppressAsMinimalizedJson(mapper, value);
+                }
+            }
+            return resultS;
+        }
+    }
+
+    public static String suppressAsMinimalizedJson(ObjectMapper mapper, Object valueResult) {
+        try {
+            Object resultJ;
+            if (valueResult==null) valueResult = ""; // treat null as empty string
+            if (valueResult instanceof String) {
+                // don't wrap strings
+                resultJ = valueResult;
+            } else {
+                String resultS = mapper.writeValueAsString(valueResult);
+                resultJ = new Gson().fromJson(resultS, Object.class);
+            }
+            return Sanitizer.suppressJson(resultJ, true);
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
 

@@ -29,6 +29,8 @@ import javax.ws.rs.ext.MessageBodyWriter;
 import javax.ws.rs.ext.Provider;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.server.BrooklynServiceAttributes;
@@ -110,7 +112,7 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
     }
 
     /**
-     * Like {@link #findSharedObjectMapper(ServletContext, ManagementContext)} but will create a private
+     * Like {@link #findSharedObjectMapper(ManagementContext)} but will create a private
      * ObjectMapper if it can, from the servlet context and/or the management context, or else fail
      */
     public static ObjectMapper findAnyObjectMapper(ManagementContext mgmt) {
@@ -129,7 +131,8 @@ public class BrooklynJacksonJsonProvider extends JacksonJsonProvider implements
             throw new IllegalStateException("No management context available for creating ObjectMapper");
         }
 
-        return BrooklynObjectsJsonMapper.newMapper(mgmt);
+        BrooklynDslCommon.registerSerializationHooks();
+        return BrooklynObjectsJsonMapper.newDslToStringSerializingMapper(mgmt);
     }
 
 }
