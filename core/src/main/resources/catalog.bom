@@ -207,3 +207,14 @@ brooklyn.catalog:
       itemType: bean
       item:
         type: org.apache.brooklyn.core.effector.http.HttpCommandEffector
+
+    - id: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+    - id: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+      format: java-type-name
+      itemType: bean
+      item:
+        type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
