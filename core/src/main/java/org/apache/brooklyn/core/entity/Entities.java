@@ -72,6 +72,7 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -660,27 +661,56 @@ public class Entities {
                 MutableMap.of("locations", locations)).getUnchecked();
     }
 
+    public static void destroy(Entity e) {
+        destroy(e, false);
+    }
     /**
      * Attempts to stop, destroy, and unmanage the given entity.
      * <p>
      * Actual actions performed will depend on the entity type and its current state.
      */
-    public static void destroy(Entity e) {
+    public static void destroy(Entity e, boolean unmanageOnErrors) {
         if (isManaged(e)) {
             if (isReadOnly(e)) {
                 unmanage(e);
                 log.debug("destroyed and unmanaged read-only copy of "+e);
             } else {
-                if (e instanceof Startable) Entities.invokeEffector(e, e, Startable.STOP).getUnchecked();
+                List<Exception> errors = MutableList.of();
+
+                try {
+                    if (e instanceof Startable) Entities.invokeEffector(e, e, Startable.STOP).getUnchecked();
+                } catch (Exception error) {
+                    Exceptions.propagateIfFatal(error);
+                    if (!unmanageOnErrors) Exceptions.propagate(error);
+                    errors.add(error);
+                }
                 
                 // if destroying gracefully we might also want to do this (currently gets done by GC after unmanage,
                 // which is good enough for leaks, but not sure if that's ideal for subscriptions etc)
 //                ((LocalEntityManager)e.getApplication().getManagementContext().getEntityManager()).stopTasks(e, null);
-                
-                if (e instanceof EntityInternal) ((EntityInternal)e).destroy();
-                
-                unmanage(e);
-                
+
+                try {
+                    if (e instanceof EntityInternal) ((EntityInternal) e).destroy();
+                } catch (Exception error) {
+                    Exceptions.propagateIfFatal(error);
+                    if (!unmanageOnErrors) Exceptions.propagate(error);
+                    errors.add(error);
+                }
+
+                try {
+                    unmanage(e);
+                } catch (Exception error) {
+                    Exceptions.propagateIfFatal(error);
+                    if (!unmanageOnErrors) Exceptions.propagate(error);
+                    errors.add(error);
+                }
+
+                if (!errors.isEmpty()) {
+                    log.warn("destroyed and unmanaged "+e+", with errors; mgmt now "+
+                            (e.getApplicationId()==null ? "(no app)" : e.getApplication().getManagementContext())+" - managed? "+isManaged(e)+"; errors: "+errors);
+                    throw Exceptions.propagate("Errors destroying "+e, errors);
+                }
+
                 log.debug("destroyed and unmanaged "+e+"; mgmt now "+
                     (e.getApplicationId()==null ? "(no app)" : e.getApplication().getManagementContext())+" - managed? "+isManaged(e));
             }
