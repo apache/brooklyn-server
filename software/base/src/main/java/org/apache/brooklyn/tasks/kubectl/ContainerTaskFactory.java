@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -59,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -98,41 +96,15 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                         argumentsCfg = MutableList.of(argumentsCfgO.stream().map(x -> ""+x).collect(Collectors.joining("\n")));
                     }
 
-                    String containerImage = EntityInitializers.resolve(config, CONTAINER_IMAGE);
                     PullPolicy containerImagePullPolicy = EntityInitializers.resolve(config, CONTAINER_IMAGE_PULL_POLICY);
-                    Boolean devMode = EntityInitializers.resolve(config, KEEP_CONTAINER_FOR_DEBUGGING);
 
                     String workingDir = EntityInitializers.resolve(config, WORKING_DIR);
                     Set<Map<String,String>> volumeMounts = (Set<Map<String,String>>) EntityInitializers.resolve(config, VOLUME_MOUNTS);
                     Set<Map<String, Object>> volumes = (Set<Map<String, Object>>) EntityInitializers.resolve(config, VOLUMES);
 
-                    if(Strings.isBlank(containerImage)) {
-                        throw new IllegalStateException("You must specify containerImage when using " + this.getClass().getSimpleName());
-                    }
-
+                    final String kubeJobName = initNamespaceAndGetNewJobName();
+                    String containerImage = EntityInitializers.resolve(config, CONTAINER_IMAGE);
                     Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
-                    if (entity == null) {
-                        throw new IllegalStateException("Task must run in context of entity to background jobs");
-                    }
-
-                    final String cleanImageName = containerImage.contains(":") ? containerImage.substring(0, containerImage.indexOf(":")) : containerImage;
-
-                    StringShortener ss = new StringShortener().separator("-");
-                    if (Strings.isNonBlank(this.jobIdentifier)) {
-                        ss.append("job", this.jobIdentifier).canTruncate("job", 20);
-                    } else {
-                        ss.append("brooklyn", "brooklyn").canTruncate("brooklyn", 2);
-                        ss.append("appId", entity.getApplicationId()).canTruncate("appId", 4);
-                        ss.append("entityId", entity.getId()).canTruncate("entityId", 4);
-                        ss.append("image", cleanImageName).canTruncate("image", 10);
-                    }
-                    ss.append("uid", Strings.makeRandomId(9)+Identifiers.makeRandomPassword(1, Identifiers.LOWER_CASE_ALPHA));
-                    final String kubeJobName = ss.getStringOfMaxLength(50)
-                            .replaceAll("[^A-Za-z0-9-]+", "-") // remove all symbols
-                            .toLowerCase();
-                    if (namespace==null) {
-                        namespace = kubeJobName;
-                    }
 
                     LOG.debug("Submitting container job in namespace "+namespace+", name "+kubeJobName);
 
@@ -360,13 +332,9 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                             return returnConversion==null ? (RET) result : returnConversion.apply(result);
 
                         } finally {
-                            // clean up - delete namespace
-                            if (!devMode && deleteNamespaceHere) {
-                                LOG.debug("Deleting namespace "+namespace);
-                                // do this not as a subtask so we can run even if the main queue fails
-                                Entities.submit(entity, newSimpleTaskFactory(String.format(NAMESPACE_DELETE_CMD, namespace)).summary("Tear down containers").newTask()).block();
+                            if (deleteNamespaceHere) {
+                                doDeleteNamespace();
                             }
-                            System.runFinalization();
                         }
                     } catch (Exception e) {
                         throw Exceptions.propagate(e);
@@ -376,6 +344,59 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                 });
 
         return taskBuilder.build();
+    }
+
+    private String initNamespaceAndGetNewJobName() {
+        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        if (entity == null) {
+            throw new IllegalStateException("Task must run in context of entity to background jobs");
+        }
+
+        String containerImage = EntityInitializers.resolve(config, CONTAINER_IMAGE);
+        if(Strings.isBlank(containerImage)) {
+            throw new IllegalStateException("You must specify containerImage when using " + this.getClass().getSimpleName());
+        }
+
+        final String cleanImageName = containerImage.contains(":") ? containerImage.substring(0, containerImage.indexOf(":")) : containerImage;
+
+        StringShortener ss = new StringShortener().separator("-");
+        if (Strings.isNonBlank(this.jobIdentifier)) {
+            ss.append("job", this.jobIdentifier).canTruncate("job", 20);
+        } else {
+            ss.append("brooklyn", "brooklyn").canTruncate("brooklyn", 2);
+            ss.append("appId", entity.getApplicationId()).canTruncate("appId", 4);
+            ss.append("entityId", entity.getId()).canTruncate("entityId", 4);
+            ss.append("image", cleanImageName).canTruncate("image", 10);
+        }
+        ss.append("uid", Strings.makeRandomId(9)+Identifiers.makeRandomPassword(1, Identifiers.LOWER_CASE_ALPHA));
+        final String kubeJobName = ss.getStringOfMaxLength(50)
+                .replaceAll("[^A-Za-z0-9-]+", "-") // remove all symbols
+                .toLowerCase();
+        if (namespace==null) {
+            namespace = kubeJobName;
+        }
+        return kubeJobName;
+    }
+
+    public String getNamespace() {
+        return namespace;
+    }
+
+    public boolean doDeleteNamespace() {
+        if (namespace==null) return false;
+        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        if (entity==null) return false;
+        // clean up - delete namespace
+        Boolean devMode = EntityInitializers.resolve(config, KEEP_CONTAINER_FOR_DEBUGGING);
+        if (Boolean.TRUE.equals(devMode)) {
+            return false;
+        }
+
+        LOG.debug("Deleting namespace " + namespace);
+        // do this not as a subtask so we can run even if the main queue fails
+        Entities.submit(entity, newSimpleTaskFactory(String.format(NAMESPACE_DELETE_CMD, namespace)).summary("Tear down containers").newTask()).block();
+        System.runFinalization();
+        return true;
     }
 
     public T summary(String summary) { this.summary = summary; return self(); }
