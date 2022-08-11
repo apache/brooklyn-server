@@ -140,7 +140,10 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
                                     .skipResolution(skipResolution)
                                     .suppressIfSecret(key.getName(), suppressSecrets)
                                     .raw(raw)
-                                    .context(entity).timeout(Duration.ZERO).renderAs(key)
+                                    .context(entity)
+                                    .immediately(true)              // 2022-08 added immediately instead of timeout zero because the latter caused some oddities
+                                    .timeout(Duration.millis(500))  // shouldn't take this long, but if it does, under load, just bail
+                                    .renderAs(key)
                                     .resolve());
 
             }
