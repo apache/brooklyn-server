@@ -237,7 +237,7 @@ public class ScalabilityPerformanceTest extends AbstractPerformanceTest {
                         ManagementContext mgmt = app.getManagementContext();
                         LOG.debug("destroying app "+app+" (managed? "+Entities.isManaged(app)+"; mgmt is "+mgmt+")");
                         try {
-                            Entities.destroy(app);
+                            Entities.destroy(app, true);
                             LOG.debug("destroyed app "+app+"; mgmt now "+mgmt);
                         } catch (Exception e) {
                             LOG.warn("problems destroying app "+app+" (mgmt now "+mgmt+", will rethrow at least one exception): "+e);

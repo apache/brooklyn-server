@@ -63,7 +63,7 @@ public class EffectorResourceTest extends BrooklynRestResourceTest {
     @Override
     public void destroyMethod() throws Exception {
         try {
-            if (app != null) Entities.destroy(app);
+            if (app != null) Entities.destroy(app, true);
         } finally {
             super.destroyMethod();
         }

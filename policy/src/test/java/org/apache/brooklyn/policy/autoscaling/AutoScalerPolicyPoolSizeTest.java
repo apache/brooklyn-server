@@ -93,7 +93,7 @@ public class AutoScalerPolicyPoolSizeTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(cluster, TestCluster.GROUP_SIZE, CLUSTER_INIITIAL_SIZE);
         // Simulate user expunging the entities manually
         for (int i = 0; i < CLUSTER_MAX_SIZE - CLUSTER_MIN_SIZE; i++) {
-            Entities.destroyCatching(cluster.getMembers().iterator().next());
+            Entities.destroyCatching(cluster.getMembers().iterator().next(), true);
         }
         EntityAsserts.assertAttributeEqualsEventually(cluster, TestSizeRecordingCluster.SIZE_HISTORY_RECORD_COUNT, 2);
         Assert.assertEquals((int)cluster.getSizeHistory().get(0), CLUSTER_INIITIAL_SIZE);

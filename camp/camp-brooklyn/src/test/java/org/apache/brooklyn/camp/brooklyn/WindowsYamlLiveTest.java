@@ -134,7 +134,7 @@ public class WindowsYamlLiveTest extends AbstractWindowsYamlTest {
     @Override
     public void tearDown() {
         try {
-            if (app != null) Entities.destroy(app);
+            if (app != null) Entities.destroy(app, true);
         } catch (Throwable t) {
             log.error("Caught exception in tearDown method", t);
         } finally {

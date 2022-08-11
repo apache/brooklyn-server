@@ -76,7 +76,7 @@ public abstract class AbstractServerPoolTest {
     public void tearDown() throws Exception {
         // Kills the apps before terminating the pool
         for (TestApplication app : createdApps) {
-            Entities.destroy(app);
+            Entities.destroy(app, true);
         }
         if (mgmt != null) {
             Entities.destroyAll(mgmt);

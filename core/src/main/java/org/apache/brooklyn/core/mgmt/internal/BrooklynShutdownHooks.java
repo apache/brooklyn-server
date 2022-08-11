@@ -78,7 +78,7 @@ public class BrooklynShutdownHooks {
                 semaphore.release();
                 try {
                     log.warn("Call to invokeStopOnShutdown for "+entity+" while system already shutting down; invoking stop now and throwing exception");
-                    Entities.destroy(entity);
+                    Entities.destroy(entity, false);
                     throw new IllegalStateException("Call to invokeStopOnShutdown for "+entity+" while system already shutting down");
                 } catch (Exception e) {
                     throw new IllegalStateException("Call to invokeStopOnShutdown for "+entity+" while system already shutting down, had error: "+e, e);
@@ -229,7 +229,7 @@ public class BrooklynShutdownHooks {
             final Entity entity = entityToStop;
             if (!Entities.isManaged(entity)) continue;
             Task<Object> t = Tasks.builder().dynamic(false).displayName("destroying "+entity).body(new Runnable() {
-                @Override public void run() { Entities.destroy(entity); }
+                @Override public void run() { Entities.destroy(entity, false); }
             }).build();
             stops.add( ((EntityInternal)entity).getExecutionContext().submit(t) );
         }

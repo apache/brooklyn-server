@@ -137,7 +137,7 @@ public class ConfigYamlTest extends AbstractYamlTest {
                     // error, loop wasn't interrupted or detected
                     LOG.warn("Timeout elapsed, destroying items; usage: "+
                             ((LocalManagementContext)mgmt()).getGarbageCollector().getUsageString());
-                    Entities.destroy(app);
+                    Entities.destroy(app, true);
                 } catch (RuntimeInterruptedException e) {
                     // expected on normal execution; clear the interrupted flag to prevent ugly further warnings being logged
                     Thread.interrupted();

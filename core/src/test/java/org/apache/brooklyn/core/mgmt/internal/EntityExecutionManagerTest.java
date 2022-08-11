@@ -364,7 +364,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         Set<Object> tags = app.getManagementContext().getExecutionManager().getTaskTags();
         assertTrue(tags.contains(BrooklynTaskTags.tagForContextEntity(e)), "tags="+tags);
         
-        Entities.destroy(e);
+        Entities.destroy(e, true);
         forceGc();
 
         Asserts.succeedsEventually(() -> {
@@ -392,7 +392,7 @@ public class EntityExecutionManagerTest extends BrooklynAppUnitTestSupport {
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
         entity.sensors().set(TestEntity.NAME, "bob");
         entity.invoke(TestEntity.MY_EFFECTOR, ImmutableMap.<String,Object>of()).get();
-        Entities.destroy(entity);
+        Entities.destroy(entity, true);
         Time.sleep(Duration.ONE_SECOND);
         forceGc();
         Collection<Task<?>> t2 = em.getAllTasks();

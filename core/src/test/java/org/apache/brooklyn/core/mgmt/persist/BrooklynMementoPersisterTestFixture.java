@@ -133,7 +133,7 @@ public abstract class BrooklynMementoPersisterTestFixture {
 
     @Test
     public void testDeleteAndLoadMemento() throws Exception {
-        Entities.destroy(entity);
+        Entities.destroy(entity, true);
 
         BrooklynMemento reloadedMemento = loadMemento();
         
@@ -142,7 +142,7 @@ public abstract class BrooklynMementoPersisterTestFixture {
         assertEquals(Iterables.getOnlyElement(reloadedMemento.getLocationIds()), location.getId());
         
         // Destroying the app should also unmanage its owned location, and adjuncts
-        Entities.destroy(app);
+        Entities.destroy(app, true);
         reloadedMemento = loadMemento();
         
         assertFalse(Iterables.contains(reloadedMemento.getEntityIds(), entity.getId()));

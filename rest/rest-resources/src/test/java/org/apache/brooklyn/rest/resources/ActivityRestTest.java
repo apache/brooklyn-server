@@ -103,7 +103,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
     @SuppressWarnings("deprecation")
     protected void initEntity(int seed) {
         if (entity != null && Entities.isManaged(entity)) {
-            Entities.destroy(entity.getApplication());
+            Entities.destroy(entity.getApplication(), true);
         }
         
         CreationResult<BasicApplication, Void> app = EntityManagementUtils.createStarting(getManagementContext(),

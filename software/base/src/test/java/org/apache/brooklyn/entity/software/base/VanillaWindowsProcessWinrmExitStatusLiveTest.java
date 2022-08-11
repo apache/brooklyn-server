@@ -89,7 +89,7 @@ public class VanillaWindowsProcessWinrmExitStatusLiveTest {
     public void tearDown() throws Exception {
         try {
             try {
-                if (app != null) Entities.destroy(app);
+                if (app != null) Entities.destroy(app, true);
             } catch (Throwable t) {
                 LOG.error("Caught exception in tearDown method", t);
             }

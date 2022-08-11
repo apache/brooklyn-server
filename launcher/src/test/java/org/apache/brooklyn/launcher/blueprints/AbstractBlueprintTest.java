@@ -149,7 +149,7 @@ public abstract class AbstractBlueprintTest {
                 for (Application app: mgmt.getApplications()) {
                     LOG.debug("destroying app "+app+" (managed? "+Entities.isManaged(app)+"; mgmt is "+mgmt+")");
                     try {
-                        Entities.destroy(app);
+                        Entities.destroy(app, true);
                         LOG.debug("destroyed app "+app+"; mgmt now "+mgmt);
                     } catch (Exception e) {
                         LOG.error("problems destroying app "+app, e);

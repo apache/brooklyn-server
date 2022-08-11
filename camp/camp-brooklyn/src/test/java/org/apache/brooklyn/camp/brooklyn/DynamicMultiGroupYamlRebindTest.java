@@ -56,7 +56,7 @@ public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
          Enricher enricher1 = app.enrichers().iterator().next();
 
          // Destroy application before first rebind.
-         Entities.destroy(app);
+         Entities.destroy(app, true);
 
          // check that a subsequent change doesn't cause it to re-create
          mgmt().getRebindManager().getChangeListener().onChanged(enricher1);
@@ -100,7 +100,7 @@ public class DynamicMultiGroupYamlRebindTest extends AbstractYamlRebindTest {
       Assert.assertEquals(state.getEntities().size(), 10);
 
       // Destroy application after first rebind.
-      Entities.destroy(appRebind);
+      Entities.destroy(appRebind, true);
 
       // Rebind, expect no apps.
       rebind(RebindOptions.create().terminateOrigManagementContext(true));

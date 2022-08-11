@@ -49,7 +49,7 @@ public class VanillaWindowsProcessWinrmStreamsLiveTest extends AbstractSoftwareP
     @BeforeClass(alwaysRun = true)
     public void setUpClass() throws Exception {
         super.setUp();
-        if (app != null) Entities.destroy(app);
+        if (app != null) Entities.destroy(app, true);
         
         location = WindowsTestFixture.setUpWindowsLocation(mgmt);
         machine = location.obtain(ImmutableMap.of());
@@ -76,7 +76,7 @@ public class VanillaWindowsProcessWinrmStreamsLiveTest extends AbstractSoftwareP
     @Override
     public void tearDown() throws Exception {
         try {
-            if (app != null) Entities.destroy(app);
+            if (app != null) Entities.destroy(app, true);
         } catch (Throwable t) {
             LOG.error("Caught exception in tearDown method", t);
         } finally {

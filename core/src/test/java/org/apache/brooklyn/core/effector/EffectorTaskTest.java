@@ -435,7 +435,7 @@ public class EffectorTaskTest extends BrooklynAppUnitTestSupport {
 
                         // Execution completed in the child's ExecutionContext, but still queued as a secondary.
                         // Destroy the child entity so that no subsequent tasks can be executed in its context.
-                        Entities.destroy(child);
+                        Entities.destroy(child, true);
                     } finally {
                         // Let STALL complete
                         synchronized(lock) {

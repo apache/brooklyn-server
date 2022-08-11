@@ -721,8 +721,11 @@ public class Entities {
 
     /** Same as {@link #destroy(Entity)} but catching all errors. */
     public static void destroyCatching(Entity entity) {
+        destroyCatching(entity, false);
+    }
+    public static void destroyCatching(Entity entity, boolean unmanageOnErrors) {
         try {
-            destroy(entity);
+            destroy(entity, unmanageOnErrors);
         } catch (Exception e) {
             log.warn("ERROR destroying "+entity+" (ignoring): "+e, e);
             Exceptions.propagateIfFatal(e);
@@ -777,7 +780,7 @@ public class Entities {
                     public void run() {
                         log.debug("destroying app "+app+" (managed? "+isManaged(app)+"; mgmt is "+mgmt+")");
                         try {
-                            destroy(app);
+                            destroy(app, true);
                             log.debug("destroyed app "+app+"; mgmt now "+mgmt);
                         } catch (Exception e) {
                             log.warn("problems destroying app "+app+" (mgmt now "+mgmt+", will rethrow at least one exception): "+e);

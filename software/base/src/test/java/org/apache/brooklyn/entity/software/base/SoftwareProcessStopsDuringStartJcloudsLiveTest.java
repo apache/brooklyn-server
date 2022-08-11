@@ -148,7 +148,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
         executeInLimitedTime(new Callable<Void>() {
             @Override
             public Void call() {
-                Entities.destroy(app);
+                Entities.destroy(app, true);
                 return null;
             }
         }, Asserts.DEFAULT_LONG_TIMEOUT.toMilliseconds(), TimeUnit.MILLISECONDS);
@@ -169,7 +169,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
      * </ul>
      */
     @Test(groups = {"Live"})
-    public void testJclousMachineIsExpungedWhenStoppedDuringStart() throws Exception {
+    public void testJcloudsMachineIsExpungedWhenStoppedDuringStart() throws Exception {
         Map<String,?> allFlags = ImmutableMap.<String,Object>builder()
                 .put("tags", ImmutableList.of(getClass().getName()))
                 .put(JcloudsLocation.IMAGE_ID.getName(), IMAGE_ID)
@@ -193,7 +193,7 @@ public class SoftwareProcessStopsDuringStartJcloudsLiveTest extends BrooklynAppL
         EntityAsserts.assertAttributeEqualsEventually(entity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, AttributesInternal.ProvisioningTaskState.RUNNING);
 
         Stopwatch stopwatch = Stopwatch.createStarted();
-        Entities.destroyCatching(app);
+        Entities.destroyCatching(app, true);
         LOG.info("Time for expunging: {}", Duration.of(stopwatch));
 
         NodeMetadata nodeMetadata = Iterables.getFirst(((AWSEC2ComputeService) jcloudsLocation.getComputeService()).listNodesDetailsMatching(new Predicate<ComputeMetadata>() {

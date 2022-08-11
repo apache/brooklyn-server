@@ -82,7 +82,7 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
     @AfterMethod(alwaysRun = true)
     public void cleanUpButKeepMgmt() throws Exception {
         for (Application app: MutableList.copyOf(mgmt().getApplications())) {
-            Entities.destroy(app);
+            Entities.destroy(app, true);
         }
         for (Bundle b: bundlesToRemove) {
             ((ManagementContextInternal)mgmt()).getOsgiManager().get().uninstallUploadedBundle(
