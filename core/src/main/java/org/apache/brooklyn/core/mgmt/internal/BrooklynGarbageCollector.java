@@ -503,7 +503,7 @@ public class BrooklynGarbageCollector {
         if (!brooklynProperties.getConfig(CHECK_SUBTASK_SUBMITTERS))
             return 0;
         
-        Collection<Task<?>> allTasks = executionManager.allTasksLive();
+        Collection<Task<?>> allTasks = executionManager.getAllTasks();
         Collection<Task<?>> tasksToDelete = MutableList.of();
         try {
             for (Task<?> task: allTasks) {
