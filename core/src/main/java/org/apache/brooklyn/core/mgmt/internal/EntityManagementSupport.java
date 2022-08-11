@@ -273,6 +273,7 @@ public class EntityManagementSupport {
             
             if (!isReadOnly()) {
                 entity.onManagementBecomingMaster();
+                if (info.getMode().isCreating()) entity.onManagementCreated();
                 entity.onManagementStarted();
             }
             
@@ -340,8 +341,14 @@ public class EntityManagementSupport {
                 nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STOPPING);
             }
         }
-        
+
+        if (!wasDryRun && !isReadOnly()) {
+            entity.onManagementStopping();
+            if (info.getMode().isDestroying()) entity.onManagementDestroying();
+        }
+
         if (wasDryRun || (!isReadOnly() && info.getMode().isDestroying())) {
+
             // ensure adjuncts get a destroy callback
             // note they don't get any alert if the entity is being locally unmanaged to run somewhere else.
             // framework should introduce a call for that ideally, but in interim if needed they
