@@ -56,10 +56,12 @@ public interface ContainerCommons {
     String NAMESPACE_CREATE_CMD = "kubectl create namespace %s";
     String NAMESPACE_SET_CMD = "kubectl config set-context --current --namespace=%s";
     String JOBS_CREATE_CMD = "kubectl apply -f %s --namespace=%s";
-    String JOBS_FEED_CMD = "kubectl wait --timeout=%ds --for=condition=complete job/%s --namespace=%s";
-    String JOBS_FEED_FAILED_CMD = "kubectl wait --timeout=%ds --for=condition=failed job/%s --namespace=%s";
+    String JOBS_WAIT_COMPLETE_CMD = "kubectl wait --timeout=%ds --for=condition=complete job/%s --namespace=%s";
+    String JOBS_WAIT_FAILED_CMD = "kubectl wait --timeout=%ds --for=condition=failed job/%s --namespace=%s";
     String JOBS_LOGS_CMD = "kubectl logs jobs/%s --namespace=%s";
+    String JOBS_DELETE_CMD = "kubectl delete job %s --namespace=%s";
     String PODS_CMD_PREFIX = "kubectl get pods --namespace=%s --selector=job-name=%s ";
+    String PODS_STATUS_STATE_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].status.containerStatuses[0].state}'";
     String PODS_STATUS_PHASE_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].status.phase}'";
     String PODS_NAME_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].metadata.name}'";
     String PODS_EXIT_CODE_CMD = PODS_CMD_PREFIX + "-ojsonpath='{.items[0].status.containerStatuses[0].state.terminated.exitCode}'";

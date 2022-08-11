@@ -30,6 +30,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import java.util.HashMap;
@@ -43,10 +45,14 @@ import static org.testng.AssertJUnit.assertTrue;
 @Test(groups = {"Live"})
 public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ContainerTaskTest.class);
+
     @Test
     public void testSuccessfulContainerTask() {
+        LOG.info("Starting container test");
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class));
 
+        LOG.info("Starting dedicated container run");
         Task<ContainerTaskResult> containerTask =  ContainerTaskFactory.newInstance()
                 .summary("Running container task")
                 .jobIdentifier("test-container-task")
@@ -58,6 +64,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
 
         DynamicTasks.queueIfPossible(containerTask).orSubmitAsync(entity);
         ContainerTaskResult result = containerTask.getUnchecked(Duration.ONE_MINUTE);
+        LOG.info("Result: "+result + " / "+result.getMainStdout().trim());
         Asserts.assertEquals(result.getMainStdout().trim(), "hello test");
     }
 
@@ -220,7 +227,7 @@ public class ContainerTaskTest extends BrooklynAppUnitTestSupport {
             Asserts.assertEquals(result.getMainStdout().trim(), "hello " + uid);
 
         } finally {
-            DynamicTasks.queueIfPossible( baseFactory.summary("cleaning up").deleteNamespace(true).bashScriptCommands("rm hello-"+uid+".sh") ).orSubmitAsync(entity);
+            DynamicTasks.queueIfPossible( baseFactory.summary("cleaning up").setDeleteNamespaceAfter(true).bashScriptCommands("rm hello-"+uid+".sh") ).orSubmitAsync(entity);
         }
     }
 
