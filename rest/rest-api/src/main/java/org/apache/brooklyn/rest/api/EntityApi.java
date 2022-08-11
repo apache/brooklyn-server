@@ -325,7 +325,7 @@ public interface EntityApi {
     public Response expunge(
             @ApiParam(value = "Application ID or name", required = true) @PathParam("application") final String applicationId, 
             @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") final String entityId, 
-            @ApiParam(value = "Whether to gracefully release all resources", required = true) @QueryParam("release") final boolean release);
+            @ApiParam(value = "Whether to gracefully release all resources (failing and keeping if unsuccessful)", required = true) @QueryParam("release") final boolean release);
 
     @GET
     @Path("/{entity}/descendants")

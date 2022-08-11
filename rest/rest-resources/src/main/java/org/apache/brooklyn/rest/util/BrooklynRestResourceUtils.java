@@ -481,7 +481,7 @@ public class BrooklynRestResourceUtils {
                         @Override
                         public void run() {
                             if (release)
-                                Entities.destroyCatching(entity);
+                                Entities.destroy(entity);
                             else
                                 mgmt.getEntityManager().unmanage(entity);
                         }
