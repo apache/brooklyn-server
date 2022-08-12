@@ -19,7 +19,6 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import com.google.common.base.Joiner;
-import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -27,9 +26,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.stream.Collectors;
 import org.apache.brooklyn.api.catalog.CatalogConfig;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -49,6 +45,7 @@ import org.apache.brooklyn.core.config.ConstraintViolationException;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.location.PortRanges;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynRegisteredTypeJacksonSerializationTest.SampleBean;
@@ -72,12 +69,16 @@ import org.apache.brooklyn.util.time.Timestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.*;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
+import static org.testng.Assert.*;
 
 public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
 
@@ -1107,10 +1108,10 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "    testRequired: myprefix-myVal");
 
         try {
-            createStartWaitAndLogApplication(yamlNoVal);
-            Asserts.shouldHaveFailedPreviously();
+            Entity app = createStartWaitAndLogApplication(yamlNoVal);
+            Entities.destroy(app);
         } catch (ConstraintViolationException e) {
-            Asserts.expectedFailureContains(e, "matchesRegex"); // success
+            Asserts.fail("validation of an absent value must be skipped for matchesRegex");
         }
 
         try {
@@ -1205,10 +1206,10 @@ public class ConfigParametersYamlTest extends AbstractYamlRebindTest {
                 "    testRequired: myprefix-myVal");
 
         try {
-            createStartWaitAndLogApplication(yamlNoVal);
-            Asserts.shouldHaveFailedPreviously();
+            Entity app = createStartWaitAndLogApplication(yamlNoVal);
+            Entities.destroy(app);
         } catch (ConstraintViolationException e) {
-            Asserts.expectedFailureContains(e, "Error configuring", "PredicateRegexPojo(myprefix.*)"); // success
+            Asserts.fail("validation of an absent value must be skipped for PredicateRegexPojo(myprefix.*)");
         }
 
         try {

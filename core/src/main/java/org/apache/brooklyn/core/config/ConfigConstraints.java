@@ -19,11 +19,10 @@
 
 package org.apache.brooklyn.core.config;
 
-import java.util.*;
-import java.util.concurrent.Future;
-import java.util.stream.Collectors;
-
-import javax.annotation.Nullable;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -47,11 +46,10 @@ import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 /**
  * Checks configuration constraints on entities and their adjuncts.
@@ -226,6 +224,12 @@ public abstract class ConfigConstraints<T> {
             if (getSource() instanceof BrooklynObject && po instanceof BrooklynObjectPredicate) {
                 valid = BrooklynObjectPredicate.class.cast(po).apply(value, (BrooklynObject) getSource());
             } else {
+                if (Objects.isNull(value)
+                        && !po.toString().contains("required")
+                        && !po.toString().contains("Predicates.notNull()")) {
+                    // Skip validation if config key is optional and not supplied.
+                    return ReferenceWithError.newInstanceWithoutError(null);
+                }
                 valid = po.apply(value);
             }
             if (!valid) {

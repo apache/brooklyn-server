@@ -19,13 +19,11 @@
 
 package org.apache.brooklyn.core.config;
 
-import static org.testng.Assert.assertFalse;
-
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.function.Consumer;
-
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Range;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.ImplementedBy;
@@ -51,6 +49,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
+import org.apache.brooklyn.util.math.MathPredicates;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -59,19 +58,41 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Range;
-
 import javax.annotation.Nonnull;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.function.Consumer;
+
+import static org.testng.Assert.assertFalse;
 
 public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
 
     private static final Logger log = LoggerFactory.getLogger(ConfigKeyConstraintTest.class);
     
     // ----------- Setup -----------------------------------------------------------------------------------------------
+
+    @ImplementedBy(EntityWithNonRequiredConstraintImpl.class)
+    public static interface EntityWithNonRequiredConstraint extends TestEntity {
+        ConfigKey<Number> OPTIONAL_CONFIG = ConfigKeys.builder(Number.class)
+                .name("test.conf.non-required.without-default")
+                .description("Configuration key that is optional")
+                .constraint(MathPredicates.greaterThan(2))
+                .build();
+    }
+    public static class EntityWithNonRequiredConstraintImpl extends TestEntityImpl implements EntityWithNonRequiredConstraint {
+    }
+
+    @ImplementedBy(EntityWithRequiredConstraintImpl.class)
+    public static interface EntityWithRequiredConstraint extends TestEntity {
+        ConfigKey<Object> REQUIRED_CONFIG = ConfigKeys.builder(Object.class)
+                .name("test.conf.required.without-default")
+                .description("Configuration key that is required")
+                .constraint(ConfigConstraints.required())
+                .build();
+    }
+    public static class EntityWithRequiredConstraintImpl extends TestEntityImpl implements EntityWithRequiredConstraint {
+    }
 
     @ImplementedBy(EntityWithNonNullConstraintImpl.class)
     public static interface EntityWithNonNullConstraint extends TestEntity {
@@ -157,6 +178,16 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     // ----------- Tests -----------------------------------------------------------------------------------------------
 
     @Test
+    public void testExceptionWhenEntityRequiredConfig() {
+        try {
+            app.createAndManageChild(EntitySpec.create(EntityWithRequiredConstraint.class));
+            Asserts.shouldHaveFailedPreviously("Expected exception when managing entity with missing config");
+        } catch (Exception e) {
+            Asserts.expectedFailureOfType(e, ConstraintViolationException.class);
+        }
+    }
+
+    @Test
     public void testExceptionWhenEntityHasNullConfig() {
         try {
             app.createAndManageChild(EntitySpec.create(EntityWithNonNullConstraint.class));
@@ -170,6 +201,13 @@ public class ConfigKeyConstraintTest extends BrooklynAppUnitTestSupport {
     public void testNoExceptionWhenEntityHasValueForRequiredConfig() {
         app.createAndManageChild(EntitySpec.create(EntityWithNonNullConstraint.class)
                 .configure(EntityWithNonNullConstraint.NON_NULL_CONFIG, new Object()));
+        app.createAndManageChild(EntitySpec.create(EntityWithRequiredConstraint.class)
+                .configure(EntityWithRequiredConstraint.REQUIRED_CONFIG, new Object()));
+    }
+
+    @Test
+    public void testNoExceptionWhenEntityHasNoValueForOptionalConfig() {
+        app.createAndManageChild(EntitySpec.create(EntityWithNonRequiredConstraint.class));
     }
 
     @Test
