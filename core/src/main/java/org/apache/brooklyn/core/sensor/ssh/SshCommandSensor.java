@@ -99,7 +99,7 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
 
     final private AtomicBoolean commandUrlInstalled = new AtomicBoolean(false);
 
-    protected SshCommandSensor() {}
+    public SshCommandSensor() {}
     public SshCommandSensor(ConfigBag params) {
         super(params);
     }

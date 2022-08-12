@@ -70,7 +70,7 @@ public final class SshCommandEffector extends AddEffectorInitializerAbstract {
         + "in the latter cases the sets are filtered by entities which have a machine and are not stopping.",
         ExecutionTarget.ENTITY);
 
-    private SshCommandEffector() {}
+    public SshCommandEffector() {}
     public SshCommandEffector(ConfigBag params) {
         super(params);
     }
