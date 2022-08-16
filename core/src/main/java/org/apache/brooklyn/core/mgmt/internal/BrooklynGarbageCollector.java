@@ -308,6 +308,10 @@ public class BrooklynGarbageCollector {
         if (!task.isDone(true)) {
             return false;
         }
+        if (Tasks.isChildOfSubmitter(task, executionManager::getTask)) {
+            // we don't delete children until the parent is deleted; short-circuit the consideration of this
+            return false;
+        }
         
         Set<Object> tags = BrooklynTaskTags.getTagsFast(task);
         if (tags.contains(ManagementContextInternal.TRANSIENT_TASK_TAG))
@@ -418,16 +422,35 @@ public class BrooklynGarbageCollector {
         int deletedHere = 0;
         while ((deletedHere = expireHistoricTasksNowReadyForImmediateDeletion()) > 0) {
             // delete in loop so we don't have descendants sticking around until deleted in later cycles
-            deletedCount += deletedHere; 
+            deletedCount += deletedHere;
+            if (LOG.isTraceEnabled()) LOG.trace("GC history loop deleted "+deletedHere+" this time, count now "+deletedCount);
         }
-        
+
         deletedHere = expireIfOverCapacityGlobally();
+        if (LOG.isTraceEnabled()) LOG.trace("GC history capacity deleted "+deletedHere);
         deletedCount += deletedHere;
         while (deletedHere > 0) {
-            deletedCount += (deletedHere = expireHistoricTasksNowReadyForImmediateDeletion()); 
+            deletedCount += (deletedHere = expireHistoricTasksNowReadyForImmediateDeletion());
+            if (LOG.isTraceEnabled()) LOG.trace("GC history post=-capacity-deletion loop deleted "+deletedHere+" this time, count now "+deletedCount);
         }
-        
+
         return deletedCount;
+
+        // or not to run in a loop
+//        int deletedHere = expireHistoricTasksNowReadyForImmediateDeletion();
+//        if (LOG.isTraceEnabled()) LOG.trace("GC history loop deleted "+deletedHere+" this time, deletion count now "+deletedCount);
+//        deletedCount += deletedHere;
+//
+//        deletedHere = expireIfOverCapacityGlobally();
+//        if (LOG.isTraceEnabled()) LOG.trace("GC history capacity deleted "+deletedHere);
+//        deletedCount += deletedHere;
+//        if (deletedHere > 0) {
+//            deletedCount += (deletedHere = expireHistoricTasksNowReadyForImmediateDeletion());
+//            if (LOG.isTraceEnabled()) LOG.trace("GC history post-capacity deleted "+deletedHere+" this time, count now "+deletedCount);
+//        }
+//
+//        return deletedCount;
+
     }
 
     protected static boolean isTagIgnoredForGc(Object tag) {
@@ -506,6 +529,7 @@ public class BrooklynGarbageCollector {
         Collection<Task<?>> allTasks = executionManager.getAllTasks();
         Collection<Task<?>> tasksToDelete = MutableList.of();
         try {
+            if (LOG.isTraceEnabled()) LOG.trace("GC history scanning "+allTasks.size()+" tasks");
             for (Task<?> task: allTasks) {
                 if (!shouldDeleteTaskImmediately(task)) {
                     // 2017-09 previously we only checked done and submitter expired, and deleted if both were true
@@ -522,11 +546,14 @@ public class BrooklynGarbageCollector {
             // delete what we've found so far
             LOG.debug("Got CME inspecting aged tasks, with "+tasksToDelete.size()+" found for deletion: "+e);
         }
-        
+
+        if (LOG.isTraceEnabled()) LOG.trace("GC history scanned "+allTasks.size()+" tasks, found "+tasksToDelete.size()+" for deletion, now deleting");
+        int deletionCount = 0;
         for (Task<?> task: tasksToDelete) {
-            executionManager.deleteTask(task);
+            if (executionManager.deleteTask(task)) deletionCount++;
         }
-        return tasksToDelete.size();
+        if (LOG.isTraceEnabled()) LOG.trace("GC history scanned "+allTasks.size()+" tasks, "+tasksToDelete.size()+" proposed for deletion, actually deleted "+deletionCount);
+        return deletionCount;
     }
     
     private boolean isAssociatedToActiveEntity(Task<?> task) {

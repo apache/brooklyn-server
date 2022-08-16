@@ -557,7 +557,20 @@ public class Tasks {
             Time.sleep(Repeater.DEFAULT_REAL_QUICK_PERIOD);
         }
     }
-    
+
+    public static boolean isChildOfSubmitter(Task<?> task, Function<String,Task> parentLookupFunction) {
+        String submittedById = task.getSubmittedByTaskId();
+        if (submittedById!=null) {
+            Task<?> submittedBy = parentLookupFunction.apply(submittedById);
+            if (submittedBy != null && submittedBy instanceof HasTaskChildren) {
+                if (Iterables.contains(((HasTaskChildren) submittedBy).getChildren(), task)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /** returns true if either the current thread or the current task is interrupted/cancelled */
     public static boolean isInterrupted() {
         if (Thread.currentThread().isInterrupted()) return true;

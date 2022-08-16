@@ -418,14 +418,15 @@ public class BasicExecutionManager implements ExecutionManager {
         return false;
     }
 
-    public void deleteTask(Task<?> task) {
-        deleteTask(task, true);
+    public boolean deleteTask(Task<?> task) {
+        return deleteTask(task, true);
     }
     /** removes all exec manager records of a task, except, if second argument is true (usually is) keep the pointer to ID
-     * if its submitter is a parent with an active record to this child */
-    public void deleteTask(Task<?> task, boolean keepByIdIfParentPresentById) {
+     * if its submitter is a parent with an active record to this child.
+     * returns true if completely deleted (false if not deleted, or deleted in byTags map but kept due to parent ID) */
+    public boolean deleteTask(Task<?> task, boolean keepByIdIfParentPresentById) {
         Boolean removed = deleteTaskNonRecursive(task, keepByIdIfParentPresentById);
-        if (Boolean.FALSE.equals(removed)) return;
+        if (!Boolean.TRUE.equals(removed)) return false;
 
         if (task instanceof HasTaskChildren) {
             List<Task<?>> children = ImmutableList.copyOf(((HasTaskChildren) task).getChildren());
@@ -433,6 +434,7 @@ public class BasicExecutionManager implements ExecutionManager {
                 deleteTask(child, keepByIdIfParentPresentById);
             }
         }
+        return true;
     }
 
     protected Boolean deleteTaskNonRecursive(Task<?> task) {
@@ -446,57 +448,56 @@ public class BasicExecutionManager implements ExecutionManager {
          in this case it will of course get deleted when its parent/ancestor is deleted. */
     protected Boolean deleteTaskNonRecursive(Task<?> task, boolean keepByIdIfParentPresentById) {
         Set<?> tags = TaskTags.getTagsFast(checkNotNull(task, "task"));
+        int removedByTagCount = 0;
         for (Object tag : tags) {
             synchronized (tasksByTag) {
                 Set<Task<?>> tasks = tasksWithTagLiveOrNull(tag);
                 if (tasks != null) {
-                    tasks.remove(task);
-                    if (tasks.isEmpty()) {
-                        tasksByTag.remove(tag);
+                    if (tasks.remove(task)) {
+                        removedByTagCount++;
+                        if (tasks.isEmpty()) {
+                            tasksByTag.remove(tag);
+                        }
                     }
                 }
             }
+        }
+        int removedByTagMissingCount = tags.size() - removedByTagCount;
+
+        boolean removeById;
+        if (keepByIdIfParentPresentById) {
+            removeById = !Tasks.isChildOfSubmitter(task, tasksById::get);
+        } else {
+            removeById = true;
         }
 
-        boolean removeById = true;
-        if (keepByIdIfParentPresentById) {
-            String submittedById = task.getSubmittedByTaskId();
-            if (submittedById!=null) {
-                Task<?> submittedBy = tasksById.get(submittedById);
-                if (submittedBy != null && submittedBy instanceof HasTaskChildren) {
-                    if (Iterables.contains(((HasTaskChildren) submittedBy).getChildren(), task)) {
-                        removeById = false;
-                    }
-                }
-            }
-        }
         Boolean result;
-        Task<?> removed;
+        Task<?> removedById;
         if (removeById) {
-            removed = tasksById.remove(task.getId());
-            result = removed != null;
+            removedById = tasksById.remove(task.getId());
+            result = removedById != null;
         } else {
-            removed = null;
+            removedById = null;
             result = null;
         }
 
-        incompleteTaskIds.remove(task.getId());
-        if (removed != null && removed.isSubmitted() && !removed.isDone(true)) {
-            Entity context = BrooklynTaskTags.getContextEntity(removed);
+        boolean removedIncompleteById = incompleteTaskIds.remove(task.getId());
+        if (removedById != null && removedById.isSubmitted() && !removedById.isDone(true)) {
+            Entity context = BrooklynTaskTags.getContextEntity(removedById);
             if (context != null && !Entities.isManaged(context)) {
-                log.debug("Deleting active task on unmanagement of " + context + ": " + removed);
+                log.debug("Deleting active task on unmanagement of " + context + ": " + removedById);
             } else {
-                boolean debugOnly = removed.isDone();
+                boolean debugOnly = removedById.isDone();
 
                 if (debugOnly) {
-                    log.debug("Deleting cancelled task before completion: " + removed + "; this task will continue to run in the background outwith " + this);
+                    log.debug("Deleting cancelled task before completion: " + removedById + "; this task will continue to run in the background outwith " + this);
                 } else {
-                    log.warn("Deleting submitted task before completion: " + removed + " (tags " + removed.getTags() + "); this task will continue to run in the background outwith " + this + ", but perhaps it should have been cancelled?");
+                    log.warn("Deleting submitted task before completion: " + removedById + " (tags " + removedById.getTags() + "); this task will continue to run in the background outwith " + this + ", but perhaps it should have been cancelled?");
                     log.debug("Active task deletion trace", new Throwable("Active task deletion trace"));
                 }
             }
         }
-        if (removed != null) {
+        if (removedById != null) {
             task.getTags().forEach(t -> {
                 // remove tags which might have references to entities etc (help out garbage collector)
                 if (t instanceof TaskInternal) {
@@ -505,6 +506,32 @@ public class BasicExecutionManager implements ExecutionManager {
                 }
             });
         }
+
+        // if tag deletion is problematic we can use this logic to investigate (but currently there is no reason to think it is, i was just checking)
+//        if ((!removeById || Boolean.TRUE.equals(result)) && removedByTagMissingCount==0) {
+//            // cleanly deleted, or not deleted if so requested
+//            return true;
+//        }
+//        if ((removeById && !Boolean.TRUE.equals(result)) && removedByTagCount==0) {
+//            // not deleted at all
+//            return false;
+//        }
+//        // incomplete deletion detected
+//        log.warn("Incomplete deletion for "+task+"; removeById="+removeById+", removedById="+removedById+", removedIncompleteById="+removedIncompleteById+", removedByTagCount="+removedByTagCount+", removedByTagMissingCount="+removedByTagMissingCount);
+//        // if tag deletion is not working, investigate each task (don't rely on hashes)
+//        synchronized (tasksByTag) {
+//            Set<Object> tagsToDelete = MutableSet.of();
+//            tasksByTag.forEach( (tag, tasks) -> {
+//                if (tasks.removeIf(task::equals)) {
+//                    log.warn("Special deletion needed for tag "+tag+" on task "+task);
+//                    if (tasks.isEmpty()) {
+//                        tagsToDelete.add(tag);
+//                    }
+//                }
+//            });
+//            tagsToDelete.forEach(t -> tasksByTag.remove(t));
+//        }
+
         return result;
     }
 
@@ -557,7 +584,8 @@ public class BasicExecutionManager implements ExecutionManager {
      * exposes live view, for internal use only
      */
     @Beta
-    public Set<Task<?>> tasksWithTagLiveOrNull(Object tag) {
+    public Set<Task<?>>
+    tasksWithTagLiveOrNull(Object tag) {
         synchronized (tasksByTag) {
             return tasksByTag.get(tag);
         }
