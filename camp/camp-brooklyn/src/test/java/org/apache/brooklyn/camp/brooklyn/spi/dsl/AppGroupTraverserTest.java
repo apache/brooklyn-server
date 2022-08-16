@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import org.testng.annotations.Test;

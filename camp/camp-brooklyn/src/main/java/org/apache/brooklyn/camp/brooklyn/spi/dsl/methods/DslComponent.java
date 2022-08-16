@@ -46,7 +46,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.AppGroupTraverser;
+import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
