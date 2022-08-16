@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.executor.HttpExecutorFactory;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -416,8 +417,10 @@ public class HttpFeed extends AbstractFeed {
                             .config(BrooklynHttpConfig.httpConfigBuilder(getEntity()).build())
                             .build());
                     return createHttpToolRespose(response, startTime);
-                }};
-                getPoller().scheduleAtFixedRate(pollJob, new DelegatingPollHandler<HttpToolResponse>(handlers), minPeriod);
+                }
+            };
+
+            AbstractAddTriggerableSensor.scheduleWithTriggers(this, getPoller(), pollJob, new DelegatingPollHandler<HttpToolResponse>(handlers), minPeriod, configs);
         }
     }
 

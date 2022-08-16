@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.javalang.JavaClassNames;
 
 public class FunctionPollConfig<S, T> extends PollConfig<S, T, FunctionPollConfig<S, T>> {
 
+    private String name;
     private Callable<?> callable;
     
     public static <T> FunctionPollConfig<?, T> forSensor(AttributeSensor<T> sensor) {
@@ -51,12 +52,18 @@ public class FunctionPollConfig<S, T> extends PollConfig<S, T, FunctionPollConfi
     public FunctionPollConfig(FunctionPollConfig<S, T> other) {
         super(other);
         callable = other.callable;
+        name = other.name;
     }
     
     public Callable<? extends Object> getCallable() {
         return callable;
     }
-    
+
+    public FunctionPollConfig<S, T> name(String name) {
+        this.name = name;
+        return this;
+    }
+
     /**
      * The {@link Callable} to be invoked on each poll.
      * <p>
@@ -108,6 +115,7 @@ public class FunctionPollConfig<S, T> extends PollConfig<S, T, FunctionPollConfi
 
     @Override protected String toStringBaseName() { return "fn"; }
     @Override protected String toStringPollSource() {
+        if (name!=null) return name;
         if (callable==null) return null;
         String cs = callable.toString();
         if (!cs.contains( ""+Integer.toHexString(callable.hashCode()) )) {

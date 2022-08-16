@@ -23,7 +23,6 @@ import com.google.gson.Gson;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -124,7 +123,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
 
                     LOG.debug("Submitting container job in namespace "+namespace+", name "+kubeJobName);
 
-                    Map<String, String> env = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext()).serialize(EntityInitializers.resolve(config, BrooklynConfigKeys.SHELL_ENVIRONMENT));
+                    Map<String, String> env = new ShellEnvironmentSerializer(((EntityInternal)entity).getManagementContext()).serialize(EntityInitializers.resolve(config, SHELL_ENVIRONMENT));
                     final BrooklynBomOsgiArchiveInstaller.FileWithTempInfo<File> jobYaml =  new KubeJobFileCreator()
                             .withImage(containerImage)
                             .withImagePullPolicy(containerImagePullPolicy)
@@ -578,7 +577,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
             return null;
         }
 
-        LOG.info("Deleting namespace " + namespace);
+        LOG.debug("Deleting namespace " + namespace);
         // do this not as a subtask so we can run even if the main queue fails
         ProcessTaskFactory<String> tf = newSimpleTaskFactory(String.format(NAMESPACE_DELETE_CMD, namespace)).summary("Tear down containers").allowingNonZeroExitCode();
         if (!requireSuccess) tf = tf.allowingNonZeroExitCode();
@@ -611,7 +610,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
         return environmentVariablesRaw(map);
     }
     public T environmentVariablesRaw(Map<String,?> map) {
-        config.put(BrooklynConfigKeys.SHELL_ENVIRONMENT, MutableMap.copyOf( map ) );
+        config.put(SHELL_ENVIRONMENT, MutableMap.copyOf( map ) );
         return self();
     }
 
@@ -620,7 +619,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
         return this.environmentVariableRaw(key, (Object)val);
     }
     public T environmentVariableRaw(String key, Object val) {
-        return environmentVariablesRaw(MutableMap.copyOf( config.get(BrooklynConfigKeys.SHELL_ENVIRONMENT) ).add(key, val));
+        return environmentVariablesRaw(MutableMap.copyOf( config.get(SHELL_ENVIRONMENT) ).add(key, val));
     }
 
     @Override

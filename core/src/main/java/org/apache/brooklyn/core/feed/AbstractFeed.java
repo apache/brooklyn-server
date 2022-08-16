@@ -201,7 +201,6 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
     
     @Override
     protected void onChanged() {
-        // TODO Auto-generated method stub
     }
 
     /**
@@ -209,7 +208,7 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
      */
     protected void preStart() {
     }
-    
+
     /**
      * For overriding.
      */
@@ -231,6 +230,10 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
 
     void highlightTriggerPeriod(Duration minPeriod) {
         highlightTriggers("Running every "+minPeriod);
+    }
+
+    public void highlightTriggers(String message) {
+        super.highlightTriggers(message);
     }
 
     void onRemoveSensor(Sensor<?> sensor) {

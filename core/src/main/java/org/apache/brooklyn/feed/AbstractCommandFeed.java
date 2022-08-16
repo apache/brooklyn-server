@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -237,15 +238,12 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
                 handlers.add(new AttributePollHandler<SshPollValue>(config, entity, this));
                 if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
             }
-            
-            getPoller().scheduleAtFixedRate(
-                    new Callable<SshPollValue>() {
-                        @Override
-                        public SshPollValue call() throws Exception {
-                            return exec(pollInfo.command.get(), pollInfo.env.get());
-                        }}, 
-                    new DelegatingPollHandler<SshPollValue>(handlers),
-                    minPeriod);
+
+            AbstractAddTriggerableSensor.scheduleWithTriggers(this, getPoller(), new Callable<SshPollValue>() {
+                @Override
+                public SshPollValue call() throws Exception {
+                    return exec(pollInfo.command.get(), pollInfo.env.get());
+                }}, new DelegatingPollHandler(handlers), minPeriod, configs);
         }
     }
     

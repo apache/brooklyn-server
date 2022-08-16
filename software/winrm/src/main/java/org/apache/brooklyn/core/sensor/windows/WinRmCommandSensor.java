@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.feed.ssh.SshValueFunctions;
@@ -63,7 +64,7 @@ import com.google.common.reflect.TypeToken;
  * @see HttpRequestSensor
  */
 @Beta
-public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
+public final class WinRmCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(WinRmCommandSensor.class);
 
@@ -89,10 +90,6 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding WinRM sensor {} to {}", name, entity);
         }
-
-        final Boolean suppressDuplicates = EntityInitializers.resolve(initParams(), SUPPRESS_DUPLICATES);
-        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(initParams(), LOG_WARNING_GRACE_TIME_ON_STARTUP);
-        final Duration logWarningGraceTime = EntityInitializers.resolve(initParams(), LOG_WARNING_GRACE_TIME);
 
         Supplier<Map<String,String>> envSupplier = new Supplier<Map<String,String>>() {
             @SuppressWarnings("serial")
@@ -127,16 +124,15 @@ public final class WinRmCommandSensor<T> extends AbstractAddSensorFeed<T> {
                 .period(initParam(SENSOR_PERIOD))
                 .env(envSupplier)
                 .command(commandSupplier)
-                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
                 .onFailureOrException(Functions.constant((T) null))
                 .onSuccess(Functions.compose(new Function<String, T>() {
                         @Override
                         public T apply(String input) {
                             return TypeCoercions.coerce(Strings.trimEnd(input), (Class<T>) sensor.getType());
-                        }}, SshValueFunctions.stdout()))
-                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
-                .logWarningGraceTime(logWarningGraceTime);
+                        }}, SshValueFunctions.stdout()));
+
+        standardPollConfig(entity, initParams(), pollConfig);
 
         CmdFeed feed = CmdFeed.builder()
                 .entity(entity)

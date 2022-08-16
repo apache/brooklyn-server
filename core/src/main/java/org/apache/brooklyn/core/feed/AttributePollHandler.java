@@ -233,7 +233,7 @@ public class AttributePollHandler<V> implements PollHandler<V> {
     
     @Override
     public String getDescription() {
-        return sensor.getName()+" @ "+entity.getId()+" <- "+config;
+        return sensor.getName() + " " /*+entity.getId()*/ +" <- " + config;
     }
     
     protected String getBriefDescription() {

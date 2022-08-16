@@ -21,13 +21,20 @@ package org.apache.brooklyn.tasks.kubectl;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.Test;
 
 @SuppressWarnings( "UnstableApiUsage")
@@ -122,5 +129,31 @@ public class ContainerSensorTest extends BrooklynAppUnitTestSupport {
 
         EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
         EntityAsserts.assertAttributeEventually(parentEntity, Sensors.newStringSensor("tf-version-sensor"), s -> s.contains("Terraform"));
+    }
+
+    @Test
+    public void testTriggeredContainerSensor() {
+        AttributeSensor<Object> trigger = Sensors.newSensor(Object.class, "the-trigger");
+        AttributeSensor<Object> triggered = Sensors.newSensor(Object.class, "triggered");
+        ConfigBag parameters = ConfigBag.newInstance(MutableMap.of(
+                ContainerCommons.CONTAINER_IMAGE, "stedolan/jq",
+                ContainerCommons.CONTAINER_IMAGE_PULL_POLICY, PullPolicy.IF_NOT_PRESENT,
+                ContainerCommons.SHELL_ENVIRONMENT, MutableMap.of("LAST_TRIGGER", DependentConfiguration.attributeWhenReady(app, trigger)),
+                ContainerCommons.BASH_SCRIPT, ImmutableList.of("echo " + "$LAST_TRIGGER" + " | jq .value"),
+                ContainerSensor.SENSOR_TRIGGERS, MutableList.of(MutableMap.of("entity", app.getId(), "sensor", "the-trigger")),
+                ContainerSensor.SENSOR_NAME, "triggered"));
+
+        ContainerSensor<String> initializer = new ContainerSensor<>(parameters);
+        TestEntity child = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
+        app.start(ImmutableList.of());
+
+        EntityAsserts.assertAttributeEquals(child, triggered, null);
+        app.sensors().set(trigger, "{ \"name\": \"bob\", \"value\": 3 }");
+
+        Time.sleep(Duration.ONE_SECOND);
+        Dumper.dumpInfo(app);
+
+        EntityAsserts.assertAttributeEventuallyNonNull(child, triggered);
+        EntityAsserts.assertAttributeEquals(child, triggered, "3");
     }
 }

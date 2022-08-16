@@ -127,6 +127,7 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
         Long interval = getConfig(RESCAN_INTERVAL);
         if (interval != null && interval > 0L) {
             rescan = FunctionFeed.builder()
+                    .uniqueTag("dynamic-multi-group-scanner")
                     .entity(this)
                     .poll(new FunctionPollConfig<Object, Void>(RESCAN)
                             .period(interval, TimeUnit.SECONDS)

@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.feed.ssh.SshFeed;
@@ -77,7 +78,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @see HttpRequestSensor
  */
 @Beta
-public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
+public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SshCommandSensor.class);
 
@@ -150,24 +151,17 @@ public final class SshCommandSensor<T> extends AbstractAddSensorFeed<T> {
             LOG.debug("Adding SSH sensor {} to {}", name, entity);
         }
 
-        final Boolean suppressDuplicates = EntityInitializers.resolve(params, SUPPRESS_DUPLICATES);
-        final Duration logWarningGraceTimeOnStartup = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME_ON_STARTUP);
-        final Duration logWarningGraceTime = EntityInitializers.resolve(params, LOG_WARNING_GRACE_TIME);
-
         Supplier<Map<String,String>> envSupplier = new EnvSupplier(entity, params);
-
         Supplier<String> commandSupplier = new CommandSupplier(entity, params);
 
         CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
-                .period(initParam(SENSOR_PERIOD))
                 .env(envSupplier)
                 .command(commandSupplier)
-                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
                 .checkSuccess(SshValueFunctions.exitStatusEquals(0))
                 .onFailureOrException(Functions.constant((T)params.get(VALUE_ON_ERROR)))
-                .onSuccess(Functionals.chain(SshValueFunctions.stdout(), new CoerceOutputFunction<>(sensor.getTypeToken(), initParam(FORMAT), initParam(LAST_YAML_DOCUMENT))))
-                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
-                .logWarningGraceTime(logWarningGraceTime);
+                .onSuccess(Functionals.chain(SshValueFunctions.stdout(), new CoerceOutputFunction<>(sensor.getTypeToken(), initParam(FORMAT), initParam(LAST_YAML_DOCUMENT))));
+
+        standardPollConfig(entity, initParams(), pollConfig);
 
         SshFeed feed = SshFeed.builder()
                 .entity(entity)

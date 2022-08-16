@@ -291,6 +291,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
     protected void connectServiceUpIsRunning() {
         Duration period = config().get(SERVICE_PROCESS_IS_RUNNING_POLL_PERIOD);
         serviceProcessIsRunning = FunctionFeed.builder()
+                .uniqueTag("check-service-process-is-running")
                 .entity(this)
                 .period(period)
                 .poll(new FunctionPollConfig<Boolean, Boolean>(SERVICE_PROCESS_IS_RUNNING)

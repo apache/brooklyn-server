@@ -276,6 +276,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
     
     private void connectAllMembersUp() {
         clusterOneAndAllMembersUp = FunctionFeed.builder()
+                .uniqueTag("one-and-all-members-up")
                 .entity(this)
                 .period(Duration.FIVE_SECONDS)
                 .poll(new FunctionPollConfig<Boolean, Boolean>(CLUSTER_ONE_AND_ALL_MEMBERS_UP)

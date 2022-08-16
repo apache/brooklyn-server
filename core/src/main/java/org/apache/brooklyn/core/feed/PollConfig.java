@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.time.Duration;
 public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<V, T, F> {
 
     private long period = -1;
+    private Object otherTriggers;
     private String description;
 
     public PollConfig(AttributeSensor<T> sensor) {
@@ -43,6 +44,8 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
     public PollConfig(PollConfig<V,T,F> other) {
         super(other);
         this.period = other.period;
+        this.otherTriggers = other.otherTriggers;
+        this.description = other.description;
     }
 
     public long getPeriod() {
@@ -69,13 +72,25 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
         this.description = description;
         return self();
     }
-    
+
+    public F otherTriggers(Object otherTriggers) {
+        this.otherTriggers = otherTriggers;
+        return self();
+    }
+
+    public Object getOtherTriggers() {
+        return otherTriggers;
+    }
+
     public String getDescription() {
         return description;
     }
     
     @Override protected MutableList<Object> toStringOtherFields() {
-        return super.toStringOtherFields().appendIfNotNull(description);
+        MutableList<Object> result = super.toStringOtherFields().appendIfNotNull(description);
+        if (period>0 && period <= Duration.PRACTICALLY_FOREVER.toMilliseconds()) result.append("period: "+Duration.of(period));
+        if (otherTriggers!=null) result.append("triggers: "+otherTriggers);
+        return result;
     }
 
     @Override

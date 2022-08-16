@@ -18,14 +18,30 @@
  */
 package org.apache.brooklyn.core.sensor;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.base.Predicates;
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensor;
 import org.apache.brooklyn.core.effector.AddSensorInitializer;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
+import org.apache.commons.lang3.tuple.Pair;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 /**
  * Super-class for entity initializers that add feeds.
@@ -55,4 +71,5 @@ public abstract class AbstractAddSensorFeed<T> extends AddSensorInitializer<T> {
     public AbstractAddSensorFeed(final ConfigBag params) {
         super(params);
     }
+
 }

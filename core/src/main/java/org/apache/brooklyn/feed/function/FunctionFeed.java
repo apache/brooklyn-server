@@ -32,6 +32,8 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -102,6 +104,7 @@ public class FunctionFeed extends AbstractFeed {
         private long period = 500;
         private TimeUnit periodUnits = TimeUnit.MILLISECONDS;
         private List<FunctionPollConfig<?,?>> polls = Lists.newArrayList();
+        private String name;
         private String uniqueTag;
         private volatile boolean built;
 
@@ -127,6 +130,10 @@ public class FunctionFeed extends AbstractFeed {
         }
         public Builder poll(FunctionPollConfig<?,?> config) {
             polls.add(config);
+            return this;
+        }
+        public Builder name(String name) {
+            this.name = name;
             return this;
         }
         public Builder uniqueTag(String uniqueTag) {
@@ -182,6 +189,10 @@ public class FunctionFeed extends AbstractFeed {
             Callable<?> job = config.getCallable();
             polls.put(new FunctionPollIdentifier(job), configCopy);
         }
+
+        if (builder.name!=null) setDisplayName(builder.name);
+        else if (builder.uniqueTag!=null) setDisplayName(builder.uniqueTag);
+
         config().set(POLLS, polls);
         initUniqueTag(builder.uniqueTag, polls.values());
     }
@@ -199,11 +210,8 @@ public class FunctionFeed extends AbstractFeed {
                 handlers.add(new AttributePollHandler(config, entity, this));
                 if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
             }
-            
-            getPoller().scheduleAtFixedRate(
-                    (Callable)pollInfo.job,
-                    new DelegatingPollHandler(handlers), 
-                    minPeriod);
+
+            AbstractAddTriggerableSensor.scheduleWithTriggers(this, getPoller(), (Callable)pollInfo.job, new DelegatingPollHandler(handlers), minPeriod, configs);
         }
     }
 }

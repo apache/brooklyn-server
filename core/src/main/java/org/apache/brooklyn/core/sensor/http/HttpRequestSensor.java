@@ -29,6 +29,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.core.sensor.ssh.SshCommandSensor;
 import org.apache.brooklyn.feed.http.HttpFeed;
 import org.apache.brooklyn.feed.http.HttpPollConfig;
@@ -58,7 +59,7 @@ import net.minidev.json.JSONObject;
  * @see SshCommandSensor
  */
 @Beta
-public class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
+public class HttpRequestSensor<T> extends AbstractAddTriggerableSensor<T> {
 
     private static final Logger LOG = LoggerFactory.getLogger(HttpRequestSensor.class);
 
@@ -126,11 +127,9 @@ public class HttpRequestSensor<T> extends AbstractAddSensorFeed<T> {
         HttpPollConfig<T> pollConfig = new HttpPollConfig<T>(sensor)
                 .checkSuccess(HttpValueFunctions.responseCodeEquals(200))
                 .onFailureOrException(Functions.constant((T) null))
-                .onSuccess(successFunction)
-                .suppressDuplicates(Boolean.TRUE.equals(suppressDuplicates))
-                .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
-                .logWarningGraceTime(logWarningGraceTime)
-                .period(initParam(SENSOR_PERIOD));
+                .onSuccess(successFunction);
+
+        standardPollConfig(entity, initParams(), pollConfig);
 
         HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)
                 .baseUri(uri)
