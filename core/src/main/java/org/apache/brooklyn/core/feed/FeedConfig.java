@@ -275,11 +275,11 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
         Object source = toStringPollSource();
         AttributeSensor<T> s = getSensor();
         if (Strings.isNonBlank(Strings.toString(source))) {
-            result.append(Strings.toUniqueString(source, 40));
             if (s!=null) {
-                result.append("->");
                 result.append(s.getName());
+                result.append(" <- ");
             }
+            result.append(Strings.toUniqueString(source, 40));
             contents = true;
         } else if (s!=null) {
             result.append(s.getName());
@@ -289,7 +289,7 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
         if (fields!=null) {
             for (Object field: fields) {
                 if (Strings.isNonBlank(Strings.toString(field))) {
-                    if (contents) result.append(";");
+                    if (contents) result.append("; ");
                     contents = true;
                     result.append(field);
                 }
