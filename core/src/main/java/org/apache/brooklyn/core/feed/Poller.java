@@ -19,25 +19,37 @@
 package org.apache.brooklyn.core.feed;
 
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.api.sensor.SensorEvent;
-import org.apache.brooklyn.api.sensor.SensorEventListener;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.feed.AbstractCommandFeed;
+import org.apache.brooklyn.feed.CommandPollConfig;
+import org.apache.brooklyn.feed.http.HttpFeed;
+import org.apache.brooklyn.feed.http.HttpPollConfig;
+import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicSequentialTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,30 +74,70 @@ public class Poller<V> {
     private final Set<Task<?>> oneOffTasks = new LinkedHashSet<Task<?>>();
     private final Set<ScheduledTask> tasks = new LinkedHashSet<ScheduledTask>();
     private volatile boolean started = false;
-    
+
+    public <PI,PC extends PollConfig> void scheduleFeed(AbstractFeed feed, SetMultimap<PI,PC> polls, Function<PI,Callable<?>> jobFactory) {
+        for (final PI identifer : polls.keySet()) {
+            Set<PC> configs = polls.get(identifer);
+            long minPeriodMillis = Long.MAX_VALUE;
+            Set<AttributePollHandler<?>> handlers = Sets.newLinkedHashSet();
+
+            for (PC config : configs) {
+                handlers.add(new AttributePollHandler(config, entity, feed));
+                if (config.getPeriod() > 0) minPeriodMillis = Math.min(minPeriodMillis, config.getPeriod());
+            }
+
+            Callable pollJob = jobFactory.apply(identifer);
+            DelegatingPollHandler handlerDelegate = new DelegatingPollHandler(handlers);
+            boolean subscribed = false;
+            for (PollConfig pc: configs) {
+                if (pc.getOtherTriggers()!=null) {
+                    List<Pair<Entity, Sensor>> triggersResolved = AbstractAddTriggerableSensor.resolveTriggers(feed.getEntity(), pc.getOtherTriggers());
+                    for (Pair<Entity, Sensor> pair : triggersResolved) {// TODO initial, condition
+                        subscribe(pollJob, handlerDelegate, pair.getLeft(), pair.getRight(), pc.getCondition());
+                        subscribed = true;
+                    }
+                }
+            }
+            if (minPeriodMillis>0 && (minPeriodMillis < Duration.PRACTICALLY_FOREVER.toMilliseconds() || !subscribed)) {
+                scheduleAtFixedRate(pollJob, handlerDelegate, minPeriodMillis);
+            }
+        }
+    }
+
     private static class PollJob<V> {
         final PollHandler<? super V> handler;
         final Duration pollPeriod;
         final Runnable wrappedJob;
-        final Entity sensorSource;
-        final Sensor<?> sensor;
+        final Entity pollTriggerEntity;
+        final Sensor<?> pollTriggerSensor;
+        final Supplier<DslPredicates.DslPredicate> pollCondition;
         SubscriptionHandle subscription;
         private boolean loggedPreviousException = false;
 
         PollJob(final Callable<V> job, final PollHandler<? super V> handler, Duration period) {
-            this(job, handler, period, null, null);
+            this(job, handler, period, null, null, null);
         }
 
-        PollJob(final Callable<V> job, final PollHandler<? super V> handler, Duration period, Entity sensorSource, Sensor<?> sensor) {
+        PollJob(final Callable<V> job, final PollHandler<? super V> handler, Duration period, Entity sensorSource, Sensor<?> sensor, Supplier<DslPredicates.DslPredicate> pollCondition) {
             this.handler = handler;
             this.pollPeriod = period;
-            this.sensorSource = sensorSource;
-            this.sensor = sensor;
-            
+            this.pollTriggerEntity = sensorSource;
+            this.pollTriggerSensor = sensor;
+            this.pollCondition = pollCondition;
+
             wrappedJob = new Runnable() {
                 @Override
                 public void run() {
                     try {
+                        if (pollCondition!=null) {
+                            DslPredicates.DslPredicate pc = pollCondition.get();
+                            if (pc!=null) {
+                                if (!pc.apply(BrooklynTaskTags.getContextEntity(Tasks.current()))) {
+                                    if (log.isTraceEnabled()) log.trace("PollJob for {} skipped because condition does not apply", job);
+                                    return;
+                                }
+                            }
+                        }
                         V val = job.call();
                         if (handler.checkSuccess(val)) {
                             handler.onSuccess(val);
@@ -126,8 +178,8 @@ public class Poller<V> {
         oneOffJobs.add(job);
     }
 
-    public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, long period) {
-        scheduleAtFixedRate(job, handler, Duration.millis(period));
+    public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, long periodMillis) {
+        scheduleAtFixedRate(job, handler, Duration.millis(periodMillis));
     }
     public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, Duration period) {
         if (started) {
@@ -137,8 +189,8 @@ public class Poller<V> {
         pollJobs.add(foo);
     }
 
-    public void subscribe(Callable<V> job, PollHandler<? super V> handler, Entity sensorSource, Sensor<?> sensor) {
-        pollJobs.add(new PollJob<V>(job, handler, null, sensorSource, sensor));
+    public void subscribe(Callable<V> job, PollHandler<? super V> handler, Entity sensorSource, Sensor<?> sensor, Supplier<DslPredicates.DslPredicate> condition) {
+        pollJobs.add(new PollJob<V>(job, handler, null, sensorSource, sensor, condition));
     }
 
     @SuppressWarnings({ "unchecked" })
@@ -179,28 +231,32 @@ public class Poller<V> {
                 return task;
             };
 
+            ScheduledTask.Builder tb = ScheduledTask.builder(tf)
+                    .cancelOnException(false)
+                    .tag(feed != null ? BrooklynTaskTags.tagForContextAdjunct(feed) : null);
+
             if (pollJob.pollPeriod!=null && pollJob.pollPeriod.compareTo(Duration.ZERO) > 0) {
-                added =true;
-                ScheduledTask t = ScheduledTask.builder(tf)
-                        .displayName("Periodic: " + scheduleName)
-                        .period(pollJob.pollPeriod)
-                        .cancelOnException(false)
-                        .tag(feed!=null ? BrooklynTaskTags.tagForContextAdjunct(feed) : null)
-                        .build();
-                tasks.add(Entities.submit(entity, t));
+                added = true;
+                tb.displayName("Periodic: " + scheduleName);
+                tb.period(pollJob.pollPeriod);
+
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {
                     minPeriod = pollJob.pollPeriod;
                 }
+            } else {
+                // if no period, we simply need to run it initially
+                tb.displayName("Initial: "+scheduleName);
             }
+            tasks.add(Entities.submit(entity, tb.build()));
 
-            if (pollJob.sensor!=null) {
+            if (pollJob.pollTriggerSensor !=null) {
                 added = true;
                 if (pollJob.subscription!=null) {
                     throw new IllegalStateException(String.format("Attempt to start poller %s of entity %s when already has subscription %s",
                             this, entity, pollJob.subscription));
                 }
-                sensors.add(pollJob.sensor.getName());
-                pollJob.subscription = feed.subscriptions().subscribe(pollJob.sensorSource!=null ? pollJob.sensorSource : feed.getEntity(), pollJob.sensor, event -> {
+                sensors.add(pollJob.pollTriggerSensor.getName());
+                pollJob.subscription = feed.subscriptions().subscribe(pollJob.pollTriggerEntity !=null ? pollJob.pollTriggerEntity : feed.getEntity(), pollJob.pollTriggerSensor, event -> {
                     // submit this on every event
                     try {
                         feed.getExecutionContext().submit(tf.call());
@@ -211,7 +267,7 @@ public class Poller<V> {
             }
 
             if (!added) {
-                if (log.isDebugEnabled()) log.debug("Activating poll (but leaving off, as period {} and no subscriptions) for {} (using {})", new Object[] {pollJob.pollPeriod, entity, this});
+                if (log.isDebugEnabled()) log.debug("Activating poll (as one-off, as no period and no subscriptions) for {} (using {})", new Object[] {entity, this});
             }
         }
         

@@ -227,24 +227,7 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
     
     @Override
     protected void preStart() {
-        SetMultimap<CommandPollIdentifier, CommandPollConfig<?>> polls = config().get(POLLS);
-        
-        for (final CommandPollIdentifier pollInfo : polls.keySet()) {
-            Set<CommandPollConfig<?>> configs = polls.get(pollInfo);
-            long minPeriod = Integer.MAX_VALUE;
-            Set<AttributePollHandler<? super SshPollValue>> handlers = Sets.newLinkedHashSet();
-
-            for (CommandPollConfig<?> config : configs) {
-                handlers.add(new AttributePollHandler<SshPollValue>(config, entity, this));
-                if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
-            }
-
-            AbstractAddTriggerableSensor.scheduleWithTriggers(this, getPoller(), new Callable<SshPollValue>() {
-                @Override
-                public SshPollValue call() throws Exception {
-                    return exec(pollInfo.command.get(), pollInfo.env.get());
-                }}, new DelegatingPollHandler(handlers), minPeriod, configs);
-        }
+        getPoller().scheduleFeed(this, getConfig(POLLS), pollInfo -> () -> exec(pollInfo.command.get(), pollInfo.env.get()));
     }
     
     @Override

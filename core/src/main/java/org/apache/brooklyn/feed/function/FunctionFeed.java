@@ -33,7 +33,11 @@ import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.http.HttpToolResponse;
+import org.apache.brooklyn.util.http.auth.UsernamePassword;
+import org.apache.brooklyn.util.http.executor.HttpRequest;
+import org.apache.brooklyn.util.http.executor.HttpResponse;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -200,18 +204,6 @@ public class FunctionFeed extends AbstractFeed {
     @SuppressWarnings({ "unchecked", "rawtypes" })
     @Override
     protected void preStart() {
-        SetMultimap<FunctionPollIdentifier, FunctionPollConfig<?, ?>> polls = getConfig(POLLS);
-        for (final FunctionPollIdentifier pollInfo : polls.keySet()) {
-            Set<FunctionPollConfig<?,?>> configs = polls.get(pollInfo);
-            long minPeriod = Integer.MAX_VALUE;
-            Set<AttributePollHandler<?>> handlers = Sets.newLinkedHashSet();
-
-            for (FunctionPollConfig<?,?> config : configs) {
-                handlers.add(new AttributePollHandler(config, entity, this));
-                if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
-            }
-
-            AbstractAddTriggerableSensor.scheduleWithTriggers(this, getPoller(), (Callable)pollInfo.job, new DelegatingPollHandler(handlers), minPeriod, configs);
-        }
+        getPoller().scheduleFeed(this, getConfig(POLLS), pollInfo -> pollInfo.job);
     }
 }

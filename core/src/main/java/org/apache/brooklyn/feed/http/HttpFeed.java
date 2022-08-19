@@ -375,53 +375,27 @@ public class HttpFeed extends AbstractFeed {
 
     @Override
     protected void preStart() {
-        SetMultimap<HttpPollIdentifier, HttpPollConfig<?>> polls = getConfig(POLLS);
+        getPoller().scheduleFeed(this, getConfig(POLLS), pollInfo -> () -> {
+                if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
 
-        for (final HttpPollIdentifier pollInfo : polls.keySet()) {
-            // Though HttpClients are thread safe and can take advantage of connection pooling
-            // and authentication caching, the httpcomponents documentation says:
-            //    "While HttpClient instances are thread safe and can be shared between multiple
-            //     threads of execution, it is highly recommended that each thread maintains its
-            //     own dedicated instance of HttpContext.
-            //  http://hc.apache.org/httpcomponents-client-ga/tutorial/html/connmgmt.html
-
-            Set<HttpPollConfig<?>> configs = polls.get(pollInfo);
-            long minPeriod = Integer.MAX_VALUE;
-            Set<AttributePollHandler<? super HttpToolResponse>> handlers = Sets.newLinkedHashSet();
-
-            for (HttpPollConfig<?> config : configs) {
-                handlers.add(new AttributePollHandler<HttpToolResponse>(config, entity, this));
-                if (config.getPeriod() > 0) minPeriod = Math.min(minPeriod, config.getPeriod());
-            }
-
-            Callable<HttpToolResponse> pollJob;
-            pollJob = new Callable<HttpToolResponse>() {
-                @Override
-                public HttpToolResponse call() throws Exception {
-                    if (log.isTraceEnabled()) log.trace("http polling for {} sensors at {}", entity, pollInfo);
-
-                    UsernamePassword creds = null;
-                    if (pollInfo.credentials.isPresent()) {
-                        creds =  new UsernamePassword(
-                                pollInfo.credentials.get().getUserPrincipal().getName(),
-                                pollInfo.credentials.get().getPassword());
-                    }
-
-                    final long startTime = System.currentTimeMillis();
-                    HttpResponse response =  pollInfo.httpExecutor.execute(new HttpRequest.Builder()
-                            .headers(pollInfo.headers)
-                            .uri(pollInfo.uriProvider.get())
-                            .credentials(creds)
-                            .method(pollInfo.method)
-                            .body(pollInfo.body)
-                            .config(BrooklynHttpConfig.httpConfigBuilder(getEntity()).build())
-                            .build());
-                    return createHttpToolRespose(response, startTime);
+                UsernamePassword creds = null;
+                if (pollInfo.credentials.isPresent()) {
+                    creds = new UsernamePassword(
+                            pollInfo.credentials.get().getUserPrincipal().getName(),
+                            pollInfo.credentials.get().getPassword());
                 }
-            };
 
-            AbstractAddTriggerableSensor.scheduleWithTriggers(this, getPoller(), pollJob, new DelegatingPollHandler<HttpToolResponse>(handlers), minPeriod, configs);
-        }
+                final long startTime = System.currentTimeMillis();
+                HttpResponse response = pollInfo.httpExecutor.execute(new HttpRequest.Builder()
+                        .headers(pollInfo.headers)
+                        .uri(pollInfo.uriProvider.get())
+                        .credentials(creds)
+                        .method(pollInfo.method)
+                        .body(pollInfo.body)
+                        .config(BrooklynHttpConfig.httpConfigBuilder(getEntity()).build())
+                        .build());
+                return createHttpToolRespose(response, startTime);
+        });
     }
 
     @Override

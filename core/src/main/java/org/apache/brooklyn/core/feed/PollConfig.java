@@ -21,9 +21,11 @@ package org.apache.brooklyn.core.feed;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.time.Duration;
 
 /**
@@ -36,6 +38,7 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
     private long period = -1;
     private Object otherTriggers;
     private String description;
+    private Supplier<DslPredicates.DslPredicate> condition;
 
     public PollConfig(AttributeSensor<T> sensor) {
         super(sensor);
@@ -45,6 +48,7 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
         super(other);
         this.period = other.period;
         this.otherTriggers = other.otherTriggers;
+        this.condition = other.condition;
         this.description = other.description;
     }
 
@@ -80,6 +84,15 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
 
     public Object getOtherTriggers() {
         return otherTriggers;
+    }
+
+    public F condition(Supplier<DslPredicates.DslPredicate> condition) {
+        this.condition = condition;
+        return self();
+    }
+
+    public Supplier<DslPredicates.DslPredicate> getCondition() {
+        return condition;
     }
 
     public String getDescription() {

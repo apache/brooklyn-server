@@ -20,39 +20,28 @@ package org.apache.brooklyn.core.sensor;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.api.sensor.SensorEvent;
-import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.BasicConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.effector.AddSensorInitializer;
-import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.feed.*;
 import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
-import org.apache.brooklyn.feed.http.HttpPollConfig;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.javalang.AtomicReferences;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
-import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
-
-import static com.fasterxml.jackson.databind.type.LogicalType.Collection;
 
 /**
  * Super-class for entity initializers that add feeds.
@@ -62,27 +51,11 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
 
     public static final ConfigKey<Object> SENSOR_TRIGGERS = ConfigKeys.newConfigKey(new TypeToken<Object>() {}, "triggers",
             "Sensors which should trigger this feed, supplied with list of maps containing sensor (name or sensor instance) and entity (ID or entity instance), or just sensor names or just one sensor");
+    public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition", "Optional condition required for this sensor feed to run");
 
     protected AbstractAddTriggerableSensor() {}
     public AbstractAddTriggerableSensor(ConfigBag parameters) {
         super(parameters);
-    }
-
-    public static <V> void scheduleWithTriggers(AbstractFeed feed, Poller<V> poller, Callable<V> pollJob, PollHandler<V> handler, long minPeriod, Set<? extends PollConfig> configs) {
-        // the logic for feeds with pollers is unncessarily convoluted; for now we try to standardize by routing calls that take other triggers
-        // through this method; would be nice to clean up (but a big job)
-
-        if (minPeriod>0 && minPeriod < Duration.PRACTICALLY_FOREVER.toMilliseconds()) {
-            poller.scheduleAtFixedRate(pollJob, handler, minPeriod);
-        }
-        for (PollConfig pc: configs) {
-            if (pc.getOtherTriggers()!=null) {
-                List<Pair<Entity, Sensor>> triggersResolved = resolveTriggers(feed.getEntity(), pc.getOtherTriggers());
-                triggersResolved.forEach(pair -> {
-                    poller.subscribe(pollJob, handler, pair.getLeft(), pair.getRight());
-                });
-            }
-        }
     }
 
     @JsonIgnore
@@ -99,7 +72,8 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
         return Tasks.resolving(config, SENSOR_TRIGGERS).context(context).deep().immediately(true).getMaybe();
     }
 
-    static List<Pair<Entity,Sensor>> resolveTriggers(Entity context, Object otherTriggers) {
+    @Beta
+    public static List<Pair<Entity,Sensor>> resolveTriggers(Entity context, Object otherTriggers) {
         Object triggers = Tasks.resolving(otherTriggers, Object.class).context(context).deep().immediately(true).get();
 
         if (triggers==null || (triggers instanceof Collection && ((Collection)triggers).isEmpty())) return Collections.emptyList();
@@ -174,7 +148,7 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
         @JsonIgnore
         String sensorName;
 
-        // TODO could support predicates on the value
+        // could support predicates on the value; but we do it on the entity which is enough
 
         public void setEntity(Entity entity) {
             this.entity = entity;
@@ -207,7 +181,23 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
                 .logWarningGraceTimeOnStartup(logWarningGraceTimeOnStartup)
                 .logWarningGraceTime(logWarningGraceTime)
                 .period(getPeriod(entity, initParams()))
-                .otherTriggers(getTriggersMaybe(entity, configBag).orNull());
+                .otherTriggers(getTriggersMaybe(entity, configBag).orNull())
+                .condition(new ConditionSupplier(configBag, entity));
+    }
+
+    static class ConditionSupplier implements Supplier<DslPredicates.DslPredicate> {
+        final ConfigBag configBag;
+        final Entity entity;
+
+        ConditionSupplier(ConfigBag configBag, Entity entity) {
+            this.configBag = configBag;
+            this.entity = entity;
+        }
+
+        @Override
+        public DslPredicates.DslPredicate get() {
+            return Tasks.resolving(configBag, CONDITION).context(entity).deep().immediately(true).get();
+        }
     }
 
 }
