@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.sensor.AttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.BasicNotificationSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.collect.ImmutableList;
@@ -74,6 +75,7 @@ public interface TestEntity extends Entity, Startable, EntityLocal, EntityIntern
     public static final SetConfigKey<String> CONF_SET_THING = new SetConfigKey<String>(String.class, "test.confSetThing", "Configuration key that's a set thing");
     public static final SetConfigKey<Object> CONF_SET_OBJ_THING = new SetConfigKey<Object>(Object.class, "test.confSetObjThing", "Configuration key that's a set thing, of objects");
     public static final BasicConfigKey<Object> CONF_OBJECT = new BasicConfigKey<Object>(Object.class, "test.confObject", "Configuration key that's an object");
+    public static final BasicConfigKey<DslPredicates.DslPredicate> CONF_PREDICATE = new BasicConfigKey<DslPredicates.DslPredicate>(DslPredicates.DslPredicate.class, "test.confPredicate", "Configuration key that's a predicate/filter");
     public static final ConfigKey<Integer> CONF_INTEGER = ConfigKeys.newConfigKey(Integer.class, "test.confInteger", "Configuration key, an integer");
     public static final ConfigKey<Double> CONF_DOUBLE = ConfigKeys.newConfigKey(Double.class, "test.confDouble", "Configuration key, a double");
     public static final ConfigKey<EntitySpec<? extends Entity>> CHILD_SPEC = ConfigKeys.newConfigKey(new TypeToken<EntitySpec<? extends Entity>>() {}, "test.childSpec", "Spec to be used for creating children");

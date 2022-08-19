@@ -87,7 +87,7 @@ public class DslPredicateEntityTest extends BrooklynAppUnitTestSupport {
         Asserts.assertFalse(p.test(app));
     }
 
-    // TODO would be nice to add tag, location tests -- but manual checking has confirmed they work
+    // ----- some weird stuff -----
 
     @Test
     // would be nice to support all the EntityPredicates with the new mechanism; but coercion works well enough in practice,
@@ -132,5 +132,7 @@ public class DslPredicateEntityTest extends BrooklynAppUnitTestSupport {
         Asserts.assertFalse(p.test("y"));
     }
 
+
+    // note: tags, config, dsl values, etc are tested in camp project DslPredicateYamlTest
 
 }

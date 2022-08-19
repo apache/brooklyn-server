@@ -56,6 +56,8 @@ import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.WildcardGlobs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
@@ -66,9 +68,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 public class DslPredicates {
+
+    private static final Logger LOG = LoggerFactory.getLogger(DslPredicates.class);
 
     static AtomicBoolean initialized = new AtomicBoolean(false);
     public static void init() {
@@ -210,16 +213,18 @@ public class DslPredicates {
             int checksDefined = 0;
             int checksApplicable = 0;
             int checksPassed = 0;
-            public <T> void check(T test, java.util.function.Predicate<T> check) {
+
+            public <T> void checkTest(T test, java.util.function.Predicate<T> predicateForTest) {
                 if (test!=null) {
                     checksDefined++;
                     checksApplicable++;
-                    if (check.test(test)) checksPassed++;
+                    if (predicateForTest.test(test)) checksPassed++;
                 }
             }
+
             public <T> void check(T test, Maybe<Object> value, java.util.function.BiPredicate<T,Object> check) {
                 if (value.isPresent()) {
-                    check(test, t -> check.test(t, value.get()));
+                    checkTest(test, t -> check.test(t, value.get()));
                 } else {
                     if (test!=null) {
                         checksDefined++;
@@ -297,7 +302,7 @@ public class DslPredicates {
         }
 
         public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
-            checker.check(implicitEquals, result, (test,value) -> {
+            checker.check(implicitEquals, result, (test, value) -> {
                 if ((!(test instanceof BrooklynObject) && value instanceof BrooklynObject) ||
                         (!(test instanceof Iterable) && value instanceof Iterable)) {
                     throw new IllegalStateException("Implicit string used for equality check comparing "+test+" with "+value+", which is probably not what was meant. Use explicit 'equals: ...' syntax for this case.");
@@ -305,8 +310,8 @@ public class DslPredicates {
                 return DslPredicates.coercedEqual(test, value);
             });
             checker.check(equals, result, DslPredicates::coercedEqual);
-            checker.check(regex, result, (test,value) -> asStringTestOrFalse(value, v -> v.matches(test)));
-            checker.check(glob, result, (test,value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(test, v)));
+            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> v.matches(test)));
+            checker.check(glob, result, (test, value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(test, v)));
 
             checker.check(inRange, result, (test,value) ->
                 // current Range only supports Integer, but this code will support any
@@ -328,9 +333,9 @@ public class DslPredicates {
                 return false;
             });
 
-            checker.check(check, test -> nestedPredicateCheck(check, result));
-            checker.check(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
-            checker.check(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
+            checker.checkTest(check, test -> nestedPredicateCheck(check, result));
+            checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
+            checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
             checker.check(javaInstanceOf, result, (test, value) -> {
                 Entity ent = null;
@@ -346,11 +351,11 @@ public class DslPredicates {
 
                 return tt.get().isSupertypeOf(value.getClass());
             });
-            checker.check(javaTypeName, (test) -> nestedPredicateCheck(test, result.map(v -> v.getClass().getName())));
+            checker.checkTest(javaTypeName, (test) -> nestedPredicateCheck(test, result.map(v -> v.getClass().getName())));
         }
 
         protected void checkWhen(WhenPresencePredicate when, Maybe<Object> result, CheckCounts checker) {
-            checker.check(when, test -> {
+            checker.checkTest(when, test -> {
                 switch (test) {
                     case PRESENT: return result.isPresent();
                     case PRESENT_NON_NULL: return result.isPresentAndNonNull();
