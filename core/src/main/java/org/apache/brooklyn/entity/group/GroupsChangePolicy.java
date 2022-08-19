@@ -188,7 +188,7 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                             EntityInitializer initializer = entityInitializerMaybe.get();
                             initializer.apply((EntityInternal) member);
                         } else {
-                            LOG.debug("Unable to initialize {} due to {}", type, Maybe.getException(entityInitializerMaybe));
+                            LOG.debug("Unable to initialize {} due to {}", type, Maybe.getException(entityInitializerMaybe), Maybe.getException(entityInitializerMaybe));
                         }
                     } catch (Throwable e) {
                         throw Exceptions.propagate(e);
