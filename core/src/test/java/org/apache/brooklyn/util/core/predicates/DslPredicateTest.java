@@ -273,6 +273,30 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
+    public void testJsonpath() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("jsonpath", "name", "regex", "[Bb].*"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(MutableMap.of("id", 123, "name", "Bob")));
+        Asserts.assertFalse(p.test(MutableMap.of("id", 124, "name", "Astrid")));
+        Asserts.assertFalse(p.test(MutableMap.of("id", 0)));
+        Asserts.assertFalse(p.test(MutableList.of("id", 0)));
+        Asserts.assertFalse(p.test("not json"));
+
+        p = TypeCoercions.coerce(MutableMap.of("jsonpath", "$.[*].name", "has-element", MutableMap.of("regex", "[Bb].*")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(MutableList.of(MutableMap.of("id", 123, "name", "Bob"), MutableMap.of("id", 124, "name", "Astrid"))));
+        Asserts.assertFalse(p.test(MutableList.of(MutableMap.of("id", 125), MutableMap.of("id", 124, "name", "Astrid"))));
+        Asserts.assertFalse(p.test(MutableList.of(MutableMap.of("id", 125))));
+
+        p = TypeCoercions.coerce(MutableMap.of("jsonpath", "[*].name",
+                "check",
+                    MutableMap.of("filter", MutableMap.of("regex", "[Bb].*"),
+                        "size", 1))
+                , DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(MutableList.of(MutableMap.of("id", 123, "name", "Bob"), MutableMap.of("id", 124, "name", "Astrid"))));
+        Asserts.assertFalse(p.test(MutableList.of(MutableMap.of("id", 125), MutableMap.of("id", 124, "name", "Astrid"))));
+        Asserts.assertFalse(p.test(MutableList.of(MutableMap.of("id", 125))));
+    }
+
+    @Test
     public void testLocationTagImplicitEquals() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
                 "target", "location",

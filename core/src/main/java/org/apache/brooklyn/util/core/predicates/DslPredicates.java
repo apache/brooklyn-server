@@ -21,6 +21,7 @@ package org.apache.brooklyn.util.core.predicates;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
@@ -29,6 +30,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
+import com.jayway.jsonpath.JsonPath;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
@@ -37,6 +39,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
@@ -46,6 +49,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
@@ -194,6 +198,8 @@ public class DslPredicates {
         public List<DslPredicate> all;
 
         public @JsonProperty("has-element") DslPredicate hasElement;
+        public DslPredicate size;
+        public DslPredicate filter;
         public Object key;
         public Integer index;
         public String jsonpath;
@@ -268,6 +274,7 @@ public class DslPredicates {
 
             if (index != null) resolvers.put("index", (value) -> {
                 Integer i = index;
+                if (value instanceof Map) value = ((Map)value).entrySet();
                 if (value instanceof Iterable) {
                     int size = Iterables.size((Iterable) value);
                     if (i<0) {
@@ -278,6 +285,48 @@ public class DslPredicates {
                 } else {
                     return Maybe.absent("Cannot evaluate index on non-list target");
                 }
+            });
+
+            if (filter != null) resolvers.put("filter", (value) -> {
+                if (value instanceof Map) value = ((Map)value).entrySet();
+                if (value instanceof Iterable) {
+                    return Maybe.of(Iterables.filter((Iterable) value, filter));
+                } else {
+                    return Maybe.absent("Cannot evaluate filter on non-list target");
+                }
+            });
+
+            if (jsonpath!=null) resolvers.put("jsonpath", (value) -> {
+                Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+                String json;
+                try {
+                    json = BeanWithTypeUtils.newMapper(entity!=null ? ((EntityInternal)entity).getManagementContext() : null, false, null, false).writeValueAsString(value);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    if (LOG.isTraceEnabled()) LOG.trace("Unable to consider jsonpath for non-serializable '"+value+"' due to: "+e, e);
+                    return Maybe.absent("Cannot serialize object as JSON");
+                }
+
+                String jsonpathTidied = jsonpath;
+                if (jsonpathTidied!=null && !jsonpathTidied.startsWith("$")) {
+                    if (jsonpathTidied.startsWith("@") || jsonpathTidied.startsWith(".") || jsonpathTidied.startsWith("[")) {
+                        jsonpathTidied = "$" + jsonpathTidied;
+                    } else {
+                        jsonpathTidied = "$." + jsonpathTidied;
+                    }
+                }
+                Object result;
+                try {
+                    result = JsonPath.read(json, jsonpathTidied);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    if (LOG.isTraceEnabled()) LOG.trace("Unable to evaluate jsonpath '"+jsonpathTidied+"' for '"+value+"' due to: "+e, e);
+                    return Maybe.absent("Cannot evaluate jsonpath");
+                }
+
+                // above will throw if jsonpath doesn't match anything
+                // this will return single object possibly null, or a list possibly empty
+                return Maybe.ofAllowingNull(result);
             });
         }
 
@@ -297,7 +346,9 @@ public class DslPredicates {
         public boolean applyToResolved(Maybe<Object> result) {
             CheckCounts counts = new CheckCounts();
             applyToResolved(result, counts);
-            if (counts.checksDefined==0) throw new IllegalStateException("Predicate does not define any checks; if always true or always false is desired, use 'when'");
+            if (counts.checksDefined==0) {
+                throw new IllegalStateException("Predicate does not define any checks; if always true or always false is desired, use 'when'");
+            }
             return counts.allPassed(true);
         }
 
@@ -332,8 +383,17 @@ public class DslPredicates {
                 }
                 return false;
             });
+            checker.check(size, result, (test,value) -> {
+                Integer computedSize = null;
+                if (value instanceof CharSequence) computedSize = ((CharSequence)value).length();
+                else if (value instanceof Map) computedSize = ((Map)value).size();
+                else if (value instanceof Iterable) computedSize = Iterables.size((Iterable)value);
+                else return nestedPredicateCheck(test, Maybe.absent("size not applicable"));
 
-            checker.checkTest(check, test -> nestedPredicateCheck(check, result));
+                return nestedPredicateCheck(test, Maybe.of(computedSize));
+            });
+
+            checker.checkTest(check, test -> nestedPredicateCheck(test, result));
             checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
             checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
@@ -394,7 +454,10 @@ public class DslPredicates {
     @Beta
     public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2> {
         public DslPredicateDefault() {}
+
+        // allow a string or int to be an implicit equality target
         public DslPredicateDefault(String implicitEquals) { this.implicitEquals = implicitEquals; }
+        public DslPredicateDefault(Integer implicitEquals) { this.implicitEquals = implicitEquals; }
 
         public Object target;
 
@@ -447,7 +510,10 @@ public class DslPredicates {
 
         protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
             if ("location".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
+            if ("locations".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
             if ("children".equals(target) && input instanceof Entity) return Maybe.of( ((Entity)input).getChildren() );
+            if ("tags".equals(target) && input instanceof BrooklynObject) return Maybe.of( ((BrooklynObject)input).tags().getTags() );
+
             return Maybe.absent("Unsupported target '"+target+"' on input "+input);
         }
 
@@ -467,9 +533,6 @@ public class DslPredicates {
 
         public boolean checkTag(DslPredicate tagCheck, Object value) {
             if (value instanceof BrooklynObject) return ((BrooklynObject) value).tags().getTags().stream().anyMatch(tag);
-
-            // not needed, caller iterates
-            //if (value instanceof Iterable) return MutableList.of((Iterable) value).stream().anyMatch(vv -> checkTag(tagCheck, vv));
 
             return false;
         }
