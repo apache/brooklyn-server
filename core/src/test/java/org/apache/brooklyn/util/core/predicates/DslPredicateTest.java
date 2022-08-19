@@ -55,18 +55,16 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testImplicitEquals() {
+    public void testImplicitEqualsAsDslPredicate() {
         Predicate p = TypeCoercions.coerce("x", DslPredicates.DslPredicate.class);
         Asserts.assertTrue(p.test("x"));
         Asserts.assertFalse(p.test("y"));
     }
 
     @Test
-    public void testImplicitEqualsAsPredicateNotSupported() {
+    public void testImplicitEqualsAsRawPredicateNotSupported() {
         Asserts.assertFailsWith(() -> {
                 Predicate p = TypeCoercions.coerce("x", Predicate.class);
-//                Asserts.assertTrue(p.test("x"));
-//                Asserts.assertFalse(p.test("y"));
         }, e -> {
                 Asserts.assertStringContainsIgnoreCase(e.toString(), "cannot coerce", "string", "predicate");
                 return true;
@@ -217,8 +215,43 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         }
     }
 
+    // auto-unflattening was too weird; instead prompt for "element", also "map-key", "map-value"
+//    @Test
+//    public void testAllWithListWithVariousFlattening() {
+//        Asserts.assertTrue(SetAllowingEqualsToList.of(MutableSet.of("y", "x")).equals(MutableList.of("x", "y")));
+//
+//        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("equals", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
+//        Asserts.assertTrue(p.test(Arrays.asList("x", "y")));
+//        // list not equal because of order and equal
+//        Asserts.assertFalse(p.test(Arrays.asList("y", "x")));
+//        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
+//        // set equality _does_ match without order
+//        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
+//
+//        // "all" works because it attempts unflattened at all, then flattens on each test
+//        p = TypeCoercions.coerce(MutableMap.of("all", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
+//        Asserts.assertTrue(p.test(Arrays.asList("y", "x")));
+//        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
+//        // set equality _does_ match!
+//        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
+//
+//        // specify unflattening also works, but is unnecessary
+//        p = TypeCoercions.coerce(MutableMap.of("unflattened", MutableMap.of("all", MutableList.of("x", "y"))), DslPredicates.DslPredicate.class);
+//        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
+//
+//        p = TypeCoercions.coerce(MutableMap.of("unflattened", MutableMap.of("equals", MutableList.of("x", "y"))), DslPredicates.DslPredicate.class);
+//        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
+//        Asserts.assertTrue(p.test(Arrays.asList("x", "y")));
+//
+//        p = TypeCoercions.coerce("x", DslPredicates.DslPredicate.class);
+//        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
+//
+////        DslPredicates.DslPredicate
+//                p = TypeCoercions.coerce(MutableMap.of("unflattened", "x"), DslPredicates.DslPredicate.class);
+//        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
+//    }
     @Test
-    public void testAllWithListWithVariousFlattening() {
+    public void testListsAndElement() {
         Asserts.assertTrue(SetAllowingEqualsToList.of(MutableSet.of("y", "x")).equals(MutableList.of("x", "y")));
 
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("equals", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
@@ -229,16 +262,31 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         // set equality _does_ match without order
         Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
 
-        // "all" works because it attempts unflattened at all, then flattens on each test
-        p = TypeCoercions.coerce(MutableMap.of("all", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
-        Asserts.assertTrue(p.test(Arrays.asList("y", "x")));
-        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
-        // set equality _does_ match!
-        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
+        // no longer automatically unflatted
+        p = TypeCoercions.coerce(MutableMap.of("equals", "x"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(Arrays.asList("y", "x")));
+        Asserts.assertFalse(p.test(Arrays.asList("x")));
+        Asserts.assertTrue(p.test("x"));
+        // and implicit equals gives error
+        Asserts.assertFailsWith(() -> {
+                    DslPredicates.DslPredicate p2 = TypeCoercions.coerce("x", DslPredicates.DslPredicate.class);
+                    Asserts.assertFalse(p2.test(Arrays.asList("x")));
+                }, e -> Asserts.expectedFailureContainsIgnoreCase(e, "explicit", "equals"));
 
-        // specify unflattening also works, but is unnecessary
-        p = TypeCoercions.coerce(MutableMap.of("unflattened", MutableMap.of("all", MutableList.of("x", "y"))), DslPredicates.DslPredicate.class);
+        // "has-element" now supported
+        p = TypeCoercions.coerce(MutableMap.of("has-element", "x"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(Arrays.asList("y", "x")));
+        Asserts.assertFalse(p.test(Arrays.asList("y", "z")));
+
+        // and can be nested to require multiple elements
+        p = TypeCoercions.coerce(MutableMap.of("all", MutableList.of(MutableMap.of("has-element", "x"), MutableMap.of("has-element","y"))), DslPredicates.DslPredicate.class);
         Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
+        Asserts.assertFalse(p.test(Arrays.asList("x", "z")));
+
+        // and can take another predicate
+        p = TypeCoercions.coerce(MutableMap.of("has-element", MutableMap.of("glob", "?")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(Arrays.asList("xx", "y")));
+        Asserts.assertFalse(p.test(Arrays.asList("xx", "yy")));
     }
 
     @Test

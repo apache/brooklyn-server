@@ -84,7 +84,7 @@ public class DslPredicates {
         init();
     }
 
-    public static enum WhenPresencePredicate {
+    public enum WhenPresencePredicate {
         /** value cannot be resolved (not even as null) */ ABSENT,
         /** value is null or cannot be resolved */ ABSENT_OR_NULL,
         /** value is available, but might be null */ PRESENT,
@@ -179,6 +179,10 @@ public class DslPredicates {
         public List<DslPredicate> any;
         public List<DslPredicate> all;
 
+        public @JsonProperty("has-element") DslPredicate hasElement;
+//        public @JsonProperty("at-key") DslPredicate containsKey;
+//        public @JsonProperty("at-index") DslPredicate containsValue;
+
         public WhenPresencePredicate when;
 
         public @JsonProperty("in-range") Range inRange;
@@ -265,6 +269,32 @@ public class DslPredicates {
 
             checkWhen(when, result, checker);
 
+            checker.check(hasElement, result, (test,value) -> {
+                if (value instanceof Map) value = ((Map)value).entrySet();
+                if (value instanceof Iterable) {
+                    for (Object v : ((Iterable) value)) {
+                        if (test.apply((T) v)) return true;
+                    }
+                }
+                return false;
+            });
+
+            // TODO at-key, at-value; preserver order
+//            checker.check(element, test -> nestedPredicateCheck(test, result));
+//
+//            if (result.isPresent() && result.get() instanceof Iterable) {
+//                // iterate through lists
+//                for (Object v : ((Iterable) result.get())) {
+//                    CheckCounts checker2 = new CheckCounts();
+//                    applyToResolved(v instanceof Maybe ? (Maybe) v : Maybe.of(v), checker2);
+//                    if (checker2.allPassed(true)) {
+//                        checker.add(checker2);
+//                        return;
+//                    }
+//                }
+//                // did not pass when flattened; try with unflattened
+//            }
+
             checker.check(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
             checker.check(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
@@ -302,7 +332,12 @@ public class DslPredicates {
         }
 
         protected boolean nestedPredicateCheck(DslPredicate p, Maybe<Object> result) {
-            return result.isPresent() ? p.apply(result.get()) : p instanceof DslEntityPredicateDefault ? ((DslEntityPredicateDefault)p).applyToResolved(result) : false;
+            return result.isPresent()
+                    ? p.apply(result.get())
+                    : p instanceof DslPredicateBase
+                    // in case it does a when: absent check
+                    ? ((DslEntityPredicateDefault)p).applyToResolved(result)
+                    : false;
         }
     }
 
@@ -324,9 +359,6 @@ public class DslPredicates {
 
         public Object target;
 
-        /** test to be applied prior to any flattening of lists (eg if targetting children */
-        public DslPredicate unflattened;
-
         public String config;
         public String sensor;
         public DslPredicate tag;
@@ -345,36 +377,6 @@ public class DslPredicates {
                 result = resolver.getMaybe();
             }
 
-            return result;
-        }
-
-        protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
-            if ("location".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
-            if ("children".equals(target) && input instanceof Entity) return Maybe.of( ((Entity)input).getChildren() );
-            return Maybe.absent("Unsupported target '"+target+"' on input "+input);
-        }
-
-        @Override
-        public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
-            checker.check(unflattened, test -> nestedPredicateCheck(test, result));
-
-            if (result.isPresent() && result.get() instanceof Iterable) {
-                // iterate through lists
-                for (Object v : ((Iterable) result.get())) {
-                    CheckCounts checker2 = new CheckCounts();
-                    applyToResolvedFlattened(v instanceof Maybe ? (Maybe) v : Maybe.of(v), checker2);
-                    if (checker2.allPassed(true)) {
-                        checker.add(checker2);
-                        return;
-                    }
-                }
-                // did not pass when flattened; try with unflattened
-            }
-
-            applyToResolvedFlattened(result, checker);
-        }
-
-        public void applyToResolvedFlattened(Maybe<Object> result, CheckCounts checker) {
             if (config!=null) {
                 if (sensor!=null) {
                     throw new IllegalStateException("One predicate cannot specify to test both config key '"+config+"' and sensor '"+sensor+"'; use 'all' with children");
@@ -406,7 +408,19 @@ public class DslPredicates {
                 }
             }
 
+            return result;
+        }
+
+        protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
+            if ("location".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
+            if ("children".equals(target) && input instanceof Entity) return Maybe.of( ((Entity)input).getChildren() );
+            return Maybe.absent("Unsupported target '"+target+"' on input "+input);
+        }
+
+        @Override
+        public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
             super.applyToResolved(result, checker);
+
             checker.check(tag, result, this::checkTag);
 
             if (checker.checksDefined==0) {
