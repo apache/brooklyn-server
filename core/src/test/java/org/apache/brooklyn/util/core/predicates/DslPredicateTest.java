@@ -215,41 +215,6 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         }
     }
 
-    // auto-unflattening was too weird; instead prompt for "element", also "map-key", "map-value"
-//    @Test
-//    public void testAllWithListWithVariousFlattening() {
-//        Asserts.assertTrue(SetAllowingEqualsToList.of(MutableSet.of("y", "x")).equals(MutableList.of("x", "y")));
-//
-//        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("equals", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
-//        Asserts.assertTrue(p.test(Arrays.asList("x", "y")));
-//        // list not equal because of order and equal
-//        Asserts.assertFalse(p.test(Arrays.asList("y", "x")));
-//        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
-//        // set equality _does_ match without order
-//        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
-//
-//        // "all" works because it attempts unflattened at all, then flattens on each test
-//        p = TypeCoercions.coerce(MutableMap.of("all", MutableList.of("x", "y")), DslPredicates.DslPredicate.class);
-//        Asserts.assertTrue(p.test(Arrays.asList("y", "x")));
-//        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
-//        // set equality _does_ match!
-//        Asserts.assertTrue(p.test(SetAllowingEqualsToList.of(MutableSet.of("y", "x"))));
-//
-//        // specify unflattening also works, but is unnecessary
-//        p = TypeCoercions.coerce(MutableMap.of("unflattened", MutableMap.of("all", MutableList.of("x", "y"))), DslPredicates.DslPredicate.class);
-//        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
-//
-//        p = TypeCoercions.coerce(MutableMap.of("unflattened", MutableMap.of("equals", MutableList.of("x", "y"))), DslPredicates.DslPredicate.class);
-//        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
-//        Asserts.assertTrue(p.test(Arrays.asList("x", "y")));
-//
-//        p = TypeCoercions.coerce("x", DslPredicates.DslPredicate.class);
-//        Asserts.assertTrue(p.test(Arrays.asList("x", "y", "z")));
-//
-////        DslPredicates.DslPredicate
-//                p = TypeCoercions.coerce(MutableMap.of("unflattened", "x"), DslPredicates.DslPredicate.class);
-//        Asserts.assertFalse(p.test(Arrays.asList("x", "y", "z")));
-//    }
     @Test
     public void testListsAndElement() {
         Asserts.assertTrue(SetAllowingEqualsToList.of(MutableSet.of("y", "x")).equals(MutableList.of("x", "y")));
@@ -287,6 +252,24 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         p = TypeCoercions.coerce(MutableMap.of("has-element", MutableMap.of("glob", "?")), DslPredicates.DslPredicate.class);
         Asserts.assertTrue(p.test(Arrays.asList("xx", "y")));
         Asserts.assertFalse(p.test(Arrays.asList("xx", "yy")));
+    }
+
+    @Test
+    public void testKeyAndAtIndex() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("key", "name", "regex", "[Bb].*"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(MutableMap.of("id", 123, "name", "Bob")));
+        Asserts.assertFalse(p.test(MutableMap.of("id", 124, "name", "Astrid")));
+
+        p = TypeCoercions.coerce(MutableMap.of("index", -1, "regex", "[Bb].*"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(MutableList.of("Astrid", "Bob")));
+        Asserts.assertFalse(p.test(MutableList.of("Astrid", "Bob", "Carver")));
+
+        // nested check
+        p = TypeCoercions.coerce(MutableMap.of("index", 1,
+                "check", MutableMap.of("key", "name", "regex", "[Bb].*")), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(MutableList.of(MutableMap.of("name", "Bob"))));
+        Asserts.assertTrue(p.test(MutableList.of("Astrid", MutableMap.of("name", "Bob"))));
+        Asserts.assertFalse(p.test(MutableList.of("Astrid", MutableMap.of("name", "Carver"))));
     }
 
     @Test

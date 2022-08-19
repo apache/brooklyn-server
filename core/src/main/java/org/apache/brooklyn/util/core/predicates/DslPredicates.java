@@ -27,6 +27,7 @@ import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -38,9 +39,11 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -63,6 +66,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 public class DslPredicates {
 
@@ -85,8 +89,13 @@ public class DslPredicates {
     }
 
     public enum WhenPresencePredicate {
-        /** value cannot be resolved (not even as null) */ ABSENT,
-        /** value is null or cannot be resolved */ ABSENT_OR_NULL,
+        // we might want these, but it is tricky sometimes even in our code to distinguish!
+//        /** value is set but unresolvable (unset or not immediately resolvable) */ UNRESOLVABLE,
+//        /** value is not set (including set to something not resolvable or not immediately resolvable) */ UNSET,
+//        /** value is set to an explicit null */ NULL,
+
+        /** value unavailable (unset or not immediately resolvable) */ ABSENT,
+        /** value is null or unavailable */ ABSENT_OR_NULL,
         /** value is available, but might be null */ PRESENT,
         /** value is available and non-null (but might be 0 or empty) */ PRESENT_NON_NULL,
         /** value is available and ready/truthy (eg not false or empty) */ TRUTHY,
@@ -176,12 +185,15 @@ public class DslPredicates {
         public String regex;
         public String glob;
 
+        /** nested check */
+        public DslPredicate check;
         public List<DslPredicate> any;
         public List<DslPredicate> all;
 
         public @JsonProperty("has-element") DslPredicate hasElement;
-//        public @JsonProperty("at-key") DslPredicate containsKey;
-//        public @JsonProperty("at-index") DslPredicate containsValue;
+        public Object key;
+        public Integer index;
+        public String jsonpath;
 
         public WhenPresencePredicate when;
 
@@ -236,8 +248,45 @@ public class DslPredicates {
             return applyToResolved(result);
         }
 
+        protected void collectApplicableSpecialFieldTargetResolvers(Map<String,Function<Object,Maybe<Object>>> resolvers) {
+            if (key!=null) resolvers.put("key", (value) -> {
+                if (value instanceof Map) {
+                    if (((Map) value).containsKey(key)) {
+                        return Maybe.ofAllowingNull( ((Map) value).get(key) );
+                    } else {
+                        return Maybe.absent("Cannot find indicated key in map");
+                    }
+                } else {
+                    return Maybe.absent("Cannot evaluate key on non-map target");
+                }
+            });
+
+            if (index != null) resolvers.put("index", (value) -> {
+                Integer i = index;
+                if (value instanceof Iterable) {
+                    int size = Iterables.size((Iterable) value);
+                    if (i<0) {
+                        i = size + i;
+                    }
+                    if (i<0 || i>=size) return Maybe.absent("No element at index "+i+"; size "+size);
+                    return Maybe.of(Iterables.get((Iterable)value, i));
+                } else {
+                    return Maybe.absent("Cannot evaluate index on non-list target");
+                }
+            });
+        }
+
         protected Maybe<Object> resolveTargetAgainstInput(Object input) {
-            return Maybe.ofAllowingNull(input);
+            Map<String,Function<Object,Maybe<Object>>> specialResolvers = MutableMap.of();
+            collectApplicableSpecialFieldTargetResolvers(specialResolvers);
+
+            if (!specialResolvers.isEmpty()) {
+                if (specialResolvers.size()>1) throw new IllegalStateException("Predicate has multiple incompatible target specifiers: "+specialResolvers.keySet());
+                return specialResolvers.values().iterator().next().apply(input);
+
+            } else {
+                return Maybe.ofAllowingNull(input);
+            }
         }
 
         public boolean applyToResolved(Maybe<Object> result) {
@@ -279,22 +328,7 @@ public class DslPredicates {
                 return false;
             });
 
-            // TODO at-key, at-value; preserver order
-//            checker.check(element, test -> nestedPredicateCheck(test, result));
-//
-//            if (result.isPresent() && result.get() instanceof Iterable) {
-//                // iterate through lists
-//                for (Object v : ((Iterable) result.get())) {
-//                    CheckCounts checker2 = new CheckCounts();
-//                    applyToResolved(v instanceof Maybe ? (Maybe) v : Maybe.of(v), checker2);
-//                    if (checker2.allPassed(true)) {
-//                        checker.add(checker2);
-//                        return;
-//                    }
-//                }
-//                // did not pass when flattened; try with unflattened
-//            }
-
+            checker.check(check, test -> nestedPredicateCheck(check, result));
             checker.check(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
             checker.check(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
@@ -336,7 +370,7 @@ public class DslPredicates {
                     ? p.apply(result.get())
                     : p instanceof DslPredicateBase
                     // in case it does a when: absent check
-                    ? ((DslEntityPredicateDefault)p).applyToResolved(result)
+                    ? ((DslPredicateBase)p).applyToResolved(result)
                     : false;
         }
     }
@@ -363,6 +397,31 @@ public class DslPredicates {
         public String sensor;
         public DslPredicate tag;
 
+        protected void collectApplicableSpecialFieldTargetResolvers(Map<String,Function<Object, Maybe<Object>>> resolvers) {
+            super.collectApplicableSpecialFieldTargetResolvers(resolvers);
+
+            if (config!=null) resolvers.put("config", (value) -> {
+                if (value instanceof Configurable) {
+                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Configurable)value).config().get(ConfigKeys.newConfigKey(Object.class, config)))
+                            .as(Object.class).allowDeepResolution(true).immediately(true);
+                    if (value instanceof Entity) resolver.context( (Entity)value );
+                    return resolver.getMaybe();
+                } else {
+                    return Maybe.absent("Config not supported on " + value + " (testing config '" + config + "')");
+                }
+            });
+
+            if (sensor!=null) resolvers.put("sensor", (value) -> {
+                if (value instanceof Entity) {
+                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Entity)value).sensors().get(Sensors.newSensor(Object.class, sensor)))
+                            .as(Object.class).allowDeepResolution(true).immediately(true);
+                    return resolver.getMaybe();
+                } else {
+                    return Maybe.absent("Sensors not supported on " + value + " (testing sensor '" + config + "')");
+                }
+            });
+        }
+
         protected Maybe<Object> resolveTargetAgainstInput(Object input) {
             Object target = this.target;
             Maybe<Object> result;
@@ -377,37 +436,7 @@ public class DslPredicates {
                 result = resolver.getMaybe();
             }
 
-            if (config!=null) {
-                if (sensor!=null) {
-                    throw new IllegalStateException("One predicate cannot specify to test both config key '"+config+"' and sensor '"+sensor+"'; use 'all' with children");
-                }
-
-                if (result.isPresent()) {
-                    Object ro = result.get();
-                    if (ro instanceof Configurable) {
-                        ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Configurable)ro).config().get(ConfigKeys.newConfigKey(Object.class, config)))
-                                .as(Object.class).allowDeepResolution(true).immediately(true);
-                        if (ro instanceof Entity) resolver.context( (Entity)ro );
-                        result = resolver.getMaybe();
-                    } else {
-                        result = Maybe.absent("Config not supported on " + ro + " (testing config '" + config + "')");
-                    }
-                }
-            }
-
-            if (sensor!=null) {
-                if (result.isPresent()) {
-                    Object ro = result.get();
-                    if (ro instanceof Entity) {
-                        ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Entity)ro).sensors().get(Sensors.newSensor(Object.class, sensor)))
-                                .as(Object.class).allowDeepResolution(true).immediately(true);
-                        result = resolver.getMaybe();
-                    } else {
-                        result = Maybe.absent("Sensors not supported on " + ro + " (testing sensor '" + config + "')");
-                    }
-                }
-            }
-
+            result = result.isPresent() ? super.resolveTargetAgainstInput(result.get()) : result;
             return result;
         }
 
