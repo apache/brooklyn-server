@@ -138,10 +138,7 @@ public class ShellFeed extends AbstractFeed {
         }
         public ShellFeed build() {
             built = true;
-            ShellFeed result = new ShellFeed(this);
-            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
-            result.start();
-            return result;
+            return AbstractFeed.initAndMaybeStart(new ShellFeed(this), entity);
         }
         @Override
         protected void finalize() {

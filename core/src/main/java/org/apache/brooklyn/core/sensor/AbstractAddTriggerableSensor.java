@@ -53,6 +53,8 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
             "Sensors which should trigger this feed, supplied with list of maps containing sensor (name or sensor instance) and entity (ID or entity instance), or just sensor names or just one sensor");
     public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition", "Optional condition required for this sensor feed to run");
 
+    public static final ConfigKey<Boolean> ONLY_IF_SERVICE_UP = ConfigKeys.newBooleanConfigKey("onlyIfServiceUp", "Whether to run only if service is up.", null);
+
     protected AbstractAddTriggerableSensor() {}
     public AbstractAddTriggerableSensor(ConfigBag parameters) {
         super(parameters);

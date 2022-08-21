@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.PollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.entity.software.base.SoftwareProcessImpl;
+import org.apache.brooklyn.feed.windows.WindowsPerformanceCounterFeed;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -167,10 +168,7 @@ public class JmxFeed extends AbstractFeed {
         }
         public JmxFeed build() {
             built = true;
-            JmxFeed result = new JmxFeed(this);
-            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
-            result.start();
-            return result;
+            return AbstractFeed.initAndMaybeStart(new JmxFeed(this), entity);
         }
         @Override
         protected void finalize() {

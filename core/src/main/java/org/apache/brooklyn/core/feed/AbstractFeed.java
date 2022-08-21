@@ -20,6 +20,8 @@ package org.apache.brooklyn.core.feed;
 
 import java.util.Collection;
 
+import com.google.common.annotations.Beta;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.FeedMemento;
@@ -28,6 +30,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.rebind.BasicFeedRebindSupport;
@@ -37,6 +40,8 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /** 
  * Captures common fields and processes for sensor feeds.
@@ -56,7 +61,17 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
 
     public AbstractFeed() {
     }
-    
+
+    @Beta
+    public static <T extends AbstractFeed> T initAndMaybeStart(T feed, Entity entity) {
+        feed.setEntity(checkNotNull((EntityInternal)entity, "entity"));
+        if (Entities.isManagedActive(entity)) {
+            // start it is entity is already managed (dynamic addition); otherwise rely on EntityManagementSupport to start us (initializer-based addition and after rebind)
+            feed.start();
+        }
+        return feed;
+    }
+
     // Ensure idempotent, as called in builders (in case not registered with entity), and also called
     // when registering with entity
     @Override
@@ -96,7 +111,7 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
     @Override
     public void start() {
         if (log.isDebugEnabled()) log.debug("Starting feed {} for {}", this, entity);
-        if (activated) { 
+        if (activated) {
             throw new IllegalStateException(String.format("Attempt to start feed %s of entity %s when already running", 
                     this, entity));
         }

@@ -21,23 +21,13 @@ package org.apache.brooklyn.feed.function;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
-import org.apache.brooklyn.core.feed.AttributePollHandler;
-import org.apache.brooklyn.core.feed.DelegatingPollHandler;
-import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
-import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
-import org.apache.brooklyn.util.http.HttpToolResponse;
-import org.apache.brooklyn.util.http.auth.UsernamePassword;
-import org.apache.brooklyn.util.http.executor.HttpRequest;
-import org.apache.brooklyn.util.http.executor.HttpResponse;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,7 +36,6 @@ import com.google.common.base.Objects;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 
 /**
@@ -146,10 +135,7 @@ public class FunctionFeed extends AbstractFeed {
         }
         public FunctionFeed build() {
             built = true;
-            FunctionFeed result = new FunctionFeed(this);
-            result.setEntity(checkNotNull((EntityInternal)entity, "entity"));
-            result.start();
-            return result;
+            return AbstractFeed.initAndMaybeStart(new FunctionFeed(this), entity);
         }
         @Override
         protected void finalize() {

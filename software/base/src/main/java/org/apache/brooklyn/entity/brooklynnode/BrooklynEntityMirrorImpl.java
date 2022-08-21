@@ -139,7 +139,8 @@ public class BrooklynEntityMirrorImpl extends AbstractEntity implements Brooklyn
                         return null;
                     }
                 }))
-            .poll(HttpPollConfig.forSensor(MIRROR_SUMMARY).onSuccess(new MirrorSummary())).build();
+            .poll(HttpPollConfig.forSensor(MIRROR_SUMMARY).onSuccess(new MirrorSummary()))
+            .build(true);
 
         populateEffectors();
     }

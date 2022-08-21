@@ -101,7 +101,7 @@ public class PollConfig<V, T, F extends PollConfig<V, T, F>> extends FeedConfig<
     
     @Override protected MutableList<Object> toStringOtherFields() {
         MutableList<Object> result = super.toStringOtherFields().appendIfNotNull(description);
-        if (period>0 && period <= Duration.PRACTICALLY_FOREVER.toMilliseconds()) result.append("period: "+Duration.of(period));
+        if (period>0 && period < Duration.PRACTICALLY_FOREVER.toMilliseconds()) result.append("period: "+Duration.of(period));
         if (otherTriggers!=null) result.append("triggers: "+otherTriggers);
         return result;
     }

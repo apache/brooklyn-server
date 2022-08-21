@@ -159,14 +159,6 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
                 } catch (Exception e) {
                     rebindContext.getExceptionHandler().onAddFeedFailed(entity, feed, e);
                 }
-                
-                try {
-                    if (!rebindContext.isReadOnly(feed)) {
-                        feed.start();
-                    }
-                } catch (Exception e) {
-                    rebindContext.getExceptionHandler().onRebindFailed(BrooklynObjectType.ENTITY, entity, e);
-                }
             } else {
                 LOG.warn("Feed not found; discarding feed {} of entity {}({})",
                         new Object[] {feedId, memento.getType(), memento.getId()});

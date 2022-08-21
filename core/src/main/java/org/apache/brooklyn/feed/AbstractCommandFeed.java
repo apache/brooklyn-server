@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.feed.DelegatingPollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -157,10 +158,7 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
 
         public T build() {
             built = true;
-            T result = instantiateFeed();
-            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
-            result.start();
-            return result;
+            return AbstractFeed.initAndMaybeStart(instantiateFeed(), entity);
         }
 
         @Override

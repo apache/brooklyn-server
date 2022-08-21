@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.executor.HttpExecutorFactory;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -253,11 +254,18 @@ public class HttpFeed extends AbstractFeed {
             }
         }
         public HttpFeed build() {
+            return build(null);
+        }
+        /** normally no arg is required, but if feed is not attached to entity, it will need starting here */
+        public HttpFeed build(Boolean feedStart) {
             built = true;
             HttpFeed result = new HttpFeed(this);
             result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             if (suspended) result.suspend();
-            result.start();
+            if ((feedStart==null && Entities.isManagedActive(entity)) || Boolean.TRUE.equals(feedStart)) {
+                // this feed is used a lot without being attached to an entity, not ideal, but let's support it
+                result.start();
+            }
             return result;
         }
         @Override

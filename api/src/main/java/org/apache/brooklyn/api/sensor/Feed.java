@@ -39,7 +39,7 @@ import com.google.common.annotations.Beta;
  *   </ul>
  */
 @Beta
-public interface Feed extends EntityAdjunct, Rebindable {
+public interface Feed extends EntityAdjunct, EntityAdjunct.AutoStartEntityAdjunct, Rebindable {
 
     /** 
      * True if everything has been _started_ (or it is starting) but not stopped,

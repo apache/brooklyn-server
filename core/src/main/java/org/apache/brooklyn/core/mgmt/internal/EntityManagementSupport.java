@@ -210,7 +210,7 @@ public class EntityManagementSupport {
             }
             
             /*
-             * TODO framework starting events - phase 1, including rebind
+             * framework starting events - phase 1, including rebind
              *  - establish hierarchy (child, groups, etc; construction if necessary on rebind)
              *  - set location
              *  - set local config values
@@ -223,6 +223,11 @@ public class EntityManagementSupport {
             
             if (!isReadOnly()) {
                 entity.onManagementStarting();
+
+                // start those policies etc which are labelled as auto-start
+                entity.policies().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
+                entity.enrichers().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
+                entity.feeds().forEach(f -> { if (!f.isActivated()) f.start(); });
             }
         } catch (Throwable t) {
             managementFailed.set(true);

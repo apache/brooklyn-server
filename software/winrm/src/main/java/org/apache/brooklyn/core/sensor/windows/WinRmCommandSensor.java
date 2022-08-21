@@ -42,6 +42,7 @@ import org.apache.brooklyn.util.core.internal.winrm.WinRmTool;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -136,7 +137,7 @@ public final class WinRmCommandSensor<T> extends AbstractAddTriggerableSensor<T>
 
         CmdFeed feed = CmdFeed.builder()
                 .entity(entity)
-                .onlyIfServiceUp()
+                .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(initParams(), ONLY_IF_SERVICE_UP)).or(true))
                 .poll(pollConfig)
                 .build();
 

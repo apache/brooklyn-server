@@ -151,7 +151,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
                         .onResult(new ComputeLatencyAndRecordError())
                         .setOnException(null))
                 .suspended()
-                .build();
+                .build(true);
 
         if (getUniqueTag()==null) 
             uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+
@@ -195,6 +195,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
             Boolean currentVal = entity.getAttribute(Startable.SERVICE_UP);
             if (currentVal != null) {
                 AtomicReferences.setIfDifferent(serviceUp, currentVal);
+                updateEnablement();
             }
         }
 

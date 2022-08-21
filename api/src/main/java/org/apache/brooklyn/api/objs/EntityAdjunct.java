@@ -55,4 +55,10 @@ public interface EntityAdjunct extends BrooklynObject {
     @Nullable String getUniqueTag();
 
     Map<String, HighlightTuple> getHighlights();
+
+    interface AutoStartEntityAdjunct extends EntityAdjunct {
+        /** for things that should start when the entity is managed, including on rebind;
+         *  replaces logic which started things during creation time */
+        public void start();
+    }
 }

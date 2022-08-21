@@ -50,6 +50,8 @@ public class Duration implements Comparable<Duration>, Serializable {
     
     /** longest supported duration, 2^{63}-1 nanoseconds, approx ten billion seconds, or 300 years */ 
     public static final Duration PRACTICALLY_FOREVER = of(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+    /** used to indicate forever */
+    private static final Duration ALMOST_PRACTICALLY_FOREVER = PRACTICALLY_FOREVER.subtract(Duration.days(365*50));
 
     private final long nanos;
 
@@ -71,7 +73,7 @@ public class Duration implements Comparable<Duration>, Serializable {
 
     @Override
     public String toString() {
-        if (equals(PRACTICALLY_FOREVER)) return "forever";
+        if (isLongerThan(ALMOST_PRACTICALLY_FOREVER)) return "forever";
         return Time.makeTimeStringExact(this);
     }
 

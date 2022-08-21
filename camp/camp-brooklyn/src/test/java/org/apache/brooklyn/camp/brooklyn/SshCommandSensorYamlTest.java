@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Stopwatch;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -31,10 +32,12 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.ExecParams;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
@@ -199,5 +202,85 @@ public class SshCommandSensorYamlTest extends AbstractYamlTest {
     protected Logger getLogger() {
         return log;
     }
-    
+
+    @Test
+    public void testSshCommandSensorFeedRunsAtStartup() throws Exception {
+        RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse", null));
+
+        Entity app = createAndStartApplication(
+                "location:",
+                "  localhost:",
+                "    sshToolClass: "+RecordingSshTool.class.getName(),
+                "services:",
+                "- type: " + VanillaSoftwareProcess.class.getName(),
+                "  brooklyn.config:",
+                "    onbox.base.dir.skipResolution: true",
+                "  brooklyn.initializers:",
+                "  - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor",
+                "    brooklyn.config:",
+                "      name: mySensor",
+                "      command: myCommand",
+                "      period: 5s");
+        waitForApplicationTasks(app);
+
+        VanillaSoftwareProcess entity = (VanillaSoftwareProcess) Iterables.getOnlyElement(app.getChildren());
+        Stopwatch sw = Stopwatch.createStarted();
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mySensor"), "myResponse");
+        Asserts.assertThat(Duration.of(sw), d -> d.isShorterThan(Duration.seconds(4)));
+    }
+
+
+    @Test(groups="Integration") // because slow
+    public void testSshCommandSensorPeriodicFeedServiceUpFalseDoesNotRunAtStartup() throws Exception {
+        RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse", null));
+
+        Stopwatch sw = Stopwatch.createStarted();
+        Entity app = createAndStartApplication(
+                "location:",
+                "  localhost:",
+                "    sshToolClass: "+RecordingSshTool.class.getName(),
+                "services:",
+                "- type: " + VanillaSoftwareProcess.class.getName(),
+                "  brooklyn.config:",
+                "    onbox.base.dir.skipResolution: true",
+                "  brooklyn.initializers:",
+                "  - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor",
+                "    brooklyn.config:",
+                "      name: mySensor",
+                "      command: myCommand",
+                "      period: 5s",
+                "      onlyIfServiceUp: true");
+        waitForApplicationTasks(app);
+
+        VanillaSoftwareProcess entity = (VanillaSoftwareProcess) Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newStringSensor("mySensor"), "myResponse");
+        Asserts.assertThat(Duration.of(sw), d -> d.isLongerThan(Duration.seconds(4)));
+    }
+
+    @Test
+    public void testSshCommandSensorTriggeredFeedDoesRunAtStartup() throws Exception {
+        RecordingSshTool.setCustomResponse(".*myCommand.*", new RecordingSshTool.CustomResponse(0, "myResponse", null));
+
+        Entity app = createAndStartApplication(
+                "location:",
+                "  localhost:",
+                "    sshToolClass: "+RecordingSshTool.class.getName(),
+                "services:",
+                "- type: " + VanillaSoftwareProcess.class.getName(),
+                "  brooklyn.config:",
+                "    onbox.base.dir.skipResolution: true",
+                "  brooklyn.initializers:",
+                "  - type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor",
+                "    brooklyn.config:",
+                "      name: mySensor",
+                "      command: myCommand",
+                "      triggers:",
+                "      - triggerSensor");
+        waitForApplicationTasks(app);
+
+        VanillaSoftwareProcess entity = (VanillaSoftwareProcess) Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", Duration.seconds(4)), entity, Sensors.newStringSensor("mySensor"), "myResponse");
+    }
+
+
 }

@@ -37,6 +37,7 @@ import org.apache.brooklyn.feed.http.HttpValueFunctions;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.http.HttpToolResponse;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -135,6 +136,7 @@ public class HttpRequestSensor<T> extends AbstractAddTriggerableSensor<T> {
                 .baseUri(uri)
                 .credentialsIfNotNull(username, password)
                 .preemptiveBasicAuth(Boolean.TRUE.equals(preemptiveBasicAuth))
+                .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(initParams(), ONLY_IF_SERVICE_UP)).or(false))
                 .poll(pollConfig);
 
         if (headers != null) {

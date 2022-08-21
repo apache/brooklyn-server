@@ -32,6 +32,7 @@ import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,7 +70,7 @@ public class ContainerSensor<T> extends AbstractAddTriggerableSensor<T> implemen
 
         ((EntityInternal) entity).feeds().add(FunctionFeed.builder()
                 .entity(entity)
-                .onlyIfServiceUp()
+                .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(initParams(), ONLY_IF_SERVICE_UP)).or(false))
                 .poll(poll)
                 .build());
     }

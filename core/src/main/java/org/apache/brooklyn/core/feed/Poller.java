@@ -90,12 +90,19 @@ public class Poller<V> {
             DelegatingPollHandler handlerDelegate = new DelegatingPollHandler(handlers);
             boolean subscribed = false;
             for (PollConfig pc: configs) {
+                Set<Pair<Entity, Sensor>> triggersResolved = MutableSet.of();
                 if (pc.getOtherTriggers()!=null) {
-                    List<Pair<Entity, Sensor>> triggersResolved = AbstractAddTriggerableSensor.resolveTriggers(feed.getEntity(), pc.getOtherTriggers());
-                    for (Pair<Entity, Sensor> pair : triggersResolved) {// TODO initial, condition
-                        subscribe(pollJob, handlerDelegate, pair.getLeft(), pair.getRight(), pc.getCondition());
-                        subscribed = true;
-                    }
+                    triggersResolved.addAll(AbstractAddTriggerableSensor.resolveTriggers(feed.getEntity(), pc.getOtherTriggers()));
+                }
+                if (onlyIfServiceUp) {
+                    // if 'onlyIfServiceUp' is set then automatically subscribe to that sensor.
+                    // this is the default for ssh and other sensors which need a target machine. for others it defaults false.
+                    triggersResolved.add(Pair.of(feed.getEntity(), Attributes.SERVICE_UP));
+                }
+
+                for (Pair<Entity, Sensor> pair : triggersResolved) {
+                    subscribe(pollJob, handlerDelegate, pair.getLeft(), pair.getRight(), pc.getCondition());
+                    subscribed = true;
                 }
             }
             if (minPeriodMillis>0 && (minPeriodMillis < Duration.PRACTICALLY_FOREVER.toMilliseconds() || !subscribed)) {
@@ -124,7 +131,6 @@ public class Poller<V> {
             this.pollTriggerEntity = sensorSource;
             this.pollTriggerSensor = sensor;
             this.pollCondition = pollCondition;
-
             wrappedJob = new Runnable() {
                 @Override
                 public void run() {
@@ -200,7 +206,6 @@ public class Poller<V> {
             throw new IllegalStateException(String.format("Attempt to start poller %s of entity %s when already running", 
                     this, entity));
         }
-        
         started = true;
         
         for (final Callable<?> oneOffJob : oneOffJobs) {
@@ -216,6 +221,7 @@ public class Poller<V> {
 
             Callable<Task<?>> tf = () -> {
                 DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity),
+                        /** TODO why the hell is this running before the entity is managed??? and remove logging, and invocationCount=100. */
                         new Callable<Void>() { @Override public Void call() {
                             if (!Entities.isManagedActive(entity)) {
                                 return null;

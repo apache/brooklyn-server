@@ -46,6 +46,7 @@ import org.apache.brooklyn.core.feed.PollHandler;
 import org.apache.brooklyn.core.feed.Poller;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.location.winrm.WinRmMachineLocation;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.internal.winrm.WinRmToolResponse;
@@ -150,10 +151,7 @@ public class WindowsPerformanceCounterFeed extends AbstractFeed {
         }
         public WindowsPerformanceCounterFeed build() {
             built = true;
-            WindowsPerformanceCounterFeed result = new WindowsPerformanceCounterFeed(this);
-            result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
-            result.start();
-            return result;
+            return AbstractFeed.initAndMaybeStart(new WindowsPerformanceCounterFeed(this), entity);
         }
         @Override
         protected void finalize() {
