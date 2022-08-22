@@ -273,6 +273,20 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
+    public void testNotAndNotEmpty() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("not", "foo"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test("bar"));
+        Asserts.assertTrue(p.test(null));
+        Asserts.assertFalse(p.test("foo"));
+
+        p = TypeCoercions.coerce(MutableMap.of("not", MutableMap.of("size", "0")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(MutableMap.of("id", 123, "name", "Bob")));
+        Asserts.assertFalse(p.test(MutableMap.of()));
+        Asserts.assertTrue(p.test(MutableList.of("Astrid", "Bob")));
+        Asserts.assertFalse(p.test(MutableList.of()));
+    }
+
+    @Test
     public void testJsonpath() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of("jsonpath", "name", "regex", "[Bb].*"), DslPredicates.DslPredicate.class);
         Asserts.assertTrue(p.test(MutableMap.of("id", 123, "name", "Bob")));

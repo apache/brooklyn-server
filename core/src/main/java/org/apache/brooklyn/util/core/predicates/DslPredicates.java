@@ -192,6 +192,7 @@ public class DslPredicates {
 
         /** nested check */
         public DslPredicate check;
+        public DslPredicate not;
         public List<DslPredicate> any;
         public List<DslPredicate> all;
 
@@ -396,6 +397,7 @@ public class DslPredicates {
                 return nestedPredicateCheck(test, Maybe.of(computedSize));
             });
 
+            checker.checkTest(not, test -> !nestedPredicateCheck(test, result));
             checker.checkTest(check, test -> nestedPredicateCheck(test, result));
             checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
             checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
