@@ -21,7 +21,6 @@ package org.apache.brooklyn.util.core.predicates;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
@@ -32,6 +31,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import com.jayway.jsonpath.JsonPath;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
@@ -42,14 +42,12 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
@@ -256,6 +254,9 @@ public class DslPredicates {
 
         public boolean apply(T input) {
             Maybe<Object> result = resolveTargetAgainstInput(input);
+            if (result.isPresent() && result.get() instanceof RetargettedPredicateEvaluation) {
+                return ((RetargettedPredicateEvaluation)result.get()).apply(input);
+            }
             return applyToResolved(result);
         }
 
@@ -310,7 +311,7 @@ public class DslPredicates {
                 String jsonpathTidied = jsonpath;
                 if (jsonpathTidied!=null && !jsonpathTidied.startsWith("$")) {
                     if (jsonpathTidied.startsWith("@") || jsonpathTidied.startsWith(".") || jsonpathTidied.startsWith("[")) {
-                        jsonpathTidied = "$" + jsonpathTidied;
+                        jsonpathTidied = '$' + jsonpathTidied;
                     } else {
                         jsonpathTidied = "$." + jsonpathTidied;
                     }
@@ -330,6 +331,8 @@ public class DslPredicates {
             });
         }
 
+        /** returns the resolved, possibly redirected target for this test wrapped in a maybe, or absent if there is no valid value/target.
+         * may also return {@link RetargettedPredicateEvaluation} predicate if a different predicate should be run on the same input */
         protected Maybe<Object> resolveTargetAgainstInput(Object input) {
             Map<String,Function<Object,Maybe<Object>>> specialResolvers = MutableMap.of();
             collectApplicableSpecialFieldTargetResolvers(specialResolvers);
@@ -452,7 +455,7 @@ public class DslPredicates {
     }
 
     @Beta
-    public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2> {
+    public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2>, Cloneable {
         public DslPredicateDefault() {}
 
         // allow a string or int to be an implicit equality target
@@ -464,6 +467,15 @@ public class DslPredicates {
         public String config;
         public String sensor;
         public DslPredicate tag;
+
+        @Override
+        protected DslPredicateDefault<T2> clone() {
+            try {
+                return (DslPredicateDefault<T2>) super.clone();
+            } catch (CloneNotSupportedException e) {
+                throw Exceptions.propagate(e);
+            }
+        }
 
         protected void collectApplicableSpecialFieldTargetResolvers(Map<String,Function<Object, Maybe<Object>>> resolvers) {
             super.collectApplicableSpecialFieldTargetResolvers(resolvers);
@@ -509,12 +521,59 @@ public class DslPredicates {
         }
 
         protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
-            if ("location".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
-            if ("locations".equals(target) && input instanceof Entity) return Maybe.of( Locations.getLocationsCheckingAncestors(null, (Entity)input) );
-            if ("children".equals(target) && input instanceof Entity) return Maybe.of( ((Entity)input).getChildren() );
-            if ("tags".equals(target) && input instanceof BrooklynObject) return Maybe.of( ((BrooklynObject)input).tags().getTags() );
+            Maybe<Object> candidate;
+            candidate = resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(target, input,
+                    "locations", x -> x instanceof Entity, x -> Maybe.of(Locations.getLocationsCheckingAncestors(null, (Entity) x)),
+                    "location", x -> x instanceof Location);
+            if (candidate!=null) return candidate;
+            candidate = resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(target, input,
+                    "tags", x -> x instanceof BrooklynObject, x -> Maybe.of( ((BrooklynObject)x).tags().getTags() ),
+                    "tag", x -> false);
+            if (candidate!=null) return candidate;
+            candidate = resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(target, input,
+                    "children", x -> x instanceof Entity, x -> Maybe.of(((Entity) x).getChildren()),
+                    "child", x -> false);
+            if (candidate!=null) return candidate;
 
             return Maybe.absent("Unsupported target '"+target+"' on input "+input);
+        }
+
+        protected Maybe<Object> resolveAsHasElementRetargettedPredicate(String target, Object inputValue, Predicate<Object> checkPredicateRetargettingNotNeeded, Predicate<Object> checkValueRetargettable, Function<Object,Maybe<Object>> retargetValue) {
+            if (inputValue == null || checkPredicateRetargettingNotNeeded.test(inputValue)) {
+                // already processsed
+                return Maybe.of(inputValue);
+            }
+            if (hasElement!=null) {
+                // caller is already asking for a member of this list, don't rewrite
+                return retargetValue.apply(inputValue);
+            }
+            if (!checkValueRetargettable.test(inputValue)) {
+                return Maybe.absent("Target " + target + " not applicable to " + inputValue);
+            }
+
+            // keyword 'location' means to re-run checking any element
+            RetargettedPredicateEvaluation retargetPredicate = new RetargettedPredicateEvaluation();
+            retargetPredicate.target = target;
+            retargetPredicate.hasElement = this.clone();
+            ((DslPredicateDefault)retargetPredicate.hasElement).target = null;
+            return Maybe.of(retargetPredicate);
+        }
+
+        protected Maybe<Object> resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(String target, Object inputValue, String plural, Predicate<Object> checkValueRetargettable, Function<Object,Maybe<Object>> retargetValue,
+                                                                                                String singular, Predicate<Object> checkSingularTargetPredicateRetargettingNotNeeded) {
+            if (plural.equals(target)) {
+                if (!checkValueRetargettable.test(inputValue)) {
+                    return Maybe.absent("Target " + target + " not applicable to " + inputValue);
+                }
+                return retargetValue.apply(inputValue);
+            }
+
+            if (singular.equals(target)) {
+                return resolveAsHasElementRetargettedPredicate(target, inputValue, checkSingularTargetPredicateRetargettingNotNeeded, checkValueRetargettable, retargetValue);
+            }
+
+            // checks didn't apply
+            return null;
         }
 
         @Override
@@ -543,7 +602,6 @@ public class DslPredicates {
     public static class DslEntityPredicateDefault extends DslPredicateDefault<Entity> implements DslEntityPredicate {
         public DslEntityPredicateDefault() { super(); }
         public DslEntityPredicateDefault(String implicitEquals) { super(implicitEquals); }
-
     }
 
     @Beta
@@ -673,6 +731,9 @@ public class DslPredicates {
         DslEntityPredicateDefault result = new DslEntityPredicateDefault();
         result.javaInstanceOf = x;
         return result;
+    }
+
+    static class RetargettedPredicateEvaluation<T> extends DslPredicateDefault<T> {
     }
 
 }

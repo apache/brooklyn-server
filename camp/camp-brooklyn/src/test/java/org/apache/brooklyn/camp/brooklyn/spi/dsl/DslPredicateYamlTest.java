@@ -15,40 +15,18 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.location.Location;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.DslTestCallable;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.DslTestSupplierWrapper;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslSupplier;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslTestObjects.TestDslSupplierValue;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.custom.UserSuppliedPackageType;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Dumper;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
-import org.apache.brooklyn.entity.group.DynamicCluster;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
-
-import java.util.concurrent.ExecutionException;
-
-import static org.testng.Assert.assertEquals;
 
 public class DslPredicateYamlTest extends AbstractYamlTest {
 
@@ -114,6 +92,178 @@ public class DslPredicateYamlTest extends AbstractYamlTest {
 
         // per above, if we re-retrieve the predicate it should work fine
         predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertTrue( predicate.apply(app) );
+    }
+
+    @Test
+    public void testDslTargetLocationRetargets() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  location: localhost",
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: location",
+                "      tag: yes!");
+        // 'location' can be expanded as list
+        DslPredicates.DslPredicate predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.getLocations().iterator().next().tags().addTag("yes!");
+        Asserts.assertTrue( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  location: localhost",
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: locations",
+                "      tag: yes!");
+        // 'locations' requires has-element, cannot be auto-expanded
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        app.getLocations().iterator().next().tags().addTag("yes!");
+        Asserts.assertFalse( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  location: localhost",
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: locations",
+                "      has-element:",
+                "        tag: yes!");
+        // 'locations' works if has-element specified
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.getLocations().iterator().next().tags().addTag("yes!");
+        Asserts.assertTrue( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  location: localhost",
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: location",
+                "      has-element:",
+                "        tag: yes!");
+        // 'location' also _accepts_ has-element (skips expanding)
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.getLocations().iterator().next().tags().addTag("yes!");
+        Asserts.assertTrue( predicate.apply(app) );
+    }
+
+    @Test
+    public void testDslTargetTagRetargets() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: tag",
+                "      equals: yes!");
+        // 'tag' can be expanded as list
+        DslPredicates.DslPredicate predicate = app.config().get(TestEntity.CONF_PREDICATE);
+//        Asserts.assertFalse( predicate.apply(app) );
+        app.tags().addTag("yes!");
+        Asserts.assertTrue( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: tags",
+                "      equals: yes!");
+        // 'tags' requires has-element, cannot be auto-expanded
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        app.tags().addTag("yes!");
+        Asserts.assertFalse( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: tags",
+                "      has-element:",
+                "        equals: yes!");
+        // 'tags' works if has-element specified
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.tags().addTag("yes!");
+        Asserts.assertTrue( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: tag",
+                "      has-element:",
+                "        equals: yes!");
+        // 'tag' also _accepts_ has-element (skips expanding)
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.tags().addTag("yes!");
+        Asserts.assertTrue( predicate.apply(app) );
+    }
+
+    @Test
+    public void testDslTargetChildRetargets() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: child",
+                "      tag: yes!");
+        // 'child' can be expanded as list
+        DslPredicates.DslPredicate predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.addChild(EntitySpec.create(BasicEntity.class).tag("yes!"));
+        Asserts.assertTrue( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: children",
+                "      tag: yes!");
+        // 'children' requires has-element, cannot be auto-expanded
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        app.addChild(EntitySpec.create(BasicEntity.class).tag("yes!"));
+        Asserts.assertFalse( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: children",
+                "      has-element:",
+                "        tag: yes!");
+        // 'children' works if has-element specified
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.addChild(EntitySpec.create(BasicEntity.class).tag("yes!"));
+        Asserts.assertTrue( predicate.apply(app) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: child",
+                "      has-element:",
+                "        tag: yes!");
+        // 'child' also _accepts_ has-element (skips expanding)
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(app) );
+        app.addChild(EntitySpec.create(BasicEntity.class).tag("yes!"));
         Asserts.assertTrue( predicate.apply(app) );
     }
 
