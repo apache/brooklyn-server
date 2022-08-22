@@ -26,6 +26,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.testng.annotations.Test;
 
 public class DslPredicateYamlTest extends AbstractYamlTest {
@@ -153,6 +155,30 @@ public class DslPredicateYamlTest extends AbstractYamlTest {
         Asserts.assertFalse( predicate.apply(app) );
         app.getLocations().iterator().next().tags().addTag("yes!");
         Asserts.assertTrue( predicate.apply(app) );
+    }
+
+    @Test
+    public void testDslTargetLocationRetargetsWithoutGettingConfusedByConfig() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  location: localhost",
+                "  brooklyn.config:",
+                "    test.confPredicate:",
+                "      target: location",
+                "      config: locHasConf");
+        // if 'location' is expanded as list, config is taken on the location
+        Runnable resolveCheck = () -> {
+            DslPredicates.DslPredicate predicate = app.config().get(TestEntity.CONF_PREDICATE);
+            Asserts.assertFalse(predicate.apply(app));
+            app.getLocations().iterator().next().config().set(ConfigKeys.newStringConfigKey("locHasConf"), "yes!");
+            Asserts.assertTrue(predicate.apply(app));
+        };
+        // works in a task
+        DynamicTasks.submit(Tasks.create("check config", resolveCheck), app).get();
+
+        // outside of a task we get a nice error
+        Asserts.assertFailsWith(resolveCheck, e -> Asserts.expectedFailureContainsIgnoreCase(e, "locHasConf", "Localhost", "resolve", "entity task"));
     }
 
     @Test

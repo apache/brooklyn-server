@@ -485,7 +485,13 @@ public class DslPredicates {
                     ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Configurable)value).config().get(ConfigKeys.newConfigKey(Object.class, config)))
                             .as(Object.class).allowDeepResolution(true).immediately(true);
                     if (value instanceof Entity) resolver.context( (Entity)value );
-                    return resolver.getMaybe();
+                    Maybe<Object> result = resolver.getMaybe();
+                    if (result.isAbsent()) {
+                        if (!(value instanceof Entity) && BrooklynTaskTags.getContextEntity(Tasks.current())==null) {
+                            throw new IllegalStateException("Not permitted to resolve config '"+config+"' on "+value+" outside of an entity task");
+                        }
+                    }
+                    return result;
                 } else {
                     return Maybe.absent("Config not supported on " + value + " (testing config '" + config + "')");
                 }
@@ -494,7 +500,7 @@ public class DslPredicates {
             if (sensor!=null) resolvers.put("sensor", (value) -> {
                 if (value instanceof Entity) {
                     ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Entity)value).sensors().get(Sensors.newSensor(Object.class, sensor)))
-                            .as(Object.class).allowDeepResolution(true).immediately(true);
+                            .as(Object.class).allowDeepResolution(true).immediately(true).context((Entity)value);
                     return resolver.getMaybe();
                 } else {
                     return Maybe.absent("Sensors not supported on " + value + " (testing sensor '" + config + "')");
@@ -507,6 +513,11 @@ public class DslPredicates {
             Maybe<Object> result;
             if (target instanceof String) {
                 result = Maybe.of( resolveTargetStringAgainstInput((String) target, input).get() );
+
+                if (result.isPresent() && result.get() instanceof RetargettedPredicateEvaluation) {
+                    // do retargetting before doing further resolution (of other keys, e.g. config)
+                    return result;
+                }
             } else {
                 if (target == null) {
                     target = input;
