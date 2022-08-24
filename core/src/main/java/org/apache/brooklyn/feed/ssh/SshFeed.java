@@ -21,15 +21,23 @@ package org.apache.brooklyn.feed.ssh;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
+import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.ssh.internal.PlainSshExecTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskStub.ScriptReturnType;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -139,4 +147,47 @@ public class SshFeed extends org.apache.brooklyn.feed.AbstractCommandFeed {
         return new SshPollValue(machine, task.getExitCode(), task.getStdout(), task.getStderr());
     }
 
+    protected SshPollValue installAndExec(String commandUrl, Map<String,String> env) throws IOException {
+        String commandUrlCopiedAs = config().get(COMMAND_URL_COPIED_AS);
+        if (commandUrlCopiedAs==null) {
+            synchronized (this) {
+                commandUrlCopiedAs = config().get(COMMAND_URL_COPIED_AS);
+                if (commandUrlCopiedAs==null) {
+                    String installDir = getEntity().sensors().get(BrooklynConfigKeys.INSTALL_DIR);
+                    if (installDir == null) {
+                        commandUrlCopiedAs = "brooklyn-ssh-command-url-" + entity.getApplicationId() + "-" + entity.getId() + "-" + Identifiers.makeRandomId(4) + ".sh";
+                        log.debug("Install dir not available at " + getEntity() + "; will use default/home directory for "+this+", in "+commandUrlCopiedAs);
+                    } else {
+                        commandUrlCopiedAs = Os.mergePathsUnix(installDir, "command-url-" + Identifiers.makeRandomId(4) + ".sh");
+                    }
+
+                    // Look for SshMachineLocation and install remote command script.
+                    Maybe<SshMachineLocation> locationMaybe = Locations.findUniqueSshMachineLocation(entity.getLocations());
+                    if (locationMaybe.isPresent()) {
+                        TaskFactory<?> install = SshTasks.installFromUrl(locationMaybe.get(), commandUrl, commandUrlCopiedAs);
+                        DynamicTasks.queueIfPossible(install.newTask()).orSubmitAsync(entity).andWaitForSuccess();
+                        log.debug("Installed from "+commandUrl+" to "+commandUrlCopiedAs+" at "+getEntity());
+                    } else {
+                        throw new IllegalStateException("Ssh machine location not available at " + getEntity() + "; skipping run of " + this);
+                    }
+
+                    config().set(COMMAND_URL_COPIED_AS, commandUrlCopiedAs);
+                }
+            }
+        }
+        return exec("bash "+commandUrlCopiedAs, env);
+    }
+
+    protected <T> void doReconfigureConfig(ConfigKey<T> key, T val) {
+        if (key.getName().equals(COMMAND_URL.getName())) {
+            config().set(COMMAND_URL_COPIED_AS, (String)null);
+            return;
+        }
+        if (key.getName().equals(COMMAND_URL_COPIED_AS.getName())) {
+            // allowed
+            return;
+        }
+
+        super.doReconfigureConfig(key, val);
+    }
 }
