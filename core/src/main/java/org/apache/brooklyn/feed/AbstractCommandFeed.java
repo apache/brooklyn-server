@@ -30,8 +30,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.location.MachineLocation;
+import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.feed.AttributePollHandler;
 import org.apache.brooklyn.core.feed.DelegatingPollHandler;
@@ -40,6 +42,12 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.ssh.SshPollValue;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.ssh.SshTasks;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.brooklyn.util.time.Duration;
@@ -95,7 +103,10 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
             "machine");
 
     public static final ConfigKey<Boolean> EXEC_AS_COMMAND = ConfigKeys.newBooleanConfigKey("execAsCommand");
-    
+    public static final ConfigKey<String> COMMAND_URL = ConfigKeys.newStringConfigKey("commandUrl");
+
+    protected static final ConfigKey<String> COMMAND_URL_COPIED_AS = ConfigKeys.newStringConfigKey("commandUrlCopiedAs");
+
     @SuppressWarnings("serial")
     public static final ConfigKey<SetMultimap<CommandPollIdentifier, CommandPollConfig<?>>> POLLS = ConfigKeys.newConfigKey(
             new TypeToken<SetMultimap<CommandPollIdentifier, CommandPollConfig<?>>>() {},
@@ -108,6 +119,7 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
         private Duration period = Duration.of(500, TimeUnit.MILLISECONDS);
         private boolean execAsCommand = false;
         private String uniqueTag;
+        private String commandUrlToInstallAndRun;
         private volatile boolean built;
         
         public B entity(Entity val) {
@@ -138,6 +150,11 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
         }
         public abstract B poll(CommandPollConfig<?> config);
         public abstract List<CommandPollConfig<?>> getPolls();
+
+        public B commandUrlToInstallAndRun(String commandUrl) {
+            this.commandUrlToInstallAndRun = commandUrl;
+            return self();
+        }
 
         public B execAsCommand() {
             execAsCommand = true;
@@ -202,7 +219,8 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
         config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
         config().set(MACHINE, builder.machine);
         config().set(EXEC_AS_COMMAND, builder.execAsCommand);
-        
+        config().set(COMMAND_URL, builder.commandUrlToInstallAndRun);
+
         SetMultimap<CommandPollIdentifier, CommandPollConfig<?>> polls = HashMultimap.<CommandPollIdentifier,CommandPollConfig<?>>create();
         for (CommandPollConfig<?> config : (List<CommandPollConfig<?>>)builder.getPolls()) {
             @SuppressWarnings({ "unchecked", "rawtypes" })
@@ -225,7 +243,11 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
     
     @Override
     protected void preStart() {
-        getPoller().scheduleFeed(this, getConfig(POLLS), pollInfo -> () -> exec(pollInfo.command.get(), pollInfo.env.get()));
+        if (config().get(COMMAND_URL)!=null) {
+            getPoller().scheduleFeed(this, getConfig(POLLS), pollInfo -> () -> installAndExec(config().get(COMMAND_URL), pollInfo.env.get()));
+        } else {
+            getPoller().scheduleFeed(this, getConfig(POLLS), pollInfo -> () -> exec(pollInfo.command.get(), pollInfo.env.get()));
+        }
     }
     
     @Override
@@ -235,4 +257,7 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
     }
     
     protected abstract SshPollValue exec(String command, Map<String,String> env) throws IOException;
+
+    protected abstract SshPollValue installAndExec(String commandUrl, Map<String,String> env) throws IOException;
+
 }

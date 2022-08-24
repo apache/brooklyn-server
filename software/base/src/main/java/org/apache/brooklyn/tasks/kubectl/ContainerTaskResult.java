@@ -18,12 +18,17 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+/**
+ * Object containing details of a container task. This object is notified when containerStarted and containerEnded are set.
+ */
 public class ContainerTaskResult {
     String mainStdout;
     Integer mainExitCode;
     String namespace;
     String kubeJobName;
     public String kubePodName;
+    boolean containerStarted = false;
+    boolean containerEnded = false;
 
     /**
      * This will be 0 unless allowNonZeroExitCode was specified
@@ -46,5 +51,14 @@ public class ContainerTaskResult {
 
     public String getKubePodName() {
         return kubePodName;
+    }
+
+    /** indicates container has started; namespace, pod name and job name will be available now */
+    public boolean getContainerStarted() {
+        return containerStarted;
+    }
+    /** indicates container has ended; all output will be set */
+    public boolean getContainerEnded() {
+        return containerEnded;
     }
 }

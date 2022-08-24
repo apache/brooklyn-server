@@ -31,6 +31,8 @@ import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.SensorEvent;
+import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -69,6 +71,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
@@ -86,7 +89,7 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
     public static final ConfigKey<String> SENSOR_COMMAND_URL = ConfigKeys.newStringConfigKey("commandUrl", "Remote SSH command to execute for sensor (takes precedence over command)");
     public static final ConfigKey<String> SENSOR_EXECUTION_DIR = ConfigKeys.newStringConfigKey("executionDir", "Directory where the command should run; "
         + "if not supplied, executes in the entity's run dir (or home dir if no run dir is defined); "
-        + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir");
+        + "use '~' to always execute in the home dir, or 'custom-feed/' to execute in a custom-feed dir relative to the run dir; not compatible with commandUrl");
     public static final ConfigKey<Object> VALUE_ON_ERROR = ConfigKeys.newConfigKey(Object.class, "value.on.error",
             "Value to be used if an error occurs whilst executing the ssh command", null);
     public static final MapConfigKey<Object> SENSOR_SHELL_ENVIRONMENT = BrooklynConfigKeys.SHELL_ENVIRONMENT;
@@ -109,36 +112,9 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
     public void apply(final EntityLocal entity) {
         ConfigBag params = initParams();
 
-        String commandUrl = EntityInitializers.resolve(initParams(), SENSOR_COMMAND_URL);
-        if (Objects.nonNull(commandUrl)) {
-
-            entity.subscriptions().subscribe(entity, BrooklynConfigKeys.INSTALL_DIR, booleanSensorEvent -> {
-                if (Strings.isNonBlank(booleanSensorEvent.getValue()) && !commandUrlInstalled.get()) {
-
-                    // Prepare path for a remote command script.
-                    // Take into account possibility of multiple ssh commands initialized at the same entity.
-                    String commandUrlPath = booleanSensorEvent.getValue() + "/command-url-" + Identifiers.makeRandomId(4)+ ".sh";
-
-                    // Look for SshMachineLocation and install remote command script.
-                    Maybe<SshMachineLocation> locationMaybe = Locations.findUniqueSshMachineLocation(entity.getLocations());
-                    if (locationMaybe.isPresent()) {
-                        TaskFactory<?> install = SshTasks.installFromUrl(locationMaybe.get(), commandUrl, commandUrlPath);
-                        Object ret = DynamicTasks.queueIfPossible(install.newTask()).orSubmitAsync(entity).andWaitForSuccess();
-
-                        // Prevent command duplicates in case if INSTALL_DIR changed from the outside.
-                        commandUrlInstalled.set(true);
-                    } else {
-                        throw new IllegalStateException("Could not find SshMachineLocation to run 'commandUrl'");
-                    }
-
-                    // Run a deferred command.
-                    params.putStringKey(SENSOR_COMMAND.getName(), "bash " + commandUrlPath);
-                    apply(entity, params);
-                }
-            });
-        } else {
-            apply(entity, params);
-        }
+        // previously if a commandUrl was used we would listen for the install dir to be set; but that doesn't survive rebind;
+        // now we install on first run as part of the SshFeed
+        apply(entity, params);
     }
 
     private void apply(final EntityLocal entity, final ConfigBag params) {
@@ -152,7 +128,7 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
         }
 
         Supplier<Map<String,String>> envSupplier = new EnvSupplier(entity, params);
-        Supplier<String> commandSupplier = new CommandSupplier(entity, params);
+        CommandSupplier commandSupplier = new CommandSupplier(entity, params);
 
         CommandPollConfig<T> pollConfig = new CommandPollConfig<T>(sensor)
                 .env(envSupplier)
@@ -163,12 +139,21 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
 
         standardPollConfig(entity, initParams(), pollConfig);
 
-        SshFeed feed = SshFeed.builder()
+        SshFeed.Builder feedBuilder = SshFeed.builder()
                 .entity(entity)
                 .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(params, ONLY_IF_SERVICE_UP)).or(true))
-                .poll(pollConfig)
-                .build();
+                .poll(pollConfig);
 
+        String commandUrl = EntityInitializers.resolve(initParams(), SENSOR_COMMAND_URL);
+        if (commandUrl!=null) {
+            feedBuilder.commandUrlToInstallAndRun(commandUrl);
+            // commandSupplier above will be ignored
+            if (commandSupplier.rawSensorCommand!=null || commandSupplier.rawSensorExecDir!=null) {
+                throw new IllegalArgumentException("commandUrl is not compatible with command or executionDir");
+            }
+        }
+
+        SshFeed feed = feedBuilder.build();
         entity.addFeed(feed);
         
         // Deprecated; kept for backwards compatibility with historic persisted state

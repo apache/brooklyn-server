@@ -86,4 +86,11 @@ public class CmdFeed extends AbstractCommandFeed {
 
         return new SshPollValue(null, exitStatus, winRmToolResponse.getStdOut(), winRmToolResponse.getStdErr());
     }
+
+    @Override
+    protected SshPollValue installAndExec(String commandUrl, Map<String, String> env) throws IOException {
+        // TODO
+        throw new IllegalStateException("commandUrl not supported for WinRM cmds");
+    }
+
 }
