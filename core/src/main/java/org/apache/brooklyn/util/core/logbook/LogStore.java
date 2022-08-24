@@ -51,7 +51,7 @@ public interface LogStore {
                     Iterables.addAll(children, ((HasTaskChildren) task).getChildren());
                     Iterables.addAll(tasks, Iterables.limit(children, maxTasks - tasks.size()));
 
-                    if (tasks.size() == maxTasks) {
+                    if (tasks.size() >= maxTasks) {
                         break enumerate; // Limit reached
                     }
                 }

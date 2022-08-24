@@ -92,7 +92,8 @@ public class FileLogStore implements LogStore {
 
     private final String filePath;
     private final Path path;
-    private final String logLinePattern;
+    private final String logLinePatternString;
+    private final Pattern logLinePatternCompiled;
     private final DateFormat dateFormat;
     private final ManagementContext mgmt;
     private final Integer maxTasks;
@@ -104,7 +105,8 @@ public class FileLogStore implements LogStore {
         this.maxTasks = LOGBOOK_MAX_RECURSIVE_TASKS.getDefaultValue();
         this.path = null;
         this.filePath = "";
-        this.logLinePattern = LOGBOOK_LOG_STORE_REGEX.getDefaultValue();
+        this.logLinePatternString = LOGBOOK_LOG_STORE_REGEX.getDefaultValue();
+        this.logLinePatternCompiled = Pattern.compile(this.logLinePatternString);
         this.dateFormat = new SimpleDateFormat(LOGBOOK_LOG_STORE_DATEFORMAT.getDefaultValue());
         this.dateFormat.setTimeZone(UTC_TIMEZONE);
     }
@@ -113,7 +115,8 @@ public class FileLogStore implements LogStore {
         this.mgmt = Preconditions.checkNotNull(mgmt);
         this.maxTasks = mgmt.getConfig().getConfig(LOGBOOK_MAX_RECURSIVE_TASKS);
         this.filePath = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_PATH);
-        this.logLinePattern = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_REGEX);
+        this.logLinePatternString = mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_REGEX);
+        this.logLinePatternCompiled = Pattern.compile(this.logLinePatternString);
         this.dateFormat = new SimpleDateFormat(mgmt.getConfig().getConfig(LOGBOOK_LOG_STORE_DATEFORMAT));
         this.dateFormat.setTimeZone(UTC_TIMEZONE);
         Preconditions.checkNotNull(filePath, "Log file path must be set: " + LOGBOOK_LOG_STORE_PATH.getName());
@@ -221,7 +224,7 @@ public class FileLogStore implements LogStore {
     }
 
     protected BrooklynLogEntry parseLogLine(String logLine, AtomicInteger lineCount) {
-        Pattern p = Pattern.compile(this.logLinePattern);
+        Pattern p = logLinePatternCompiled;
         Matcher m = p.matcher(logLine);
         BrooklynLogEntry entry = null;
         m.find();
@@ -242,5 +245,54 @@ public class FileLogStore implements LogStore {
             entry.setLineId(String.valueOf(lineCount.incrementAndGet()));
         }
         return entry;
+    }
+
+    private static final boolean STARTING_TASK_MESSAGE_IS_ALWAYS_THE_FIRST_MESSAGE_FOR_THAT_TASK = true;
+    @Override
+    public Set<String> enumerateTaskIds(Task<?> parent, int maxTasks) {
+        Set<String> all = MutableSet.of();
+        if (parent!=null) {
+            Set<String> next = MutableSet.of(parent.getId());
+            while (!next.isEmpty() && all.size() < maxTasks) {
+                Set<String> current = MutableSet.copyOf(next);
+                next.clear();
+                all.addAll(current);
+
+                AtomicInteger lineCount = new AtomicInteger();
+                try (Stream<String> stream = Files.lines(path)) {
+                    stream.forEach(line -> {
+                        BrooklynLogEntry entry = parseLogLine(line, lineCount);
+                        if (entry!=null && entry.getMessage()!=null && entry.getMessage().startsWith("Starting task ")) {
+                            if (current.stream().anyMatch(possibleParent -> entry.getMessage().endsWith(possibleParent)) || next.stream().anyMatch(possibleParent -> entry.getMessage().endsWith(possibleParent))) {
+                                String newTaskId = entry.getMessage();
+                                newTaskId = Strings.removeFromStart(newTaskId, "Starting task ");
+                                int nextWord = newTaskId.indexOf(' ');
+                                if (nextWord>0) {
+                                    newTaskId = newTaskId.substring(0, nextWord);
+                                    if (all.add(newTaskId)) {
+                                        if (all.size()>=maxTasks) {
+                                            return;
+                                        }
+
+                                        // this is a newly found task
+                                        if (STARTING_TASK_MESSAGE_IS_ALWAYS_THE_FIRST_MESSAGE_FOR_THAT_TASK) {
+                                            current.add(newTaskId);
+                                        } else {
+                                            // we don't actually need a multi-pass strategy
+                                            next.add(newTaskId);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+            // add this explicitly, in case 0 tasks was requested
+            all.add(parent.getId());
+        }
+        return all;
     }
 }

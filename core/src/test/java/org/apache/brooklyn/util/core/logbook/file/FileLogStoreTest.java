@@ -265,8 +265,8 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         // Test with log levels only. There are 5 records in total in the normal order: DEBUG, ERROR, INFO, INFO, WARN.
         // Expect 4 last items starting with ERROR.
         assertEquals("INFO", brooklynLogEntries.get(0).getLevel());
-        assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
-        assertEquals("WARN", brooklynLogEntries.get(2).getLevel());
+        assertEquals("WARN", brooklynLogEntries.get(1).getLevel());
+        assertEquals("DEBUG", brooklynLogEntries.get(2).getLevel());
         assertEquals("INFO", brooklynLogEntries.get(3).getLevel());
     }
 
@@ -310,7 +310,7 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         logBookQueryParams.setTaskId("CMeSRJNF");
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
-        assertEquals(2, brooklynLogEntries.size());
+        assertEquals(3, brooklynLogEntries.size());
         assertEquals("INFO", brooklynLogEntries.get(1).getLevel());
     }
 
@@ -433,8 +433,8 @@ public class FileLogStoreTest extends BrooklynMgmtUnitTestSupport {
         FileLogStore fileLogStore = new FileLogStore(mgmt);
         List<BrooklynLogEntry> brooklynLogEntries = fileLogStore.query(logBookQueryParams);
 
-        // There is one DEBUG log line and five INFO lines.
-        assertEquals(6, brooklynLogEntries.size());
+        // There are two DEBUG log line and five INFO lines.
+        assertEquals(7, brooklynLogEntries.size());
 
         // Check appearance of log levels
         assertEquals("DEBUG", brooklynLogEntries.get(0).getLevel());

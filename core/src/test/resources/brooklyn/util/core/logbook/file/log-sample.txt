@@ -28,4 +28,5 @@ org.osgi.service.component.ComponentException: The component name 'org.apache.br
 2021-08-30T11:28:26,764Z CMeSRJNF-[l8442kq0zu,iffj68b370] INFO  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] for testing
 2021-08-30T11:28:27,764Z CMeSRJNX-[l8442kq0zu,iffj68b370] INFO  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] for testing
 2021-08-30T11:28:28,764Z CMeSRJNX-[l8442kq0zx,iffj68b370] WARN  237 i.c.b.t.c.AbstractToscaYamlConverter [ger-rhkc5jtA-351] key 'brooklyn.locations' not supported
+2021-08-30T11:28:54,464Z THGMmYiu-[l8442kq0zx,iffj68b370] DEBUG 282 o.a.b.x.x.BasicTask [ger-rhkc5jtA-360] Starting task THGMmYiu (...) on entity xxx from task CMeSRJNF
 2021-08-30T11:28:54,466Z THGMmYiu-[l8442kq0zx,iffj68b370] INFO  282 o.a.b.e.s.b.l.MachineLifecycleEffectorTasks [ger-rhkc5jtA-360] Starting ToscaComputeNodeEntityImpl{id=iffj68b370} on machine SshMachineLocation[cloudsoft-ubuntu:cloudsoft@135.181.244.108/135.181.244.108:22(id=dr6f7lah7i)]
