@@ -323,7 +323,7 @@ public class DslPredicates {
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     if (LOG.isTraceEnabled()) LOG.trace("Unable to evaluate jsonpath '"+jsonpathTidied+"' for '"+value+"' due to: "+e, e);
-                    return Maybe.absent("Cannot evaluate jsonpath");
+                    return Maybe.absent("No jsonpath matches");
                 }
 
                 // above will throw if jsonpath doesn't match anything
@@ -428,7 +428,7 @@ public class DslPredicates {
                     case ABSENT_OR_NULL: return result.isAbsentOrNull();
                     case ALWAYS: return true;
                     case NEVER: return false;
-                    case FALSY: return result.isAbsentOrNull() && !JavaGroovyEquivalents.groovyTruth(result.get());
+                    case FALSY: return result.isAbsent() || !JavaGroovyEquivalents.groovyTruth(result.get());
                     case TRUTHY: return result.isPresentAndNonNull() && JavaGroovyEquivalents.groovyTruth(result.get());
                     default: return false;
                 }
