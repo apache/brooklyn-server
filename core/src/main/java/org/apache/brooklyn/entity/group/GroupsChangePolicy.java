@@ -182,10 +182,10 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
 
                         BrooklynClassLoadingContext loader = member != null ? RegisteredTypes.getClassLoadingContext(member) : null;
                         TypeToken<? extends EntityInitializer> typeToken = getType(loader, type);
-                        LOG.debug("type='{}', typeToken='{}'",type, typeToken);
                         Maybe<? extends EntityInitializer> entityInitializerMaybe = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(stringObjectMap), typeToken);
                         if (entityInitializerMaybe.isPresent()) {
                             EntityInitializer initializer = entityInitializerMaybe.get();
+                            LOG.info("Applying initializer '{}' to member '{}'", initializer, member);
                             initializer.apply((EntityInternal) member);
                         } else {
                             LOG.debug("Unable to initialize {} due to {}", type, Maybe.getException(entityInitializerMaybe), Maybe.getException(entityInitializerMaybe));
@@ -210,8 +210,8 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     }
                     policySpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
 
-
                     AbstractTypePlanTransformer.checkSecuritySensitiveFields(policySpec);
+                    LOG.info("Adding policy '{}' to member '{}'", policySpec, member);
                     member.policies().add(policySpec);
                 }
         );
@@ -230,11 +230,13 @@ public class GroupsChangePolicy extends AbstractMembershipTrackingPolicy {
                     enricherSpec.configure((Map<String, Object>) stringObjectMap.get(BROOKLYN_CONFIG));
 
                     AbstractTypePlanTransformer.checkSecuritySensitiveFields(enricherSpec);
+                    LOG.info("Adding enricher '{}' to member '{}'", enricherSpec, member);
                     member.enrichers().add(enricherSpec);
                 }
         );
 
         config().get(INVOKE).forEach(effName -> {
+            LOG.info("Invoking effector '{}' on member '{}'", effName, member);
             member.invoke( ((EntityInternal)member).getEffector(effName), MutableMap.of() );
         });
     }
