@@ -195,6 +195,7 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
 
                             // wait for it to be running (or failed / succeeded) -
                             PodPhases phaseOnceActive = waitForContainerAvailable(entity, kubeJobName, result, timer);
+                            result.containerStarted = true;
 //                            waitForContainerPodContainerState(kubeJobName, result, timer);
 
                             // notify once pod is available
@@ -220,6 +221,9 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                             String exitCodeS = retrieveExitCode.getStdout();
                             if (Strings.isNonBlank(exitCodeS)) result.mainExitCode = Integer.parseInt(exitCodeS.trim());
                             else result.mainExitCode = -1;
+
+                            result.containerEnded = true;
+                            synchronized (result) { result.notifyAll(); }
 
                             if (result.mainExitCode!=0 && config.get(REQUIRE_EXIT_CODE_ZERO)) {
                                 LOG.info("Failed container job "+namespace+" (exit code "+result.mainExitCode+") output: "+result.mainStdout);
