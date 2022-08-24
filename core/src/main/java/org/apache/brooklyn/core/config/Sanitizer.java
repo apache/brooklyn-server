@@ -235,7 +235,7 @@ public final class Sanitizer {
         } else if (x instanceof Map) {
             Map y = MutableMap.of();
             ((Map)x).forEach((k,v) -> {
-                y.put(k, v!=null && Sanitizer.IS_SECRET_PREDICATE.apply(k) ? suppressJson(v, excludeBrooklynDslExpressions) : v);
+                y.put(k, v!=null && Sanitizer.IS_SECRET_PREDICATE.apply(k) ? suppressJson(v, excludeBrooklynDslExpressions) : suppressNestedSecretsJson(v, excludeBrooklynDslExpressions));
             });
             return y;
         } else if (x instanceof Iterable) {
