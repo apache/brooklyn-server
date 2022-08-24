@@ -31,9 +31,12 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.BrooklynTypeNameResolver;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Entity initializer which adds a sensor to an entity.
@@ -42,14 +45,22 @@ import org.apache.brooklyn.util.time.Duration;
 @Beta
 public interface AddSensorInitializerAbstractProto<T> extends EntityInitializer {
 
-    public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
-    public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms; default 5 minutes", Duration.FIVE_MINUTES);
-    public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
+    ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
+    ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms; default 5 minutes", Duration.FIVE_MINUTES);
+    ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
+
+    Logger LOG = LoggerFactory.getLogger(AddSensorInitializerAbstractProto.class);
 
     @SuppressWarnings("unchecked")
     @Beta
     public static <T> TypeToken<T> getType(Entity entity, String className, String name) {
-        return (TypeToken<T>)(TypeToken) new BrooklynTypeNameResolver("sensor "+name+" on "+entity,
-                RegisteredTypes.getClassLoadingContext(entity), true, true).getTypeToken(className);
+        try {
+            return (TypeToken<T>) (TypeToken) new BrooklynTypeNameResolver("sensor " + name + " on " + entity,
+                    RegisteredTypes.getClassLoadingContext(entity), true, true).getTypeToken(className);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            LOG.debug("Unable to resolve type "+className+" for sensor "+name+" on "+entity+" (rethrowing)");
+            throw Exceptions.propagateAnnotated("Unable to resolve type "+className+" for sensor "+name+" "+e, e);
+        }
     }
 }

@@ -145,6 +145,7 @@ public class BasicRegisteredType implements RegisteredType {
     
     @Beta  // TODO depending how useful this is, it might be better to replace by a static WeakHashMap in RegisteredTypes
     public ConfigBag getCache() {
+        if (cache==null) cache = new ConfigBag();
         return cache;
     }
     

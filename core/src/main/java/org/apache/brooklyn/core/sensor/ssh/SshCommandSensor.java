@@ -249,6 +249,9 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
                 }
             }
 
+            if (result1.isAbsent() && Strings.isNonBlank(input)) {
+                LOG.warn("Unable to convert to "+typeToken+": "+Maybe.Absent.getException(result1)+"\n"+input);
+            }
             return result1.get();
         }
     }
