@@ -65,11 +65,13 @@ public class ProxyEffector extends AddEffectorInitializerAbstract {
         private final String effectorName;
 
         public Body(Effector<?> eff, ConfigBag params) {
-            // Don't use getConfig(TARGET_ENTITY) because DslComponents can't be
-            // coerced to entities at this point.
+            // delay resolution of TARGET_ENTITY in case it is a DSL expression which might change
             this.target = Preconditions.checkNotNull(params.getAllConfigRaw().get(TARGET_ENTITY.getName()),
                     "Target entity must be supplied when defining this effector");
             this.effectorName = Preconditions.checkNotNull(params.get(TARGET_EFFECTOR_NAME), "Target effector name must be supplied when defining this effector");
+
+            // all other effector-level parameters are just ignored. we could pass them through, or have a parameter where user can specifiy parameters to pass through;
+            // left as an enhancement
         }
 
         @Override

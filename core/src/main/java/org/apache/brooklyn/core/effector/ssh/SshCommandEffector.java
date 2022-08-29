@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.effector.ssh;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -143,9 +144,11 @@ public final class SshCommandEffector extends AddEffectorInitializerAbstract {
 
             MutableMap<String, Object> env = MutableMap.of();
 
-            // Set all declared parameters, including default values
+            // Set all declared parameters, including default values, excluding shell.env
             for (ParameterType<?> param : effector.getParameters()) {
-                env.addIfNotNull(param.getName(), params.get(Effectors.asConfigKey(param)));
+                if (!Objects.equals(param.getName(), EFFECTOR_SHELL_ENVIRONMENT.getName())) {
+                    env.addIfNotNull(param.getName(), params.get(Effectors.asConfigKey(param)));
+                }
             }
 
             // Set things from the entity's defined shell environment, if applicable

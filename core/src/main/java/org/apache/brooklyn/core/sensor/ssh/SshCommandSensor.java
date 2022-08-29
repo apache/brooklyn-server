@@ -219,9 +219,15 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
             boolean doString = !"yaml".equalsIgnoreCase(format);
 
             if ("auto".equalsIgnoreCase(format)) {
-                if (String.class.equals(typeToken.getRawType()) || Boxing.isPrimitiveOrBoxedClass(typeToken.getRawType())) {
-                    // don't do yaml if we want a string or a primitive
+                if (String.class.equals(typeToken.getRawType())) {
+                    // don't do yaml if we want a string
                     doYaml = false;
+                } else if (Boxing.isPrimitiveOrBoxedClass(typeToken.getRawType())) {
+                    if (Boolean.FALSE.equals(useLastYamlDocument) || input == null || !input.contains("---")) {
+                        // if we want a primitive, only do yaml if allowed to take last and document contains ---
+                        // (do simple coercion normally)
+                        doYaml = false;
+                    }
                 }
             }
 
