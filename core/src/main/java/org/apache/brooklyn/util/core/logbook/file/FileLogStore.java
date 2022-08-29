@@ -247,6 +247,15 @@ public class FileLogStore implements LogStore {
         return entry;
     }
 
+    private static boolean entryMessageIsStartingTaskFromKnownTask(BrooklynLogEntry entry, Set<String> knownTasks) {
+        if (entry==null || entry.getMessage()==null || !entry.getMessage().startsWith("Starting task ")) return false;
+        String msg = entry.getMessage();
+        int fromTaskIndex = msg.lastIndexOf("from task ");
+        if (fromTaskIndex<0) return false;
+        String fromTask = Strings.getFirstWord(msg.substring(fromTaskIndex + 10));
+        return (knownTasks.contains(fromTask));
+    }
+
     private static final boolean STARTING_TASK_MESSAGE_IS_ALWAYS_THE_FIRST_MESSAGE_FOR_THAT_TASK = true;
     @Override
     public Set<String> enumerateTaskIds(Task<?> parent, int maxTasks) {
@@ -262,25 +271,22 @@ public class FileLogStore implements LogStore {
                 try (Stream<String> stream = Files.lines(path)) {
                     stream.forEach(line -> {
                         BrooklynLogEntry entry = parseLogLine(line, lineCount);
-                        if (entry!=null && entry.getMessage()!=null && entry.getMessage().startsWith("Starting task ")) {
-                            if (current.stream().anyMatch(possibleParent -> entry.getMessage().endsWith(possibleParent)) || next.stream().anyMatch(possibleParent -> entry.getMessage().endsWith(possibleParent))) {
-                                String newTaskId = entry.getMessage();
-                                newTaskId = Strings.removeFromStart(newTaskId, "Starting task ");
-                                int nextWord = newTaskId.indexOf(' ');
-                                if (nextWord>0) {
-                                    newTaskId = newTaskId.substring(0, nextWord);
-                                    if (all.add(newTaskId)) {
-                                        if (all.size()>=maxTasks) {
-                                            return;
-                                        }
+                        if (entryMessageIsStartingTaskFromKnownTask(entry, current)) {
+                            String newTaskId = entry.getMessage();
+                            newTaskId = Strings.removeFromStart(newTaskId, "Starting task ");
+                            int nextWord = newTaskId.indexOf(' ');
+                            if (nextWord>0) {
+                                newTaskId = newTaskId.substring(0, nextWord);
+                                if (all.add(newTaskId)) {
+                                    if (all.size()>=maxTasks) {
+                                        return;
+                                    }
 
-                                        // this is a newly found task
-                                        if (STARTING_TASK_MESSAGE_IS_ALWAYS_THE_FIRST_MESSAGE_FOR_THAT_TASK) {
-                                            current.add(newTaskId);
-                                        } else {
-                                            // we don't actually need a multi-pass strategy
-                                            next.add(newTaskId);
-                                        }
+                                    // this is a newly found task
+                                    current.add(newTaskId);
+                                    if (!STARTING_TASK_MESSAGE_IS_ALWAYS_THE_FIRST_MESSAGE_FOR_THAT_TASK) {
+                                        // we don't actually need a multi-pass strategy unless the above is true
+                                        next.add(newTaskId);
                                     }
                                 }
                             }
