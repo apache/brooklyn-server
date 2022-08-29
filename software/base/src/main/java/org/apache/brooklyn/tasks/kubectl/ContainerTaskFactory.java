@@ -440,15 +440,15 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
             long startupReportDelay = 1000;  // report any start longer than 1s
             while (timer.isNotExpired()) {
                 phase = checkPodPhase(entity, kubeJobName);
+                if (phase!=PodPhases.Unknown && Strings.isBlank(result.kubePodName)) {
+                    result.kubePodName = runTask(entity, newSimpleTaskFactory(String.format(PODS_NAME_CMD, namespace, kubeJobName)).summary("Get pod name").allowingNonZeroExitCode().newTask(), false, true).get().trim();
+                }
                 if (phase == PodPhases.Failed || phase == PodPhases.Succeeded || phase == PodPhases.Running) {
                     if (startupReportDelay>5000) LOG.info("Container detected in state "+phase+" after "+Duration.millis(System.currentTimeMillis()-first));
                     else LOG.debug("Container detected in state "+phase+" after "+Duration.millis(System.currentTimeMillis()-first));
                     return phase;
                 }
 
-                if (phase!=PodPhases.Unknown && Strings.isBlank(result.kubePodName)) {
-                    result.kubePodName = runTask(entity, newSimpleTaskFactory(String.format(PODS_NAME_CMD, namespace, kubeJobName)).summary("Get pod name").allowingNonZeroExitCode().newTask(), false, true).get().trim();
-                }
                 if (phase == PodPhases.Pending && Strings.isNonBlank(result.kubePodName)) {
                     // if pending, need to look for errors
                     String failedEvents = runTask(entity, newSimpleTaskFactory(String.format(SCOPED_EVENTS_FAILED_JSON_CMD, namespace, result.kubePodName)).summary("Check pod failed events").allowingNonZeroExitCode().newTask(),
