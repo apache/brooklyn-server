@@ -221,7 +221,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
         try {
 
             final String scpPassword = Strings.isEmpty(password) ? "" : password;
-            final File scpTempKeyFile = Objects.isNull(privateKeyFile) ? tempKeyFile : null;
+            final File scpKeyFile = Objects.isNull(privateKeyFile) ? tempKeyFile : null;
 
             List<String> cmd = Lists.newArrayList();
             cmd.add(getOptionalVal(props, PROP_SCP_EXECUTABLE, scpExecutable));
@@ -229,9 +229,9 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
             // set batch mode
             cmd.add("-B");
 
-            if (Objects.nonNull(scpTempKeyFile)) {
+            if (Objects.nonNull(scpKeyFile)) {
                 cmd.add("-i");
-                cmd.add(scpTempKeyFile.getAbsolutePath());
+                cmd.add(scpKeyFile.getAbsolutePath());
             }
 
             if (!strictHostKeyChecking) {
@@ -248,7 +248,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
             cmd.add(to);
 
             Map<String, String> env = MutableMap.of();
-            env.put("SCP_TEMP_KEY_FILE", Objects.isNull(scpTempKeyFile) ? "" : scpTempKeyFile.getAbsolutePath());
+            env.put("SCP_KEY_FILE", Objects.isNull(scpKeyFile) ? "" : scpKeyFile.getAbsolutePath());
             env.put("SCP_PASSWORD", scpPassword);
             env.put("SCP_FROM", from);
             env.put("SCP_TO", to);
@@ -327,7 +327,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
             env.put("SSH_USER", sshUser);
             env.put("SSH_PASSWORD", sshPassword);
             env.put("SSH_COMMAND_BODY", command);
-            env.put("SSH_TEMP_KEY_FILE", Objects.isNull(sshKeyFile) ? "" : sshKeyFile.getAbsolutePath());
+            env.put("SSH_KEY_FILE", Objects.isNull(sshKeyFile) ? "" : sshKeyFile.getAbsolutePath());
 
             if (LOG.isTraceEnabled()) LOG.trace("Executing command: {}; with env: {}", cmd, env);
             int result = execProcess(props, cmd, env);

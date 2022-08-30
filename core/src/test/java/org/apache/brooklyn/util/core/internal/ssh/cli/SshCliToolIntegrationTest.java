@@ -152,8 +152,8 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
             assertTrue(stdout.contains("SSH_HOST=localhost"), "no SSH_HOST in stdout: " + out);
             assertTrue(stdout.contains("SSH_PASSWORD=testPassword"), "no SSH_PASSWORD in stdout: " + out);
             assertTrue(stdout.contains("SSH_COMMAND_BODY=/tmp/brooklyn-"), "no SSH_COMMAND_BODY in stdout: " + out);
-            assertTrue(stdout.contains("SSH_TEMP_KEY_FILE=/tmp/sshcopy-"), "no SSH_TEMP_KEY_FILE in stdout: " + out);
-            assertTrue(stdout.contains("myKeyData"), "no SSH_TEMP_KEY_FILE content in stdout: " + out);
+            assertTrue(stdout.contains("SSH_KEY_FILE=/tmp/sshcopy-"), "no SSH_KEY_FILE in stdout: " + out);
+            assertTrue(stdout.contains("myKeyData"), "no SSH_KEY_FILE content in stdout: " + out);
 
         } catch (SshException e) {
             if (!e.toString().contains("failed to connect")) throw e;
@@ -194,8 +194,8 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
             // Look for the rest of env vars to confirm we got them passed to scpExecutable.
             assertTrue(copiedFileContent.contains("echo hello world!"), "no command in the remote file: " + out);
             assertTrue(copiedFileContent.contains("SCP_PASSWORD=testPassword"), "no SCP_PASSWORD in the remote file: " + out);
-//            assertTrue(copiedFileContent.contains("SCP_TEMP_KEY_FILE="), "no SCP_TEMP_KEY_FILE in the remote file: " + out);
-//            assertTrue(copiedFileContent.contains("myKeyData"), "no SSH_TEMP_KEY_FILE content in stdout: " + out);
+//            assertTrue(copiedFileContent.contains("SCP_KEY_FILE="), "no SCP_KEY_FILE in the remote file: " + out);
+//            assertTrue(copiedFileContent.contains("myKeyData"), "no SSH_KEY_FILE content in stdout: " + out);
 
         } catch (SshException e) {
             if (!e.toString().contains("failed to connect")) throw e;
