@@ -18,31 +18,29 @@
  */
 package org.apache.brooklyn.util.core.internal.ssh.cli;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-
-import java.io.ByteArrayOutputStream;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.Map;
-
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.internal.ssh.SshException;
 import org.apache.brooklyn.util.core.internal.ssh.SshTool;
 import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest;
-import org.apache.brooklyn.util.core.internal.ssh.cli.SshCliTool;
+import org.apache.brooklyn.util.os.Os;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
+import java.util.*;
+
+import static org.testng.Assert.*;
 
 /**
- * Test the operation of the {@link SshJschTool} utility class.
+ * Test the operation of the {@link SshCliTool} utility class.
  */
 public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
 
@@ -119,4 +117,88 @@ public class SshCliToolIntegrationTest extends SshToolAbstractIntegrationTest {
         assertEquals(exitcode, 123);
     }
 
+    @Test(groups = {"Integration"})
+    public void testSshExecutable() throws IOException {
+
+        String path = Objects.requireNonNull(getClass().getClassLoader().getResource("ssh-executable.sh")).getPath();
+        Set<PosixFilePermission> perms = new HashSet<>();
+        perms.add(PosixFilePermission.OWNER_EXECUTE);
+        perms.add(PosixFilePermission.OWNER_READ);
+        Files.setPosixFilePermissions(Paths.get(path), perms);
+
+        final SshTool localTool = newTool(ImmutableMap.of(
+                "sshExecutable", path,
+                "user", Os.user(),
+                "host", "localhost",
+                "privateKeyData", "myKeyData",
+                "password", "testPassword"));
+        tools.add(localTool);
+
+        try {
+            localTool.connect();
+            Map<String,Object> props = new LinkedHashMap<>();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream err = new ByteArrayOutputStream();
+            props.put("out", out);
+            props.put("err", err);
+            int exitcode = localTool.execScript(props, Arrays.asList("echo hello err > /dev/stderr"), null);
+            Assert.assertEquals(0, exitcode, "exitCode=" + exitcode + ", but expected 0");
+            log.debug("OUT from ssh -vvv command is: " + out);
+            log.debug("ERR from ssh -vvv command is: " + err);
+
+            // Look for the rest of env vars to confirm we got them passed to sshExecutable.
+            String stdout = out.toString();
+            assertTrue(stdout.contains("SSH_USER=" + Os.user()), "no SSH_USER in stdout: " + out);
+            assertTrue(stdout.contains("SSH_HOST=localhost"), "no SSH_HOST in stdout: " + out);
+            assertTrue(stdout.contains("SSH_PASSWORD=testPassword"), "no SSH_PASSWORD in stdout: " + out);
+            assertTrue(stdout.contains("SSH_COMMAND_BODY=/tmp/brooklyn-"), "no SSH_COMMAND_BODY in stdout: " + out);
+            assertTrue(stdout.contains("SSH_KEY_FILE=/tmp/sshcopy-"), "no SSH_KEY_FILE in stdout: " + out);
+            assertTrue(stdout.contains("myKeyData"), "no SSH_KEY_FILE content in stdout: " + out);
+
+        } catch (SshException e) {
+            if (!e.toString().contains("failed to connect")) throw e;
+        }
+    }
+
+    @Test(groups = {"Integration"})
+    public void testScpExecutable() throws IOException {
+
+        String path = Objects.requireNonNull(getClass().getClassLoader().getResource("scp-executable.sh")).getPath();
+        Set<PosixFilePermission> perms = new HashSet<>();
+        perms.add(PosixFilePermission.OWNER_EXECUTE);
+        perms.add(PosixFilePermission.OWNER_READ);
+        Files.setPosixFilePermissions(Paths.get(path), perms);
+
+        final SshTool localTool = newTool(ImmutableMap.of(
+                "scpExecutable", path,
+                "user", Os.user(),
+                "host", "localhost",
+//                "privateKeyData", "myKeyData", // TODO: loops to itself to copy the key file, skip in the test.
+                "password", "testPassword"));
+        tools.add(localTool);
+
+        try {
+            localTool.connect();
+            Map<String,Object> props = new LinkedHashMap<>();
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            ByteArrayOutputStream err = new ByteArrayOutputStream();
+            props.put("out", out);
+            props.put("err", err);
+            int exitcode = localTool.copyToServer(props, "echo hello world!\n".getBytes(), remoteFilePath);
+
+            Assert.assertEquals(0, exitcode, "exitCode=" + exitcode + ", but expected 0");
+
+            String copiedFileContent = new String(Files.readAllBytes(Paths.get(remoteFilePath)));
+            log.info("Contents of copied file with custom scpExecutable: " + copiedFileContent);
+
+            // Look for the rest of env vars to confirm we got them passed to scpExecutable.
+            assertTrue(copiedFileContent.contains("echo hello world!"), "no command in the remote file: " + out);
+            assertTrue(copiedFileContent.contains("SCP_PASSWORD=testPassword"), "no SCP_PASSWORD in the remote file: " + out);
+//            assertTrue(copiedFileContent.contains("SCP_KEY_FILE="), "no SCP_KEY_FILE in the remote file: " + out);
+//            assertTrue(copiedFileContent.contains("myKeyData"), "no SSH_KEY_FILE content in stdout: " + out);
+
+        } catch (SshException e) {
+            if (!e.toString().contains("failed to connect")) throw e;
+        }
+    }
 }
