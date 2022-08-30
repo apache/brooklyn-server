@@ -221,7 +221,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
         try {
 
             final String scpPassword = Strings.isEmpty(password) ? "" : password;
-            final File scpKeyFile = Objects.isNull(privateKeyFile) ? tempKeyFile : null;
+            final File scpKeyFile = Objects.isNull(privateKeyFile) ? tempKeyFile : privateKeyFile;
 
             List<String> cmd = Lists.newArrayList();
             cmd.add(getOptionalVal(props, PROP_SCP_EXECUTABLE, scpExecutable));
@@ -273,7 +273,7 @@ public class SshCliTool extends SshAbstractTool implements SshTool {
             final String sshUser = Strings.isEmpty(getUsername()) ? "" : getUsername();
             final String sshHost = getHostAddress();
             final String sshPassword = Strings.isEmpty(password) ? "" : password;
-            final File sshKeyFile = Objects.isNull(privateKeyFile) ? tempKeyFile : null;
+            final File sshKeyFile = Objects.isNull(privateKeyFile) ? tempKeyFile : privateKeyFile;
 
             List<String> cmd = Lists.newArrayList();
             cmd.add(getOptionalVal(props, PROP_SSH_EXECUTABLE, sshExecutable));
