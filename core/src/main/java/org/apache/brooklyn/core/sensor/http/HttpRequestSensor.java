@@ -133,6 +133,7 @@ public class HttpRequestSensor<T> extends AbstractAddTriggerableSensor<T> {
         standardPollConfig(entity, initParams(), pollConfig);
 
         HttpFeed.Builder httpRequestBuilder = HttpFeed.builder().entity(entity)
+                .name("HTTP Sensor Feed: "+initParam(SENSOR_NAME))
                 .baseUri(uri)
                 .credentialsIfNotNull(username, password)
                 .preemptiveBasicAuth(Boolean.TRUE.equals(preemptiveBasicAuth))

@@ -140,6 +140,7 @@ public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {
         standardPollConfig(entity, initParams(), pollConfig);
 
         SshFeed.Builder feedBuilder = SshFeed.builder()
+                .name("SSH Sensor Feed: "+initParam(SENSOR_NAME))
                 .entity(entity)
                 .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(params, ONLY_IF_SERVICE_UP)).or(true))
                 .poll(pollConfig);

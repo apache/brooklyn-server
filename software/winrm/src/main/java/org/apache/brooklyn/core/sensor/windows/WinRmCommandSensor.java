@@ -136,6 +136,7 @@ public final class WinRmCommandSensor<T> extends AbstractAddTriggerableSensor<T>
         standardPollConfig(entity, initParams(), pollConfig);
 
         CmdFeed feed = CmdFeed.builder()
+                .name("WinRM Sensor Feed: "+initParam(SENSOR_NAME))
                 .entity(entity)
                 .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(initParams(), ONLY_IF_SERVICE_UP)).or(true))
                 .poll(pollConfig)

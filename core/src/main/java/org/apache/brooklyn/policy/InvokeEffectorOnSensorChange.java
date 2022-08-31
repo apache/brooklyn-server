@@ -97,7 +97,7 @@ public class InvokeEffectorOnSensorChange extends AbstractInvokeEffectorPolicy i
             final Object currentSensorValue = getProducer().sensors().get(sensor);
             setMoreUpdatesComing(event.getTimestamp(), event.getValue(), currentSensorValue);
         }
-        highlightAction("Invoking effector due to "+event,invoke(eff, MutableMap.<String, Object>of()));
+        highlightAction("Invoking effector "+eff.getName()+" due to "+event, invoke(eff, MutableMap.<String, Object>of()));
     }
 
     private AttributeSensor<Object> getSensor() {

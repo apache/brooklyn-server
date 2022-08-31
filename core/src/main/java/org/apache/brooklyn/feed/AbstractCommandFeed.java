@@ -113,6 +113,7 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
             "polls");
     
     public static abstract class Builder<T extends AbstractCommandFeed, B extends Builder<T, B>> {
+        private String name;
         private Entity entity;
         private boolean onlyIfServiceUp = false;
         private Supplier<MachineLocation> machine;
@@ -121,7 +122,11 @@ public abstract class AbstractCommandFeed extends AbstractFeed {
         private String uniqueTag;
         private String commandUrlToInstallAndRun;
         private volatile boolean built;
-        
+
+        public B name(String val) {
+            this.name = val;
+            return self();
+        }
         public B entity(Entity val) {
             this.entity = val;
             return self();

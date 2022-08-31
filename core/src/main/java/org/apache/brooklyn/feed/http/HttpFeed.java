@@ -126,6 +126,7 @@ public class HttpFeed extends AbstractFeed {
     }
     
     public static class Builder {
+        private String name;
         private Entity entity;
         private boolean onlyIfServiceUp = false;
         private Supplier<URI> baseUriProvider;
@@ -141,6 +142,10 @@ public class HttpFeed extends AbstractFeed {
         private Boolean preemptiveBasicAuth;
         private volatile boolean built;
 
+        public Builder name(String val) {
+            this.name = val;
+            return this;
+        }
         public Builder entity(Entity val) {
             this.entity = val;
             return this;
@@ -329,6 +334,8 @@ public class HttpFeed extends AbstractFeed {
     }
     
     protected HttpFeed(Builder builder) {
+        if (builder.name!=null) setDisplayName(builder.name);
+
         config().set(ONLY_IF_SERVICE_UP, builder.onlyIfServiceUp);
         Map<String,String> baseHeaders = builder.buildBaseHeaders();
 
