@@ -167,6 +167,10 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
 
     @Override
     public boolean isRunning() {
+        if (getMode()==NonDeploymentManagementContextMode.MANAGEMENT_STOPPED) {
+            // already stopped
+            return false;
+        }
         // Assume that the real management context has not been terminated, so always true
         return true;
     }
