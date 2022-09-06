@@ -50,9 +50,12 @@ import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaClassNameTypeImplementationPlan;
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
@@ -756,4 +759,13 @@ public class RegisteredTypes {
     public static BrooklynClassLoadingContext getClassLoadingContext(Entity entity) {
         return CatalogUtils.getClassLoadingContext(entity);
     }
+
+    public static BrooklynClassLoadingContext getClassLoadingContext(ManagementContext mgmt, Entity optionalEntity) {
+        return optionalEntity!=null ? CatalogUtils.getClassLoadingContext(optionalEntity) : JavaBrooklynClassLoadingContext.create(mgmt);
+    }
+
+    public static BrooklynClassLoadingContext getCurrentClassLoadingContextOrManagement(ManagementContext mgmt) {
+        return getClassLoadingContext(mgmt, BrooklynTaskTags.getContextEntity(Tasks.current()));
+    }
+
 }
