@@ -1694,7 +1694,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     }
 
                     if (cutdownSpecInstantiated!=null) {
-                        log.warn("Instantiation of this blueprint was only possible using cut-down syntax; assuming dependencies on other items. May resolve subsequently or may cause errors when used:\n"+candidateYaml);
+                        log.warn("Instantiation of this blueprint was only possible using cut-down syntax `"+optionalKeyForModifyingYaml+": { type: "+typeIfOptionalKeySupplied+" }`; assuming dependencies on other items. May resolve subsequently or may cause errors when used:\n"+candidateYaml);
                         
                         catalogItemType = candidateCiType;
                         planYaml = candidateYaml;
