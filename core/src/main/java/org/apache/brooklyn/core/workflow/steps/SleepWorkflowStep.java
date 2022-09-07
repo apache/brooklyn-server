@@ -16,17 +16,34 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow;
+package org.apache.brooklyn.core.workflow.steps;
 
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 
 public class SleepWorkflowStep extends WorkflowStepDefinition {
 
     Duration duration;
 
+    public Duration getDuration() {
+        return duration;
+    }
+
     @Override
     protected void setShorthandValue(Object value) {
         duration = Duration.of(value);
+    }
+
+    @Override
+    protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
+        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
+            if (duration==null) throw new IllegalStateException("Duration for sleep not specified");
+            Time.sleep(getDuration());
+        });
     }
 
 }

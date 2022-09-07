@@ -20,13 +20,21 @@ package org.apache.brooklyn.core.workflow;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.NaturalOrderComparator;
 
 import java.util.Map;
+import java.util.TreeMap;
 
 public class WorkflowStepResolution {
 
@@ -57,6 +65,18 @@ public class WorkflowStepResolution {
             return (WorkflowStepDefinition) def;
         } else {
             throw new IllegalArgumentException("Unable to resolve step "+ name +"; unexpected object "+ def);
+        }
+    }
+
+    public static void validateWorkflowParameters(BrooklynObject entityOrAdjunctWhereRunningIfKnown, ConfigBag params) {
+        Map<String, Object> steps = params.get(WorkflowCommonConfig.STEPS);
+        if (steps==null || steps.isEmpty()) throw new IllegalArgumentException("It is required to supply 'steps' to define a workflow effector");
+
+        DslPredicates.DslPredicate condition = params.get(WorkflowCommonConfig.CONDITION);
+        if (condition==null && entityOrAdjunctWhereRunningIfKnown!=null) {
+            // ideally try to resolve the steps at entity init time; except if a condition is required we skip that so you can have steps that only resolve late,
+            // and if entity isn't available then we don't need that either
+            WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunningIfKnown).getManagementContext(), steps);
         }
     }
 

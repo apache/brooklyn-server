@@ -60,7 +60,7 @@ public class CompositeEffector extends AddEffectorInitializerAbstract {
             "Wheter additional defined effectors should override pre-existing effector with same name or not (default: false)",
             Boolean.FALSE);
 
-    private CompositeEffector() {}
+    public CompositeEffector() {}
     public CompositeEffector(ConfigBag params) { super(params); }
     public CompositeEffector(Map<?, ?> params) {
         this(ConfigBag.newInstance(params));

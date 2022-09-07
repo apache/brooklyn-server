@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 
 import java.util.Map;
 
+// TODO do we even need this class?
 public class WorkflowDefinition {
 
     Map<String, Object> steps;
