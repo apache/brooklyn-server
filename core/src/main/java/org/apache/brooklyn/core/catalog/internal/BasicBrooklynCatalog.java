@@ -737,7 +737,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         String itemYaml = Yamls.getTextOfYamlAtPath(sourceYaml, "item").getMatchedYamlTextOrWarn();
         if (itemYaml!=null) sourceYaml = itemYaml;
         else sourceYaml = new Yaml().dump(item);
-        
+
         CatalogItemType itemType = TypeCoercions.coerce(getFirstAs(catalogMetadata, Object.class, "itemType", "item_type").orNull(), CatalogItemType.class);
 
         String id = getFirstAs(catalogMetadata, String.class, "id").orNull();
@@ -769,6 +769,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
             try {
                 sourceYaml = ResourceUtils.create(loader).getResourceAsString(sourceYaml.trim());
+                item = Yamls.parseAll(sourceYaml).iterator().next();
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 // don't throw, but include in list of proposed errors
