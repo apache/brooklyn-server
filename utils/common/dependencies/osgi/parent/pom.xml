@@ -20,51 +20,53 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
 
     <groupId>org.apache.brooklyn.test.resources.osgi</groupId>
-    <artifactId>brooklyn-test-osgi-more-entities</artifactId>
-    <version>0.2.0</version>
+    <artifactId>test-dependency-build-parent</artifactId>
+    <version>1.0.0</version>
 
-    <name>OSGi bundled test entities</name>
+    <name>OSGi bundled test entities parent</name>
+
 
     <description>
-        Simple entities for testing the OSGi functionality
+        Project defining standard way of building OSGi test dependencies
     </description>
 
     <parent>
-        <groupId>org.apache.brooklyn.test.resources.osgi</groupId>
-        <artifactId>test-dependency-build-parent</artifactId>
-        <version>1.0.0</version>
-        <relativePath>../parent/pom.xml</relativePath>
+        <groupId>org.apache.brooklyn</groupId>
+        <artifactId>brooklyn-parent</artifactId>
+        <version>1.1.0-SNAPSHOT</version><!-- BROOKLYN_VERSION -->
+        <relativePath>../../../../../../../parent/pom.xml</relativePath>
     </parent>
     <dependencies>
         <dependency>
-            <groupId>org.apache.brooklyn.test.resources.osgi</groupId>
-            <artifactId>brooklyn-test-osgi-entities</artifactId>
-            <version>0.1.0</version>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-core</artifactId>
+            <version>${brooklyn.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-api</artifactId>
+            <version>${brooklyn.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.brooklyn</groupId>
+            <artifactId>brooklyn-utils-common</artifactId>
+            <version>${brooklyn.version}</version>
         </dependency>
     </dependencies>
     
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <version>2.3.2</version>
-                <configuration>
-                    <outputDirectory>../../../src/test/resources/brooklyn/osgi</outputDirectory>
-                    <finalName>brooklyn-test-osgi-more-entities_${project.version}</finalName>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.felix</groupId>
                 <artifactId>maven-bundle-plugin</artifactId>
                 <version>2.5.3</version>
                 <configuration>
                     <instructions>
-                        <Bundle-SymbolicName>org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-more-entities</Bundle-SymbolicName>
-                        <Bundle-Version>${project.version}</Bundle-Version>
+                        <Brooklyn-Catalog-Force-Remove-Bundles>-</Brooklyn-Catalog-Force-Remove-Bundles>
+                        <Brooklyn-Catalog-Upgrade-For-Bundles>-</Brooklyn-Catalog-Upgrade-For-Bundles>
                     </instructions>
                 </configuration>
             </plugin>

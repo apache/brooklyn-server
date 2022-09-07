@@ -756,11 +756,29 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         CharSequence loggedId = Strings.firstNonBlank(id, symbolicName, displayName, "<unidentified>");
         log.debug("Analyzing item " + loggedId + " for addition to catalog");
+
+        Exception resolutionError = null;
+        if (sourceYaml.trim().matches("[A-Za-z0-9]+:[^\\s]+")) {
+            // if sourceYaml is one word and looks like a URL, then read it as a URL first
+            BrooklynClassLoadingContext loader = getClassLoadingContext("catalog item url loader", parentMetadata, libraryBundles);
+
+            log.debug("Catalog load, loading referenced item at "+url+" for "+loggedId+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
+            if (sourceYaml.startsWith("http")) {
+                // give greater visibility to these
+                log.info("Loading external referenced item at "+url+" for "+loggedId+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
+            }
+            try {
+                sourceYaml = ResourceUtils.create(loader).getResourceAsString(sourceYaml.trim());
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                // don't throw, but include in list of proposed errors
+                resolutionError = new IllegalStateException("Unable to load '"+sourceYaml+"' as URL", e);
+            }
+        }
         PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format,
                 (containingBundle instanceof CatalogBundle ? ((CatalogBundle)containingBundle) : null), libraryBundles,
                 null, resultLegacyFormat).resolve();
 
-        Exception resolutionError = null;
         if (!planInterpreter.isResolved()) {
             // don't throw yet, we may be able to add it in an unresolved state
             resolutionError = Exceptions.create("Could not resolve definition of item"
@@ -769,8 +787,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // some of the errors themselves may reproduce it
                 // (ideally in future we'll be able to return typed errors with caret position of error)
 //                + ":\n"+sourceYaml
-                , planInterpreter.getErrors());
+                , MutableList.<Exception>of().appendIfNotNull(resolutionError).appendAll(planInterpreter.getErrors()));
         }
+
         // might be null
         itemType = planInterpreter.getCatalogItemType();
 
@@ -1126,10 +1145,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, boolean requireValidation, Map<Object, Object> parentMeta, int depth, boolean force, Boolean throwOnError) {
-        @SuppressWarnings("unchecked")
-        List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, Iterable.class, "brooklyn.libraries", "libraries").orNull());
-        Collection<CatalogBundle> parentLibraries = CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw);
-        BrooklynClassLoadingContext loader = CatalogUtils.newClassLoadingContext(mgmt, "<catalog url reference loader>:0.0.0", parentLibraries);
+        BrooklynClassLoadingContext loader = getClassLoadingContext("catalog url reference loader", parentMeta, null);
         String yaml;
         log.debug("Catalog load, loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
         if (url.startsWith("http")) {
@@ -1149,6 +1165,16 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         }
         log.debug("Catalog load, loaded referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+", now have "+
             (resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items");
+    }
+
+    private BrooklynClassLoadingContext getClassLoadingContext(String summary, Map<?, ?> parentMeta, Collection<CatalogBundle> libraries) {
+        Set<CatalogBundle> parentLibraries = MutableSet.of();
+        if (parentMeta!=null) {
+            List<?> parentLibrariesRaw = MutableList.copyOf(getFirstAs(parentMeta, Iterable.class, "brooklyn.libraries", "libraries").orNull());
+            parentLibraries.addAll(CatalogItemDtoAbstract.parseLibraries(parentLibrariesRaw));
+        }
+        if (libraries!=null) parentLibraries.addAll(libraries);
+        return CatalogUtils.newClassLoadingContext(mgmt, "<"+summary+">:0.0.0", parentLibraries);
     }
 
     @SuppressWarnings("unchecked")

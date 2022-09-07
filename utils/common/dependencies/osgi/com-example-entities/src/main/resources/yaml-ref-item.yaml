@@ -15,15 +15,5 @@
 # specific language governing permissions and limitations
 # under the License.
 
+type: com.example.brooklyn.test.osgi.entities.SimpleEntity
 
-brooklyn.catalog:
-    itemType: entity
-    description: For testing loading catalog.bom with catalog scan
-    displayName: I Haz Catalog
-    items:
-    - id: com.example.simpleTest
-      item:
-        type: com.example.brooklyn.test.osgi.entities.SimpleEntity
-    - classpath://yaml-ref-this-catalog.bom
-    - id: com.example.includedItemTest
-      item: classpath://yaml-ref-item.yaml

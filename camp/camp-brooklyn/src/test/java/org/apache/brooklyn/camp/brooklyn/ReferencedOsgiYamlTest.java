@@ -20,11 +20,14 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import java.util.Collection;
 
+import com.google.common.base.Joiner;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
 import org.testng.Assert;
@@ -37,6 +40,27 @@ public class ReferencedOsgiYamlTest extends AbstractYamlTest {
     @Override
     protected boolean disableOsgi() {
         return false;
+    }
+
+    @Test
+    public void testCatalogReferencingUrlsInSameBundle() throws Exception {
+        TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_PATH);
+
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  brooklyn.libraries:",
+                "    - " + OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_URL);
+
+        Asserts.assertNotNull(mgmt().getTypeRegistry().get("com.example.simpleTest"));
+        // test we can read from included referenced bom in same jar
+        Asserts.assertNotNull(mgmt().getTypeRegistry().get("com.example.includedCatalogTest"));
+        // test we can read from included referenced item in same jar
+        RegisteredType t = mgmt().getTypeRegistry().get("com.example.includedItemTest");
+        Asserts.assertNotNull(t);
+        Asserts.assertStringContainsIgnoreCase(t.getPlan().getPlanData().toString(), "SimpleEntity");
+        Asserts.assertStringDoesNotContain(t.getPlan().getPlanData().toString(), "classpath");
+
+        Asserts.assertNull(mgmt().getTypeRegistry().get("com.example.nonPresentTest"));
     }
 
     @Test
