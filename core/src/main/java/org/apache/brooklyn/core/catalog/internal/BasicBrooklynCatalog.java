@@ -1675,23 +1675,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // finally try parsing a cut-down plan, in case there is a nested reference to a newly defined catalog item
             if (typeIfOptionalKeySupplied!=null && optionalKeyForModifyingYaml!=null) {
                 try {
-                    String cutDownYaml = optionalKeyForModifyingYaml + ":\n" + makeAsIndentedList("type: "+typeIfOptionalKeySupplied);
-                    
+
                     Object cutdownSpecInstantiated = null;
 
                     if (ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS) {
-                        @SuppressWarnings("rawtypes")
-                        CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
-                                .plan(cutDownYaml)
-                                .libraries(libraryBundles)
-                                .build();
-                        cutdownSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
+                        if (typeIfOptionalKeySupplied.startsWith("services:") || typeIfOptionalKeySupplied.contains("\nservices:")) {
+                            // skip legacy if there is a services block
+                        } else {
+                            String cutDownYaml = optionalKeyForModifyingYaml + ":\n" + makeAsIndentedList("type: " + typeIfOptionalKeySupplied);
 
-                        log.warn("Instantiation of this cut-down blueprint was only possible with legacy plan-to-spec converter, will likely not be supported in future versions:\n"+candidateYaml);
+                            @SuppressWarnings("rawtypes")
+                            CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
+                                    .plan(cutDownYaml)
+                                    .libraries(libraryBundles)
+                                    .build();
+                            cutdownSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
+                        }
                     }
 
                     if (cutdownSpecInstantiated!=null) {
-                        log.debug("Instantiation of this blueprint was only possible using cut-down syntax; assuming dependencies on other items. May resolve subsequently or may cause errors when used:\n"+candidateYaml);
+                        log.warn("Instantiation of this blueprint was only possible using cut-down syntax; assuming dependencies on other items. May resolve subsequently or may cause errors when used:\n"+candidateYaml);
                         
                         catalogItemType = candidateCiType;
                         planYaml = candidateYaml;
