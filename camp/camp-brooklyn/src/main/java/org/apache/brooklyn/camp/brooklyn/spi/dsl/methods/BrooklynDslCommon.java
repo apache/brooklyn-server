@@ -144,7 +144,7 @@ public class BrooklynDslCommon {
                     return null;
                 }
 
-                BrooklynClassLoadingContext loader = (entity != null) ? RegisteredTypes.getClassLoadingContext(entity) : JavaBrooklynClassLoadingContext.create(mgmt);
+                BrooklynClassLoadingContext loader = RegisteredTypes.getClassLoadingContext(mgmt, entity);
                 Object spec = DslUtils.transformSpecialFlags(mgmt, loader, dslParse.apply(mgmt, MutableMap.of("$brooklyn:entitySpec", input)));
                 if (spec instanceof Supplier) spec = ((Supplier)spec).get();
 
