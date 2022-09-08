@@ -55,7 +55,7 @@ public abstract class WorkflowStepDefinition {
 //    on-error:  a description of how to handle errors section
 //    log-marker:  a string which is included in all log messages in the workflow or step and any sub-tasks and subtasks in to easily identify the actions of this workflow (in addition to task IDs)
 
-    abstract protected void setShorthandValue(Object value);
+    abstract public void setShorthand(String value);
 
     abstract protected Task<?> newTask(String currentStepId, WorkflowExecutionContext workflowExecutionContext);
 

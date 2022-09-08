@@ -94,7 +94,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "        step1:",
                 "          type: sleep",
                 "          duration: 1s",
-                "        step2: { sleep: 1s }");
+                "        step2: sleep 1s");
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());

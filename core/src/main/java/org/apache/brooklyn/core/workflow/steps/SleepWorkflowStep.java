@@ -34,7 +34,7 @@ public class SleepWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected void setShorthandValue(Object value) {
+    public void setShorthand(String value) {
         duration = Duration.of(value);
     }
 

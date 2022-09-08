@@ -94,7 +94,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testShorthandStepResolution() {
         loadTypes();
-        Map<String,Object> input = MutableMap.of("sleep", "1s");
+        String input = "sleep 1s";
 
         // only util will work for shorthand
         WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, "s1", input);
@@ -111,7 +111,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 "steps", MutableMap.of(
                         "step1", MutableMap.of("type", "no-op"),
                         "step2", MutableMap.of("type", "sleep", "duration", "1s"),
-                        "step3", MutableMap.of("sleep", "1s")
+                        "step3", "sleep 1s"
                 ));
 
         WorkflowDefinition w = convert(input, WorkflowDefinition.class);
@@ -131,7 +131,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.STEPS, MutableMap.of(
                         "step1", MutableMap.of("type", "no-op"),
                         "step2", MutableMap.of("type", "sleep", "duration", "1s"),
-                        "step3", MutableMap.of("sleep", "1s")
+                        "step3", "sleep 1s"
                 ))
         );
         eff.apply((EntityLocal)app);

@@ -48,14 +48,29 @@ public class WorkflowStepResolution {
     static WorkflowStepDefinition resolveStep(ManagementContext mgmt, String name, Object def) {
         BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
 
-        if (def instanceof Map) {
-            Map<String,Object> map = (Map<String,Object>) def;
-            if (map.size()==1 && !map.containsKey("type")) {
-                // shorthand definition. use string constructor.
-                Map.Entry<String, Object> ent = map.entrySet().iterator().next();
-                def = MutableMap.of("type", ent.getKey(), "shorthandValue", ent.getValue());
+//        // OLD SHORTHAND PROPOSAL - single key map
+//        if (def instanceof Map) {
+//            Map<String,Object> map = (Map<String,Object>) def;
+//            if (map.size()==1 && !map.containsKey("type")) {
+//                // shorthand definition. use string constructor.
+//                Map.Entry<String, Object> ent = map.entrySet().iterator().next();
+//                def = MutableMap.of("type", ent.getKey(), "shorthandValue", ent.getValue());
+//            }
+//        }
+
+        // NEW SHORTHAND PROPOSAL - string, type in first word, remainder as shorthand
+        if (def instanceof String) {
+            String s = ((String) def).trim();
+            def = MutableMap.of();
+            int wordBreak = s.indexOf(" ");
+            if (wordBreak<0) {
+                ((Map<String, Object>) def).put("type", s);
+            } else {
+                ((Map<String, Object>) def).put("type", s.substring(0, wordBreak));
+                ((Map<String, Object>) def).put("shorthand", s.substring(wordBreak+1).trim());
             }
         }
+
         try {
             def = BeanWithTypeUtils.convert(mgmt, def, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
         } catch (Exception e) {

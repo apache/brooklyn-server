@@ -22,13 +22,15 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.text.Strings;
 
 public class NoOpWorkflowStep extends WorkflowStepDefinition {
 
     @Override
-    protected void setShorthandValue(Object value) {
-        // there is no point in having a no-op on its own; it is only useful if there is a next or condition or something else (i think)
-        throw new IllegalStateException("Shorthand syntax not supported for no-op");
+    public void setShorthand(String value) {
+        if (Strings.isBlank(value)) return;
+        // no arguments siupported
+        throw new IllegalStateException("Value for shorthand syntax not supported for no-op");
     }
 
     @Override
