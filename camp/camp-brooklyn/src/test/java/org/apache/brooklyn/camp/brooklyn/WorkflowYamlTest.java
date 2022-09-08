@@ -31,7 +31,9 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -42,6 +44,7 @@ import org.apache.brooklyn.core.workflow.WorkflowEffector;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
 import org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
 import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -76,10 +79,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         super.setUp();
         addRegisteredTypeBean(mgmt(), "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "no-op", NoOpWorkflowStep.class);
+        addRegisteredTypeBean(mgmt(), "set-sensor", SetSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "workflow-effector", WorkflowEffector.class);
     }
 
-    @Test(groups="Integration")  // because uses sleeps - TODO rewrite using set-sensor when available, with better assertion
+    @Test
     public void testWorkflowEffector() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
@@ -92,19 +96,21 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "        step1:",
                 "          type: no-op",
                 "        step1:",
-                "          type: sleep",
-                "          duration: 1s",
-                "        step2: sleep 1s");
+                "          type: set-sensor",
+                "          sensor: foo",
+                "          value: bar",
+                "        step2: set-sensor integer bar = 1");
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
 
-        Stopwatch sw = Stopwatch.createStarted();
         Task<?> invocation = app.invoke(effector, null);
         Object result = invocation.getUnchecked();
-        Asserts.assertThat(Duration.of(sw), d -> !d.isShorterThan(Duration.seconds(2)));
         Dumper.dumpInfo(invocation);
+
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
     }
 
 }

@@ -18,24 +18,32 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 public class WorkflowExecutionContext implements TaskAdaptable<Object> {
 
@@ -92,6 +100,26 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
             }
         }
         return task;
+    }
+
+    public Entity getEntity() {
+        return entity;
+    }
+
+    public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {
+        if (Strings.isBlank(typeName)) return ifUnset.get();
+        BrooklynClassLoadingContext loader = getEntity() != null ? RegisteredTypes.getClassLoadingContext(getEntity()) : null;
+        return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("", loader, true, true).getTypeToken(typeName);
+    }
+
+    public String resolve(String expression) {
+        // TODO expand interpolated strings deeply in the expression
+        return expression;
+    }
+
+    public <T> T resolve(Object expression, TypeToken<T> type) {
+        // TODO expand interpolated strings in the expression
+        return TypeCoercions.coerce(expression, type);
     }
 
     protected class Body implements Callable<Object> {

@@ -29,13 +29,16 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -62,6 +65,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     protected void loadTypes() {
         addRegisteredTypeBean(mgmt, "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "no-op", NoOpWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
     }
 
     <T> T convert(Object input, Class<T> type) {
@@ -121,7 +125,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertSize(steps, 3);
     }
 
-    @Test(groups="Integration")  // because uses sleeps - TODO rewrite using set-sensor when available, with better assertion
+    @Test
     public void testWorkflowEffector() {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
@@ -130,17 +134,19 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, MutableMap.of(
                         "step1", MutableMap.of("type", "no-op"),
-                        "step2", MutableMap.of("type", "sleep", "duration", "1s"),
-                        "step3", "sleep 1s"
+                        "step2", MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"),
+                        "step3", "set-sensor integer bar = 1"
                 ))
         );
         eff.apply((EntityLocal)app);
 
-        Stopwatch sw = Stopwatch.createStarted();
         Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
         Object result = invocation.getUnchecked();
-        Asserts.assertThat(Duration.of(sw), d -> !d.isShorterThan(Duration.seconds(2)));
+
         Dumper.dumpInfo(invocation);
+
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
     }
 
 }
