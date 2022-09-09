@@ -642,7 +642,7 @@ public class BundleUpgradeParser {
     static List<VersionRangedName> parseVersionRangedNameList(String input, boolean singleVersionIsOsgiRange,
             List<String> wildcardNames, String wildcardVersion) {
         if (input == null) return ImmutableList.of();
-        
+
         List<String> vals = QuotedStringTokenizer.builder()
                 .delimiterChars(",")
                 .includeQuotes(false)
@@ -652,7 +652,9 @@ public class BundleUpgradeParser {
         List<VersionRangedName> versionedItems = new ArrayList<>();
         for (String val : vals) {
             val = val.trim();
-            if (val.startsWith("*")) {
+            if (Strings.isBlank(val) || "-".equals(val)) {
+                // ignore
+            } else if (val.startsWith("*")) {
                 String r;
                 if ("*".equals(val)) {
                     r = wildcardVersion;

@@ -88,7 +88,9 @@ public abstract class BrooklynLauncherRebindCatalogOsgiTest extends AbstractBroo
             OsgiTestResources.BROOKLYN_TEST_OSGI_ENTITIES_COM_EXAMPLE_VERSION);
     
     private static final Set<VersionedName> COM_EXAMPLE_BUNDLE_CATALOG_IDS = ImmutableSet.of(
-            new VersionedName("com.example.simpleTest", "0.1.0"));
+            new VersionedName("com.example.simpleTest", "0.1.0"),
+            new VersionedName("com.example.includedCatalogTest", "0.1.0"),
+            new VersionedName("com.example.includedItemTest", "0.1.0"));
 
     /**
      * Whether we reuse OSGi Framework depends if we want it to feel like rebinding on a new machine 

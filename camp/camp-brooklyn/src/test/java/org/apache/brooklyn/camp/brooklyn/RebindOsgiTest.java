@@ -415,7 +415,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
         
         String appSymbolicName = "my.catalog.app.id.load";
         String appVersion = "0.1.0";
-        String appCatalogFormat = Joiner.on("\n").join(
+        String appCatalogBom = Joiner.on("\n").join(
                 "brooklyn.catalog:",
                 "  id: " + appSymbolicName,
                 "  version: " + appVersion,
@@ -431,7 +431,7 @@ public class RebindOsgiTest extends AbstractYamlRebindTest {
                 "          object.fields:",
                 "            val: myEntityVal");
         
-        Iterables.getOnlyElement(addCatalogItems(String.format(appCatalogFormat, appVersion)));
+        Iterables.getOnlyElement(addCatalogItems(appCatalogBom));
         
         String appBlueprintYaml = Joiner.on("\n").join(
                 "location: localhost\n",
