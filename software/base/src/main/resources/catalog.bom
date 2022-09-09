@@ -19,66 +19,7 @@ brooklyn.catalog:
     version: "1.1.0-SNAPSHOT" # BROOKLYN_VERSION
     itemType: entity
     items:
-    - id: org.apache.brooklyn.entity.machine.MachineEntity
-      item:
-        type: org.apache.brooklyn.entity.machine.MachineEntity
-        name: Machine Entity
-        description: Represents a machine, providing metrics about it (e.g. obtained from ssh)
-    - id: org.apache.brooklyn.entity.software.base.SameServerEntity
-      item:
-        type: org.apache.brooklyn.entity.software.base.SameServerEntity
-        name: Same Server Entity
-        description: |
-          An entity that, on start, will obtain a machine and pass that to each of its children 
-          by calling their start effectors.
-    - id: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
-      item:
-        type: org.apache.brooklyn.entity.brooklynnode.BrooklynEntityMirror
-        name: Brooklyn Entity Mirror
-        description: |
-          Provides an entity which can sit in one brooklyn
-          domain and reflect the status of an entity via the REST API of another domain.
-    - id: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
-      item:
-        type: org.apache.brooklyn.entity.software.base.EmptySoftwareProcess
-        name: Empty Software Process
-    - id: org.apache.brooklyn.entity.software.base.EmptyWindowsProcess
-      item:
-        type: org.apache.brooklyn.entity.software.base.EmptyWindowsProcess
-        name: Empty Windows Process
-    - id: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
-      item:
-        type: org.apache.brooklyn.entity.software.base.VanillaWindowsProcess
-        name: Vanilla Windows Process
-        description: A basic Windows entity configured with scripts, e.g. for launch, check-running and stop
-    - id: org.apache.brooklyn.entity.java.VanillaJavaApp
-      item:
-        type: org.apache.brooklyn.entity.java.VanillaJavaApp
-        name: Vanilla Java App
-    - id: org.apache.brooklyn.entity.brooklynnode.BrooklynNode
-      item:
-        type: org.apache.brooklyn.entity.brooklynnode.BrooklynNode
-        name: Brooklyn Node
-        description: Deploys a Brooklyn management server
-    - id: org.apache.brooklyn.entity.brooklynnode.BrooklynCluster
-      item:
-        type: org.apache.brooklyn.entity.brooklynnode.BrooklynCluster
-        name: Brooklyn Cluster
-    - id: org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode
-      item:
-        type: org.apache.brooklyn.entity.brooklynnode.LocalBrooklynNode
-        name: Local Brooklyn Node
-        description: An entity that represents the local Brooklyn server.
-    - id: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-      item:
-        type: org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess
-        name: Vanilla Software Process
-        description: A software process configured with scripts, e.g. for launch, check-running and stop
-    - id: org.apache.brooklyn.entity.machine.pool.ServerPool
-      item:
-        type: org.apache.brooklyn.entity.machine.pool.ServerPool
-        name: Server Pool
-        description: Creates a pre-allocated server pool, which other applications can deploy to
+      # other items added by catalog-brooklyn-software-base.bom provided by dist feature
 
       #-----------------------------------------kubectl effector & sensor-------------------------------------------------------
     - id: org.apache.brooklyn.tasks.kubectl.ContainerSensor
