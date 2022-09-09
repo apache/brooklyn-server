@@ -40,3 +40,34 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.group.DynamicCluster
       iconUrl: classpath://brooklyn/icons/cluster.svg
 
+  - id:                      dynamic-group
+    itemType:                entity
+    name:                    Dynamic Group
+    iconUrl:                 classpath://brooklyn/icons/dynamic-group-cloud.png
+    item:
+      type:                  org.apache.brooklyn.entity.group.DynamicGroup
+
+
+  - id: ssh-command-sensor
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.sensor.ssh.SshCommandSensor
+  - id: ssh-command-effector
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.effector.ssh.SshCommandEffector
+
+  - id: container-sensor
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.tasks.kubectl.ContainerSensor
+  - id: container-effector
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.tasks.kubectl.ContainerEffector
+
+
