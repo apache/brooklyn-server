@@ -18,48 +18,32 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.base.Stopwatch;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.WorkflowDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.core.workflow.WorkflowStepResolution;
+import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
-import org.apache.brooklyn.entity.software.base.VanillaSoftwareProcess;
-import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.LoggerFactory;
+import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-
-import java.util.Map;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -77,6 +61,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
+        addRegisteredTypeBean(mgmt(), "log", LogWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "no-op", NoOpWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "set-sensor", SetSensorWorkflowStep.class);
@@ -95,11 +80,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "      steps:",
                 "        step1:",
                 "          type: no-op",
-                "        step1:",
+                "        step2:",
                 "          type: set-sensor",
                 "          sensor: foo",
                 "          value: bar",
-                "        step2: set-sensor integer bar = 1");
+                "        step3: set-sensor integer bar = 1");
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
@@ -113,4 +98,47 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
     }
 
+    @Test
+    public void testWorkflowEffectorLogStep() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher;
+        logWatcher = new ListAppender<>();
+        logWatcher.start();
+        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        step1:", // this step runs 3rd... so confused :-(
+                "          type: log",
+                "          message: test message 1",
+                "        step2: log test message 2",
+                "        step3: no-op",
+                "        6: log ??", // this step runs 2nd...
+                "        step4: log test message 3",
+                "        5: log test message N"); // this step runs 1st !...
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages.
+        Assert.assertEquals(5, logWatcher.list.size());
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "5: test message N");
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "6: ??");
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step1: test message 1");
+        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "step2: test message 2");
+        Assert.assertEquals(logWatcher.list.get(4).getFormattedMessage(), "step4: test message 3");
+    }
 }

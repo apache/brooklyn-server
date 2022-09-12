@@ -19,9 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.base.Stopwatch;
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -37,6 +35,7 @@ import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
@@ -63,6 +62,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     protected void loadTypes() {
+        addRegisteredTypeBean(mgmt, "log", LogWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "no-op", NoOpWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
@@ -115,14 +115,15 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 "steps", MutableMap.of(
                         "step1", MutableMap.of("type", "no-op"),
                         "step2", MutableMap.of("type", "sleep", "duration", "1s"),
-                        "step3", "sleep 1s"
+                        "step3", "sleep 1s",
+                        "step4", "log test message"
                 ));
 
         WorkflowDefinition w = convert(input, WorkflowDefinition.class);
         Asserts.assertNotNull(w);
         w.validate(mgmt);
         Map<String, WorkflowStepDefinition> steps = w.getStepsResolved(mgmt);
-        Asserts.assertSize(steps, 3);
+        Asserts.assertSize(steps, 4);
     }
 
     @Test
@@ -135,7 +136,8 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.STEPS, MutableMap.of(
                         "step1", MutableMap.of("type", "no-op"),
                         "step2", MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"),
-                        "step3", "set-sensor integer bar = 1"
+                        "step3", "set-sensor integer bar = 1",
+                        "step4", "log test message"
                 ))
         );
         eff.apply((EntityLocal)app);
