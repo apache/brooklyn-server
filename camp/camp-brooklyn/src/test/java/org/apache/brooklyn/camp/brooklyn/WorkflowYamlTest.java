@@ -103,10 +103,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     public void testWorkflowEffectorLogStep() throws Exception {
 
         // Prepare log watcher.
-        ListAppender<ILoggingEvent> logWatcher;
-        logWatcher = new ListAppender<>();
-        logWatcher.start();
-        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
 
         // Declare workflow in a blueprint, add various log steps.
         Entity app = createAndStartApplication(
@@ -147,10 +144,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     public void testWorkflowPropertyNext() throws Exception {
 
         // Prepare log watcher.
-        ListAppender<ILoggingEvent> logWatcher;
-        logWatcher = new ListAppender<>();
-        logWatcher.start();
-        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
 
         // Declare workflow in a blueprint, add various log steps.
         Entity app = createAndStartApplication(
@@ -195,10 +189,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     public void testWorkflowPropertyNext_InfiniteLoop() throws Exception {
 
         // Prepare log watcher.
-        ListAppender<ILoggingEvent> logWatcher;
-        logWatcher = new ListAppender<>();
-        logWatcher.start();
-        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
 
         // Declare workflow in a blueprint, add various log steps.
         Entity app = createAndStartApplication(
@@ -239,5 +230,12 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye"); // <-- this step is never reached
 
         // This is expected to stuck in the infinite loop between 'step-B' and 'step-C'.
+    }
+
+    private ListAppender<ILoggingEvent> getLogWatcher(Class<?> clazz) {
+        ListAppender<ILoggingEvent> logWatcher = new ListAppender<>();
+        logWatcher.start();
+        ((Logger) LoggerFactory.getLogger(clazz)).addAppender(logWatcher);
+        return logWatcher;
     }
 }
