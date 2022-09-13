@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.testng.internal.thread.ThreadTimeoutException;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -190,8 +191,8 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
     }
 
-    @Test(timeOut = 2000L)
-    public void testWorkflowPropertyNext_IncompleteFlow() throws Exception {
+    @Test(timeOut = 1000L, expectedExceptions = ThreadTimeoutException.class)
+    public void testWorkflowPropertyNext_InfiniteLoop() throws Exception {
 
         // Prepare log watcher.
         ListAppender<ILoggingEvent> logWatcher;
@@ -237,6 +238,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye"); // <-- this step is never reached
 
-        // TODO: stuck in the infinite loop between 'step-B' and 'step-C'.
+        // This is expected to stuck in the infinite loop between 'step-B' and 'step-C'.
     }
 }
