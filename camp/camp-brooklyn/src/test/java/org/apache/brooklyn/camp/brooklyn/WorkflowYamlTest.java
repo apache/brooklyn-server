@@ -141,4 +141,102 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "step2: test message 2");
         Assert.assertEquals(logWatcher.list.get(4).getFormattedMessage(), "step4: test message 3");
     }
+
+    @Test
+    public void testWorkflowPropertyNext() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher;
+        logWatcher = new ListAppender<>();
+        logWatcher.start();
+        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          next: the-end",
+                "        step-A:", // <-- this is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: log",
+                "          message: test message 2",
+                "          next: step-B",
+                "        the-end: log bye");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages.
+        Assert.assertEquals(4, logWatcher.list.size());
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
+        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
+    }
+
+    @Test(timeOut = 2000L)
+    public void testWorkflowPropertyNext_IncompleteFlow() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher;
+        logWatcher = new ListAppender<>();
+        logWatcher.start();
+        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          # next: the-end", // <-- Omit the 'next', rely on the default from here.
+                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: log",
+                "          message: test message 2",
+                "          next: step-B",
+                "        the-end: log bye");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages.
+        Assert.assertEquals(4, logWatcher.list.size());
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
+        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye"); // <-- this step is never reached
+
+        // TODO: stuck in the infinite loop between 'step-B' and 'step-C'.
+    }
 }
