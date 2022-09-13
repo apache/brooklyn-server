@@ -25,10 +25,14 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
@@ -51,6 +55,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
@@ -65,11 +70,17 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     protected void loadTypes() {
+        addWorkflowStepTypes(mgmt);
+    }
+
+    public static void addWorkflowStepTypes(ManagementContext mgmt) {
         addRegisteredTypeBean(mgmt, "log", LogWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "no-op", NoOpWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-config", SetConfigWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "clear-sensor", ClearSensorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "clear-config", ClearConfigWorkflowStep.class);
     }
 
     <T> T convert(Object input, Class<T> type) {
@@ -137,13 +148,21 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, MutableMap.of(
-                        "step1", MutableMap.of("type", "no-op"),
-                        "step2", MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"),
-                        "step3", "set-sensor integer bar = 1",
-                        "step4", "set-config integer foo = 2",
-                        "step5", "log test message"
-                ))
+                .configure(WorkflowEffector.STEPS, MutableMap.<String,Object>of()
+                        .add("step1", MutableMap.of("type", "no-op"))
+                        .add("step2", "log test message")
+
+                        .add("step3", MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"))
+                        .add("step4", "set-sensor integer bar = 1")
+
+                        .add("step5", "set-config integer foo = 2")
+
+                        .add("step6a", "set-config bad = will be removed")
+                        .add("step6b", "clear-config bad")
+
+                        .add("step7a", "set-sensor bad = will be removed")
+                        .add("step7b", "clear-sensor bad")
+                )
         );
         eff.apply((EntityLocal)app);
 
@@ -154,7 +173,28 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
+        // sensor IS not added dynamically
+        AttributeSensor<?> goodSensor = (AttributeSensor<?>) app.getEntityType().getSensor("bar");
+        Asserts.assertNotNull(goodSensor);
+        Asserts.assertEquals(goodSensor.getType(), Integer.class);
+
         EntityAsserts.assertConfigEquals(app, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
+        // config is NOT added dynamically
+        ConfigKey<?> goodConfig = app.getEntityType().getConfigKey("foo");
+        Asserts.assertNull(goodConfig);
+//        Asserts.assertEquals(goodConfig.getType(), Integer.class);
+
+        // dynamic config key definition not available (never), and value also not available
+        ConfigKey<?> badConfig = app.getEntityType().getConfigKey("bad");
+        Asserts.assertNull(badConfig);
+        Asserts.assertEquals(app.config().get(ConfigKeys.newConfigKey(Object.class, "bad")), null);
+        Asserts.assertThat(app.config().findKeysPresent(k -> k.getName().equals("bad")), s -> s.isEmpty());
+
+        // dynamic sensor type not available when cleared
+        AttributeSensor<?> badSensor = (AttributeSensor<?>) app.getEntityType().getSensor("bad");
+        Asserts.assertNull(badSensor);
+        Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "bad")), null);
+        Asserts.assertThat(app.sensors().getAll().keySet().stream().map(Sensor::getName).collect(Collectors.toSet()), s -> !s.contains("bad"));
     }
 
     public static class WorkflowTestStep extends WorkflowStepDefinition {

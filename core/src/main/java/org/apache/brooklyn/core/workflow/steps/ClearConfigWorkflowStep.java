@@ -20,33 +20,24 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 
-public class SetConfigWorkflowStep extends WorkflowStepDefinition {
+public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
 
     EntityValueToSet config;
-    Object value;
 
     public EntityValueToSet getConfig() {
         return config;
     }
 
-    public Object getValue() {
-        return value;
-    }
-
-    public void setValue(Object value) {
-        this.value = value;
-    }
-
     @Override
     public void setShorthand(String expression) {
-        this.config = EntityValueToSet.parseFromShorthand(expression, this::setValue);
+        this.config = EntityValueToSet.parseFromShorthand(expression, null);
     }
 
     @Override
@@ -56,8 +47,7 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
             String configName = workflowExecutionContext.resolve(config.name, String.class);
             if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
             TypeToken<?> type = workflowExecutionContext.lookupType(config.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = workflowExecutionContext.resolve(value, type);
-            workflowExecutionContext.getEntity().config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
+            ((EntityInternal)workflowExecutionContext.getEntity()).config().removeKey(ConfigKeys.newConfigKey(Object.class, configName));
         });
     }
 

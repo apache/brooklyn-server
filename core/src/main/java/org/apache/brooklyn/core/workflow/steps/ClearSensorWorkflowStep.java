@@ -19,40 +19,26 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 
-public class SetSensorWorkflowStep extends WorkflowStepDefinition {
+public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
 
     EntityValueToSet sensor;
-    Object value;
 
     public EntityValueToSet getSensor() {
         return sensor;
     }
 
-    public Object getValue() {
-        return value;
-    }
-
-    public void setValue(Object value) {
-        this.value = value;
-    }
-
     @Override
     public void setShorthand(String expression) {
-        this.sensor = EntityValueToSet.parseFromShorthand(expression, this::setValue);
+        this.sensor = EntityValueToSet.parseFromShorthand(expression, null);
     }
 
     @Override
@@ -62,8 +48,7 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
             String sensorName = workflowExecutionContext.resolve(sensor.name, String.class);
             if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
             TypeToken<?> type = workflowExecutionContext.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = workflowExecutionContext.resolve(value, type);
-            workflowExecutionContext.getEntity().sensors().set( (AttributeSensor<Object>) Sensors.newSensor(type, sensorName), resolvedValue);
+            ((EntityInternal)workflowExecutionContext.getEntity()).sensors().remove(Sensors.newSensor(Object.class, sensorName));
         });
     }
 

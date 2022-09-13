@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
 import org.apache.brooklyn.core.workflow.steps.*;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -59,11 +60,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        addRegisteredTypeBean(mgmt(), "log", LogWorkflowStep.class);
-        addRegisteredTypeBean(mgmt(), "sleep", SleepWorkflowStep.class);
-        addRegisteredTypeBean(mgmt(), "no-op", NoOpWorkflowStep.class);
-        addRegisteredTypeBean(mgmt(), "set-sensor", SetSensorWorkflowStep.class);
-        addRegisteredTypeBean(mgmt(), "set-config", SetConfigWorkflowStep.class);
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt());
         addRegisteredTypeBean(mgmt(), "workflow-effector", WorkflowEffector.class);
     }
 
