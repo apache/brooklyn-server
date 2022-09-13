@@ -222,14 +222,15 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         invocation.getUnchecked();
         Dumper.dumpInfo(invocation);
 
-        // Verify expected log messages.
+        // This is expected stuck in the infinite loop between 'step-B' and 'step-C'...
+
+        // Verify expected log messages (never reached).
         Assert.assertEquals(4, logWatcher.list.size());
         Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
         Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
         Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye"); // <-- this step is never reached
 
-        // This is expected to stuck in the infinite loop between 'step-B' and 'step-C'.
     }
 
     private ListAppender<ILoggingEvent> getLogWatcher(Class<?> clazz) {
