@@ -58,7 +58,7 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
     protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
         return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
             if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
-            String sensorName = workflowExecutionContext.resolve(sensor.name);
+            String sensorName = workflowExecutionContext.resolve(sensor.name, String.class);
             if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
             TypeToken<?> type = workflowExecutionContext.lookupType(sensor.type, () -> TypeToken.of(Object.class));
             Object resolvedValue = workflowExecutionContext.resolve(value, type);

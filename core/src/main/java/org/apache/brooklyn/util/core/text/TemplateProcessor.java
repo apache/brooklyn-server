@@ -105,7 +105,7 @@ public class TemplateProcessor {
 
     }
 
-    protected static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
+    public static TemplateModel wrapAsTemplateModel(Object o) throws TemplateModelException {
         return BROOKLYN_WRAPPER.wrap(o);
     }
 
@@ -440,7 +440,7 @@ public class TemplateProcessor {
      * using <code>${entity.x}</code> or <code><${driver.x}</code>.
      * Optional extra properties can be supplied, treated as per {@link DotSplittingTemplateModel}.
      */
-    protected static final class EntityAndMapTemplateModel implements TemplateHashModel {
+    public static final class EntityAndMapTemplateModel implements TemplateHashModel {
         protected final EntityInternal entity;
         protected final EntityDriver driver;
         protected final ManagementContext mgmt;
@@ -456,15 +456,15 @@ public class TemplateProcessor {
             extraSubstitutionsModel = new DotSplittingTemplateModel(null);
         }
 
-        static TemplateHashModel forDriver(EntityDriver driver, Map<String,? extends Object> extraSubstitutions) {
+        public static TemplateHashModel forDriver(EntityDriver driver, Map<String,? extends Object> extraSubstitutions) {
             return new FirstAvailableTemplateModel(new EntityAndMapTemplateModel(null, null, driver), wrappedBeanToHashOrNull(driver), wrappedBeanToHashOrNull(driver.getEntity()), dotOrNull(extraSubstitutions));
         }
 
-        static TemplateHashModel forEntity(Entity entity, Map<String,? extends Object> extraSubstitutions) {
+        public static TemplateHashModel forEntity(Entity entity, Map<String,? extends Object> extraSubstitutions) {
             return new FirstAvailableTemplateModel(new EntityAndMapTemplateModel(null, (EntityInternal) entity, null), wrappedBeanToHashOrNull(entity), dotOrNull(extraSubstitutions));
         }
 
-        static TemplateHashModel forManagementContext(ManagementContext mgmt, Map<String,? extends Object> extraSubstitutions) {
+        public static TemplateHashModel forManagementContext(ManagementContext mgmt, Map<String,? extends Object> extraSubstitutions) {
             return new FirstAvailableTemplateModel(new EntityAndMapTemplateModel(mgmt, null, null), dotOrNull(extraSubstitutions));
         }
 

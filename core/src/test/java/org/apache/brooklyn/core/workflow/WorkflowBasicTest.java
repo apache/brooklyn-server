@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
@@ -41,13 +42,18 @@ import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 
 public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
@@ -149,6 +155,70 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
+    }
+
+    public static class WorkflowTestStep extends WorkflowStepDefinition {
+        BiFunction<String, WorkflowExecutionContext, Object> task;
+
+        WorkflowTestStep(BiFunction<String, WorkflowExecutionContext, Object> task) { this.task = task; }
+
+        static WorkflowTestStep ofFunction(BiFunction<String, WorkflowExecutionContext, Object> task) { return new WorkflowTestStep(task); }
+        static WorkflowTestStep of(BiConsumer<String, WorkflowExecutionContext> task) { return new WorkflowTestStep((step, context) -> { task.accept(step, context); return null; }); }
+
+        @Override
+        public void setShorthand(String value) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        protected Task<?> newTask(String currentStepId, WorkflowExecutionContext workflowExecutionContext) {
+            return Tasks.create(currentStepId, () -> task.apply(currentStepId, workflowExecutionContext));
+        }
+    }
+
+    @Test
+    public void testWorkflowResolutionScratchVariable() {
+        doTestOfWorkflowVariable(context -> context.getWorkflowScratchVariables().put("foo", "bar"), "${foo}", "bar");
+    }
+
+    @Test
+    public void testWorkflowResolutionScratchVariableCoerced() {
+        doTestOfTypedWorkflowVariable(context -> context.getWorkflowScratchVariables().put("foo", "7"), "${foo}", "integer", 7);
+    }
+
+    @Test
+    public void testWorkflowResolutionEntityConfig() {
+        doTestOfWorkflowVariable(context -> context.getEntity().config().set(ConfigKeys.newStringConfigKey("foo"), "bar"), "${entity.config.foo}", "bar");
+    }
+
+    @Test
+    public void testWorkflowResolutionMore() {
+        doTestOfWorkflowVariable(context -> context.getWorkflowScratchVariables().put("foo", MutableList.of("baz", "bar")), "${foo[1]}", "bar");
+        doTestOfWorkflowVariable(context -> context.getEntity().config().set(ConfigKeys.newConfigKey(Object.class, "foo"), MutableMap.of("bar", "baz")), "${entity.config.foo.bar}", "baz");
+    }
+
+    public void doTestOfWorkflowVariable(Consumer<WorkflowExecutionContext> setup, String expression, Object expected) {
+        doTestOfTypedWorkflowVariable(setup, expression, null, expected);
+    }
+    public void doTestOfTypedWorkflowVariable(Consumer<WorkflowExecutionContext> setup, String expression, String type, Object expected) {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableMap.of(
+                        "step1", WorkflowTestStep.of( (step, context) -> setup.accept(context) ),
+                        "step2", "set-sensor " + (type!=null ? type+" " : "") + "x = " + expression
+                ))
+        );
+        eff.apply((EntityLocal)app);
+
+        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        Object result = invocation.getUnchecked();
+
+        Dumper.dumpInfo(invocation);
+
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), expected);
     }
 
 }

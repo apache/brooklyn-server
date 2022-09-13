@@ -26,12 +26,11 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -64,6 +63,10 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
 
     String currentStepId;
 
+    Map<String,Object> workflowScratchVariables = MutableMap.of();
+    // TODO previousStepInstance
+    // TODO currentStepInstance
+
     // deserialization constructor
     private WorkflowExecutionContext() {}
 
@@ -89,6 +92,10 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
         return currentStepId;
     }
 
+    public Map<String, Object> getWorkflowScratchVariables() {
+        return workflowScratchVariables;
+    }
+
     @Override
     public Task<Object> asTask() {
         if (task==null) {
@@ -112,14 +119,16 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
         return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("", loader, true, true).getTypeToken(typeName);
     }
 
-    public String resolve(String expression) {
-        // TODO expand interpolated strings deeply in the expression
-        return expression;
+    public Object resolve(String expression) {
+        return resolve(expression, Object.class);
+    }
+
+    public <T> T resolve(Object expression, Class<T> type) {
+        return resolve(expression, TypeToken.of(type));
     }
 
     public <T> T resolve(Object expression, TypeToken<T> type) {
-        // TODO expand interpolated strings in the expression
-        return TypeCoercions.coerce(expression, type);
+        return new WorkflowExpressionResolution(this).resolveWithTemplates(expression, type);
     }
 
     protected class Body implements Callable<Object> {
