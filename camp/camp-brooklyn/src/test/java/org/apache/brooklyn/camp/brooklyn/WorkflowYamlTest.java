@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -35,10 +36,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
-import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.*;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -65,6 +63,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         addRegisteredTypeBean(mgmt(), "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "no-op", NoOpWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "set-sensor", SetSensorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt(), "set-config", SetConfigWorkflowStep.class);
         addRegisteredTypeBean(mgmt(), "workflow-effector", WorkflowEffector.class);
     }
 
@@ -84,7 +83,9 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "          type: set-sensor",
                 "          sensor: foo",
                 "          value: bar",
-                "        step3: set-sensor integer bar = 1");
+                "        step3: set-sensor integer bar = 1",
+                "        step4: set-config integer foo = 2",
+                "");
         waitForApplicationTasks(app);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
@@ -96,6 +97,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
+        EntityAsserts.assertConfigEquals(app, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
     }
 
     @Test

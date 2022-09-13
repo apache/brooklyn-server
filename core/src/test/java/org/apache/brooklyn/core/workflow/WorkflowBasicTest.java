@@ -36,10 +36,7 @@ import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.*;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -72,6 +69,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "no-op", NoOpWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "set-config", SetConfigWorkflowStep.class);
     }
 
     <T> T convert(Object input, Class<T> type) {
@@ -143,7 +141,8 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                         "step1", MutableMap.of("type", "no-op"),
                         "step2", MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"),
                         "step3", "set-sensor integer bar = 1",
-                        "step4", "log test message"
+                        "step4", "set-config integer foo = 2",
+                        "step5", "log test message"
                 ))
         );
         eff.apply((EntityLocal)app);
@@ -155,6 +154,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
+        EntityAsserts.assertConfigEquals(app, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
     }
 
     public static class WorkflowTestStep extends WorkflowStepDefinition {
