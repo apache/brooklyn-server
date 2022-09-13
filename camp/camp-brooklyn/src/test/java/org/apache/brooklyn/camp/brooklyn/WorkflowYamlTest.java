@@ -273,7 +273,56 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         // 'test-B' is not reached, default order must jump to 'the-check-point' and 'the-end' step.
         Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "the-check-point: check point");
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
+    }
 
+    @Test
+    public void testWorkflowPropertyNext_SetSensor() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: my-entity",
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        the-end: log bye",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 2",
+                "          next: the-end",
+                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: set-sensor", // set sensor
+                "          sensor: foo",
+                "          value: bar",
+                "        the-check-point: log check point");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages
+        Assert.assertEquals(logWatcher.list.size(), 3);
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
+        // 'test-B' is not reached.
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "the-check-point: check point");
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "the-end: bye");
+
+        // Verify expected sensor
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
     }
 
     private ListAppender<ILoggingEvent> getLogWatcher(Class<?> clazz) {
