@@ -155,6 +155,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      name: myWorkflow",
                 "      steps:",
+                "        the-end: log bye",
                 "        step-B:",
                 "          type: log",
                 "          message: test message 3",
@@ -167,7 +168,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "          type: log",
                 "          message: test message 2",
                 "          next: step-B",
-                "        the-end: log bye");
+                "        the-check-point: log check point");
         waitForApplicationTasks(app);
 
         // Deploy the blueprint.
@@ -178,10 +179,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Dumper.dumpInfo(invocation);
 
         // Verify expected log messages.
-        Assert.assertEquals(4, logWatcher.list.size());
+        Assert.assertEquals(logWatcher.list.size(), 4);
         Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
         Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
         Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
+        // 'the-check-point' step is never reached here.
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
     }
 
@@ -200,19 +202,20 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      name: myWorkflow",
                 "      steps:",
-                "        step-B:",
-                "          type: log",
-                "          message: test message 3",
-                "          # next: the-end", // <-- Omit the 'next', rely on the default from here.
+                "        the-end: log bye",
                 "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
                 "          type: log",
                 "          message: test message 1",
                 "          next: step-C",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          # next: the-end", // <-- Omit the 'next', rely on the default order from here.
                 "        step-C:",
                 "          type: log",
                 "          message: test message 2",
                 "          next: step-B",
-                "        the-end: log bye");
+                "        the-check-point: log check point");
         waitForApplicationTasks(app);
 
         // Deploy the blueprint.
@@ -223,13 +226,53 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Dumper.dumpInfo(invocation);
 
         // This is expected stuck in the infinite loop between 'step-B' and 'step-C'...
+    }
 
-        // Verify expected log messages (never reached).
-        Assert.assertEquals(4, logWatcher.list.size());
+    @Test
+    public void testWorkflowPropertyNext_DefaultOrder() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        the-end: log bye",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          next: the-end",
+                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: log",
+                "          message: test message 2",
+                "          # next: step-B", // <-- Omit the 'next', rely on the default order from here.
+                "        the-check-point: log check point");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages
+        Assert.assertEquals(logWatcher.list.size(), 4);
         Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
         Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
-        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
-        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye"); // <-- this step is never reached
+        // 'test-B' is not reached, default order must jump to 'the-check-point' and 'the-end' step.
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "the-check-point: check point");
+        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
 
     }
 
