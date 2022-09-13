@@ -24,42 +24,21 @@ import java.util.Arrays;
 import java.util.function.Consumer;
 
 /** Deserialization bean allowing to specify a sensor or config on an entity */
-public class EntityValueToSet {
+public class EntityValueToSet extends TypedValueToSet {
 
     public EntityValueToSet() {}
     public EntityValueToSet(String name) {
-        this.name = name;
+        super(name);
+    }
+    public EntityValueToSet(TypedValueToSet other) {
+        super(other);
+        if (other instanceof EntityValueToSet) this.entity = ((EntityValueToSet)other).entity;
     }
 
-    public String name;
-    public String type;
     public Entity entity;
 
+
     public static EntityValueToSet parseFromShorthand(String expression, Consumer<Object> valueSetter) {
-        String[] itemValue;
-        String expectedForm = "[TYPE] NAME";
-        if (valueSetter!=null) {
-            expectedForm = expectedForm + " = VALUE";
-            itemValue = expression.split("=", 2);
-            if (itemValue.length != 2) {
-                throw new IllegalArgumentException("Invalid shorthand '" + expression + "'; must be of the form `"+expectedForm+"`. Equals is missing.");
-            }
-            valueSetter.accept(itemValue[1].trim());
-        } else {
-            itemValue = new String[] { expression };
-        }
-
-        String[] optTypeName = itemValue[0].trim().split(" ", 3);
-
-        EntityValueToSet result = new EntityValueToSet();
-        if (optTypeName.length==1) {
-            result.name = optTypeName[0];
-        } else if (optTypeName.length==2) {
-            result.type = optTypeName[0].trim();
-            result.name = optTypeName[1].trim();
-        } else {
-            throw new IllegalArgumentException("Invalid shorthand '"+expression+"'; must be of the form `"+expectedForm+"` (not "+optTypeName.length+" initial arguments "+ Arrays.asList(optTypeName)+")");
-        }
-        return result;
+        return new EntityValueToSet(TypedValueToSet.parseFromShorthand(expression, valueSetter));
     }
 }

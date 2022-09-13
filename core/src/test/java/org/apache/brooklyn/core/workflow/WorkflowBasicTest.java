@@ -77,10 +77,13 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "log", LogWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "sleep", SleepWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "no-op", NoOpWorkflowStep.class);
-        addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-config", SetConfigWorkflowStep.class);
-        addRegisteredTypeBean(mgmt, "clear-sensor", ClearSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "clear-config", ClearConfigWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "clear-sensor", ClearSensorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "let", SetVariableWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "set-workflow-variable", SetVariableWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "clear-workflow-variable", ClearVariableWorkflowStep.class);
     }
 
     <T> T convert(Object input, Class<T> type) {
@@ -162,6 +165,13 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
                         .add("step7a", "set-sensor bad = will be removed")
                         .add("step7b", "clear-sensor bad")
+
+                        .add("step8a-1", "let integer workflow_var = 3")
+                        .add("step8a-2", WorkflowTestStep.of( (stepId, context) -> Asserts.assertEquals(context.getWorkflowScratchVariables().get("workflow_var"), 3 )))
+                        .add("step8b-1", "set-workflow-variable bad = will be removed")
+                        .add("step8b-2", WorkflowTestStep.of( (stepId, context) -> Asserts.assertEquals(context.getWorkflowScratchVariables().get("bad"), "will be removed") ))
+                        .add("step8b-3", "clear-workflow-variable bad")
+                        .add("step8b-4", WorkflowTestStep.of( (stepId, context) -> Asserts.assertThat(context.getWorkflowScratchVariables(), map -> !map.containsKey("bad")) ))
                 )
         );
         eff.apply((EntityLocal)app);
@@ -204,6 +214,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         static WorkflowTestStep ofFunction(BiFunction<String, WorkflowExecutionContext, Object> task) { return new WorkflowTestStep(task); }
         static WorkflowTestStep of(BiConsumer<String, WorkflowExecutionContext> task) { return new WorkflowTestStep((step, context) -> { task.accept(step, context); return null; }); }
+        static WorkflowTestStep of(Runnable task) { return new WorkflowTestStep((step, context) -> { task.run(); return null; }); }
 
         @Override
         public void setShorthand(String value) {
