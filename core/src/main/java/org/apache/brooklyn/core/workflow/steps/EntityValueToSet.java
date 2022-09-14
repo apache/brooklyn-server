@@ -20,7 +20,6 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import org.apache.brooklyn.api.entity.Entity;
 
-import java.util.Arrays;
 import java.util.function.Consumer;
 
 /** Deserialization bean allowing to specify a sensor or config on an entity */

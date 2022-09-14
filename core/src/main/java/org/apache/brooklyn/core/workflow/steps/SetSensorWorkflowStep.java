@@ -21,19 +21,15 @@ package org.apache.brooklyn.core.workflow.steps;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 
 public class SetSensorWorkflowStep extends WorkflowStepDefinition {
 
@@ -46,16 +42,17 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> {
-            EntityValueToSet sensor = getInput(context, SENSOR);
-            if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
-            String sensorName = context.resolve(sensor.name, String.class);
-            if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
-            TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = getInput(context, VALUE.getName(), type);
-            context.getEntity().sensors().set( (AttributeSensor<Object>) Sensors.newSensor(type, sensorName), resolvedValue);
-        });
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        EntityValueToSet sensor = context.getInput(SENSOR);
+        if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
+        String sensorName = context.resolve(sensor.name, String.class);
+        if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
+        TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
+        Object resolvedValue = context.getInput(VALUE.getName(), type);
+        Entity entity = sensor.entity;
+        if (entity==null) entity = context.getEntity();
+        entity.sensors().set( (AttributeSensor<Object>) Sensors.newSensor(type, sensorName), resolvedValue);
+        return resolvedValue;
     }
 
 }

@@ -21,7 +21,6 @@ package org.apache.brooklyn.core.workflow;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
@@ -31,8 +30,10 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
@@ -44,7 +45,7 @@ import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 
-public class WorkflowExecutionContext implements TaskAdaptable<Object> {
+public class WorkflowExecutionContext {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
 
@@ -56,12 +57,15 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
 
     // TODO for deserialization, and for sensibility, we might need to change these to be resolved maps
     ConfigBag paramsDefiningWorkflow;
-    ConfigBag paramsPassedToWorkflow;
+    ConfigBag input;
+    Object output;
 
     String taskId;
     transient Task<Object> task;
 
     String currentStepId;
+    String previousStepId;
+    Map<String, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
     // TODO previousStepInstance
@@ -70,14 +74,14 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
     // deserialization constructor
     private WorkflowExecutionContext() {}
 
-    public WorkflowExecutionContext(String name, BrooklynObject entityOrAdjunctWhereRunning, org.apache.brooklyn.util.core.config.ConfigBag paramsDefiningWorkflow, ConfigBag paramsPassedToWorkflow) {
+    public WorkflowExecutionContext(String name, BrooklynObject entityOrAdjunctWhereRunning, org.apache.brooklyn.util.core.config.ConfigBag paramsDefiningWorkflow, ConfigBag input) {
         workflowInstanceId = Identifiers.makeRandomId(12);
 
         this.name = name;
         this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
         this.paramsDefiningWorkflow = paramsDefiningWorkflow;
-        this.paramsPassedToWorkflow = paramsPassedToWorkflow;
+        this.input = input;
 
         task = Tasks.builder().dynamic(true).displayName(name).body(new Body()).build();
         taskId = task.getId();
@@ -96,17 +100,21 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
         return workflowScratchVariables;
     }
 
-    @Override
-    public Task<Object> asTask() {
+    public Maybe<Task<Object>> getTask() {
+        DslPredicates.DslPredicate condition = paramsDefiningWorkflow.get(WorkflowCommonConfig.CONDITION);
+        if (condition!=null) {
+            if (!condition.apply(entityOrAdjunctWhereRunning)) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
+        }
+
         if (task==null) {
             if (taskId!=null) {
                 task = (Task<Object>) ((EntityInternal)entity).getManagementContext().getExecutionManager().getTask(taskId);
             }
             if (task==null) {
-                throw new IllegalStateException("Task for "+this+" no longer available");
+                return Maybe.absent(new IllegalStateException("Task for "+this+" no longer available"));
             }
         }
-        return task;
+        return Maybe.of(task);
     }
 
     public Entity getEntity() {
@@ -131,6 +139,11 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
         return new WorkflowExpressionResolution(this).resolveWithTemplates(expression, type);
     }
 
+    public Object getPreviousStepOutput() {
+        // TODO
+        return null;
+    }
+
     protected class Body implements Callable<Object> {
         TreeMap<String, WorkflowStepDefinition> steps;
 
@@ -145,8 +158,10 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
                     runCurrentStepIfPreconditions();
                 }
 
-                // TODO what to return
-                return null;
+                // TODO process any output set in the workflow definition
+                // (default is the output of the last step)
+                return output;
+
             } else {
                 // TODO
                 throw new IllegalStateException("Cannot resume/retry (yet)");
@@ -157,7 +172,6 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
             WorkflowStepDefinition step = steps.get(currentStepId);
             if (step!=null) {
                 if (step.condition!=null) {
-                    // TODO evaluation
                     if (!step.condition.apply(this)) {
                         moveToNextSequentialStep("following step " + currentStepId + " where condition does not apply");
                         return;
@@ -165,9 +179,16 @@ public class WorkflowExecutionContext implements TaskAdaptable<Object> {
                 }
 
                 // actually run the step
-                DynamicTasks.queue(step.newTask(currentStepId, WorkflowExecutionContext.this)).getUnchecked();
+                WorkflowStepInstanceExecutionContext stepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
+
+                WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepId, stepInstance);
+                // put the previous output in output, so repeating steps can reference themselves
+                if (old!=null) stepInstance.output = old.output;
+
+                WorkflowExecutionContext.this.output = stepInstance.output = DynamicTasks.queue(step.newTask(stepInstance)).getUnchecked();
                 // TODO error handling
 
+                previousStepId = currentStepId;
                 moveToNextExplicitStep(step.next, "following step "+currentStepId);
 
             } else {

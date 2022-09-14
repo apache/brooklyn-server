@@ -23,6 +23,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
@@ -37,12 +38,11 @@ public class SleepWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> {
-            Duration duration = getInput(context, DURATION);
-            if (duration==null) throw new IllegalStateException("Duration for sleep not specified");
-            Time.sleep(duration);
-        });
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        Duration duration = context.getInput(DURATION);
+        if (duration==null) throw new IllegalStateException("Duration for sleep not specified");
+        Time.sleep(duration);
+        return context.getPreviousStepOutput();
     }
 
 }

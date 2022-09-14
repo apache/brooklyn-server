@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -26,6 +27,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -39,14 +41,17 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> {
-            EntityValueToSet sensor = getInput(context, SENSOR);
-            String sensorName = context.resolve(sensor.name, String.class);
-            if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
-            TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-            ((EntityInternal)context.getEntity()).sensors().remove(Sensors.newSensor(Object.class, sensorName));
-        });
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        EntityValueToSet sensor = context.getInput(SENSOR);
+        if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
+        String sensorName = context.resolve(sensor.name, String.class);
+        if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
+        TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
+        Entity entity = sensor.entity;
+        if (entity==null) entity = context.getEntity();
+        Object oldValue = entity.sensors().get(Sensors.newSensor(Object.class, sensorName));
+        ((EntityInternal)entity).sensors().remove(Sensors.newSensor(Object.class, sensorName));
+        return oldValue;
     }
 
 }

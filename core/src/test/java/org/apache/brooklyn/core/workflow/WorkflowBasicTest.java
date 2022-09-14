@@ -32,7 +32,6 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
@@ -46,15 +45,13 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
@@ -121,7 +118,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         // only util will work for shorthand
         WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, "s1", input);
         Asserts.assertInstanceOf(s, SleepWorkflowStep.class);
-        Asserts.assertEquals( s.getInputRaw(SleepWorkflowStep.DURATION.getName()), Duration.ONE_SECOND);
+        Asserts.assertEquals( Duration.of(s.getInput().get(SleepWorkflowStep.DURATION.getName())), Duration.ONE_SECOND);
     }
 
     @Test
@@ -166,11 +163,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                         .add("step7b", "clear-sensor bad")
 
                         .add("step8a-1", "let integer workflow_var = 3")
-                        .add("step8a-2", WorkflowTestStep.of( (stepId, context) -> Asserts.assertEquals(context.getWorkflowScratchVariables().get("workflow_var"), 3 )))
+                        .add("step8a-2", WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("workflow_var"), 3 )))
                         .add("step8b-1", "set-workflow-variable bad = will be removed")
-                        .add("step8b-2", WorkflowTestStep.of( (stepId, context) -> Asserts.assertEquals(context.getWorkflowScratchVariables().get("bad"), "will be removed") ))
+                        .add("step8b-2", WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("bad"), "will be removed") ))
                         .add("step8b-3", "clear-workflow-variable bad")
-                        .add("step8b-4", WorkflowTestStep.of( (stepId, context) -> Asserts.assertThat(context.getWorkflowScratchVariables(), map -> !map.containsKey("bad")) ))
+                        .add("step8b-4", WorkflowTestStep.of( (context) -> Asserts.assertThat(context.getWorkflowExectionContext().getWorkflowScratchVariables(), map -> !map.containsKey("bad")) ))
                 )
         );
         eff.apply((EntityLocal)app);
@@ -207,13 +204,13 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     public static class WorkflowTestStep extends WorkflowStepDefinition {
-        BiFunction<String, WorkflowExecutionContext, Object> task;
+        Function<WorkflowStepInstanceExecutionContext, Object> task;
 
-        WorkflowTestStep(BiFunction<String, WorkflowExecutionContext, Object> task) { this.task = task; }
+        WorkflowTestStep(Function<WorkflowStepInstanceExecutionContext, Object> task) { this.task = task; }
 
-        static WorkflowTestStep ofFunction(BiFunction<String, WorkflowExecutionContext, Object> task) { return new WorkflowTestStep(task); }
-        static WorkflowTestStep of(BiConsumer<String, WorkflowExecutionContext> task) { return new WorkflowTestStep((step, context) -> { task.accept(step, context); return null; }); }
-        static WorkflowTestStep of(Runnable task) { return new WorkflowTestStep((step, context) -> { task.run(); return null; }); }
+        static WorkflowTestStep ofFunction(Function<WorkflowStepInstanceExecutionContext, Object> task) { return new WorkflowTestStep(task); }
+        static WorkflowTestStep of(Consumer<WorkflowStepInstanceExecutionContext> task) { return new WorkflowTestStep(context -> { task.accept(context); return null; }); }
+        static WorkflowTestStep of(Runnable task) { return new WorkflowTestStep((context) -> { task.run(); return null; }); }
 
         @Override
         public void setShorthand(String value) {
@@ -221,19 +218,19 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         }
 
         @Override
-        protected Task<?> newTask(String currentStepId, WorkflowExecutionContext workflowExecutionContext) {
-            return Tasks.create(currentStepId, () -> task.apply(currentStepId, workflowExecutionContext));
+        protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+            return task.apply(context);
         }
     }
 
     @Test
     public void testWorkflowResolutionScratchVariable() {
-        doTestOfWorkflowVariable(context -> context.getWorkflowScratchVariables().put("foo", "bar"), "${foo}", "bar");
+        doTestOfWorkflowVariable(context -> context.getWorkflowExectionContext().getWorkflowScratchVariables().put("foo", "bar"), "${foo}", "bar");
     }
 
     @Test
     public void testWorkflowResolutionScratchVariableCoerced() {
-        doTestOfTypedWorkflowVariable(context -> context.getWorkflowScratchVariables().put("foo", "7"), "${foo}", "integer", 7);
+        doTestOfTypedWorkflowVariable(context -> context.getWorkflowExectionContext().getWorkflowScratchVariables().put("foo", "7"), "${foo}", "integer", 7);
     }
 
     @Test
@@ -243,21 +240,21 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testWorkflowResolutionMore() {
-        doTestOfWorkflowVariable(context -> context.getWorkflowScratchVariables().put("foo", MutableList.of("baz", "bar")), "${foo[1]}", "bar");
+        doTestOfWorkflowVariable(context -> context.getWorkflowExectionContext().getWorkflowScratchVariables().put("foo", MutableList.of("baz", "bar")), "${foo[1]}", "bar");
         doTestOfWorkflowVariable(context -> context.getEntity().config().set(ConfigKeys.newConfigKey(Object.class, "foo"), MutableMap.of("bar", "baz")), "${entity.config.foo.bar}", "baz");
     }
 
-    public void doTestOfWorkflowVariable(Consumer<WorkflowExecutionContext> setup, String expression, Object expected) {
+    public void doTestOfWorkflowVariable(Consumer<WorkflowStepInstanceExecutionContext> setup, String expression, Object expected) {
         doTestOfTypedWorkflowVariable(setup, expression, null, expected);
     }
-    public void doTestOfTypedWorkflowVariable(Consumer<WorkflowExecutionContext> setup, String expression, String type, Object expected) {
+    public void doTestOfTypedWorkflowVariable(Consumer<WorkflowStepInstanceExecutionContext> setup, String expression, String type, Object expected) {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, MutableMap.of(
-                        "step1", WorkflowTestStep.of( (step, context) -> setup.accept(context) ),
+                        "step1", WorkflowTestStep.of( setup::accept ),
                         "step2", "set-sensor " + (type!=null ? type+" " : "") + "x = " + expression
                 ))
         );

@@ -19,11 +19,13 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 
@@ -38,16 +40,17 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> {
-            EntityValueToSet config = getInput(context, CONFIG);
-            if (config ==null) throw new IllegalArgumentException("Config key name is required");
-            String configName = context.resolve(config.name, String.class);
-            if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
-            TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = getInput(context, VALUE.getName(), type);
-            context.getEntity().config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
-        });
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        EntityValueToSet config = context.getInput(CONFIG);
+        if (config ==null) throw new IllegalArgumentException("Config key name is required");
+        String configName = context.resolve(config.name, String.class);
+        if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
+        TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
+        Object resolvedValue = context.getInput(VALUE.getName(), type);
+        Entity entity = config.entity;
+        if (entity==null) entity = context.getEntity();
+        entity.config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
+        return resolvedValue;
     }
 
 }

@@ -21,13 +21,12 @@ package org.apache.brooklyn.core.workflow;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
 
 import java.util.Map;
 
@@ -81,29 +80,6 @@ public abstract class WorkflowStepDefinition {
         this.input.putAll(input);
     }
 
-    /** Returns the resolved value of the given key, converting to the type of the key */
-    public <T> T getInput(WorkflowExecutionContext context, ConfigKey<T> key) {
-        return getInput(context, key.getName(), key.getTypeToken());
-    }
-    /** Returns the resolved value of the given key, converting to the type of the key if the key is known */
-    public Object getInput(WorkflowExecutionContext context, String key) {
-        ConfigKey<?> keyTyped = ConfigUtilsInternal.findConfigKeys(getClass(), null).get(key);
-        // TODO also look at parameters?
-        if (keyTyped!=null) return getInput(context, keyTyped);
-        return getInput(context, key, Object.class);
-    }
-    /** Returns the resolved value of the given key, converting to the given type */
-    public <T> T getInput(WorkflowExecutionContext context, String key, Class<T> type) {
-        return getInput(context, key, TypeToken.of(type));
-    }
-    /** Returns the resolved value of the given key, converting to the given type */
-    public <T> T getInput(WorkflowExecutionContext context, String key, TypeToken<T> type) {
-        return context.resolve(input.get(key), type);
-    }
-    /** Returns the unresolved value of the given key */
-    public Object getInputRaw(String key) {
-        return input.get(key);
-    }
     /** Returns the unresolved map of inputs */
     public Map<String, Object> getInput() {
         return input;
@@ -111,10 +87,14 @@ public abstract class WorkflowStepDefinition {
 
     abstract public void setShorthand(String value);
 
-    abstract protected Task<?> newTask(String currentStepId, WorkflowExecutionContext workflowExecutionContext);
+    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> doTaskBody(context));
+    }
 
-    protected String getDefaultTaskName(WorkflowExecutionContext workflowExecutionContext) {
-        return workflowExecutionContext.getCurrentStepId() + " - " + (Strings.isNonBlank(getName()) ? getName() : getShorthandTypeName());
+    protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
+
+    protected String getDefaultTaskName(WorkflowStepInstanceExecutionContext context) {
+        return context.stepDefinitionId + " - " + (Strings.isNonBlank(getName()) ? getName() : getShorthandTypeName());
     }
 
     protected String getShorthandTypeName() {

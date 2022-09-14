@@ -23,6 +23,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -40,13 +41,12 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> {
-            String message = getInput(context, MESSAGE);
-            if (Strings.isBlank(message))  {
-                throw new IllegalArgumentException("Log message is required");
-            }
-            LOG.info("{}: {}", name, message);
-        });
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        String message = context.getInput(MESSAGE);
+        if (Strings.isBlank(message))  {
+            throw new IllegalArgumentException("Log message is required");
+        }
+        LOG.info("{}: {}", name, message);
+        return context.getPreviousStepOutput();
     }
 }

@@ -55,7 +55,7 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
 
         @Override
         public Object call(final ConfigBag params) {
-            return DynamicTasks.queue( new WorkflowExecutionContext("Workflow for effector "+effector.getName(), entity(), this.params, params).asTask() ).getUnchecked();
+            return DynamicTasks.queue( new WorkflowExecutionContext("Workflow for effector "+effector.getName(), entity(), this.params, getMergedParams(effector, params)).getTask().get() ).getUnchecked();
         }
     }
 

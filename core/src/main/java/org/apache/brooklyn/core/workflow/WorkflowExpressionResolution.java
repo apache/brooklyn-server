@@ -18,24 +18,18 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.google.common.collect.Maps;
 import com.google.common.reflect.TypeToken;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.javalang.ClassLoadingContext;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,8 +74,9 @@ public class WorkflowExpressionResolution {
             Object candidate = context.workflowScratchVariables.get(key);
             if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
 
-            // TODO
             //workflow.input.somevar
+            candidate = context.input.getStringKey(key);
+            if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
 
             return ifNoMatches();
         }

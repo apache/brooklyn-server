@@ -19,12 +19,10 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
 
 public class SetVariableWorkflowStep extends WorkflowStepDefinition {
@@ -38,16 +36,15 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    protected Task<?> newTask(String stepId, WorkflowExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> {
-            TypedValueToSet variable = getInput(context, VARIABLE);
-            if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-            String name = context.resolve(variable.name, String.class);
-            if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-            TypeToken<?> type = context.lookupType(variable.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = getInput(context, VALUE.getName(), type);
-            context.getWorkflowScratchVariables().put(name, resolvedValue);
-        });
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        TypedValueToSet variable = context.getInput(VARIABLE);
+        if (variable ==null) throw new IllegalArgumentException("Variable name is required");
+        String name = context.resolve(variable.name, String.class);
+        if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
+        TypeToken<?> type = context.lookupType(variable.type, () -> TypeToken.of(Object.class));
+        Object resolvedValue = context.getInput(VALUE.getName(), type);
+        context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        return resolvedValue;
     }
 
 }
