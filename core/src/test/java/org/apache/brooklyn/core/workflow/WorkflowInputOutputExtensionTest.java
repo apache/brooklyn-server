@@ -30,14 +30,16 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.annotations.Test;
 
-public class WorkflowExtensionTest extends BrooklynMgmtUnitTestSupport {
+import java.util.Map;
+
+public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSupport {
 
     protected void loadTypes() {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
     }
 
     @Test
-    public void testWorkflowEffector() {
+    public void testParameterReference() {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
@@ -55,6 +57,31 @@ public class WorkflowExtensionTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result, "p1v");
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "p1"), "p1v");
+    }
+
+
+    @Test
+    public void testMapOutputAndInput() {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableMap.<String,Object>of()
+                        .add("s1", "let map v = { x: { y: a }, z: b }")
+                        .add("s2", "let c = ${x.y}")  // reference output of previous step
+                        .add("s3", "let d = ${v.z}")  // reference workflow var
+                        .add("s4", "let e = ${workflow.step.s1.output.z}")  // reference explicit output step
+                        .add("s5", "let map result = { c: ${c}, d: ${d}, e: ${e} }")  // reference explicit output step
+                )
+        );
+        eff.apply((EntityLocal)app);
+
+        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        Map result = (Map) invocation.getUnchecked();
+        Asserts.assertEquals(result.get("c"), "a");
+        Asserts.assertEquals(result.get("d"), "b");
+        Asserts.assertEquals(result.get("e"), "b");
     }
 
 }

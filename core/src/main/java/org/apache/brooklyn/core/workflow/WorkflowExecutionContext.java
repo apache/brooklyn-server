@@ -100,7 +100,11 @@ public class WorkflowExecutionContext {
         return workflowScratchVariables;
     }
 
-    public Maybe<Task<Object>> getTask() {
+    public String getTaskId() {
+        return taskId;
+    }
+
+    public Maybe<Task<Object>> getOrCreateTask() {
         DslPredicates.DslPredicate condition = paramsDefiningWorkflow.get(WorkflowCommonConfig.CONDITION);
         if (condition!=null) {
             if (!condition.apply(entityOrAdjunctWhereRunning)) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
@@ -139,9 +143,22 @@ public class WorkflowExecutionContext {
         return new WorkflowExpressionResolution(this).resolveWithTemplates(expression, type);
     }
 
+    public String getPreviousStepId() {
+        return previousStepId;
+    }
+
     public Object getPreviousStepOutput() {
-        // TODO
-        return null;
+        WorkflowStepInstanceExecutionContext ps = lastInstanceOfEachStep.get(previousStepId);
+        if (ps==null) return null;
+        return ps.output;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getWorkflowInstanceId() {
+        return workflowInstanceId;
     }
 
     protected class Body implements Callable<Object> {

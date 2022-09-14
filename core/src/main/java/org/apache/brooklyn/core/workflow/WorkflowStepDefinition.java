@@ -19,10 +19,8 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -88,12 +86,16 @@ public abstract class WorkflowStepDefinition {
     abstract public void setShorthand(String value);
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
-        return Tasks.create(getDefaultTaskName(context), () -> doTaskBody(context));
+        String name = computeTaskName(context);
+        Task<Object> t = Tasks.create(name, () -> doTaskBody(context));
+        context.name = name;
+        context.taskId = t;
+        return t;
     }
 
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
 
-    protected String getDefaultTaskName(WorkflowStepInstanceExecutionContext context) {
+    protected String computeTaskName(WorkflowStepInstanceExecutionContext context) {
         return context.stepDefinitionId + " - " + (Strings.isNonBlank(getName()) ? getName() : getShorthandTypeName());
     }
 

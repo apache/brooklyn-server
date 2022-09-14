@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.workflow;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -30,6 +31,8 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 public class WorkflowStepInstanceExecutionContext {
+
+
 
     private WorkflowStepInstanceExecutionContext() {}
     public WorkflowStepInstanceExecutionContext(String stepDefinitionId, Map<String, Object> input, WorkflowExecutionContext context) {
@@ -42,11 +45,12 @@ public class WorkflowStepInstanceExecutionContext {
 
     String stepDefinitionId;
     String stepInstanceId;
+    public String name;
+    Task<Object> taskId;
     Map<String,Object> input = MutableMap.of();
     transient WorkflowExecutionContext context;
 
     Object output;
-
 
     /** Returns the resolved value of the given key, converting to the type of the key */
     public <T> T getInput(ConfigKey<T> key) {

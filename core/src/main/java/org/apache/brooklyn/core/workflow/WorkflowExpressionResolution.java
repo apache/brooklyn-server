@@ -47,8 +47,8 @@ public class WorkflowExpressionResolution {
     }
 
     TemplateModel ifNoMatches() {
-        // TODO placeholder method. should we trigger an error if not found (that is what the code below does)
-        // alternatively we could return null, or leave the expression in place
+        // this causes the execution to fail. any other behaviour is hard with freemarker.
+        // recommendation is to use freemarker attempts/escapes to recover.
         return null;
     }
 
@@ -65,13 +65,23 @@ public class WorkflowExpressionResolution {
                 }
             }
 
-            // TODO
-            //workflow.current_step.output.somevar
+            Object candidate;
+
             //workflow.current_step.input.somevar
+            WorkflowStepInstanceExecutionContext currentStep = context.lastInstanceOfEachStep.get(context.getCurrentStepId());
+            if (currentStep!=null) {
+                candidate = currentStep.input.get(key);
+                if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            }
             //workflow.previous_step.output.somevar
+            Object prevStepOutput = context.getPreviousStepOutput();
+            if (prevStepOutput instanceof Map) {
+                candidate = ((Map)prevStepOutput).get(key);
+                if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            }
 
             //workflow.scratch.somevar
-            Object candidate = context.workflowScratchVariables.get(key);
+            candidate = context.workflowScratchVariables.get(key);
             if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
 
             //workflow.input.somevar
@@ -90,15 +100,66 @@ public class WorkflowExpressionResolution {
     class WorkflowExplicitModel implements TemplateHashModel {
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
-            // TODO
-            //name
             //id (a token representing an item uniquely within its root instance)
+            if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getName());
+            if ("id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getWorkflowInstanceId());
             //task_id (the ID of the current corresponding Brooklyn Task)
+            if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getTaskId());
+
+            // TODO
             //link (a link in the UI to this instance of workflow or step)
             //error (if there is an error in scope)
+
+            if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.input);
+            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.output);
+
             //current_step.yyy and previous_step.yyy (where yyy is any of the above)
-            //TODO need a class WorkflowStepModel for above and below
             //step.xxx.yyy ? - where yyy is any of the above and xxx any step id
+            if ("current_step".equals(key)) return newWorkflowStepModelForStep(context.getCurrentStepId());
+            if ("previous_step".equals(key)) return newWorkflowStepModelForStep(context.getPreviousStepId());
+            if ("step".equals(key)) return new WorkflowStepModel();
+
+            return ifNoMatches();
+        }
+
+        @Override
+        public boolean isEmpty() throws TemplateModelException {
+            return false;
+        }
+    }
+
+    TemplateModel newWorkflowStepModelForStep(String step) {
+        WorkflowStepInstanceExecutionContext stepI = context.lastInstanceOfEachStep.get(step);
+        if (stepI==null) return ifNoMatches();
+        return new WorkflowStepModel(stepI);
+    }
+    class WorkflowStepModel implements TemplateHashModel {
+        private WorkflowStepInstanceExecutionContext step;
+
+        WorkflowStepModel() {}
+        WorkflowStepModel(WorkflowStepInstanceExecutionContext step) {
+            this.step = step;
+        }
+        @Override
+        public TemplateModel get(String key) throws TemplateModelException {
+            if (step==null) {
+                return newWorkflowStepModelForStep(key);
+            }
+
+            //id (a token representing an item uniquely within its root instance)
+            if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.name);
+            if ("uid".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepInstanceId);
+            if ("step_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepDefinitionId);
+
+            //task_id (the ID of the current corresponding Brooklyn Task)
+            if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.taskId);
+
+            // TODO
+            //link (a link in the UI to this instance of workflow or step)
+            //error (if there is an error in scope)
+
+            if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.input);
+            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.output);
 
             return ifNoMatches();
         }
