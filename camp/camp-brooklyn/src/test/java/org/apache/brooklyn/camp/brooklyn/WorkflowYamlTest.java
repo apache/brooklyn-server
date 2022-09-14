@@ -78,8 +78,9 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "          type: no-op",
                 "        step2:",
                 "          type: set-sensor",
-                "          sensor: foo",
-                "          value: bar",
+                "          input:",
+                "            sensor: foo",
+                "            value: bar",
                 "        step3: set-sensor integer bar = 1",
                 "        step4: set-config integer foo = 2",
                 "");

@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
@@ -29,25 +30,22 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
 
-    EntityValueToSet config;
-
-    public EntityValueToSet getConfig() {
-        return config;
-    }
+    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
 
     @Override
     public void setShorthand(String expression) {
-        this.config = EntityValueToSet.parseFromShorthand(expression, null);
+        setInput(CONFIG, EntityValueToSet.parseFromShorthand(expression, null));
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
+    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            EntityValueToSet config = getInput(context, CONFIG);
             if (config ==null) throw new IllegalArgumentException("Config key name is required");
-            String configName = workflowExecutionContext.resolve(config.name, String.class);
+            String configName = context.resolve(config.name, String.class);
             if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
-            TypeToken<?> type = workflowExecutionContext.lookupType(config.type, () -> TypeToken.of(Object.class));
-            ((EntityInternal)workflowExecutionContext.getEntity()).config().removeKey(ConfigKeys.newConfigKey(Object.class, configName));
+            TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
+            ((EntityInternal)context.getEntity()).config().removeKey(ConfigKeys.newConfigKey(Object.class, configName));
         });
     }
 

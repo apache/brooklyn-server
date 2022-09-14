@@ -29,35 +29,24 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class SetConfigWorkflowStep extends WorkflowStepDefinition {
 
-    EntityValueToSet config;
-    Object value;
-
-    public EntityValueToSet getConfig() {
-        return config;
-    }
-
-    public Object getValue() {
-        return value;
-    }
-
-    public void setValue(Object value) {
-        this.value = value;
-    }
+    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
+    public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
     public void setShorthand(String expression) {
-        this.config = EntityValueToSet.parseFromShorthand(expression, this::setValue);
+        setInput(CONFIG, EntityValueToSet.parseFromShorthand(expression, v -> setInput(VALUE, v)));
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
+    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            EntityValueToSet config = getInput(context, CONFIG);
             if (config ==null) throw new IllegalArgumentException("Config key name is required");
-            String configName = workflowExecutionContext.resolve(config.name, String.class);
+            String configName = context.resolve(config.name, String.class);
             if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
-            TypeToken<?> type = workflowExecutionContext.lookupType(config.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = workflowExecutionContext.resolve(value, type);
-            workflowExecutionContext.getEntity().config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
+            TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
+            Object resolvedValue = getInput(context, VALUE.getName(), type);
+            context.getEntity().config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
         });
     }
 

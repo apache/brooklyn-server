@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -30,26 +32,21 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
 
-    String message;
-
-    public String getMessage() {
-        return message;
-    }
+    public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
 
     @Override
     public void setShorthand(String value) {
-        message = value;
+        setInput(MESSAGE, value);
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
-
+    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            String message = getInput(context, MESSAGE);
             if (Strings.isBlank(message))  {
                 throw new IllegalArgumentException("Log message is required");
             }
-
-            LOG.info("{}: {}", name, getMessage());
+            LOG.info("{}: {}", name, message);
         });
     }
 }

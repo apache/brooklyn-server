@@ -29,7 +29,7 @@ public class NoOpWorkflowStep extends WorkflowStepDefinition {
     @Override
     public void setShorthand(String value) {
         if (Strings.isBlank(value)) return;
-        // no arguments siupported
+        // no arguments supported
         throw new IllegalStateException("Value for shorthand syntax not supported for no-op");
     }
 

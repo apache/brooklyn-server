@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -27,22 +29,19 @@ import org.apache.brooklyn.util.time.Time;
 
 public class SleepWorkflowStep extends WorkflowStepDefinition {
 
-    Duration duration;
-
-    public Duration getDuration() {
-        return duration;
-    }
+    public static final ConfigKey<Duration> DURATION = ConfigKeys.newConfigKey(Duration.class, "duration");
 
     @Override
     public void setShorthand(String value) {
-        duration = Duration.of(value);
+        setInput(DURATION.getName(), value);
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
+    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            Duration duration = getInput(context, DURATION);
             if (duration==null) throw new IllegalStateException("Duration for sleep not specified");
-            Time.sleep(getDuration());
+            Time.sleep(duration);
         });
     }
 

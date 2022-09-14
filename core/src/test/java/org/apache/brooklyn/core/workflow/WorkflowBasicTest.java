@@ -121,9 +121,8 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         // only util will work for shorthand
         WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, "s1", input);
         Asserts.assertInstanceOf(s, SleepWorkflowStep.class);
-        Asserts.assertEquals( ((SleepWorkflowStep)s).getDuration(), Duration.ONE_SECOND);
+        Asserts.assertEquals( s.getInputRaw(SleepWorkflowStep.DURATION.getName()), Duration.ONE_SECOND);
     }
-
 
     @Test
     public void testWorkflowDefinitionResolution() {

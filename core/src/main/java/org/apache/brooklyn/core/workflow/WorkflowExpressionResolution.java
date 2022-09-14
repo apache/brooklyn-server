@@ -24,11 +24,17 @@ import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.javalang.ClassLoadingContext;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,7 +116,20 @@ public class WorkflowExpressionResolution {
 
     public <T> T resolveWithTemplates(Object expression, TypeToken<T> type) {
         expression = processTemplateExpression(expression);
-        return TypeCoercions.coerce(expression, type);
+        try {
+            // try yaml coercion, as values are normally set from yaml and will be raw at this stage
+            return BeanWithTypeUtils.convert(((EntityInternal)this.context.getEntity()).getManagementContext(), expression, type, true,
+                    RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            try {
+                // fallback to simple coercion
+                return TypeCoercions.coerce(expression, type);
+            } catch (Exception e2) {
+                Exceptions.propagateIfFatal(e2);
+                throw Exceptions.propagate(e);
+            }
+        }
     }
 
     public Object processTemplateExpression(Object expression) {

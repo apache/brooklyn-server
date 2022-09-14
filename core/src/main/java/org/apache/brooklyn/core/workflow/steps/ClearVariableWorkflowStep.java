@@ -18,8 +18,9 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -27,24 +28,21 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class ClearVariableWorkflowStep extends WorkflowStepDefinition {
 
-    TypedValueToSet variable;
-
-    public TypedValueToSet getVariable() {
-        return variable;
-    }
+    public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "sensor");
 
     @Override
     public void setShorthand(String expression) {
-        variable = TypedValueToSet.parseFromShorthand(expression, null);
+        setInput(VARIABLE, TypedValueToSet.parseFromShorthand(expression, null));
     }
 
     @Override
-    protected Task<?> newTask(String stepId, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
+    protected Task<?> newTask(String stepId, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            TypedValueToSet variable = getInput(context, VARIABLE);
             if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-            String name = workflowExecutionContext.resolve(variable.name, String.class);
+            String name = context.resolve(variable.name, String.class);
             if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-            workflowExecutionContext.getWorkflowScratchVariables().remove(name);
+            context.getWorkflowScratchVariables().remove(name);
         });
     }
 

@@ -29,35 +29,24 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
-    TypedValueToSet variable;
-    Object value;
-
-    public TypedValueToSet getVariable() {
-        return variable;
-    }
-
-    public Object getValue() {
-        return value;
-    }
-
-    public void setValue(Object value) {
-        this.value = value;
-    }
+    public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "sensor");
+    public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
     public void setShorthand(String expression) {
-        variable = TypedValueToSet.parseFromShorthand(expression, this::setValue);
+        setInput(VARIABLE, TypedValueToSet.parseFromShorthand(expression, v -> setInput(VALUE, v)));
     }
 
     @Override
-    protected Task<?> newTask(String stepId, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
+    protected Task<?> newTask(String stepId, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            TypedValueToSet variable = getInput(context, VARIABLE);
             if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-            String name = workflowExecutionContext.resolve(variable.name, String.class);
+            String name = context.resolve(variable.name, String.class);
             if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-            TypeToken<?> type = workflowExecutionContext.lookupType(variable.type, () -> TypeToken.of(Object.class));
-            Object resolvedValue = workflowExecutionContext.resolve(value, type);
-            workflowExecutionContext.getWorkflowScratchVariables().put(name, resolvedValue);
+            TypeToken<?> type = context.lookupType(variable.type, () -> TypeToken.of(Object.class));
+            Object resolvedValue = getInput(context, VALUE.getName(), type);
+            context.getWorkflowScratchVariables().put(name, resolvedValue);
         });
     }
 

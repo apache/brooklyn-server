@@ -18,15 +18,24 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
+import java.util.Map;
+
 public abstract class WorkflowStepDefinition {
 
 //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
+    protected Map<String,Object> input = MutableMap.of();
+
     protected String name;
     public String getName() {
         return name;
@@ -54,6 +63,51 @@ public abstract class WorkflowStepDefinition {
     // TODO
 //    on-error:  a description of how to handle errors section
 //    log-marker:  a string which is included in all log messages in the workflow or step and any sub-tasks and subtasks in to easily identify the actions of this workflow (in addition to task IDs)
+
+    public void setS(String value) {
+        setShorthand(value);
+    }
+
+    @JsonAnySetter
+    public void setInput(String key, Object value) {
+        input.put(key, value);
+    }
+
+    public <T> void setInput(ConfigKey<T> key, T value) {
+        input.put(key.getName(), value);
+    }
+
+    public void setInput(Map<String, Object> input) {
+        this.input.putAll(input);
+    }
+
+    /** Returns the resolved value of the given key, converting to the type of the key */
+    public <T> T getInput(WorkflowExecutionContext context, ConfigKey<T> key) {
+        return getInput(context, key.getName(), key.getTypeToken());
+    }
+    /** Returns the resolved value of the given key, converting to the type of the key if the key is known */
+    public Object getInput(WorkflowExecutionContext context, String key) {
+        ConfigKey<?> keyTyped = ConfigUtilsInternal.findConfigKeys(getClass(), null).get(key);
+        // TODO also look at parameters?
+        if (keyTyped!=null) return getInput(context, keyTyped);
+        return getInput(context, key, Object.class);
+    }
+    /** Returns the resolved value of the given key, converting to the given type */
+    public <T> T getInput(WorkflowExecutionContext context, String key, Class<T> type) {
+        return getInput(context, key, TypeToken.of(type));
+    }
+    /** Returns the resolved value of the given key, converting to the given type */
+    public <T> T getInput(WorkflowExecutionContext context, String key, TypeToken<T> type) {
+        return context.resolve(input.get(key), type);
+    }
+    /** Returns the unresolved value of the given key */
+    public Object getInputRaw(String key) {
+        return input.get(key);
+    }
+    /** Returns the unresolved map of inputs */
+    public Map<String, Object> getInput() {
+        return input;
+    }
 
     abstract public void setShorthand(String value);
 

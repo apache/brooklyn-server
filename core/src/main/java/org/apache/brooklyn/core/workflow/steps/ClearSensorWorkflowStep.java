@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -30,25 +31,21 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
 
-    EntityValueToSet sensor;
-
-    public EntityValueToSet getSensor() {
-        return sensor;
-    }
+    public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
 
     @Override
     public void setShorthand(String expression) {
-        this.sensor = EntityValueToSet.parseFromShorthand(expression, null);
+        setInput(SENSOR, EntityValueToSet.parseFromShorthand(expression, null));
     }
 
     @Override
-    protected Task<?> newTask(String name, WorkflowExecutionContext workflowExecutionContext) {
-        return Tasks.create(getDefaultTaskName(workflowExecutionContext), () -> {
-            if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
-            String sensorName = workflowExecutionContext.resolve(sensor.name, String.class);
+    protected Task<?> newTask(String name, WorkflowExecutionContext context) {
+        return Tasks.create(getDefaultTaskName(context), () -> {
+            EntityValueToSet sensor = getInput(context, SENSOR);
+            String sensorName = context.resolve(sensor.name, String.class);
             if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
-            TypeToken<?> type = workflowExecutionContext.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-            ((EntityInternal)workflowExecutionContext.getEntity()).sensors().remove(Sensors.newSensor(Object.class, sensorName));
+            TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
+            ((EntityInternal)context.getEntity()).sensors().remove(Sensors.newSensor(Object.class, sensorName));
         });
     }
 
