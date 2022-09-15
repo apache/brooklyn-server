@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -416,7 +417,7 @@ public class DslPredicates {
             checker.check(javaInstanceOf, result, (test, value) -> {
                 Entity ent = null;
                 if (value instanceof Entity) ent = (Entity)value;
-                if (ent==null) BrooklynTaskTags.getContextEntity(Tasks.current());
+                if (ent==null) ent = BrooklynTaskTags.getContextEntity(Tasks.current());
                 if (ent==null) return false;
 
                 Maybe<TypeToken<?>> tt = Maybe.absent("Unsupported type "+test);
