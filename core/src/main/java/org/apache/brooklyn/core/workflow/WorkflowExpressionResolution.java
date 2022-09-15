@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.common.base.Suppliers;
 import com.google.common.reflect.TypeToken;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
@@ -25,11 +26,14 @@ import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,9 +45,11 @@ public class WorkflowExpressionResolution {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExpressionResolution.class);
     private final WorkflowExecutionContext context;
+    private final boolean useWrappedValue;
 
-    public WorkflowExpressionResolution(WorkflowExecutionContext context) {
+    public WorkflowExpressionResolution(WorkflowExecutionContext context, boolean wrap) {
         this.context = context;
+        this.useWrappedValue = wrap;
     }
 
     TemplateModel ifNoMatches() {
@@ -196,8 +202,14 @@ public class WorkflowExpressionResolution {
     }
 
     public Object processTemplateExpressionString(String expression) {
+        if (expression==null) return null;
+
         TemplateHashModel model = new WorkflowFreemarkerModel();
-        return TemplateProcessor.processTemplateContents(expression, model);
+        String result = TemplateProcessor.processTemplateContents(expression, model);
+        if (expression.equals(result)) return expression;
+
+        if (useWrappedValue) return new WrappedResolvedExpression<Object>(expression, result);
+        return result;
     }
 
     public Map<?,?> processTemplateExpressionMap(Map<?,?> object) {
@@ -209,6 +221,23 @@ public class WorkflowExpressionResolution {
 
     protected Collection<?> processTemplateExpressionCollection(Collection<?> object) {
         return object.stream().map(x -> processTemplateExpression(x)).collect(Collectors.toList());
+    }
+
+    public static class WrappedResolvedExpression<T> implements DeferredSupplier<T> {
+        String expression;
+        T value;
+        public WrappedResolvedExpression() {}
+        public WrappedResolvedExpression(String expression, T value) {
+            this.expression = expression;
+            this.value = value;
+        }
+        @Override
+        public T get() {
+            return value;
+        }
+        public String getExpression() {
+            return expression;
+        }
     }
 
 }

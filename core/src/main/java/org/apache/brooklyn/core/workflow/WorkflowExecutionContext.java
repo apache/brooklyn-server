@@ -24,7 +24,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstractProto;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -45,7 +44,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -104,27 +102,34 @@ public class WorkflowExecutionContext {
             input.put(k, v2);
         });
 
-        return new WorkflowExecutionContext(entityOrAdjunctWhereRunning, name,
+        WorkflowExecutionContext w = new WorkflowExecutionContext(entityOrAdjunctWhereRunning, name,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.STEPS),
-                paramsDefiningWorkflow.get(WorkflowCommonConfig.CONDITION),
                 input,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT));
+
+        // some fields need to be resolved at setting time, in the context of the workflow
+        w.setCondition(w.resolveConfig(paramsDefiningWorkflow, WorkflowCommonConfig.CONDITION));
+
+        return w;
     }
 
-    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, Map<String,Object> steps, DslPredicates.DslPredicate condition, Map<String,Object> input, Object output) {
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, Map<String,Object> steps, Map<String,Object> input, Object output) {
         workflowInstanceId = Identifiers.makeRandomId(12);
 
         this.name = name;
         this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
         this.steps = steps;
-        this.condition = condition;
 
         this.input = input;
         this.outputDefinition = output;
 
         task = Tasks.builder().dynamic(true).displayName(name).body(new Body()).build();
         taskId = task.getId();
+    }
+
+    public void setCondition(DslPredicates.DslPredicate condition) {
+        this.condition = condition;
     }
 
     @Override
@@ -170,16 +175,31 @@ public class WorkflowExecutionContext {
         return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("", loader, true, true).getTypeToken(typeName);
     }
 
+    /** as {@link #resolve(Object, TypeToken)} but without type coercion */
     public Object resolve(String expression) {
         return resolve(expression, Object.class);
     }
 
+    /** as {@link #resolve(Object, TypeToken)} */
     public <T> T resolve(Object expression, Class<T> type) {
         return resolve(expression, TypeToken.of(type));
     }
 
+    /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
     public <T> T resolve(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this).resolveWithTemplates(expression, type);
+        return new WorkflowExpressionResolution(this, false).resolveWithTemplates(expression, type);
+    }
+
+    /** as {@link #resolve(Object, TypeToken)}, but returning DSL/supplier for values (so their "impure" status is preserved) */
+    public <T> T resolveWrapped(Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, true).resolveWithTemplates(expression, type);
+    }
+
+    /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
+    public <T> T resolveConfig(ConfigBag config, ConfigKey<T> key) {
+        Object v = config.getStringKey(key.getName());
+        if (v==null) return null;
+        return resolve(v, key.getTypeToken());
     }
 
     public String getPreviousStepId() {
@@ -232,16 +252,16 @@ public class WorkflowExecutionContext {
         protected void runCurrentStepIfPreconditions() {
             WorkflowStepDefinition step = steps.get(currentStepId);
             if (step!=null) {
+                WorkflowStepInstanceExecutionContext stepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
+
                 if (step.condition!=null) {
-                    if (!step.condition.apply(this)) {
+                    if (!step.getConditionResolved(stepInstance).apply(this)) {
                         moveToNextSequentialStep("following step " + currentStepId + " where condition does not apply");
                         return;
                     }
                 }
 
-                // actually run the step
-                WorkflowStepInstanceExecutionContext stepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
-
+                // no condition or condition met -- record and run the step
                 WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepId, stepInstance);
                 // put the previous output in output, so repeating steps can reference themselves
                 if (old!=null) stepInstance.output = old.output;

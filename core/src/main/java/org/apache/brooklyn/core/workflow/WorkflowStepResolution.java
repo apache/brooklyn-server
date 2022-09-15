@@ -87,7 +87,7 @@ public class WorkflowStepResolution {
         Map<String, Object> steps = params.get(WorkflowCommonConfig.STEPS);
         if (steps==null || steps.isEmpty()) throw new IllegalArgumentException("It is required to supply 'steps' to define a workflow effector");
 
-        DslPredicates.DslPredicate condition = params.get(WorkflowCommonConfig.CONDITION);
+        Object condition = params.containsKey(WorkflowCommonConfig.CONDITION.getName());
         if (condition==null && entityOrAdjunctWhereRunningIfKnown!=null) {
             // ideally try to resolve the steps at entity init time; except if a condition is required we skip that so you can have steps that only resolve late,
             // and if entity isn't available then we don't need that either

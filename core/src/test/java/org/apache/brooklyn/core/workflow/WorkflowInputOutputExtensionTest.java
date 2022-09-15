@@ -107,4 +107,6 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 //        }
 //    }
 
+    // TODO test complex object in an expression
+
 }

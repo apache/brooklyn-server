@@ -32,8 +32,6 @@ import java.util.function.Supplier;
 
 public class WorkflowStepInstanceExecutionContext {
 
-
-
     private WorkflowStepInstanceExecutionContext() {}
     public WorkflowStepInstanceExecutionContext(String stepDefinitionId, Map<String, Object> input, WorkflowExecutionContext context) {
         this.stepInstanceId = Identifiers.makeRandomId(12);
@@ -104,6 +102,9 @@ public class WorkflowStepInstanceExecutionContext {
 
     public <T> T resolve(Object expression, TypeToken<T> type) {
         return context.resolve(expression, type);
+    }
+    public <T> T resolveWrapped(Object expression, TypeToken<T> type) {
+        return context.resolveWrapped(expression, type);
     }
 
 }

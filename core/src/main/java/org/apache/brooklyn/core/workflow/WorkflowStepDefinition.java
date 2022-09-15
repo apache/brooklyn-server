@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -52,9 +54,14 @@ public abstract class WorkflowStepDefinition {
     }
 
     //    condition:  a condition to require for the step to run; if false, the step is skipped
-    protected DslPredicates.DslPredicate condition;
-    public DslPredicates.DslPredicate getCondition() {
+    protected Object condition;
+    @JsonIgnore
+    public Object getConditionRaw() {
         return condition;
+    }
+    @JsonIgnore
+    public DslPredicates.DslPredicate getConditionResolved(WorkflowStepInstanceExecutionContext context) {
+        return context.resolveWrapped(condition, TypeToken.of(DslPredicates.DslPredicate.class));
     }
 
     // TODO
