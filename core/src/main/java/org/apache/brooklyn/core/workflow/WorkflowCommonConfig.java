@@ -21,13 +21,19 @@ package org.apache.brooklyn.core.workflow;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.config.MapConfigKey;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstractProto;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 
 import java.util.Map;
 
 public interface WorkflowCommonConfig {
 
-    public static final ConfigKey<Map<String,Object>> STEPS = ConfigKeys.newConfigKey(new TypeToken<Map<String,Object>>() {}, "steps",
+    ConfigKey<Map<String,Object>> PARAMETER_DEFS = AddEffectorInitializerAbstractProto.EFFECTOR_PARAMETER_DEFS;
+    ConfigKey<Map<String,Object>> INPUT = new MapConfigKey<Object>(Object.class, "input");
+    ConfigKey<Object> OUTPUT = ConfigKeys.newConfigKey(Object.class, "output");
+
+    ConfigKey<Map<String,Object>> STEPS = ConfigKeys.newConfigKey(new TypeToken<Map<String,Object>>() {}, "steps",
             "Map of step ID to step body defining this workflow");
 
     // TODO
@@ -37,7 +43,7 @@ public interface WorkflowCommonConfig {
 //        return timeout;
 //    }
 
-    public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
+    ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
             "Condition required on the entity where this effector is placed in order for the effector to be invocable");
 
     // TODO

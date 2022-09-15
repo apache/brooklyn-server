@@ -31,11 +31,14 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.Effectors.EffectorBuilder;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 
 @Beta
 public abstract class AddEffectorInitializerAbstractProto extends EntityInitializers.InitializerPatternWithConfigKeys {
@@ -75,24 +78,7 @@ public abstract class AddEffectorInitializerAbstractProto extends EntityInitiali
         EffectorBuilder<T> eff = Effectors.effector(type, name);
         eff.description(params.get(EFFECTOR_DESCRIPTION));
 
-        Map<String, Object> paramDefs = params.get(EFFECTOR_PARAMETER_DEFS);
-        if (paramDefs!=null) {
-            for (Map.Entry<String, Object> paramDef: paramDefs.entrySet()){
-                if (paramDef!=null) {
-                    String paramName = paramDef.getKey();
-                    Object value = paramDef.getValue();
-                    if (value==null) value = Collections.emptyMap();
-                    if (!(value instanceof Map)) {
-                        if (value instanceof CharSequence && Strings.isBlank((CharSequence) value))
-                            value = Collections.emptyMap();
-                    }
-                    if (!(value instanceof Map))
-                        throw new IllegalArgumentException("Illegal argument of type "+value.getClass()+" value '"+value+"' supplied as parameter definition "
-                                + "'"+paramName);
-                    eff.parameter(ConfigKeys.DynamicKeys.newNamedInstance(paramName, (Map<?, ?>) value));
-                }
-            }
-        }
+        Effectors.parseParameters(params.get(EFFECTOR_PARAMETER_DEFS)).forEach(p -> eff.parameter(p));
 
         return eff;
     }

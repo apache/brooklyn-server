@@ -85,7 +85,7 @@ public class WorkflowExpressionResolution {
             if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
 
             //workflow.input.somevar
-            candidate = context.input.getStringKey(key);
+            candidate = context.input.get(key);
             if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
 
             return ifNoMatches();

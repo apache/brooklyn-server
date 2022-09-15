@@ -23,6 +23,9 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstractProto;
+import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
@@ -40,7 +43,9 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -55,9 +60,11 @@ public class WorkflowExecutionContext {
     BrooklynObject entityOrAdjunctWhereRunning;
     Entity entity;
 
-    // TODO for deserialization, and for sensibility, we might need to change these to be resolved maps
-    ConfigBag paramsDefiningWorkflow;
-    ConfigBag input;
+    Map<String, Object> steps;
+    DslPredicates.DslPredicate condition;
+
+    Map<String,Object> input;
+    Object outputDefinition;
     Object output;
 
     String taskId;
@@ -65,23 +72,56 @@ public class WorkflowExecutionContext {
 
     String currentStepId;
     String previousStepId;
+    // TODO currentStepInstance
     Map<String, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
-    // TODO previousStepInstance
-    // TODO currentStepInstance
 
     // deserialization constructor
     private WorkflowExecutionContext() {}
 
-    public WorkflowExecutionContext(String name, BrooklynObject entityOrAdjunctWhereRunning, org.apache.brooklyn.util.core.config.ConfigBag paramsDefiningWorkflow, ConfigBag input) {
+    public static WorkflowExecutionContext of(BrooklynObject entityOrAdjunctWhereRunning, String name, ConfigBag paramsDefiningWorkflow,
+                                              Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs) {
+
+        // parameter defs
+        Map<String,ConfigKey<?>> parameters = MutableMap.of();
+        Effectors.parseParameters(paramsDefiningWorkflow.get(WorkflowCommonConfig.PARAMETER_DEFS)).forEach(p -> parameters.put(p.getName(), Effectors.asConfigKey(p)));
+        if (extraConfigKeys!=null) extraConfigKeys.forEach(p -> parameters.put(p.getName(), p));
+
+        // inputs, unresolved first
+        ConfigBag inputRaw = ConfigBag.newInstance();
+        inputRaw.putAll(paramsDefiningWorkflow.get(WorkflowCommonConfig.INPUT));
+        if (extraInputs!=null) inputRaw.putAll(extraInputs.getAllConfig());
+        parameters.values().forEach(p -> {
+                    if (p.hasDefaultValue() && !inputRaw.containsKey(p.getName())) inputRaw.put((ConfigKey)p, p.getDefaultValue());
+                });
+
+        MutableMap<String,Object> input = MutableMap.of();
+        inputRaw.forEach( (k,v) -> {
+            ConfigKey<?> kc = parameters.get(k);
+            // coerce, but don't freemarker resolve inputs because that's the job of the caller (e.g. in nested workflow, inputs resolved relative to calling workflow)
+            Object v2 = kc == null ? v : inputRaw.get(kc);
+            input.put(k, v2);
+        });
+
+        return new WorkflowExecutionContext(entityOrAdjunctWhereRunning, name,
+                paramsDefiningWorkflow.get(WorkflowCommonConfig.STEPS),
+                paramsDefiningWorkflow.get(WorkflowCommonConfig.CONDITION),
+                input,
+                paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT));
+    }
+
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, Map<String,Object> steps, DslPredicates.DslPredicate condition, Map<String,Object> input, Object output) {
         workflowInstanceId = Identifiers.makeRandomId(12);
 
         this.name = name;
         this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
-        this.paramsDefiningWorkflow = paramsDefiningWorkflow;
+        this.steps = steps;
+        this.condition = condition;
+
         this.input = input;
+        this.outputDefinition = output;
 
         task = Tasks.builder().dynamic(true).displayName(name).body(new Body()).build();
         taskId = task.getId();
@@ -105,7 +145,6 @@ public class WorkflowExecutionContext {
     }
 
     public Maybe<Task<Object>> getOrCreateTask() {
-        DslPredicates.DslPredicate condition = paramsDefiningWorkflow.get(WorkflowCommonConfig.CONDITION);
         if (condition!=null) {
             if (!condition.apply(entityOrAdjunctWhereRunning)) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
@@ -167,7 +206,7 @@ public class WorkflowExecutionContext {
         @Override
         public Object call() throws Exception {
             steps = new TreeMap<>(NaturalOrderComparator.INSTANCE);
-            steps.putAll(WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunning).getManagementContext(), paramsDefiningWorkflow.get(WorkflowCommonConfig.STEPS) ));
+            steps.putAll(WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunning).getManagementContext(), WorkflowExecutionContext.this.steps));
 
             if (currentStepId==null) {
                 currentStepId = steps.firstKey();
@@ -175,8 +214,13 @@ public class WorkflowExecutionContext {
                     runCurrentStepIfPreconditions();
                 }
 
-                // TODO process any output set in the workflow definition
-                // (default is the output of the last step)
+                if (outputDefinition==null) {
+                    // (default is the output of the last step)
+                    output = getPreviousStepOutput();
+                } else {
+                    output = resolve(outputDefinition, Object.class);
+                }
+
                 return output;
 
             } else {
@@ -202,7 +246,8 @@ public class WorkflowExecutionContext {
                 // put the previous output in output, so repeating steps can reference themselves
                 if (old!=null) stepInstance.output = old.output;
 
-                WorkflowExecutionContext.this.output = stepInstance.output = DynamicTasks.queue(step.newTask(stepInstance)).getUnchecked();
+                stepInstance.output = DynamicTasks.queue(step.newTask(stepInstance)).getUnchecked();
+
                 // TODO error handling
 
                 previousStepId = currentStepId;

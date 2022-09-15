@@ -96,7 +96,7 @@ public abstract class WorkflowStepDefinition {
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
 
     protected String computeTaskName(WorkflowStepInstanceExecutionContext context) {
-        return context.stepDefinitionId + " - " + (Strings.isNonBlank(getName()) ? getName() : getShorthandTypeName());
+        return context.stepDefinitionId + (Strings.isNonBlank(getName()) ? " - " + getName() : "");
     }
 
     protected String getShorthandTypeName() {

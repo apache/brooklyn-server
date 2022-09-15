@@ -18,11 +18,7 @@
  */
 package org.apache.brooklyn.core.effector;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.annotation.Nullable;
 
@@ -37,6 +33,7 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorMarkingTaskFactor
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
@@ -224,6 +221,28 @@ public class Effectors {
     
     public static boolean sameInstance(Effector<?> e1, Effector<?> e2) {
         return e1 == e2;
+    }
+
+    public static Collection<ParameterType<?>> parseParameters(Map<String,Object> paramDefs) {
+        Set<ParameterType<?>> result = MutableSet.of();
+        if (paramDefs==null) return result;
+
+        for (Map.Entry<String, Object> paramDef: paramDefs.entrySet()){
+            if (paramDef!=null) {
+                String paramName = paramDef.getKey();
+                Object value = paramDef.getValue();
+                if (value==null) value = Collections.emptyMap();
+                if (!(value instanceof Map)) {
+                    if (value instanceof CharSequence && Strings.isBlank((CharSequence) value))
+                        value = Collections.emptyMap();
+                }
+                if (!(value instanceof Map))
+                    throw new IllegalArgumentException("Illegal argument of type "+value.getClass()+" value '"+value+"' supplied as parameter definition "
+                            + "'"+paramName);
+                result.add(Effectors.asParameterType(ConfigKeys.DynamicKeys.newNamedInstance(paramName, (Map<?, ?>) value)));
+            }
+        }
+        return result;
     }
 
 }

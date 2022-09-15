@@ -31,6 +31,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSupport {
 
@@ -61,20 +62,36 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 
 
     @Test
-    public void testMapOutputAndInput() {
+    public void testMapOutputAndInputFromLastStep() {
+        doTestMapOutputAndInput(cfg -> {
+            Map<String, Object> map = cfg.get(WorkflowEffector.STEPS);
+            map.put("s5", "let map result = { c: ${c}, d: ${d}, e: ${e} }");
+            cfg.put(WorkflowEffector.STEPS, map);
+        });
+    }
+
+    @Test
+    public void testMapOutputAndInputFromExplicitOutput() {
+        doTestMapOutputAndInput(cfg -> cfg.put(WorkflowEffector.OUTPUT,
+                MutableMap.of("c", "${c}", "d", "${d}", "e", "${e}") ));
+    }
+
+    public void doTestMapOutputAndInput(Consumer<ConfigBag> mod) {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
-        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+        ConfigBag cfg = ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, MutableMap.<String,Object>of()
+                .configure(WorkflowEffector.STEPS, MutableMap.<String, Object>of()
                         .add("s1", "let map v = { x: { y: a }, z: b }")
                         .add("s2", "let c = ${x.y}")  // reference output of previous step
                         .add("s3", "let d = ${v.z}")  // reference workflow var
                         .add("s4", "let e = ${workflow.step.s1.output.z}")  // reference explicit output step
-                        .add("s5", "let map result = { c: ${c}, d: ${d}, e: ${e} }")  // reference explicit output step
-                )
-        );
+                );
+        // mod says how results are returned
+        mod.accept(cfg);
+
+        WorkflowEffector eff = new WorkflowEffector(cfg);
         eff.apply((EntityLocal)app);
 
         Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
@@ -83,5 +100,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(result.get("d"), "b");
         Asserts.assertEquals(result.get("e"), "b");
     }
+
+//    static class WorkflowTestEffector1 extends WorkflowEffector {
+//        WorkflowTestEffector1() {
+//            initParams().put(
+//        }
+//    }
 
 }

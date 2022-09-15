@@ -46,7 +46,8 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         if (Strings.isBlank(message))  {
             throw new IllegalArgumentException("Log message is required");
         }
-        LOG.info("{}: {}", name, message);
+        // TODO all workflow log messages should include workflow id or step id ? or task id able to correspond?
+        LOG.info("{}: {}", context.name, message);
         return context.getPreviousStepOutput();
     }
 }
