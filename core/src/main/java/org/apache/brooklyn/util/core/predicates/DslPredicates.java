@@ -53,6 +53,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.core.units.Range;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -195,6 +196,8 @@ public class DslPredicates {
         public DslPredicate not;
         public List<DslPredicate> any;
         public List<DslPredicate> all;
+        @JsonProperty("assert")
+        public DslPredicate assertCondition;
 
         public @JsonProperty("has-element") DslPredicate hasElement;
         public DslPredicate size;
@@ -267,25 +270,26 @@ public class DslPredicates {
                     if (((Map) value).containsKey(key)) {
                         return Maybe.ofAllowingNull( ((Map) value).get(key) );
                     } else {
-                        return Maybe.absent("Cannot find indicated key in map");
+                        return Maybe.absent("Cannot find indicated key '"+key+"' in map");
                     }
                 } else {
-                    return Maybe.absent("Cannot evaluate key on non-map target");
+                    return Maybe.absent("Cannot evaluate key on non-map target "+classOf(value));
                 }
             });
 
             if (index != null) resolvers.put("index", (value) -> {
                 Integer i = index;
+                Object v0 = value;
                 if (value instanceof Map) value = ((Map)value).entrySet();
                 if (value instanceof Iterable) {
                     int size = Iterables.size((Iterable) value);
                     if (i<0) {
                         i = size + i;
                     }
-                    if (i<0 || i>=size) return Maybe.absent("No element at index "+i+"; size "+size);
+                    if (i<0 || i>=size) return Maybe.absent("No element at index "+i+" ("+classOf(v0)+" size "+size+")");
                     return Maybe.of(Iterables.get((Iterable)value, i));
                 } else {
-                    return Maybe.absent("Cannot evaluate index on non-list target");
+                    return Maybe.absent("Cannot evaluate index on non-list target "+classOf(v0));
                 }
             });
 
@@ -294,7 +298,7 @@ public class DslPredicates {
                 if (value instanceof Iterable) {
                     return Maybe.of(Iterables.filter((Iterable) value, filter));
                 } else {
-                    return Maybe.absent("Cannot evaluate filter on non-list target");
+                    return Maybe.absent("Cannot evaluate filter on non-list target "+classOf(value));
                 }
             });
 
@@ -306,7 +310,7 @@ public class DslPredicates {
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
                     if (LOG.isTraceEnabled()) LOG.trace("Unable to consider jsonpath for non-serializable '"+value+"' due to: "+e, e);
-                    return Maybe.absent("Cannot serialize object as JSON");
+                    return Maybe.absent("Cannot serialize object as JSON: "+e);
                 }
 
                 String jsonpathTidied = jsonpath;
@@ -330,6 +334,11 @@ public class DslPredicates {
                 // this will return single object possibly null, or a list possibly empty
                 return Maybe.ofAllowingNull(result);
             });
+        }
+
+        private String classOf(Object x) {
+            if (x==null) return "null";
+            return x.getClass().getName();
         }
 
         /** returns the resolved, possibly redirected target for this test wrapped in a maybe, or absent if there is no valid value/target.
@@ -357,6 +366,8 @@ public class DslPredicates {
         }
 
         public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
+            if (assertCondition!=null) failOnAssertCondition(result, checker);
+
             checker.check(implicitEquals, result, (test, value) -> {
                 if ((!(test instanceof BrooklynObject) && value instanceof BrooklynObject) ||
                         (!(test instanceof Iterable) && value instanceof Iterable)) {
@@ -417,6 +428,46 @@ public class DslPredicates {
                 return tt.get().isSupertypeOf(value.getClass());
             });
             checker.checkTest(javaTypeName, (test) -> nestedPredicateCheck(test, result.map(v -> v.getClass().getName())));
+        }
+
+        protected void failOnAssertCondition(Maybe<Object> result, CheckCounts callerChecker) {
+            callerChecker.checksDefined++;
+            callerChecker.checksApplicable++;
+
+            boolean assertionPassed;
+            if (assertCondition instanceof DslPredicateBase) {
+
+                Object implicitWhen = ((DslPredicateBase) assertCondition).implicitEquals;
+                CheckCounts checker = new CheckCounts();
+                if (implicitWhen!=null) {
+                    WhenPresencePredicate whenT = TypeCoercions.coerce(implicitWhen, WhenPresencePredicate.class);
+                    checkWhen(whenT, result, checker);
+                    // can assume no other checks, if one is implicit
+                } else {
+                    ((DslPredicateBase) assertCondition).applyToResolved(result, checker);
+                }
+                assertionPassed = checker.allPassed(true);
+
+            } else {
+                assertionPassed = result.isPresent() && assertCondition.apply(result.get());
+            }
+
+            if (!assertionPassed) {
+                String msg = "Assertion in DSL predicate failed";
+                if (result.isAbsent()) {
+                    String msg2 = "value cannot be resolved";
+                    RuntimeException e = Maybe.Absent.getException(result);
+                    if (e==null) {
+                        throw new PredicateAssertionFailedException(msg + ": " + msg2 + " (no further details)");
+                    } else {
+                        throw new PredicateAssertionFailedException(msg + ": " + msg2 + ": " + Exceptions.collapseText(e), e);
+                    }
+                } else {
+                    throw new PredicateAssertionFailedException(msg+": value '"+result.get()+"'");
+                }
+            }
+
+            callerChecker.checksPassed++;
         }
 
         protected void checkWhen(WhenPresencePredicate when, Maybe<Object> result, CheckCounts checker) {
@@ -505,7 +556,7 @@ public class DslPredicates {
                             .as(Object.class).allowDeepResolution(true).immediately(true).context((Entity)value);
                     return resolver.getMaybe();
                 } else {
-                    return Maybe.absent("Sensors not supported on " + value + " (testing sensor '" + config + "')");
+                    return Maybe.absent("Sensors not supported on " + value + " (testing sensor '" + sensor + "')");
                 }
             });
         }
@@ -747,6 +798,11 @@ public class DslPredicates {
     }
 
     static class RetargettedPredicateEvaluation<T> extends DslPredicateDefault<T> {
+    }
+
+    public static class PredicateAssertionFailedException extends UserFacingException {
+        public PredicateAssertionFailedException(String msg) { super(msg); }
+        public PredicateAssertionFailedException(String msg, Throwable cause) { super(msg, cause); }
     }
 
 }

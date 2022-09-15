@@ -30,6 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
@@ -328,6 +329,25 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertInstanceOf(p, DslPredicates.DslPredicateDefault.class);
         Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)p).equals, kvMap);
         Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)p).config, "x");
+    }
+
+    @Test
+    public void testAssertPresent() {
+        // implicit assertion
+        Consumer<DslPredicates.DslPredicate> check = p -> {
+            Asserts.assertTrue(p.test(MutableList.of("x", "a")));
+            Asserts.assertFalse(p.test(MutableList.of("x", "b")));
+            Asserts.assertFailsWith(() -> { p.test(MutableList.of("x")); }, e -> Asserts.expectedFailureContainsIgnoreCase(e, "assert", "no element", "index 1", "MutableList", "size 1"));
+            Asserts.assertFailsWith(() -> { p.test(null); }, e -> Asserts.expectedFailureContainsIgnoreCase(e, "assert", "non-list", "null"));
+        };
+
+        DslPredicates.DslPredicate p1 = TypeCoercions.coerce(MutableMap.of("index", 1, "equals", "a", "assert", "present"), DslPredicates.DslPredicate.class);
+        check.accept(p1);
+
+        // explicit more complex assertion
+        DslPredicates.DslPredicate p2 = TypeCoercions.coerce(MutableMap.of("index", 1, "equals", "a", "assert", MutableMap.of("when", "present", "size", 1)), DslPredicates.DslPredicate.class);
+        check.accept(p2);
+        Asserts.assertFailsWith(() -> { p2.test(MutableList.of("x", "zz")); }, e -> Asserts.expectedFailureContainsIgnoreCase(e, "assert", "value", "zz"));
     }
 
 }
