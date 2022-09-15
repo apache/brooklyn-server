@@ -520,7 +520,7 @@ public class TemplateProcessor {
                 if (entity!=null)
                     return wrapAsTemplateModel( Iterables.getOnlyElement( entity.getLocations() ) );
             }
-            if ("attribute".equals(key)) {
+            if ("attribute".equals(key) || "sensor".equals(key)) {
                 return new EntityAttributeTemplateModel(entity);
             }
 
