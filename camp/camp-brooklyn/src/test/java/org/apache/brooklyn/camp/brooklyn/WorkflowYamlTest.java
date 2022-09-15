@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+import org.testng.internal.thread.ThreadTimeoutException;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -102,10 +103,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     public void testWorkflowEffectorLogStep() throws Exception {
 
         // Prepare log watcher.
-        ListAppender<ILoggingEvent> logWatcher;
-        logWatcher = new ListAppender<>();
-        logWatcher.start();
-        ((Logger) LoggerFactory.getLogger(LogWorkflowStep.class)).addAppender(logWatcher);
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
 
         // Declare workflow in a blueprint, add various log steps.
         Entity app = createAndStartApplication(
@@ -140,5 +138,197 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step1: test message 1");
         Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "step2: test message 2");
         Assert.assertEquals(logWatcher.list.get(4).getFormattedMessage(), "step4: test message 3");
+    }
+
+    @Test
+    public void testWorkflowPropertyNext() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        the-end: log bye",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          next: the-end",
+                "        step-A:", // <-- this is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: log",
+                "          message: test message 2",
+                "          next: step-B",
+                "        the-check-point: log check point");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages.
+        Assert.assertEquals(logWatcher.list.size(), 4);
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "step-B: test message 3");
+        // 'the-check-point' step is never reached here.
+        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
+    }
+
+    @Test(timeOut = 1000L, expectedExceptions = ThreadTimeoutException.class)
+    public void testWorkflowPropertyNext_InfiniteLoop() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        the-end: log bye",
+                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          # next: the-end", // <-- Omit the 'next', rely on the default order from here.
+                "        step-C:",
+                "          type: log",
+                "          message: test message 2",
+                "          next: step-B",
+                "        the-check-point: log check point");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // This is expected stuck in the infinite loop between 'step-B' and 'step-C'...
+    }
+
+    @Test
+    public void testWorkflowPropertyNext_DefaultOrder() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        the-end: log bye",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 3",
+                "          next: the-end",
+                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: log",
+                "          message: test message 2",
+                "          # next: step-B", // <-- Omit the 'next', rely on the default order from here.
+                "        the-check-point: log check point");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages
+        Assert.assertEquals(logWatcher.list.size(), 4);
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "step-C: test message 2");
+        // 'test-B' is not reached, default order must jump to 'the-check-point' and 'the-end' step.
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "the-check-point: check point");
+        Assert.assertEquals(logWatcher.list.get(3).getFormattedMessage(), "the-end: bye");
+    }
+
+    @Test
+    public void testWorkflowPropertyNext_SetSensor() throws Exception {
+
+        // Prepare log watcher.
+        ListAppender<ILoggingEvent> logWatcher = getLogWatcher(LogWorkflowStep.class);
+
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  id: my-entity",
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        the-end: log bye",
+                "        step-B:",
+                "          type: log",
+                "          message: test message 2",
+                "          next: the-end",
+                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
+                "          type: log",
+                "          message: test message 1",
+                "          next: step-C",
+                "        step-C:",
+                "          type: set-sensor", // set sensor
+                "          sensor: foo",
+                "          value: bar",
+                "        the-check-point: log check point");
+        waitForApplicationTasks(app);
+
+        // Deploy the blueprint.
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+        Task<?> invocation = app.invoke(effector, null);
+        invocation.getUnchecked();
+        Dumper.dumpInfo(invocation);
+
+        // Verify expected log messages
+        Assert.assertEquals(logWatcher.list.size(), 3);
+        Assert.assertEquals(logWatcher.list.get(0).getFormattedMessage(), "step-A: test message 1");
+        // 'test-B' is not reached.
+        Assert.assertEquals(logWatcher.list.get(1).getFormattedMessage(), "the-check-point: check point");
+        Assert.assertEquals(logWatcher.list.get(2).getFormattedMessage(), "the-end: bye");
+
+        // Verify expected sensor
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
+    }
+
+    private ListAppender<ILoggingEvent> getLogWatcher(Class<?> clazz) {
+        ListAppender<ILoggingEvent> logWatcher = new ListAppender<>();
+        logWatcher.start();
+        ((Logger) LoggerFactory.getLogger(clazz)).addAppender(logWatcher);
+        return logWatcher;
     }
 }
