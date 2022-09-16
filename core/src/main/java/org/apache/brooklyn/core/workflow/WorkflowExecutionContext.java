@@ -255,7 +255,8 @@ public class WorkflowExecutionContext {
                 WorkflowStepInstanceExecutionContext stepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
 
                 if (step.condition!=null) {
-                    if (!step.getConditionResolved(stepInstance).apply(this)) {
+                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(stepInstance), this, entityOrAdjunctWhereRunning);
+                    if (!conditionMet) {
                         moveToNextSequentialStep("following step " + currentStepId + " where condition does not apply");
                         return;
                     }

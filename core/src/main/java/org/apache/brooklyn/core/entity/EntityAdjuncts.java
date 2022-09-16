@@ -117,22 +117,28 @@ public class EntityAdjuncts {
                 new EntityAdjunctProxyImpl(id));
     }
 
-    /** all real EntityAdjunct items support getEntity, but via two different paths, depending whether it is proxied or not */
-    public static <T extends EntityAdjunct> Maybe<Entity> getEntity(T value, boolean treatDefinitelyMissingAsAbsent) {
-        final Function<Maybe<Entity>,Maybe<Entity>> handleNull = mv -> {
-            if (!treatDefinitelyMissingAsAbsent || mv.isAbsent() || mv.isPresentAndNonNull()) return mv;
-            return Maybe.absentNull("entity definitely not set on adjunct");
-        };
-        if (value instanceof EntityAdjuncts.EntityAdjunctProxyable) {
-            // works for proxies and almost all real instances
-            return handleNull.apply(Maybe.ofAllowingNull( ((EntityAdjuncts.EntityAdjunctProxyable)value).getEntity() ));
+    /** all real EntityAdjunct items support getEntity, but via two different paths, depending whether it is proxied or not; Entity returns itself; other BrooklynObjects do not usually have an entity */
+    public static <T extends BrooklynObject> Maybe<Entity> getEntity(T value, boolean treatDefinitelyMissingAsAbsent) {
+        if (value instanceof Entity) return Maybe.of((Entity)value);
+
+        if (value instanceof EntityAdjunct) {
+            final Function<Maybe<Entity>, Maybe<Entity>> handleNull = mv -> {
+                if (!treatDefinitelyMissingAsAbsent || mv.isAbsent() || mv.isPresentAndNonNull()) return mv;
+                return Maybe.absentNull("entity definitely not set on adjunct");
+            };
+            if (value instanceof EntityAdjuncts.EntityAdjunctProxyable) {
+                // works for proxies and almost all real instances
+                return handleNull.apply(Maybe.ofAllowingNull(((EntityAdjuncts.EntityAdjunctProxyable) value).getEntity()));
+            }
+            if (value instanceof AbstractEntityAdjunct) {
+                // needed for items that don't extend the standard Abstracts, eg something that implements Enricher but don't extend AbstractEnricher
+                // (we might be able to get rid of those; and maybe move getEntity to the EntityAdjunct interface, but that is for another day)
+                return handleNull.apply(Maybe.ofAllowingNull(((AbstractEntityAdjunct) value).getEntity()));
+            }
+            return Maybe.absent("adjunct does not supply way to detect if entity set");
         }
-        if (value instanceof AbstractEntityAdjunct) {
-            // needed for items that don't extend the standard Abstracts, eg something that implements Enricher but don't extend AbstractEnricher
-            // (we might be able to get rid of those; and maybe move getEntity to the EntityAdjunct interface, but that is for another day)
-            return handleNull.apply(Maybe.ofAllowingNull( ((AbstractEntityAdjunct)value).getEntity() ));
-        }
-        return Maybe.absent("adjunct does not supply way to detect if entity set");
+
+        return Maybe.absent("brooklyn object "+value+" not supported for entity retrieval");
     }
 
     /** supported by nearly all EntityAdjuncts, but a few in the wild might that don't extend the standard AbstractEntityAdjunct might not implement this; see {@link #getEntity()} */

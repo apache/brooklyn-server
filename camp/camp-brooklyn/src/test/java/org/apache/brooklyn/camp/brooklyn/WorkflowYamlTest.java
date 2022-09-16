@@ -418,7 +418,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
     @Test
     public void testWorkflowSensorCondition() throws Exception {
-        // TODO how for conditions to access entity for a workflow context
         doTestWorkflowCondition("set-sensor", "${entity.sensor.color}", "sensor: color");
     }
 

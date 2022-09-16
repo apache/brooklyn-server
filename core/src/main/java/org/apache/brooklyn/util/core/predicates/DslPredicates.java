@@ -36,13 +36,13 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonSymbolDependentDeserializer;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -508,6 +508,31 @@ public class DslPredicates {
         }
     }
 
+    private static final ThreadLocal<Map<Object,Object>> PREDICATE_EVALUATION_CONTEXT = new ThreadLocal<>();
+
+    public static Object getFromPredicateEvaluationContext(Object key) {
+        Map<Object, Object> map = PREDICATE_EVALUATION_CONTEXT.get();
+        if (map==null) return null;
+        return map.get(key);
+    }
+
+    public static <T> boolean evaluateDslPredicateWithContext(DslPredicate<T> predicate, T target, Map<Object,Object> context) {
+        if (PREDICATE_EVALUATION_CONTEXT.get()!=null) throw new IllegalStateException("Nested predicate evaluation with context not supported");
+        try {
+            PREDICATE_EVALUATION_CONTEXT.set(context);
+            return predicate.apply(target);
+        } finally {
+            PREDICATE_EVALUATION_CONTEXT.remove();
+        }
+    }
+
+    public static <T> boolean evaluateDslPredicateWithBrooklynObjectContext(DslPredicate<T> predicate, T target, BrooklynObject bo) {
+        return evaluateDslPredicateWithContext(predicate, target, MutableMap.of(
+                Configurable.class, bo,
+                BrooklynObject.class, bo,
+                Entity.class, EntityAdjuncts.getEntity(bo, true).orNull()));
+    }
+
     @Beta
     public static class DslPredicateDefault<T2> extends DslPredicateBase<T2> implements DslPredicate<T2>, Cloneable {
         public DslPredicateDefault() {}
@@ -531,33 +556,56 @@ public class DslPredicates {
             }
         }
 
+        protected <T> T getTypeFromValueOrContext(Class<?> type, Object value) {
+            if (type==null || value==null) return (T) value;
+
+            if (Entity.class.isAssignableFrom(type)) {
+                // if Entity wanted, try to extract from adjunct
+                if (value instanceof BrooklynObject) value = EntityAdjuncts.getEntity((BrooklynObject) value, true).orNull();
+            }
+            if (type.isInstance(value)) return (T) value;
+            Object v2 = getFromPredicateEvaluationContext(Entity.class);
+            if (type.isInstance(v2)) return (T) v2;
+            if (v2!=null) throw new IllegalStateException("DSL predicate context for "+type+" is incompatible "+v2+" ("+v2.getClass()+")");
+            return null;
+        }
+
         protected void collectApplicableSpecialFieldTargetResolvers(Map<String,Function<Object, Maybe<Object>>> resolvers) {
             super.collectApplicableSpecialFieldTargetResolvers(resolvers);
 
             if (config!=null) resolvers.put("config", (value) -> {
+                Configurable cv;
                 if (value instanceof Configurable) {
-                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Configurable)value).config().get(ConfigKeys.newConfigKey(Object.class, config)))
+                    cv = (Configurable) value;
+                } else {
+                    cv = (Configurable) getFromPredicateEvaluationContext(Configurable.class);
+                }
+                if (cv!=null) {
+                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> cv.config().get(ConfigKeys.newConfigKey(Object.class, config)))
                             .as(Object.class).allowDeepResolution(true).immediately(true);
-                    if (value instanceof Entity) resolver.context( (Entity)value );
+
+                    Entity entity = getTypeFromValueOrContext(Entity.class, value);
+                    if (entity!=null) resolver.context( entity );
                     Maybe<Object> result = resolver.getMaybe();
                     if (result.isAbsent()) {
-                        if (!(value instanceof Entity) && BrooklynTaskTags.getContextEntity(Tasks.current())==null) {
-                            throw new IllegalStateException("Not permitted to resolve config '"+config+"' on "+value+" outside of an entity task");
+                        if (entity==null && BrooklynTaskTags.getContextEntity(Tasks.current())==null) {
+                            throw new IllegalStateException("Unable to resolve config '"+config+"' on "+value+", likely because outside of an entity task unless entity target or context explicitly supplied");
                         }
                     }
                     return result;
                 } else {
-                    return Maybe.absent("Config not supported on " + value + " (testing config '" + config + "')");
+                    return Maybe.absent("Config not supported on " + value + " and no applicable DslPredicate context (testing config '" + config + "')");
                 }
             });
 
             if (sensor!=null) resolvers.put("sensor", (value) -> {
-                if (value instanceof Entity) {
-                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> ((Entity)value).sensors().get(Sensors.newSensor(Object.class, sensor)))
-                            .as(Object.class).allowDeepResolution(true).immediately(true).context((Entity)value);
+                Entity entity = getTypeFromValueOrContext(Entity.class, value);
+                if (entity!=null) {
+                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> (entity).sensors().get(Sensors.newSensor(Object.class, sensor)))
+                            .as(Object.class).allowDeepResolution(true).immediately(true).context(entity);
                     return resolver.getMaybe();
                 } else {
-                    return Maybe.absent("Sensors not supported on " + value + " (testing sensor '" + sensor + "')");
+                    return Maybe.absent("Sensors not supported on " + value + " and no applicable DslPredicate context (testing sensor '" + sensor + "')");
                 }
             });
         }
@@ -577,7 +625,8 @@ public class DslPredicates {
                     target = input;
                 }
                 ValueResolver<Object> resolver = Tasks.resolving(target).as(Object.class).allowDeepResolution(true).immediately(true);
-                if (input instanceof Entity) resolver = resolver.context((Entity) input);
+                Entity entity = getTypeFromValueOrContext(Entity.class, input);
+                if (entity!=null) resolver = resolver.context(entity);
                 result = resolver.getMaybe();
             }
 
@@ -588,22 +637,22 @@ public class DslPredicates {
         protected Maybe<Object> resolveTargetStringAgainstInput(String target, Object input) {
             Maybe<Object> candidate;
             candidate = resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(target, input,
-                    "locations", x -> x instanceof Entity, x -> Maybe.of(Locations.getLocationsCheckingAncestors(null, (Entity) x)),
+                    "locations", Entity.class, x -> Maybe.of(Locations.getLocationsCheckingAncestors(null, (Entity) x)),
                     "location", x -> x instanceof Location);
             if (candidate!=null) return candidate;
             candidate = resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(target, input,
-                    "tags", x -> x instanceof BrooklynObject, x -> Maybe.of( ((BrooklynObject)x).tags().getTags() ),
+                    "tags", BrooklynObject.class, x -> Maybe.of( ((BrooklynObject)x).tags().getTags() ),
                     "tag", x -> false);
             if (candidate!=null) return candidate;
             candidate = resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(target, input,
-                    "children", x -> x instanceof Entity, x -> Maybe.of(((Entity) x).getChildren()),
+                    "children", Entity.class, x -> Maybe.of(((Entity) x).getChildren()),
                     "child", x -> false);
             if (candidate!=null) return candidate;
 
             return Maybe.absent("Unsupported target '"+target+"' on input "+input);
         }
 
-        protected Maybe<Object> resolveAsHasElementRetargettedPredicate(String target, Object inputValue, Predicate<Object> checkPredicateRetargettingNotNeeded, Predicate<Object> checkValueRetargettable, Function<Object,Maybe<Object>> retargetValue) {
+        protected <T> Maybe<Object> resolveAsHasElementRetargettedPredicate(String target, Object inputValue, Predicate<Object> checkPredicateRetargettingNotNeeded, Class<T> suitableTargetType, Function<Object,Maybe<Object>> retargetValue) {
             if (inputValue == null || checkPredicateRetargettingNotNeeded.test(inputValue)) {
                 // already processsed
                 return Maybe.of(inputValue);
@@ -612,7 +661,9 @@ public class DslPredicates {
                 // caller is already asking for a member of this list, don't rewrite
                 return retargetValue.apply(inputValue);
             }
-            if (!checkValueRetargettable.test(inputValue)) {
+
+            T retargettableTarget = getTypeFromValueOrContext(suitableTargetType, inputValue);
+            if (retargettableTarget==null) {
                 return Maybe.absent("Target " + target + " not applicable to " + inputValue);
             }
 
@@ -624,17 +675,19 @@ public class DslPredicates {
             return Maybe.of(retargetPredicate);
         }
 
-        protected Maybe<Object> resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(String target, Object inputValue, String plural, Predicate<Object> checkValueRetargettable, Function<Object,Maybe<Object>> retargetValue,
+        protected <T> Maybe<Object> resolvePluralNormallyOrSingularAsHasElementRetargettedPredicate(String target, Object inputValue, String plural, Class<T> suitableTargetType, Function<Object,Maybe<Object>> retargetValue,
                                                                                                 String singular, Predicate<Object> checkSingularTargetPredicateRetargettingNotNeeded) {
             if (plural.equals(target)) {
-                if (!checkValueRetargettable.test(inputValue)) {
+                T retargettableTarget = getTypeFromValueOrContext(suitableTargetType, inputValue);
+
+                if (retargettableTarget==null) {
                     return Maybe.absent("Target " + target + " not applicable to " + inputValue);
                 }
-                return retargetValue.apply(inputValue);
+                return retargetValue.apply(retargettableTarget);
             }
 
             if (singular.equals(target)) {
-                return resolveAsHasElementRetargettedPredicate(target, inputValue, checkSingularTargetPredicateRetargettingNotNeeded, checkValueRetargettable, retargetValue);
+                return resolveAsHasElementRetargettedPredicate(target, inputValue, checkSingularTargetPredicateRetargettingNotNeeded, suitableTargetType, retargetValue);
             }
 
             // checks didn't apply
