@@ -21,15 +21,25 @@ package org.apache.brooklyn.core.workflow;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.Strings;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -106,6 +116,69 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 //            initParams().put(
 //        }
 //    }
+
+    public RegisteredType addBeanWithType(String typeName, String version, String plan) {
+        RegisteredType type = RegisteredTypes.bean(typeName, version, new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
+        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, false);
+        return type;
+    }
+
+    ClassLogWatcher lastLogWatcher;
+
+    Object invokeWorkflowStepsWithLogging(Map<String,Object> steps) throws Exception {
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
+            lastLogWatcher = logWatcher;
+
+            loadTypes();
+            BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+            WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                    .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                    .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
+                    .configure(WorkflowEffector.STEPS, steps));
+            eff.apply((EntityLocal)app);
+
+            Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+            return invocation.getUnchecked();
+        }
+    }
+
+    void assertLogStepMessages(String ...lines) {
+        Assert.assertEquals(lastLogWatcher.getMessages(),
+                Arrays.asList(lines));
+    }
+
+    @Test
+    public void testExtendingAStepWhichWorksButIsMessyAroundParameters() throws Exception {
+        // can't use "name" because that is understood by the step
+        addBeanWithType("log-hi", "1", Strings.lines(
+                "type: log",
+                "message: hi ${nom}",
+                "input:",
+                "  nom: you"
+        ));
+
+        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "nom", "bob")));
+        assertLogStepMessages("1: hi bob");
+
+        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi")));
+        assertLogStepMessages("1: hi you");
+    }
+
+    // TODO this is probably cleaner for parameters
+    @Test
+    public void testCompoundStep() throws Exception {
+        addBeanWithType("log-hi", "1", Strings.lines(
+                "type: compound-step",
+                "shorthand: ${name}",
+                "parameters:",
+                "  name: {}",
+                "steps:",
+                "  1: log hi ${name}"
+        ));
+        invokeWorkflowStepsWithLogging(MutableMap.of("1", "log-hi bob"));
+        assertLogStepMessages("1: hi bob");
+    }
 
     // TODO shorthand type / extension (in YAML)
     // TODO parameters to steps

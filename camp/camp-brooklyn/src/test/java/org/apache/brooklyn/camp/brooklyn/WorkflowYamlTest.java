@@ -18,9 +18,6 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -37,19 +34,15 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
-import org.apache.brooklyn.core.workflow.steps.*;
+import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicEntity;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.slf4j.LoggerFactory;
+import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
-import org.testng.internal.thread.ThreadTimeoutException;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Arrays;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -105,10 +98,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertConfigEquals(app, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
     }
 
-    @Test
-    public void testWorkflowEffectorLogStep() throws Exception {
+    ClassLogWatcher lastLogWatcher;
 
+    Object invokeWorkflowStepsWithLogging(String ...stepLines) throws Exception {
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
+            lastLogWatcher = logWatcher;
 
             // Declare workflow in a blueprint, add various log steps.
             Entity app = createAndStartApplication(
@@ -119,48 +113,45 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                     "    brooklyn.config:",
                     "      name: myWorkflow",
                     "      steps:",
-                    "        step1:", // this step runs 3rd... so confused :-(
-                    "          type: log",
-                    "          message: test message 1",
-                    "        step2: log test message 2",
-                    "        step3: no-op",
-                    "        6: log ??", // this step runs 2nd...
-                    "        step4: log test message 3",
-                    "        5: log test message N"); // this step runs 1st !...
+                    Strings.indent(8, Strings.lines(stepLines)));
             waitForApplicationTasks(app);
 
             // Deploy the blueprint.
             Entity entity = Iterables.getOnlyElement(app.getChildren());
             Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
             Task<?> invocation = app.invoke(effector, null);
-            invocation.getUnchecked();
-            Dumper.dumpInfo(invocation);
-
-            // Verify expected log messages.
-            Assert.assertEquals(logWatcher.getMessages(),
-                MutableList.of(
-                    "5: test message N",
-                    "6: ??",
-                    "step1: test message 1",
-                    "step2: test message 2",
-                    "step4: test message 3"));
+            return invocation.getUnchecked();
         }
+    }
+
+    void assertLogStepMessages(String ...lines) {
+        Assert.assertEquals(lastLogWatcher.getMessages(),
+                Arrays.asList(lines));
+    }
+
+    @Test
+    public void testWorkflowEffectorLogStep() throws Exception {
+        invokeWorkflowStepsWithLogging(
+                "        step1:", // this step runs 3rd... so confused :-(
+                "          type: log",
+                "          message: test message 1",
+                "        step2: log test message 2",
+                "        step3: no-op",
+                "        6: log ??", // this step runs 2nd...
+                "        step4: log test message 3",
+                "        5: log test message N"); // this step runs 1st !...
+
+        assertLogStepMessages(
+                "5: test message N",
+                "6: ??",
+                "step1: test message 1",
+                "step2: test message 2",
+                "step4: test message 3");
     }
 
     @Test
     public void testWorkflowPropertyNext() throws Exception {
-
-        try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
-
-            // Declare workflow in a blueprint, add various log steps.
-            Entity app = createAndStartApplication(
-                    "services:",
-                    "- type: " + BasicEntity.class.getName(),
-                    "  brooklyn.initializers:",
-                    "  - type: workflow-effector",
-                    "    brooklyn.config:",
-                    "      name: myWorkflow",
-                    "      steps:",
+        invokeWorkflowStepsWithLogging(
                     "        the-end: log bye",
                     "        step-B:",
                     "          type: log",
@@ -175,42 +166,18 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                     "          message: test message 2",
                     "          next: step-B",
                     "        the-check-point: log check point");
-            waitForApplicationTasks(app);
-
-            // Deploy the blueprint.
-            Entity entity = Iterables.getOnlyElement(app.getChildren());
-            Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
-            Task<?> invocation = app.invoke(effector, null);
-            invocation.getUnchecked();
-            Dumper.dumpInfo(invocation);
-
-            // Verify expected log messages.
-            Assert.assertEquals(logWatcher.getMessages(),
-                MutableList.of(
+        assertLogStepMessages(
                     "step-A: test message 1",
                     "step-C: test message 2",
                     "step-B: test message 3",
                     // 'the-check-point' step is never reached here.
-                    "the-end: bye"));
-        }
+                    "the-end: bye");
     }
 
 //    // TODO test timeout
 //    @Test
 //    public void testTimeoutWithInfiniteLoop() throws Exception {
-//
-//        try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
-//
-//        // Declare workflow in a blueprint, add various log steps.
-//        Entity app = createAndStartApplication(
-//                "services:",
-//                "- type: " + BasicEntity.class.getName(),
-//                "  brooklyn.initializers:",
-//                "  - type: workflow-effector",
-//                "    brooklyn.config:",
-//                "      name: myWorkflow",
-//                "      timeout: 100ms",
-//                "      steps:",
+//        invokeWorkflowStepsWithLogging(
 //                "        the-end: log bye",
 //                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
 //                "          type: log",
@@ -225,33 +192,14 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 //                "          message: test message 2",
 //                "          next: step-B",
 //                "        the-check-point: log check point");
-//        waitForApplicationTasks(app);
-//
-//        // Deploy the blueprint.
-//        Entity entity = Iterables.getOnlyElement(app.getChildren());
-//        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
-//        Task<?> invocation = app.invoke(effector, null);
-//        invocation.getUnchecked();
-//
-//        // TODO assert it takes at least 100ms, but less than 2s
-//
-//        Dumper.dumpInfo(invocation);
-//        }
+//        // TODO assert it takes at least 100ms, but less than 5s
+//        assertLogStepMessages(
+//                ...);
 //    }
 
     @Test
     public void testWorkflowPropertyNext_DefaultOrder() throws Exception {
-        try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
-
-            // Declare workflow in a blueprint, add various log steps.
-            Entity app = createAndStartApplication(
-                    "services:",
-                    "- type: " + BasicEntity.class.getName(),
-                    "  brooklyn.initializers:",
-                    "  - type: workflow-effector",
-                    "    brooklyn.config:",
-                    "      name: myWorkflow",
-                    "      steps:",
+        invokeWorkflowStepsWithLogging(
                     "        the-end: log bye",
                     "        step-B:",
                     "          type: log",
@@ -266,40 +214,17 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                     "          message: test message 2",
                     "          # next: step-B", // <-- Omit the 'next', rely on the default order from here.
                     "        the-check-point: log check point");
-            waitForApplicationTasks(app);
-
-            // Deploy the blueprint.
-            Entity entity = Iterables.getOnlyElement(app.getChildren());
-            Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
-            Task<?> invocation = app.invoke(effector, null);
-            invocation.getUnchecked();
-            Dumper.dumpInfo(invocation);
-
-            // Verify expected log messages
-            Assert.assertEquals(logWatcher.getMessages(),
-                MutableList.of(
+        assertLogStepMessages(
                     "step-A: test message 1",
                     "step-C: test message 2",
                     // 'test-B' is not reached, default order must jump to 'the-check-point' and 'the-end' step.
                     "the-check-point: check point",
-                    "the-end: bye"));
-        }
+                    "the-end: bye");
     }
 
     @Test
     public void testWorkflowPropertyNext_SetSensor() throws Exception {
-        try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
-
-            // Declare workflow in a blueprint, add various log steps.
-            Entity app = createAndStartApplication(
-                    "services:",
-                    "- type: " + BasicEntity.class.getName(),
-                    "  id: my-entity",
-                    "  brooklyn.initializers:",
-                    "  - type: workflow-effector",
-                    "    brooklyn.config:",
-                    "      name: myWorkflow",
-                    "      steps:",
+        invokeWorkflowStepsWithLogging(
                     "        the-end: log bye",
                     "        step-B:",
                     "          type: log",
@@ -314,70 +239,15 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                     "          sensor: foo",
                     "          value: bar",
                     "        the-check-point: log check point");
-            waitForApplicationTasks(app);
-
-            // Deploy the blueprint.
-            Entity entity = Iterables.getOnlyElement(app.getChildren());
-            Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
-            Task<?> invocation = app.invoke(effector, null);
-            invocation.getUnchecked();
-            Dumper.dumpInfo(invocation);
-
-            // Verify expected log messages
-            Assert.assertEquals(logWatcher.getMessages(),
-                    MutableList.of(
+        assertLogStepMessages(
                         "step-A: test message 1",
                         // 'test-B' is not reached.
                         "the-check-point: check point",
-                        "the-end: bye"));
-
-            // Verify expected sensor
-            EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
-        }
-    }
-
-    public static class ClassLogWatcher extends ListAppender<ILoggingEvent> implements AutoCloseable {
-        private final Class<?> clazz;
-
-        public ClassLogWatcher(Class<?> clazz) {
-            this.clazz = clazz;
-            startAutomatically();
-        }
-
-        protected void startAutomatically() {
-            super.start();
-            ((Logger) LoggerFactory.getLogger(clazz)).addAppender(this);
-        }
-
-        @Override
-        public void start() {
-            throw new IllegalStateException("This should not be started externally.");
-        }
-
-        @Override
-        public void close() throws IOException {
-            ((Logger) LoggerFactory.getLogger(clazz)).detachAppender(this);
-            stop();
-        }
-
-        public List<String> getMessages() {
-            return this.list.stream().map(s -> s.getFormattedMessage()).collect(Collectors.toList());
-        }
+                        "the-end: bye");
     }
 
     void doTestWorkflowCondition(String setCommand, String logAccess, String conditionAccess) throws Exception {
-        // Prepare log watcher.
-        try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
-
-            // Declare workflow in a blueprint, add various log steps.
-            Entity app = createAndStartApplication(
-                    "services:",
-                    "- type: " + BasicEntity.class.getName(),
-                    "  brooklyn.initializers:",
-                    "  - type: workflow-effector",
-                    "    brooklyn.config:",
-                    "      name: myWorkflow",
-                    "      steps:",
+        invokeWorkflowStepsWithLogging(
                     "        1: log start",
                     "        2: " + setCommand + " color = blue",
                     "        3: log color " + logAccess,
@@ -401,19 +271,8 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                     "           next: 3",
                     "        9: log end",
                     "");
-            waitForApplicationTasks(app);
-
-            // Deploy the blueprint.
-            Entity entity = Iterables.getOnlyElement(app.getChildren());
-            Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
-            Task<?> invocation = app.invoke(effector, null);
-            invocation.getUnchecked();
-            Dumper.dumpInfo(invocation);
-
-            // Verify expected log messages
-            Assert.assertEquals(logWatcher.getMessages(), MutableList.of(
-                    "1: start", "3: color blue", "3: color red", "4: not blue", "9: end"));
-        }
+        assertLogStepMessages(
+                    "1: start", "3: color blue", "3: color red", "4: not blue", "9: end");
     }
 
     @Test
