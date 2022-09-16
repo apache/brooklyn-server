@@ -694,6 +694,12 @@ public class Strings {
         return s.trim();
     }
 
+    public static String trimStart(String s) {
+        if (s==null) return null;
+        String v = (s+"x").trim();
+        return v.substring(0, v.length()-1);
+    }
+
     public static String trimEnd(String s) {
         if (s==null) return null;
         return ("a"+s).trim().substring(1);

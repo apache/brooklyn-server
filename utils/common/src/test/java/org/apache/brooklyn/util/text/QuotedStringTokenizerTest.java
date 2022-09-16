@@ -20,10 +20,16 @@ package org.apache.brooklyn.util.text;
 
 import static org.testng.Assert.assertEquals;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StreamTokenizer;
+import java.io.StringReader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -31,7 +37,7 @@ import org.testng.annotations.Test;
 public class QuotedStringTokenizerTest {
 
     // have to initialise to use the methods (instance as it can take custom tokens)
-    private QuotedStringTokenizer defaultTokenizer= new QuotedStringTokenizer("", true); 
+    private QuotedStringTokenizer defaultTokenizer = new QuotedStringTokenizer("", true);
 
     @Test
     public void testQuoting() throws Exception {
@@ -49,18 +55,55 @@ public class QuotedStringTokenizerTest {
     }
 
     @Test
-    public void testTokenizing() throws Exception {
+    public void testTokenizingStrippingInternalQuotes() throws Exception {
         testResultingTokens("foo,bar,baz", "\"", false, ",", false, "foo", "bar", "baz");
         testResultingTokens("\"foo,bar\",baz", "\"", false, ",", false, "foo,bar", "baz");
         testResultingTokens("\"foo,,bar\",baz", "\"", false, ",", false, "foo,,bar", "baz");
-
-        // Have seen "the operator ""foo"" is not recognised" entries in BAML CSV files.
+        testResultingTokens("\"foo,',bar\",baz", "\"", false, ",", false, "foo,',bar", "baz");
         testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ",", false, "foo bar baz");
         testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ",", false, "foo bar baz");
 
-        // FIXME: would like to return empty tokens when we encounter adjacent delimiters, but need
+        // NOTE: would like to return empty tokens when we encounter adjacent delimiters, but need
         // to work around brain-dead java.util.StringTokenizer to do this.
         // testResultingTokens("foo,,baz", "\"", false, ",", false, "foo", "", "baz");
+    }
+
+    @Test
+    public void testTokenizingKeepingInternalQuotes() throws Exception {
+        testResultingTokens("foo,bar,baz", "\"", false, ",", false, true, "foo", "bar", "baz");
+        testResultingTokens("\"foo,bar\",baz", "\"", false, ",", false, true, "foo,bar", "baz");
+        testResultingTokens("\"foo,,bar\",baz", "\"", false, ",", false, true, "foo,,bar", "baz");
+        testResultingTokens("\"foo,',bar\",baz", "\"", false, ",", false, true, "foo,',bar", "baz");
+        testResultingTokens("\"foo,\',bar\",baz", "\"", false, ",", false, true, "foo,',bar", "baz");
+        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ",", false, true, "foo \"\"bar\"\" baz");
+        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ", ", false, true, "foo", "\"bar\"", "baz");
+        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ",", false, true, "foo \"\"bar\"\" baz");
+        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ", ", false, true, "foo \"\"bar\"", "baz\"");
+    }
+
+    @Test
+    public void testTokenizingUsingInternalQuotesWithJavaStreamTokenizerWhitespaceOrStrings() throws Exception {
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("foo,bar,baz", "foo,bar,baz");
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("\"foo,bar\",baz", "foo,bar", ",baz");
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("\"foo,,bar\",baz", "foo,,bar", ",baz");
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("\"foo,',bar\",baz", "foo,',bar", ",baz");
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("\"foo,\',bar\",baz", "foo,',bar", ",baz");
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("foo \"\"bar\"\" baz", "foo", "", "bar", "", "baz");
+        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("\"foo \"\"bar\"\" baz\"", "foo ", "bar", " baz");
+
+//        // this is the one irritant
+//        testResultingTokensJavaStreamTokenizerWhitespaceOrStrings("\"hi\" and\"hi\"", "hi andhi");
+    }
+
+    @Test
+    public void testTokenizingUsintestResultingTokensJavaStreamTokenizerIdentifiers() throws Exception {
+        testResultingTokensJavaStreamTokenizerIdentifiers("foo,bar,baz", "foo",",","bar",",","baz");
+        testResultingTokensJavaStreamTokenizerIdentifiers("\"foo,bar\",baz", "foo,bar", ",", "baz");
+        testResultingTokensJavaStreamTokenizerIdentifiers("\"foo,,bar\",baz", "foo,,bar", ",", "baz");
+        testResultingTokensJavaStreamTokenizerIdentifiers("\"foo,',bar\",baz", "foo,',bar", ",", "baz");
+        testResultingTokensJavaStreamTokenizerIdentifiers("\"foo,\',bar\",baz", "foo,',bar", ",", "baz");
+        testResultingTokensJavaStreamTokenizerIdentifiers("foo \"\"bar\"\" baz", "foo", "", "bar", "", "baz");
+        testResultingTokensJavaStreamTokenizerIdentifiers("\"foo \"\"bar\"\" baz\"", "foo ", "bar", " baz");
     }
 
     @Test
@@ -86,8 +129,19 @@ public class QuotedStringTokenizerTest {
     }
 
     private void testResultingTokens(String input, String quoteChars, boolean includeQuotes, String delimiterChars, boolean includeDelimiters, String... expectedTokens) {
-        QuotedStringTokenizer tok = new QuotedStringTokenizer(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters);
+        testResultingTokens(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters, false, expectedTokens);
+    }
+    private void testResultingTokens(String input, String quoteChars, boolean includeQuotes, String delimiterChars, boolean includeDelimiters, boolean keepInternalQuotes, String... expectedTokens) {
+        QuotedStringTokenizer tok = new QuotedStringTokenizer(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes);
         testResultingTokens(input, tok, expectedTokens);
+    }
+
+    private void testResultingTokensJavaStreamTokenizerIdentifiers(String input, String... expectedTokens) {
+        Asserts.assertEquals(QuotedStringTokenizer.parseAsStreamTokenizerIdentifierStrings(input), Arrays.asList(expectedTokens));
+    }
+
+    private void testResultingTokensJavaStreamTokenizerWhitespaceOrStrings(String input, String... expectedTokens) {
+        Asserts.assertEquals(QuotedStringTokenizer.parseAsStreamTokenizerWhitespaceOrStrings(input), Arrays.asList(expectedTokens));
     }
 
     private void testResultingTokens(String input, QuotedStringTokenizer tok, String... expectedTokens) {

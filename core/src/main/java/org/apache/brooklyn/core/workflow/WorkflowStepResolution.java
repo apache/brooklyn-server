@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
+import org.apache.brooklyn.util.text.Strings;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -101,16 +102,29 @@ public class WorkflowStepResolution {
             }
         }
 
+        String typeBestGuess = def instanceof Map ? ""+((Map)def).get("type") : null;
+
         try {
             def = BeanWithTypeUtils.convert(mgmt, def, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Unable to resolve step "+ name, e);
         }
         if (def instanceof WorkflowStepDefinition) {
-            if (shorthand!=null) {
-                ((WorkflowStepDefinition) def).populateFromShorthand(shorthand);
+            WorkflowStepDefinition defW = (WorkflowStepDefinition) def;
+
+            // TODO might be a better place to put this metadata than to chuck it in to 'name'
+            if (Strings.isBlank(defW.getName())) {
+                defW.name = name;
             }
-            return (WorkflowStepDefinition) def;
+            if (Strings.isBlank(defW.getName())) {
+                defW.name = typeBestGuess;
+            }
+
+            if (shorthand!=null) {
+                defW.populateFromShorthand(shorthand);
+            }
+            defW.validateStep();
+            return defW;
         } else {
             throw new IllegalArgumentException("Unable to resolve step "+ name +"; unexpected object "+ def);
         }

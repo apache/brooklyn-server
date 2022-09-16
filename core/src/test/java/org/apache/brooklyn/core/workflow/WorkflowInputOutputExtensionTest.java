@@ -150,26 +150,41 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 
     @Test
     public void testExtendingAStepWhichWorksButIsMessyAroundParameters() throws Exception {
-        // can't use "name" because that is understood by the step
+        /*
+         * extending any step type is supported, but discouraged because of confusion and no parameter definitions;
+         * the preferred way is to use the method in the following test
+         */
         addBeanWithType("log-hi", "1", Strings.lines(
                 "type: log",
-                "message: hi ${nom}",
+                "message: hi ${name}",
                 "input:",
-                "  nom: you"
+                "  name: you"
         ));
 
-        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "nom", "bob")));
+        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
         assertLogStepMessages("1: hi bob");
 
         invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi")));
         assertLogStepMessages("1: hi you");
     }
 
-    // TODO this is probably cleaner for parameters
     @Test
-    public void testCompoundStep() throws Exception {
+    public void testExtendingCustomWorkflowStep() throws Exception {
         addBeanWithType("log-hi", "1", Strings.lines(
-                "type: compound-step",
+                "type: custom-workflow-step",
+                "parameters:",
+                "  name: {}",
+                "steps:",
+                "  1: log hi ${name}"
+        ));
+        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
+        assertLogStepMessages("1: hi bob");
+    }
+
+    @Test
+    public void testExtendingCustomWorkflowStepWithShorthand() throws Exception {
+        addBeanWithType("log-hi", "1", Strings.lines(
+                "type: custom-workflow-step",
                 "shorthand: ${name}",
                 "parameters:",
                 "  name: {}",
@@ -180,8 +195,22 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         assertLogStepMessages("1: hi bob");
     }
 
-    // TODO shorthand type / extension (in YAML)
-    // TODO parameters to steps
+    @Test
+    public void testExtendingCustomWorkflowStepWithOuptut() throws Exception {
+        addBeanWithType("log-hi", "1", Strings.lines(
+                "type: custom-workflow-step",
+                "parameters:",
+                "  name: {}",
+                "steps:",
+                "  1: log hi ${name}",
+                "output:",
+                "  message: hi ${name}"
+        ));
+        Object output = invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
+        assertLogStepMessages("1: hi bob");
+        Asserts.assertEquals(output, MutableMap.of("message", "hi bob"));
+    }
+
     // TODO test complex object in an expression
 
 }

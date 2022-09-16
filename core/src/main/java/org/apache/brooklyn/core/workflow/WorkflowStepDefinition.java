@@ -100,7 +100,8 @@ public abstract class WorkflowStepDefinition {
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
 
     protected String computeTaskName(WorkflowStepInstanceExecutionContext context) {
-        return context.stepDefinitionId + (Strings.isNonBlank(getName()) ? " - " + getName() : "");
+        if (Strings.isBlank(getName()) || context.stepDefinitionId.contains(getName())) return context.stepDefinitionId;
+        return context.stepDefinitionId + " - " + getName();
     }
 
     protected String getShorthandTypeName() {
@@ -109,4 +110,8 @@ public abstract class WorkflowStepDefinition {
         name = Strings.removeFromEnd(name, "WorkflowStep");
         return name;
     }
+
+    /** allows subclasses to throw exception early if required fields not set */
+    public void validateStep() {}
+
 }
