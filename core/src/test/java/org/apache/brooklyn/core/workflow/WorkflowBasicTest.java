@@ -213,7 +213,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         static WorkflowTestStep of(Runnable task) { return new WorkflowTestStep((context) -> { task.run(); return null; }); }
 
         @Override
-        public void setShorthand(String value) {
+        public void populateFromShorthand(String value) {
             throw new UnsupportedOperationException();
         }
 

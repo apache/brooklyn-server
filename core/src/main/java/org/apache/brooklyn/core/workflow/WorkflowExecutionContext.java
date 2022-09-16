@@ -70,7 +70,7 @@ public class WorkflowExecutionContext {
 
     String currentStepId;
     String previousStepId;
-    // TODO currentStepInstance
+    WorkflowStepInstanceExecutionContext currentStepInstance;
     Map<String, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
@@ -137,10 +137,6 @@ public class WorkflowExecutionContext {
         return "Workflow<" + name + " - " + workflowInstanceId + ">";
     }
 
-    public String getCurrentStepId() {
-        return currentStepId;
-    }
-
     public Map<String, Object> getWorkflowScratchVariables() {
         return workflowScratchVariables;
     }
@@ -202,6 +198,14 @@ public class WorkflowExecutionContext {
         return resolve(v, key.getTypeToken());
     }
 
+    public String getCurrentStepId() {
+        return currentStepId;
+    }
+
+    public WorkflowStepInstanceExecutionContext getCurrentStepInstance() {
+        return currentStepInstance;
+    }
+
     public String getPreviousStepId() {
         return previousStepId;
     }
@@ -252,10 +256,10 @@ public class WorkflowExecutionContext {
         protected void runCurrentStepIfPreconditions() {
             WorkflowStepDefinition step = steps.get(currentStepId);
             if (step!=null) {
-                WorkflowStepInstanceExecutionContext stepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
+                currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
 
                 if (step.condition!=null) {
-                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(stepInstance), this, entityOrAdjunctWhereRunning);
+                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, entityOrAdjunctWhereRunning);
                     if (!conditionMet) {
                         moveToNextSequentialStep("following step " + currentStepId + " where condition does not apply");
                         return;
@@ -263,11 +267,11 @@ public class WorkflowExecutionContext {
                 }
 
                 // no condition or condition met -- record and run the step
-                WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepId, stepInstance);
+                WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepId, currentStepInstance);
                 // put the previous output in output, so repeating steps can reference themselves
-                if (old!=null) stepInstance.output = old.output;
+                if (old!=null) currentStepInstance.output = old.output;
 
-                stepInstance.output = DynamicTasks.queue(step.newTask(stepInstance)).getUnchecked();
+                currentStepInstance.output = DynamicTasks.queue(step.newTask(currentStepInstance)).getUnchecked();
 
                 // TODO error handling
 

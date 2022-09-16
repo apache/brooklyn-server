@@ -68,10 +68,6 @@ public abstract class WorkflowStepDefinition {
 //    on-error:  a description of how to handle errors section
 //    log-marker:  a string which is included in all log messages in the workflow or step and any sub-tasks and subtasks in to easily identify the actions of this workflow (in addition to task IDs)
 
-    public void setS(String value) {
-        setShorthand(value);
-    }
-
     @JsonAnySetter
     public void setInput(String key, Object value) {
         input.put(key, value);
@@ -90,7 +86,8 @@ public abstract class WorkflowStepDefinition {
         return input;
     }
 
-    abstract public void setShorthand(String value);
+    /** note, this should _not_ have the type string first, whereas in YAML the shorthand must have the type string first */
+    abstract public void populateFromShorthand(String value);
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
         String name = computeTaskName(context);

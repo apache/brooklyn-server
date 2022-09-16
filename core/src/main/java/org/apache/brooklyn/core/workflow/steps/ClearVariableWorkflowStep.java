@@ -32,7 +32,7 @@ public class ClearVariableWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "sensor");
 
     @Override
-    public void setShorthand(String expression) {
+    public void populateFromShorthand(String expression) {
         setInput(VARIABLE, TypedValueToSet.parseFromShorthand(expression, null));
     }
 

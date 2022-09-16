@@ -35,6 +35,10 @@ import org.apache.brooklyn.util.text.NaturalOrderComparator;
 
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
+import static org.checkerframework.checker.units.UnitsTools.s;
 
 public class WorkflowStepResolution {
 
@@ -59,15 +63,41 @@ public class WorkflowStepResolution {
 //        }
 
         // NEW SHORTHAND PROPOSAL - string, type in first word, remainder as shorthand
-        if (def instanceof String) {
-            String s = ((String) def).trim();
-            def = MutableMap.of();
+        BiConsumer<String,Map> extractShorthand = (s, map) -> {
             int wordBreak = s.indexOf(" ");
-            if (wordBreak<0) {
-                ((Map<String, Object>) def).put("type", s);
+            if (wordBreak < 0) {
+                map.put("type", s);
             } else {
-                ((Map<String, Object>) def).put("type", s.substring(0, wordBreak));
-                ((Map<String, Object>) def).put("shorthand", s.substring(wordBreak+1).trim());
+            }
+        };
+
+        String shorthand = null;
+
+        if (def instanceof String) {
+            shorthand = (String) def;
+            def = MutableMap.of();
+        } else if (def instanceof Map) {
+            Map defM = (Map)def;
+            if (!defM.containsKey("type")) {
+                // if there isn't a type, pull out shorthand
+                Object s = defM.remove("shorthand");
+                if (s == null) s = defM.remove("s");
+                if (!(s instanceof String)) throw new IllegalArgumentException("shorthand must be a string");
+                shorthand = (String) s;
+            }
+        }
+
+        if (shorthand!=null) {
+            Map defM = (Map)def;
+            shorthand = shorthand.trim();
+            int wordBreak = shorthand.indexOf(" ");
+            if (defM.containsKey("type")) throw new IllegalStateException("Must not supply 'type' when shorthand is used for step");
+            if (wordBreak<0) {
+                defM.put("type", shorthand);
+                shorthand = null;
+            } else {
+                defM.put("type", shorthand.substring(0, wordBreak));
+                shorthand = shorthand.substring(wordBreak + 1).trim();
             }
         }
 
@@ -77,6 +107,9 @@ public class WorkflowStepResolution {
             throw Exceptions.propagateAnnotated("Unable to resolve step "+ name, e);
         }
         if (def instanceof WorkflowStepDefinition) {
+            if (shorthand!=null) {
+                ((WorkflowStepDefinition) def).populateFromShorthand(shorthand);
+            }
             return (WorkflowStepDefinition) def;
         } else {
             throw new IllegalArgumentException("Unable to resolve step "+ name +"; unexpected object "+ def);

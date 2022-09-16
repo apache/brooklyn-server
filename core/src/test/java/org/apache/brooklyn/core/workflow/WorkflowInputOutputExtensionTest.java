@@ -107,6 +107,8 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 //        }
 //    }
 
+    // TODO shorthand type / extension (in YAML)
+    // TODO parameters to steps
     // TODO test complex object in an expression
 
 }

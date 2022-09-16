@@ -28,7 +28,7 @@ import org.apache.brooklyn.util.text.Strings;
 public class NoOpWorkflowStep extends WorkflowStepDefinition {
 
     @Override
-    public void setShorthand(String value) {
+    public void populateFromShorthand(String value) {
         if (Strings.isBlank(value)) return;
         // no arguments supported
         throw new IllegalStateException("Value for shorthand syntax not supported for no-op");

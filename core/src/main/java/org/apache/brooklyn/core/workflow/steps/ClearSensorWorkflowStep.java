@@ -36,7 +36,7 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
 
     @Override
-    public void setShorthand(String expression) {
+    public void populateFromShorthand(String expression) {
         setInput(SENSOR, EntityValueToSet.parseFromShorthand(expression, null));
     }
 

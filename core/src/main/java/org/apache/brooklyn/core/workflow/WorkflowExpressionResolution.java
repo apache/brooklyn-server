@@ -74,7 +74,7 @@ public class WorkflowExpressionResolution {
             Object candidate;
 
             //workflow.current_step.input.somevar
-            WorkflowStepInstanceExecutionContext currentStep = context.lastInstanceOfEachStep.get(context.getCurrentStepId());
+            WorkflowStepInstanceExecutionContext currentStep = context.currentStepInstance;
             if (currentStep!=null) {
                 candidate = currentStep.input.get(key);
                 if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
@@ -112,7 +112,7 @@ public class WorkflowExpressionResolution {
             //task_id (the ID of the current corresponding Brooklyn Task)
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getTaskId());
 
-            // TODO
+            // TODO variable reference for link and error
             //link (a link in the UI to this instance of workflow or step)
             //error (if there is an error in scope)
 
@@ -121,7 +121,7 @@ public class WorkflowExpressionResolution {
 
             //current_step.yyy and previous_step.yyy (where yyy is any of the above)
             //step.xxx.yyy ? - where yyy is any of the above and xxx any step id
-            if ("current_step".equals(key)) return newWorkflowStepModelForStep(context.getCurrentStepId());
+            if ("current_step".equals(key)) return new WorkflowStepModel(context.currentStepInstance);
             if ("previous_step".equals(key)) return newWorkflowStepModelForStep(context.getPreviousStepId());
             if ("step".equals(key)) return new WorkflowStepModel();
 
@@ -160,7 +160,7 @@ public class WorkflowExpressionResolution {
             //task_id (the ID of the current corresponding Brooklyn Task)
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.taskId);
 
-            // TODO
+            // TODO link and error, as above
             //link (a link in the UI to this instance of workflow or step)
             //error (if there is an error in scope)
 

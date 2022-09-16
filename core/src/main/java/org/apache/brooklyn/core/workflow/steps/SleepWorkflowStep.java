@@ -33,7 +33,7 @@ public class SleepWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<Duration> DURATION = ConfigKeys.newConfigKey(Duration.class, "duration");
 
     @Override
-    public void setShorthand(String value) {
+    public void populateFromShorthand(String value) {
         setInput(DURATION.getName(), value);
     }
 

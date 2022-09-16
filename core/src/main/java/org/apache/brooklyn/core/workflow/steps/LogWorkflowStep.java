@@ -36,7 +36,7 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
 
     @Override
-    public void setShorthand(String value) {
+    public void populateFromShorthand(String value) {
         setInput(MESSAGE, value);
     }
 

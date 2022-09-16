@@ -31,7 +31,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
-    public void setShorthand(String expression) {
+    public void populateFromShorthand(String expression) {
         setInput(VARIABLE, TypedValueToSet.parseFromShorthand(expression, v -> setInput(VALUE, v)));
     }
 
