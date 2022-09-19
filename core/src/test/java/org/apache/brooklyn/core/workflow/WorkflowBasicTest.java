@@ -127,7 +127,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     public void testWorkflowDefinitionResolution() {
         loadTypes();
 
-        Map<String,Object> input = MutableMap.of(
+        Map<String, Object> input = MutableMap.of(
                 "steps", MutableMap.of(
                         "step1", MutableMap.of("type", "no-op"),
                         "step2", MutableMap.of("type", "sleep", "duration", "1s"),
@@ -135,10 +135,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                         "step4", "log test message"
                 ));
 
-        WorkflowDefinition w = convert(input, WorkflowDefinition.class);
-        Asserts.assertNotNull(w);
-        w.validate(mgmt);
-        Map<String, WorkflowStepDefinition> steps = w.getStepsResolved(mgmt);
+        Map<String, WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, input);
         Asserts.assertSize(steps, 4);
     }
 
