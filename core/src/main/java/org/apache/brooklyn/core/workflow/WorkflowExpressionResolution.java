@@ -205,7 +205,7 @@ public class WorkflowExpressionResolution {
         if (expression==null) return null;
 
         TemplateHashModel model = new WorkflowFreemarkerModel();
-        String result = TemplateProcessor.processTemplateContents(expression, model);
+        Object result = TemplateProcessor.processTemplateContents(expression, model, true);
         if (expression.equals(result)) return expression;
 
         if (useWrappedValue) return new WrappedResolvedExpression<Object>(expression, result);

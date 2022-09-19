@@ -211,6 +211,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(output, MutableMap.of("message", "hi bob"));
     }
 
-    // TODO test complex object in an expression
+    // test complex object in an expression
+    @Test
+    public void testMapOutputAsComplexFreemarkerVar() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableMap.of(
+                "1", "let map my_map = { x: 1 }",
+                "2", "let my_map_copy = ${my_map}"));
+        Asserts.assertEquals(output, MutableMap.of("x", 1));
+    }
 
 }

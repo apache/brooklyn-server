@@ -22,6 +22,8 @@ import com.google.common.base.Charsets;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import freemarker.cache.StringTemplateLoader;
+import freemarker.core.Environment;
+import freemarker.core.Expression;
 import freemarker.template.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
@@ -37,16 +39,16 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
+import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -61,13 +63,45 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TemplateProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(TemplateProcessor.class);
-    private static final BrooklynFreemarkerObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerObjectWrapper(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
+
+    static BrooklynFreemarkerUnwrappableObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerUnwrappableObjectWrapper();
+
+    static ThreadLocal<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocal<>();
+
+    static class BrooklynFreemarkerUnwrappableObjectWrapper extends BrooklynFreemarkerObjectWrapper {
+
+        public Maybe<Object> unwrapMaybe(TemplateModel model) {
+            Map<TemplateModel, Object> unwrappingMap = TEMPLATE_MODEL_UNWRAP_CACHE.get();
+            if (unwrappingMap==null) return Maybe.absent("This thread does not support unwrapping");
+            if (!unwrappingMap.containsKey(model)) return Maybe.absent("Source of model is unknown: "+model);
+            return Maybe.ofAllowingNull(unwrappingMap.get(model));
+        }
+
+        public TemplateModel rememberWrapperIfSupported(Object o, TemplateModel m) {
+            Map<TemplateModel, Object> unwrappingMap = TEMPLATE_MODEL_UNWRAP_CACHE.get();
+            if (unwrappingMap!=null) unwrappingMap.put(m, o);
+            return m;
+        }
+
+        @Override
+        public TemplateModel wrap(Object o) throws TemplateModelException {
+            return rememberWrapperIfSupported(o, super.wrap(o));
+        }
+
+        @Override
+        public TemplateModel wrapAsBean(Object o) throws TemplateModelException {
+            return rememberWrapperIfSupported(o, super.wrapAsBean(o));
+        }
+    }
 
     /** instead of this:
      * new DefaultObjectWrapperBuilder(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS).build();
      * this class ensures our extensions are applied recursively, and we get our special model plus ths bean model for common types */
     static class BrooklynFreemarkerObjectWrapper extends DefaultObjectWrapper {
 
+        public BrooklynFreemarkerObjectWrapper() {
+            this(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
+        }
         public BrooklynFreemarkerObjectWrapper(Version incompatibleImprovements) {
             super(incompatibleImprovements);
         }
@@ -640,12 +674,46 @@ public class TemplateProcessor {
 
     /** Processes template contents against the given {@link TemplateHashModel}. */
     public static String processTemplateContents(String templateContents, final TemplateHashModel substitutions) {
+        return (String) processTemplateContents(templateContents, substitutions, false);
+    }
+
+    public static Object processTemplateContents(String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject) {
         try {
             Configuration cfg = new Configuration();
             StringTemplateLoader templateLoader = new StringTemplateLoader();
             templateLoader.putTemplate("config", templateContents);
             cfg.setTemplateLoader(templateLoader);
             Template template = cfg.getTemplate("config");
+
+            if (allowSingleVariableObject && template.getRootTreeNode().getClass().getName().equals("freemarker.core.DollarVariable")) {
+                Object dollarVariable = template.getRootTreeNode();
+                // calculateInterpolatedStringOrMarkup calls escapedExpression.eval(env); unv very little accessible, so we use reflection
+                Maybe<Object> escapedExpression = Reflections.getFieldValueMaybe(dollarVariable, "escapedExpression");
+                Environment env = template.createProcessingEnvironment(substitutions, null);
+                Maybe<Method> evalMethod = Reflections.findMethodMaybe(Expression.class, "eval", Environment.class);
+                try {
+                    TEMPLATE_MODEL_UNWRAP_CACHE.set(MutableMap.of());
+                    Maybe<Object> model = evalMethod.isAbsent() ? Maybe.Absent.castAbsent(evalMethod) : escapedExpression.map(expr -> {
+                        try {
+                            return Reflections.invokeMethodFromArgs(expr,
+                                    evalMethod.get(), MutableList.of(env), true);
+                        } catch (Exception e) {
+                            throw Exceptions.propagate(e);
+                        }
+                    });
+                    if (model.isPresent()) {
+                        if (model.get() instanceof TemplateModel) {
+                            return BROOKLYN_WRAPPER.unwrapMaybe((TemplateModel) model.get()).get();
+                        } else {
+                            log.warn("Unable to find model in local cache for unwrapping: " + model);
+                        }
+                    } else {
+                        log.warn("Unable to access FreeMarker internals to resolve " + templateContents + "; will cast argument as string");
+                    }
+                } finally {
+                    TEMPLATE_MODEL_UNWRAP_CACHE.remove();
+                }
+            }
 
             // TODO could expose CAMP '$brooklyn:' style dsl, based on template.createProcessingEnvironment
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -665,4 +733,5 @@ public class TemplateProcessor {
             throw Exceptions.propagate(e);
         }
     }
+
 }
