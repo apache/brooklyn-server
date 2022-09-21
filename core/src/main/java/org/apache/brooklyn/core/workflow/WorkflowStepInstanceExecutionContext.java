@@ -115,4 +115,7 @@ public class WorkflowStepInstanceExecutionContext {
         return context.resolveWrapped(expression, type);
     }
 
+    public String getWorkflowStepReference() {
+        return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId);
+    }
 }

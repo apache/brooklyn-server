@@ -25,6 +25,7 @@ import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -41,8 +42,6 @@ import java.util.stream.Collectors;
  * ${VAR} - to set VAR, which should be of the regex [A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*, with dot separation used to set nested maps;
  *   will match a quoted string if supplied, else up to the next literal if the next token is a literal, else the next work.
  * "LITERAL" - to expect a literal expression. this should include spaces if spaces are required.
- *
- *
  */
 public class ShorthandProcessor {
 
@@ -215,7 +214,19 @@ public class ShorthandProcessor {
                             }
                         }
                     }
-                    result.put(t, value);
+                    String keys[] = t.split("\\.");
+                    Map target = result;
+                    for (int i=0; i<keys.length; i++) {
+                        if (i==keys.length-1) target.put(keys[i], value);
+                        else {
+                            // need to make sure we have a map or null
+                            target = (Map) target.compute(keys[i], (k,v) -> {
+                                if (v==null) return MutableMap.of();
+                                if (v instanceof Map) return v;
+                                return Maybe.absent("Cannot process shorthand for "+ Arrays.asList(keys)+" because entry '"+k+"' is not a map ("+v+")");
+                            });
+                        }
+                    }
 
                     continue;
                 }

@@ -164,29 +164,29 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         ));
 
         invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
-        assertLogStepMessages("1: hi bob");
+        assertLogStepMessages("hi bob");
 
         invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi")));
-        assertLogStepMessages("1: hi you");
+        assertLogStepMessages("hi you");
     }
 
     @Test
-    public void testExtendingCustomWorkflowStep() throws Exception {
+    public void testDefiningCustomWorkflowStep() throws Exception {
         addBeanWithType("log-hi", "1", Strings.lines(
-                "type: custom-workflow-step",
+                "type: workflow",
                 "parameters:",
                 "  name: {}",
                 "steps:",
                 "  - log hi ${name}"
         ));
         invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
-        assertLogStepMessages("1: hi bob");
+        assertLogStepMessages("hi bob");
     }
 
     @Test
-    public void testExtendingCustomWorkflowStepWithShorthand() throws Exception {
+    public void testDefiningCustomWorkflowStepWithShorthand() throws Exception {
         addBeanWithType("log-hi", "1", Strings.lines(
-                "type: custom-workflow-step",
+                "type: workflow",
                 "shorthand: ${name}",
                 "parameters:",
                 "  name: {}",
@@ -194,13 +194,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "  - log hi ${name}"
         ));
         invokeWorkflowStepsWithLogging(MutableList.of("log-hi bob"));
-        assertLogStepMessages("1: hi bob");
+        assertLogStepMessages("hi bob");
     }
 
     @Test
-    public void testExtendingCustomWorkflowStepWithOuptut() throws Exception {
+    public void testDefiningCustomWorkflowStepWithOutput() throws Exception {
         addBeanWithType("log-hi", "1", Strings.lines(
-                "type: custom-workflow-step",
+                "type: workflow",
                 "parameters:",
                 "  name: {}",
                 "steps:",
@@ -209,8 +209,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "  message: hi ${name}"
         ));
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
-        assertLogStepMessages("1: hi bob");
+        assertLogStepMessages("hi bob");
         Asserts.assertEquals(output, MutableMap.of("message", "hi bob"));
+
+        // output can be overridden
+        output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"), "output", "I said ${message}")));
+        assertLogStepMessages("hi bob");
+        Asserts.assertEquals(output, "I said hi bob");
     }
 
     // test complex object in an expression

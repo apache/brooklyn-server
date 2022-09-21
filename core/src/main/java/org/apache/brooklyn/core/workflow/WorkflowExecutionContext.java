@@ -39,7 +39,6 @@ import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -264,6 +263,7 @@ public class WorkflowExecutionContext {
 
             if (currentStepIndex==null) {
                 currentStepIndex = 0;
+                log.debug("Starting workflow '"+name+"', moving to first step "+ workflowStepReference(currentStepIndex));
                 while (currentStepIndex < steps.size()) {
                     runCurrentStepIfPreconditions();
                 }
@@ -287,11 +287,12 @@ public class WorkflowExecutionContext {
             WorkflowStepDefinition step = steps.get(currentStepIndex);
             if (step!=null) {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
-
                 if (step.condition!=null) {
+                    if (log.isTraceEnabled()) log.trace("Considering condition "+step.condition+" for "+ workflowStepReference(currentStepIndex));
                     boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, entityOrAdjunctWhereRunning);
+                    if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
-                        moveToNextStep(null, "following step " + currentStepIndex + " where condition does not apply");
+                        moveToNextStep(null, "Skipping step "+ workflowStepReference(currentStepIndex));
                         return;
                     }
                 }
@@ -302,43 +303,66 @@ public class WorkflowExecutionContext {
                 if (old!=null) currentStepInstance.output = old.output;
 
                 currentStepInstance.output = DynamicTasks.queue(step.newTask(currentStepInstance)).getUnchecked();
+                if (step.output!=null) {
+                    // allow output to be customized / overridden
+                    currentStepInstance.output = resolve(step.output, Object.class);
+                }
 
                 // TODO error handling
 
                 previousStepIndex = currentStepIndex;
-                moveToNextStep(step.next, "following step "+currentStepIndex);
+                moveToNextStep(step.next, "Completed step "+ workflowStepReference(currentStepIndex));
 
             } else {
-                moveToNextStep(null, "following step "+currentStepIndex+" which is null");
+                // moving to floor/ceiling in treemap made sense when numero-ordered IDs are used, but not with list
+                throw new IllegalStateException("Cannot find step "+currentStepIndex);
             }
         }
 
-        private void moveToNextStep(String optionalRequestedNextStep, String notes) {
-            // TODO trace level?
+        private void moveToNextStep(String optionalRequestedNextStep, String prefix) {
+            prefix = prefix + "; ";
             if (optionalRequestedNextStep==null) {
                 currentStepIndex++;
                 if (currentStepIndex<steps.size()) {
-                    log.debug("Workflow " + taskId + " moving to sequential next step " + currentStepIndex + "; " + notes);
+                    log.debug(prefix + "moving to sequential next step " + workflowStepReference(currentStepIndex));
                 } else {
-                    log.debug("Workflow " + taskId + " completed; " + notes);
+                    log.debug(prefix + "no further steps: Workflow completed");
                 }
             } else {
-                if ("start".equals(optionalRequestedNextStep)) {
-                    currentStepIndex = 0;
-                    log.debug("Workflow " + taskId + " moving to explicit next step " + currentStepIndex + " for 'start'; " + notes);
-                } else if ("end".equals(optionalRequestedNextStep)) {
-                    currentStepIndex = steps.size();
-                    log.debug("Workflow " + taskId + " moving to explicit next step " + currentStepIndex + " for 'end'; " + notes);
+                Consumer<WorkflowExecutionContext> predefined = PREDEFINED_NEXT_TARGETS.get(optionalRequestedNextStep);
+                if (predefined!=null) {
+                    predefined.accept(WorkflowExecutionContext.this);
+                    if (currentStepIndex<steps.size()) {
+                        log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for '" + optionalRequestedNextStep + "'");
+                    } else {
+                        log.debug(prefix + "explicit next '"+optionalRequestedNextStep+"': Workflow completed");
+                    }
                 } else {
                     Pair<Integer, WorkflowStepDefinition> next = getStepsWithExplicitIdById().get(optionalRequestedNextStep);
                     if (next==null) {
+                        log.warn(prefix + "explicit next step '"+optionalRequestedNextStep+"' not found (failing)");
                         throw new NoSuchElementException("Step with ID '"+optionalRequestedNextStep+"' not found");
                     }
                     currentStepIndex = next.getLeft();
-                    log.debug("Workflow " + taskId + " moving to explicit next step " + currentStepIndex + " for id '" + optionalRequestedNextStep + "'; " + notes);
+                    log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for id '" + optionalRequestedNextStep + "'; ");
                 }
             }
         }
+
+        @JsonIgnore
+        String workflowStepReference(int index) {
+            return getWorkflowStepReference(index, steps.get(index));
+        }
+    }
+
+    @JsonIgnore
+    public String getWorkflowStepReference(int index, WorkflowStepDefinition step) {
+        return getWorkflowStepReference(index, step!=null ? step.id : null);
+    }
+    @JsonIgnore
+    String getWorkflowStepReference(int index, String optionalStepId) {
+        return taskId+"-"+(index+1)+
+                (Strings.isNonBlank(optionalStepId) ? "-"+optionalStepId : "");
     }
 
 }

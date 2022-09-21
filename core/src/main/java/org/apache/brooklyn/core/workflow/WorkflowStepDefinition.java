@@ -21,17 +21,21 @@ package org.apache.brooklyn.core.workflow;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
 public abstract class WorkflowStepDefinition {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowStepDefinition.class);
 
 //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
     protected Map<String,Object> input = MutableMap.of();
@@ -70,6 +74,10 @@ public abstract class WorkflowStepDefinition {
         return context.resolveWrapped(condition, TypeToken.of(DslPredicates.DslPredicate.class));
     }
 
+    // output of steps can be overridden
+    protected Object output;
+    protected boolean isOutputHandledByTask() { return false; }
+
     // TODO
 //    on-error:  a description of how to handle errors section
 //    log-marker:  a string which is included in all log messages in the workflow or step and any sub-tasks and subtasks in to easily identify the actions of this workflow (in addition to task IDs)
@@ -97,7 +105,12 @@ public abstract class WorkflowStepDefinition {
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
         context.name = Strings.isNonBlank(this.name) ? this.name : computeTaskName(context);
-        Task<?> t = Tasks.builder().displayName(context.name).body(() -> doTaskBody(context)).tag(context).build();
+        Task<?> t = Tasks.builder().displayName(context.name).body(() -> {
+            log.debug("Starting step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
+                    + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
+                    + " in task "+context.taskId);
+            return doTaskBody(context);
+        }).tag(context).build();
         context.taskId = t.getId();
         return t;
     }
@@ -142,4 +155,7 @@ public abstract class WorkflowStepDefinition {
     /** allows subclasses to throw exception early if required fields not set */
     public void validateStep() {}
 
+    public interface SpecialWorkflowStepDefinition {
+        WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, SpecialWorkflowStepDefinition firstParse);
+    }
 }

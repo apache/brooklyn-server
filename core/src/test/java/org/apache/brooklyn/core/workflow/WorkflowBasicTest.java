@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.*;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -49,6 +50,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -83,7 +85,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "set-workflow-variable", SetVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "clear-workflow-variable", ClearVariableWorkflowStep.class);
 
-        addRegisteredTypeBean(mgmt, "custom-workflow-step", CustomWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
     }
 
     <T> T convert(Object input, Class<T> type) {
@@ -141,7 +143,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testWorkflowEffector() {
+    public void testCommonStepsInEffector() {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
@@ -261,11 +263,42 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         eff.apply((EntityLocal)app);
 
         Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
-        Object result = invocation.getUnchecked();
-
+        invocation.getUnchecked();
         Dumper.dumpInfo(invocation);
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), expected);
     }
 
+    @Test
+    public void testWorkflowLogging() throws Exception {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        "log one",
+                        MutableMap.of("s", "log two", "id", "ii", "name", "Two",
+                                "output", MutableMap.of(
+                                        "tasks", MutableList.of("${workflow.previous_step.task_id}", "${workflow.current_step.task_id}"),
+                                        "workflow", "${workflow.task_id}")
+                        )))
+                .configure(WorkflowEffector.OUTPUT, "${workflow.previous_step.output}")
+        );
+        eff.apply((EntityLocal)app);
+
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName())) {
+            Map ids = (Map) app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).get();
+            Object workflowId = ids.get("workflow");
+            List tasksIds = (List) ids.get("tasks");
+
+            Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
+                    "Starting workflow 'Workflow for effector myWorkflow', moving to first step "+workflowId+"-1",
+                    "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
+                    "one",
+                    "Completed step "+workflowId+"-1; moving to sequential next step "+workflowId+"-2-ii",
+                    "Starting step "+workflowId+"-2-ii 'Two' in task "+tasksIds.get(1),
+                    "two",
+                    "Completed step "+workflowId+"-2-ii; no further steps: Workflow completed"));
+        }
+    }
 }

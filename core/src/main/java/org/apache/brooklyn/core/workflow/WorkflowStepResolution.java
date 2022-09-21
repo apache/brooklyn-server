@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -55,26 +56,6 @@ public class WorkflowStepResolution {
 
     static WorkflowStepDefinition resolveStep(ManagementContext mgmt, Object def) {
         BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
-
-//        // OLD SHORTHAND PROPOSAL - single key map
-//        if (def instanceof Map) {
-//            Map<String,Object> map = (Map<String,Object>) def;
-//            if (map.size()==1 && !map.containsKey("type")) {
-//                // shorthand definition. use string constructor.
-//                Map.Entry<String, Object> ent = map.entrySet().iterator().next();
-//                def = MutableMap.of("type", ent.getKey(), "shorthandValue", ent.getValue());
-//            }
-//        }
-
-        // NEW SHORTHAND PROPOSAL - string, type in first word, remainder as shorthand
-        BiConsumer<String,Map> extractShorthand = (s, map) -> {
-            int wordBreak = s.indexOf(" ");
-            if (wordBreak < 0) {
-                map.put("type", s);
-            } else {
-            }
-        };
-
         String shorthand = null;
 
         if (def instanceof String) {
@@ -108,16 +89,17 @@ public class WorkflowStepResolution {
         String typeBestGuess = def instanceof Map ? ""+((Map)def).get("type") : null;
 
         try {
-            def = BeanWithTypeUtils.convert(mgmt, def, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
+            Object def0 = def;
+            def = BeanWithTypeUtils.convert(mgmt, def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
+
+            if (def instanceof WorkflowStepDefinition.SpecialWorkflowStepDefinition) {
+                def = ((WorkflowStepDefinition.SpecialWorkflowStepDefinition)def).applySpecialDefinition(mgmt, def0, typeBestGuess, (WorkflowStepDefinition.SpecialWorkflowStepDefinition) def);
+            }
         } catch (Exception e) {
-            throw Exceptions.propagateAnnotated("Unable to resolve step "+def, e);
+            throw Exceptions.propagateAnnotated("Unable to resolve step '"+def+"'", e);
         }
         if (def instanceof WorkflowStepDefinition) {
             WorkflowStepDefinition defW = (WorkflowStepDefinition) def;
-
-            if (Strings.isBlank(defW.getName())) {
-                defW.name = typeBestGuess;
-            }
 
             if (shorthand!=null) {
                 defW.populateFromShorthand(shorthand);

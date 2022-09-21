@@ -73,6 +73,11 @@ public class WorkflowExpressionResolution {
             //workflow.current_step.input.somevar
             WorkflowStepInstanceExecutionContext currentStep = context.currentStepInstance;
             if (currentStep!=null) {
+                if (currentStep.output instanceof Map) {
+                    candidate = ((Map) currentStep.output).get(key);
+                    if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                }
+
                 candidate = currentStep.input.get(key);
                 if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
             }

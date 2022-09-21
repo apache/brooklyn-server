@@ -28,16 +28,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ClassLogWatcher extends ListAppender<ILoggingEvent> implements AutoCloseable {
-    private final Class<?> clazz;
+    private final String className;
 
-    public ClassLogWatcher(Class<?> clazz) {
-        this.clazz = clazz;
+    public ClassLogWatcher(String className) {
+        this.className = className;
         startAutomatically();
+    }
+    public ClassLogWatcher(Class<?> clazz) {
+        this(clazz.getName());
     }
 
     protected void startAutomatically() {
         super.start();
-        ((Logger) LoggerFactory.getLogger(clazz)).addAppender(this);
+        ((Logger) LoggerFactory.getLogger(className)).addAppender(this);
     }
 
     @Override
@@ -47,7 +50,7 @@ public class ClassLogWatcher extends ListAppender<ILoggingEvent> implements Auto
 
     @Override
     public void close() throws IOException {
-        ((Logger) LoggerFactory.getLogger(clazz)).detachAppender(this);
+        ((Logger) LoggerFactory.getLogger(className)).detachAppender(this);
         stop();
     }
 
