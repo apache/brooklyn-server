@@ -97,8 +97,8 @@ public abstract class WorkflowStepDefinition {
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
         context.name = Strings.isNonBlank(this.name) ? this.name : computeTaskName(context);
-        Task<Object> t = Tasks.builder().displayName(context.name).body(() -> doTaskBody(context)).tag(context).build();
-        context.taskId = t;
+        Task<?> t = Tasks.builder().displayName(context.name).body(() -> doTaskBody(context)).tag(context).build();
+        context.taskId = t.getId();
         return t;
     }
 

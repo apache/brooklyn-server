@@ -34,7 +34,6 @@ public class WorkflowStepInstanceExecutionContext {
 
     private WorkflowStepInstanceExecutionContext() {}
     public WorkflowStepInstanceExecutionContext(int stepIndex, WorkflowStepDefinition step, WorkflowExecutionContext context) {
-        this.stepInstanceId = Identifiers.makeRandomId(12);
         this.stepIndex = stepIndex;
         this.stepDefinitionDeclaredId = step.id;
         this.input = step.getInput();
@@ -43,9 +42,8 @@ public class WorkflowStepInstanceExecutionContext {
 
     int stepIndex;
     String stepDefinitionDeclaredId;
-    String stepInstanceId;
     public String name;
-    Task<Object> taskId;
+    String taskId;
     Map<String,Object> input = MutableMap.of();
     transient WorkflowExecutionContext context;
 

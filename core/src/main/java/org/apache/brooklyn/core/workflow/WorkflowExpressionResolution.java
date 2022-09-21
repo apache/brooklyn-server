@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.google.common.base.Suppliers;
 import com.google.common.reflect.TypeToken;
 import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
@@ -26,14 +25,12 @@ import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.StringEscapes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,8 +105,6 @@ public class WorkflowExpressionResolution {
         public TemplateModel get(String key) throws TemplateModelException {
             //id (a token representing an item uniquely within its root instance)
             if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getName());
-            if ("id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getWorkflowInstanceId());
-            //task_id (the ID of the current corresponding Brooklyn Task)
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getTaskId());
 
             // TODO variable reference for link and error
@@ -161,12 +156,9 @@ public class WorkflowExpressionResolution {
 
             //id (a token representing an item uniquely within its root instance)
             if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.name);
-            if ("uid".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepInstanceId);
+            if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.taskId);
             if ("step_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepDefinitionDeclaredId);
             if ("step_index".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepIndex);
-
-            //task_id (the ID of the current corresponding Brooklyn Task)
-            if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.taskId);
 
             // TODO link and error, as above
             //link (a link in the UI to this instance of workflow or step)

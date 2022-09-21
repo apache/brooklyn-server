@@ -57,8 +57,6 @@ public class WorkflowExecutionContext {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
 
-    String workflowInstanceId;
-
     String name;
     BrooklynObject entityOrAdjunctWhereRunning;
     Entity entity;
@@ -119,8 +117,6 @@ public class WorkflowExecutionContext {
     }
 
     protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, List<Object> steps, Map<String,Object> input, Object output) {
-        workflowInstanceId = Identifiers.makeRandomId(12);
-
         this.name = name;
         this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
@@ -166,15 +162,11 @@ public class WorkflowExecutionContext {
 
     @Override
     public String toString() {
-        return "Workflow<" + name + " - " + workflowInstanceId + ">";
+        return "Workflow<" + name + " - " + taskId + ">";
     }
 
     public Map<String, Object> getWorkflowScratchVariables() {
         return workflowScratchVariables;
-    }
-
-    public String getTaskId() {
-        return taskId;
     }
 
     public Maybe<Task<Object>> getOrCreateTask() {
@@ -252,8 +244,8 @@ public class WorkflowExecutionContext {
         return name;
     }
 
-    public String getWorkflowInstanceId() {
-        return workflowInstanceId;
+    public String getTaskId() {
+        return taskId;
     }
 
     protected class Body implements Callable<Object> {
@@ -322,27 +314,28 @@ public class WorkflowExecutionContext {
         }
 
         private void moveToNextStep(String optionalRequestedNextStep, String notes) {
+            // TODO trace level?
             if (optionalRequestedNextStep==null) {
                 currentStepIndex++;
                 if (currentStepIndex<steps.size()) {
-                    log.debug("Workflow " + workflowInstanceId + " moving to sequential next step " + currentStepIndex + "; " + notes);
+                    log.debug("Workflow " + taskId + " moving to sequential next step " + currentStepIndex + "; " + notes);
                 } else {
-                    log.debug("Workflow " + workflowInstanceId + " completed; " + notes);
+                    log.debug("Workflow " + taskId + " completed; " + notes);
                 }
             } else {
                 if ("start".equals(optionalRequestedNextStep)) {
                     currentStepIndex = 0;
-                    log.debug("Workflow " + workflowInstanceId + " moving to explicit next step " + currentStepIndex + " for 'start'; " + notes);
+                    log.debug("Workflow " + taskId + " moving to explicit next step " + currentStepIndex + " for 'start'; " + notes);
                 } else if ("end".equals(optionalRequestedNextStep)) {
                     currentStepIndex = steps.size();
-                    log.debug("Workflow " + workflowInstanceId + " moving to explicit next step " + currentStepIndex + " for 'end'; " + notes);
+                    log.debug("Workflow " + taskId + " moving to explicit next step " + currentStepIndex + " for 'end'; " + notes);
                 } else {
                     Pair<Integer, WorkflowStepDefinition> next = getStepsWithExplicitIdById().get(optionalRequestedNextStep);
                     if (next==null) {
                         throw new NoSuchElementException("Step with ID '"+optionalRequestedNextStep+"' not found");
                     }
                     currentStepIndex = next.getLeft();
-                    log.debug("Workflow " + workflowInstanceId + " moving to explicit next step " + currentStepIndex + " for id '" + optionalRequestedNextStep + "'; " + notes);
+                    log.debug("Workflow " + taskId + " moving to explicit next step " + currentStepIndex + " for id '" + optionalRequestedNextStep + "'; " + notes);
                 }
             }
         }
