@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -34,6 +35,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.BiConsumer;
@@ -43,14 +45,15 @@ import static org.checkerframework.checker.units.UnitsTools.s;
 
 public class WorkflowStepResolution {
 
-    static Map<String,WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, Map<String,Object> steps) {
-        Map<String,WorkflowStepDefinition> result = MutableMap.of();
+    static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps) {
+        List<WorkflowStepDefinition> result = MutableList.of();
         if (steps==null || steps.isEmpty()) throw new IllegalStateException("No steps defined in workflow");
-        steps.forEach((name, def) -> result.put(name, resolveStep(mgmt, name, def)));
+        steps.forEach((def) -> result.add(resolveStep(mgmt, def)));
+        WorkflowExecutionContext.validateSteps(mgmt, result, true);
         return result;
     }
 
-    static WorkflowStepDefinition resolveStep(ManagementContext mgmt, String name, Object def) {
+    static WorkflowStepDefinition resolveStep(ManagementContext mgmt, Object def) {
         BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
 
 //        // OLD SHORTHAND PROPOSAL - single key map
@@ -107,15 +110,11 @@ public class WorkflowStepResolution {
         try {
             def = BeanWithTypeUtils.convert(mgmt, def, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
         } catch (Exception e) {
-            throw Exceptions.propagateAnnotated("Unable to resolve step "+ name, e);
+            throw Exceptions.propagateAnnotated("Unable to resolve step "+def, e);
         }
         if (def instanceof WorkflowStepDefinition) {
             WorkflowStepDefinition defW = (WorkflowStepDefinition) def;
 
-            // TODO might be a better place to put this metadata than to chuck it in to 'name'
-            if (Strings.isBlank(defW.getName())) {
-                defW.name = name;
-            }
             if (Strings.isBlank(defW.getName())) {
                 defW.name = typeBestGuess;
             }
@@ -126,12 +125,12 @@ public class WorkflowStepResolution {
             defW.validateStep();
             return defW;
         } else {
-            throw new IllegalArgumentException("Unable to resolve step "+ name +"; unexpected object "+ def);
+            throw new IllegalArgumentException("Unable to resolve step; unexpected object "+ def);
         }
     }
 
     public static void validateWorkflowParameters(BrooklynObject entityOrAdjunctWhereRunningIfKnown, ConfigBag params) {
-        Map<String, Object> steps = params.get(WorkflowCommonConfig.STEPS);
+        List<Object> steps = params.get(WorkflowCommonConfig.STEPS);
         if (steps==null || steps.isEmpty()) throw new IllegalArgumentException("It is required to supply 'steps' to define a workflow effector");
 
         Object condition = params.containsKey(WorkflowCommonConfig.CONDITION.getName());

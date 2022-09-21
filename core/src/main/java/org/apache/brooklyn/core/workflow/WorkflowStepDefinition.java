@@ -26,6 +26,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 
 import java.util.Map;
@@ -34,6 +35,11 @@ public abstract class WorkflowStepDefinition {
 
 //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
     protected Map<String,Object> input = MutableMap.of();
+
+    protected String id;
+    public String getId() {
+        return id;
+    }
 
     protected String name;
     public String getName() {
@@ -90,9 +96,8 @@ public abstract class WorkflowStepDefinition {
     abstract public void populateFromShorthand(String value);
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
-        String name = computeTaskName(context);
-        Task<Object> t = Tasks.create(name, () -> doTaskBody(context));
-        context.name = name;
+        context.name = Strings.isNonBlank(this.name) ? this.name : computeTaskName(context);
+        Task<Object> t = Tasks.builder().displayName(context.name).body(() -> doTaskBody(context)).tag(context).build();
         context.taskId = t;
         return t;
     }
@@ -100,8 +105,31 @@ public abstract class WorkflowStepDefinition {
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
 
     protected String computeTaskName(WorkflowStepInstanceExecutionContext context) {
-        if (Strings.isBlank(getName()) || context.stepDefinitionId.contains(getName())) return context.stepDefinitionId;
-        return context.stepDefinitionId + " - " + getName();
+        //if (Strings.isNonBlank(context.name)) return context.name;
+
+        String prefix = "" + (context.stepIndex + 1);
+        String result = null;
+
+        if (context.stepDefinitionDeclaredId != null) {
+            String s = result = context.stepDefinitionDeclaredId;
+
+            boolean idStartsWithPrefix = false;
+            if (s.startsWith(prefix)) {
+                s = Strings.removeFromStart(s, prefix);
+                if (Strings.isBlank(s) || !Character.isDigit(s.charAt(0))) {
+                    idStartsWithPrefix = true;
+                }
+            }
+            if (!idStartsWithPrefix) {
+                result = prefix + " - " + result;
+            }
+        } else {
+            result = prefix;
+        }
+
+        if (Strings.isNonBlank(context.name)) result = result + " - " + context.name;
+
+        return result;
     }
 
     protected String getShorthandTypeName() {

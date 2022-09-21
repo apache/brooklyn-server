@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
@@ -40,6 +41,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -57,8 +59,8 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableMap.<String,Object>of()
-                        .add("1", "set-sensor p1 = ${p1}")
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append("set-sensor p1 = ${p1}")
                 )
         );
         eff.apply((EntityLocal)app);
@@ -74,9 +76,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     @Test
     public void testMapOutputAndInputFromLastStep() {
         doTestMapOutputAndInput(cfg -> {
-            Map<String, Object> map = cfg.get(WorkflowEffector.STEPS);
-            map.put("s5", "let map result = { c: ${c}, d: ${d}, e: ${e} }");
-            cfg.put(WorkflowEffector.STEPS, map);
+            List<Object> step = cfg.get(WorkflowEffector.STEPS);
+            step.add("let map result = { c: ${c}, d: ${d}, e: ${e} }");
+            cfg.put(WorkflowEffector.STEPS, step);
         });
     }
 
@@ -92,11 +94,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 
         ConfigBag cfg = ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, MutableMap.<String, Object>of()
-                        .add("s1", "let map v = { x: { y: a }, z: b }")
-                        .add("s2", "let c = ${x.y}")  // reference output of previous step
-                        .add("s3", "let d = ${v.z}")  // reference workflow var
-                        .add("s4", "let e = ${workflow.step.s1.output.z}")  // reference explicit output step
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append(MutableMap.of("s", "let map v = { x: { y: a }, z: b }", "id", "s1"))
+                        .append("let c = ${x.y}")  // reference output of previous step
+                        .append("let d = ${v.z}")  // reference workflow var
+                        .append("let e = ${workflow.step.s1.output.z}")  // reference explicit output step
                 );
         // mod says how results are returned
         mod.accept(cfg);
@@ -125,7 +127,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 
     ClassLogWatcher lastLogWatcher;
 
-    Object invokeWorkflowStepsWithLogging(Map<String,Object> steps) throws Exception {
+    Object invokeWorkflowStepsWithLogging(List<Object> steps) throws Exception {
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
             lastLogWatcher = logWatcher;
 
@@ -161,10 +163,10 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "  name: you"
         ));
 
-        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
+        invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
         assertLogStepMessages("1: hi bob");
 
-        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi")));
+        invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi")));
         assertLogStepMessages("1: hi you");
     }
 
@@ -175,9 +177,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "parameters:",
                 "  name: {}",
                 "steps:",
-                "  1: log hi ${name}"
+                "  - log hi ${name}"
         ));
-        invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
+        invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
         assertLogStepMessages("1: hi bob");
     }
 
@@ -189,9 +191,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "parameters:",
                 "  name: {}",
                 "steps:",
-                "  1: log hi ${name}"
+                "  - log hi ${name}"
         ));
-        invokeWorkflowStepsWithLogging(MutableMap.of("1", "log-hi bob"));
+        invokeWorkflowStepsWithLogging(MutableList.of("log-hi bob"));
         assertLogStepMessages("1: hi bob");
     }
 
@@ -202,11 +204,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "parameters:",
                 "  name: {}",
                 "steps:",
-                "  1: log hi ${name}",
+                "  - log hi ${name}",
                 "output:",
                 "  message: hi ${name}"
         ));
-        Object output = invokeWorkflowStepsWithLogging(MutableMap.of("1", MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
         assertLogStepMessages("1: hi bob");
         Asserts.assertEquals(output, MutableMap.of("message", "hi bob"));
     }
@@ -214,9 +216,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     // test complex object in an expression
     @Test
     public void testMapOutputAsComplexFreemarkerVar() throws Exception {
-        Object output = invokeWorkflowStepsWithLogging(MutableMap.of(
-                "1", "let map my_map = { x: 1 }",
-                "2", "let my_map_copy = ${my_map}"));
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let map my_map = { x: 1 }",
+                "let my_map_copy = ${my_map}"));
         Asserts.assertEquals(output, MutableMap.of("x", 1));
     }
 

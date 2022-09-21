@@ -74,15 +74,13 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "    brooklyn.config:",
                 "      name: myWorkflow",
                 "      steps:",
-                "        step1:",
-                "          type: no-op",
-                "        step2:",
-                "          type: set-sensor",
+                "        - type: no-op",
+                "        - type: set-sensor",
                 "          input:",
                 "            sensor: foo",
                 "            value: bar",
-                "        step3: set-sensor integer bar = 1",
-                "        step4: set-config integer foo = 2",
+                "        - set-sensor integer bar = 1",
+                "        - set-config integer foo = 2",
                 "");
         waitForApplicationTasks(app);
 
@@ -132,147 +130,81 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowEffectorLogStep() throws Exception {
         invokeWorkflowStepsWithLogging(
-                "        step1:", // this step runs 3rd... so confused :-(
-                "          type: log",
-                "          message: test message 1",
-                "        step2: log test message 2",
-                "        step3: no-op",
-                "        6: log ??", // this step runs 2nd...
-                "        step4: log test message 3",
-                "        5: log test message N"); // this step runs 1st !...
+                "        - log test message 1",
+                "        - type: log",
+                "          id: second",
+                "          name: Second Step",
+                "          message: test message 2, step '${workflow.current_step.name}' id ${workflow.current_step.step_id} in workflow '${workflow.name}'");
 
         assertLogStepMessages(
-                "5: test message N",
-                "6: ??",
-                "step1: test message 1",
-                "step2: test message 2",
-                "step4: test message 3");
+                "test message 1",
+                "test message 2, step 'Second Step' id second in workflow 'Workflow for effector myWorkflow'");
     }
 
     @Test
     public void testWorkflowPropertyNext() throws Exception {
         invokeWorkflowStepsWithLogging(
-                    "        the-end: log bye",
-                    "        step-B:",
-                    "          type: log",
-                    "          message: test message 3",
-                    "          next: the-end",
-                    "        step-A:", // <-- this is the 1st step as per numeric-alpha order.
-                    "          type: log",
-                    "          message: test message 1",
-                    "          next: step-C",
-                    "        step-C:",
-                    "          type: log",
-                    "          message: test message 2",
-                    "          next: step-B",
-                    "        the-check-point: log check point");
+                "        - s: log going to A",
+                "          next: A",
+                "        - s: log now at B",
+                "          next: end",
+                "          id: B",
+                "        - s: log now at A",
+                "          id: A",
+                "          next: B");
         assertLogStepMessages(
-                    "step-A: test message 1",
-                    "step-C: test message 2",
-                    "step-B: test message 3",
-                    // 'the-check-point' step is never reached here.
-                    "the-end: bye");
+                    "going to A",
+                    "now at A",
+                    "now at B");
     }
 
 //    // TODO test timeout
 //    @Test
 //    public void testTimeoutWithInfiniteLoop() throws Exception {
 //        invokeWorkflowStepsWithLogging(
-//                "        the-end: log bye",
-//                "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
-//                "          type: log",
-//                "          message: test message 1",
-//                "          next: step-C",
-//                "        step-B:",
-//                "          type: log",
-//                "          message: test message 3",
-//                "          # next: the-end", // <-- Omit the 'next', rely on the default order from here.
-//                "        step-C:",
-//                "          type: log",
-//                "          message: test message 2",
-//                "          next: step-B",
-//                "        the-check-point: log check point");
+//                "        - s: log going to A",
+//                        "          next: A",
+//                        "        - s: log now at B",
+//                        "          id: B",
+//                        "        - s: sleep 100ms",
+//                        "          next: B",
+//                        "        - s: log now at A",
+//                        "          id: A",
+//                        "          next: B");
 //        // TODO assert it takes at least 100ms, but less than 5s
 //        assertLogStepMessages(
 //                ...);
 //    }
 
-    @Test
-    public void testWorkflowPropertyNext_DefaultOrder() throws Exception {
-        invokeWorkflowStepsWithLogging(
-                    "        the-end: log bye",
-                    "        step-B:",
-                    "          type: log",
-                    "          message: test message 3",
-                    "          next: the-end",
-                    "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
-                    "          type: log",
-                    "          message: test message 1",
-                    "          next: step-C",
-                    "        step-C:",
-                    "          type: log",
-                    "          message: test message 2",
-                    "          # next: step-B", // <-- Omit the 'next', rely on the default order from here.
-                    "        the-check-point: log check point");
-        assertLogStepMessages(
-                    "step-A: test message 1",
-                    "step-C: test message 2",
-                    // 'test-B' is not reached, default order must jump to 'the-check-point' and 'the-end' step.
-                    "the-check-point: check point",
-                    "the-end: bye");
-    }
-
-    @Test
-    public void testWorkflowPropertyNext_SetSensor() throws Exception {
-        invokeWorkflowStepsWithLogging(
-                    "        the-end: log bye",
-                    "        step-B:",
-                    "          type: log",
-                    "          message: test message 2",
-                    "          next: the-end",
-                    "        step-A:", // <-- This is the 1st step as per numeric-alpha order.
-                    "          type: log",
-                    "          message: test message 1",
-                    "          next: step-C",
-                    "        step-C:",
-                    "          type: set-sensor", // set sensor
-                    "          sensor: foo",
-                    "          value: bar",
-                    "        the-check-point: log check point");
-        assertLogStepMessages(
-                        "step-A: test message 1",
-                        // 'test-B' is not reached.
-                        "the-check-point: check point",
-                        "the-end: bye");
-    }
-
     void doTestWorkflowCondition(String setCommand, String logAccess, String conditionAccess) throws Exception {
         invokeWorkflowStepsWithLogging(
-                    "        1: log start",
-                    "        2: " + setCommand + " color = blue",
-                    "        3: log color " + logAccess,
-                    "        4:",
+                    "        - log start",
+                    "        - " + setCommand + " color = blue",
+                    "        - id: log-color",
+                    "          s: log color " + logAccess,
+                    "        -",
                     "          s: log not blue",
                     "          condition:",
                     "            " + conditionAccess,
                     "            assert: { when: present, java-instance-of: string }",
                     "            not: { equals: blue }",
-                    "        5:",
+                    "        -",
                     "          type: no-op",
-                    "          next: 7",
+                    "          next: make-red",
                     "          condition:",
                     "            " + conditionAccess,
                     "            equals: blue",
-                    "        6:",
+                    "        -",
                     "          type: no-op",
-                    "          next: 9",
-                    "        7:",
-                    "           s: " + setCommand + " color = red",
-                    "           next: 3",
-                    "        9: log end",
+                    "          next: log-end",
+                    "        - id: make-red",
+                    "          s: " + setCommand + " color = red",
+                    "          next: log-color",
+                    "        - id: log-end",
+                    "          s: log end",
                     "");
         assertLogStepMessages(
-                    "1: start", "3: color blue", "3: color red", "4: not blue", "9: end");
+                    "start", "color blue", "color red", "not blue", "end");
     }
 
     @Test

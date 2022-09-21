@@ -26,6 +26,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 
 public class CustomWorkflowStep extends WorkflowStepDefinition {
@@ -41,7 +42,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition {
     }
 
     Map<String,Object> parameters;
-    Map<String,Object> steps;
+    List<Object> steps;
     Object output;
 
     @Override

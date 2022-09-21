@@ -46,8 +46,8 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         if (Strings.isBlank(message))  {
             throw new IllegalArgumentException("Log message is required");
         }
-        // TODO all workflow log messages should include workflow id or step id ? or task id able to correspond?
-        LOG.info("{}: {}", context.name, message);
+        // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
+        LOG.info("{}", message);
         return context.getPreviousStepOutput();
     }
 }

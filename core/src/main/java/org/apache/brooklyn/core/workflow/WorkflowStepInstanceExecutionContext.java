@@ -33,15 +33,16 @@ import java.util.function.Supplier;
 public class WorkflowStepInstanceExecutionContext {
 
     private WorkflowStepInstanceExecutionContext() {}
-    public WorkflowStepInstanceExecutionContext(String stepDefinitionId, Map<String, Object> input, WorkflowExecutionContext context) {
+    public WorkflowStepInstanceExecutionContext(int stepIndex, WorkflowStepDefinition step, WorkflowExecutionContext context) {
         this.stepInstanceId = Identifiers.makeRandomId(12);
-        this.stepDefinitionId = stepDefinitionId;
-        // TODO merge parameters here?
-        this.input = input;
+        this.stepIndex = stepIndex;
+        this.stepDefinitionDeclaredId = step.id;
+        this.input = step.getInput();
         this.context = context;
     }
 
-    String stepDefinitionId;
+    int stepIndex;
+    String stepDefinitionDeclaredId;
     String stepInstanceId;
     public String name;
     Task<Object> taskId;
@@ -49,6 +50,15 @@ public class WorkflowStepInstanceExecutionContext {
     transient WorkflowExecutionContext context;
 
     Object output;
+
+    public WorkflowExecutionContext getContext() {
+        return context;
+    }
+
+    public void setContext(WorkflowExecutionContext context) {
+        if (this.context!=null && this.context!=context) throw new IllegalStateException("Cannot change context, from "+this.context+" to "+context);
+        this.context = context;
+    }
 
     /** Returns the resolved value of the given key, converting to the type of the key */
     public <T> T getInput(ConfigKey<T> key) {

@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstractProto;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 
+import java.util.List;
 import java.util.Map;
 
 public interface WorkflowCommonConfig {
@@ -33,8 +34,8 @@ public interface WorkflowCommonConfig {
     ConfigKey<Map<String,Object>> INPUT = new MapConfigKey<Object>(Object.class, "input");
     ConfigKey<Object> OUTPUT = ConfigKeys.newConfigKey(Object.class, "output");
 
-    ConfigKey<Map<String,Object>> STEPS = ConfigKeys.newConfigKey(new TypeToken<Map<String,Object>>() {}, "steps",
-            "Map of step ID to step body defining this workflow");
+    ConfigKey<List<Object>> STEPS = ConfigKeys.newConfigKey(new TypeToken<List<Object>>() {}, "steps",
+            "List of step definitions (string or map) defining a workflow");
 
     // TODO
 //    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)

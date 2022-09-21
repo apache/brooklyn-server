@@ -122,7 +122,7 @@ public class WorkflowExpressionResolution {
             //current_step.yyy and previous_step.yyy (where yyy is any of the above)
             //step.xxx.yyy ? - where yyy is any of the above and xxx any step id
             if ("current_step".equals(key)) return new WorkflowStepModel(context.currentStepInstance);
-            if ("previous_step".equals(key)) return newWorkflowStepModelForStep(context.getPreviousStepId());
+            if ("previous_step".equals(key)) return newWorkflowStepModelForStepIndex(context.previousStepIndex);
             if ("step".equals(key)) return new WorkflowStepModel();
 
             return ifNoMatches();
@@ -134,11 +134,18 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    TemplateModel newWorkflowStepModelForStep(String step) {
+    TemplateModel newWorkflowStepModelForStepIndex(Integer step) {
         WorkflowStepInstanceExecutionContext stepI = context.lastInstanceOfEachStep.get(step);
         if (stepI==null) return ifNoMatches();
         return new WorkflowStepModel(stepI);
     }
+    TemplateModel newWorkflowStepModelForStepId(String id) {
+        for (WorkflowStepInstanceExecutionContext s: context.lastInstanceOfEachStep.values()) {
+            if (id.equals(s.stepDefinitionDeclaredId)) return new WorkflowStepModel(s);
+        }
+        return ifNoMatches();
+    }
+
     class WorkflowStepModel implements TemplateHashModel {
         private WorkflowStepInstanceExecutionContext step;
 
@@ -149,13 +156,14 @@ public class WorkflowExpressionResolution {
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             if (step==null) {
-                return newWorkflowStepModelForStep(key);
+                return newWorkflowStepModelForStepId(key);
             }
 
             //id (a token representing an item uniquely within its root instance)
             if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.name);
             if ("uid".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepInstanceId);
-            if ("step_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepDefinitionId);
+            if ("step_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepDefinitionDeclaredId);
+            if ("step_index".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepIndex);
 
             //task_id (the ID of the current corresponding Brooklyn Task)
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.taskId);

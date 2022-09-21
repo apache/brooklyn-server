@@ -18,8 +18,10 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -29,6 +31,7 @@ import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
@@ -37,15 +40,17 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
-import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.NoSuchElementException;
 import java.util.concurrent.Callable;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class WorkflowExecutionContext {
@@ -58,7 +63,7 @@ public class WorkflowExecutionContext {
     BrooklynObject entityOrAdjunctWhereRunning;
     Entity entity;
 
-    Map<String, Object> steps;
+    List<Object> steps;
     DslPredicates.DslPredicate condition;
 
     Map<String,Object> input;
@@ -68,10 +73,10 @@ public class WorkflowExecutionContext {
     String taskId;
     transient Task<Object> task;
 
-    String currentStepId;
-    String previousStepId;
+    Integer currentStepIndex;
+    Integer previousStepIndex;
     WorkflowStepInstanceExecutionContext currentStepInstance;
-    Map<String, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
+    Map<Integer, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
 
@@ -113,7 +118,7 @@ public class WorkflowExecutionContext {
         return w;
     }
 
-    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, Map<String,Object> steps, Map<String,Object> input, Object output) {
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, List<Object> steps, Map<String,Object> input, Object output) {
         workflowInstanceId = Identifiers.makeRandomId(12);
 
         this.name = name;
@@ -126,6 +131,33 @@ public class WorkflowExecutionContext {
 
         task = Tasks.builder().dynamic(true).displayName(name).body(new Body()).build();
         taskId = task.getId();
+    }
+
+    public static final Map<String, Consumer<WorkflowExecutionContext>> PREDEFINED_NEXT_TARGETS = MutableMap.<String, Consumer<WorkflowExecutionContext>>of(
+            "start", c -> { c.currentStepIndex = 0; },
+            "end", c -> { c.currentStepIndex = c.steps.size(); },
+            "default", c -> { c.currentStepIndex++; }).asUnmodifiable();
+
+    public static void validateSteps(ManagementContext mgmt, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
+        if (!alreadyValidatedIndividualSteps) {
+            steps.forEach(WorkflowStepDefinition::validateStep);
+        }
+
+        computeStepsWithExplicitIdById(steps);
+    }
+
+    static Map<String,Pair<Integer,WorkflowStepDefinition>> computeStepsWithExplicitIdById(List<WorkflowStepDefinition> steps) {
+        Map<String,Pair<Integer,WorkflowStepDefinition>> stepsWithExplicitId = MutableMap.of();
+        for (int i = 0; i<steps.size(); i++) {
+            WorkflowStepDefinition s = steps.get(i);
+            if (s.id != null) {
+                if (PREDEFINED_NEXT_TARGETS.containsKey(s.id))
+                    throw new IllegalStateException("Token '" + s + "' cannot be used as a step ID");
+                Pair<Integer, WorkflowStepDefinition> old = stepsWithExplicitId.put(s.id, Pair.of(i, s));
+                if (old != null) throw new IllegalStateException("Same step ID '" + s + "' used for multiple steps ("+(old.getLeft()+1)+" and "+(i+1)+")");
+            }
+        }
+        return stepsWithExplicitId;
     }
 
     public void setCondition(DslPredicates.DslPredicate condition) {
@@ -198,20 +230,20 @@ public class WorkflowExecutionContext {
         return resolve(v, key.getTypeToken());
     }
 
-    public String getCurrentStepId() {
-        return currentStepId;
+    public int getCurrentStepIndex() {
+        return currentStepIndex;
     }
 
     public WorkflowStepInstanceExecutionContext getCurrentStepInstance() {
         return currentStepInstance;
     }
 
-    public String getPreviousStepId() {
-        return previousStepId;
+    public int getPreviousStepIndex() {
+        return previousStepIndex;
     }
 
     public Object getPreviousStepOutput() {
-        WorkflowStepInstanceExecutionContext ps = lastInstanceOfEachStep.get(previousStepId);
+        WorkflowStepInstanceExecutionContext ps = lastInstanceOfEachStep.get(previousStepIndex);
         if (ps==null) return null;
         return ps.output;
     }
@@ -225,16 +257,22 @@ public class WorkflowExecutionContext {
     }
 
     protected class Body implements Callable<Object> {
-        TreeMap<String, WorkflowStepDefinition> steps;
+        List<WorkflowStepDefinition> steps;
+        
+        transient Map<String,Pair<Integer,WorkflowStepDefinition>> stepsWithExplicitId;
+        @JsonIgnore
+        public Map<String, Pair<Integer,WorkflowStepDefinition>> getStepsWithExplicitIdById() {
+            if (stepsWithExplicitId==null) stepsWithExplicitId = computeStepsWithExplicitIdById(steps);
+            return stepsWithExplicitId;
+        }
 
         @Override
         public Object call() throws Exception {
-            steps = new TreeMap<>(NaturalOrderComparator.INSTANCE);
-            steps.putAll(WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunning).getManagementContext(), WorkflowExecutionContext.this.steps));
+            steps = MutableList.copyOf(WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunning).getManagementContext(), WorkflowExecutionContext.this.steps));
 
-            if (currentStepId==null) {
-                currentStepId = steps.firstKey();
-                while (currentStepId!=null) {
+            if (currentStepIndex==null) {
+                currentStepIndex = 0;
+                while (currentStepIndex < steps.size()) {
                     runCurrentStepIfPreconditions();
                 }
 
@@ -254,20 +292,20 @@ public class WorkflowExecutionContext {
         }
 
         protected void runCurrentStepIfPreconditions() {
-            WorkflowStepDefinition step = steps.get(currentStepId);
+            WorkflowStepDefinition step = steps.get(currentStepIndex);
             if (step!=null) {
-                currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepId, step.getInput(), WorkflowExecutionContext.this);
+                currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
 
                 if (step.condition!=null) {
                     boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, entityOrAdjunctWhereRunning);
                     if (!conditionMet) {
-                        moveToNextSequentialStep("following step " + currentStepId + " where condition does not apply");
+                        moveToNextStep(null, "following step " + currentStepIndex + " where condition does not apply");
                         return;
                     }
                 }
 
                 // no condition or condition met -- record and run the step
-                WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepId, currentStepInstance);
+                WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepIndex, currentStepInstance);
                 // put the previous output in output, so repeating steps can reference themselves
                 if (old!=null) currentStepInstance.output = old.output;
 
@@ -275,35 +313,39 @@ public class WorkflowExecutionContext {
 
                 // TODO error handling
 
-                previousStepId = currentStepId;
-                moveToNextExplicitStep(step.next, "following step "+currentStepId);
+                previousStepIndex = currentStepIndex;
+                moveToNextStep(step.next, "following step "+currentStepIndex);
 
             } else {
-                moveToNextSequentialStep("following step "+currentStepId+" which is null");
+                moveToNextStep(null, "following step "+currentStepIndex+" which is null");
             }
         }
 
-        private void moveToNextSequentialStep(String notes) {
-            moveToNextStep(currentStepId, false, notes);
-        }
-
-        private void moveToNextExplicitStep(String stepId, String notes) {
-            if (stepId==null) moveToNextSequentialStep(notes);
-            else moveToNextStep(stepId, true, notes + ", explicit next reference");
-        }
-
-        private void moveToNextStep(String stepId, boolean inclusive, String notes) {
-            Map.Entry<String, WorkflowStepDefinition> nextStep = inclusive ? steps.ceilingEntry(stepId) : steps.higherEntry(stepId);
-            if (nextStep !=null) {
-                currentStepId = nextStep.getKey();
-                log.debug("Workflow "+workflowInstanceId+" moving to step "+currentStepId+"; "+notes);
-
+        private void moveToNextStep(String optionalRequestedNextStep, String notes) {
+            if (optionalRequestedNextStep==null) {
+                currentStepIndex++;
+                if (currentStepIndex<steps.size()) {
+                    log.debug("Workflow " + workflowInstanceId + " moving to sequential next step " + currentStepIndex + "; " + notes);
+                } else {
+                    log.debug("Workflow " + workflowInstanceId + " completed; " + notes);
+                }
             } else {
-                currentStepId = null;
-                log.debug("Workflow "+workflowInstanceId+" completed; "+notes);
+                if ("start".equals(optionalRequestedNextStep)) {
+                    currentStepIndex = 0;
+                    log.debug("Workflow " + workflowInstanceId + " moving to explicit next step " + currentStepIndex + " for 'start'; " + notes);
+                } else if ("end".equals(optionalRequestedNextStep)) {
+                    currentStepIndex = steps.size();
+                    log.debug("Workflow " + workflowInstanceId + " moving to explicit next step " + currentStepIndex + " for 'end'; " + notes);
+                } else {
+                    Pair<Integer, WorkflowStepDefinition> next = getStepsWithExplicitIdById().get(optionalRequestedNextStep);
+                    if (next==null) {
+                        throw new NoSuchElementException("Step with ID '"+optionalRequestedNextStep+"' not found");
+                    }
+                    currentStepIndex = next.getLeft();
+                    log.debug("Workflow " + workflowInstanceId + " moving to explicit next step " + currentStepIndex + " for id '" + optionalRequestedNextStep + "'; " + notes);
+                }
             }
         }
     }
-
 
 }

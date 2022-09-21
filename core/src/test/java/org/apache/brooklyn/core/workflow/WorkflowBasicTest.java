@@ -49,6 +49,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -108,7 +109,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertInstanceOf(s, NoOpWorkflowStep.class);
 
         // util
-        s = WorkflowStepResolution.resolveStep(mgmt, "s1", input);
+        s = WorkflowStepResolution.resolveStep(mgmt, input);
         Asserts.assertInstanceOf(s, NoOpWorkflowStep.class);
     }
 
@@ -118,7 +119,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         String input = "sleep 1s";
 
         // only util will work for shorthand
-        WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, "s1", input);
+        WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, input);
         Asserts.assertInstanceOf(s, SleepWorkflowStep.class);
         Asserts.assertEquals( Duration.of(s.getInput().get(SleepWorkflowStep.DURATION.getName())), Duration.ONE_SECOND);
     }
@@ -127,15 +128,15 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     public void testWorkflowDefinitionResolution() {
         loadTypes();
 
-        Map<String, Object> input = MutableMap.of(
-                "steps", MutableMap.of(
-                        "step1", MutableMap.of("type", "no-op"),
-                        "step2", MutableMap.of("type", "sleep", "duration", "1s"),
-                        "step3", "sleep 1s",
-                        "step4", "log test message"
-                ));
+        List<Object> stepsDefinition =
+                MutableList.of(
+                        MutableMap.of("type", "no-op"),
+                        MutableMap.of("type", "sleep", "duration", "1s"),
+                        "sleep 1s",
+                        "log test message"
+                );
 
-        Map<String, WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, input);
+        List<WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, stepsDefinition);
         Asserts.assertSize(steps, 4);
     }
 
@@ -146,27 +147,27 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, MutableMap.<String,Object>of()
-                        .add("step1", MutableMap.of("type", "no-op"))
-                        .add("step2", "log test message")
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append(MutableMap.of("type", "no-op"))
+                        .append("log test message")
 
-                        .add("step3", MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"))
-                        .add("step4", "set-sensor integer bar = 1")
+                        .append(MutableMap.of("type", "set-sensor", "sensor", "foo", "value", "bar"))
+                        .append("set-sensor integer bar = 1")
 
-                        .add("step5", "set-config integer foo = 2")
+                        .append("set-config integer foo = 2")
 
-                        .add("step6a", "set-config bad = will be removed")
-                        .add("step6b", "clear-config bad")
+                        .append("set-config bad = will be removed")
+                        .append("clear-config bad")
 
-                        .add("step7a", "set-sensor bad = will be removed")
-                        .add("step7b", "clear-sensor bad")
+                        .append("set-sensor bad = will be removed")
+                        .append("clear-sensor bad")
 
-                        .add("step8a-1", "let integer workflow_var = 3")
-                        .add("step8a-2", WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("workflow_var"), 3 )))
-                        .add("step8b-1", "set-workflow-variable bad = will be removed")
-                        .add("step8b-2", WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("bad"), "will be removed") ))
-                        .add("step8b-3", "clear-workflow-variable bad")
-                        .add("step8b-4", WorkflowTestStep.of( (context) -> Asserts.assertThat(context.getWorkflowExectionContext().getWorkflowScratchVariables(), map -> !map.containsKey("bad")) ))
+                        .append("let integer workflow_var = 3")
+                        .append(WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("workflow_var"), 3 )))
+                        .append("set-workflow-variable bad = will be removed")
+                        .append(WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("bad"), "will be removed") ))
+                        .append("clear-workflow-variable bad")
+                        .append(WorkflowTestStep.of( (context) -> Asserts.assertThat(context.getWorkflowExectionContext().getWorkflowScratchVariables(), map -> !map.containsKey("bad")) ))
                 )
         );
         eff.apply((EntityLocal)app);
@@ -252,9 +253,9 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                .configure(WorkflowEffector.STEPS, MutableMap.of(
-                        "step1", WorkflowTestStep.of( setup::accept ),
-                        "step2", "set-sensor " + (type!=null ? type+" " : "") + "x = " + expression
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        WorkflowTestStep.of( setup::accept ),
+                        "set-sensor " + (type!=null ? type+" " : "") + "x = " + expression
                 ))
         );
         eff.apply((EntityLocal)app);
