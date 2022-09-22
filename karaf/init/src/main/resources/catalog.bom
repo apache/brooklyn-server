@@ -70,4 +70,76 @@ brooklyn.catalog:
     item:
       type: org.apache.brooklyn.tasks.kubectl.ContainerEffector
 
+  # workflow steps
+  - id: log
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.LogWorkflowStep
 
+  - id: sleep
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep
+
+  - id: no-op
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep
+
+  - id: set-config
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SetConfigWorkflowStep
+
+  - id: clear-config
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.ClearConfigWorkflowStep
+
+  - id: set-sensor
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep
+
+  - id: clear-sensor
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.ClearSensorWorkflowStep
+
+  - id: let
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SetVariableWorkflowStep
+
+  - id: set-workflow-variable
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SetVariableWorkflowStep
+
+  - id: clear-workflow-variable
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.ClearVariableWorkflowStep
+
+  - id: workflow
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep
+
+  # workflow initializes
+  - id: workflow-effector
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.WorkflowEffector
