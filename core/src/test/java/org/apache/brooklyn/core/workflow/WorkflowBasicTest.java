@@ -128,12 +128,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         loadTypes();
 
         Map<String, Object> input = MutableMap.of(
-                "steps", MutableMap.of(
-                        "step1", MutableMap.of("type", "no-op"),
-                        "step2", MutableMap.of("type", "sleep", "duration", "1s"),
-                        "step3", "sleep 1s",
-                        "step4", "log test message"
-                ));
+                "step1", MutableMap.of("type", "no-op"),
+                "step2", MutableMap.of("type", "sleep", "duration", "1s"),
+                "step3", "sleep 1s",
+                "step4", "log test message"
+        );
 
         Map<String, WorkflowStepDefinition> steps = WorkflowStepResolution.resolveSteps(mgmt, input);
         Asserts.assertSize(steps, 4);
