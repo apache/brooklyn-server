@@ -264,8 +264,10 @@ public class ConfigKeys {
         public static ConfigKey<?> newInstance(ConfigBag keyDefs) {
             String typeName = Strings.toString(keyDefs.getStringKey("type"));
             if (Strings.isNonBlank(typeName)) {
-                // TODO dynamic typing - see TYPE key commented out above; also see AddSensor.getType for type lookup
-                log.warn("Setting 'type' is not currently supported for dynamic config keys; ignoring in definition of "+keyDefs);
+                // could do dynamic typing - see TYPE key commented out above; also see AddSensor.getType for type lookup
+                // but we don't want that, because the rules for this are subtle (not universal), and
+                // it is implemented on jackson conversion instead, which coercion will do in some cases
+//                log.warn("Setting 'type' is not currently supported for dynamic config keys; ignoring in definition of "+keyDefs);
             }
             
             Class<Object> type = Object.class;

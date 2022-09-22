@@ -24,6 +24,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -31,6 +32,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 
 public abstract class WorkflowStepDefinition {
@@ -49,6 +51,9 @@ public abstract class WorkflowStepDefinition {
     public String getName() {
         return name;
     }
+
+    @JsonIgnore
+    protected String userSuppliedShorthand;
 
     // TODO
 //    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)
@@ -104,12 +109,15 @@ public abstract class WorkflowStepDefinition {
     abstract public void populateFromShorthand(String value);
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
-        context.name = Strings.isNonBlank(this.name) ? this.name : computeTaskName(context);
-        Task<?> t = Tasks.builder().displayName(context.name).body(() -> {
+        context.name = Strings.isNonBlank(this.name) ? this.name : computeName(context, false);
+        if (log.isTraceEnabled()) log.trace("Creating task for "+computeName(context, true)+", input "+input);
+        Task<?> t = Tasks.builder().displayName(computeName(context, true)).body(() -> {
             log.debug("Starting step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
                     + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
                     + " in task "+context.taskId);
-            return doTaskBody(context);
+            Object result = doTaskBody(context);
+            if (log.isTraceEnabled()) log.trace("Completed task for "+computeName(context, true)+", output "+result);
+            return result;
         }).tag(context).build();
         context.taskId = t.getId();
         return t;
@@ -117,32 +125,46 @@ public abstract class WorkflowStepDefinition {
 
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
 
-    protected String computeTaskName(WorkflowStepInstanceExecutionContext context) {
+    protected String computeName(WorkflowStepInstanceExecutionContext context, boolean includeStepNumber) {
         //if (Strings.isNonBlank(context.name)) return context.name;
 
-        String prefix = "" + (context.stepIndex + 1);
-        String result = null;
+        List<String> parts = MutableList.of();
+        if (includeStepNumber) parts.add("" + (context.stepIndex + 1));
 
+        boolean hasId = false;
         if (context.stepDefinitionDeclaredId != null) {
-            String s = result = context.stepDefinitionDeclaredId;
+            hasId = true;
+            String s = context.stepDefinitionDeclaredId;
 
-            boolean idStartsWithPrefix = false;
-            if (s.startsWith(prefix)) {
-                s = Strings.removeFromStart(s, prefix);
+            if (!parts.isEmpty() && s.startsWith(parts.get(0))) {
+                // if step 1 id is `1-foo` then don't prepend "1 - "
+                s = Strings.removeFromStart(s, parts.get(0));
                 if (Strings.isBlank(s) || !Character.isDigit(s.charAt(0))) {
-                    idStartsWithPrefix = true;
+                    // id starts with step number so don't include
+                    parts.remove(0);
                 }
             }
-            if (!idStartsWithPrefix) {
-                result = prefix + " - " + result;
-            }
-        } else {
-            result = prefix;
+            parts.add(context.stepDefinitionDeclaredId);
         }
 
-        if (Strings.isNonBlank(context.name)) result = result + " - " + context.name;
+        if (Strings.isNonBlank(context.name)) {
+            // if there is a name, add that also, removing id if name starts with id
+            String last = parts.isEmpty() ? null : parts.get(parts.size()-1);
+            if (last!=null && context.name.startsWith(last)) {
+                parts.remove(parts.size()-1);
+            }
+            parts.add(context.name);
+        } else if (!hasId) {
+            if (Strings.isNonBlank(userSuppliedShorthand)) {
+                // if there is shorthand, add it only if no name and no id
+                parts.add(userSuppliedShorthand);
+            } else {
+                // name will just be the number. including the type for a bit of visibility.
+                parts.add(getShorthandTypeName());
+            }
+        }
 
-        return result;
+        return Strings.join(parts, " - ");
     }
 
     protected String getShorthandTypeName() {

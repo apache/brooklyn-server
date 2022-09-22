@@ -58,11 +58,12 @@ public class WorkflowStepResolution {
         BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
         String shorthand = null;
 
+        Map defM = null;
         if (def instanceof String) {
             shorthand = (String) def;
-            def = MutableMap.of();
+            defM = MutableMap.of();
         } else if (def instanceof Map) {
-            Map defM = (Map)def;
+            defM = MutableMap.copyOf((Map)def);
             if (!defM.containsKey("type")) {
                 // if there isn't a type, pull out shorthand
                 Object s = defM.remove("shorthand");
@@ -78,7 +79,6 @@ public class WorkflowStepResolution {
         }
 
         if (shorthand!=null) {
-            Map defM = (Map)def;
             shorthand = shorthand.trim();
             int wordBreak = shorthand.indexOf(" ");
             if (defM.containsKey("type")) throw new IllegalStateException("Must not supply 'type' when shorthand is used for step");
@@ -91,10 +91,10 @@ public class WorkflowStepResolution {
             }
         }
 
-        String typeBestGuess = def instanceof Map ? ""+((Map)def).get("type") : null;
+        String typeBestGuess = defM != null ? ""+defM.get("type") : null;
 
         try {
-            Object def0 = def;
+            Object def0 = defM !=null ? defM : def;
             def = BeanWithTypeUtils.convert(mgmt, def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
 
             if (def instanceof WorkflowStepDefinition.SpecialWorkflowStepDefinition) {
@@ -103,11 +103,13 @@ public class WorkflowStepResolution {
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Unable to resolve step '"+def+"'", e);
         }
+
         if (def instanceof WorkflowStepDefinition) {
             WorkflowStepDefinition defW = (WorkflowStepDefinition) def;
 
             if (shorthand!=null) {
                 defW.populateFromShorthand(shorthand);
+                defW.userSuppliedShorthand = shorthand;
             }
             defW.validateStep();
             return defW;
@@ -120,8 +122,8 @@ public class WorkflowStepResolution {
         List<Object> steps = params.get(WorkflowCommonConfig.STEPS);
         if (steps==null || steps.isEmpty()) throw new IllegalArgumentException("It is required to supply 'steps' to define a workflow effector");
 
-        Object condition = params.containsKey(WorkflowCommonConfig.CONDITION.getName());
-        if (condition==null && entityOrAdjunctWhereRunningIfKnown!=null) {
+        boolean hasCondition = params.containsKey(WorkflowCommonConfig.CONDITION.getName());
+        if (!hasCondition && entityOrAdjunctWhereRunningIfKnown!=null) {
             // ideally try to resolve the steps at entity init time; except if a condition is required we skip that so you can have steps that only resolve late,
             // and if entity isn't available then we don't need that either
             WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunningIfKnown).getManagementContext(), steps);

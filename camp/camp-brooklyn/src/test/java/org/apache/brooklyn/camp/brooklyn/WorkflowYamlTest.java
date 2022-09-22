@@ -36,7 +36,9 @@ import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -217,4 +219,73 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         doTestWorkflowCondition("let", "${color}", "target: ${color}");
     }
 
+    @Test
+    public void testEffectorToSetColorSensorConditionally() throws Exception {
+        // Declare workflow in a blueprint, add various log steps.
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      parameters:\n" +
+                "        color:\n" +
+                "          type: string\n" +
+                "          description: What color do you want to set?\n" +
+                "\n" +
+                "      steps:\n" +
+                "        - let old_color = unset\n" +
+                "        - s: let old_color = ${entity.sensor.color}\n" +
+                "          condition:\n" +
+                "            sensor: color\n" +
+                "            when: present_non_null\n" +
+                "        - log changing color sensor from ${old_color} to ${color}\n" +
+                "        - set-sensor color = ${color}\n" +
+                "        - s: set-sensor color_is_red = true\n" +
+                "          condition:\n" +
+                "            sensor: color\n" +
+                "            equals: red\n" +
+                "          next: end\n" +
+                "        - set-sensor color_is_red = false");
+
+        // TODO wait or not on sensors.  block command?
+        // TODO shorthand syntax from strings
+        // TODO old_value output
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+
+        entity.invoke(effector, MutableMap.of("color", "red")).get();
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("color"), "red");
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("color_is_red"), "true");
+
+        entity.invoke(effector, MutableMap.of("color", "blue")).get();
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("color"), "blue");
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("color_is_red"), "false");
+
+        entity.invoke(effector, MutableMap.of("color", "red")).get();
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("color"), "red");
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newStringSensor("color_is_red"), "true");
+
+    }
+
+    @Test
+    public void testInvalidStepsFailDeployment() throws Exception {
+        try {
+            createAndStartApplication(
+                    "services:",
+                    "- type: " + BasicEntity.class.getName(),
+                    "  brooklyn.initializers:",
+                    "  - type: workflow-effector",
+                    "    brooklyn.config:",
+                    "      name: myWorkflow",
+                            "      steps:\n" +
+                            "        - unsupported-type"
+            );
+            Asserts.shouldHaveFailedPreviously();
+        } catch (Exception e) {
+            Asserts.expectedFailureContainsIgnoreCase(e, "resolve step", "unsupported-type");
+        }
+    }
 }
