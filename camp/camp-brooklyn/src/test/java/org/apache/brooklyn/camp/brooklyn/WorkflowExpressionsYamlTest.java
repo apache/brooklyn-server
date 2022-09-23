@@ -176,13 +176,12 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         }
     }
 
-    // TODO planned
-//    @Test
-//    public void testWorkflowExpressionWaitResolvesAfterDelay() throws Exception {
-//        try (AutoCloseableThread t = new AutoCloseableThread(() -> { Time.sleep(Duration.millis(200*Math.random())); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-//            Object x = invokeWorkflowStepsWithLogging("- wait ${entity.sensor.foo}");
-//            Asserts.assertEquals(x, "bar");
-//        }
-//    }
+    @Test
+    public void testWorkflowExpressionWaitResolvesAfterDelay() throws Exception {
+        try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.millis(200*Math.random())); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
+            Object x = invokeWorkflowStepsWithLogging("- wait ${entity.attributeWhenReady.foo}");
+            Asserts.assertEquals(x, "bar");
+        }
+    }
 
 }

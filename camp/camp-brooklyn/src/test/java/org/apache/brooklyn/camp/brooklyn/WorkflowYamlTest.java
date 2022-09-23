@@ -261,7 +261,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "          next: end\n" +
                 "        - set-sensor color_is_red = false");
 
-        // TODO wait command?
         // TODO old_value output
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
