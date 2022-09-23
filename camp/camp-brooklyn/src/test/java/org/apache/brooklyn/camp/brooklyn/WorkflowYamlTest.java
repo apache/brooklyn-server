@@ -242,15 +242,15 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "\n" +
                 "      steps:\n" +
 //                "        - let old_color = ${(entity.sensor.color)! \"unset\"}\n" +
-                        // TODO above does not work. but we could allow the below:
-//                "        - let old_color = ${entity.sensor.color} ?? \"unset\"\n" +
+                        // above does not work. but the below is recommended
+                "        - let old_color = ${entity.sensor.color} ?? \"unset\"\n" +
 
-                        // for now this is the pattern if sensor might not be available
-                "        - let old_color = unset\n" +
-                "        - s: let old_color = ${entity.sensor.color}\n" +
-                "          condition:\n" +
-                "            sensor: color\n" +
-                "            when: present_non_null\n" +
+                        // alternative (supported) if not using nullish operator
+//                "        - let old_color = unset\n" +
+//                "        - s: let old_color = ${entity.sensor.color}\n" +
+//                "          condition:\n" +
+//                "            sensor: color\n" +
+//                "            when: present_non_null\n" +
 
                 "        - log changing color sensor from ${old_color} to ${color}\n" +
                 "        - set-sensor color = ${color}\n" +
@@ -262,7 +262,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "        - set-sensor color_is_red = false");
 
         // TODO wait or not on sensors.  block command?
-        // TODO shorthand syntax from strings
         // TODO old_value output
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());

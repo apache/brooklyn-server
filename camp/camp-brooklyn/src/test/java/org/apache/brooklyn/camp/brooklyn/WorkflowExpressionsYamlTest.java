@@ -160,11 +160,11 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
             Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${entity.sensor.foo} ?? unset");
 
-            // TODO we should process this
-//            Asserts.assertEquals(expressionUnderTest.call(), "unset");
+            Asserts.assertEquals(expressionUnderTest.call(), "unset");
 
-            Asserts.assertFailsWith(expressionUnderTest,
-                    e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.sensor.foo", "Error resolving attribute", "BasicEntity"));
+            // old behaviour; above is now better
+//            Asserts.assertFailsWith(expressionUnderTest,
+//                    e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.sensor.foo", "Error resolving attribute", "BasicEntity"));
         }
     }
 

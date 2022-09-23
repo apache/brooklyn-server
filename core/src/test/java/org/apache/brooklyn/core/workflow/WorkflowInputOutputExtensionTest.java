@@ -226,4 +226,12 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(output, MutableMap.of("x", 1));
     }
 
+    @Test
+    public void testLetNullishRhsThenLhs() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let integer x = ${x} ?? 1",
+                "let x = ${x} ?? 2"));
+        Asserts.assertEquals(output, 1);
+    }
+
 }

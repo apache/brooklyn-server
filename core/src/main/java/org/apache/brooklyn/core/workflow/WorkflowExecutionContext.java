@@ -210,6 +210,10 @@ public class WorkflowExecutionContext {
         return new WorkflowExpressionResolution(this, false, false).resolveWithTemplates(expression, type);
     }
 
+    public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, false, false).resolveCoercingOnly(expression, type);
+    }
+
     /** as {@link #resolve(Object, TypeToken)}, but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
      * this is needed e.g. for conditions which treat dynamic expressions differently to explicit values) */
     public <T> T resolveWrapped(Object expression, TypeToken<T> type) {

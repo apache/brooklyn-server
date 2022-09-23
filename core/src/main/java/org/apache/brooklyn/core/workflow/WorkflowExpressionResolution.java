@@ -187,9 +187,14 @@ public class WorkflowExpressionResolution {
 
     public <T> T resolveWithTemplates(Object expression, TypeToken<T> type) {
         expression = processTemplateExpression(expression);
+        return resolveCoercingOnly(expression, type);
+    }
+
+    /** does not use templates */
+    public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
         try {
             // try yaml coercion, as values are normally set from yaml and will be raw at this stage
-            return BeanWithTypeUtils.convert(((EntityInternal)this.context.getEntity()).getManagementContext(), expression, type, true,
+            return BeanWithTypeUtils.convert(((EntityInternal) this.context.getEntity()).getManagementContext(), expression, type, true,
                     RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -218,7 +223,7 @@ public class WorkflowExpressionResolution {
 
         if (!allowWaiting) Thread.currentThread().interrupt();
         try {
-            result = TemplateProcessor.processTemplateContents(expression, model, true);
+            result = TemplateProcessor.processTemplateContents(expression, model, true, false);
         } catch (Exception e) {
             if (!allowWaiting && Exceptions.isRootCauseIsInterruption(e)) {
                 throw new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);

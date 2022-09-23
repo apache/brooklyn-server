@@ -66,6 +66,12 @@ public class TemplateProcessor {
 
     private static final Logger log = LoggerFactory.getLogger(TemplateProcessor.class);
 
+    static {
+        if (System.getProperty(freemarker.log.Logger.SYSTEM_PROPERTY_NAME_LOGGER_LIBRARY)==null) {
+            System.setProperty(freemarker.log.Logger.SYSTEM_PROPERTY_NAME_LOGGER_LIBRARY, freemarker.log.Logger.LIBRARY_NAME_SLF4J);
+        }
+    }
+
     static BrooklynFreemarkerUnwrappableObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerUnwrappableObjectWrapper();
 
     static ThreadLocal<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocal<>();
@@ -704,12 +710,14 @@ public class TemplateProcessor {
 
     /** Processes template contents against the given {@link TemplateHashModel}. */
     public static String processTemplateContents(String templateContents, final TemplateHashModel substitutions) {
-        return (String) processTemplateContents(templateContents, substitutions, false);
+        return (String) processTemplateContents(templateContents, substitutions, false, true);
     }
 
-    public static Object processTemplateContents(String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject) {
+    public static Object processTemplateContents(String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors) {
         try {
-            Configuration cfg = new Configuration();
+            Configuration cfg = new Configuration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
+            cfg.setLogTemplateExceptions(logErrors);
+
             StringTemplateLoader templateLoader = new StringTemplateLoader();
             templateLoader.putTemplate("config", templateContents);
             cfg.setTemplateLoader(templateLoader);
@@ -734,8 +742,10 @@ public class TemplateProcessor {
                     if (model.isPresent()) {
                         if (model.get() instanceof TemplateModel) {
                             return BROOKLYN_WRAPPER.unwrapMaybe((TemplateModel) model.get()).get();
+                        } else if (model.get()==null) {
+                            // key not found, fall through to below for proper error handling
                         } else {
-                            log.warn("Unable to find model in local cache for unwrapping: " + model);
+                            log.warn("Unable to find model in local cache for unwrapping: " + model.get());
                         }
                     } else {
                         log.warn("Unable to access FreeMarker internals to resolve " + templateContents + "; will cast argument as string");
@@ -753,13 +763,15 @@ public class TemplateProcessor {
 
             return new String(baos.toByteArray());
         } catch (Exception e) {
-            if (e instanceof RuntimeInterruptedException) {
-                log.warn("Template not currently resolvable: " + Exceptions.collapseText(e));
-            } else {
-                log.warn("Error processing template (propagating): " + Exceptions.collapseText(e), e);
+            if (logErrors) {
+                if (e instanceof RuntimeInterruptedException) {
+                    log.warn("Template not currently resolvable: " + Exceptions.collapseText(e));
+                } else {
+                    log.warn("Error processing template (propagating): " + Exceptions.collapseText(e), e);
+                }
+                log.debug("Template which could not be parsed (causing " + e + ") is:"
+                        + (Strings.isMultiLine(templateContents) ? "\n" + templateContents : templateContents));
             }
-            log.debug("Template which could not be parsed (causing "+e+") is:"
-                    + (Strings.isMultiLine(templateContents) ? "\n"+templateContents : templateContents));
             throw Exceptions.propagate(e);
         }
     }
