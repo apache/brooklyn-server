@@ -54,7 +54,7 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         Entity entity = sensor.entity;
         if (entity==null) entity = context.getEntity();
         entity.sensors().set( (AttributeSensor<Object>) Sensors.newSensor(type, sensorName), resolvedValue);
-        return resolvedValue;
+        return context.getPreviousStepOutput();
     }
 
 }

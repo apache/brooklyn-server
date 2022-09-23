@@ -261,8 +261,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "          next: end\n" +
                 "        - set-sensor color_is_red = false");
 
-        // TODO old_value output
-
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
 

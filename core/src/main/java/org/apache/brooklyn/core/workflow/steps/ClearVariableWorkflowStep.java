@@ -41,7 +41,8 @@ public class ClearVariableWorkflowStep extends WorkflowStepDefinition {
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
         String name = context.resolve(variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-        return context.getWorkflowExectionContext().getWorkflowScratchVariables().remove(name);
+        context.getWorkflowExectionContext().getWorkflowScratchVariables().remove(name);
+        return context.getPreviousStepOutput();
     }
 
 }

@@ -48,9 +48,8 @@ public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
         Entity entity = config.entity;
         if (entity==null) entity = context.getEntity();
-        Object oldValue = entity.config().get(ConfigKeys.newConfigKey(Object.class, configName));
         ((EntityInternal)entity).config().removeKey(ConfigKeys.newConfigKey(Object.class, configName));
-        return oldValue;
+        return context.getPreviousStepOutput();
     }
 
 }

@@ -127,7 +127,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
 
     @Test
     public void testWorkflowExpressionSensor() throws Exception {
-        createEntityWithWorkflowEffector("- let x = ${entity.sensor.foo}");
+        createEntityWithWorkflowEffector("- s: let x = ${entity.sensor.foo}", "  output: \"${x}\"");
         lastEntity.sensors().set(Sensors.newStringSensor("foo"), "bar");
         Object x = invokeWorkflowStepsWithLogging();
         Asserts.assertEquals(x, "bar");
@@ -135,7 +135,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
 
     @Test
     public void testWorkflowExpressionSensorBlank() throws Exception {
-        createEntityWithWorkflowEffector("- let x = ${entity.sensor.foo}");
+        createEntityWithWorkflowEffector("- s: let x = ${entity.sensor.foo}", "  output: \"${x}\"");
         lastEntity.sensors().set(Sensors.newStringSensor("foo"), "");
         Object x = invokeWorkflowStepsWithLogging();
         Asserts.assertEquals(x, "");
@@ -144,7 +144,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowExpressionSensorUnavailable() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging("- let x = ${entity.attributeWhenReady.foo}"),
+            Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging("- s: let x = ${entity.attributeWhenReady.foo}", "  output: \"${x}\""),
                     e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.attributeWhenReady.foo", "Error resolving attribute", "BasicEntity"));
         }
     }
@@ -152,7 +152,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowExpressionSensor_FreemarkerDoesNotCatchExceptions() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${(entity.attributeWhenReady.foo)!\"unset\"}");
+            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- s: let x = ${(entity.attributeWhenReady.foo)!\"unset\"}", "  output: \"${x}\"");
 
 //            Asserts.assertEquals(expressionUnderTest.call(), "unset");
 
@@ -166,7 +166,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowExpressionSensor_LetDoesCatchExceptionsWithNullish() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${entity.attributeWhenReady.foo} ?? unset");
+            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- s: let x = ${entity.attributeWhenReady.foo} ?? unset", "  output: \"${x}\"");
 
             Asserts.assertEquals(expressionUnderTest.call(), "unset");
 

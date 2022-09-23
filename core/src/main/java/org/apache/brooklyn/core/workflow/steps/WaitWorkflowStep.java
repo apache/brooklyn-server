@@ -89,9 +89,10 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
 
         if (name!=null) {
             context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+            return context.getPreviousStepOutput();
+        } else {
+            return resolvedValue;
         }
-
-        return resolvedValue;
     }
 
     public static class SetVariableEvaluation<T> {

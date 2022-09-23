@@ -67,7 +67,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 
         Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
         Object result = invocation.getUnchecked();
-        Asserts.assertEquals(result, "p1v");
+        Asserts.assertNull(result);
 
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "p1"), "p1v");
     }
@@ -78,6 +78,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
             List<Object> step = cfg.get(WorkflowEffector.STEPS);
             step.add("let map result = { c: ${c}, d: ${d}, e: ${e} }");
             cfg.put(WorkflowEffector.STEPS, step);
+            cfg.put(WorkflowEffector.OUTPUT, "${result}");
         });
     }
 
@@ -94,7 +95,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         ConfigBag cfg = ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append(MutableMap.of("s", "let map v = { x: { y: a }, z: b }", "id", "s1"))
+                        .append(MutableMap.of("s", "let map v = { x: { y: a }, z: b }", "id", "s1", "output", "${v}"))
                         .append("let c = ${x.y}")  // reference output of previous step
                         .append("let d = ${v.z}")  // reference workflow var
                         .append("let e = ${workflow.step.s1.output.z}")  // reference explicit output step
@@ -222,7 +223,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     public void testMapOutputAsComplexFreemarkerVar() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map my_map = { x: 1 }",
-                "let my_map_copy = ${my_map}"));
+                MutableMap.of("s", "let my_map_copy = ${my_map}", "output", "${my_map_copy}")));
         Asserts.assertEquals(output, MutableMap.of("x", 1));
     }
 
@@ -230,7 +231,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     public void testLetNullishRhsThenLhs() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let integer x = ${x} ?? 1",
-                "let x = ${x} ?? 2"));
+                MutableMap.of("s", "let x = ${x} ?? 2", "output", "${x}")));
         Asserts.assertEquals(output, 1);
     }
 
@@ -239,7 +240,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let double x = 99 / 0 ?? ${x} ?? 4 * 4 - 5 * 3",
                 "let integer x = ${x} * 8 / 2.0",
-                "let x = ${x} / 5"));
+                MutableMap.of("s", "let x = ${x} / 5", "output", "${x}")));
         Asserts.assertEquals(output, 0.8);
     }
 

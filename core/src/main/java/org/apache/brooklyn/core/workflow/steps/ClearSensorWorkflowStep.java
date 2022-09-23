@@ -51,9 +51,8 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
         TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
         Entity entity = sensor.entity;
         if (entity==null) entity = context.getEntity();
-        Object oldValue = entity.sensors().get(Sensors.newSensor(Object.class, sensorName));
         ((EntityInternal)entity).sensors().remove(Sensors.newSensor(Object.class, sensorName));
-        return oldValue;
+        return context.getPreviousStepOutput();
     }
 
 }

@@ -52,7 +52,7 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
         Entity entity = config.entity;
         if (entity==null) entity = context.getEntity();
         entity.config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
-        return resolvedValue;
+        return context.getPreviousStepOutput();
     }
 
 }
