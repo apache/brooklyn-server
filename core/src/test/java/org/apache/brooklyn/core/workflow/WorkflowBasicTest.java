@@ -164,7 +164,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                         .append("set-sensor bad = will be removed")
                         .append("clear-sensor bad")
 
-                        .append("let integer workflow_var = 3")
+                        .append("let integer workflow_var = \"3\"")   // strings should be stripped
                         .append(WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("workflow_var"), 3 )))
                         .append("set-workflow-variable bad = will be removed")
                         .append(WorkflowTestStep.of( (context) -> Asserts.assertEquals(context.getWorkflowExectionContext().getWorkflowScratchVariables().get("bad"), "will be removed") ))

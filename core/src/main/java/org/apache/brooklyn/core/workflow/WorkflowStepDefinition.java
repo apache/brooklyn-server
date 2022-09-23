@@ -24,10 +24,12 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -107,6 +109,13 @@ public abstract class WorkflowStepDefinition {
 
     /** note, this should _not_ have the type string first, whereas in YAML the shorthand must have the type string first */
     abstract public void populateFromShorthand(String value);
+
+    protected void populateFromShorthandTemplate(String template, String value) {
+        Maybe<Map<String, Object>> result = new ShorthandProcessor(template).process(value);
+        if (result.isAbsent()) throw new IllegalArgumentException("Invalid shorthand expression: '"+value+"'", Maybe.Absent.getException(result));
+
+        input.putAll((Map) CollectionMerger.builder().build().merge(input, result.get()));
+    }
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
         context.name = Strings.isNonBlank(this.name) ? this.name : computeName(context, false);

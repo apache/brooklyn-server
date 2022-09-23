@@ -73,7 +73,7 @@ public class ShorthandProcessor {
         }
 
         private QuotedStringTokenizer qst(String x) {
-            return QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).keepInternalQuotes(true).build(x);
+            return QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).keepInternalQuotes(true).failOnOpenQuote(true).build(x);
         }
 
         public synchronized Maybe<Map<String,Object>> call() {
@@ -178,25 +178,27 @@ public class ShorthandProcessor {
 
                     t = t.substring(2, t.length()-1);
                     String value;
+
+                    inputRemaining = inputRemaining.trim();
+                    QuotedStringTokenizer qstInput = qst(inputRemaining);
+                    if (!qstInput.hasMoreTokens()) return Maybe.absent("End of input when looking for variable "+t);
+
                     if (templateTokens.isEmpty()) {
                         // last word takes everything, but trimmed parsed and joined with spaces
-                        value = Strings.join(qst(inputRemaining).remainderAsList().stream().map(qst::unwrapIfQuoted).collect(Collectors.toList()), " ");
+                        value = Strings.join(qstInput.remainderAsList().stream().map(qstInput::unwrapIfQuoted).collect(Collectors.toList()), " ");
                         inputRemaining = "";
 
                     } else {
-                        inputRemaining = inputRemaining.trim();
-                        QuotedStringTokenizer qst = qst(inputRemaining);
-                        if (!qst.hasMoreTokens()) return Maybe.absent("End of input when looking for variable "+t);
-                        String v = qst.nextToken();
-                        if (qst.isQuoted(v)) {
+                        String v = qstInput.nextToken();
+                        if (qstInput.isQuoted(v)) {
                             // input was quoted, eg "\"foo=b\" ..." -- ignore the = in "foo=b"
-                            value = qst.unwrapIfQuoted(v);
+                            value = qstInput.unwrapIfQuoted(v);
                             inputRemaining = inputRemaining.substring(v.length());
                         } else {
                             // input not quoted, if next template token is literal, look for it
                             String nextLiteral = templateTokens.get(0);
-                            if (qst.isQuoted(nextLiteral)) {
-                                nextLiteral = qst.unwrapIfQuoted(nextLiteral);
+                            if (qstInput.isQuoted(nextLiteral)) {
+                                nextLiteral = qstInput.unwrapIfQuoted(nextLiteral);
                                 int nli = v.indexOf(nextLiteral);
                                 if (nli>0) {
                                     // literal found in unquoted string, eg "foo=bar" when literal is =

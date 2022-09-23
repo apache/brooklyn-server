@@ -31,12 +31,14 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class SetConfigWorkflowStep extends WorkflowStepDefinition {
 
-    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
+    public static final String SHORTHAND = "[ ${config.type} ] ${config.name} \"=\" ${value}";
+
+    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "config");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
     public void populateFromShorthand(String expression) {
-        setInput(CONFIG, EntityValueToSet.parseFromShorthand(expression, v -> setInput(VALUE, v)));
+        populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
     @Override

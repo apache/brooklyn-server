@@ -70,15 +70,15 @@ public class QuotedStringTokenizerTest {
 
     @Test
     public void testTokenizingKeepingInternalQuotes() throws Exception {
-        testResultingTokens("foo,bar,baz", "\"", false, ",", false, true, "foo", "bar", "baz");
-        testResultingTokens("\"foo,bar\",baz", "\"", false, ",", false, true, "foo,bar", "baz");
-        testResultingTokens("\"foo,,bar\",baz", "\"", false, ",", false, true, "foo,,bar", "baz");
-        testResultingTokens("\"foo,',bar\",baz", "\"", false, ",", false, true, "foo,',bar", "baz");
-        testResultingTokens("\"foo,\',bar\",baz", "\"", false, ",", false, true, "foo,',bar", "baz");
-        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ",", false, true, "foo \"\"bar\"\" baz");
-        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ", ", false, true, "foo", "\"bar\"", "baz");
-        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ",", false, true, "foo \"\"bar\"\" baz");
-        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ", ", false, true, "foo \"\"bar\"", "baz\"");
+        testResultingTokens("foo,bar,baz", "\"", false, ",", false, true, true, "foo", "bar", "baz");
+        testResultingTokens("\"foo,bar\",baz", "\"", false, ",", false, true, true, "foo,bar", "baz");
+        testResultingTokens("\"foo,,bar\",baz", "\"", false, ",", false, true, true, "foo,,bar", "baz");
+        testResultingTokens("\"foo,',bar\",baz", "\"", false, ",", false, true, true, "foo,',bar", "baz");
+        testResultingTokens("\"foo,\',bar\",baz", "\"", false, ",", false, true, true, "foo,',bar", "baz");
+        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ",", false, true, true, "foo \"\"bar\"\" baz");
+        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ", ", false, true, true, "foo", "\"bar\"", "baz");
+        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ",", false, true, true, "foo \"\"bar\"\" baz");
+        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ", ", false, true, true, "foo \"\"bar\"", "baz\"");
     }
 
     @Test
@@ -129,10 +129,10 @@ public class QuotedStringTokenizerTest {
     }
 
     private void testResultingTokens(String input, String quoteChars, boolean includeQuotes, String delimiterChars, boolean includeDelimiters, String... expectedTokens) {
-        testResultingTokens(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters, false, expectedTokens);
+        testResultingTokens(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters, false, false, expectedTokens);
     }
-    private void testResultingTokens(String input, String quoteChars, boolean includeQuotes, String delimiterChars, boolean includeDelimiters, boolean keepInternalQuotes, String... expectedTokens) {
-        QuotedStringTokenizer tok = new QuotedStringTokenizer(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes);
+    private void testResultingTokens(String input, String quoteChars, boolean includeQuotes, String delimiterChars, boolean includeDelimiters, boolean keepInternalQuotes, boolean failOnOpenQuote, String... expectedTokens) {
+        QuotedStringTokenizer tok = new QuotedStringTokenizer(input, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes, failOnOpenQuote);
         testResultingTokens(input, tok, expectedTokens);
     }
 

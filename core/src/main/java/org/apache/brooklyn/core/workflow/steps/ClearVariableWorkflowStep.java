@@ -18,22 +18,21 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 
 public class ClearVariableWorkflowStep extends WorkflowStepDefinition {
 
-    public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "sensor");
+    public static final String SHORTHAND = "[ ${variable.type} ] ${variable.name}";
+
+    public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
 
     @Override
     public void populateFromShorthand(String expression) {
-        setInput(VARIABLE, TypedValueToSet.parseFromShorthand(expression, null));
+        populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
     @Override

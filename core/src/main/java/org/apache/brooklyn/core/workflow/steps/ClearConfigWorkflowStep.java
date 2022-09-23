@@ -30,11 +30,13 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
 
-    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
+    public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "config");
+
+    public static final String SHORTHAND = "[ ${config.type} ] ${config.name}";
 
     @Override
     public void populateFromShorthand(String expression) {
-        setInput(CONFIG, EntityValueToSet.parseFromShorthand(expression, null));
+        populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
     @Override

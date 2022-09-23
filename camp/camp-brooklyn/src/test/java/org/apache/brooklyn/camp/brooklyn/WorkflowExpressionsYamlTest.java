@@ -144,7 +144,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowExpressionSensor_FreemarkerDoesNotCatchExceptions() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${(entity.sensor.foo)! \"unset\"}");
+            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${(entity.sensor.foo)!\"unset\"}");
 
 //            Asserts.assertEquals(expressionUnderTest.call(), "unset");
 

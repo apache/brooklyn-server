@@ -39,7 +39,8 @@ public class QuotedStringTokenizer {
     final boolean includeQuotes;
     final String delimiters;
     final boolean includeDelimiters;
-    private final boolean keepInternalQuotes;
+    final boolean keepInternalQuotes;
+    final boolean failOnOpenQuote;
 
     public static String DEFAULT_QUOTE_CHARS = "\"\'";
 
@@ -66,15 +67,16 @@ public class QuotedStringTokenizer {
     }
 
     public QuotedStringTokenizer(String stringToTokenize, String quoteChars, boolean includeQuotes, String delimiters, boolean includeDelimiters) {
-        this(stringToTokenize, quoteChars, includeQuotes, delimiters, includeDelimiters, false);
+        this(stringToTokenize, quoteChars, includeQuotes, delimiters, includeDelimiters, false, false);
     }
-    public QuotedStringTokenizer(String stringToTokenize, String quoteChars, boolean includeQuotes, String delimiters, boolean includeDelimiters, boolean keepInternalQuotes) {
+    public QuotedStringTokenizer(String stringToTokenize, String quoteChars, boolean includeQuotes, String delimiters, boolean includeDelimiters, boolean keepInternalQuotes, boolean failOnOpenQuote) {
         delegate = new StringTokenizer(stringToTokenize==null ? "" : stringToTokenize, (delimiters==null ? DEFAULT_DELIMITERS : delimiters), true);
         this.quoteChars = quoteChars==null ? DEFAULT_QUOTE_CHARS() : quoteChars;
         this.includeQuotes = includeQuotes;
         this.delimiters = delimiters==null ? DEFAULT_DELIMITERS : delimiters;
         this.includeDelimiters = includeDelimiters;
         this.keepInternalQuotes = keepInternalQuotes;
+        this.failOnOpenQuote = failOnOpenQuote;
         updateNextToken();
     }
     
@@ -84,12 +86,13 @@ public class QuotedStringTokenizer {
         private String delimiterChars=DEFAULT_DELIMITERS;
         private boolean includeDelimiters=false;
         private boolean keepInternalQuotes=false;
+        private boolean failOnOpenQuote=false;
 
         public QuotedStringTokenizer build(String stringToTokenize) {
-            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters);
+            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes, failOnOpenQuote);
         }
         public List<String> buildList(String stringToTokenize) {
-            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters).remainderAsList();
+            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes, failOnOpenQuote).remainderAsList();
         }
         
         public Builder quoteChars(String quoteChars) { this.quoteChars = quoteChars; return this; }
@@ -99,6 +102,7 @@ public class QuotedStringTokenizer {
         public Builder addDelimiterChars(String delimiterChars) { this.delimiterChars = this.delimiterChars + delimiterChars; return this; }
         public Builder includeDelimiters(boolean includeDelimiters) { this.includeDelimiters = includeDelimiters; return this; } 
         public Builder keepInternalQuotes(boolean keepInternalQuotes) { this.keepInternalQuotes = keepInternalQuotes; return this; }
+        public Builder failOnOpenQuote(boolean failOnOpenQuote) { this.failOnOpenQuote = failOnOpenQuote; return this; }
     }
     public static Builder builder() {
         return new Builder();
@@ -197,7 +201,7 @@ public class QuotedStringTokenizer {
             token = token.substring(1, token.length()-1);
             // now unescape
             int i = 0;
-            while ((i = token.indexOf('\\', i))>0) {
+            while ((i = token.indexOf('\\', i))>=0) {
                 if (token.length() > i + 1) {
                     token = token.substring(0, i) + unescapeChar(token.charAt(i + 1)) + token.substring(i + 2);
                 }
@@ -275,6 +279,9 @@ public class QuotedStringTokenizer {
         while (isOpenQuote(nextToken.toString()) && delegate.hasMoreTokens()) {
             //keep appending until the quote is ended or there are no more quotes
             nextToken.append(delegate.nextToken());
+        }
+        if (failOnOpenQuote && isOpenQuote(nextToken.toString())) {
+            throw new IllegalArgumentException("Mismatched quotation marks in expression");
         }
     }
 

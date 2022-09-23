@@ -56,12 +56,33 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         assertShorthandOfGives("${x} \"is\" ${y}", "this is b c", MutableMap.of("x", "th", "y", "is b c"));
         assertShorthandOfGives("${x} \"is\" ${y}", "\"this\" is b c", MutableMap.of("x", "this", "y", "b c"));
         assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is c", MutableMap.of("x", "this is b", "y", "c"));
+
+        // quotes with spaces before/after removed
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is c is \"is quoted\"", MutableMap.of("x", "this is b", "y", "c is is quoted"));
+        // if you want quotes, you have to wrap them in quotes
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is is quoted\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is is quoted\""));
+        // and only quotes at word end are considered, per below
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted\"\""));
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"  too", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted\"\" too"));
+
+        // preserve spaces in a word
+        assertShorthandOfGives("${x}", "\"  sp a  ces \"", MutableMap.of("x", "  sp a  ces "));
+        assertShorthandOfGives("${x}", "\"  sp a  ces \"  and  then  some", MutableMap.of("x", "  sp a  ces  and then some"));
+
+        // if you want quotes, you have to wrap them in quotes
+        assertShorthandOfGives("${x}", "\"\\\"c is is quoted\\\"\"", MutableMap.of("x", "\"c is is quoted\""));
+        // a close quote must come at a word end to be considered
+        // so this gives an error
+        assertShorthandFailsWith("${x}", "\"c is  \"is", e -> Asserts.expectedFailureContainsIgnoreCase(e, "mismatched", "quot"));
+        // and this is treated as one quoted string
+        assertShorthandOfGives("${x}", "\"\\\"c  is \"is  quoted\"\\\"\"", MutableMap.of("x", "\"c  is \"is  quoted\"\""));
     }
 
     @Test
-    public void testShorthandOptional() {
+    public void testShorthandWithOptionalPart() {
         assertShorthandOfGives("[\"hello\"] ${x}", "hello world", MutableMap.of("x", "world"));
         assertShorthandOfGives("[\"hello\"] ${x}", "hi world", MutableMap.of("x", "hi world"));
+        assertShorthandOfGives("[${type}] ${key}", "x", MutableMap.of("key", "x"));
         assertShorthandOfGives("[${type}] ${key} \"=\" ${value}", "x = 1", MutableMap.of("key", "x", "value", "1"));
         assertShorthandOfGives("[${type}] ${key} \"=\" ${value}", "x=1", MutableMap.of("key", "x", "value", "1"));
         assertShorthandOfGives("[${type}] ${key} \"=\" ${value}", "integer x=1", MutableMap.of("type", "integer", "key", "x", "value", "1"));

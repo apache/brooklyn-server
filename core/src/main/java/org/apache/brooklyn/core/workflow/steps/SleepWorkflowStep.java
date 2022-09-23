@@ -30,11 +30,13 @@ import org.apache.brooklyn.util.time.Time;
 
 public class SleepWorkflowStep extends WorkflowStepDefinition {
 
+    public static final String SHORTHAND = "${duration}";
+
     public static final ConfigKey<Duration> DURATION = ConfigKeys.newConfigKey(Duration.class, "duration");
 
     @Override
     public void populateFromShorthand(String value) {
-        setInput(DURATION.getName(), value);
+        populateFromShorthandTemplate(SHORTHAND, value);
     }
 
     @Override

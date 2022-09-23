@@ -18,11 +18,8 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 
 public class NoOpWorkflowStep extends WorkflowStepDefinition {

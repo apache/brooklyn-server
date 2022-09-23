@@ -33,12 +33,14 @@ import org.apache.brooklyn.util.text.Strings;
 
 public class SetSensorWorkflowStep extends WorkflowStepDefinition {
 
+    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} \"=\" ${value}";
+
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
     public void populateFromShorthand(String expression) {
-        setInput(SENSOR, EntityValueToSet.parseFromShorthand(expression, v -> setInput(VALUE, v)));
+        populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
     @Override

@@ -45,7 +45,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     public void populateFromShorthand(String value) {
         if (shorthand==null) throw new IllegalStateException("Shorthand not (yet) supported for "+getNameOrDefault());
         if (input==null) input = MutableMap.of();
-        input.putAll(new ShorthandProcessor(shorthand).process(value).get());
+        populateFromShorthandTemplate(shorthand, value);
     }
 
     Map<String,Object> parameters;

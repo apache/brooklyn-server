@@ -72,7 +72,6 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "p1"), "p1v");
     }
 
-
     @Test
     public void testMapOutputAndInputFromLastStep() {
         doTestMapOutputAndInput(cfg -> {
