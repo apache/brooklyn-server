@@ -93,12 +93,12 @@ public class CompoundTransformer {
         }
         protected Builder xsltTransformerFromXsltFreemarkerTemplateUrl(String templateUrl, Map<String,String> vars) {
             String xsltTemplate = ResourceUtils.create(this).getResourceAsString(templateUrl);
-            String xslt = TemplateProcessor.processTemplateContents(xsltTemplate, vars);
+            String xslt = TemplateProcessor.processTemplateContents("xslt from url "+templateUrl, xsltTemplate, vars);
             return xsltTransformer(xslt);
         }
         protected Builder xsltTransformerRecursiveCopyWithExtraRules(String ...rules) {
             String xsltTemplate = ResourceUtils.create(this).getResourceAsString("classpath://org/apache/brooklyn/core/mgmt/rebind/transformer/recursiveCopyWithExtraRules.xslt");
-            String xslt = TemplateProcessor.processTemplateContents(xsltTemplate, ImmutableMap.of("extra_rules", Strings.join(rules, "\n")));
+            String xslt = TemplateProcessor.processTemplateContents("xslt recursive copy from url", xsltTemplate, ImmutableMap.of("extra_rules", Strings.join(rules, "\n")));
             return xsltTransformer(xslt);
         }
 

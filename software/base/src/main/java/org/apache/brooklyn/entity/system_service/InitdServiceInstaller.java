@@ -74,7 +74,7 @@ public class InitdServiceInstaller implements SystemServiceInstaller {
         if (pidFile != null) {
             params.put("service.pid_file", pidFile);
         }
-        String service = TemplateProcessor.processTemplateContents(template, (EntityInternal)entity, params);
+        String service = TemplateProcessor.processTemplateContents("initd service", template, (EntityInternal)entity, params);
         String tmpServicePath = Os.mergePaths(getRunDir(), serviceName);
         String servicePath = "/etc/init.d/" + serviceName;
         SshPutTaskWrapper putServiceTask = SshTasks.newSshPutTaskFactory(sshMachine, tmpServicePath)

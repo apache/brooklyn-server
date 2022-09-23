@@ -134,31 +134,39 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testWorkflowExpressionSensorBlank() throws Exception {
+        createEntityWithWorkflowEffector("- let x = ${entity.sensor.foo}");
+        lastEntity.sensors().set(Sensors.newStringSensor("foo"), "");
+        Object x = invokeWorkflowStepsWithLogging();
+        Asserts.assertEquals(x, "");
+    }
+
+    @Test
     public void testWorkflowExpressionSensorUnavailable() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging("- let x = ${entity.sensor.foo}"),
-                    e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.sensor.foo", "Error resolving attribute", "BasicEntity"));
+            Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging("- let x = ${entity.attributeWhenReady.foo}"),
+                    e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.attributeWhenReady.foo", "Error resolving attribute", "BasicEntity"));
         }
     }
 
     @Test
     public void testWorkflowExpressionSensor_FreemarkerDoesNotCatchExceptions() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${(entity.sensor.foo)!\"unset\"}");
+            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${(entity.attributeWhenReady.foo)!\"unset\"}");
 
 //            Asserts.assertEquals(expressionUnderTest.call(), "unset");
 
-            // Freemarker evaluation syntax does not allow models to indicate that the ! syntax should work; annnoying, but
-            // probably better not to rely on that weird syntax, but to handle with 'let'
+            // Freemarker evaluation syntax does not allow models to throw exceptions that can be caught by the ! syntax, so can't easily support the above;
+            // annnoying, but probably better not to rely on that weird syntax, but to handle with extensions to 'let' (nullish operator, below)
             Asserts.assertFailsWith(expressionUnderTest,
-                    e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.sensor.foo", "Error resolving attribute", "BasicEntity"));
+                    e -> Asserts.expectedFailureContainsIgnoreCase(e, "unavailable", "entity.attributeWhenReady.foo", "Error resolving attribute", "BasicEntity"));
         }
     }
 
     @Test
-    public void testWorkflowExpressionSensor_LetDoesCatchExceptions() throws Exception {
+    public void testWorkflowExpressionSensor_LetDoesCatchExceptionsWithNullish() throws Exception {
         try (AutoStartStopThread t = new AutoStartStopThread(() -> { Time.sleep(Duration.ONE_SECOND); waitForLastEntity().sensors().set(Sensors.newStringSensor("foo"), "bar"); })) {
-            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${entity.sensor.foo} ?? unset");
+            Callable<Object> expressionUnderTest = () -> invokeWorkflowStepsWithLogging("- let x = ${entity.attributeWhenReady.foo} ?? unset");
 
             Asserts.assertEquals(expressionUnderTest.call(), "unset");
 

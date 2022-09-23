@@ -25,7 +25,6 @@ import com.google.common.io.Files;
 import freemarker.cache.StringTemplateLoader;
 import freemarker.core.Environment;
 import freemarker.core.Expression;
-import freemarker.core.InvalidReferenceException;
 import freemarker.template.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
@@ -50,7 +49,9 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.lang.reflect.Method;
 import java.time.Instant;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -75,6 +76,7 @@ public class TemplateProcessor {
     static BrooklynFreemarkerUnwrappableObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerUnwrappableObjectWrapper();
 
     static ThreadLocal<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocal<>();
+    static ThreadLocal<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocal<>();
 
     static class BrooklynFreemarkerUnwrappableObjectWrapper extends BrooklynFreemarkerObjectWrapper {
 
@@ -170,7 +172,7 @@ public class TemplateProcessor {
             log.warn("Error loading file " + templateFileName, e);
             throw Exceptions.propagate(e);
         }
-        return processTemplateContents(templateContents, substitutions);
+        return processTemplateContents(templateFileName, templateContents, substitutions);
     }
 
     /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
@@ -182,22 +184,34 @@ public class TemplateProcessor {
             log.warn("Error loading file " + templateFileName, e);
             throw Exceptions.propagate(e);
         }
-        return processTemplateContents(templateContents, driver, extraSubstitutions);
+        return processTemplateContents(templateFileName, templateContents, driver, extraSubstitutions);
     }
 
     /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
     public static String processTemplateContents(String templateContents, EntityDriver driver, Map<String,? extends Object> extraSubstitutions) {
-        return processTemplateContents(templateContents, EntityAndMapTemplateModel.forDriver(driver, extraSubstitutions));
+        return processTemplateContents("unknown", templateContents, EntityAndMapTemplateModel.forDriver(driver, extraSubstitutions));
     }
-
     /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
     public static String processTemplateContents(String templateContents, ManagementContext managementContext, Map<String,? extends Object> extraSubstitutions) {
-        return processTemplateContents(templateContents, EntityAndMapTemplateModel.forManagementContext(managementContext, extraSubstitutions));
+        return processTemplateContents("unknown", templateContents, EntityAndMapTemplateModel.forManagementContext(managementContext, extraSubstitutions));
     }
-
     /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
     public static String processTemplateContents(String templateContents, Location location, Map<String,? extends Object> extraSubstitutions) {
-        return processTemplateContents(templateContents, LocationAndMapTemplateModel.forLocation((LocationInternal)location, extraSubstitutions));
+        return processTemplateContents("unknown", templateContents, LocationAndMapTemplateModel.forLocation((LocationInternal)location, extraSubstitutions));
+    }
+
+
+    /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
+    public static String processTemplateContents(String context, String templateContents, EntityDriver driver, Map<String,? extends Object> extraSubstitutions) {
+        return processTemplateContents(context, templateContents, EntityAndMapTemplateModel.forDriver(driver, extraSubstitutions));
+    }
+    /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
+    public static String processTemplateContents(String context, String templateContents, ManagementContext managementContext, Map<String,? extends Object> extraSubstitutions) {
+        return processTemplateContents(context, templateContents, EntityAndMapTemplateModel.forManagementContext(managementContext, extraSubstitutions));
+    }
+    /** Processes template contents according to {@link EntityAndMapTemplateModel}. */
+    public static String processTemplateContents(String context, String templateContents, Location location, Map<String,? extends Object> extraSubstitutions) {
+        return processTemplateContents(context, templateContents, LocationAndMapTemplateModel.forLocation((LocationInternal)location, extraSubstitutions));
     }
 
     public static final class FirstAvailableTemplateModel implements TemplateHashModel {
@@ -452,9 +466,21 @@ public class TemplateProcessor {
 
     protected final static class EntityAttributeTemplateModel implements TemplateHashModel {
         protected final EntityInternal entity;
+        private final SensorResolutionMode mode;
 
-        protected EntityAttributeTemplateModel(EntityInternal entity) {
+        enum SensorResolutionMode { SENSOR_DEFINITION, ATTRIBUTE_VALUE, ATTRIBUTE_WHEN_READY }
+
+        protected EntityAttributeTemplateModel(EntityInternal entity, SensorResolutionMode mode) {
             this.entity = entity;
+            if (TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.get()!=null) {
+                // in templates, we have only ever supported attribute when ready. preserve that for now, but warn of deprecation.
+                if (mode != SensorResolutionMode.ATTRIBUTE_WHEN_READY) {
+                    log.warn("Using deprecated legacy attributeWhenReady behaviour of ${entity.attribute...} or ${entity.sensor...}. Template should be updated to use ${entity.attributeWhenReady...} if that is required: "
+                        + TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.get());
+                    mode = SensorResolutionMode.ATTRIBUTE_WHEN_READY;
+                }
+            }
+            this.mode = mode;
         }
 
         @Override
@@ -466,9 +492,15 @@ public class TemplateProcessor {
         public TemplateModel get(String key) throws TemplateModelException {
             Object result;
             try {
-                result = ((EntityInternal)entity).getExecutionContext().get(
-                        DependentConfiguration.attributeWhenReady(entity,
-                                Sensors.builder(Object.class, key).persistence(AttributeSensor.SensorPersistenceMode.NONE).build()));
+                result =
+                        mode == SensorResolutionMode.ATTRIBUTE_WHEN_READY ?
+                                ((EntityInternal)entity).getExecutionContext().get( DependentConfiguration.attributeWhenReady(entity,
+                                    Sensors.builder(Object.class, key).persistence(AttributeSensor.SensorPersistenceMode.NONE).build()))
+                        : mode == SensorResolutionMode.ATTRIBUTE_VALUE ?
+                                entity.sensors().get( Sensors.newSensor(Object.class, key) )
+                        : mode == SensorResolutionMode.SENSOR_DEFINITION ?
+                                entity.getEntityType().getSensor(key)
+                        : Exceptions.propagate(new IllegalStateException("Invalid mode "+mode));
             } catch (Exception e) {
                 throw handleModelError("Error resolving attribute '"+key+"' on "+entity, e);
             }
@@ -590,23 +622,12 @@ public class TemplateProcessor {
                 if (entity!=null)
                     return wrapAsTemplateModel( Iterables.getOnlyElement( entity.getLocations() ) );
             }
-            if ("attribute".equals(key) || "sensor".equals(key)) {
-                return new EntityAttributeTemplateModel(entity);
-            }
 
-            if (mgmt!=null) {
-                // TODO deprecated in 0.7.0, remove after next version
-                // ie not supported to access global props without qualification
-                Object result = mgmt.getConfig().getConfig(ConfigKeys.builder(Object.class).name(key).build());
-                if (result!=null) {
-                    log.warn("Deprecated access of global brooklyn.properties value for "+key+"; should be qualified with 'mgmt.'");
-                    return wrapAsTemplateModel( result );
-                }
-            }
-
-            // bit of hack, but sometimes we use ${javaSysProps.JVM_SYSTEM_PROPERTY}
-            if ("javaSysProps".equals(key))
-                return wrapAsTemplateModel( System.getProperties() );
+            if ("sensor".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
+            if ("attribute".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_VALUE);
+            if ("attributeWhenReady".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.ATTRIBUTE_WHEN_READY);
+            // new option
+            if ("sensor_definition".equals(key)) return new EntityAttributeTemplateModel(entity, EntityAttributeTemplateModel.SensorResolutionMode.SENSOR_DEFINITION);
 
 //            // getters work for these
 //            if ("id".equals(key)) return wrapAsTemplateModel(entity.getId());
@@ -616,6 +637,11 @@ public class TemplateProcessor {
 
             if ("name".equals(key)) return wrapAsTemplateModel(entity.getDisplayName());
             if ("tags".equals(key)) return wrapAsTemplateModel(entity.tags().getTags());
+
+            // bit of hack, but sometimes we use ${javaSysProps.JVM_SYSTEM_PROPERTY}
+            if ("javaSysProps".equals(key))
+                return wrapAsTemplateModel( System.getProperties() );
+
 
             return null;
         }
@@ -692,12 +718,18 @@ public class TemplateProcessor {
 
     /** Processes template contents with the given items in scope as per {@link EntityAndMapTemplateModel}. */
     public static String processTemplateContents(String templateContents, final EntityInternal entity, Map<String,? extends Object> extraSubstitutions) {
-        return processTemplateContents(templateContents, EntityAndMapTemplateModel.forEntity(entity, extraSubstitutions));
+        return processTemplateContents("unknown", templateContents, entity, extraSubstitutions);
+    }
+    public static String processTemplateContents(String context, String templateContents, final EntityInternal entity, Map<String,? extends Object> extraSubstitutions) {
+        return processTemplateContents(context, templateContents, EntityAndMapTemplateModel.forEntity(entity, extraSubstitutions));
     }
 
     /** Processes template contents using the given map, passed to freemarker,
      * with dot handling as per {@link DotSplittingTemplateModel}. */
     public static String processTemplateContents(String templateContents, final Map<String, ? extends Object> substitutions) {
+        return processTemplateContents("unknown", templateContents, substitutions);
+    }
+    public static String processTemplateContents(String context, String templateContents, final Map<String, ? extends Object> substitutions) {
         TemplateHashModel root;
         try {
             root = substitutions != null
@@ -707,23 +739,36 @@ public class TemplateProcessor {
             throw new IllegalStateException("Unable to set up TemplateHashModel to parse template, given "+substitutions+": "+e, e);
         }
 
-        return processTemplateContents(templateContents, root);
+        return processTemplateContents(context, templateContents, root);
     }
 
     /** Processes template contents against the given {@link TemplateHashModel}. */
     public static String processTemplateContents(String templateContents, final TemplateHashModel substitutions) {
-        return (String) processTemplateContents(templateContents, substitutions, false, true);
+        return (String) processTemplateContents("unknown", templateContents, substitutions);
+    }
+    private static String processTemplateContents(String context, String templateContents, final TemplateHashModel substitutions) {
+        return (String) processTemplateContentsLegacy(context, templateContents, substitutions, false, true);
     }
 
-    public static Object processTemplateContents(String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors) {
+    @Deprecated /** since 1.1, used to warn about deprecated use of ${entity.sensor.value} to have attribute-when-ready behaviour */
+    private static Object processTemplateContentsLegacy(String context, String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors) {
+        try {
+            TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.set(context);
+            return processTemplateContents(context, templateContents, substitutions, allowSingleVariableObject, logErrors);
+        } finally {
+            TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.remove();
+        }
+    }
+
+    public static Object processTemplateContents(String context, String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors) {
         try {
             Configuration cfg = new Configuration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
             cfg.setLogTemplateExceptions(logErrors);
 
             StringTemplateLoader templateLoader = new StringTemplateLoader();
-            templateLoader.putTemplate("config", templateContents);
+            templateLoader.putTemplate(context, templateContents);
             cfg.setTemplateLoader(templateLoader);
-            Template template = cfg.getTemplate("config");
+            Template template = cfg.getTemplate(context);
 
             if (allowSingleVariableObject && template.getRootTreeNode().getClass().getName().equals("freemarker.core.DollarVariable")) {
                 Object dollarVariable = template.getRootTreeNode();

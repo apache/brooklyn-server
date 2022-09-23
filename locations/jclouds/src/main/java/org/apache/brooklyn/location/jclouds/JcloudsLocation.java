@@ -904,7 +904,7 @@ public class JcloudsLocation extends AbstractCloudMachineProvisioningLocation im
                                 ? Splitter.on(",").withKeyValueSeparator(":").split(setupVarsString)
                                 : ImmutableMap.<String, String>of();
                         String scriptContent = ResourceUtils.create(this).getResourceAsString(setupScriptItem);
-                        String script = TemplateProcessor.processTemplateContents(scriptContent, getManagementContext(), substitutions);
+                        String script = TemplateProcessor.processTemplateContents("jclouds script "+setupScriptItem, scriptContent, getManagementContext(), substitutions);
                         if (windows) {
                             WinRmToolResponse resp = ((WinRmMachineLocation)machineLocation).executeCommand(ImmutableList.copyOf((script.replace("\r", "").split("\n"))));
                             if (resp.getStatusCode() != 0) {

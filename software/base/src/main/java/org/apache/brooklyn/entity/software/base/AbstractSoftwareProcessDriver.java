@@ -670,7 +670,7 @@ public abstract class AbstractSoftwareProcessDriver implements SoftwareProcessDr
     }
 
     public String processTemplateContents(String templateContents, Map<String,? extends Object> extraSubstitutions) {
-        return TemplateProcessor.processTemplateContents(templateContents, this, extraSubstitutions);
+        return TemplateProcessor.processTemplateContents("software process driver", templateContents, this, extraSubstitutions);
     }
 
     public String getArchiveNameFormat() {

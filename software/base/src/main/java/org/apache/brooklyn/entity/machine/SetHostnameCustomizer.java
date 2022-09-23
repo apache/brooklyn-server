@@ -18,10 +18,12 @@
  */
 package org.apache.brooklyn.entity.machine;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
-import java.util.Arrays;
-
+import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.location.BasicMachineLocationCustomizer;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.config.ConfigKey;
@@ -40,12 +42,9 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Joiner;
-import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-import com.google.common.reflect.TypeToken;
+import java.util.Arrays;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Sets the hostname on an ssh'able machine. Currently only CentOS and RHEL are supported.
@@ -130,7 +129,7 @@ public class SetHostnameCustomizer extends BasicMachineLocationCustomizer {
     protected String generateHostname(SshMachineLocation machine) {
         String hostnameTemplate = config.get(HOSTNAME_TEMPLATE);
         if (Strings.isNonBlank(hostnameTemplate)) {
-            return TemplateProcessor.processTemplateContents(hostnameTemplate, machine, ImmutableMap.<String, Object>of());
+            return TemplateProcessor.processTemplateContents("hostname customizer template", hostnameTemplate, machine, ImmutableMap.<String, Object>of());
         } else {
             return null;
         }

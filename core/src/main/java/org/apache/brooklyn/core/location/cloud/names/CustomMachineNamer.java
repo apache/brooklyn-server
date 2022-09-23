@@ -59,9 +59,9 @@ public class CustomMachineNamer extends BasicCloudMachineNamer {
         
         String processed;
         if (entity == null) {
-            processed = TemplateProcessor.processTemplateContents(template, setup.get(EXTRA_SUBSTITUTIONS));
+            processed = TemplateProcessor.processTemplateContents("machine-namer", template, setup.get(EXTRA_SUBSTITUTIONS));
         } else {
-            processed = TemplateProcessor.processTemplateContents(template, (EntityInternal)entity, setup.get(EXTRA_SUBSTITUTIONS));
+            processed = TemplateProcessor.processTemplateContents("machine-namer", template, (EntityInternal)entity, setup.get(EXTRA_SUBSTITUTIONS));
         }
         
         processed = Strings.removeFromStart(processed, "#ftl\n");

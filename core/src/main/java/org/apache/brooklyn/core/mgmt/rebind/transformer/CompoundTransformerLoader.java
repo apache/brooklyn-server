@@ -102,7 +102,7 @@ public class CompoundTransformerLoader {
             @SuppressWarnings("unchecked")
             Map<String,?> substitutions = (Map<String, ?>) args.get("substitutions");
             String xsltTemplate = ResourceUtils.create(CompoundTransformer.class).getResourceAsString(url);
-            String xslt = TemplateProcessor.processTemplateContents(xsltTemplate, substitutions == null ? ImmutableMap.<String, String>of() : substitutions);
+            String xslt = TemplateProcessor.processTemplateContents("xslt transformer "+url, xsltTemplate, substitutions == null ? ImmutableMap.<String, String>of() : substitutions);
             // we could pass XSLT-style parameters instead, maybe?  that's more normal, 
             // but OTOH freemarker is maybe more powerful, given our other support there
             builder.xsltTransformer(xslt);

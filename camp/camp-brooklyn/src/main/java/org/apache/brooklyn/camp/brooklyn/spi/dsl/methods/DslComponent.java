@@ -1014,7 +1014,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             Entity targetEntity = targetEntityMaybe.get();
 
             String evaluatedTemplate = TemplateProcessor.processTemplateContents(
-                    resolvedTemplate, (EntityInternal)targetEntity, resolvedSubstitutions);
+                    "$brooklyn:template", resolvedTemplate, (EntityInternal)targetEntity, resolvedSubstitutions);
             return Maybe.of(evaluatedTemplate);
         }
 
@@ -1025,7 +1025,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 public Object call() throws Exception {
                     Entity targetEntity = component.get();
                     Map<String, ?> resolvedSubstitutions = resolveSubstitutions(false);
-                    return TemplateProcessor.processTemplateContents(
+                    return TemplateProcessor.processTemplateContents("$brooklyn:template",
                             resolveTemplate(false), (EntityInternal)targetEntity, resolvedSubstitutions);
                 }
             }).build();

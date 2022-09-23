@@ -341,7 +341,7 @@ public class KubernetesLocation extends AbstractLocation implements MachineProvi
         String resourceUri = entity.config().get(KubernetesResource.RESOURCE_FILE);
         InputStream resource = ResourceUtils.create(entity).getResourceFromUrl(resourceUri);
         String templateContents = Streams.readFullyString(resource);
-        String processedContents = TemplateProcessor.processTemplateContents(templateContents, (EntityInternal) entity, setup.getAllConfig());
+        String processedContents = TemplateProcessor.processTemplateContents("k8s location template", templateContents, (EntityInternal) entity, setup.getAllConfig());
         InputStream processedResource = Streams.newInputStreamWithContents(processedContents);
 
         try (KubernetesClient clientUnnamespaced = getClient()) {

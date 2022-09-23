@@ -55,12 +55,12 @@ public class TemplatedStringAttributeSensorAndConfigKey extends BasicAttributeSe
     @Override
     protected String convertConfigToSensor(String value, Entity entity) {
         if (value == null) return null;
-        return TemplateProcessor.processTemplateContents(value, (EntityInternal)entity, ImmutableMap.<String,Object>of());
+        return TemplateProcessor.processTemplateContents("template string sensor "+getName(), value, (EntityInternal)entity, ImmutableMap.<String,Object>of());
     }
     
     @Override
     protected String convertConfigToSensor(String value, ManagementContext managementContext) {
         if (value == null) return null;
-        return TemplateProcessor.processTemplateContents(value, managementContext, ImmutableMap.<String,Object>of());
+        return TemplateProcessor.processTemplateContents("template string sensor "+getName(), value, managementContext, ImmutableMap.<String,Object>of());
     }
 }
