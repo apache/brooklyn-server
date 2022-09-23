@@ -234,4 +234,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(output, 1);
     }
 
+    @Test
+    public void testLetMathOps() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let double x = 99 / 0 ?? ${x} ?? 4 * 4 - 5 * 3",
+                "let integer x = ${x} * 8 / 2.0",
+                "let x = ${x} / 5"));
+        Asserts.assertEquals(output, 0.8);
+    }
+
 }

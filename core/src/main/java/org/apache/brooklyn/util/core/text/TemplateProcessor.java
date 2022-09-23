@@ -676,6 +676,8 @@ public class TemplateProcessor {
                 }
             }
 
+            if ("name".equals(key))
+                return wrapAsTemplateModel( location.getDisplayName() );
             if ("javaSysProps".equals(key))
                 return wrapAsTemplateModel( System.getProperties() );
 

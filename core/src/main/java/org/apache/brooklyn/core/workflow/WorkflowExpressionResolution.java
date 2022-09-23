@@ -129,6 +129,8 @@ public class WorkflowExpressionResolution {
             if ("previous_step".equals(key)) return newWorkflowStepModelForStepIndex(context.previousStepIndex);
             if ("step".equals(key)) return new WorkflowStepModel();
 
+            if ("var".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.workflowScratchVariables);
+
             return ifNoMatches();
         }
 

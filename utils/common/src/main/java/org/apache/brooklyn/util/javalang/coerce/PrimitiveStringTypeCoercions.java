@@ -114,63 +114,69 @@ public class PrimitiveStringTypeCoercions {
             
             return Maybe.absent(new ClassCoercionException("Cannot cast "+sourceWrapType+" ("+value+") to "+targetType));
         }
-        
-        // for whole-numbers (where casting to long won't lose anything)...
-        long v = 0;
-        boolean islong = true;
-        if (sourceWrapType == Character.class) {
-            v = ((Character)value).charValue();
-        } else if (sourceWrapType == Byte.class) {
-            v = ((Byte)value).byteValue();
-        } else if (sourceWrapType == Short.class) {
-            v = ((Short)value).shortValue();
-        } else if (sourceWrapType == Integer.class) {
-            v = ((Integer)value).intValue();
-        } else if (sourceWrapType == Long.class) {
-            v = ((Long)value).longValue();
-        } else {
-            islong = false;
-        }
-        if (islong) {
-            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)v));
-            if (targetWrapType == Byte.class) return Maybe.of((T) (Byte) Byte.parseByte(""+v));
-            if (targetWrapType == Short.class) return Maybe.of((T) (Short) Short.parseShort(""+v));
-            if (targetWrapType == Integer.class) return Maybe.of((T) (Integer) Integer.parseInt(""+v));
-            if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(v));
-            if (targetWrapType == Float.class) return Maybe.of((T) Float.valueOf(v));
-            if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(v));
-            return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));
-        }
-        
-        // for real-numbers (cast to double)...
-        double d = 0;
-        boolean isdouble = true;
-        if (sourceWrapType == Float.class) {
-            d = ((Float)value).floatValue();
-        } else if (sourceWrapType == Double.class) {
-            d = ((Double)value).doubleValue();
-        } else {
-            isdouble = false;
-        }
 
-        if (isdouble) {
-            if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(d));
-
-            BigDecimal dd = BigDecimal.valueOf(d);
-            if (targetWrapType == Float.class) {
-                float candidate = (float)d;
-                if (dd.subtract(BigDecimal.valueOf(candidate)).abs().compareTo(BigDecimal.valueOf(CommonAdaptorTypeCoercions.DELTA_FOR_COERCION))>0) {
-                    throw new IllegalStateException("Decimal value out of range; cannot convert "+ candidate +" to float");
-                }
-                return Maybe.of((T) (Float) candidate);
+        try {
+            // for whole-numbers (where casting to long won't lose anything)...
+            long v = 0;
+            boolean islong = true;
+            if (sourceWrapType == Character.class) {
+                v = ((Character) value).charValue();
+            } else if (sourceWrapType == Byte.class) {
+                v = ((Byte) value).byteValue();
+            } else if (sourceWrapType == Short.class) {
+                v = ((Short) value).shortValue();
+            } else if (sourceWrapType == Integer.class) {
+                v = ((Integer) value).intValue();
+            } else if (sourceWrapType == Long.class) {
+                v = ((Long) value).longValue();
+            } else {
+                islong = false;
+            }
+            if (islong) {
+                if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char) v));
+                if (targetWrapType == Byte.class) return Maybe.of((T) (Byte) Byte.parseByte("" + v));
+                if (targetWrapType == Short.class) return Maybe.of((T) (Short) Short.parseShort("" + v));
+                if (targetWrapType == Integer.class) return Maybe.of((T) (Integer) Integer.parseInt("" + v));
+                if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(v));
+                if (targetWrapType == Float.class) return Maybe.of((T) Float.valueOf(v));
+                if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(v));
+                return Maybe.absent(new IllegalStateException("Unexpected: sourceType=" + sourceWrapType + "; targetType=" + targetWrapType));
             }
 
-            if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((dd.intValueExact())));
-            if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(dd.longValueExact()));
-            if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf(dd.shortValueExact()));
-            if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf(dd.byteValueExact()));
+            // for real-numbers (cast to double)...
+            double d = 0;
+            boolean isdouble = true;
+            if (sourceWrapType == Float.class) {
+                d = ((Float) value).floatValue();
+            } else if (sourceWrapType == Double.class) {
+                d = ((Double) value).doubleValue();
+            } else {
+                isdouble = false;
+            }
 
-            if (targetWrapType == Character.class) return Maybe.of((T) Character.valueOf((char)dd.intValueExact()));
+            if (isdouble) {
+                if (targetWrapType == Double.class) return Maybe.of((T) Double.valueOf(d));
+
+                BigDecimal dd = BigDecimal.valueOf(d);
+                if (targetWrapType == Float.class) {
+                    float candidate = (float) d;
+                    if (dd.subtract(BigDecimal.valueOf(candidate)).abs().compareTo(BigDecimal.valueOf(CommonAdaptorTypeCoercions.DELTA_FOR_COERCION)) > 0) {
+                        throw new IllegalStateException("Decimal value out of range; cannot convert " + candidate + " to float");
+                    }
+                    return Maybe.of((T) (Float) candidate);
+                }
+
+                if (targetWrapType == Integer.class) return Maybe.of((T) Integer.valueOf((dd.intValueExact())));
+                if (targetWrapType == Long.class) return Maybe.of((T) Long.valueOf(dd.longValueExact()));
+                if (targetWrapType == Short.class) return Maybe.of((T) Short.valueOf(dd.shortValueExact()));
+                if (targetWrapType == Byte.class) return Maybe.of((T) Byte.valueOf(dd.byteValueExact()));
+
+                if (targetWrapType == Character.class)
+                    return Maybe.of((T) Character.valueOf((char) dd.intValueExact()));
+            }
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            return Maybe.absent(new IllegalStateException("Unexpected error: sourceType="+sourceWrapType+"; targetType="+targetWrapType+": "+Exceptions.collapseText(e), e));
         }
 
         return Maybe.absent(new IllegalStateException("Unexpected: sourceType="+sourceWrapType+"; targetType="+targetWrapType));

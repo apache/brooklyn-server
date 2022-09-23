@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
@@ -105,12 +106,14 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if (w.isEmpty()) return null;
 
             Maybe<Object> result;
-            result = handleTokenIfPresent(w, MutableMap.of("??", this::handleNullish));
+            result = handleTokenIfPresent(w, false, MutableMap.of("??", this::handleNullish));
             if (result.isPresent()) return result.get();
 
-            // TODO
-//            result = handleTokenIfPresent(w, MutableMap.of("+", this::handleAdd, "-", this::handleSubtract));
-//            if (result.isPresent()) return result.get();
+            result = handleTokenIfPresent(w, true, MutableMap.of("+", this::handleAdd, "-", this::handleSubtract));
+            if (result.isPresent()) return result.get();
+
+            result = handleTokenIfPresent(w, true, MutableMap.of("*", this::handleMultiple, "/", this::handleDivide));
+            if (result.isPresent()) return result.get();
 
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
             List<Object> objs = w.stream().map(t -> {
@@ -121,8 +124,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             return objs.stream().map(v -> context.resolve(v, String.class)).collect(Collectors.joining());
         }
 
-        private Maybe<Object> handleTokenIfPresent(List<String> tokens, Map<String, BiFunction<List<String>,List<String>,Object>> tokenProcessors) {
-            for (int i=0; i<tokens.size(); i++) {
+        private Maybe<Object> handleTokenIfPresent(List<String> tokens, boolean startAtRight, Map<String, BiFunction<List<String>,List<String>,Object>> tokenProcessors) {
+            for (int i0=0; i0<tokens.size(); i0++) {
+                int i = startAtRight ? tokens.size()-1-i0 : i0;
                 String t = tokens.get(i);
                 BiFunction<List<String>, List<String>, Object> p = tokenProcessors.get(t);
                 if (p!=null) {
@@ -163,14 +167,58 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             return process(rhs);
         }
 
-//        // TODO
-//        Object handleAdd(List<String> lhs, List<String> rhs) {
-//            return null;
-//        }
-//
-//        Object handleSubtract(List<String> lhs, List<String> rhs) {
-//            return null;
-//        }
+        Maybe<Integer> asInteger(Object x) {
+            Maybe<Integer> xi = TypeCoercions.tryCoerce(x, Integer.class);
+            Maybe<Double> xd = asDouble(x);
+            if (xi.isAbsent() || xd.isAbsent()) return xi;
+            if (Math.abs(xd.get() - xi.get())<0.0000000001) return xi;
+            return Maybe.absent("Double value does not match integer value");
+        }
+
+        Maybe<Double> asDouble(Object x) {
+            Maybe<Double> v = TypeCoercions.tryCoerce(x, Double.class);
+            if (v.isPresent() && !Double.isFinite(v.get())) return Maybe.absent("Value is undefined");
+            return v;
+        }
+
+        Object applyMathOperator(List<String> lhs0, List<String> rhs0, BiFunction<Integer,Integer,Number> ifInt, BiFunction<Double,Double,Number> ifDouble) {
+            Object lhs = process(lhs0);
+            Object rhs = process(rhs0);
+
+            Maybe<Integer> lhsI = asInteger(lhs);
+            Maybe<Integer> rhsI = asInteger(rhs);
+            if (lhsI.isPresent() && rhsI.isPresent()) {
+                Number x = ifInt.apply(lhsI.get(), rhsI.get());
+                return ((Maybe)asInteger(x)).orMaybe(() -> asDouble(x)).get();
+            }
+
+            Maybe<Double> lhsD = asDouble(lhs);
+            Maybe<Double> rhsD = asDouble(rhs);
+            if (lhsD.isPresent() && rhsD.isPresent()) return asDouble(ifDouble.apply(lhsD.get(), rhsD.get())).get();
+
+            if (lhsD.isAbsent())
+                throw new IllegalArgumentException("Invalid value for operation: "+lhs0+" = "+lhs);
+            if (rhsD.isAbsent()) throw new IllegalArgumentException("Invalid value for operation: "+rhs0+" = "+rhs);
+
+            throw new IllegalArgumentException("Should not come here");
+        }
+
+        Object handleMultiple(List<String> lhs, List<String> rhs) {
+            return applyMathOperator(lhs, rhs, (a,b)->a*b, (a,b)->a*b);
+        }
+
+        Object handleDivide(List<String> lhs, List<String> rhs) {
+            return applyMathOperator(lhs, rhs, (a,b)->1.0*a/b, (a,b)->a/b);
+        }
+
+        Object handleAdd(List<String> lhs, List<String> rhs) {
+            return applyMathOperator(lhs, rhs, (a,b)->a+b, (a,b)->a+b);
+        }
+
+        Object handleSubtract(List<String> lhs, List<String> rhs) {
+            return applyMathOperator(lhs, rhs, (a,b)->a-b, (a,b)->a-b);
+        }
+
 
     }
 
