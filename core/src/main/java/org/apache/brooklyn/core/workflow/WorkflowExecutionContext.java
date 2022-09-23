@@ -38,6 +38,7 @@ import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.tuple.Pair;
@@ -206,12 +207,18 @@ public class WorkflowExecutionContext {
 
     /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
     public <T> T resolve(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, false).resolveWithTemplates(expression, type);
+        return new WorkflowExpressionResolution(this, false, false).resolveWithTemplates(expression, type);
     }
 
-    /** as {@link #resolve(Object, TypeToken)}, but returning DSL/supplier for values (so their "impure" status is preserved) */
+    /** as {@link #resolve(Object, TypeToken)}, but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
+     * this is needed e.g. for conditions which treat dynamic expressions differently to explicit values) */
     public <T> T resolveWrapped(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, true).resolveWithTemplates(expression, type);
+        return new WorkflowExpressionResolution(this, false, true).resolveWithTemplates(expression, type);
+    }
+
+    /** as {@link #resolve(Object, TypeToken)}, but waiting on any expressions which aren't ready */
+    public <T> T resolveWaiting(Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, true, false).resolveWithTemplates(expression, type);
     }
 
     /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
@@ -302,7 +309,14 @@ public class WorkflowExecutionContext {
                 // put the previous output in output, so repeating steps can reference themselves
                 if (old!=null) currentStepInstance.output = old.output;
 
-                currentStepInstance.output = DynamicTasks.queue(step.newTask(currentStepInstance)).getUnchecked();
+                Task<?> t = step.newTask(currentStepInstance);
+                try {
+                    currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
+                } catch (Exception e) {
+                    log.warn("Error in step '"+t.getDisplayName()+"' (rethrowing): "+ Exceptions.collapseText(e));
+                    throw Exceptions.propagate(e);
+                }
+
                 if (step.output!=null) {
                     // allow output to be customized / overridden
                     currentStepInstance.output = resolve(step.output, Object.class);

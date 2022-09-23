@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.util.core.text;
 
+import com.google.common.annotations.Beta;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Files;
 import freemarker.cache.StringTemplateLoader;
 import freemarker.core.Environment;
 import freemarker.core.Expression;
+import freemarker.core.InvalidReferenceException;
 import freemarker.template.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
@@ -73,7 +75,17 @@ public class TemplateProcessor {
         public Maybe<Object> unwrapMaybe(TemplateModel model) {
             Map<TemplateModel, Object> unwrappingMap = TEMPLATE_MODEL_UNWRAP_CACHE.get();
             if (unwrappingMap==null) return Maybe.absent("This thread does not support unwrapping");
-            if (!unwrappingMap.containsKey(model)) return Maybe.absent("Source of model is unknown: "+model);
+            if (!unwrappingMap.containsKey(model)) {
+                // happens if we return a constant within a model
+                if (model instanceof TemplateScalarModel) {
+                    try {
+                        return Maybe.ofAllowingNull( ((TemplateScalarModel)model).getAsString() );
+                    } catch (TemplateModelException e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+                return Maybe.absent("Type and source of model is unknown: " + model);
+            }
             return Maybe.ofAllowingNull(unwrappingMap.get(model));
         }
 
@@ -320,8 +332,7 @@ public class TemplateProcessor {
                     return wrapAsTemplateModel( result );
 
             } catch (Exception e) {
-                Exceptions.propagateIfFatal(e);
-                throw new IllegalStateException("Error accessing config '"+key+"'"+" on "+entity+": "+e, e);
+                throw handleModelError("Error accessing config '"+key+"' on "+entity, e);
             }
 
             return null;
@@ -415,6 +426,24 @@ public class TemplateProcessor {
         }
     }
 
+    @Beta
+    public static Error handleModelError(String msg, Throwable cause) throws TemplateModelException {
+        // up to caller to determine if it was an interruption
+
+        if (Exceptions.isRootCauseIsInterruption(cause)) {
+            // we can only catch exceptions in expressions if we throw InvalidReferenceException, but that is checked and not allowed (also doesn't allow cause)
+//                    throw new InvalidReferenceException("Sensor '" + key + "' unavailable", null);
+            // we could return null but that might mask errors. instead let caller handle (eg WorkflowExpressionResolution)
+        } else {
+            // interruptions not treated as fatal here
+            Exceptions.propagateIfFatal(cause);
+        }
+
+        // TemplateModelException doesn't buy us much but a bit of efficiency in the catching and consistency with other freemarker code
+        throw new TemplateModelException(msg+": "+Exceptions.collapseText(cause), cause);
+        //throw Exceptions.propagateAnnotated("Error resolving attribute '"+key+"' on "+entity, e);
+    }
+
     protected final static class EntityAttributeTemplateModel implements TemplateHashModel {
         protected final EntityInternal entity;
 
@@ -435,8 +464,9 @@ public class TemplateProcessor {
                         DependentConfiguration.attributeWhenReady(entity,
                                 Sensors.builder(Object.class, key).persistence(AttributeSensor.SensorPersistenceMode.NONE).build()));
             } catch (Exception e) {
-                throw Exceptions.propagateAnnotated("Error resolving attribute '"+key+"' on "+entity, e);
+                throw handleModelError("Error resolving attribute '"+key+"' on "+entity, e);
             }
+
             if (result == null) {
                 return null;
             } else {

@@ -40,6 +40,8 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -58,12 +60,16 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         return rt;
     }
 
+    public static void addWorkflowTypes(ManagementContext mgmt) {
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
+    }
+
     @BeforeMethod(alwaysRun = true)
     @Override
     public void setUp() throws Exception {
         super.setUp();
-        WorkflowBasicTest.addWorkflowStepTypes(mgmt());
-        addRegisteredTypeBean(mgmt(), "workflow-effector", WorkflowEffector.class);
+        addWorkflowTypes(mgmt());
     }
 
     @Test
@@ -119,7 +125,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             // Deploy the blueprint.
             Entity entity = Iterables.getOnlyElement(app.getChildren());
             Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
-            Task<?> invocation = app.invoke(effector, null);
+            Task<?> invocation = entity.invoke(effector, null);
             return invocation.getUnchecked();
         }
     }
@@ -132,11 +138,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowEffectorLogStep() throws Exception {
         invokeWorkflowStepsWithLogging(
-                "        - log test message 1",
-                "        - type: log",
-                "          id: second",
-                "          name: Second Step",
-                "          message: test message 2, step '${workflow.current_step.name}' id ${workflow.current_step.step_id} in workflow '${workflow.name}'");
+                "- log test message 1",
+                "- type: log",
+                "  id: second",
+                "  name: Second Step",
+                "  message: test message 2, step '${workflow.current_step.name}' id ${workflow.current_step.step_id} in workflow '${workflow.name}'");
 
         assertLogStepMessages(
                 "test message 1",
@@ -146,14 +152,14 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     @Test
     public void testWorkflowPropertyNext() throws Exception {
         invokeWorkflowStepsWithLogging(
-                "        - s: log going to A",
-                "          next: A",
-                "        - s: log now at B",
-                "          next: end",
-                "          id: B",
-                "        - s: log now at A",
-                "          id: A",
-                "          next: B");
+                "- s: log going to A",
+                "  next: A",
+                "- s: log now at B",
+                "  next: end",
+                "  id: B",
+                "- s: log now at A",
+                "  id: A",
+                "  next: B");
         assertLogStepMessages(
                     "going to A",
                     "now at A",
@@ -180,30 +186,30 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
     void doTestWorkflowCondition(String setCommand, String logAccess, String conditionAccess) throws Exception {
         invokeWorkflowStepsWithLogging(
-                    "        - log start",
-                    "        - " + setCommand + " color = blue",
-                    "        - id: log-color",
-                    "          s: log color " + logAccess,
-                    "        -",
-                    "          s: log not blue",
-                    "          condition:",
-                    "            " + conditionAccess,
-                    "            assert: { when: present, java-instance-of: string }",
-                    "            not: { equals: blue }",
-                    "        -",
-                    "          type: no-op",
-                    "          next: make-red",
-                    "          condition:",
-                    "            " + conditionAccess,
-                    "            equals: blue",
-                    "        -",
-                    "          type: no-op",
-                    "          next: log-end",
-                    "        - id: make-red",
-                    "          s: " + setCommand + " color = red",
-                    "          next: log-color",
-                    "        - id: log-end",
-                    "          s: log end",
+                    "- log start",
+                    "- " + setCommand + " color = blue",
+                    "- id: log-color",
+                    "  s: log color " + logAccess,
+                    "-",
+                    "  s: log not blue",
+                    "  condition:",
+                    "    " + conditionAccess,
+                    "    assert: { when: present, java-instance-of: string }",
+                    "    not: { equals: blue }",
+                    "-",
+                    "  type: no-op",
+                    "  next: make-red",
+                    "  condition:",
+                    "    " + conditionAccess,
+                    "    equals: blue",
+                    "-",
+                    "  type: no-op",
+                    "  next: log-end",
+                    "- id: make-red",
+                    "  s: " + setCommand + " color = red",
+                    "  next: log-color",
+                    "- id: log-end",
+                    "  s: log end",
                     "");
         assertLogStepMessages(
                     "start", "color blue", "color red", "not blue", "end");
@@ -235,11 +241,17 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "          description: What color do you want to set?\n" +
                 "\n" +
                 "      steps:\n" +
+//                "        - let old_color = ${(entity.sensor.color)! \"unset\"}\n" +
+                        // TODO above does not work. but we could allow the below:
+//                "        - let old_color = ${entity.sensor.color} ?? \"unset\"\n" +
+
+                        // for now this is the pattern if sensor might not be available
                 "        - let old_color = unset\n" +
                 "        - s: let old_color = ${entity.sensor.color}\n" +
                 "          condition:\n" +
                 "            sensor: color\n" +
                 "            when: present_non_null\n" +
+
                 "        - log changing color sensor from ${old_color} to ${color}\n" +
                 "        - set-sensor color = ${color}\n" +
                 "        - s: set-sensor color_is_red = true\n" +

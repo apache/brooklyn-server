@@ -31,6 +31,8 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,11 +44,13 @@ public class WorkflowExpressionResolution {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExpressionResolution.class);
     private final WorkflowExecutionContext context;
+    private final boolean allowWaiting;
     private final boolean useWrappedValue;
 
-    public WorkflowExpressionResolution(WorkflowExecutionContext context, boolean wrap) {
+    public WorkflowExpressionResolution(WorkflowExecutionContext context, boolean allowWaiting, boolean wrapExpressionValues) {
         this.context = context;
-        this.useWrappedValue = wrap;
+        this.allowWaiting = allowWaiting;
+        this.useWrappedValue = wrapExpressionValues;
     }
 
     TemplateModel ifNoMatches() {
@@ -210,10 +214,28 @@ public class WorkflowExpressionResolution {
         if (expression==null) return null;
 
         TemplateHashModel model = new WorkflowFreemarkerModel();
-        Object result = TemplateProcessor.processTemplateContents(expression, model, true);
-        if (expression.equals(result)) return expression;
+        Object result;
 
-        if (useWrappedValue) return new WrappedResolvedExpression<Object>(expression, result);
+        if (!allowWaiting) Thread.currentThread().interrupt();
+        try {
+            result = TemplateProcessor.processTemplateContents(expression, model, true);
+        } catch (Exception e) {
+            if (!allowWaiting && Exceptions.isRootCauseIsInterruption(e)) {
+                throw new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
+            } else {
+                throw Exceptions.propagate(e);
+            }
+        } finally {
+            if (!allowWaiting) {
+                // clear interrupt status
+                Thread.interrupted();
+            }
+        }
+
+        if (useWrappedValue) {
+            if (!expression.equals(result)) return new WrappedResolvedExpression<Object>(expression, result);
+        }
+
         return result;
     }
 

@@ -38,9 +38,7 @@ public class PropagatedRuntimeException extends RuntimeException {
     }
 
     private boolean checkCauseEmbedded() {
-        String causalText = Exceptions.collapseText(getCause());
-        if (Strings.isBlank(causalText)) return false;
-        return getMessage().endsWith(causalText);
+        return Exceptions.isCauseEmbedded(getMessage(), getCause());
     }
 
     public PropagatedRuntimeException(String messagePart1, String messagePart2PossiblyIncludingPart1, Throwable cause) {

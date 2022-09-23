@@ -52,7 +52,7 @@ public class Exceptions {
         ExecutionException.class, InvocationTargetException.class, UndeclaredThrowableException.class);
     /** As {@link #ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES} but might carry an interesting message. */
     private static final List<Class<? extends Throwable>> BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES = ImmutableList.<Class<? extends Throwable>>of(
-        PropagatedRuntimeException.class);
+        PropagatedRuntimeException.class, RuntimeInterruptedException.class);
 
     public static final int MAX_COLLAPSE_RECURSIVE_DEPTH = 100;
     
@@ -60,7 +60,7 @@ public class Exceptions {
     private static boolean isBoringForMessage(Throwable t) {
         for (Class<? extends Throwable> type: ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES)
             if (type.isInstance(t)) return true;
-        if (Strings.isBlank(t.getMessage())) {
+        if (Strings.isBlank(t.getMessage()) || (t.getCause()!=null && t.getMessage().equals(t.getCause().toString()))) {
             for (Class<? extends Throwable> type: BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES)
                 if (type.isInstance(t)) return true;
         }
@@ -158,11 +158,13 @@ public class Exceptions {
 
     private static RuntimeException propagate(String msg, Throwable throwable, boolean alwaysAnnotate) {
         if (throwable instanceof InterruptedException) {
-            throw new RuntimeInterruptedException(msg, (InterruptedException) throwable);
+            Thread.currentThread().interrupt();
+            throw new RuntimeInterruptedException(isCauseEmbedded(msg, throwable) ? msg : msg + ": " + Exceptions.collapseText(throwable), (InterruptedException) throwable);
+
         } else if (throwable instanceof RuntimeInterruptedException) {
             Thread.currentThread().interrupt();
             if (alwaysAnnotate) {
-                throw new RuntimeInterruptedException(msg, (RuntimeInterruptedException) throwable);
+                throw new RuntimeInterruptedException(isCauseEmbedded(msg, throwable) ? msg : msg + ": " + Exceptions.collapseText(throwable), (RuntimeInterruptedException) throwable);
             } else {
                 throw (RuntimeInterruptedException) throwable;
             }
@@ -227,6 +229,14 @@ public class Exceptions {
     public static boolean isRootCauseIsInterruption(Throwable e) {
         Throwable root = getRootCause(e);
         return (root instanceof InterruptedException || root instanceof RuntimeInterruptedException);
+    }
+
+    public static boolean isCauseEmbedded(String message, Throwable cause) {
+        if (cause==null) return true;
+        if (message==null) return false;
+        String causalText = Exceptions.collapseText(cause);
+        if (Strings.isBlank(causalText)) return false;
+        return message.endsWith(causalText);
     }
 
     private static class IsFatalPredicate implements Predicate<Throwable> {

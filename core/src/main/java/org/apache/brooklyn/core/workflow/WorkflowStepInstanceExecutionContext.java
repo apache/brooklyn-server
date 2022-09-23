@@ -114,6 +114,9 @@ public class WorkflowStepInstanceExecutionContext {
     public <T> T resolveWrapped(Object expression, TypeToken<T> type) {
         return context.resolveWrapped(expression, type);
     }
+    public <T> T resolveWaiting(Object expression, TypeToken<T> type) {
+        return context.resolveWaiting(expression, type);
+    }
 
     public String getWorkflowStepReference() {
         return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId);
