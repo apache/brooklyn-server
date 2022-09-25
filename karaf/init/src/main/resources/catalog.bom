@@ -136,6 +136,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep
+  - id: ssh
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SshWorkflowStep
 
   # workflow initializes
   - id: workflow-effector

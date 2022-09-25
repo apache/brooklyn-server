@@ -196,7 +196,7 @@ public class WorkflowExpressionResolution {
     public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
         try {
             // try yaml coercion, as values are normally set from yaml and will be raw at this stage
-            return BeanWithTypeUtils.convert(((EntityInternal) this.context.getEntity()).getManagementContext(), expression, type, true,
+            return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
                     RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);

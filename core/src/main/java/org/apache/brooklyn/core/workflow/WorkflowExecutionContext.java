@@ -176,7 +176,7 @@ public class WorkflowExecutionContext {
 
         if (task==null) {
             if (taskId!=null) {
-                task = (Task<Object>) ((EntityInternal)entity).getManagementContext().getExecutionManager().getTask(taskId);
+                task = (Task<Object>) getManagementContext().getExecutionManager().getTask(taskId);
             }
             if (task==null) {
                 return Maybe.absent(new IllegalStateException("Task for "+this+" no longer available"));
@@ -187,6 +187,10 @@ public class WorkflowExecutionContext {
 
     public Entity getEntity() {
         return entity;
+    }
+
+    public ManagementContext getManagementContext() {
+        return ((EntityInternal)getEntity()).getManagementContext();
     }
 
     public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {
@@ -270,7 +274,7 @@ public class WorkflowExecutionContext {
 
         @Override
         public Object call() throws Exception {
-            steps = MutableList.copyOf(WorkflowStepResolution.resolveSteps( ((BrooklynObjectInternal)entityOrAdjunctWhereRunning).getManagementContext(), WorkflowExecutionContext.this.steps));
+            steps = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.steps));
 
             if (currentStepIndex==null) {
                 currentStepIndex = 0;
