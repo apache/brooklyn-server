@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.mockwebserver.MockResponse;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
@@ -42,12 +43,15 @@ import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.net.Networking;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -91,4 +95,42 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result, MutableMap.of("exit_code", 0, "stdout", "foo", "stderr", "<testing stderr>"));
     }
 
+    @Test
+    public void testHttp() throws IOException {
+        BetterMockWebServer server = BetterMockWebServer.newInstanceLocalhost();
+
+        server.enqueue(new MockResponse().setResponseCode(200).setBody("ack"));
+        server.play();
+
+        Map result = (Map) runStep("http "+server.getUrl("/"), null);
+        Asserts.assertEquals(result.get("status_code"), 200);
+        Asserts.assertEquals(result.get("content"), "ack");
+        Asserts.assertEquals(new String((byte[])result.get("content_bytes")), "ack");
+        Asserts.assertThat(result.get("duration"), x -> Duration.nanos(1).isShorterThan(Duration.of(x)));
+
+        //server.enqueue(new MockResponse().setResponseCode(200).addHeader("content-type: application/json").setBody("{\"foo\":\"myfoo\"}"));
+    }
+
+    /*
+     * TODO - container
+     *
+     * TODO - custom ssh endpoint
+     * TODO - ? - custom cert logic for http
+     *
+     * TODO - copying scp, kubecp ?; http put from file?; and filesets?
+     * ... or ... stream-from: xxx; but that is too fiddly. support writing to temp file for use with cli?
+     * xcp [ [?${FROM} [?${FILESET} "fileset"] ${LOCAL}] ${REMOTE_FILE_OR_PATH}
+     *
+     * type: scp
+     * from:
+     * - bundle: xxxx
+     *   glob: ** / *.tf
+     * to: path/
+     * mkdir: true
+     * rmdir: true
+     *
+     * output:
+     * contents - if one argument supplied, receive that data, allow copy `from: { data: ${value} }`
+     * count - number of files copied
+     */
 }

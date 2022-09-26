@@ -88,6 +88,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
 
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "http", HttpWorkflowStep.class);
     }
 
     <T> T convert(Object input, Class<T> type) {
