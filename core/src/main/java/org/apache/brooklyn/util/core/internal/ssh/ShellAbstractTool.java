@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -219,6 +220,7 @@ public abstract class ShellAbstractTool implements ShellTool {
     protected abstract class ToolAbstractExecScript {
         protected final Map<String, ?> props;
         protected final String separator;
+        protected final AtomicReference<OutputStream> inCallback;
         protected final OutputStream out;
         protected final OutputStream err;
         protected final String scriptDir;
@@ -234,6 +236,7 @@ public abstract class ShellAbstractTool implements ShellTool {
         public ToolAbstractExecScript(Map<String,?> props) {
             this.props = props;
             this.separator = getOptionalVal(props, PROP_SEPARATOR);
+            this.inCallback = getOptionalVal(props, PROP_IN_STREAM_CALLBACK);
             this.out = getOptionalVal(props, PROP_OUT_STREAM);
             this.err = getOptionalVal(props, PROP_ERR_STREAM);
             

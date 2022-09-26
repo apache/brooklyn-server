@@ -315,7 +315,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                     String scriptContents = toScript(props, commands, env);
                     if (LOG.isTraceEnabled()) LOG.trace("Running shell command at {} as script: {}", host, scriptContents);
                     copyToServer(ImmutableMap.of("permissions", "0700"), scriptContents.getBytes(), scriptPath);
-                    return asInt(acquire(new ShellAction(buildRunScriptCommand(), out, err, execTimeout)), -1);
+                    return asInt(acquire(new ShellAction(buildRunScriptCommand(), inCallback, out, err, execTimeout)), -1);
                 }
             }.run();
         }
@@ -386,7 +386,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 }
 
                 // Execute script asynchronously
-                int execResult = asInt(acquire(new ShellAction(buildRunScriptCommand(), out, err, execTimeout)), -1);
+                int execResult = asInt(acquire(new ShellAction(buildRunScriptCommand(), inCallback, out, err, execTimeout)), -1);
                 if (execResult != 0) return execResult;
 
                 // Long polling to get the status
@@ -423,7 +423,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                     // Using pollTimeout so doesn't wait forever, but waits for a reasonable (configurable) length of time.
                     // TODO also execute this if the `buildRunScriptCommand` fails, as that might have left files behind?
                     try {
-                        int execDeleteResult = asInt(acquire(new ShellAction(deleteTemporaryFilesCommand(), out, err, pollTimeout)), -1);
+                        int execDeleteResult = asInt(acquire(new ShellAction(deleteTemporaryFilesCommand(), inCallback, out, err, pollTimeout)), -1);
                         if (execDeleteResult != 0) {
                             LOG.debug("Problem deleting temporary files of async script on "+SshjTool.this.toString()+" (for "+getSummary()+"): exit status "+execDeleteResult);
                         }
@@ -538,6 +538,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
     }
 
     public int execShellDirect(Map<String,?> props, List<String> commands, Map<String,?> env) {
+        AtomicReference<OutputStream> inCallback = getOptionalVal(props, PROP_IN_STREAM_CALLBACK);
         OutputStream out = getOptionalVal(props, PROP_OUT_STREAM);
         OutputStream err = getOptionalVal(props, PROP_ERR_STREAM);
         Duration execTimeout = getOptionalVal(props, PROP_EXEC_TIMEOUT);
@@ -551,7 +552,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
 
         if (LOG.isTraceEnabled()) LOG.trace("Running shell command at {}: {}", host, allcmds);
 
-        Integer result = acquire(new ShellAction(allcmds, out, err, execTimeout));
+        Integer result = acquire(new ShellAction(allcmds, inCallback, out, err, execTimeout));
         if (LOG.isTraceEnabled()) LOG.trace("Running shell command at {} completed: return status {}", host, result);
         return asInt(result, -1);
     }
@@ -568,6 +569,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
             return execScriptAsyncAndPoll(props, commands, env);
         }
 
+        AtomicReference inCallback = getOptionalVal(props, PROP_IN_STREAM_CALLBACK);
         OutputStream out = getOptionalVal(props, PROP_OUT_STREAM);
         OutputStream err = getOptionalVal(props, PROP_ERR_STREAM);
         String separator = getOptionalVal(props, PROP_SEPARATOR);
@@ -582,7 +584,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
 
         if (LOG.isTraceEnabled()) LOG.trace("Running command at {}: {}", host, singlecmd);
 
-        Command result = acquire(new ExecAction(singlecmd, out, err, execTimeout));
+        Command result = acquire(new ExecAction(singlecmd, inCallback, out, err, execTimeout));
         if (LOG.isTraceEnabled()) LOG.trace("Running command at {} completed: exit code {}", host, result.getExitStatus());
         // can be null if no exit status is received (observed on kill `ps aux | grep thing-to-grep-for | awk {print $2}`
         if (result.getExitStatus()==null) LOG.warn("Null exit status running at {}: {}", host, singlecmd);
@@ -846,6 +848,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
 
     class ExecAction implements SshAction<Command> {
         private final String command;
+        private final AtomicReference<OutputStream> inCallback;
         private final OutputStream out;
         private final OutputStream err;
         private final Duration timeout;
@@ -855,8 +858,9 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         private StreamGobbler outgobbler;
         private StreamGobbler errgobbler;
 
-        ExecAction(String command, OutputStream out, OutputStream err, Duration timeout) {
+        ExecAction(String command, AtomicReference<OutputStream> inCallback, OutputStream out, OutputStream err, Duration timeout) {
             this.command = checkNotNull(command, "command");
+            this.inCallback = inCallback;
             this.out = out;
             this.err = err;
             Duration sessionTimeout = (sshClientConnection.getSessionTimeout() == 0)
@@ -881,6 +885,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 session = acquire(newSessionAction());
 
                 Command output = session.exec(checkNotNull(command, "command"));
+                // session.getOutputStream().write(...) ??
 
                 if (out != null) {
                     outgobbler = new StreamGobbler(output.getInputStream(), out, (Logger)null);
@@ -889,6 +894,10 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                 if (err != null) {
                     errgobbler = new StreamGobbler(output.getErrorStream(), err, (Logger)null);
                     errgobbler.start();
+                }
+                if (inCallback != null) {
+                    inCallback.set(session.getOutputStream());
+                    synchronized (inCallback) { inCallback.notifyAll(); }
                 }
                 try {
                     output.join((int)Math.min(timeout.toMilliseconds(), Integer.MAX_VALUE), TimeUnit.MILLISECONDS);
@@ -926,6 +935,8 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         final OutputStream out;
         @VisibleForTesting
         final OutputStream err;
+        @VisibleForTesting
+        final AtomicReference<OutputStream> inCallback;
 
         private Session session;
         private Shell shell;
@@ -934,7 +945,12 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         private Duration timeout;
 
         ShellAction(List<String> commands, OutputStream out, OutputStream err, Duration timeout) {
+            this(commands, null, out, err, timeout);
+        }
+
+        ShellAction(List<String> commands, AtomicReference<OutputStream> inCallback, OutputStream out, OutputStream err, Duration timeout) {
             this.commands = checkNotNull(commands, "commands");
+            this.inCallback = inCallback;
             this.out = out;
             this.err = err;
             Duration sessionTimeout = (sshClientConnection.getSessionTimeout() == 0)
@@ -971,12 +987,12 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                     errgobbler.start();
                 }
 
-                OutputStream output = shell.getOutputStream();
+                OutputStream shellStdin = shell.getOutputStream();
 
                 for (CharSequence cmd : commands) {
                     try {
-                        output.write(toUTF8ByteArray(cmd+"\n"));
-                        output.flush();
+                        shellStdin.write(toUTF8ByteArray(cmd+"\n"));
+                        shellStdin.flush();
                     } catch (ConnectionException e) {
                         if (checkInterrupted(e)) {
                             throw e;
@@ -990,7 +1006,12 @@ public class SshjTool extends SshAbstractTool implements SshTool {
                         }
                     }
                 }
-                closeWhispering(output, this);
+                if (inCallback != null) {
+                    inCallback.set(shellStdin);
+                    synchronized (inCallback) { inCallback.notifyAll(); }
+                } else {
+                    closeWhispering(shellStdin, this);
+                }
 
                 boolean timedOut = false;
                 Exception last = null;

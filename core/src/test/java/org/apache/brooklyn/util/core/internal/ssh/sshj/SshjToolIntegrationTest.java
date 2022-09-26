@@ -38,16 +38,21 @@ import org.apache.brooklyn.util.core.internal.ssh.SshToolAbstractIntegrationTest
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeTimeoutException;
 import org.apache.brooklyn.util.os.Os;
+import org.apache.brooklyn.util.stream.ReaderInputStream;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.io.output.StringBuilderWriter;
+import org.apache.commons.io.output.WriterOutputStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -424,6 +429,62 @@ public class SshjToolIntegrationTest extends SshToolAbstractIntegrationTest {
             log.info("FAILED", e);
             Asserts.fail("Shouldn't throw");
         }
+        log.info("ENDING");
+    }
+
+    @Test(groups = {"Integration"})
+    public void testSshPipingInput() throws Exception {
+        AtomicReference<OutputStream> inCallback = new AtomicReference<>();
+        AtomicReference<Throwable> error = new AtomicReference<>();
+        final SshTool localTool = new SshjTool(ImmutableMap.of(
+                //  "user", "amp",
+                "sshTries", 3,
+                "host", "localhost",
+                "privateKeyFile", "~/.ssh/id_rsa"));
+
+        StringBuilderWriter stdout = new StringBuilderWriter();
+
+        Thread t = new Thread(() -> {
+            try {
+                log.info("T2 starting - " + Thread.currentThread());
+                localTool.connect();
+                log.info("T2 executing");
+                // input only works with commands; script is too complicated
+//                    localTool.execScript(
+                localTool.execCommands(
+                        ImmutableMap.of(PROP_OUT_STREAM.getName(), new WriterOutputStream(stdout, Charset.defaultCharset()), PROP_ERR_STREAM.getName(), System.err,
+                                SshjTool.PROP_IN_STREAM_CALLBACK.getName(), inCallback),
+                        ImmutableList.of(
+                                "echo header",
+                                "cat -",
+                                "echo done")
+                );
+            } catch (Throwable e) {
+                log.info("Error", e);
+                error.set(e);
+            } finally {
+                log.info("T2 ending");
+            }
+        });
+        log.info("STARTING");
+        t.start();
+        synchronized (inCallback) {
+            for (int i = 0; i < 10; i++) {
+                inCallback.wait(1000);
+                if (inCallback.get() != null) break;
+            }
+        }
+        log.info("GOT CALLBACK");
+        Asserts.assertNotNull(inCallback.get());
+        String id = Identifiers.makeRandomId(4);
+        inCallback.get().write(("hello world "+id+"\n").getBytes(StandardCharsets.UTF_8));
+        inCallback.get().close();
+
+        log.info("WROTE");
+        t.join();
+
+        Asserts.assertEquals(stdout.toString(), "header\nhello world "+id+"\ndone\n");
+
         log.info("ENDING");
     }
 

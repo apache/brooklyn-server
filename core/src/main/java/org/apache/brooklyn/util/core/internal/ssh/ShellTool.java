@@ -24,7 +24,9 @@ import static org.apache.brooklyn.core.config.ConfigKeys.newStringConfigKey;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.os.Os;
@@ -46,6 +48,8 @@ public interface ShellTool {
     public static final ConfigKey<Boolean> PROP_AUTH_SUDO = newConfigKey("authSudo", "When to run `sudo` commands with password authentication", Boolean.FALSE);
     public static final ConfigKey<String> PROP_PASSWORD = newStringConfigKey("password", "Password to use (e.g. for authSudo, or for ssh to connect)", null);
 
+    public static final ConfigKey<AtomicReference<OutputStream>> PROP_IN_STREAM_CALLBACK = newConfigKey(new TypeToken<AtomicReference<OutputStream>>() {}, "in", "Callback to get input stream, notified after set after command sent; " +
+            "interaction is complex with the commands also being written here, and limited support, so this is recommended only for carefully understood use cases such as SshjTool execCommand");
     public static final ConfigKey<OutputStream> PROP_OUT_STREAM = newConfigKey(OutputStream.class, "out", "Stream to which to capture stdout");
     public static final ConfigKey<OutputStream> PROP_ERR_STREAM = newConfigKey(OutputStream.class, "err", "Stream to which to capture stderr");
     
