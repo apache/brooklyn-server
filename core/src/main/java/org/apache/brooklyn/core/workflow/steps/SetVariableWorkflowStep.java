@@ -21,9 +21,11 @@ package org.apache.brooklyn.core.workflow.steps;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.workflow.ShorthandProcessor;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -50,7 +52,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression);
+        populateFromShorthandTemplate(SHORTHAND, expression, true);
     }
 
     @Override
@@ -116,12 +118,13 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if (result.isPresent()) return result.get();
 
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
+            boolean resolveToString = w.size()>1;
             List<Object> objs = w.stream().map(t -> {
                 if (qst.isQuoted(t)) return qst.unwrapIfQuoted(t);
-                return context.resolve(t);
+                return resolveToString ? context.resolve(t, String.class) : context.resolve(t);
             }).collect(Collectors.toList());
-            if (objs.size()==1) return objs.get(0);
-            return objs.stream().map(v -> context.resolve(v, String.class)).collect(Collectors.joining());
+            if (!resolveToString) return objs.get(0);
+            return ((List<String>)(List)objs).stream().collect(Collectors.joining());
         }
 
         private Maybe<Object> handleTokenIfPresent(List<String> tokens, boolean startAtRight, Map<String, BiFunction<List<String>,List<String>,Object>> tokenProcessors) {

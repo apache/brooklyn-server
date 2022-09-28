@@ -338,6 +338,16 @@ public class QuotedStringTokenizer {
         List<String> l = new ArrayList<String>();
         while (hasMoreTokens())
             l.add(nextToken());
+        peekedNextToken = null;
+        return l;
+    }
+
+    public List<String> remainderRaw() {
+        List<String> l = new ArrayList<String>();
+        if (peekedNextToken != null) l.add(peekedNextToken);
+        while (delegate.hasMoreTokens())
+            l.add(delegate.nextToken());
+        peekedNextToken = null;
         return l;
     }
 

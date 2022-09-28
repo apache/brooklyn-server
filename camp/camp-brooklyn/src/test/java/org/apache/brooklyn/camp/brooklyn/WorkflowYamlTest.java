@@ -36,6 +36,8 @@ import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.location.winrm.WinrmWorkflowStep;
+import org.apache.brooklyn.tasks.kubectl.ContainerWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -62,6 +64,10 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
     public static void addWorkflowTypes(ManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+
+        addRegisteredTypeBean(mgmt, "container", ContainerWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "winrm", WinrmWorkflowStep.class);
+
         addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
     }
 

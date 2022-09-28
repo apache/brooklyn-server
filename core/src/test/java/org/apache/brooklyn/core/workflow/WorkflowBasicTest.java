@@ -62,7 +62,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     static final String VERSION = "0.1.0-SNAPSHOT";
 
     @SuppressWarnings("deprecation")
-    static RegisteredType addRegisteredTypeBean(ManagementContext mgmt, String symName, Class<?> clazz) {
+    public static RegisteredType addRegisteredTypeBean(ManagementContext mgmt, String symName, Class<?> clazz) {
         RegisteredType rt = RegisteredTypes.bean(symName, VERSION,
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
         ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);

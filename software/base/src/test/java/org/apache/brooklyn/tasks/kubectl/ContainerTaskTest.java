@@ -40,7 +40,7 @@ import java.util.Map;
 import static org.testng.AssertJUnit.assertTrue;
 
 /**
- * These tests require Minikube installed locally
+ * These tests require kubectl installed and working locally, eg minikube, or docker desktop
  */
 @Test(groups = {"Live"})
 public class ContainerTaskTest extends BrooklynAppUnitTestSupport {

@@ -244,4 +244,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(output, 0.8);
     }
 
+    @Test
+    public void testLetQuoteVar() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let person = Anna",
+                "let note = \"${person}\" is ${person}",
+                "log NOTE: ${note}"));
+        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ${person} is Anna");
+    }
+
 }

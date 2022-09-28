@@ -146,6 +146,16 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.HttpWorkflowStep
+  - id: container
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.tasks.kubectl.ContainerWorkflowStep
+  - id: winrm
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.location.winrm.WinrmWorkflowStep
 
   # workflow initializes
   - id: workflow-effector

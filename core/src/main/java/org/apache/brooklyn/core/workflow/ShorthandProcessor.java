@@ -22,7 +22,6 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
-import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 
 import java.util.Arrays;
@@ -46,13 +45,20 @@ import java.util.stream.Collectors;
 public class ShorthandProcessor {
 
     private final String template;
+    boolean finalMatchRaw = false;
 
     public ShorthandProcessor(String template) {
         this.template = template;
     }
 
     public Maybe<Map<String,Object>> process(String input) {
-        return new ShorthandProcessorAttempt(template, input).call();
+        return new ShorthandProcessorAttempt(this, input).call();
+    }
+
+    /** whether the last match should preserve quotes and spaces */
+    public ShorthandProcessor withFinalMatchRaw(boolean finalMatchRaw) {
+        this.finalMatchRaw = finalMatchRaw;
+        return this;
     }
 
     static class ShorthandProcessorAttempt {
@@ -60,13 +66,15 @@ public class ShorthandProcessor {
         private final String inputOriginal;
         private final QuotedStringTokenizer qst;
         private final String template;
+        private final boolean finalMatchRaw;
         int optionalDepth = 0;
         boolean optionalSkippingInput = false;
         private String inputRemaining;
         Map<String, Object> result;
 
-        ShorthandProcessorAttempt(String template, String input) {
-            this.template = template;
+        ShorthandProcessorAttempt(ShorthandProcessor proc, String input) {
+            this.template = proc.template;
+            this.finalMatchRaw = proc.finalMatchRaw;
             this.qst = qst(template);
             this.templateTokens = qst.remainderAsList();
             this.inputOriginal = input;
@@ -183,9 +191,16 @@ public class ShorthandProcessor {
                     QuotedStringTokenizer qstInput = qst(inputRemaining);
                     if (!qstInput.hasMoreTokens()) return Maybe.absent("End of input when looking for variable "+t);
 
-                    if (templateTokens.isEmpty()) {
-                        // last word takes everything, but trimmed parsed and joined with spaces
-                        value = Strings.join(qstInput.remainderAsList().stream().map(qstInput::unwrapIfQuoted).collect(Collectors.toList()), " ");
+                    if (!templateTokens.stream().filter(x -> !x.equals("]")).findFirst().isPresent()) {
+                        // last word (whether optional or not) takes everything, but trimmed parsed and joined with spaces
+                        if (finalMatchRaw) {
+                            value = Strings.join(qstInput.remainderRaw(), "");
+                        } else {
+                            List<String> remainder = qstInput.remainderAsList();
+                            value = Strings.join(remainder.stream()
+                                    .map(qstInput::unwrapIfQuoted)
+                                    .collect(Collectors.toList()), " ");
+                        }
                         inputRemaining = "";
 
                     } else {

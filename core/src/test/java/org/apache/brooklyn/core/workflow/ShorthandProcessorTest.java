@@ -33,6 +33,10 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(new ShorthandProcessor(template).process(input).get(), expected);
     }
 
+    void assertShorthandFinalMatchRawOfGives(String template, String input, Map<String,Object> expected) {
+        Asserts.assertEquals(new ShorthandProcessor(template).withFinalMatchRaw(true).process(input).get(), expected);
+    }
+
     void assertShorthandFailsWith(String template, String input, Consumer<Exception> check) {
         try {
             new ShorthandProcessor(template).process(input).get();
@@ -71,6 +75,8 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
 
         // if you want quotes, you have to wrap them in quotes
         assertShorthandOfGives("${x}", "\"\\\"c is is quoted\\\"\"", MutableMap.of("x", "\"c is is quoted\""));
+        // or use final match quoted
+        assertShorthandFinalMatchRawOfGives("${x}", "\"\\\"c is is quoted\\\"\"", MutableMap.of("x", "\"\\\"c is is quoted\\\"\""));
         // a close quote must come at a word end to be considered
         // so this gives an error
         assertShorthandFailsWith("${x}", "\"c is  \"is", e -> Asserts.expectedFailureContainsIgnoreCase(e, "mismatched", "quot"));
@@ -91,6 +97,9 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         assertShorthandOfGives("[${type}] ${key} \"  =\" ${value}", "x =1", MutableMap.of("key", "x", "value", "1"));
         // but this does not match
         assertShorthandFailsWith("[${type}] ${key} \" =\" ${value}", "x=1", e -> Asserts.expectedFailureContainsIgnoreCase(e, " =", "end of input"));
+
+        assertShorthandOfGives("${x} [ ${y} ]", "hi world", MutableMap.of("x", "hi", "y", "world"));
+        assertShorthandOfGives("${x} [ ${y} ]", "hi world 1 and 2", MutableMap.of("x", "hi", "y", "world 1 and 2"));
     }
 
 }
