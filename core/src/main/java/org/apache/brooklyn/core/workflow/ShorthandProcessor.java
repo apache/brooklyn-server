@@ -31,16 +31,17 @@ import java.util.stream.Collectors;
 
 /**
  * Accepts a shorthand template, and converts it to a map of values,
- * e.g. given template "[ ${sensor.type} ] ${sensor.name} \"=\" ${value}"
+ * e.g. given template "[ ?${type_set} ${sensor.type} ] ${sensor.name} \"=\" ${value}"
  * and input "integer foo=3", this will return
- * { sensor: { type: integer, name: foo }, value: 3 }.
+ * { sensor: { type: integer, name: foo }, value: 3, type_set: true }.
  *
- * Expects space separated TOKEN where TOKEN is either:
+ * Expects space-separated TOKEN where TOKEN is either:
  *
- * [ TOKEN ] - to indicate TOKEN is optional. parsing is attempted first with it, then without it.
  * ${VAR} - to set VAR, which should be of the regex [A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*, with dot separation used to set nested maps;
  *   will match a quoted string if supplied, else up to the next literal if the next token is a literal, else the next work.
- * "LITERAL" - to expect a literal expression. this should include spaces if spaces are required.
+ * "LITERAL" - to expect a literal expression. this must include the quotation marks and should include spaces if spaces are required.
+ * [ TOKEN ] - to indicate TOKEN is optional, where TOKEN is one of the above sections. parsing is attempted first with it, then without it.
+ * [ ?${VAR} TOKEN ] - as `[ TOKEN ]` but VAR is set true or false depending whether this optional section was matched.
  */
 public class ShorthandProcessor {
 
@@ -101,7 +102,9 @@ public class ShorthandProcessor {
             boolean isEndOfOptional = false;
             outer: while (true) {
                 if (isEndOfOptional) {
-                    if (optionalDepth <= 0) throw new IllegalStateException("Unexpected optional block closure");
+                    if (optionalDepth <= 0) {
+                        throw new IllegalStateException("Unexpected optional block closure");
+                    }
                     optionalDepth--;
                     if (optionalSkippingInput) {
                         // we were in a block where we skipped something optional because it couldn't be matched; outer parser is now canonical,
@@ -121,6 +124,15 @@ public class ShorthandProcessor {
                     if (!t.isEmpty()) {
                         templateTokens.add(0, t);
                     }
+                    String optionalPresentVar = null;
+                    if (!templateTokens.isEmpty() && templateTokens.get(0).startsWith("?")) {
+                        String v = templateTokens.remove(0);
+                        if (v.startsWith("?${") && v.endsWith("}")) {
+                            optionalPresentVar = v.substring(3, v.length() - 1);
+                        } else {
+                            throw new IllegalStateException("? after [ should indicate optional presence variable using syntax '?${var}', not '"+v+"'");
+                        }
+                    }
                     Maybe<Object> cr;
                     if (!optionalSkippingInput) {
                         MutableMap<String, Object> backupResult = MutableMap.copyOf(result);
@@ -131,11 +143,13 @@ public class ShorthandProcessor {
                         cr = doCall();
                         if (cr.isPresent()) {
                             // succeeded
+                            if (optionalPresentVar!=null) result.put(optionalPresentVar, true);
                             continue;
 
                         } else {
                             // restore
                             result = backupResult;
+                            if (optionalPresentVar!=null) result.put(optionalPresentVar, false);
                             inputRemaining = backupInputRemaining;
                             templateTokens.clear();
                             templateTokens.addAll(backupTemplateTokens);
@@ -149,6 +163,7 @@ public class ShorthandProcessor {
                             }
                         }
                     } else {
+                        if (optionalPresentVar!=null) result.put(optionalPresentVar, false);
                         optionalDepth++;
                         cr = doCall();
                         if (cr.isPresent()) {

@@ -333,7 +333,7 @@ public class WorkflowExecutionContext {
                 // TODO error handling
 
                 previousStepIndex = currentStepIndex;
-                moveToNextStep(step.next, "Completed step "+ workflowStepReference(currentStepIndex));
+                moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
 
             } else {
                 // moving to floor/ceiling in treemap made sense when numero-ordered IDs are used, but not with list

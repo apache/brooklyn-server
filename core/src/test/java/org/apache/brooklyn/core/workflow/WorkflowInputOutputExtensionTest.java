@@ -253,4 +253,31 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ${person} is Anna");
     }
 
+    @Test
+    public void testLetTrimString() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let person_spaces = \" Anna \"",
+                "let string person = ${person_spaces}",
+                "let trimmed person_tidied = ${person_spaces}",
+                "log PERSON: ${person}",
+                "log PERSON_TIDIED: ${person_tidied}"));
+        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON:")).findAny().get(), "PERSON:  Anna ");
+        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_TIDIED:")).findAny().get(), "PERSON_TIDIED: Anna");
+    }
+
+    @Test
+    public void testLetTrimYaml() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let person_yaml = \"ignore\n---\n name: Anna \"",
+                "let trimmed string person_s = ${person_yaml}",
+                "let trimmed person_s2 = ${person_s}",
+                "let trimmed map person_m = ${person_yaml}",
+                "log PERSON_S: ${person_s}",
+                "log PERSON_S2: ${person_s2}",
+                "return ${person_m}"));
+        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S:")).findAny().get(), "PERSON_S:  name: Anna ");
+        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S2:")).findAny().get(), "PERSON_S2: name: Anna");
+        Asserts.assertEquals(output, MutableMap.of("name", "Anna"));
+    }
+
 }

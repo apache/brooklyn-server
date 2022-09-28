@@ -66,6 +66,7 @@ public abstract class WorkflowStepDefinition {
 
     //    next:  the next step to go to, assuming the step runs and succeeds; if omitted, or if the condition does not apply, it goes to the next step per the ordering (described below)
     protected String next;
+    @JsonIgnore  // because overwritten
     public String getNext() {
         return next;
     }

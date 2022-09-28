@@ -86,8 +86,14 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testShorthandWithOptionalPart() {
+        assertShorthandOfGives("[?${hello} \"hello\" ] ${x}", "hello world", MutableMap.of("hello", true, "x", "world"));
+
+        assertShorthandOfGives("[ \"hello\" ] ${x}", "hello world", MutableMap.of("x", "world"));
         assertShorthandOfGives("[\"hello\"] ${x}", "hello world", MutableMap.of("x", "world"));
         assertShorthandOfGives("[\"hello\"] ${x}", "hi world", MutableMap.of("x", "hi world"));
+        assertShorthandOfGives("[?${hello} \"hello\" ] ${x}", "hello world", MutableMap.of("hello", true, "x", "world"));
+        assertShorthandOfGives("[?${hello} \"hello\" ] ${x}", "hi world", MutableMap.of("hello", false, "x", "hi world"));
+
         assertShorthandOfGives("[${type}] ${key}", "x", MutableMap.of("key", "x"));
         assertShorthandOfGives("[${type}] ${key} \"=\" ${value}", "x = 1", MutableMap.of("key", "x", "value", "1"));
         assertShorthandOfGives("[${type}] ${key} \"=\" ${value}", "x=1", MutableMap.of("key", "x", "value", "1"));

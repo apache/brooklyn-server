@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,10 +46,11 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(SetVariableWorkflowStep.class);
 
-    public static final String SHORTHAND = "[ ${variable.type} ] ${variable.name} \"=\" ${value}";
+    public static final String SHORTHAND = "[ ?${trim} \"trimmed\" ] [ ${variable.type} ] ${variable.name} \"=\" ${value}";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
+    public static final ConfigKey<Boolean> TRIM = ConfigKeys.newConfigKey(Boolean.class, "trim");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -61,11 +63,11 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
         String name = context.resolve(variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-        TypeToken<?> type = context.lookupType(variable.type, () -> TypeToken.of(Object.class));
+        TypeToken<?> type = context.lookupType(variable.type, () -> null);
 
         Object unresolvedValue = input.get(VALUE.getName());
 
-        Object resolvedValue = new SetVariableEvaluation(context, type, unresolvedValue).evaluate();
+        Object resolvedValue = new SetVariableEvaluation(context, type==null ? TypeToken.of(Object.class) : type, unresolvedValue, Boolean.TRUE.equals(context.getInput(TRIM)), type!=null ).evaluate();
 
         context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
         return context.getPreviousStepOutput();
@@ -75,18 +77,31 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         protected final WorkflowStepInstanceExecutionContext context;
         protected final TypeToken<T> type;
         protected final Object unresolvedValue;
+        private final boolean trim;
+        private final boolean typeSpecified;
         private QuotedStringTokenizer qst;
 
-        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue) {
+
+        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, boolean trim, boolean typeSpecified) {
             this.context = context;
             this.type = type;
             this.unresolvedValue = unresolvedValue;
+            this.trim = trim;
+            this.typeSpecified = typeSpecified;
         }
 
         public T evaluate() {
             Object result = unresolvedValue;
             if (result instanceof String) {
                 result = process((String) result);
+                if (trim && result instanceof String) {
+                    Class<? super T> rt = type.getRawType();
+                    if (typeSpecified) {
+                        result = Yamls.lastDocumentFunction().apply((String)result);
+                    } else {
+                        result = ((String) result).trim();
+                    }
+                }
                 return context.getWorkflowExectionContext().resolveCoercingOnly(result, type);
             } else {
                 return context.resolve(result, type);

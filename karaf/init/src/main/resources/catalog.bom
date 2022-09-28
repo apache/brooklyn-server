@@ -118,6 +118,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.SetVariableWorkflowStep
+  - id: return
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.ReturnWorkflowStep
 
   - id: set-workflow-variable
     format: java-type-name
