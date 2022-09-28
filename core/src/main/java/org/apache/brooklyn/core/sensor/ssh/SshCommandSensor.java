@@ -29,56 +29,40 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
-import org.apache.brooklyn.api.mgmt.TaskFactory;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.SensorEvent;
-import org.apache.brooklyn.api.sensor.SensorEventListener;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInitializers;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.location.Locations;
-import org.apache.brooklyn.core.sensor.AbstractAddSensorFeed;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
-import org.apache.brooklyn.core.sensor.http.HttpRequestSensor;
 import org.apache.brooklyn.feed.CommandPollConfig;
 import org.apache.brooklyn.feed.ssh.SshFeed;
 import org.apache.brooklyn.feed.ssh.SshValueFunctions;
-import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Functionals;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.os.Os;
-import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
 
 /** 
  * Configurable {@link EntityInitializer} which adds an SSH sensor feed running the <code>command</code> supplied
- * in order to populate the sensor with the indicated <code>name</code>. Note that the <code>targetType</code> is ignored,
- * and always set to {@link String}.
- *
- * @see HttpRequestSensor
+ * in order to populate the sensor with the indicated <code>name</code>. The output is coerced to the `targetType`.
  */
 @Beta
 public final class SshCommandSensor<T> extends AbstractAddTriggerableSensor<T> {

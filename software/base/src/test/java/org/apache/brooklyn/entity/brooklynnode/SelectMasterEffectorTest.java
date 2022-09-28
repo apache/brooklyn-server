@@ -79,7 +79,8 @@ public class SelectMasterEffectorTest extends BrooklynAppUnitTestSupport {
                 }
             },
             new DelegatingPollHandler<Void>(Collections.<AttributePollHandler<? super Void>>emptyList()),
-            Duration.millis(20));
+            Duration.millis(20),
+            null);
         poller.start();
     }
 

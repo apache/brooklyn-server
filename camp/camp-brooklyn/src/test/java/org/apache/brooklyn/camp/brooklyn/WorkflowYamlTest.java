@@ -18,11 +18,13 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
@@ -34,6 +36,7 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
+import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.winrm.WinrmWorkflowStep;
@@ -43,12 +46,12 @@ import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.function.Predicate;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -69,6 +72,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         addRegisteredTypeBean(mgmt, "winrm", WinrmWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
+        addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
     }
 
     @BeforeMethod(alwaysRun = true)
@@ -101,13 +105,80 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
 
-        Task<?> invocation = app.invoke(effector, null);
+        Task<?> invocation = entity.invoke(effector, null);
         Object result = invocation.getUnchecked();
+        Asserts.assertNull(result);
         Dumper.dumpInfo(invocation);
 
-        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "foo"), "bar");
-        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "bar"), 1);
-        EntityAsserts.assertConfigEquals(app, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "foo"), "bar");
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "bar"), 1);
+        EntityAsserts.assertConfigEquals(entity, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
+    }
+
+    @Test
+    public void testWorkflowSensorTrigger() throws Exception {
+        doTestWorkflowSensor("triggers: theTrigger", Duration.seconds(1)::isLongerThan);
+    }
+
+    @Test(groups="Integration") // because delay
+    public void testWorkflowSensorPeriod() throws Exception {
+        doTestWorkflowSensor("period: 2s", Duration.seconds(2)::isShorterThan);
+    }
+
+    @Test(groups="Integration") // because delay
+    public void testWorkflowSensorTriggerWithCondition() throws Exception {
+        doTestWorkflowSensor("condition: { sensor: not_exist }\n" + "triggers: theTrigger", null);
+    }
+
+    @Test(groups="Integration") // because delay
+    public void testWorkflowSensorPeriodWithCondition() throws Exception {
+        doTestWorkflowSensor("condition: { sensor: not_exist }\n" + "period: 200 ms", null);
+    }
+
+    void doTestWorkflowSensor(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-sensor",
+                "    brooklyn.config:",
+                "      name: myWorkflowSensor",
+                Strings.indent(6, triggers),
+                "      steps:",
+                "        - let v = ${entity.sensor.myWorkflowSensor.v} + 1 ?? 0",
+                "        - type: let",
+                "          variable: out",
+                "          value: |",
+                "            ignored sample output before doc",
+                "            ---",
+                "            foo: bar",
+                "            v: ${v}",
+                "        - let trimmed map x = ${out}",
+                "        - return ${x}",
+                "");
+
+        Stopwatch sw = Stopwatch.createStarted();
+        waitForApplicationTasks(app);
+        Duration d1 = Duration.of(sw);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        AttributeSensor<Object> s = Sensors.newSensor(Object.class, "myWorkflowSensor");
+
+        if (timeCheckOrNullIfShouldFail!=null) {
+            EntityAsserts.assertAttributeEventuallyNonNull(entity, s);
+            Duration d2 = Duration.of(sw).subtract(d1);
+            // initial set should be soon after startup
+            Asserts.assertThat(d2, Duration.millis(500)::isLongerThan);
+            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
+
+            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
+            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
+            Duration d3 = Duration.of(sw).subtract(d2);
+            // the next iteration should obey the time constraint specified above
+            if (!timeCheckOrNullIfShouldFail.test(d3)) Asserts.fail("Timing error, took " + d3);
+        } else {
+            EntityAsserts.assertAttributeEqualsContinually(entity, s, null);
+        }
     }
 
     ClassLogWatcher lastLogWatcher;

@@ -170,7 +170,10 @@ public class WorkflowExecutionContext {
     }
 
     public Maybe<Task<Object>> getOrCreateTask() {
-        if (condition!=null) {
+        return getOrCreateTask(true);
+    }
+    public Maybe<Task<Object>> getOrCreateTask(boolean checkCondition) {
+        if (checkCondition && condition!=null) {
             if (!condition.apply(entityOrAdjunctWhereRunning)) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
 

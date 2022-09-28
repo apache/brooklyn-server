@@ -24,7 +24,9 @@ import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
 import org.apache.brooklyn.api.entity.Entity;
@@ -80,13 +82,15 @@ public class Poller<V> {
             Set<PC> configs = polls.get(identifer);
             long minPeriodMillis = Long.MAX_VALUE;
             Set<AttributePollHandler<?>> handlers = Sets.newLinkedHashSet();
+            Set<Supplier<DslPredicates.DslPredicate>> conditions = MutableSet.of();
 
             for (PC config : configs) {
+                conditions.add(config.getCondition());
                 handlers.add(new AttributePollHandler(config, entity, feed));
                 if (config.getPeriod() > 0) minPeriodMillis = Math.min(minPeriodMillis, config.getPeriod());
             }
 
-            Callable pollJob = jobFactory.apply(identifer);
+            Callable pollCallable = jobFactory.apply(identifer);
             DelegatingPollHandler handlerDelegate = new DelegatingPollHandler(handlers);
             boolean subscribed = false;
             for (PollConfig pc: configs) {
@@ -101,12 +105,22 @@ public class Poller<V> {
                 }
 
                 for (Pair<Entity, Sensor> pair : triggersResolved) {
-                    subscribe(pollJob, handlerDelegate, pair.getLeft(), pair.getRight(), pc.getCondition());
+                    subscribe(pollCallable, handlerDelegate, pair.getLeft(), pair.getRight(), pc.getCondition());
                     subscribed = true;
                 }
             }
             if (minPeriodMillis>0 && (minPeriodMillis < Duration.PRACTICALLY_FOREVER.toMilliseconds() || !subscribed)) {
-                scheduleAtFixedRate(pollJob, handlerDelegate, minPeriodMillis);
+                Supplier<DslPredicates.DslPredicate> condition = null;
+                if (!conditions.isEmpty()) {
+                    if (conditions.size()==1) condition = Iterables.getOnlyElement(conditions);
+                    else if (conditions.contains(null)) /* if any are unset then ignored */ condition = null;
+                    else condition = () -> {
+                        DslPredicates.DslPredicateDefault aggregate = new DslPredicates.DslPredicateDefault();
+                        aggregate.any = conditions.stream().collect(Collectors.toList());
+                        return aggregate;
+                    };
+                }
+                scheduleAtFixedRate(pollCallable, handlerDelegate, Duration.millis(minPeriodMillis), condition);
             }
         }
     }
@@ -185,13 +199,16 @@ public class Poller<V> {
     }
 
     public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, long periodMillis) {
-        scheduleAtFixedRate(job, handler, Duration.millis(periodMillis));
+        scheduleAtFixedRate(job, handler, Duration.millis(periodMillis), null);
     }
     public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, Duration period) {
+        scheduleAtFixedRate(job, handler, period, null);
+    }
+    public void scheduleAtFixedRate(Callable<V> job, PollHandler<? super V> handler, Duration period, Supplier<DslPredicates.DslPredicate> pollCondition) {
         if (started) {
             throw new IllegalStateException("Cannot schedule additional tasks after poller has started");
         }
-        PollJob<V> foo = new PollJob<V>(job, handler, period);
+        PollJob<V> foo = new PollJob<V>(job, handler, period, null, null, pollCondition);
         pollJobs.add(foo);
     }
 

@@ -56,7 +56,7 @@ public class AddSensorInitializer<T> extends EntityInitializers.InitializerPatte
 
     public static final ConfigKey<String> SENSOR_NAME = ConfigKeys.newStringConfigKey("name", "The name of the sensor to create");
     public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms; default 5 minutes", Duration.FIVE_MINUTES);
-    public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", "java.lang.String");
+    public static final ConfigKey<String> SENSOR_TYPE = ConfigKeys.newStringConfigKey("targetType", "Target type for the value; default String", String.class.getName());
 
     // constructor for use in code to conveniently supply params
     protected AddSensorInitializer(ConfigBag params) {
@@ -76,7 +76,7 @@ public class AddSensorInitializer<T> extends EntityInitializers.InitializerPatte
         return sensor;
     }
 
-    private AttributeSensor<T> sensor(Entity entity) {
+    protected AttributeSensor<T> sensor(Entity entity) {
         TypeToken<T> clazz = getType(entity, initParam(SENSOR_TYPE));
         return Sensors.newSensor(clazz, Preconditions.checkNotNull(initParam(SENSOR_NAME)));
     }

@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -65,6 +66,7 @@ public abstract class WorkflowStepDefinition {
 //    }
 
     //    next:  the next step to go to, assuming the step runs and succeeds; if omitted, or if the condition does not apply, it goes to the next step per the ordering (described below)
+    @JsonProperty("next")  //use this field for access, not the getter/setter
     protected String next;
     @JsonIgnore  // because overwritten
     public String getNext() {

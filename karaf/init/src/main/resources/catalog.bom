@@ -168,3 +168,8 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.WorkflowEffector
+  - id: workflow-sensor
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.WorkflowSensor
