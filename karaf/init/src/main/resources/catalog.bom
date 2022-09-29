@@ -141,6 +141,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep
+  - id: invoke-effector
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.InvokeEffectorWorkflowStep
   - id: ssh
     format: java-type-name
     itemType: bean

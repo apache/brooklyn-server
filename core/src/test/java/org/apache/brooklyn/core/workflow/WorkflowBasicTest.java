@@ -86,6 +86,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "clear-workflow-variable", ClearVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "wait", WaitWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "return", ReturnWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "invoke-effector", InvokeEffectorWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);

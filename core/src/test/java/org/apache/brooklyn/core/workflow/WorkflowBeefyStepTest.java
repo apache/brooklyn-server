@@ -64,21 +64,42 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
     }
 
+    BasicApplication lastApp;
     Object runStep(Object step, Consumer<BasicApplication> appFunction) {
+        return runSteps(MutableList.<Object>of(step), appFunction);
+    }
+    Object runSteps(List<Object> steps, Consumer<BasicApplication> appFunction) {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        this.lastApp = app;
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
-                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
-                        .append(step)
-                )
+                .configure(WorkflowEffector.STEPS, steps)
         );
         if (appFunction!=null) appFunction.accept(app);
         eff.apply((EntityLocal)app);
 
         Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
         return invocation.getUnchecked();
+    }
+
+    @Test
+    public void testEffector() throws IOException {
+        Object result = runSteps(MutableList.of(
+                "let x = ${entity.sensor.x} + 1 ?? 0",
+                "set-sensor x = ${x}",
+                "set-sensor last-param = ${p1}",
+                MutableMap.of(
+                        "s", "invoke-effector myWorkflow",
+                        "args", MutableMap.of("p1", "from-invocation"),
+                        "condition", MutableMap.of("target", "${x}", "less-than", 2),
+                        "next", "end"),
+                "return ${x}"  // if effector isn't invoked
+        ), null);
+        Asserts.assertEquals(result, 2);
+        EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "x"), 2);
+        EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "last-param"), "from-invocation");
     }
 
     @Test
@@ -107,14 +128,11 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result.get("content"), "ack");
         Asserts.assertEquals(new String((byte[])result.get("content_bytes")), "ack");
         Asserts.assertThat(result.get("duration"), x -> Duration.nanos(1).isShorterThan(Duration.of(x)));
-
-        //server.enqueue(new MockResponse().setResponseCode(200).addHeader("content-type: application/json").setBody("{\"foo\":\"myfoo\"}"));
     }
 
+    // container, winrm defined in downstream projects and tested in those projects and/or workflow yaml
+
     /*
-     * container, winrm defined in downstream projects and tested in those projects and/or workflow yaml
-     * TODO invoke-effector step
-     *
      * TODO - custom ssh endpoint
      * TODO - ? - custom cert logic for http
      *
