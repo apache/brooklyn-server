@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.feed;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
@@ -33,16 +32,12 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
-import org.apache.brooklyn.feed.AbstractCommandFeed;
-import org.apache.brooklyn.feed.CommandPollConfig;
-import org.apache.brooklyn.feed.http.HttpFeed;
-import org.apache.brooklyn.feed.http.HttpPollConfig;
-import org.apache.brooklyn.feed.ssh.SshPollValue;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -69,7 +64,7 @@ public class Poller<V> {
     public static final Logger log = LoggerFactory.getLogger(Poller.class);
 
     private final Entity entity;
-    private final AbstractFeed feed;
+    private final AbstractEntityAdjunct adjunct;
     private final boolean onlyIfServiceUp;
     private final Set<Callable<?>> oneOffJobs = new LinkedHashSet<Callable<?>>();
     private final Set<PollJob<V>> pollJobs = new LinkedHashSet<PollJob<V>>();
@@ -79,49 +74,56 @@ public class Poller<V> {
 
     public <PI,PC extends PollConfig> void scheduleFeed(AbstractFeed feed, SetMultimap<PI,PC> polls, Function<PI,Callable<?>> jobFactory) {
         for (final PI identifer : polls.keySet()) {
-            Set<PC> configs = polls.get(identifer);
-            long minPeriodMillis = Long.MAX_VALUE;
+            Set<PC> pollConfigs = polls.get(identifer);
             Set<AttributePollHandler<?>> handlers = Sets.newLinkedHashSet();
-            Set<Supplier<DslPredicates.DslPredicate>> conditions = MutableSet.of();
 
-            for (PC config : configs) {
-                conditions.add(config.getCondition());
+            for (PC config : pollConfigs) {
                 handlers.add(new AttributePollHandler(config, entity, feed));
-                if (config.getPeriod() > 0) minPeriodMillis = Math.min(minPeriodMillis, config.getPeriod());
             }
 
             Callable pollCallable = jobFactory.apply(identifer);
             DelegatingPollHandler handlerDelegate = new DelegatingPollHandler(handlers);
-            boolean subscribed = false;
-            for (PollConfig pc: configs) {
-                Set<Pair<Entity, Sensor>> triggersResolved = MutableSet.of();
-                if (pc.getOtherTriggers()!=null) {
-                    triggersResolved.addAll(AbstractAddTriggerableSensor.resolveTriggers(feed.getEntity(), pc.getOtherTriggers()));
-                }
-                if (onlyIfServiceUp) {
-                    // if 'onlyIfServiceUp' is set then automatically subscribe to that sensor.
-                    // this is the default for ssh and other sensors which need a target machine. for others it defaults false.
-                    triggersResolved.add(Pair.of(feed.getEntity(), Attributes.SERVICE_UP));
-                }
+            schedulePoll(feed, pollConfigs, pollCallable, handlerDelegate);
+        }
+    }
 
-                for (Pair<Entity, Sensor> pair : triggersResolved) {
-                    subscribe(pollCallable, handlerDelegate, pair.getLeft(), pair.getRight(), pc.getCondition());
-                    subscribed = true;
-                }
+    public void schedulePoll(AbstractEntityAdjunct feed, Set<? extends PollConfig> pollConfigs, Callable pollCallable, PollHandler pollHandler) {
+        boolean subscribed = false;
+        long minPeriodMillis = Long.MAX_VALUE;
+        Set<Supplier<DslPredicates.DslPredicate>> conditions = MutableSet.of();
+
+        for (PollConfig pc: pollConfigs) {
+            conditions.add(pc.getCondition());
+            if (pc.getPeriod() > 0) minPeriodMillis = Math.min(minPeriodMillis, pc.getPeriod());
+
+            Set<Pair<Entity, Sensor>> triggersResolved = MutableSet.of();
+            if (pc.getOtherTriggers()!=null) {
+                triggersResolved.addAll(AbstractAddTriggerableSensor.resolveTriggers(feed.getEntity(), pc.getOtherTriggers()));
             }
-            if (minPeriodMillis>0 && (minPeriodMillis < Duration.PRACTICALLY_FOREVER.toMilliseconds() || !subscribed)) {
-                Supplier<DslPredicates.DslPredicate> condition = null;
-                if (!conditions.isEmpty()) {
-                    if (conditions.size()==1) condition = Iterables.getOnlyElement(conditions);
-                    else if (conditions.contains(null)) /* if any are unset then ignored */ condition = null;
-                    else condition = () -> {
-                        DslPredicates.DslPredicateDefault aggregate = new DslPredicates.DslPredicateDefault();
-                        aggregate.any = conditions.stream().collect(Collectors.toList());
-                        return aggregate;
-                    };
-                }
-                scheduleAtFixedRate(pollCallable, handlerDelegate, Duration.millis(minPeriodMillis), condition);
+            if (onlyIfServiceUp) {
+                // if 'onlyIfServiceUp' is set then automatically subscribe to that sensor.
+                // this is the default for ssh and other sensors which need a target machine. for others it defaults false.
+                triggersResolved.add(Pair.of(feed.getEntity(), Attributes.SERVICE_UP));
             }
+
+            for (Pair<Entity, Sensor> pair : triggersResolved) {
+                subscribe(pollCallable, pollHandler, pair.getLeft(), pair.getRight(), pc.getCondition());
+                subscribed = true;
+            }
+        }
+
+        if (minPeriodMillis >0 && (minPeriodMillis < Duration.PRACTICALLY_FOREVER.toMilliseconds() || !subscribed)) {
+            Supplier<DslPredicates.DslPredicate> condition = null;
+            if (!conditions.isEmpty()) {
+                if (conditions.size()==1) condition = Iterables.getOnlyElement(conditions);
+                else if (conditions.contains(null)) /* if any are unset then ignored */ condition = null;
+                else condition = () -> {
+                    DslPredicates.DslPredicateDefault aggregate = new DslPredicates.DslPredicateDefault();
+                    aggregate.any = conditions.stream().collect(Collectors.toList());
+                    return aggregate;
+                };
+            }
+            scheduleAtFixedRate(pollCallable, pollHandler, Duration.millis(minPeriodMillis), condition);
         }
     }
 
@@ -179,14 +181,9 @@ public class Poller<V> {
         }
     }
 
-    /** @deprecated since 0.12.0 pass in feed */
-    @Deprecated
-    public Poller(Entity entity, boolean onlyIfServiceUp) {
-        this(entity, null, onlyIfServiceUp);
-    }
-    public Poller(Entity entity, AbstractFeed feed, boolean onlyIfServiceUp) {
+    public Poller(Entity entity, AbstractEntityAdjunct adjunct, boolean onlyIfServiceUp) {
         this.entity = entity;
-        this.feed = feed;
+        this.adjunct = adjunct;
         this.onlyIfServiceUp = onlyIfServiceUp;
     }
     
@@ -227,13 +224,13 @@ public class Poller<V> {
         
         for (final Callable<?> oneOffJob : oneOffJobs) {
             Task<?> task = Tasks.builder().dynamic(false).body((Callable<Object>) oneOffJob).displayName("Poll").description("One-time poll job "+oneOffJob).build();
-            oneOffTasks.add(feed.getExecutionContext().submit(task));
+            oneOffTasks.add(adjunct.getExecutionContext().submit(task));
         }
         
         Duration minPeriod = null;
         Set<String> sensors = MutableSet.of();
         for (final PollJob<V> pollJob : pollJobs) {
-            final String scheduleName = (feed!=null ? feed.getDisplayName()+", " : "") +pollJob.handler.getDescription();
+            final String scheduleName = (adjunct !=null ? adjunct.getDisplayName()+", " : "") +pollJob.handler.getDescription();
             boolean added = false;
 
             Callable<Task<?>> tf = () -> {
@@ -256,7 +253,7 @@ public class Poller<V> {
 
             ScheduledTask.Builder tb = ScheduledTask.builder(tf)
                     .cancelOnException(false)
-                    .tag(feed != null ? BrooklynTaskTags.tagForContextAdjunct(feed) : null);
+                    .tag(adjunct != null ? BrooklynTaskTags.tagForContextAdjunct(adjunct) : null);
 
             if (pollJob.pollPeriod!=null && pollJob.pollPeriod.compareTo(Duration.ZERO) > 0) {
                 added = true;
@@ -279,10 +276,10 @@ public class Poller<V> {
                             this, entity, pollJob.subscription));
                 }
                 sensors.add(pollJob.pollTriggerSensor.getName());
-                pollJob.subscription = feed.subscriptions().subscribe(pollJob.pollTriggerEntity !=null ? pollJob.pollTriggerEntity : feed.getEntity(), pollJob.pollTriggerSensor, event -> {
+                pollJob.subscription = adjunct.subscriptions().subscribe(pollJob.pollTriggerEntity !=null ? pollJob.pollTriggerEntity : adjunct.getEntity(), pollJob.pollTriggerSensor, event -> {
                     // submit this on every event
                     try {
-                        feed.getExecutionContext().submit(tf.call());
+                        adjunct.getExecutionContext().submit(tf.call());
                     } catch (Exception e) {
                         throw Exceptions.propagate(e);
                     }
@@ -294,22 +291,26 @@ public class Poller<V> {
             }
         }
         
-        if (feed!=null) {
+        if (adjunct !=null) {
             if (sensors.isEmpty()) {
                 if (minPeriod==null) {
-                    feed.highlightTriggers("Not configured with a period or triggers");
+                    adjunct.highlightTriggers("Not configured with a period or triggers");
                 } else {
-                    feed.highlightTriggerPeriod(minPeriod);
+                    highlightTriggerPeriod(minPeriod);
                 }
             } else if (minPeriod==null) {
-                feed.highlightTriggers("Triggered by: "+sensors);
+                adjunct.highlightTriggers("Triggered by: "+sensors);
             } else {
                 // both
-                feed.highlightTriggers("Running every "+minPeriod+" and on triggers: "+sensors);
+                adjunct.highlightTriggers("Running every "+minPeriod+" and on triggers: "+sensors);
             }
         }
     }
-    
+
+    void highlightTriggerPeriod(Duration minPeriod) {
+        adjunct.highlightTriggers("Running every "+minPeriod);
+    }
+
     public void stop() {
         if (log.isDebugEnabled()) log.debug("Stopping poll for {} (using {})", new Object[] {entity, this});
         if (!started) { 
@@ -326,7 +327,7 @@ public class Poller<V> {
         }
         for (PollJob<?> j: pollJobs) {
             if (j.subscription!=null) {
-                feed.subscriptions().unsubscribe(j.subscription);
+                adjunct.subscriptions().unsubscribe(j.subscription);
                 j.subscription = null;
             }
         }

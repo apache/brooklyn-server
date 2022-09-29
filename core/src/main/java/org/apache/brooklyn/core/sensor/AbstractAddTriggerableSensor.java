@@ -49,6 +49,7 @@ import java.util.stream.Collectors;
 @Beta
 public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorFeed<T> {
 
+    public static final ConfigKey<Duration> SENSOR_PERIOD = ConfigKeys.newConfigKey(Duration.class, "period", "Period, including units e.g. 1m or 5s or 200ms", null);
     public static final ConfigKey<Object> SENSOR_TRIGGERS = ConfigKeys.newConfigKey(new TypeToken<Object>() {}, "triggers",
             "Sensors which should trigger this feed, supplied with list of maps containing sensor (name or sensor instance) and entity (ID or entity instance), or just sensor names or just one sensor");
     public static final ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition", "Optional condition required for this sensor feed to run");
@@ -184,14 +185,14 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
                 .logWarningGraceTime(logWarningGraceTime)
                 .period(getPeriod(entity, initParams()))
                 .otherTriggers(getTriggersMaybe(entity, configBag).orNull())
-                .condition(new ConditionSupplier(configBag, entity));
+                .condition(new ConditionSupplierFromConfigBag(configBag, entity));
     }
 
-    static class ConditionSupplier implements Supplier<DslPredicates.DslPredicate> {
+    static class ConditionSupplierFromConfigBag implements Supplier<DslPredicates.DslPredicate> {
         final ConfigBag configBag;
         final Entity entity;
 
-        ConditionSupplier(ConfigBag configBag, Entity entity) {
+        ConditionSupplierFromConfigBag(ConfigBag configBag, Entity entity) {
             this.configBag = configBag;
             this.entity = entity;
         }

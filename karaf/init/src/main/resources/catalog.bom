@@ -173,3 +173,7 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.WorkflowSensor
+  - id: workflow-policy
+    itemType: policy
+    item:
+      type: org.apache.brooklyn.core.workflow.WorkflowPolicy

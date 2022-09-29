@@ -491,36 +491,36 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     }
 
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item which is intended to be ongoing. */
-    protected void highlightOngoing(String name, String description) {
+    public void highlightOngoing(String name, String description) {
         setHighlight(name, new HighlightTuple(description, 0, null));
     }
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time. */
-    protected void highlightNow(String name, String description) {
+    public void highlightNow(String name, String description) {
         setHighlight(name, new HighlightTuple(description, System.currentTimeMillis(), null));
     }
     /** As {@link #setHighlight(String, HighlightTuple)}, convenience for recording an item with the current time and given task. */
-    protected void highlight(String name, String description, @Nullable Task<?> t) {
+    public void highlight(String name, String description, @Nullable Task<?> t) {
         setHighlight(name, new HighlightTuple(description, System.currentTimeMillis(), t!=null ? t.getId() : null));
     }
     
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_TRIGGERS} (as ongoing). */
-    protected void highlightTriggers(String description) {
+    public void highlightTriggers(String description) {
         highlightOngoing(HIGHLIGHT_NAME_TRIGGERS, description);
     }
     /** As {@link #highlightTriggers(String)} but convenience to generate a message given a sensor and source (entity or string description) */
-    protected <T> void highlightTriggers(Sensor<?> s, Object source) {
+    public <T> void highlightTriggers(Sensor<?> s, Object source) {
         highlightTriggers(Collections.singleton(s), Collections.singleton(source));
     }
     /** As {@link #highlightTriggers(String)} but convenience to generate a message given a list of sensors and source (entity or string description) */
-    protected <T> void highlightTriggers(Iterable<? extends Sensor<? extends T>> s, Object source) {
+    public <T> void highlightTriggers(Iterable<? extends Sensor<? extends T>> s, Object source) {
         highlightTriggers(s, (Iterable<?>) (source instanceof Iterable ? (Iterable<?>)source : Collections.singleton(source)));
     }
     /** As {@link #highlightTriggers(String)} but convenience to generate a message given a sensor and list of sources (entity or string description) */
-    protected <U> void highlightTriggers(Sensor<?> s, Iterable<U> sources) {
+    public <U> void highlightTriggers(Sensor<?> s, Iterable<U> sources) {
         highlightTriggers(Collections.singleton(s), sources);
     }
     /** As {@link #highlightTriggers(String)} but convenience to generate a message given a list of sensors and list of sources (entity or string description) */
-    protected <T,U> void highlightTriggers(Iterable<? extends Sensor<? extends T>> sensors, Iterable<U> sources) {
+    public <T,U> void highlightTriggers(Iterable<? extends Sensor<? extends T>> sensors, Iterable<U> sources) {
         StringBuilder msg = new StringBuilder("Listening for ");
 
         if (sensors==null || Iterables.isEmpty(sensors)) {
@@ -547,23 +547,23 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     }
 
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_CONFIRMATION}. */
-    protected void highlightConfirmation(String description) {
+    public void highlightConfirmation(String description) {
         highlightNow(HIGHLIGHT_NAME_LAST_CONFIRMATION, description);
     }
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION}. */
-    protected void highlightAction(String description, Task<?> t) {
+    public void highlightAction(String description, Task<?> t) {
         highlight(HIGHLIGHT_NAME_LAST_ACTION, description, t);
     }
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION} when publishing a sensor. */
-    protected void highlightActionPublishSensor(Sensor<?> s, Object v) {
+    public void highlightActionPublishSensor(Sensor<?> s, Object v) {
         highlightActionPublishSensor("Publish "+s.getName()+" "+v);
     }
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_ACTION} when publishing a sensor (freeform text). */
-    protected void highlightActionPublishSensor(String description) {
+    public void highlightActionPublishSensor(String description) {
         highlight(HIGHLIGHT_NAME_LAST_ACTION, description, null);
     }
     /** As {@link #setHighlight(String, HighlightTuple)} for {@link #HIGHLIGHT_NAME_LAST_VIOLATION}. */
-    protected void highlightViolation(String description) {
+    public void highlightViolation(String description) {
         highlightNow(HIGHLIGHT_NAME_LAST_VIOLATION, description);
     }
     

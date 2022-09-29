@@ -45,7 +45,7 @@ public interface WorkflowCommonConfig {
 //    }
 
     ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
-            "Condition required on the entity where this effector is placed in order for the effector to be invocable");
+            "Condition required for this workflow to run");
 
     // TODO
 //    on-error:  a description of how to handle errors section

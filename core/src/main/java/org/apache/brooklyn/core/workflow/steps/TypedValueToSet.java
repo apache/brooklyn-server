@@ -39,6 +39,7 @@ public class TypedValueToSet {
     public String type;
 
 
+    @Deprecated // no longer used, given ShorthandProcessor
     public static TypedValueToSet parseFromShorthand(String expression, Consumer<Object> valueSetter) {
         String[] itemValue;
         String expectedForm = "[TYPE] NAME";

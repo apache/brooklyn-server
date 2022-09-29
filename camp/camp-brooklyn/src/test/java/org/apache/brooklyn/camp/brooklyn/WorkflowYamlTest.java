@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
+import org.apache.brooklyn.core.workflow.WorkflowPolicy;
 import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -51,6 +53,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
@@ -65,6 +68,15 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         return rt;
     }
 
+    static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz) {
+        RegisteredType rt = RegisteredTypes.spec(symName, VERSION,
+                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
+        RegisteredTypes.addSuperType(rt, Policy.class);
+
+        ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
+        return rt;
+    }
+
     public static void addWorkflowTypes(ManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
 
@@ -73,6 +85,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
         addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
+        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class);
     }
 
     @BeforeMethod(alwaysRun = true)
@@ -135,6 +148,26 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         doTestWorkflowSensor("condition: { sensor: not_exist }\n" + "period: 200 ms", null);
     }
 
+    @Test
+    public void testWorkflowPolicyTrigger() throws Exception {
+        doTestWorkflowPolicy("triggers: theTrigger", Duration.seconds(1)::isLongerThan);
+    }
+
+    @Test(groups="Integration") // because delay
+    public void testWorkflowPolicyPeriod() throws Exception {
+        doTestWorkflowPolicy("period: 2s", Duration.seconds(2)::isShorterThan);
+    }
+
+    @Test(groups="Integration") // because delay
+    public void testWorkflowPolicyTriggerWithCondition() throws Exception {
+        doTestWorkflowPolicy("condition: { sensor: not_exist }\n" + "triggers: theTrigger", null);
+    }
+
+    @Test(groups="Integration") // because delay
+    public void testWorkflowPolicyPeriodWithCondition() throws Exception {
+        doTestWorkflowPolicy("condition: { sensor: not_exist }\n" + "period: 200 ms", null);
+    }
+
     void doTestWorkflowSensor(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
@@ -142,7 +175,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "  brooklyn.initializers:",
                 "  - type: workflow-sensor",
                 "    brooklyn.config:",
-                "      name: myWorkflowSensor",
+                "      sensor: myWorkflowSensor",   // supports old syntax { name: x, targetType: T } or new syntax simple { sensor: Name } or full { sensor: { name: Name, type: T } }
                 Strings.indent(6, triggers),
                 "      steps:",
                 "        - let v = ${entity.sensor.myWorkflowSensor.v} + 1 ?? 0",
@@ -173,6 +206,60 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
             entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
             EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
+            Duration d3 = Duration.of(sw).subtract(d2);
+            // the next iteration should obey the time constraint specified above
+            if (!timeCheckOrNullIfShouldFail.test(d3)) Asserts.fail("Timing error, took " + d3);
+        } else {
+            EntityAsserts.assertAttributeEqualsContinually(entity, s, null);
+        }
+    }
+
+    public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.policies:",
+                "  - type: workflow-policy",
+                "    brooklyn.config:",
+                "      name: Set myWorkflowSensor",
+                "      id: set-my-workflow-sensor",
+                Strings.indent(6, triggers),
+                "      steps:",
+                "        - let v = ${entity.sensor.myWorkflowSensor.v} + 1 ?? 0",
+                "        - type: let",
+                "          variable: out",
+                "          value: |",
+                "            ignored sample output before doc",
+                "            ---",
+                "            foo: bar",
+                "            v: ${v}",
+                "        - let trimmed map x = ${out}",
+                "        - set-sensor myWorkflowSensor = ${x}",
+                "");
+
+        Stopwatch sw = Stopwatch.createStarted();
+        waitForApplicationTasks(app);
+        Duration d1 = Duration.of(sw);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Policy policy = entity.policies().asList().stream().filter(p -> p instanceof WorkflowPolicy).findAny().get();
+        Asserts.assertEquals(policy.getDisplayName(), "Set myWorkflowSensor");
+        // should really ID be settable from flag?
+        Asserts.assertEquals(policy.getId(), "set-my-workflow-sensor");
+
+        AttributeSensor<Object> s = Sensors.newSensor(Object.class, "myWorkflowSensor");
+
+        if (timeCheckOrNullIfShouldFail!=null) {
+//            EntityAsserts.assertAttributeEventuallyNonNull(entity, s);
+            EntityAsserts.assertAttributeEquals(entity, s, null);
+            Duration d2 = Duration.of(sw).subtract(d1);
+            // initial set should be soon after startup
+            Asserts.assertThat(d2, Duration.millis(500)::isLongerThan);
+//            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
+
+            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
+            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
+//            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
             Duration d3 = Duration.of(sw).subtract(d2);
             // the next iteration should obey the time constraint specified above
             if (!timeCheckOrNullIfShouldFail.test(d3)) Asserts.fail("Timing error, took " + d3);

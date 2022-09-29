@@ -36,8 +36,8 @@ public class EntityValueToSet extends TypedValueToSet {
 
     public Entity entity;
 
-
-    public static EntityValueToSet parseFromShorthand(String expression, Consumer<Object> valueSetter) {
-        return new EntityValueToSet(TypedValueToSet.parseFromShorthand(expression, valueSetter));
+    public static EntityValueToSet fromString(String name) {
+        return new EntityValueToSet(name);
     }
+
 }

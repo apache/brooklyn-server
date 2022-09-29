@@ -85,7 +85,7 @@ public class FeedConfig<V, T, F extends FeedConfig<V, T, F>> {
     private Duration logWarningGraceTime = Duration.millis(0);
 
     public FeedConfig(AttributeSensor<T> sensor) {
-        this.sensor = checkNotNull(sensor, "sensor");
+        this.sensor = sensor;
     }
 
     public FeedConfig(FeedConfig<V, T, F> other) {
