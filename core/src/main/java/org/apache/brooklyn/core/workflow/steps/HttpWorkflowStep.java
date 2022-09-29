@@ -55,7 +55,7 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
     public static final String SHORTHAND = "${endpoint}";
 
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
-    public static final ConfigKey<Map<String,Object>> PARAMS = new MapConfigKey.Builder(Object.class, "params").build();
+    public static final ConfigKey<Map<String,Object>> QUERY = new MapConfigKey.Builder(Object.class, "query").build();
     public static final ConfigKey<Object> BODY = ConfigKeys.newConfigKey(Object.class, "body");
     public static final ConfigKey<String> CHARSET = ConfigKeys.newStringConfigKey("charset", "Character set to interpret content as when converting to string, and for converting body to bytes to upload if body is set");
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> STATUS_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "status-code");
@@ -92,7 +92,7 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
         URIBuilder urib;
         try {
             urib = new URIBuilder(endpoint);
-            Map<String, Object> params = context.getInput(PARAMS);
+            Map<String, Object> params = context.getInput(QUERY);
             if (params!=null) {
                 new ShellEnvironmentSerializer(context.getContext().getManagementContext()).serialize(params)
                     .forEach((k, v) -> urib.addParameter(k, v));
@@ -137,8 +137,6 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
             }
         }
 
-//                .body(pollInfo.body)
-//                .config(BrooklynHttpConfig.httpConfigBuilder(getEntity()).build())
         final long startTime = System.currentTimeMillis();
         HttpExecutor httpExecutor = BrooklynHttpConfig.newHttpExecutor(context.getEntity());
         HttpResponse response = null;

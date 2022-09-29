@@ -133,6 +133,8 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
     // container, winrm defined in downstream projects and tested in those projects and/or workflow yaml
 
     /*
+     * TODO - sensor+policy - triggers from children / members
+     *
      * TODO - custom ssh endpoint
      * TODO - ? - custom cert logic for http
      *
