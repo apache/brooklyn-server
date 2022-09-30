@@ -298,10 +298,8 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "return ${workflow.step.l1.output.prev}"
         ));
         Asserts.assertEquals(output, 4);
-        // commented out bit shows previous semantics where output from previous invocation of last step was accessed by default
         Asserts.assertEquals(lastLogWatcher.getMessages(), MutableList.of(
             "1", "3",  "4", "12"
-//            "1", "3",  "4", "10"
         ));
     }
 }

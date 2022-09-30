@@ -317,13 +317,6 @@ public class WorkflowExecutionContext {
 
                 // no condition or condition met -- record and run the step
 
-                // previously we did this before running, but seems better to delay that,
-                // so allow explicit own-ID reference to access previous-instance-of-same-step output,
-                // but unqualified access to var does NOT look up previous invocation of same step.
-//                WorkflowStepInstanceExecutionContext old = lastInstanceOfEachStep.put(currentStepIndex, currentStepInstance);
-//                // put the previous output in output, so repeating steps can reference themselves
-//                if (old!=null) currentStepInstance.output = old.output;
-
                 Task<?> t = step.newTask(currentStepInstance);
                 try {
                     currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
