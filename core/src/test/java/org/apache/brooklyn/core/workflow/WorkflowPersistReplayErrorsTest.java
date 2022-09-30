@@ -18,37 +18,19 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.*;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.testng.annotations.Test;
@@ -57,10 +39,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-public class WorkflowPersistResumeErrorsTest extends BrooklynMgmtUnitTestSupport {
+public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport {
 
     protected void loadTypes() {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
@@ -109,7 +89,7 @@ public class WorkflowPersistResumeErrorsTest extends BrooklynMgmtUnitTestSupport
     }
 
     @Test
-    public void testWorkflowSensorValuesWhenPaused() throws IOException {
+    public void testWorkflowSensorValuesWhenPausedAndCanReplay() throws IOException {
         runIncrementingXAwaitingGate();
 
         EntityAsserts.assertAttributeEqualsEventually(lastApp, Sensors.newSensor(Object.class, "x"), 1);
@@ -124,10 +104,20 @@ public class WorkflowPersistResumeErrorsTest extends BrooklynMgmtUnitTestSupport
         lastInvocation.blockUntilEnded(Duration.seconds(2));
         Asserts.assertEquals(lastInvocation.getUnchecked(), 2);
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.SUCCESS);
+
+        lastApp.sensors().set(Sensors.newBooleanSensor("gate"), false);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingFromStep(1), lastApp);
+        // sensor should go back to 1 because workflow vars are stored per-state
+        EntityAsserts.assertAttributeEqualsEventually(lastApp, Sensors.newSensor(Object.class, "x"), 1);
+        Time.sleep(10);
+        Asserts.assertFalse(invocation2.isDone());
+        lastApp.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        invocation2.blockUntilEnded(Duration.seconds(2));
+        Asserts.assertEquals(invocation2.getUnchecked(), 2);
     }
 
     @Test
-    public void testWorkflowInterrupted() throws IOException {
+    public void testWorkflowInterruptedAndCanReplay() throws IOException {
         runIncrementingXAwaitingGate();
 
         // cancel the workflow
@@ -148,6 +138,11 @@ public class WorkflowPersistResumeErrorsTest extends BrooklynMgmtUnitTestSupport
 
         Integer index = lastWorkflowContext.getCurrentStepIndex();
         Asserts.assertTrue(index >= 1 && index <= 2, "Index is "+index);
+
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingCurrentStep(false), lastApp);
+        // the gate is set so this will finish soon
+        Asserts.assertEquals(invocation2.getUnchecked(), 2);
+        EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "x"), 2);
     }
 
     @Test
@@ -164,11 +159,13 @@ public class WorkflowPersistResumeErrorsTest extends BrooklynMgmtUnitTestSupport
         // above is set, although it will not normally be persisted
     }
 
-    /*
+    /* TODO would be nice if workflow effector invocation task creates the workflow sensor synchronously;
+     *
      * TODO
-     *  resume after completion
-     *  resume after task interruption
-     *  resume after mgmt interruption
+     *  DONE - replay after task interruption
+     *  DONE - replay after completion
+     *  replay after mgmt stopped
+     *  replay nested workflow
      *
      * then UI ???
      */

@@ -20,18 +20,20 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SetSensorWorkflowStep extends WorkflowStepDefinition {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SetSensorWorkflowStep.class);
 
     public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} \"=\" ${value}";
 
@@ -54,6 +56,14 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         Entity entity = sensor.entity;
         if (entity==null) entity = context.getEntity();
         entity.sensors().set( (AttributeSensor<Object>) Sensors.newSensor(type, sensorName), resolvedValue);
+
+//        // might need to be careful if defined type is different or more generic than type specified here;
+//        // but that should be fine as XML persistence preserves types
+//        Sensor<?> sd = entity.getEntityType().getSensor(sensorName);
+//        if (!type.isSupertypeOf(sd.getTypeToken())) {
+//            ...
+//        }
+
         return context.getPreviousStepOutput();
     }
 
