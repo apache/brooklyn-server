@@ -280,4 +280,28 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(output, MutableMap.of("name", "Anna"));
     }
 
+    // test complex object in an expression
+    @Test
+    public void testAccessLocalOutput() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("id" , "l1",
+                        "s", "let x = ${x} + ${workflow.step.l1.output.prev} ?? 1",
+                        "output", MutableMap.of("prev", "${x}")),
+                "log ${x}",
+                MutableMap.of(
+                        "s", "let x = ${x} + 2 * ${prev}",
+                        "output", MutableMap.of("prev", "${x}")),
+                "log ${x}",
+                MutableMap.of("type" , "no-op",
+                        "next", "l1",
+                        "condition", MutableMap.of("target", "${x}", "less-than", 10)),
+                "return ${workflow.step.l1.output.prev}"
+        ));
+        Asserts.assertEquals(output, 4);
+        // commented out bit shows previous semantics where output from previous invocation of last step was accessed by default
+        Asserts.assertEquals(lastLogWatcher.getMessages(), MutableList.of(
+            "1", "3",  "4", "12"
+//            "1", "3",  "4", "10"
+        ));
+    }
 }
