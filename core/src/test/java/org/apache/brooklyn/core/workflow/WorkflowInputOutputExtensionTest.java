@@ -151,6 +151,23 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
+    public void testNestedWorkflowBasic() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("type", "workflow",
+                        "steps", MutableList.of("return done"))));
+        Asserts.assertEquals(output, "done");
+    }
+
+    @Test
+    public void testNestedWorkflowParametersForbiddenWhenUsedDirectly() throws Exception {
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("type", "workflow",
+                        "parameters", MutableMap.of(),
+                        "steps", MutableList.of("return done")))),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "parameters"));
+    }
+
+    @Test
     public void testExtendingAStepWhichWorksButIsMessyAroundParameters() throws Exception {
         /*
          * extending any step type is supported, but discouraged because of confusion and no parameter definitions;
@@ -181,6 +198,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         ));
         invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
         assertLogStepMessages("hi bob");
+
+        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
+                        MutableMap.of("type", "log-hi",
+                                "steps", MutableList.of("return not allowed to override")))),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "steps"));
     }
 
     @Test

@@ -21,11 +21,13 @@ package org.apache.brooklyn.core.workflow.steps;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -64,6 +66,19 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        if (context.getStepState()!=null) {
+            // probably replaying
+            WorkflowExecutionContext nestedWorkflowToReplay = new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(context.getEntity()).get(context.getStepState());
+            if (nestedWorkflowToReplay!=null) {
+                Task<Object> t = nestedWorkflowToReplay.getTaskReplayingCurrentStep(false);
+                LOG.debug("Step "+context.getWorkflowStepReference()+" resuming nested workflow "+nestedWorkflowToReplay.getWorkflowId()+" in task "+t.getId());
+                return DynamicTasks.queue(t).getUnchecked();
+            } else {
+                LOG.debug("Step "+context.getWorkflowStepReference()+" cannot access nested workflow "+context.getStepState()+", probably interrupted before submitted, so replaying from start");
+                context.setStepState(null, false);
+            }
+        }
+
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.of(context.getEntity(), context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
@@ -73,6 +88,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 ConfigBag.newInstance(getInput()), null);
 
         nestedWorkflowContext.getOrCreateTask();
+        context.setStepState(nestedWorkflowContext.getWorkflowId(), true);  // save the sub-workflow ID before submitting it
+
         LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getWorkflowId()+" in task "+nestedWorkflowContext.getTaskId());
 
         return DynamicTasks.queue( nestedWorkflowContext.getOrCreateTask().get() ).getUnchecked();
@@ -85,7 +102,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     public WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, SpecialWorkflowStepDefinition firstParse) {
         // if we've resolved a custom workflow step, we need to make sure that the map supplied here
-        // - does not override steps or parameters
+        // - doesn't set parameters
+        // - doesn't set steps unless it is a simple `workflow` step (not a custom step)
         // - (also caller must not override shorthand definition, but that is explicitly removed by WorkflowStepResolution)
         // - has its output treated specially (workflow from output vs output when using this)
         BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
@@ -94,8 +112,18 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         }
         CustomWorkflowStep result = (CustomWorkflowStep) firstParse;
         Map m = (Map)definition;
-        for (String forbiddenKey: new String[] { "steps", "parameters" }) {
-            if (m.containsKey(forbiddenKey)) throw new IllegalArgumentException("Not permitted to override '"+forbiddenKey+"' when using a custom workflow step");
+        for (String forbiddenKey: new String[] { "parameters" }) {
+            if (m.containsKey(forbiddenKey)) {
+                throw new IllegalArgumentException("Not permitted to override '" + forbiddenKey + "' when using a workflow step");
+            }
+        }
+        if (!"workflow".equals(typeBestGuess)) {
+            // custom workflow step
+            for (String forbiddenKey : new String[]{"steps"}) {
+                if (m.containsKey(forbiddenKey)) {
+                    throw new IllegalArgumentException("Not permitted to override '" + forbiddenKey + "' when using a custom workflow step");
+                }
+            }
         }
         if (m.containsKey("output")) {
             // need to restore the workflow output from the base definition

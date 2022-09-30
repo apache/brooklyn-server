@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -39,6 +40,7 @@ import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -96,7 +98,7 @@ public class WorkflowExecutionContext {
     Object output;
 
     String workflowId;
-    String taskId;
+    transient String taskId;
     transient Task<Object> task;
 
     Integer currentStepIndex;
@@ -145,7 +147,7 @@ public class WorkflowExecutionContext {
 
         // finished -- checkpoint noting this has been created but not yet started
         w.status = WorkflowStatus.STARTING;
-        w.getPersister().checkpoint(w);
+        w.persist();
 
         return w;
     }
@@ -166,6 +168,8 @@ public class WorkflowExecutionContext {
         else tb.displayName(name);
         task = tb.body(new Body()).build();
         workflowId = taskId = task.getId();
+        TaskTags.addTagDynamically(task, BrooklynTaskTags.tagForWorkflow(this));
+
         // currently workflow ID is the same as the task ID assigned initially. (but if replayed they will be different.)
         // there is no deep reason or need for this, it is just convenient, and used for tests.
         //this.workflowId = Identifiers.makeRandomId(8);
@@ -236,7 +240,7 @@ public class WorkflowExecutionContext {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name).body(new Body(stepIndex)).build();
+        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(stepIndex)).build();
         taskId = task.getId();
         return task;
     }
@@ -245,7 +249,7 @@ public class WorkflowExecutionContext {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name).body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null)).build();
+        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null)).build();
         taskId = task.getId();
         return task;
     }
@@ -262,6 +266,10 @@ public class WorkflowExecutionContext {
     @JsonIgnore
     protected WorkflowStatePersistenceViaSensors getPersister() {
         return new WorkflowStatePersistenceViaSensors(getManagementContext());
+    }
+
+    public void persist() {
+        getPersister().checkpoint(this);
     }
 
     public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {
@@ -409,7 +417,7 @@ public class WorkflowExecutionContext {
                 if (replaying && replayFromStep==null) {
                     // clear output before re-running
                     currentStepInstance.output = null;
-                    currentStepInstance.context = WorkflowExecutionContext.this;
+                    currentStepInstance.injectContext(WorkflowExecutionContext.this);
                     log.debug("Replaying workflow '" + name + "', reusing instance "+currentStepInstance+" for step " + workflowStepReference(currentStepIndex) + ")");
                     // TODO some variants of this, eg nested workflow, should customize the newTask / taskBody method when given a pre-existing instance
                     runCurrentStepInstanceApproved(stepsResolved.get(currentStepIndex));
@@ -428,7 +436,7 @@ public class WorkflowExecutionContext {
 
                 // finished -- checkpoint noting previous step and null for current because finished
                 status = WorkflowStatus.SUCCESS;
-                getPersister().checkpoint(WorkflowExecutionContext.this);
+                persist();
 
                 return output;
 
@@ -464,7 +472,7 @@ public class WorkflowExecutionContext {
                     if (status.persistable) {
                         log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
                         log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
-                        getPersister().checkpoint(WorkflowExecutionContext.this);
+                        persist();
                     } else {
                         log.debug("Error running workflow " + this + ", unsurprising because "+status);
                     }
@@ -507,7 +515,7 @@ public class WorkflowExecutionContext {
 
         private void runCurrentStepInstanceApproved(WorkflowStepDefinition step) {
             // about to run -- checkpoint noting current and previous steps
-            getPersister().checkpoint(WorkflowExecutionContext.this);
+            persist();
             Task<?> t = step.newTask(currentStepInstance);
             try {
                 currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();

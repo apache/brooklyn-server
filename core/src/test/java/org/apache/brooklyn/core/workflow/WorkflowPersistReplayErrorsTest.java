@@ -24,7 +24,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
@@ -33,6 +33,7 @@ import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensor
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.time.Duration;
@@ -74,15 +75,17 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     Task<?> lastInvocation;
     WorkflowExecutionContext lastWorkflowContext;
 
+    final static List<Object> INCREMENTING_X_STEPS = MutableList.<Object>of(
+            "let integer x = ${entity.sensor.x} ?? 0",
+            "let x = ${x} + 1",
+            "set-sensor x = ${x}",
+            "wait ${entity.attributeWhenReady.gate}",
+            "let x = ${entity.sensor.x} + 10",
+            "set-sensor x = ${x}",
+            "return ${x}").asUnmodifiable();
+
     private void runIncrementingX() {
-        lastInvocation = runSteps(MutableList.of(
-                "let integer x = ${entity.sensor.x} ?? 0",
-                "let x = ${x} + 1",
-                "set-sensor x = ${x}",
-                "wait ${entity.attributeWhenReady.gate}",
-                "let x = ${entity.sensor.x} + 1",
-                "set-sensor x = ${x}",
-                "return ${x}"), null);
+        lastInvocation = runSteps(INCREMENTING_X_STEPS, null);
 
         // ensure workflow sensor set immediately (this is done synchronously when effector invocation task is created, to ensure it can be resumed)
         Map<String, WorkflowExecutionContext> workflow = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app);
@@ -112,7 +115,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);
 
         lastInvocation.blockUntilEnded(Duration.seconds(2));
-        Asserts.assertEquals(lastInvocation.getUnchecked(), 2);
+        Asserts.assertEquals(lastInvocation.getUnchecked(), 11);
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.SUCCESS);
 
         app.sensors().set(Sensors.newBooleanSensor("gate"), false);
@@ -123,7 +126,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Asserts.assertFalse(invocation2.isDone());
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);
         invocation2.blockUntilEnded(Duration.seconds(2));
-        Asserts.assertEquals(invocation2.getUnchecked(), 2);
+        Asserts.assertEquals(invocation2.getUnchecked(), 11);
     }
 
     @Test
@@ -150,8 +153,8 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingCurrentStep(false), app);
         // the gate is set so this will finish soon
-        Asserts.assertEquals(invocation2.getUnchecked(), 2);
-        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 2);
+        Asserts.assertEquals(invocation2.getUnchecked(), 11);
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 11);
     }
 
     @Test(groups="Integration", invocationCount = 100)  // because slow, and tests variety of interruption points with randomised delay
@@ -194,8 +197,8 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         // workflow should now complete when gate is set
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);
-        Asserts.assertEquals(lastInvocation.get(), 2);
-        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 2);
+        Asserts.assertEquals(lastInvocation.get(), 11);
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 11);
     }
 
     @Test
@@ -212,6 +215,62 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         // above is set, although it will not normally be persisted
     }
 
+    @Test(groups="Integration", invocationCount = 100)  // because a bit slow and non-deterministic
+    public void testNestedEffectorShutdownAndResumed() throws Exception {
+        doTestNestedWorkflowShutdownAndResumed("invoke-effector incrementXWithGate", app->{
+            new WorkflowEffector(ConfigBag.newInstance()
+                    .configure(WorkflowEffector.EFFECTOR_NAME, "incrementXWithGate")
+                    .configure(WorkflowEffector.STEPS, INCREMENTING_X_STEPS)
+            ).apply((EntityLocal)app);
+        });
+    }
+
+    @Test(groups="Integration", invocationCount = 100)  // because a bit slow and non-deterministic
+    public void testNestedWorkflowShutdownAndResumed() throws Exception {
+        doTestNestedWorkflowShutdownAndResumed(MutableMap.of("type", "workflow", "steps", INCREMENTING_X_STEPS), null);
+    }
+
+    void doTestNestedWorkflowShutdownAndResumed(Object call, Consumer<BasicApplication> initializer) throws Exception {
+        lastInvocation = runSteps(MutableList.of(
+                "let y = ${entity.sensor.y} ?? 0",
+                "let y = ${y} + 1",
+                "set-sensor y = ${y}",
+                call,
+                "let x = ${workflow.previous_step.output}",
+                "let y = ${y} + 10",
+                "set-sensor y = ${y}",
+                "let z = ${y} * 100 + ${x}",
+                "return ${z}"
+        ), initializer);
+
+        // run once with no interruption, make sure fine
+        app.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        Asserts.assertEquals(lastInvocation.get(), 1111);
+        app.sensors().set(Sensors.newBooleanSensor("gate"), false);
+
+        // now invoke again
+        lastInvocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        // interrupt at any point, probably when gated
+        Time.sleep((long) (Math.random()*Math.random()*200));
+        ManagementContext oldMgmt = mgmt();
+        app = rebind();
+        ((ManagementContextInternal)oldMgmt).terminate();
+
+        String workflowId = BrooklynTaskTags.getWorkflowTaskTag(lastInvocation, false).getWorkflowId();
+        WorkflowExecutionContext lastInvocationWorkflow = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(workflowId);
+        Asserts.assertNotNull(lastInvocationWorkflow);
+
+        lastInvocation = Entities.submit(app, lastInvocationWorkflow.getTaskReplayingCurrentStep(false));
+        Asserts.assertFalse(lastInvocation.blockUntilEnded(Duration.millis(20)));
+
+        app.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        Asserts.assertEquals(lastInvocation.get(), 2222);
+
+        // wait for effector to be invoked
+        EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 22);
+        EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "y"), 22);
+    }
+
     @Override
     protected BasicApplication createApp() {
         return null;
@@ -222,7 +281,9 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
      *  DONE - replay after task interruption
      *  DONE - replay after completion
      *  DONE - replay after mgmt stopped / rebind
-     *  replay nested workflow
+     *  DONE - replay nested workflow / effector
+     *
+     *  auto throw error on mgmt stopped / rebind
      *
      * then UI ???
      */

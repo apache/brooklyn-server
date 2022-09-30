@@ -21,11 +21,8 @@ package org.apache.brooklyn.core.workflow.steps;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.ShorthandProcessor;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -40,7 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
@@ -129,7 +125,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             result = handleTokenIfPresent(w, true, MutableMap.of("+", this::handleAdd, "-", this::handleSubtract));
             if (result.isPresent()) return result.get();
 
-            result = handleTokenIfPresent(w, true, MutableMap.of("*", this::handleMultiple, "/", this::handleDivide));
+            result = handleTokenIfPresent(w, true, MutableMap.of("*", this::handleMultiply, "/", this::handleDivide));
             if (result.isPresent()) return result.get();
 
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
@@ -197,7 +193,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             return v;
         }
 
-        Object applyMathOperator(List<String> lhs0, List<String> rhs0, BiFunction<Integer,Integer,Number> ifInt, BiFunction<Double,Double,Number> ifDouble) {
+        Object applyMathOperator(String op, List<String> lhs0, List<String> rhs0, BiFunction<Integer,Integer,Number> ifInt, BiFunction<Double,Double,Number> ifDouble) {
             Object lhs = process(lhs0);
             Object rhs = process(rhs0);
 
@@ -212,27 +208,26 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             Maybe<Double> rhsD = asDouble(rhs);
             if (lhsD.isPresent() && rhsD.isPresent()) return asDouble(ifDouble.apply(lhsD.get(), rhsD.get())).get();
 
-            if (lhsD.isAbsent())
-                throw new IllegalArgumentException("Invalid value for operation: "+lhs0+" = "+lhs);
-            if (rhsD.isAbsent()) throw new IllegalArgumentException("Invalid value for operation: "+rhs0+" = "+rhs);
+            if (lhsD.isAbsent()) throw new IllegalArgumentException("Invalid left argument to operation '"+op+"': "+lhs0+" => "+lhs);
+            if (rhsD.isAbsent()) throw new IllegalArgumentException("Invalid right argument to operation '"+op+"': "+rhs0+" = "+rhs);
 
             throw new IllegalArgumentException("Should not come here");
         }
 
-        Object handleMultiple(List<String> lhs, List<String> rhs) {
-            return applyMathOperator(lhs, rhs, (a,b)->a*b, (a,b)->a*b);
+        Object handleMultiply(List<String> lhs, List<String> rhs) {
+            return applyMathOperator("*", lhs, rhs, (a,b)->a*b, (a,b)->a*b);
         }
 
         Object handleDivide(List<String> lhs, List<String> rhs) {
-            return applyMathOperator(lhs, rhs, (a,b)->1.0*a/b, (a,b)->a/b);
+            return applyMathOperator("/", lhs, rhs, (a,b)->1.0*a/b, (a,b)->a/b);
         }
 
         Object handleAdd(List<String> lhs, List<String> rhs) {
-            return applyMathOperator(lhs, rhs, (a,b)->a+b, (a,b)->a+b);
+            return applyMathOperator("+", lhs, rhs, (a,b)->a+b, (a,b)->a+b);
         }
 
         Object handleSubtract(List<String> lhs, List<String> rhs) {
-            return applyMathOperator(lhs, rhs, (a,b)->a-b, (a,b)->a-b);
+            return applyMathOperator("-", lhs, rhs, (a,b)->a-b, (a,b)->a-b);
         }
 
 

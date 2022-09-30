@@ -43,8 +43,6 @@ public class WorkflowStatePersistenceViaSensors {
         this.mgmt = mgmt;
     }
 
-    public enum WorkflowStatus { STARTING, RUNNING, SUCCESS, ERROR }
-
     public void checkpoint(WorkflowExecutionContext context) {
         // clear interrupt status so we can persist e.g. if we are interrupted or shutdown
         boolean interrupted = Thread.interrupted();

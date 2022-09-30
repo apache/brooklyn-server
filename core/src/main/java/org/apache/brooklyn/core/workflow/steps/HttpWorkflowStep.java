@@ -94,7 +94,7 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
             urib = new URIBuilder(endpoint);
             Map<String, Object> params = context.getInput(QUERY);
             if (params!=null) {
-                new ShellEnvironmentSerializer(context.getContext().getManagementContext()).serialize(params)
+                new ShellEnvironmentSerializer(context.getManagementContext()).serialize(params)
                     .forEach((k, v) -> urib.addParameter(k, v));
             }
             httpb.uri(urib.build());
@@ -129,7 +129,7 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
                 httpb.body((byte[]) body);
             } else {
                 try {
-                    String bodyS = BeanWithTypeUtils.newMapper(context.getContext().getManagementContext(), false, null, false).writeValueAsString(body);
+                    String bodyS = BeanWithTypeUtils.newMapper(context.getManagementContext(), false, null, false).writeValueAsString(body);
                     httpb.body(bodyS.getBytes(charset));
                 } catch (JsonProcessingException e) {
                     throw Exceptions.propagate(e);

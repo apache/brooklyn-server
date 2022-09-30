@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.workflow;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
@@ -31,6 +32,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 
 public class WorkflowStepInstanceExecutionContext {
+
 
     private WorkflowStepInstanceExecutionContext() {}
     public WorkflowStepInstanceExecutionContext(int stepIndex, WorkflowStepDefinition step, WorkflowExecutionContext context) {
@@ -47,13 +49,15 @@ public class WorkflowStepInstanceExecutionContext {
     Map<String,Object> input = MutableMap.of();
     transient WorkflowExecutionContext context;
 
+    /** optional object which can be used on a per-step basis to hold and persist any step-specific state;
+     * steps which have special replay-when-interrupted behaviour should store data they need to replay-when-interrupted,
+     * and the {@link WorkflowStepDefinition#doTaskBody(WorkflowStepInstanceExecutionContext)} method should check this
+     * at start to determine if resumption is necessary. this will be null on any replay-with-reinitialize. */
+    Object stepState;
+
     Object output;
 
-    public WorkflowExecutionContext getContext() {
-        return context;
-    }
-
-    public void setContext(WorkflowExecutionContext context) {
+    public void injectContext(WorkflowExecutionContext context) {
         if (this.context!=null && this.context!=context) throw new IllegalStateException("Cannot change context, from "+this.context+" to "+context);
         this.context = context;
     }
@@ -96,6 +100,14 @@ public class WorkflowStepInstanceExecutionContext {
         return getWorkflowExectionContext().getPreviousStepOutput();
     }
 
+    public void setStepState(Object stepState, boolean persist) {
+        this.stepState = stepState;
+        if (persist) getWorkflowExectionContext().persist();
+    }
+    public Object getStepState() {
+        return stepState;
+    }
+
     public TypeToken<?> lookupType(String type, Supplier<TypeToken<?>> ifUnset) {
         return context.lookupType(type, ifUnset);
     }
@@ -118,7 +130,13 @@ public class WorkflowStepInstanceExecutionContext {
         return context.resolveWaiting(expression, type);
     }
 
+    @JsonIgnore
     public String getWorkflowStepReference() {
         return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId);
+    }
+
+    @JsonIgnore
+    public ManagementContext getManagementContext() {
+        return getWorkflowExectionContext().getManagementContext();
     }
 }

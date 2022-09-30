@@ -43,6 +43,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -451,7 +452,27 @@ public class BrooklynTaskTags extends TaskTags {
     public static EffectorCallTag tagForEffectorCall(Entity entity, String effectorName, ConfigBag parameters) {
         return new EffectorCallTag(entity.getId(), effectorName, parameters);
     }
-    
+
+    public static class WorkflowTaskTag {
+        protected String entityId;
+        protected String workflowId;
+
+        public String getEntityId() {
+            return entityId;
+        }
+
+        public String getWorkflowId() {
+            return workflowId;
+        }
+    }
+
+    public static WorkflowTaskTag tagForWorkflow(WorkflowExecutionContext workflow) {
+        WorkflowTaskTag t = new WorkflowTaskTag();
+        t.entityId = workflow.getEntity().getId();
+        t.workflowId = workflow.getWorkflowId();
+        return t;
+    }
+
     /**
      * checks if the given task is part of the given effector call on the given entity;
      * @param task  the task to check (false if null)
@@ -514,6 +535,20 @@ public class BrooklynTaskTags extends TaskTags {
             for (Object tag: getTagsFast(task)) {
                 if (tag instanceof EffectorCallTag)
                     return (EffectorCallTag)tag;
+            }
+            if (!recurse)
+                return null;
+            t = t.getSubmittedByTask();
+        }
+        return null;
+    }
+
+    public static WorkflowTaskTag getWorkflowTaskTag(Task<?> task, boolean recurse) {
+        Task<?> t = task;
+        while (t!=null) {
+            for (Object tag: getTagsFast(task)) {
+                if (tag instanceof WorkflowTaskTag)
+                    return (WorkflowTaskTag)tag;
             }
             if (!recurse)
                 return null;

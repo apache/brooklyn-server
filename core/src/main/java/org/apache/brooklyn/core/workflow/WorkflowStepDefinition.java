@@ -195,4 +195,5 @@ public abstract class WorkflowStepDefinition {
     public interface SpecialWorkflowStepDefinition {
         WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, SpecialWorkflowStepDefinition firstParse);
     }
+
 }
