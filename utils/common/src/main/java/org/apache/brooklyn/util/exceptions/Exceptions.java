@@ -183,11 +183,23 @@ public class Exceptions {
      * or {@link RuntimeInterruptedException}.
      */
     public static void propagateIfInterrupt(Throwable throwable) {
-        if (throwable!=null && (throwable instanceof InterruptedException || throwable instanceof RuntimeInterruptedException || Exceptions.isRootCauseIsInterruption(throwable))) {
-            // previously only interrupted if we caught RuntimeInterrupted; but best seems to be to always set the interrupted bit
-            Thread.currentThread().interrupt();
+        if (throwable!=null && Exceptions.isCausedByInterruptInThisThread(throwable)) {
+            reinterruptIfNecessary(throwable);
             if (throwable instanceof RuntimeException) throw (RuntimeException) throwable;
             throw new RuntimeInterruptedException(throwable);
+        }
+    }
+
+    static boolean reinterruptIfNecessary(Throwable throwable) {
+        // previously always did this (when we caught anything caused by an interruption);
+        // but we shouldn't if it is cross threads,
+        // probably the intention is only to do that if it was actually InterruptedException being thrown,
+        // since throwing that clears the interrupt flag
+        if (throwable instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+            return true;
+        } else {
+            return false;
         }
     }
 
@@ -220,8 +232,8 @@ public class Exceptions {
     }
 
     public static void handleRootCauseIsInterruption(Throwable e) {
-        if (isRootCauseIsInterruption(e)) {
-            Thread.currentThread().interrupt();
+        if (isCausedByInterruptInThisThread(e)) {
+            reinterruptIfNecessary(e);
             throw new RuntimeInterruptedException(e);
         }
     }
@@ -229,6 +241,21 @@ public class Exceptions {
     public static boolean isRootCauseIsInterruption(Throwable e) {
         Throwable root = getRootCause(e);
         return (root instanceof InterruptedException || root instanceof RuntimeInterruptedException);
+    }
+
+    public static boolean isCausedByInterruptInAnyThread(Throwable e) {
+        Throwable interrupt = getFirstThrowableMatching(e, t -> t instanceof InterruptedException || t instanceof RuntimeInterruptedException);
+        if (interrupt==null) return false;
+        return true;
+    }
+
+    public static boolean isCausedByInterruptInThisThread(Throwable e) {
+        Throwable interrupt = getFirstThrowableMatching(e, t -> t instanceof InterruptedException || t instanceof RuntimeInterruptedException);
+        if (interrupt==null) return false;
+        if (interrupt instanceof RuntimeInterruptedException) {
+            return ((RuntimeInterruptedException)interrupt).isFromCurrentThread();
+        }
+        return true;
     }
 
     public static boolean isCauseEmbedded(String message, Throwable cause) {

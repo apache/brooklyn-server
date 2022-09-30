@@ -225,7 +225,7 @@ public class WorkflowExpressionResolution {
         try {
             result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false);
         } catch (Exception e) {
-            if (!allowWaiting && Exceptions.isRootCauseIsInterruption(e)) {
+            if (!allowWaiting && Exceptions.isCausedByInterruptInAnyThread(e)) {
                 throw new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
             } else {
                 throw Exceptions.propagate(e);

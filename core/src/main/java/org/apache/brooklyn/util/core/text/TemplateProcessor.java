@@ -446,22 +446,32 @@ public class TemplateProcessor {
         }
     }
 
+    public static class TemplateModelDataUnavailableException extends TemplateModelException {
+        public TemplateModelDataUnavailableException(String s, Throwable cause) {
+            super(s, cause);
+        }
+    }
+
     @Beta
     public static Error handleModelError(String msg, Throwable cause) throws TemplateModelException {
         // up to caller to determine if it was an interruption
 
-        if (Exceptions.isRootCauseIsInterruption(cause)) {
+        if (Exceptions.isCausedByInterruptInAnyThread(cause)) {
             // we can only catch exceptions in expressions if we throw InvalidReferenceException, but that is checked and not allowed (also doesn't allow cause)
 //                    throw new InvalidReferenceException("Sensor '" + key + "' unavailable", null);
             // we could return null but that might mask errors. instead let caller handle (eg WorkflowExpressionResolution)
+            // throw a custom exception of our own
+
+            // maybe do not include the InterruptException cause because that causes any thread who propagates this to also be interrupted?
+            // or change propagateIfFatal not to set interrupt flag again?
+            throw new TemplateModelDataUnavailableException(msg+": "+Exceptions.collapseText(cause), cause);
         } else {
             // interruptions not treated as fatal here
             Exceptions.propagateIfFatal(cause);
         }
 
-        // TemplateModelException doesn't buy us much but a bit of efficiency in the catching and consistency with other freemarker code
+        // throwing this doesn't buy us much but a bit of efficiency in the catching and consistency with other freemarker code
         throw new TemplateModelException(msg+": "+Exceptions.collapseText(cause), cause);
-        //throw Exceptions.propagateAnnotated("Error resolving attribute '"+key+"' on "+entity, e);
     }
 
     protected final static class EntityAttributeTemplateModel implements TemplateHashModel {

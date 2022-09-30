@@ -1095,7 +1095,7 @@ public class SshjTool extends SshAbstractTool implements SshTool {
         // see https://github.com/hierynomus/sshj/issues/800 -- we are trying to improve SSHJ so that the thread should keep its interrupted state
 
         if (Thread.currentThread().isInterrupted()) return true;
-        if (t!=null && Exceptions.isRootCauseIsInterruption(t)) {
+        if (t!=null && Exceptions.isCausedByInterruptInAnyThread(t)) {
             // sshj has an ugly habit of catching & clearing thread interrupts, and returning wrapped in ConnectionExceptions
             // restore the interrupt if this is the case
             Thread.currentThread().interrupt();

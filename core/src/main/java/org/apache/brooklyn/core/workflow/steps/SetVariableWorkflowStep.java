@@ -166,17 +166,15 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             try {
                 Object result = process(lhs);
                 if (result!=null) return result;
+
             } catch (Exception e) {
-                if (Exceptions.isRootCauseIsInterruption(e)) {
-                    if (Thread.currentThread().isInterrupted()) {
-                        // still interrupted, so we do propagate
-                        throw Exceptions.propagate(e);
-                    } else {
-                        // value was unavailable, pass through to RHS
-                    }
+                if (Exceptions.isCausedByInterruptInAnyThread(e) && !Thread.currentThread().isInterrupted()) {
+                    // value was unavailable, pass through to RHS
+
                 } else {
                     Exceptions.propagateIfFatal(e);
                 }
+
                 if (log.isTraceEnabled()) {
                     log.trace("Nullish operator got non-fatal exception processing "+lhs+" (ignoring, returning RHS)", e);
                 }

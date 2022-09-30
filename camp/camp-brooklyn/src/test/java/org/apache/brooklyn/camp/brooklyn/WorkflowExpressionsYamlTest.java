@@ -110,7 +110,7 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
             try {
                 super.run();
             } catch (Exception e) {
-                if (closed && Exceptions.isRootCauseIsInterruption(e)) {
+                if (closed && Exceptions.isCausedByInterruptInThisThread(e)) {
                     // silently close
                 } else {
                     throw Exceptions.propagate(e);

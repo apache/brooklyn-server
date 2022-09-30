@@ -32,20 +32,40 @@ package org.apache.brooklyn.util.exceptions;
 public class RuntimeInterruptedException extends RuntimeException {
 
     private static final long serialVersionUID = 915050245927866175L;
+    long interruptedThreadId;
 
     public RuntimeInterruptedException(String msg) {
         super(msg);
-        Thread.currentThread().interrupt();
+        checkThreadsAndInterrupt(null);
     }
 
     public RuntimeInterruptedException(Throwable cause) {
         super(cause);
-        Thread.currentThread().interrupt();
+        checkThreadsAndInterrupt(cause);
     }
 
     public RuntimeInterruptedException(String msg, Throwable cause) {
         super(msg, cause);
-        Thread.currentThread().interrupt();
+        checkThreadsAndInterrupt(cause);
+    }
+
+    protected boolean checkThreadsAndInterrupt(Throwable cause) {
+        RuntimeInterruptedException anotherRuntime = cause==null ? null : Exceptions.getFirstThrowableOfType(cause, RuntimeInterruptedException.class);
+        if (anotherRuntime==null) {
+            interruptedThreadId = Thread.currentThread().getId();
+        } else {
+            interruptedThreadId = anotherRuntime.interruptedThreadId;
+        }
+        if (isFromCurrentThread()) {
+            Thread.currentThread().interrupt();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean isFromCurrentThread() {
+        return interruptedThreadId == Thread.currentThread().getId();
     }
 
 }
