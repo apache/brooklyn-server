@@ -29,8 +29,8 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -40,6 +40,7 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -61,13 +62,20 @@ public class WorkflowExecutionContext {
     BrooklynObject entityOrAdjunctWhereRunning;
     Entity entity;
 
-    List<Object> steps;
+    public enum WorkflowStatus { STARTING, RUNNING, SUCCESS, ERROR }
+    WorkflowStatus status;
+
+    transient WorkflowExecutionContext parent;
+    String parentId;
+
+    List<Object> stepsDefinition;
     DslPredicates.DslPredicate condition;
 
     Map<String,Object> input;
     Object outputDefinition;
     Object output;
 
+    String workflowId;
     String taskId;
     transient Task<Object> task;
 
@@ -81,7 +89,7 @@ public class WorkflowExecutionContext {
     // deserialization constructor
     private WorkflowExecutionContext() {}
 
-    public static WorkflowExecutionContext of(BrooklynObject entityOrAdjunctWhereRunning, String name, ConfigBag paramsDefiningWorkflow,
+    public static WorkflowExecutionContext of(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, ConfigBag paramsDefiningWorkflow,
                                               Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs) {
 
         // parameter defs
@@ -105,7 +113,7 @@ public class WorkflowExecutionContext {
             input.put(k, v2);
         });
 
-        WorkflowExecutionContext w = new WorkflowExecutionContext(entityOrAdjunctWhereRunning, name,
+        WorkflowExecutionContext w = new WorkflowExecutionContext(entityOrAdjunctWhereRunning, parent, name,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.STEPS),
                 input,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT));
@@ -113,25 +121,33 @@ public class WorkflowExecutionContext {
         // some fields need to be resolved at setting time, in the context of the workflow
         w.setCondition(w.resolveConfig(paramsDefiningWorkflow, WorkflowCommonConfig.CONDITION));
 
+        // finished -- checkpoint noting this has been created but not yet started
+        w.status = WorkflowStatus.STARTING;
+        w.getPersister().checkpoint(w);
+
         return w;
     }
 
-    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, String name, List<Object> steps, Map<String,Object> input, Object output) {
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, List<Object> stepsDefinition, Map<String,Object> input, Object output) {
+        this.parent = parent;
+        this.parentId = parent==null ? null : parent.workflowId;
         this.name = name;
         this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
-        this.steps = steps;
+        this.stepsDefinition = stepsDefinition;
 
         this.input = input;
         this.outputDefinition = output;
 
         task = Tasks.builder().dynamic(true).displayName(name).body(new Body()).build();
-        taskId = task.getId();
+        workflowId = taskId = task.getId();
+        // currently workflow ID is the same as the task ID assigned initially. (but after rebind they will be different.)
+        //this.workflowId = Identifiers.makeRandomId(8);
     }
 
     public static final Map<String, Consumer<WorkflowExecutionContext>> PREDEFINED_NEXT_TARGETS = MutableMap.<String, Consumer<WorkflowExecutionContext>>of(
             "start", c -> { c.currentStepIndex = 0; },
-            "end", c -> { c.currentStepIndex = c.steps.size(); },
+            "end", c -> { c.currentStepIndex = c.stepsDefinition.size(); },
             "default", c -> { c.currentStepIndex++; }).asUnmodifiable();
 
     public static void validateSteps(ManagementContext mgmt, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
@@ -162,23 +178,25 @@ public class WorkflowExecutionContext {
 
     @Override
     public String toString() {
-        return "Workflow<" + name + " - " + taskId + ">";
+        return "Workflow<" + name + " - " + workflowId + ">";
     }
 
     public Map<String, Object> getWorkflowScratchVariables() {
         return workflowScratchVariables;
     }
 
+    @JsonIgnore
     public Maybe<Task<Object>> getOrCreateTask() {
         return getOrCreateTask(true);
     }
+    @JsonIgnore
     public Maybe<Task<Object>> getOrCreateTask(boolean checkCondition) {
         if (checkCondition && condition!=null) {
             if (!condition.apply(entityOrAdjunctWhereRunning)) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
 
         if (task==null) {
-            if (taskId!=null) {
+            if (taskId !=null) {
                 task = (Task<Object>) getManagementContext().getExecutionManager().getTask(taskId);
             }
             if (task==null) {
@@ -192,8 +210,14 @@ public class WorkflowExecutionContext {
         return entity;
     }
 
+    @JsonIgnore
     public ManagementContext getManagementContext() {
         return ((EntityInternal)getEntity()).getManagementContext();
+    }
+
+    @JsonIgnore
+    protected WorkflowStatePersistenceViaSensors getPersister() {
+        return new WorkflowStatePersistenceViaSensors(getManagementContext());
     }
 
     public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {
@@ -239,7 +263,7 @@ public class WorkflowExecutionContext {
         return resolve(v, key.getTypeToken());
     }
 
-    public int getCurrentStepIndex() {
+    public Integer getCurrentStepIndex() {
         return currentStepIndex;
     }
 
@@ -247,10 +271,11 @@ public class WorkflowExecutionContext {
         return currentStepInstance;
     }
 
-    public int getPreviousStepIndex() {
+    public Integer getPreviousStepIndex() {
         return previousStepIndex;
     }
 
+    @JsonIgnore
     public Object getPreviousStepOutput() {
         WorkflowStepInstanceExecutionContext ps = lastInstanceOfEachStep.get(previousStepIndex);
         if (ps==null) return null;
@@ -261,48 +286,70 @@ public class WorkflowExecutionContext {
         return name;
     }
 
+    public String getWorkflowId() {
+        return workflowId;
+    }
+
     public String getTaskId() {
         return taskId;
     }
 
+    public WorkflowStatus getStatus() {
+        return status;
+    }
+
     protected class Body implements Callable<Object> {
-        List<WorkflowStepDefinition> steps;
+        List<WorkflowStepDefinition> stepsResolved;
         
         transient Map<String,Pair<Integer,WorkflowStepDefinition>> stepsWithExplicitId;
         @JsonIgnore
         public Map<String, Pair<Integer,WorkflowStepDefinition>> getStepsWithExplicitIdById() {
-            if (stepsWithExplicitId==null) stepsWithExplicitId = computeStepsWithExplicitIdById(steps);
+            if (stepsWithExplicitId==null) stepsWithExplicitId = computeStepsWithExplicitIdById(stepsResolved);
             return stepsWithExplicitId;
         }
 
         @Override
         public Object call() throws Exception {
-            steps = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.steps));
+            try {
+                stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition));
+                status = WorkflowStatus.RUNNING;
 
-            if (currentStepIndex==null) {
-                currentStepIndex = 0;
-                log.debug("Starting workflow '"+name+"', moving to first step "+ workflowStepReference(currentStepIndex));
-                while (currentStepIndex < steps.size()) {
-                    runCurrentStepIfPreconditions();
-                }
+                if (currentStepIndex == null) {
+                    currentStepIndex = 0;
+                    log.debug("Starting workflow '" + name + "', moving to first step " + workflowStepReference(currentStepIndex));
+                    while (currentStepIndex < stepsResolved.size()) {
+                        runCurrentStepIfPreconditions();
+                    }
 
-                if (outputDefinition==null) {
-                    // (default is the output of the last step)
-                    output = getPreviousStepOutput();
+                    if (outputDefinition == null) {
+                        // (default is the output of the last step)
+                        output = getPreviousStepOutput();
+                    } else {
+                        output = resolve(outputDefinition, Object.class);
+                    }
+
+                    // finished -- checkpoint noting previous step and null for current because finished
+                    status = WorkflowStatus.SUCCESS;
+                    getPersister().checkpoint(WorkflowExecutionContext.this);
+
+                    return output;
+
                 } else {
-                    output = resolve(outputDefinition, Object.class);
+                    // TODO
+                    throw new IllegalStateException("Cannot resume/retry (yet)");
                 }
+            } catch (Throwable e) {
+                Exceptions.propagateIfFatal(e);
 
-                return output;
-
-            } else {
-                // TODO
-                throw new IllegalStateException("Cannot resume/retry (yet)");
+                log.warn("Error running workflow "+this+"; will persist then rethrow: "+e, e);
+                status = WorkflowStatus.ERROR;
+                getPersister().checkpoint(WorkflowExecutionContext.this);
+                throw Exceptions.propagate(e);
             }
         }
 
         protected void runCurrentStepIfPreconditions() {
-            WorkflowStepDefinition step = steps.get(currentStepIndex);
+            WorkflowStepDefinition step = stepsResolved.get(currentStepIndex);
             if (step!=null) {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
                 if (step.condition!=null) {
@@ -316,6 +363,9 @@ public class WorkflowExecutionContext {
                 }
 
                 // no condition or condition met -- record and run the step
+
+                // about to run -- checkpoint noting current and previous steps
+                getPersister().checkpoint(WorkflowExecutionContext.this);
 
                 Task<?> t = step.newTask(currentStepInstance);
                 try {
@@ -346,7 +396,7 @@ public class WorkflowExecutionContext {
             prefix = prefix + "; ";
             if (optionalRequestedNextStep==null) {
                 currentStepIndex++;
-                if (currentStepIndex<steps.size()) {
+                if (currentStepIndex< stepsResolved.size()) {
                     log.debug(prefix + "moving to sequential next step " + workflowStepReference(currentStepIndex));
                 } else {
                     log.debug(prefix + "no further steps: Workflow completed");
@@ -355,7 +405,7 @@ public class WorkflowExecutionContext {
                 Consumer<WorkflowExecutionContext> predefined = PREDEFINED_NEXT_TARGETS.get(optionalRequestedNextStep);
                 if (predefined!=null) {
                     predefined.accept(WorkflowExecutionContext.this);
-                    if (currentStepIndex<steps.size()) {
+                    if (currentStepIndex< stepsResolved.size()) {
                         log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for '" + optionalRequestedNextStep + "'");
                     } else {
                         log.debug(prefix + "explicit next '"+optionalRequestedNextStep+"': Workflow completed");
@@ -372,9 +422,8 @@ public class WorkflowExecutionContext {
             }
         }
 
-        @JsonIgnore
         String workflowStepReference(int index) {
-            return getWorkflowStepReference(index, steps.get(index));
+            return getWorkflowStepReference(index, stepsResolved.get(index));
         }
     }
 
@@ -384,7 +433,7 @@ public class WorkflowExecutionContext {
     }
     @JsonIgnore
     String getWorkflowStepReference(int index, String optionalStepId) {
-        return taskId+"-"+(index+1)+
+        return workflowId+"-"+(index+1)+
                 (Strings.isNonBlank(optionalStepId) ? "-"+optionalStepId : "");
     }
 

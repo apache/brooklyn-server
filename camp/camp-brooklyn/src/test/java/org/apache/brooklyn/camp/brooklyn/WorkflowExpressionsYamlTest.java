@@ -44,6 +44,8 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
     public void setUp() throws Exception {
         super.setUp();
         WorkflowYamlTest.addWorkflowTypes(mgmt());
+        lastEntity = null;
+        lastLogWatcher = null;
     }
 
     ClassLogWatcher lastLogWatcher;

@@ -23,7 +23,6 @@ import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -31,8 +30,6 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -114,6 +111,7 @@ public class WorkflowExpressionResolution {
         public TemplateModel get(String key) throws TemplateModelException {
             //id (a token representing an item uniquely within its root instance)
             if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getName());
+            if ("id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getWorkflowId());
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getTaskId());
 
             // TODO variable reference for link and error

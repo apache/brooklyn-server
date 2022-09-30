@@ -63,7 +63,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.of(context.getEntity(), "Workflow for " + getNameOrDefault(),
+        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.of(context.getEntity(), context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                         .configure(WorkflowCommonConfig.STEPS, steps)
@@ -72,7 +72,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 ConfigBag.newInstance(getInput()));
 
         nestedWorkflowContext.getOrCreateTask();
-        LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getTaskId());
+        LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getWorkflowId()+" in task "+nestedWorkflowContext.getTaskId());
 
         return DynamicTasks.queue( nestedWorkflowContext.getOrCreateTask().get() ).getUnchecked();
     }
