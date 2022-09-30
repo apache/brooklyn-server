@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -107,7 +108,7 @@ public class WorkflowExecutionContext {
     private WorkflowExecutionContext() {}
 
     public static WorkflowExecutionContext of(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, ConfigBag paramsDefiningWorkflow,
-                                              Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs) {
+                                              Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs, Map<String, Object> optionalTaskFlags) {
 
         // parameter defs
         Map<String,ConfigKey<?>> parameters = MutableMap.of();
@@ -133,7 +134,8 @@ public class WorkflowExecutionContext {
         WorkflowExecutionContext w = new WorkflowExecutionContext(entityOrAdjunctWhereRunning, parent, name,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.STEPS),
                 input,
-                paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT));
+                paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT),
+                optionalTaskFlags);
 
         // some fields need to be resolved at setting time, in the context of the workflow
         w.setCondition(w.resolveConfig(paramsDefiningWorkflow, WorkflowCommonConfig.CONDITION));
@@ -145,7 +147,7 @@ public class WorkflowExecutionContext {
         return w;
     }
 
-    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, List<Object> stepsDefinition, Map<String,Object> input, Object output) {
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, List<Object> stepsDefinition, Map<String,Object> input, Object output, Map<String, Object> optionalTaskFlags) {
         this.parent = parent;
         this.parentId = parent==null ? null : parent.workflowId;
         this.name = name;
@@ -156,7 +158,10 @@ public class WorkflowExecutionContext {
         this.input = input;
         this.outputDefinition = output;
 
-        task = Tasks.builder().dynamic(true).displayName(name).body(new Body()).build();
+        TaskBuilder<Object> tb = Tasks.builder().dynamic(true);
+        if (optionalTaskFlags!=null) tb.flags(optionalTaskFlags);
+        else tb.displayName(name);
+        task = tb.body(new Body()).build();
         workflowId = taskId = task.getId();
         // currently workflow ID is the same as the task ID assigned initially. (but if replayed they will be different.)
         // there is no deep reason or need for this, it is just convenient, and used for tests.

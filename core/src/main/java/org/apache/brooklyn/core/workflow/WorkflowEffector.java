@@ -19,16 +19,22 @@
 package org.apache.brooklyn.core.workflow;
 
 import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
-import org.apache.brooklyn.core.effector.EffectorBody;
+import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
 
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class WorkflowEffector extends AddEffectorInitializerAbstract implements WorkflowCommonConfig {
+
+    private EntityLocal entity;
 
     public WorkflowEffector() {}
     public WorkflowEffector(ConfigBag params) { super(params); }
@@ -39,26 +45,34 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
     @Override
     protected Effectors.EffectorBuilder<Object> newEffectorBuilder() {
         Effectors.EffectorBuilder<Object> eff = newAbstractEffectorBuilder(Object.class);
-        eff.impl(new WorkflowEffector.Body(eff.buildAbstract(), initParams()));
+        eff.impl(new BodyFactory( entity, eff.buildAbstract(), initParams() ));
         return eff;
     }
 
-    protected static class Body extends EffectorBody<Object> {
-        private final Effector<?> effector;
+    @Override
+    public void apply(EntityLocal entity) {
+        this.entity = entity;
+        super.apply(entity);
+    }
+
+    protected static class BodyFactory extends EffectorTasks.EffectorBodyTaskFactory<Object> {
+        // extending the class above means that our newTask is called synchronously at invocation time;
+        // we make sure to set the right flags for our task to look like an effector call,
+        // so effector can be re-invoked, or workflow can be replayed.
         private final ConfigBag definitionParams;
 
-        public Body(Effector<?> eff, ConfigBag definitionParams) {
-            this.effector = eff;
+        public BodyFactory(Entity entity, Effector<?> eff, ConfigBag definitionParams) {
+            super(null);
             this.definitionParams = definitionParams;
 
-            WorkflowStepResolution.validateWorkflowParameters(entity(), definitionParams);
+            WorkflowStepResolution.validateWorkflowParameters(entity, definitionParams);
         }
 
-        @Override
-        public Object call(final ConfigBag invocationParams) {
-            return DynamicTasks.queue( WorkflowExecutionContext.of(entity(), null, "Workflow for effector "+effector.getName(), this.definitionParams,
+        public Task<Object> newTask(Entity entity, Effector<Object> effector, ConfigBag invocationParams) {
+            return WorkflowExecutionContext.of(entity, null, "Workflow for effector "+effector.getName(), this.definitionParams,
                     effector.getParameters().stream().map(Effectors::asConfigKey).collect(Collectors.toSet()),
-                    invocationParams).getOrCreateTask().get() ).getUnchecked();
+                    invocationParams,
+                    getFlagsForTaskInvocationAt(entity, effector, invocationParams)).getOrCreateTask().get();
         }
     }
 

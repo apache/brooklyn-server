@@ -76,9 +76,8 @@ public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport
                 "set-sensor x = ${x}",
                 "return ${x}"), null);
 
-        // TODO would be nice if workflow effector invocation task creates the workflow sensor synchronously;
-        // probably essential to ensure call does not return until there is a record it has been submitted
-        EntityAsserts.assertAttributeEventuallyNonNull(lastApp, WorkflowStatePersistenceViaSensors.INTERNAL_WORKFLOWS);
+        // ensure workflow sensor set immediately (this is done synchronously when effector invocation task is created, to ensure it can be resumed)
+        Asserts.assertNotNull(lastApp.sensors().get(WorkflowStatePersistenceViaSensors.INTERNAL_WORKFLOWS));
         Map<String, WorkflowExecutionContext> workflow = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(lastApp);
 
         EntityAsserts.assertAttributeEqualsEventually(lastApp, Sensors.newSensor(Object.class, "x"), 1);
@@ -159,12 +158,11 @@ public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport
         // above is set, although it will not normally be persisted
     }
 
-    /* TODO would be nice if workflow effector invocation task creates the workflow sensor synchronously;
-     *
+    /*
      * TODO
      *  DONE - replay after task interruption
      *  DONE - replay after completion
-     *  replay after mgmt stopped
+     *  replay after mgmt stopped / rebind
      *  replay nested workflow
      *
      * then UI ???

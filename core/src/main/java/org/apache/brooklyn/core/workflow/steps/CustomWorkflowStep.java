@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
@@ -69,7 +70,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                         .configure(WorkflowCommonConfig.STEPS, steps)
                         .configure(WorkflowCommonConfig.OUTPUT, workflowOutput),
                 null,
-                ConfigBag.newInstance(getInput()));
+                ConfigBag.newInstance(getInput()), null);
 
         nestedWorkflowContext.getOrCreateTask();
         LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getWorkflowId()+" in task "+nestedWorkflowContext.getTaskId());

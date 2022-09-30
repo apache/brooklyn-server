@@ -370,11 +370,11 @@ public class LocalManagementContext extends AbstractManagementContext {
     protected <T> Task<T> runAtEntity(final Entity entity, final Effector<T> eff, @SuppressWarnings("rawtypes") final Map parameters) {
         manageIfNecessary(entity, eff);
         // prefer to submit this from the current execution context so it sets up correct cross-context chaining
-        ExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
-        if (ec == null) {
-            log.debug("Top-level effector invocation: {} on {}", eff, entity);
-            ec = getExecutionContext(entity);
-        }
+//        ExecutionContext ec = BasicExecutionContext.getCurrentExecutionContext();
+//        if (ec == null) {
+//            log.debug("Top-level effector invocation: {} on {}", eff, entity);
+//            ec = getExecutionContext(entity);
+//        }
         return runAtEntity(entity, Effectors.invocation(entity, eff, parameters));
     }
 

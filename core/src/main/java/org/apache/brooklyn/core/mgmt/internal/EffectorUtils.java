@@ -362,7 +362,7 @@ public class EffectorUtils {
     }
 
     /** returns a (mutable) map of the standard flags which should be placed on an effector */
-    public static Map<Object,Object> getTaskFlagsForEffectorInvocation(Entity entity, Effector<?> effector, ConfigBag parameters) {
+    public static Map<String,Object> getTaskFlagsForEffectorInvocation(Entity entity, Effector<?> effector, ConfigBag parameters) {
         List<Object> tags = MutableList.of(
                 BrooklynTaskTags.EFFECTOR_TAG,
                 BrooklynTaskTags.tagForEffectorCall(entity, effector.getName(), parameters),
@@ -370,7 +370,7 @@ public class EffectorUtils {
         if (Entitlements.getEntitlementContext() != null) {
             tags.add(BrooklynTaskTags.tagForEntitlement(Entitlements.getEntitlementContext()));
         }
-        return MutableMap.builder()
+        return MutableMap.<String,Object>builder()
                 .put("description", "Invoking effector "+effector.getName()
                     +" on "+entity.getDisplayName()
                     +(parameters!=null ? " with parameters "+ Sanitizer.sanitize(parameters.getAllConfig()) : ""))

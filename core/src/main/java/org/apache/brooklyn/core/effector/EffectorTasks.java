@@ -95,14 +95,14 @@ public class EffectorTasks {
 
         /** subclasses may override to add additional flags, but they should include the flags returned here 
          * unless there is very good reason not to; default impl returns a MutableMap */
-        protected Map<Object,Object> getFlagsForTaskInvocationAt(Entity entity, Effector<?> effector, ConfigBag parameters) {
+        protected Map<String,Object> getFlagsForTaskInvocationAt(Entity entity, Effector<?> effector, ConfigBag parameters) {
             return EffectorUtils.getTaskFlagsForEffectorInvocation(entity, effector, parameters);
         }
     }
     
     /** wrapper for {@link EffectorTaskFactory} which ensures effector task tags are applied to it if needed
      * (wrapping in a task if needed); without this, {@link EffectorBody}-based effectors get it by
-     * virtue of the call to {@link #getFlagsForTaskInvocationAt(Entity,Effector,ConfigBag)} therein
+     * virtue of the call to {@link EffectorBodyTaskFactory#getFlagsForTaskInvocationAt(Entity,Effector,ConfigBag)} therein
      * but {@link EffectorTaskFactory}-based effectors generate a task without the right tags
      * to be able to tell using {@link BrooklynTaskTags} the effector-context of the task 
      * <p>
@@ -144,7 +144,7 @@ public class EffectorTasks {
                 name("parameter "+name+" ("+type+")");
     }
     public static <T> ParameterTask<T> parameter(final ConfigKey<T> p) {
-        return new ParameterTask<T>(p);
+        return new ParameterTask<>(p);
     }
     public static class ParameterTask<T> implements EffectorTaskFactory<T> {
         final ConfigKey<T> p;
