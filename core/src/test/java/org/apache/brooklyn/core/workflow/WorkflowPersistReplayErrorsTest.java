@@ -20,11 +20,15 @@ package org.apache.brooklyn.core.workflow;
 
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -40,20 +44,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport {
+public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicApplication> {
 
-    protected void loadTypes() {
+    private BasicApplication app;
+
+    @Override
+    protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        return super.decorateOrigOrNewManagementContext(mgmt);
     }
 
-    BasicApplication lastApp;
     Task<?> runStep(Object step, Consumer<BasicApplication> appFunction) {
         return runSteps(MutableList.<Object>of(step), appFunction);
     }
     Task<?> runSteps(List<Object> steps, Consumer<BasicApplication> appFunction) {
-        loadTypes();
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
-        this.lastApp = app;
+        BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        this.app = app;
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, steps)
@@ -67,50 +74,54 @@ public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport
     Task<?> lastInvocation;
     WorkflowExecutionContext lastWorkflowContext;
 
-    private void runIncrementingXAwaitingGate() {
+    private void runIncrementingX() {
         lastInvocation = runSteps(MutableList.of(
-                "let integer x = 1",
+                "let integer x = ${entity.sensor.x} ?? 0",
+                "let x = ${x} + 1",
                 "set-sensor x = ${x}",
                 "wait ${entity.attributeWhenReady.gate}",
-                "let x = ${x} + 1",
+                "let x = ${entity.sensor.x} + 1",
                 "set-sensor x = ${x}",
                 "return ${x}"), null);
 
         // ensure workflow sensor set immediately (this is done synchronously when effector invocation task is created, to ensure it can be resumed)
-        Asserts.assertNotNull(lastApp.sensors().get(WorkflowStatePersistenceViaSensors.INTERNAL_WORKFLOWS));
-        Map<String, WorkflowExecutionContext> workflow = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(lastApp);
-
-        EntityAsserts.assertAttributeEqualsEventually(lastApp, Sensors.newSensor(Object.class, "x"), 1);
-
-        workflow = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(lastApp);
+        Map<String, WorkflowExecutionContext> workflow = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app);
         Asserts.assertSize(workflow, 1);
         lastWorkflowContext = workflow.values().iterator().next();
+    }
+
+    private void runIncrementingXAwaitingGate() {
+        runIncrementingX();
+
+        EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
+        // refresh this for good measure (it won't have changed but feels like bad practice to rely on that)
+        lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).values().iterator().next();
     }
 
     @Test
     public void testWorkflowSensorValuesWhenPausedAndCanReplay() throws IOException {
         runIncrementingXAwaitingGate();
 
-        EntityAsserts.assertAttributeEqualsEventually(lastApp, Sensors.newSensor(Object.class, "x"), 1);
+        EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
 
         Integer index = lastWorkflowContext.getCurrentStepIndex();
-        Asserts.assertTrue(index >= 1 && index <= 2, "Index is "+index);
+        Asserts.assertTrue(index >= 2 && index <= 3, "Index is "+index);
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.RUNNING);
         Asserts.assertFalse(lastInvocation.isDone());
 
-        lastApp.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        app.sensors().set(Sensors.newBooleanSensor("gate"), true);
 
         lastInvocation.blockUntilEnded(Duration.seconds(2));
         Asserts.assertEquals(lastInvocation.getUnchecked(), 2);
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.SUCCESS);
 
-        lastApp.sensors().set(Sensors.newBooleanSensor("gate"), false);
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingFromStep(1), lastApp);
+        app.sensors().set(Sensors.newBooleanSensor("gate"), false);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingFromStep(1), app);
         // sensor should go back to 1 because workflow vars are stored per-state
-        EntityAsserts.assertAttributeEqualsEventually(lastApp, Sensors.newSensor(Object.class, "x"), 1);
+        EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
         Time.sleep(10);
         Asserts.assertFalse(invocation2.isDone());
-        lastApp.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        app.sensors().set(Sensors.newBooleanSensor("gate"), true);
         invocation2.blockUntilEnded(Duration.seconds(2));
         Asserts.assertEquals(invocation2.getUnchecked(), 2);
     }
@@ -123,7 +134,7 @@ public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport
         lastWorkflowContext.getOrCreateTask().get().cancel(true);
 
         // workflow should no longer proceed even if gate is set
-        lastApp.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        app.sensors().set(Sensors.newBooleanSensor("gate"), true);
 
         lastInvocation.blockUntilEnded(Duration.seconds(2));
         Asserts.assertTrue(lastInvocation.isError());
@@ -132,23 +143,66 @@ public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport
         // workflow should go to error
         Asserts.eventually(() -> lastWorkflowContext.status, status -> status.error);
         // and sensor will not be set to 2
-        EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "x"), 1);
-
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 1);
 
         Integer index = lastWorkflowContext.getCurrentStepIndex();
-        Asserts.assertTrue(index >= 1 && index <= 2, "Index is "+index);
+        Asserts.assertTrue(index >= 2 && index <= 3, "Index is "+index);
 
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingCurrentStep(false), lastApp);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.getTaskReplayingCurrentStep(false), app);
         // the gate is set so this will finish soon
         Asserts.assertEquals(invocation2.getUnchecked(), 2);
-        EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "x"), 2);
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 2);
+    }
+
+    @Test(groups="Integration", invocationCount = 100)  // because slow, and tests variety of interruption points with randomised delay
+    public void testWorkflowShutdownAndCanReplay() throws Exception {
+        runIncrementingX();
+
+        // variable delay, shouldn't matter when it is interrupted
+        Time.sleep((long) (Math.random()*Math.random()*200));
+
+        // do rebind
+        ManagementContext oldMgmt = mgmt();
+        app = rebind();
+
+        // shutdown flags should get set on old object when destroyed
+        ((ManagementContextInternal)oldMgmt).terminate();
+        WorkflowExecutionContext prevWorkflowContext = lastWorkflowContext;
+        Asserts.eventually(() -> prevWorkflowContext.status, status -> status.error);
+        Asserts.assertEquals(prevWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN);
+
+        // new object is present
+        Map<String, WorkflowExecutionContext> workflow = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app);
+        Asserts.assertSize(workflow, 1);
+        lastWorkflowContext = workflow.values().iterator().next();
+
+        // status should not be ended
+        Asserts.assertEquals(lastWorkflowContext.status.ended, false);
+//        // though possibly could be shutdown if persistence ran again
+//        Asserts.assertThat(lastWorkflowContext.status, x -> !x.ended || x == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN);
+        Asserts.assertThat(lastWorkflowContext.currentStepIndex, x -> x==null || x <=3);
+
+        // sensor might be one or might be null
+        Asserts.assertThat(app.sensors().get(Sensors.newSensor(Integer.class, "x")), x -> x==null || x==1);
+
+        // we can tell it to resume from where it crashed
+        lastInvocation = Entities.submit(app, lastWorkflowContext.getTaskReplayingCurrentStep(false));
+
+        // will wait on gate, ie not finish
+        Time.sleep((long) (Math.random()*Math.random()*200));
+        Asserts.assertFalse(lastInvocation.isDone());
+
+        // workflow should now complete when gate is set
+        app.sensors().set(Sensors.newBooleanSensor("gate"), true);
+        Asserts.assertEquals(lastInvocation.get(), 2);
+        EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 2);
     }
 
     @Test
     public void testShutdownNotedIfManagementStopped() throws IOException {
         runIncrementingXAwaitingGate();
 
-        Entities.destroyAll(mgmt);
+        Entities.destroyAll(mgmt());
 
         lastInvocation.blockUntilEnded(Duration.seconds(5));
         Asserts.assertTrue(lastInvocation.isError());
@@ -158,11 +212,16 @@ public class WorkflowPersistReplayErrorsTest extends BrooklynMgmtUnitTestSupport
         // above is set, although it will not normally be persisted
     }
 
+    @Override
+    protected BasicApplication createApp() {
+        return null;
+    }
+
     /*
      * TODO
      *  DONE - replay after task interruption
      *  DONE - replay after completion
-     *  replay after mgmt stopped / rebind
+     *  DONE - replay after mgmt stopped / rebind
      *  replay nested workflow
      *
      * then UI ???

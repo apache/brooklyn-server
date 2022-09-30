@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -65,19 +66,21 @@ public class WorkflowExecutionContext {
     Entity entity;
 
     public enum WorkflowStatus {
-        STAGED(false, false, false),
-        STARTING(true, false, false),
-        RUNNING(true, false, false),
-        SUCCESS(true, true, false),
-        /** useful information, usually cannot persisted by the time we've set this the first time, but could set on rebind */ ERROR_SHUTDOWN(true, true, true),
-        /** thread interrupted or task cancelled, usually recursively */ ERROR_INTERRUPT(true, true, true),
-        /** any other error, including data not immediately available (the interrupt used internally is not relevant) */ ERROR_OTHER(true, true, true);
+        STAGED(false, false, false, true),
+        STARTING(true, false, false, true),
+        RUNNING(true, false, false, true),
+        SUCCESS(true, true, false, true),
+        /** useful information, usually cannot persisted by the time we've set this the first time, but could set on rebind */ ERROR_SHUTDOWN(true, true, true, false),
+        /** task cancelled or other interrupt, usually recursively */ ERROR_CANCELLED(true, true, true, true),
+        /** task cancelled or other interrupt, usually recursively */ ERROR_ENTITY_DESTROYED(true, true, true, false),
+        /** any other error, e.g. workflow step failed or data not immediately available (the interrupt used internally is not relevant) */ ERROR(true, true, true, true);
 
         public final boolean started;
         public final boolean ended;
         public final boolean error;
+        public final boolean persistable;
 
-        WorkflowStatus(boolean started, boolean ended, boolean error) { this.started = started; this.ended = ended; this.error = error; }
+        WorkflowStatus(boolean started, boolean ended, boolean error, boolean persistable) { this.started = started; this.ended = ended; this.error = error; this.persistable = persistable; }
     }
 
     WorkflowStatus status;
@@ -406,6 +409,7 @@ public class WorkflowExecutionContext {
                 if (replaying && replayFromStep==null) {
                     // clear output before re-running
                     currentStepInstance.output = null;
+                    currentStepInstance.context = WorkflowExecutionContext.this;
                     log.debug("Replaying workflow '" + name + "', reusing instance "+currentStepInstance+" for step " + workflowStepReference(currentStepIndex) + ")");
                     // TODO some variants of this, eg nested workflow, should customize the newTask / taskBody method when given a pre-existing instance
                     runCurrentStepInstanceApproved(stepsResolved.get(currentStepIndex));
@@ -432,28 +436,38 @@ public class WorkflowExecutionContext {
                 try {
                     // do not propagateIfFatal, we need to handle most throwables
                     if (Exceptions.isCausedByInterruptInAnyThread(e) || Exceptions.getFirstThrowableMatching(e, t -> t instanceof CancellationException)!=null) {
+                        WorkflowStatus provisionalStatus;
                         if (!Thread.currentThread().isInterrupted()) {
                             // might be a data model error
                             if (Exceptions.getFirstThrowableOfType(e, TemplateProcessor.TemplateModelDataUnavailableException.class) != null) {
-                                status = WorkflowStatus.ERROR_OTHER;
+                                provisionalStatus = WorkflowStatus.ERROR;
                             } else {
                                 // cancelled or a subtask interrupted
-                                status = WorkflowStatus.ERROR_INTERRUPT;
+                                provisionalStatus = WorkflowStatus.ERROR_CANCELLED;
                             }
                         } else {
-                            status = WorkflowStatus.ERROR_INTERRUPT;
+                            provisionalStatus = WorkflowStatus.ERROR_CANCELLED;
                         }
-                        if (status == WorkflowStatus.ERROR_INTERRUPT && !getManagementContext().isRunning()) {
-                            // if mgmt is shutting down we should record that. maybe enough if thread is interrupted we note that.
-                            status = WorkflowStatus.ERROR_SHUTDOWN;
+                        if (provisionalStatus == WorkflowStatus.ERROR_CANCELLED) {
+                            if (!getManagementContext().isRunning()) {
+                                // if mgmt is shutting down we should record that. maybe enough if thread is interrupted we note that.
+                                provisionalStatus = WorkflowStatus.ERROR_SHUTDOWN;
+                            } else if (Entities.isUnmanagingOrNoLongerManaged(entity)) {
+                                provisionalStatus = WorkflowStatus.ERROR_ENTITY_DESTROYED;
+                            }
                         }
+                        status = provisionalStatus;
                     } else {
-                        status = WorkflowStatus.ERROR_OTHER;
+                        status = WorkflowStatus.ERROR;
                     }
 
-                    log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
-                    log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
-                    getPersister().checkpoint(WorkflowExecutionContext.this);
+                    if (status.persistable) {
+                        log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
+                        log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
+                        getPersister().checkpoint(WorkflowExecutionContext.this);
+                    } else {
+                        log.debug("Error running workflow " + this + ", unsurprising because "+status);
+                    }
 
                 } catch (Throwable e2) {
                     log.error("Error persisting workflow " + this + " after error in workflow; persistence error: "+e2);

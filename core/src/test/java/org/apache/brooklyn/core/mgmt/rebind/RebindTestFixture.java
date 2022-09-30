@@ -39,10 +39,7 @@ import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
-import org.apache.brooklyn.core.mgmt.ha.HighAvailabilityManagerImpl;
-import org.apache.brooklyn.core.mgmt.internal.BrooklynObjectManagementMode;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
-import org.apache.brooklyn.core.mgmt.internal.ManagementTransitionMode;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynMementoPersisterToObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.FileBasedObjectStore;
 import org.apache.brooklyn.core.mgmt.persist.PersistMode;
@@ -108,7 +105,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
     /** @return A started management context */
     protected LocalManagementContext createOrigManagementContext() {
-        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
+        return decorateOrigOrNewManagementContext(RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(getPersistPeriodMillis())
                 .haMode(getHaMode())
                 .forLive(useLiveManagementContext())
@@ -116,7 +113,11 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
                 .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
-                .buildStarted();
+                .buildStarted());
+    }
+
+    protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
+        return mgmt;
     }
 
     protected HighAvailabilityMode getHaMode() {
@@ -143,13 +144,13 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         if (additionalProperties != null) {
             brooklynProperties.addFrom(additionalProperties);
         }
-        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
+        return decorateOrigOrNewManagementContext(RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .forLive(useLiveManagementContext())
                 .haMode(haMode)
                 .emptyCatalog(useEmptyCatalog())
                 .properties(brooklynProperties)
                 .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
-                .buildUnstarted();
+                .buildUnstarted());
     }
 
     /** terminates the original management context (not destroying items) and points it at the new one (and same for apps); 
