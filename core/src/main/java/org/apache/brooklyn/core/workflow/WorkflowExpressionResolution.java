@@ -164,7 +164,9 @@ public class WorkflowExpressionResolution {
             }
 
             //id (a token representing an item uniquely within its root instance)
-            if ("name".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.name);
+            if ("name".equals(key)) {
+                return TemplateProcessor.wrapAsTemplateModel(step.name != null ? step.name : step.getWorkflowStepReference());
+            }
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.taskId);
             if ("step_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepDefinitionDeclaredId);
             if ("step_index".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.stepIndex);
@@ -174,7 +176,7 @@ public class WorkflowExpressionResolution {
             //error (if there is an error in scope)
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.input);
-            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.output);
+            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.output!=null ? step.output : MutableMap.of());
 
             return ifNoMatches();
         }

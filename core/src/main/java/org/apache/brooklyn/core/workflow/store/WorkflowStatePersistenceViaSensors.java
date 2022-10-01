@@ -24,11 +24,14 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -70,4 +73,28 @@ public class WorkflowStatePersistenceViaSensors {
         // TODO
     }
 
+    public void updateWithoutPersist(Entity entity, List<WorkflowExecutionContext> workflows) {
+        if (workflows!=null && !workflows.isEmpty()) entity.sensors().modify(INTERNAL_WORKFLOWS, v -> {
+            if (v == null) {
+                throw new IllegalStateException("Update workflows requested for "+workflows+" when none recorded against "+entity);
+            }
+            workflows.forEach(w -> v.put(w.getWorkflowId(), w));
+            return Maybe.of(v);
+        });
+    }
+
+    public Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag nestedWorkflowTag) {
+        Entity targetEntity = mgmt.lookup(nestedWorkflowTag.getEntityId(), Entity.class);
+        if (targetEntity==null) {
+            return Maybe.absent("Entity "+nestedWorkflowTag.getWorkflowId()+" not found");
+        } else {
+            WorkflowExecutionContext nestedWorkflowToReplay = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(targetEntity).get(nestedWorkflowTag.getWorkflowId());
+            if (nestedWorkflowToReplay == null) {
+                // shouldn't happen unless workflow was expired, as workflow will be saved before resumption
+                return Maybe.absent("Workflow "+nestedWorkflowTag.getWorkflowId()+" not found on entity "+targetEntity+"; possibly expired?");
+            } else {
+                return Maybe.of(nestedWorkflowToReplay);
+            }
+        }
+    }
 }

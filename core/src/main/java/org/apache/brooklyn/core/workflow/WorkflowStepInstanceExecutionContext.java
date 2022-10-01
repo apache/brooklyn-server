@@ -19,6 +19,8 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -29,23 +31,28 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.text.Identifiers;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Supplier;
 
 public class WorkflowStepInstanceExecutionContext {
 
+    // see getInput
+    static final boolean REMEMBER_RESOLVED_INPUT = true;
 
     private WorkflowStepInstanceExecutionContext() {}
     public WorkflowStepInstanceExecutionContext(int stepIndex, WorkflowStepDefinition step, WorkflowExecutionContext context) {
+        this.name = step.getName();
         this.stepIndex = stepIndex;
         this.stepDefinitionDeclaredId = step.id;
-        this.input = step.getInput();
         this.context = context;
+        this.input = MutableMap.copyOf(step.getInput());
     }
 
     int stepIndex;
     String stepDefinitionDeclaredId;
-    public String name;
+    String name;
     String taskId;
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
     transient WorkflowExecutionContext context;
 
@@ -62,6 +69,10 @@ public class WorkflowStepInstanceExecutionContext {
         this.context = context;
     }
 
+    public String getName() {
+        return name;
+    }
+
     /** Returns the resolved value of the given key, converting to the type of the key */
     public <T> T getInput(ConfigKey<T> key) {
         return getInput(key.getName(), key.getTypeToken());
@@ -76,9 +87,19 @@ public class WorkflowStepInstanceExecutionContext {
     public <T> T getInput(String key, Class<T> type) {
         return getInput(key, TypeToken.of(type));
     }
-    /** Returns the resolved value of the given key, converting to the given type */
+    /** Returns the resolved value of the given key, converting to the given type.
+     * Stores the resolved input so if re-resolved it returns the same.
+     * (Input is not resolved until first access because some implementations, such as 'let', might handle errors in resolution.
+     * But once resolved we don't want inconsistent return values.) */
     public <T> T getInput(String key, TypeToken<T> type) {
-        return context.resolve(input.get(key), type);
+        Object v = input.get(key);
+        T v2 = context.resolve(v, type);
+        if (REMEMBER_RESOLVED_INPUT) {
+            if (!Objects.equals(v, v2)) {
+                input.put(key, v2);
+            }
+        }
+        return v2;
     }
     /** Returns the unresolved value of the given key */
     public Object getInputRaw(String key) {

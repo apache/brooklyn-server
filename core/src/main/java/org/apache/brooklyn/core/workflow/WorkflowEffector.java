@@ -22,14 +22,15 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstract;
+import org.apache.brooklyn.core.effector.EffectorAndBody;
 import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.effector.Effectors;
-import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class WorkflowEffector extends AddEffectorInitializerAbstract implements WorkflowCommonConfig {
@@ -44,8 +45,8 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
 
     @Override
     protected Effectors.EffectorBuilder<Object> newEffectorBuilder() {
-        Effectors.EffectorBuilder<Object> eff = newAbstractEffectorBuilder(Object.class);
-        eff.impl(new BodyFactory( entity, eff.buildAbstract(), initParams() ));
+        Effectors.EffectorBuilder<Object> eff = new WorkflowEffectorBuilder(newAbstractEffectorBuilder(Object.class));
+        eff.impl(new WorkflowEffectorBodyFactory( entity, eff.buildAbstract(), initParams() ));
         return eff;
     }
 
@@ -55,24 +56,57 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
         super.apply(entity);
     }
 
-    protected static class BodyFactory extends EffectorTasks.EffectorBodyTaskFactory<Object> {
+    // override builders so we get something which is typed
+    protected static class WorkflowEffectorBuilder extends Effectors.EffectorBuilder<Object> {
+        protected WorkflowEffectorBuilder(Effectors.EffectorBuilder<Object> original) {
+            super(original);
+        }
+
+        @Override
+        public WorkflowEffectorAndBody build() {
+            return new WorkflowEffectorAndBody((EffectorAndBody<Object>) super.build());
+        }
+    }
+
+    public static class WorkflowEffectorAndBody extends EffectorAndBody<Object> {
+        protected WorkflowEffectorAndBody(EffectorAndBody<Object> original) {
+            super(original, original.getBody());
+        }
+        @Override
+        public WorkflowEffectorBodyFactory getBody() {
+            return (WorkflowEffectorBodyFactory) super.getBody();
+        }
+    }
+
+    public static class WorkflowEffectorBodyFactory extends EffectorTasks.EffectorBodyTaskFactory<Object> {
         // extending the class above means that our newTask is called synchronously at invocation time;
         // we make sure to set the right flags for our task to look like an effector call,
         // so effector can be re-invoked, or workflow can be replayed.
-        private final ConfigBag definitionParams;
+        private final Map<String,Object> definitionParams;
 
-        public BodyFactory(Entity entity, Effector<?> eff, ConfigBag definitionParams) {
+        protected WorkflowEffectorBodyFactory(Entity entity, Effector<?> eff, ConfigBag definitionParams) {
             super(null);
-            this.definitionParams = definitionParams;
+            this.definitionParams = definitionParams.getAllConfigRaw();
 
             WorkflowStepResolution.validateWorkflowParameters(entity, definitionParams);
         }
 
         public Task<Object> newTask(Entity entity, Effector<Object> effector, ConfigBag invocationParams) {
-            return WorkflowExecutionContext.of(entity, null, "Workflow for effector "+effector.getName(), this.definitionParams,
+            return newSubWorkflowTask(entity, effector, invocationParams, null, null);
+        }
+
+        public Task<Object> newSubWorkflowTask(Entity entity, Effector<?> effector, ConfigBag invocationParams, WorkflowExecutionContext parentWorkflow, Consumer<BrooklynTaskTags.WorkflowTaskTag> parentInitializer) {
+            WorkflowExecutionContext w = WorkflowExecutionContext.newInstanceUnpersistedWithParent(entity, parentWorkflow, "Workflow for effector " + effector.getName(), ConfigBag.newInstance(this.definitionParams),
                     effector.getParameters().stream().map(Effectors::asConfigKey).collect(Collectors.toSet()),
                     invocationParams,
-                    getFlagsForTaskInvocationAt(entity, effector, invocationParams)).getOrCreateTask().get();
+                    getFlagsForTaskInvocationAt(entity, effector, invocationParams));
+            Task<Object> task = w.getOrCreateTask().get();
+            if (parentInitializer!=null) {
+                // allow the parent to record the child workflow _before_ the child workflow gets persisted
+                parentInitializer.accept(BrooklynTaskTags.getWorkflowTaskTag(task, false));
+            }
+            w.persist();
+            return task;
         }
     }
 

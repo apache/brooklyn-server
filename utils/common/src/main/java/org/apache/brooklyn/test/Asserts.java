@@ -186,10 +186,11 @@ public class Asserts {
      *
      * @throws AssertionError if the assertion fails.
      */
-    static public void assertNotNull(final Object object, final String message) {
+    static public <T> T assertNotNull(final T object, final String message) {
         if (null == object) {
             throw new AssertionError(message == null ? "object reference is null" : message);
         }
+        return object;
     }
 
     /**

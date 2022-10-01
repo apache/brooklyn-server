@@ -18,40 +18,37 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Predicates;
-import com.google.common.reflect.TypeToken;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
-import org.apache.brooklyn.core.effector.EffectorTasks;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
-import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Stream;
 
-public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition {
+public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(InvokeEffectorWorkflowStep.class);
 
@@ -72,32 +69,36 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition {
         if (!getInput().containsKey(EFFECTOR.getName())) throw new IllegalArgumentException("Missing required input: "+EFFECTOR.getName());
     }
 
-    @Override
-    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+
+    @Override @JsonIgnore
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context) {
         if (context.getStepState()!=null) {
-            // replaying
             BrooklynTaskTags.WorkflowTaskTag nestedWorkflowTag = (BrooklynTaskTags.WorkflowTaskTag) context.getStepState();
-            Entity targetEntity = context.getManagementContext().lookup(nestedWorkflowTag.getEntityId(), Entity.class);
-            if (targetEntity==null) {
-                // entity has gone away
-                LOG.warn("Step " + context.getWorkflowStepReference() + " cannot access nested workflow " + context.getStepState() + " for effector, entity "+nestedWorkflowTag.getEntityId()+" no longer present, so replaying from start");
+            Maybe<WorkflowExecutionContext> nestedWorkflow = new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getFromTag(nestedWorkflowTag);
+
+            if (nestedWorkflow.isPresent()) {
+                return MutableList.of(nestedWorkflow.get());
+            } else {
+                // entity or workflow no longer available
+                LOG.warn("Step " + context.getWorkflowStepReference() + " cannot access nested workflow " + context.getStepState() + " for effector, "+nestedWorkflowTag+": "+Maybe.Absent.getException(nestedWorkflow));
                 context.setStepState(null, false);
                 // fall through to below
-            } else {
-                WorkflowExecutionContext nestedWorkflowToReplay = new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(targetEntity).get(nestedWorkflowTag.getWorkflowId());
-                if (nestedWorkflowToReplay == null) {
-                    // shouldn't happen unless workflow was expired, as workflow will be saved before resumption
-                    LOG.warn("Step " + context.getWorkflowStepReference() + " cannot access nested workflow " + context.getStepState() + " for effector, possibly expired, so replaying from start");
-                    context.setStepState(null, false);
-                    // fall through to below
-                } else {
-                    Task<Object> t = nestedWorkflowToReplay.getTaskReplayingCurrentStep(false);
-                    LOG.debug("Step " + context.getWorkflowStepReference() + " resuming workflow effector " + nestedWorkflowToReplay.getWorkflowId() + " in task " + t.getId());
-                    return DynamicTasks.queue(t).getUnchecked();
-                }
             }
         }
+        return null;
+    }
 
+    @Override
+    public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
+        WorkflowExecutionContext w = Iterables.getOnlyElement(subworkflows);
+
+        Task<Object> t = w.createTaskReplayingWithCustom(instructions);
+        LOG.debug("Step " + context.getWorkflowStepReference() + " resuming workflow effector " + w.getWorkflowId() + " in task " + t.getId());
+        return DynamicTasks.queue(t).getUnchecked();
+    }
+
+    @Override
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         Object te = context.getInput(ENTITY);
         if (te==null) te = context.getEntity();
         if (te instanceof String) {
@@ -118,14 +119,11 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalStateException("Unsupported object for entity '"+te+"' ("+te.getClass()+")");
         }
 
-        Effector<?> effector = ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
-        TaskAdaptable<?> invocation = Effectors.invocation((Entity) te, effector, context.getInput(ARGS));
-
-        BrooklynTaskTags.WorkflowTaskTag workflowTag = BrooklynTaskTags.getWorkflowTaskTag(invocation.asTask(), false);
-        if (workflowTag!=null) {
-            // effector is also workflow, so store a link to be able to resume that process
+        Effector<Object> effector = (Effector) ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
+        TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
+            // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
             context.setStepState(workflowTag, true);
-        }
+        });
 
         return DynamicTasks.queue(invocation).asTask().getUnchecked();
     }

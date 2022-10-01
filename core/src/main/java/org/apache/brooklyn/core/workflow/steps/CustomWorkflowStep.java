@@ -18,16 +18,18 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -36,10 +38,12 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.SpecialWorkflowStepDefinition {
+public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization, WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
 
     private static final Logger LOG = LoggerFactory.getLogger(CustomWorkflowStep.class);
 
@@ -64,22 +68,35 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     protected boolean isOutputHandledByTask() { return true; }
 
-    @Override
-    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+    @Override @JsonIgnore
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context) {
         if (context.getStepState()!=null) {
-            // probably replaying
-            WorkflowExecutionContext nestedWorkflowToReplay = new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(context.getEntity()).get(context.getStepState());
-            if (nestedWorkflowToReplay!=null) {
-                Task<Object> t = nestedWorkflowToReplay.getTaskReplayingCurrentStep(false);
-                LOG.debug("Step "+context.getWorkflowStepReference()+" resuming nested workflow "+nestedWorkflowToReplay.getWorkflowId()+" in task "+t.getId());
-                return DynamicTasks.queue(t).getUnchecked();
-            } else {
-                LOG.debug("Step "+context.getWorkflowStepReference()+" cannot access nested workflow "+context.getStepState()+", probably interrupted before submitted, so replaying from start");
+            List<String> ids = (List<String>) context.getStepState();
+            List<WorkflowExecutionContext> nestedWorkflowsToReplay = ids.stream().map(id ->
+                    new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(context.getEntity()).get(id)).collect(Collectors.toList());
+
+            if (nestedWorkflowsToReplay.contains(null)) {
+                LOG.debug("Step "+context.getWorkflowStepReference()+" missing sub workflows ("+ids+"->"+nestedWorkflowsToReplay+"); replaying from start");
                 context.setStepState(null, false);
+            } else {
+                return nestedWorkflowsToReplay;
             }
         }
+        return null;
+    }
 
-        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.of(context.getEntity(), context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
+    @Override
+    public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
+        WorkflowExecutionContext w = Iterables.getOnlyElement(subworkflows);
+
+        Task<Object> t = w.createTaskReplayingWithCustom(instructions);
+        LOG.debug("Step " + context.getWorkflowStepReference() + " resuming nested workflow " + w.getWorkflowId() + " in task " + t.getId());
+        return DynamicTasks.queue(t).getUnchecked();
+    }
+
+    @Override
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(context.getEntity(), context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                         .configure(WorkflowCommonConfig.STEPS, steps)
@@ -88,7 +105,9 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 ConfigBag.newInstance(getInput()), null);
 
         nestedWorkflowContext.getOrCreateTask();
-        context.setStepState(nestedWorkflowContext.getWorkflowId(), true);  // save the sub-workflow ID before submitting it
+        context.setStepState(MutableList.of(nestedWorkflowContext.getWorkflowId()), true);  // save the sub-workflow ID before submitting it
+
+        nestedWorkflowContext.persist();
 
         LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getWorkflowId()+" in task "+nestedWorkflowContext.getTaskId());
 
@@ -100,7 +119,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     @Override
-    public WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, SpecialWorkflowStepDefinition firstParse) {
+    public WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse) {
         // if we've resolved a custom workflow step, we need to make sure that the map supplied here
         // - doesn't set parameters
         // - doesn't set steps unless it is a simple `workflow` step (not a custom step)

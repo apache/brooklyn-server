@@ -31,7 +31,6 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensorInitializer;
 import org.apache.brooklyn.core.effector.AddSensorInitializerAbstractProto;
 import org.apache.brooklyn.core.entity.EntityInitializers;
-import org.apache.brooklyn.core.mgmt.internal.EffectorUtils;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.steps.EntityValueToSet;
@@ -152,7 +151,7 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
 
         @Override
         public Object call() throws Exception {
-            WorkflowExecutionContext wc = WorkflowExecutionContext.of(entityOrAdjunct, null, workflowCallableName, params, null, null, null);
+            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, params, null, null, null);
             Maybe<Task<Object>> wt = wc.getOrCreateTask(false /* condition checked by poll config framework */);
             return DynamicTasks.queue(wt.get()).getUnchecked();
         }

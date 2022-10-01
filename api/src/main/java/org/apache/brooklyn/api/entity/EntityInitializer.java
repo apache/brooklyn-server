@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.api.entity;
 
-import java.util.Map;
-
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Feed;
@@ -37,6 +35,11 @@ import org.apache.brooklyn.api.sensor.Feed;
  * during a rebind. Instead, the typical pattern is that initializers will create
  * {@link EntityAdjunct} instances such as {@link Policy} and {@link Feed}
  * which will be attached during rebind.
+ * <p>
+ * Initializers can use the task framework / execution context, and are encouraged to do so,
+ * but they should not usually do actual management; instead they should register subscriptions
+ * and attach adjuncts, using AutoStartEntityAdjunct if needed to trigger callbacks which should
+ * start timers etc during management (see EntityManagementSupport#onManagementStarting).
  **/
 public interface EntityInitializer {
     

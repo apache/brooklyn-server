@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.effector;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import javax.annotation.Nullable;
 
@@ -33,6 +34,9 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorMarkingTaskFactor
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.workflow.WorkflowEffector;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -61,6 +65,14 @@ public class Effectors {
             this.returnType = returnType;
             this.effectorName = effectorName;
         }
+        protected EffectorBuilder(EffectorBuilder<T> other) {
+            this.returnType = other.returnType;
+            this.effectorName = other.effectorName;
+            this.description = other.description;
+            this.parameters = other.parameters;
+            this.impl = other.impl;
+        }
+
         public EffectorBuilder<T> name(String name) {
             this.effectorName = name;
             return this;
@@ -95,13 +107,17 @@ public class Effectors {
             parameters.put(p.getName(), p);
             return this;
         }
+
+        public EffectorBuilder<T> impl(EffectorBodyTaskFactory<T> taskFactory) {
+            this.impl = taskFactory;
+            return this;
+        }
         public EffectorBuilder<T> impl(EffectorTaskFactory<T> taskFactory) {
             this.impl = new EffectorMarkingTaskFactory<T>(taskFactory);
             return this;
         }
         public EffectorBuilder<T> impl(EffectorBody<T> effectorBody) {
-            this.impl = new EffectorBodyTaskFactory<T>(effectorBody);
-            return this;
+            return impl(new EffectorBodyTaskFactory<T>(effectorBody));
         }
         /** returns the effector, with an implementation (required); @see {@link #buildAbstract()} */
         public Effector<T> build() {
@@ -140,6 +156,10 @@ public class Effectors {
     
     /** returns an unsubmitted task which invokes the given effector; use {@link Entities#invokeEffector(Entity, Entity, Effector, Map)} for a submitted variant */
     public static <T> TaskAdaptable<T> invocation(Entity entity, Effector<T> eff, @Nullable Map<?,?> parameters) {
+        return invocationPossiblySubWorkflow(entity, eff, parameters, null, null);
+    }
+
+    public static <T> TaskAdaptable<T> invocationPossiblySubWorkflow(Entity entity, Effector<T> eff, @Nullable Map<?,?> parameters, WorkflowExecutionContext parent, Consumer<BrooklynTaskTags.WorkflowTaskTag> parentWorkflowInitializer) {
         @SuppressWarnings("unchecked")
         Effector<T> eff2 = (Effector<T>) ((EntityInternal)entity).getEffector(eff.getName());
         if (log.isTraceEnabled()) {
@@ -165,7 +185,11 @@ public class Effectors {
         }
         
         if (eff instanceof EffectorWithBody) {
-            return ((EffectorWithBody<T>)eff).getBody().newTask(entity, eff, ConfigBag.newInstance().putAll(parameters));
+            if (eff instanceof WorkflowEffector.WorkflowEffectorAndBody) {
+                return (TaskAdaptable<T>) ((WorkflowEffector.WorkflowEffectorAndBody) eff).getBody().newSubWorkflowTask(entity, eff, ConfigBag.newInstance().putAll(parameters), parent, parentWorkflowInitializer);
+            } else {
+                return ((EffectorWithBody<T>) eff).getBody().newTask(entity, eff, ConfigBag.newInstance().putAll(parameters));
+            }
         }
         
         throw new UnsupportedOperationException("No implementation registered for effector "+eff+" on "+entity);

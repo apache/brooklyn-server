@@ -157,7 +157,7 @@ public class RebindManagerImpl implements RebindManager {
     Integer firstRebindAppCount, firstRebindEntityCount, firstRebindItemCount;
 
     /**
-     * For tracking if rebinding, for {@link AbstractEnricher#isRebinding()} etc.
+     * For tracking if rebinding, for {@link org.apache.brooklyn.core.objs.AbstractBrooklynObject#isRebinding()} etc.
      *  
      * TODO What is a better way to do this?!
      * 

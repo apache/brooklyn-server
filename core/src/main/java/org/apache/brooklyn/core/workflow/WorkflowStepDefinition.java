@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -35,6 +36,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +45,7 @@ public abstract class WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(WorkflowStepDefinition.class);
 
 //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     protected Map<String,Object> input = MutableMap.of();
 
     protected String id;
@@ -123,14 +126,35 @@ public abstract class WorkflowStepDefinition {
         input.putAll((Map) CollectionMerger.builder().build().merge(input, result.get()));
     }
 
-    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
-        context.name = Strings.isNonBlank(this.name) ? this.name : computeName(context, false);
-        if (log.isTraceEnabled()) log.trace("Creating task for "+computeName(context, true)+", input "+input);
+    final Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
+        return newTask(context, false, null);
+    }
+
+    final Task<?> newTaskContinuing(WorkflowStepInstanceExecutionContext context, ReplayContinuationInstructions continuationInstructions) {
+        return newTask(context, true, continuationInstructions);
+    }
+
+    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions) {
         Task<?> t = Tasks.builder().displayName(computeName(context, true)).body(() -> {
             log.debug("Starting step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
                     + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
+                    + (continuationInstructions!=null ? " with custom behaviour" +
+                        (continuationInstructions.customBehaviourExplanation!=null ? "("+continuationInstructions.customBehaviourExplanation+")" : "") : "")
+                    + (continuing ? " (continuation)" : "")
                     + " in task "+context.taskId);
-            Object result = doTaskBody(context);
+            boolean handled = false;
+            Object result = null;
+            if (continuing && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
+                List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context);
+                if (unfinished!=null) {
+                    handled = true;
+                    result = ((WorkflowStepDefinitionWithSubWorkflow) this).doTaskBodyWithSubWorkflowsForReplay(context, unfinished, continuationInstructions);
+                }
+            }
+            if (!handled) {
+                if (continuationInstructions!=null && continuationInstructions.customBehaviour!=null) continuationInstructions.customBehaviour.run();
+                result = doTaskBody(context);
+            }
             if (log.isTraceEnabled()) log.trace("Completed task for "+computeName(context, true)+", output "+result);
             return result;
         }).tag(context).build();
@@ -192,8 +216,29 @@ public abstract class WorkflowStepDefinition {
     /** allows subclasses to throw exception early if required fields not set */
     public void validateStep() {}
 
-    public interface SpecialWorkflowStepDefinition {
-        WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, SpecialWorkflowStepDefinition firstParse);
+    public interface WorkflowStepDefinitionWithSpecialDeserialization {
+        WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse);
+    }
+
+    public interface WorkflowStepDefinitionWithSubWorkflow {
+        /** returns null if this task hasn't yet recorded its subworkflows; otherwise list of those which are replayable, empty if none need to be replayed (ended successfully) */
+        @JsonIgnore List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context);
+        /** called by framework if {@link #getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext)} returns non-null (empty is okay),
+         * and the implementation pass the replay and optional custom behaviour to the subworkflows before doing any finalization;
+         * if the subworkflow for replay is null,  the normal {@link #doTaskBody(WorkflowStepInstanceExecutionContext)} is called. */
+        Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions);
+    }
+
+    public static class ReplayContinuationInstructions {
+        public final String customBehaviourExplanation;
+        /** if supplied, custom behavior run before the primary doTaskBody; may throw exceptions or set things in stepState which are interpreted by the body */
+        public final Runnable customBehaviour;
+
+        public ReplayContinuationInstructions(String customBehaviourExplanation, Runnable customBehaviour) {
+            this.customBehaviourExplanation = customBehaviourExplanation;
+            this.customBehaviour = customBehaviour;
+            // TODO resume from a given step in a subworkflow?
+        }
     }
 
 }

@@ -20,29 +20,18 @@ package org.apache.brooklyn.core.workflow;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.NaturalOrderComparator;
-import org.apache.brooklyn.util.text.Strings;
 
 import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-
-import static org.checkerframework.checker.units.UnitsTools.s;
 
 public class WorkflowStepResolution {
 
@@ -97,8 +86,8 @@ public class WorkflowStepResolution {
             Object def0 = defM !=null ? defM : def;
             def = BeanWithTypeUtils.convert(mgmt, def0, TypeToken.of(WorkflowStepDefinition.class), true, loader, false);
 
-            if (def instanceof WorkflowStepDefinition.SpecialWorkflowStepDefinition) {
-                def = ((WorkflowStepDefinition.SpecialWorkflowStepDefinition)def).applySpecialDefinition(mgmt, def0, typeBestGuess, (WorkflowStepDefinition.SpecialWorkflowStepDefinition) def);
+            if (def instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization) {
+                def = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization)def).applySpecialDefinition(mgmt, def0, typeBestGuess, (WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization) def);
             }
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Unable to resolve step '"+def+"'", e);

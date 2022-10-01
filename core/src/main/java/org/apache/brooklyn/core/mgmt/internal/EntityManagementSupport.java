@@ -20,8 +20,11 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
@@ -40,12 +43,16 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
 import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext.NonDeploymentManagementContextMode;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
+import org.apache.brooklyn.core.workflow.DanglingWorkflowException;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -81,6 +88,9 @@ public class EntityManagementSupport {
         this.entity = entity;
         nonDeploymentManagementContext = new NonDeploymentManagementContext(entity, NonDeploymentManagementContextMode.PRE_MANAGEMENT);
     }
+
+    @VisibleForTesting
+    public static boolean AUTO_FAIL_AND_RESUME_WORKFLOWS = true;
 
     protected transient AbstractEntity entity;
     NonDeploymentManagementContext nonDeploymentManagementContext;
@@ -176,63 +186,123 @@ public class EntityManagementSupport {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management starting")
             .dynamic(false)
 //            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-            .body(() -> { try { synchronized (this) {
-                boolean alreadyManaging = isDeployed();
-                
-                if (alreadyManaging) {
-                    log.warn("Already managed: "+entity+" ("+nonDeploymentManagementContext+"); onManagementStarting is no-op");
-                } else if (nonDeploymentManagementContext == null || !nonDeploymentManagementContext.getMode().isPreManaged()) {
-                    throw new IllegalStateException("Not in expected pre-managed state: "+entity+" ("+nonDeploymentManagementContext+")");
-                }
-                if (managementContext != null && !managementContext.equals(info.getManagementContext())) {
-                    throw new IllegalStateException("Already has management context: "+managementContext+"; can't set "+info.getManagementContext());
-                }
-                if (initialManagementContext != null && !initialManagementContext.equals(info.getManagementContext())) {
-                    throw new IllegalStateException("Already has different initial management context: "+initialManagementContext+"; can't set "+info.getManagementContext());
-                }
-                if (alreadyManaging) {
-                    return;
-                }
-                
-                this.managementContext = info.getManagementContext();
-                nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STARTING);
-                
-                if (!isReadOnly()) {
-                    nonDeploymentManagementContext.getSubscriptionManager().setDelegate((AbstractSubscriptionManager) managementContext.getSubscriptionManager());
-                    nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForSubscribing();
-                }
-    
-                managementContextUsable.set(true);
-                currentlyDeployed.set(true);
-                everDeployed.set(true);
-                
-                entityChangeListener = new EntityChangeListenerImpl();
-            }
-            
-            /*
-             * framework starting events - phase 1, including rebind
-             *  - establish hierarchy (child, groups, etc; construction if necessary on rebind)
-             *  - set location
-             *  - set local config values
-             *  - set saved sensor values
-             *  - register subscriptions -- BUT nothing is allowed to execute
-             *  [these operations may be done before we invoke starting also; above can happen in any order;
-             *  sensor _publications_ and executor submissions are queued]
-             *  then:  set the management context and the entity is "managed" from the perspective of external viewers (ManagementContext.isManaged(entity) returns true)
-             */
-            
-            if (!isReadOnly()) {
-                entity.onManagementStarting();
+            .body(() -> {
+                try {
+                    synchronized (this) {
+                        boolean alreadyManaging = isDeployed();
 
-                // start those policies etc which are labelled as auto-start
-                entity.policies().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
-                entity.enrichers().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
-                entity.feeds().forEach(f -> { if (!f.isActivated()) f.start(); });
+                        if (alreadyManaging) {
+                            log.warn("Already managed: "+entity+" ("+nonDeploymentManagementContext+"); onManagementStarting is no-op");
+                        } else if (nonDeploymentManagementContext == null || !nonDeploymentManagementContext.getMode().isPreManaged()) {
+                            throw new IllegalStateException("Not in expected pre-managed state: "+entity+" ("+nonDeploymentManagementContext+")");
+                        }
+                        if (managementContext != null && !managementContext.equals(info.getManagementContext())) {
+                            throw new IllegalStateException("Already has management context: "+managementContext+"; can't set "+info.getManagementContext());
+                        }
+                        if (initialManagementContext != null && !initialManagementContext.equals(info.getManagementContext())) {
+                            throw new IllegalStateException("Already has different initial management context: "+initialManagementContext+"; can't set "+info.getManagementContext());
+                        }
+                        if (alreadyManaging) {
+                            return;
+                        }
+
+                        if (AUTO_FAIL_AND_RESUME_WORKFLOWS) {
+                            if (!info.getMode().isCreating()) {
+                                // mark interrupted workflows as failed; will compensate shortly (below)
+                                // only done if not creating to avoid cancelling workflows launched by EntityInitializer (there won't be any to mark as interrupted if we are creating a new entity)
+                                WorkflowStatePersistenceViaSensors persister = new WorkflowStatePersistenceViaSensors(info.getManagementContext());
+                                Map<String, WorkflowExecutionContext> workflows = persister.getWorkflows(entity);
+                                List<WorkflowExecutionContext> wasRunningWorkflows = workflows.values().stream().filter(w -> !w.getStatus().ended).collect(Collectors.toList());
+                                if (!wasRunningWorkflows.isEmpty()) {
+                                    entity.getExecutionContext().submit("Marking " + wasRunningWorkflows.size() + " interrupted workflow" + (wasRunningWorkflows.size() != 1 ? "s" : "") + " as shutdown", () -> {
+                                        wasRunningWorkflows.forEach(WorkflowExecutionContext::markShutdown);
+                                        // not necessary as in memory, but good practice
+                                        persister.updateWithoutPersist(entity, wasRunningWorkflows);
+                                    }).get();
+                                }
+                            }
+                        }
+
+                        this.managementContext = info.getManagementContext();
+                        nonDeploymentManagementContext.setMode(NonDeploymentManagementContextMode.MANAGEMENT_STARTING);
+
+                        if (!isReadOnly()) {
+                            nonDeploymentManagementContext.getSubscriptionManager().setDelegate((AbstractSubscriptionManager) managementContext.getSubscriptionManager());
+                            nonDeploymentManagementContext.getSubscriptionManager().startDelegatingForSubscribing();
+                        }
+
+                        managementContextUsable.set(true);
+                        currentlyDeployed.set(true);
+                        everDeployed.set(true);
+
+                        entityChangeListener = new EntityChangeListenerImpl();
+                    }
+
+                    /*
+                     * framework starting events:
+                     *
+                     * "creation" comes first, in InternalEntityFactory and optionally rebind, where the following is done:
+                     *  - establish hierarchy (child, groups, etc; construction if necessary on rebind)
+                     *  - set location
+                     *  - set local config values
+                     *  - set saved sensor values
+                     *  - add adjuncts
+                     *  - register subscriptions
+                     *  - run EntityInitializer apply (creation only)
+                     *
+                     * we try to minimize assumptions about order but it is unavoidable for some things.
+                     * tasks _can_ be run against the entity context almost immediately, with the execution context routed through this class,
+                     * using the "initialManagementContext" if necessary, if it is before it has become the "managementContext".
+                     * this is so that startup management activities (such as this task) are recorded and trackable.
+                     * however for simplicity (as much as possible) this should be minimized, restricted to necessary startup tasks,
+                     * and using other mechanisms -- eg subscriptions (which are queued), AutoStartEntityAdjunct#start elements,
+                     * and Entity.onManagement{Starting,Started} -- which happen after the above, on "management",
+                     * from LocalEntityManager.manage calling in to this class:
+                     *
+                     * - mark failed any previously active workflows
+                     * - set the management support managementContext to the initial / real one (above);
+                     *   this is when the entity is "managed" from the perspective of external viewers (ManagementContext.isManaged(entity) returns true)
+                     * - "startDelegatingForSubscribing" (above) which triggers sensors etc,
+                     * - call entity.onManagementStarting
+                     * - start the AutoStart adjuncts (below; mainly for timer-based items, but possibly some subscriptions;
+                     *   most of those have initial runs and conditions so not so important if they are run later.)
+                     * - resume any failed workflows
+                     *
+                     * then when the above is finished recursively, entity.onManagementStarted runs.
+                     */
+
+                    if (!isReadOnly()) {
+                        entity.onManagementStarting();
+
+                        // start those policies etc which are labelled as auto-start
+                        entity.policies().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
+                        entity.enrichers().forEach(adj -> { if (adj instanceof EntityAdjunct.AutoStartEntityAdjunct) ((EntityAdjunct.AutoStartEntityAdjunct)adj).start(); });
+                        entity.feeds().forEach(f -> { if (!f.isActivated()) f.start(); });
+
+                        if (AUTO_FAIL_AND_RESUME_WORKFLOWS) {
+                            // resume any workflows that were dangling due to shutdown
+                            WorkflowStatePersistenceViaSensors persister = new WorkflowStatePersistenceViaSensors(info.getManagementContext());
+                            Map<String, WorkflowExecutionContext> workflows = persister.getWorkflows(entity);
+                            List<WorkflowExecutionContext> shutdownInterruptedWorkflows = workflows.values().stream().filter(w ->
+                                            w.getStatus() == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN &&
+                                                    w.getParentId() == null)
+                                    .collect(Collectors.toList());
+                            if (!shutdownInterruptedWorkflows.isEmpty()) {
+                                entity.getExecutionContext().submit(DynamicTasks.of("Resuming with failure " + shutdownInterruptedWorkflows.size() + " interrupted workflow" + (shutdownInterruptedWorkflows.size() != 1 ? "s" : ""), () -> {
+                                    shutdownInterruptedWorkflows.forEach(w -> DynamicTasks.queue(w.createTaskReplayingWithCustom(
+                                            new WorkflowStepDefinition.ReplayContinuationInstructions("resumed as dangling", () -> {
+                                                throw new DanglingWorkflowException();
+                                            }))));
+                                }));  // backgrounded
+                            }
+                        }
+                    }
+                } catch (Throwable t) {
+                    managementFailed.set(true);
+                    throw Exceptions.propagate(t);
+                }
             }
-        } catch (Throwable t) {
-            managementFailed.set(true);
-            throw Exceptions.propagate(t);
-        }}).build() );
+        ).build() );
     }
 
     @SuppressWarnings("deprecation")

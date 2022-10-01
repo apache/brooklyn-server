@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -69,7 +70,6 @@ public class WorkflowExecutionContext {
 
     public enum WorkflowStatus {
         STAGED(false, false, false, true),
-        STARTING(true, false, false, true),
         RUNNING(true, false, false, true),
         SUCCESS(true, true, false, true),
         /** useful information, usually cannot persisted by the time we've set this the first time, but could set on rebind */ ERROR_SHUTDOWN(true, true, true, false),
@@ -93,7 +93,8 @@ public class WorkflowExecutionContext {
     List<Object> stepsDefinition;
     DslPredicates.DslPredicate condition;
 
-    Map<String,Object> input;
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    Map<String,Object> input = MutableMap.of();
     Object outputDefinition;
     Object output;
 
@@ -104,7 +105,9 @@ public class WorkflowExecutionContext {
     Integer currentStepIndex;
     Integer previousStepIndex;
     WorkflowStepInstanceExecutionContext currentStepInstance;
+    /** last _completed_ instance by step index, to resolve expression references to input/output */
     Map<Integer, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
+    /** workflow scratch as at last completed instance of each index, for replaying */
     Map<Integer, Map<String,Object>> lastInstanceOfEachStepWorkflowScratch = MutableMap.of();
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
@@ -112,7 +115,14 @@ public class WorkflowExecutionContext {
     // deserialization constructor
     private WorkflowExecutionContext() {}
 
-    public static WorkflowExecutionContext of(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, ConfigBag paramsDefiningWorkflow,
+    public static WorkflowExecutionContext newInstancePersisted(BrooklynObject entityOrAdjunctWhereRunning, String name, ConfigBag paramsDefiningWorkflow,
+                                                                Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs, Map<String, Object> optionalTaskFlags) {
+        WorkflowExecutionContext w = newInstanceUnpersistedWithParent(entityOrAdjunctWhereRunning, null, name, paramsDefiningWorkflow, extraConfigKeys, extraInputs, optionalTaskFlags);
+        w.persist();
+        return w;
+    }
+
+    public static WorkflowExecutionContext newInstanceUnpersistedWithParent(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, ConfigBag paramsDefiningWorkflow,
                                               Collection<ConfigKey<?>> extraConfigKeys, ConfigBag extraInputs, Map<String, Object> optionalTaskFlags) {
 
         // parameter defs
@@ -146,15 +156,12 @@ public class WorkflowExecutionContext {
         w.setCondition(w.resolveConfig(paramsDefiningWorkflow, WorkflowCommonConfig.CONDITION));
 
         // finished -- checkpoint noting this has been created but not yet started
-        w.status = WorkflowStatus.STARTING;
-        w.persist();
-
+        w.status = WorkflowStatus.STAGED;
         return w;
     }
 
     protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, List<Object> stepsDefinition, Map<String,Object> input, Object output, Map<String, Object> optionalTaskFlags) {
-        this.parent = parent;
-        this.parentId = parent==null ? null : parent.workflowId;
+        initParent(parent);
         this.name = name;
         this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
@@ -173,6 +180,11 @@ public class WorkflowExecutionContext {
         // currently workflow ID is the same as the task ID assigned initially. (but if replayed they will be different.)
         // there is no deep reason or need for this, it is just convenient, and used for tests.
         //this.workflowId = Identifiers.makeRandomId(8);
+    }
+
+    public void initParent(WorkflowExecutionContext parent) {
+        this.parent = parent;
+        this.parentId = parent ==null ? null : parent.workflowId;
     }
 
     public static final Map<String, Consumer<WorkflowExecutionContext>> PREDEFINED_NEXT_TARGETS = MutableMap.<String, Consumer<WorkflowExecutionContext>>of(
@@ -211,6 +223,10 @@ public class WorkflowExecutionContext {
         return "Workflow<" + name + " - " + workflowId + ">";
     }
 
+    public String getParentId() {
+        return parentId;
+    }
+
     public Map<String, Object> getWorkflowScratchVariables() {
         return workflowScratchVariables;
     }
@@ -236,20 +252,36 @@ public class WorkflowExecutionContext {
         return Maybe.of(task);
     }
 
-    public synchronized Task<Object> getTaskReplayingFromStep(int stepIndex) {
+    public synchronized Task<Object> createTaskReplayingFromStep(int stepIndex) {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(stepIndex)).build();
+        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(stepIndex, null)).build();
         taskId = task.getId();
         return task;
     }
 
-    public synchronized Task<Object> getTaskReplayingCurrentStep(boolean reinitializeStep) {
+    public synchronized Task<Object> createTaskReplayingCurrentStep(boolean reinitializeStep) {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null)).build();
+        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null, null)).build();
+        taskId = task.getId();
+        return task;
+    }
+
+    public void markShutdown() {
+        log.debug(this+" was "+this.status+" but now marking as "+WorkflowStatus.ERROR_SHUTDOWN+"; compensating workflow should be triggered shortly");
+        this.status = WorkflowStatus.ERROR_SHUTDOWN;
+        // don't persist; that will happen when workflows are kicked off
+    }
+
+    public synchronized Task<Object> createTaskReplayingWithCustom(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+        String explanation = continuationInstructions!=null ? continuationInstructions.customBehaviourExplanation!=null ? continuationInstructions.customBehaviourExplanation : "no explanation" : "no continuation";
+        if (task!=null && !task.isDone()) {
+            throw new IllegalStateException("Cannot replay ongoing workflow with custom behavior ("+explanation+")");
+        }
+        task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")").tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(null, continuationInstructions)).build();
         taskId = task.getId();
         return task;
     }
@@ -354,6 +386,7 @@ public class WorkflowExecutionContext {
         /** step to start with, if replaying. if null when replaying, starts at the current step but skipping the reinitialization of that step (all inputs, conditions, etc recomputed) */
         private Integer replayFromStep;
         private boolean replaying;
+        private WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions;
 
         List<WorkflowStepDefinition> stepsResolved;
         
@@ -364,8 +397,9 @@ public class WorkflowExecutionContext {
             replaying = false;
         }
 
-        public Body(Integer replayFromStep) {
-            this.replayFromStep = replayFromStep;
+        public Body(Integer replayFromStepOrLast, WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+            this.replayFromStep = replayFromStepOrLast;
+            this.continuationInstructions = continuationInstructions;
             replaying = true;
         }
 
@@ -419,7 +453,6 @@ public class WorkflowExecutionContext {
                     currentStepInstance.output = null;
                     currentStepInstance.injectContext(WorkflowExecutionContext.this);
                     log.debug("Replaying workflow '" + name + "', reusing instance "+currentStepInstance+" for step " + workflowStepReference(currentStepIndex) + ")");
-                    // TODO some variants of this, eg nested workflow, should customize the newTask / taskBody method when given a pre-existing instance
                     runCurrentStepInstanceApproved(stepsResolved.get(currentStepIndex));
                 }
 
@@ -504,7 +537,9 @@ public class WorkflowExecutionContext {
 
                 // no condition or condition met -- record and run the step
 
-                lastInstanceOfEachStepWorkflowScratch.put(currentStepIndex, MutableMap.copyOf(workflowScratchVariables));
+                if (!workflowScratchVariables.isEmpty()) lastInstanceOfEachStepWorkflowScratch.put(currentStepIndex, MutableMap.copyOf(workflowScratchVariables));
+                else lastInstanceOfEachStepWorkflowScratch.remove(currentStepIndex);
+
                 runCurrentStepInstanceApproved(step);
 
             } else {
@@ -515,25 +550,47 @@ public class WorkflowExecutionContext {
 
         private void runCurrentStepInstanceApproved(WorkflowStepDefinition step) {
             // about to run -- checkpoint noting current and previous steps
+            // TODO record previous->this and this<-previous
             persist();
-            Task<?> t = step.newTask(currentStepInstance);
+
+            Runnable next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+
+            Task<?> t;
+            if (replaying) {
+                t = step.newTaskContinuing(currentStepInstance, continuationInstructions);
+                continuationInstructions = null;
+                replaying = false;
+            } else {
+                t = step.newTask(currentStepInstance);
+            }
             try {
                 currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
+                if (step.output!=null) {
+                    // allow output to be customized / overridden
+                    currentStepInstance.output = resolve(step.output, Object.class);
+                }
+
             } catch (Exception e) {
+
+                // TODO custom error handling (also needed at workflow level)
+                // if onError
+                // log debug
+                // try
+                // next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+                // catch
+                // log warn throw propagate
+                // else
+
                 log.warn("Error in step '"+t.getDisplayName()+"' (rethrowing): "+ Exceptions.collapseText(e));
+                if (Exceptions.getFirstThrowableOfType(e, NullPointerException.class)!=null) {
+                    e.printStackTrace();
+                }
                 throw Exceptions.propagate(e);
             }
 
             lastInstanceOfEachStep.put(currentStepIndex, currentStepInstance);
-            if (step.output!=null) {
-                // allow output to be customized / overridden
-                currentStepInstance.output = resolve(step.output, Object.class);
-            }
-
-            // TODO error handling; but preserve problems
-
             previousStepIndex = currentStepIndex;
-            moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+            next.run();
         }
 
         private void moveToNextStep(String optionalRequestedNextStep, String prefix) {
