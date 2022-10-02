@@ -58,7 +58,6 @@ public abstract class WorkflowStepDefinition {
         return name;
     }
 
-    @JsonIgnore
     protected String userSuppliedShorthand;
 
     // TODO

@@ -82,7 +82,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     Task<?> lastInvocation;
     WorkflowExecutionContext lastWorkflowContext;
 
-    final static List<Object> INCREMENTING_X_STEPS = MutableList.<Object>of(
+    public final static List<Object> INCREMENTING_X_STEPS = MutableList.<Object>of(
             "let integer x = ${entity.sensor.x} ?? 0",
             "let x = ${x} + 1",
             "set-sensor x = ${x}",

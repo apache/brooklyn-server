@@ -1482,14 +1482,14 @@ public class Asserts {
         assertThat(obj, Predicates.instanceOf(type), "Expected "+type+" but found "+(obj==null ? "null" : obj+" ("+obj.getClass()+")"));
     }
 
-    public static <T> void assertPresent(Maybe<T> candidate) {
-        if (candidate.isPresent()) return;
-        fail( Maybe.getException(candidate) );
+    public static <T> T assertPresent(Maybe<T> candidate) {
+        if (candidate.isPresent()) return candidate.get();
+        throw fail( Maybe.getException(candidate) );
     }
 
     public static <T> void assertNotPresent(Maybe<T> candidate) {
         if (candidate.isAbsent()) return;
-        fail("Expected absent value; instead got: "+candidate.get());
+        throw fail("Expected absent value; instead got: "+candidate.get());
     }
 
     public static MemoryAssertions startMemoryAssertions(String message) {

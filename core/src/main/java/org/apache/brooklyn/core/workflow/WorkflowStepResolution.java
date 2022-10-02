@@ -67,6 +67,7 @@ public class WorkflowStepResolution {
             }
         }
 
+        String userSuppliedShorthand = shorthand;
         if (shorthand!=null) {
             shorthand = shorthand.trim();
             int wordBreak = shorthand.indexOf(" ");
@@ -98,8 +99,11 @@ public class WorkflowStepResolution {
 
             if (shorthand!=null) {
                 defW.populateFromShorthand(shorthand);
-                defW.userSuppliedShorthand = shorthand;
             }
+            if (userSuppliedShorthand!=null) {
+                defW.userSuppliedShorthand = userSuppliedShorthand;
+            }
+
             defW.validateStep();
             return defW;
         } else {

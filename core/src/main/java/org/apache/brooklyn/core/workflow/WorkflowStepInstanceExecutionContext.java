@@ -34,6 +34,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Supplier;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowStepInstanceExecutionContext {
 
     // see getInput

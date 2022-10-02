@@ -39,6 +39,7 @@ import com.google.common.base.Predicate;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -59,9 +60,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.time.Instant;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -332,6 +331,30 @@ public class CommonTypesSerialization {
         }
 
         @Override public BrooklynObject convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+            BrooklynObject result = null;
+            if (value.size()<=2) {
+                Object id = value.get("id");
+                if (id instanceof String) {
+                    // looks like a type+id map, so we should be able to look it up
+                    Object type = value.get("type");
+                    if (type instanceof String) {
+                        Optional<BrooklynObjectType> typeO = Arrays.stream(BrooklynObjectType.values()).filter(t -> type.equals(t.getInterfaceType().getName())).findAny();
+                        if (typeO.isPresent()) {
+                            result = mgmt.lookup((String) id, typeO.get().getInterfaceType());
+                        } else {
+                            // fall through to below
+                        }
+                    } else {
+                        result = mgmt.lookup((String) id, null);
+                    }
+
+                    if (result==null) {
+                        throw new IllegalStateException("Cannot find serialized shorthand reference to entity "+value);
+                    }
+                }
+            }
+            if (result!=null) return result;
+
             throw new IllegalStateException("Entity instances and other Brooklyn objects should be supplied as unique IDs; they cannot be instantiated from YAML. If a spec is desired, the type should be known or use $brooklyn:entitySpec.");
         }
     }

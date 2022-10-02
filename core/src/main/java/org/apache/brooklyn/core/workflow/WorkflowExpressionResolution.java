@@ -139,13 +139,13 @@ public class WorkflowExpressionResolution {
     }
 
     TemplateModel newWorkflowStepModelForStepIndex(Integer step) {
-        WorkflowStepInstanceExecutionContext stepI = context.lastInstanceOfEachStep.get(step);
-        if (stepI==null) return ifNoMatches();
-        return new WorkflowStepModel(stepI);
+        WorkflowExecutionContext.OldStepRecord stepI = context.oldStepInfo.get(step);
+        if (stepI==null || stepI.context==null) return ifNoMatches();
+        return new WorkflowStepModel(stepI.context);
     }
     TemplateModel newWorkflowStepModelForStepId(String id) {
-        for (WorkflowStepInstanceExecutionContext s: context.lastInstanceOfEachStep.values()) {
-            if (id.equals(s.stepDefinitionDeclaredId)) return new WorkflowStepModel(s);
+        for (WorkflowExecutionContext.OldStepRecord s: context.oldStepInfo.values()) {
+            if (s.context!=null && id.equals(s.context.stepDefinitionDeclaredId)) return new WorkflowStepModel(s.context);
         }
         return ifNoMatches();
     }

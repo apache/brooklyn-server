@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -51,21 +52,20 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
+import javax.annotation.Nullable;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowExecutionContext {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
 
     String name;
-    BrooklynObject entityOrAdjunctWhereRunning;
+    @Nullable BrooklynObject adjunct;
     Entity entity;
 
     public enum WorkflowStatus {
@@ -104,11 +104,26 @@ public class WorkflowExecutionContext {
 
     Integer currentStepIndex;
     Integer previousStepIndex;
+
     WorkflowStepInstanceExecutionContext currentStepInstance;
-    /** last _completed_ instance by step index, to resolve expression references to input/output */
-    Map<Integer, WorkflowStepInstanceExecutionContext> lastInstanceOfEachStep = MutableMap.of();
-    /** workflow scratch as at last completed instance of each index, for replaying */
-    Map<Integer, Map<String,Object>> lastInstanceOfEachStepWorkflowScratch = MutableMap.of();
+
+    Map<Integer, OldStepRecord> oldStepInfo = MutableMap.of();
+
+    public static class OldStepRecord {
+        /** count of runs started */
+        int countStarted = 0;
+        /** count of runs completed */
+        int countCompleted = 0;
+
+        /** context for last _completed_ instance of step */
+        WorkflowStepInstanceExecutionContext context;
+        /** scratch for last _started_ instance of step */
+        Map<String,Object> workflowScratch;
+        /** steps that immediately preceded this, updated when _this_ step started */
+        Set<Integer> previous;
+        /** steps that immediately followed this, updated when _next_ step started */
+        Set<Integer> next;
+    }
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
 
@@ -163,7 +178,7 @@ public class WorkflowExecutionContext {
     protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, List<Object> stepsDefinition, Map<String,Object> input, Object output, Map<String, Object> optionalTaskFlags) {
         initParent(parent);
         this.name = name;
-        this.entityOrAdjunctWhereRunning = entityOrAdjunctWhereRunning;
+        this.adjunct = entityOrAdjunctWhereRunning instanceof Entity ? null : entityOrAdjunctWhereRunning;
         this.entity = entityOrAdjunctWhereRunning instanceof Entity ? (Entity)entityOrAdjunctWhereRunning : ((EntityAdjuncts.EntityAdjunctProxyable)entityOrAdjunctWhereRunning).getEntity();
         this.stepsDefinition = stepsDefinition;
 
@@ -223,6 +238,12 @@ public class WorkflowExecutionContext {
         return "Workflow<" + name + " - " + workflowId + ">";
     }
 
+    @JsonIgnore
+    public BrooklynObject getEntityOrAdjunctWhereRunning() {
+        if (adjunct!=null) return adjunct;
+        return entity;
+    }
+
     public String getParentId() {
         return parentId;
     }
@@ -238,7 +259,7 @@ public class WorkflowExecutionContext {
     @JsonIgnore
     public Maybe<Task<Object>> getOrCreateTask(boolean checkCondition) {
         if (checkCondition && condition!=null) {
-            if (!condition.apply(entityOrAdjunctWhereRunning)) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
+            if (!condition.apply(getEntityOrAdjunctWhereRunning())) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
 
         if (task==null) {
@@ -361,9 +382,9 @@ public class WorkflowExecutionContext {
 
     @JsonIgnore
     public Object getPreviousStepOutput() {
-        WorkflowStepInstanceExecutionContext ps = lastInstanceOfEachStep.get(previousStepIndex);
-        if (ps==null) return null;
-        return ps.output;
+        OldStepRecord last = oldStepInfo.get(previousStepIndex);
+        if (last!=null && last.context!=null) return last.context.output;
+        return null;
     }
 
     public String getName() {
@@ -424,13 +445,14 @@ public class WorkflowExecutionContext {
                             // not yet started
                             replayFromStep = 0;
                         } else if (currentStepInstance==null || currentStepInstance.stepIndex!=currentStepIndex) {
-                            // replaying from a different step
+                            // replaying from a different step, or current step which has either not run or completed but didn't save
                             log.debug("Replaying workflow '" + name + "', cannot replay within step "+workflowStepReference(currentStepIndex)+" because step instance not initialized yet, so will reinitialize that step");
                             replayFromStep = currentStepIndex;
                         }
                     }
                     if (replayFromStep!=null) {
-                        workflowScratchVariables = lastInstanceOfEachStepWorkflowScratch.get(replayFromStep);
+                        OldStepRecord last = oldStepInfo.get(replayFromStep);
+                        if (last!=null) workflowScratchVariables = last.workflowScratch;
                         if (workflowScratchVariables==null) workflowScratchVariables = MutableMap.of();
                         currentStepIndex = replayFromStep;
                     }
@@ -469,6 +491,17 @@ public class WorkflowExecutionContext {
 
                 // finished -- checkpoint noting previous step and null for current because finished
                 status = WorkflowStatus.SUCCESS;
+                // record how it ended
+                oldStepInfo.compute(previousStepIndex==null ? -1 : previousStepIndex, (index, old) -> {
+                    if (old==null) old = new OldStepRecord();
+                    old.next = MutableSet.<Integer>of(-1).putAll(old.next);
+                    return old;
+                });
+                oldStepInfo.compute(-1, (index, old) -> {
+                    if (old==null) old = new OldStepRecord();
+                    old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
+                    return old;
+                });
                 persist();
 
                 return output;
@@ -527,7 +560,7 @@ public class WorkflowExecutionContext {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
                 if (step.condition!=null) {
                     if (log.isTraceEnabled()) log.trace("Considering condition "+step.condition+" for "+ workflowStepReference(currentStepIndex));
-                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, entityOrAdjunctWhereRunning);
+                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, getEntityOrAdjunctWhereRunning());
                     if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
                         moveToNextStep(null, "Skipping step "+ workflowStepReference(currentStepIndex));
@@ -536,9 +569,6 @@ public class WorkflowExecutionContext {
                 }
 
                 // no condition or condition met -- record and run the step
-
-                if (!workflowScratchVariables.isEmpty()) lastInstanceOfEachStepWorkflowScratch.put(currentStepIndex, MutableMap.copyOf(workflowScratchVariables));
-                else lastInstanceOfEachStepWorkflowScratch.remove(currentStepIndex);
 
                 runCurrentStepInstanceApproved(step);
 
@@ -550,7 +580,20 @@ public class WorkflowExecutionContext {
 
         private void runCurrentStepInstanceApproved(WorkflowStepDefinition step) {
             // about to run -- checkpoint noting current and previous steps
-            // TODO record previous->this and this<-previous
+            oldStepInfo.compute(currentStepIndex, (index, old) -> {
+                if (old==null) old = new OldStepRecord();
+                old.countStarted++;
+                if (!workflowScratchVariables.isEmpty()) old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
+                else old.workflowScratch = null;
+                old.previous = MutableSet.<Integer>of(previousStepIndex==null ? -1 : previousStepIndex).putAll(old.previous);
+                return old;
+            });
+            oldStepInfo.compute(previousStepIndex==null ? -1 : previousStepIndex, (index, old) -> {
+                if (old==null) old = new OldStepRecord();
+                old.next = MutableSet.<Integer>of(currentStepIndex).putAll(old.next);
+                return old;
+            });
+
             persist();
 
             Runnable next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
@@ -582,13 +625,21 @@ public class WorkflowExecutionContext {
                 // else
 
                 log.warn("Error in step '"+t.getDisplayName()+"' (rethrowing): "+ Exceptions.collapseText(e));
-                if (Exceptions.getFirstThrowableOfType(e, NullPointerException.class)!=null) {
-                    e.printStackTrace();
-                }
                 throw Exceptions.propagate(e);
             }
 
-            lastInstanceOfEachStep.put(currentStepIndex, currentStepInstance);
+            oldStepInfo.compute(currentStepIndex, (index, old) -> {
+                if (old==null) {
+                    log.warn("Lost old step info for "+this+", step "+index);
+                    old = new OldStepRecord();
+                }
+                old.countCompleted++;
+                // okay if this gets picked up by accident because we will check the stepIndex it records against the currentStepIndex,
+                // and ignore it if different
+                old.context = currentStepInstance;
+                return old;
+            });
+
             previousStepIndex = currentStepIndex;
             next.run();
         }

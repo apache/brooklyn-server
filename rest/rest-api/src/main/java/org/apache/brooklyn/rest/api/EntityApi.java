@@ -19,6 +19,7 @@
 package org.apache.brooklyn.rest.api;
 
 import io.swagger.annotations.Api;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.rest.domain.RelationSummary;
 import org.apache.brooklyn.rest.domain.EntitySummary;
 import org.apache.brooklyn.rest.domain.LocationSummary;
@@ -417,4 +418,39 @@ public interface EntityApi {
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") String entity);
+
+    @GET
+    @Path("/{entity}/workflows")
+    @ApiOperation(value = "Get all workflows stored on this entity")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Map<String, WorkflowExecutionContext> getWorkflows(
+            @ApiParam(value = "Application ID or name", required = true)
+            @PathParam("application") String application,
+            @ApiParam(value = "Entity ID or name", required = true)
+            @PathParam("entity") String entity);
+
+    @GET
+    @Path("/{entity}/workflow/{workflowId}")
+    @ApiOperation(value = "Get a workflow on this entity")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public WorkflowExecutionContext getWorkflow(
+            @ApiParam(value = "Application ID or name", required = true)
+            @PathParam("application") String application,
+            @ApiParam(value = "Entity ID or name", required = true)
+            @PathParam("entity") String entity,
+            @ApiParam(value = "Workflow ID", required = true)
+            @PathParam("workflowId") String workflowId);
+
 }

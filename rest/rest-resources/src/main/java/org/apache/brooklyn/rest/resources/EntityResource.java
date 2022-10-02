@@ -21,7 +21,7 @@ package org.apache.brooklyn.rest.resources;
 import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
-import org.apache.brooklyn.core.entity.EntityInternal;
+
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
@@ -47,6 +47,8 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
 import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.domain.*;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
@@ -58,7 +60,6 @@ import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -358,4 +359,18 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
         return (List<Object>) resolving(specTag).preferJson(true).resolve();
     }
+
+    @Override
+    public Map<String, WorkflowExecutionContext> getWorkflows(String applicationId, String entityId) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        return new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity);
+    }
+
+    @Override
+    public WorkflowExecutionContext getWorkflow(String application, String entity, String workflowId) {
+        WorkflowExecutionContext w = getWorkflows(application, entity).get(workflowId);
+        if (w==null) throw WebResourceUtils.notFound("Cannot find workflow with ID '%s'", workflowId);
+        return w;
+    }
+
 }
