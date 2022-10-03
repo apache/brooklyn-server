@@ -40,6 +40,8 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -49,6 +51,8 @@ import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
 public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicApplication> {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowPersistReplayErrorsTest.class);
 
     private BasicApplication app;
 
@@ -281,9 +285,14 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         lastInvocation.blockUntilEnded(Duration.seconds(5));
         Asserts.assertTrue(lastInvocation.isError());
 
+        // error is set, although it will not usually be persisted
         Asserts.eventually(() -> lastWorkflowContext.status, status -> status.error);
-        Asserts.eventually(() -> lastWorkflowContext.status, status -> status == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN || status == WorkflowExecutionContext.WorkflowStatus.ERROR_ENTITY_DESTROYED);
-        // above is set, although it will not usually be persisted
+        if (lastWorkflowContext.status == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN || lastWorkflowContext.status == WorkflowExecutionContext.WorkflowStatus.ERROR_ENTITY_DESTROYED) {
+            // as expected
+        } else {
+            log.error("Workflow ended with wrong error status: "+lastWorkflowContext.status);
+            Asserts.fail("Workflow ended with wrong error status: "+lastWorkflowContext.status+ " / value "+lastInvocation.getUnchecked());
+        }
     }
 
     @Test(groups="Integration", invocationCount = 10)  // because a bit slow and non-deterministic
