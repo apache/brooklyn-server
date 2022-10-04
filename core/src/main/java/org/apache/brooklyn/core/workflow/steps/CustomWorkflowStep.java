@@ -25,6 +25,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
@@ -106,6 +107,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         nestedWorkflowContext.getOrCreateTask();
         context.setStepState(MutableList.of(nestedWorkflowContext.getWorkflowId()), true);  // save the sub-workflow ID before submitting it
+        context.getSubWorkflows().add(BrooklynTaskTags.tagForWorkflow(nestedWorkflowContext));
 
         nestedWorkflowContext.persist();
 

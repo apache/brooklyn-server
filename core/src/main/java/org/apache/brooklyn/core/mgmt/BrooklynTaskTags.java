@@ -30,6 +30,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -456,10 +457,16 @@ public class BrooklynTaskTags extends TaskTags {
         return new EffectorCallTag(entity.getId(), effectorName, parameters);
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class WorkflowTaskTag {
         protected Integer stepIndex;
+        protected String applicationId;
         protected String entityId;
         protected String workflowId;
+
+        public String getApplicationId() {
+            return applicationId;
+        }
 
         public String getEntityId() {
             return entityId;
@@ -477,6 +484,7 @@ public class BrooklynTaskTags extends TaskTags {
 
     public static WorkflowTaskTag tagForWorkflow(WorkflowExecutionContext workflow) {
         WorkflowTaskTag t = new WorkflowTaskTag();
+        t.applicationId = workflow.getEntity().getApplicationId();
         t.entityId = workflow.getEntity().getId();
         t.workflowId = workflow.getWorkflowId();
         return t;

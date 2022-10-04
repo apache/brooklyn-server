@@ -20,18 +20,18 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.collections.MutableSet;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -62,6 +62,11 @@ public class WorkflowStepInstanceExecutionContext {
      * and the {@link WorkflowStepDefinition#doTaskBody(WorkflowStepInstanceExecutionContext)} method should check this
      * at start to determine if resumption is necessary. this will be null on any replay-with-reinitialize. */
     Object stepState;
+
+    /** workflows launched by this task; unused by most. if used, steps should implement {@link org.apache.brooklyn.core.workflow.WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow}
+     * and track which ones are active in the stepState */
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    Set<BrooklynTaskTags.WorkflowTaskTag> subWorkflows = MutableSet.of();
 
     Object output;
 
@@ -132,6 +137,10 @@ public class WorkflowStepInstanceExecutionContext {
     }
     public Object getStepState() {
         return stepState;
+    }
+
+    public Set<BrooklynTaskTags.WorkflowTaskTag> getSubWorkflows() {
+        return subWorkflows;
     }
 
     public TypeToken<?> lookupType(String type, Supplier<TypeToken<?>> ifUnset) {

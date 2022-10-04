@@ -123,6 +123,7 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
         TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
             // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
             context.setStepState(workflowTag, true);
+            context.getSubWorkflows().add(workflowTag);
         });
 
         return DynamicTasks.queue(invocation).asTask().getUnchecked();

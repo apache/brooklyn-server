@@ -99,9 +99,13 @@ public class WorkflowExecutionContext {
     Object output;
 
     String workflowId;
+    /** current or most recent executing task created for this workflow, corresponding to task */
     String taskId;
-
     transient Task<Object> task;
+
+    /** all tasks created for this workflow */
+    Set<String> taskIds = MutableSet.of();
+
 
     Integer currentStepIndex;
     Integer previousStepIndex;
@@ -195,6 +199,7 @@ public class WorkflowExecutionContext {
         if (optionalTaskFlags!=null) tb.flags(optionalTaskFlags);
         else tb.displayName(name);
         task = tb.body(new Body()).build();
+        taskIds.add(task.getId());
         workflowId = taskId = task.getId();
         TaskTags.addTagDynamically(task, BrooklynTaskTags.WORKFLOW_TAG);
         TaskTags.addTagDynamically(task, BrooklynTaskTags.tagForWorkflow(this));
@@ -288,6 +293,7 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(stepIndex, null)).build();
+        taskIds.add(task.getId());
         taskId = task.getId();
         return task;
     }
@@ -300,6 +306,7 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null, null)).build();
+        taskIds.add(task.getId());
         taskId = task.getId();
         return task;
     }
@@ -319,7 +326,9 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(null, continuationInstructions)).build();
+        taskIds.add(task.getId());
         taskId = task.getId();
+
         return task;
     }
 
@@ -413,6 +422,10 @@ public class WorkflowExecutionContext {
 
     public String getTaskId() {
         return taskId;
+    }
+
+    public Set<String> getTaskIds() {
+        return taskIds;
     }
 
     public WorkflowStatus getStatus() {
