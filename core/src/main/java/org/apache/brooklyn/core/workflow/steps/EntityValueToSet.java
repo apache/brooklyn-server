@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.brooklyn.api.entity.Entity;
 
 import java.util.function.Consumer;
@@ -34,6 +35,7 @@ public class EntityValueToSet extends TypedValueToSet {
         if (other instanceof EntityValueToSet) this.entity = ((EntityValueToSet)other).entity;
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public Entity entity;
 
     public static EntityValueToSet fromString(String name) {

@@ -99,16 +99,19 @@ public class WorkflowExecutionContext {
     Object output;
 
     String workflowId;
-    transient String taskId;
+    String taskId;
+
     transient Task<Object> task;
 
     Integer currentStepIndex;
     Integer previousStepIndex;
+    String previousStepTaskId;
 
     WorkflowStepInstanceExecutionContext currentStepInstance;
 
     Map<Integer, OldStepRecord> oldStepInfo = MutableMap.of();
 
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class OldStepRecord {
         /** count of runs started */
         int countStarted = 0;
@@ -123,6 +126,9 @@ public class WorkflowExecutionContext {
         Set<Integer> previous;
         /** steps that immediately followed this, updated when _next_ step started */
         Set<Integer> next;
+
+        String previousTaskId;
+        String nextTaskId;
     }
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
@@ -190,6 +196,7 @@ public class WorkflowExecutionContext {
         else tb.displayName(name);
         task = tb.body(new Body()).build();
         workflowId = taskId = task.getId();
+        TaskTags.addTagDynamically(task, BrooklynTaskTags.WORKFLOW_TAG);
         TaskTags.addTagDynamically(task, BrooklynTaskTags.tagForWorkflow(this));
 
         // currently workflow ID is the same as the task ID assigned initially. (but if replayed they will be different.)
@@ -277,7 +284,10 @@ public class WorkflowExecutionContext {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(stepIndex, null)).build();
+        task = Tasks.builder().dynamic(true).displayName(name)
+                .tag(BrooklynTaskTags.tagForWorkflow(this))
+                .tag(BrooklynTaskTags.WORKFLOW_TAG)
+                .body(new Body(stepIndex, null)).build();
         taskId = task.getId();
         return task;
     }
@@ -286,7 +296,10 @@ public class WorkflowExecutionContext {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name).tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null, null)).build();
+        task = Tasks.builder().dynamic(true).displayName(name)
+                .tag(BrooklynTaskTags.tagForWorkflow(this))
+                .tag(BrooklynTaskTags.WORKFLOW_TAG)
+                .body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null, null)).build();
         taskId = task.getId();
         return task;
     }
@@ -302,7 +315,10 @@ public class WorkflowExecutionContext {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow with custom behavior ("+explanation+")");
         }
-        task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")").tag(BrooklynTaskTags.tagForWorkflow(this)).body(new Body(null, continuationInstructions)).build();
+        task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")")
+                .tag(BrooklynTaskTags.tagForWorkflow(this))
+                .tag(BrooklynTaskTags.WORKFLOW_TAG)
+                .body(new Body(null, continuationInstructions)).build();
         taskId = task.getId();
         return task;
     }
@@ -495,11 +511,13 @@ public class WorkflowExecutionContext {
                 oldStepInfo.compute(previousStepIndex==null ? -1 : previousStepIndex, (index, old) -> {
                     if (old==null) old = new OldStepRecord();
                     old.next = MutableSet.<Integer>of(-1).putAll(old.next);
+                    old.nextTaskId = null;
                     return old;
                 });
                 oldStepInfo.compute(-1, (index, old) -> {
                     if (old==null) old = new OldStepRecord();
                     old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
+                    old.previousTaskId = previousStepTaskId;
                     return old;
                 });
                 persist();
@@ -579,25 +597,6 @@ public class WorkflowExecutionContext {
         }
 
         private void runCurrentStepInstanceApproved(WorkflowStepDefinition step) {
-            // about to run -- checkpoint noting current and previous steps
-            oldStepInfo.compute(currentStepIndex, (index, old) -> {
-                if (old==null) old = new OldStepRecord();
-                old.countStarted++;
-                if (!workflowScratchVariables.isEmpty()) old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
-                else old.workflowScratch = null;
-                old.previous = MutableSet.<Integer>of(previousStepIndex==null ? -1 : previousStepIndex).putAll(old.previous);
-                return old;
-            });
-            oldStepInfo.compute(previousStepIndex==null ? -1 : previousStepIndex, (index, old) -> {
-                if (old==null) old = new OldStepRecord();
-                old.next = MutableSet.<Integer>of(currentStepIndex).putAll(old.next);
-                return old;
-            });
-
-            persist();
-
-            Runnable next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
-
             Task<?> t;
             if (replaying) {
                 t = step.newTaskContinuing(currentStepInstance, continuationInstructions);
@@ -606,6 +605,29 @@ public class WorkflowExecutionContext {
             } else {
                 t = step.newTask(currentStepInstance);
             }
+
+            // about to run -- checkpoint noting current and previous steps
+            oldStepInfo.compute(currentStepIndex, (index, old) -> {
+                if (old==null) old = new OldStepRecord();
+                old.countStarted++;
+                if (!workflowScratchVariables.isEmpty()) old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
+                else old.workflowScratch = null;
+                old.previous = MutableSet.<Integer>of(previousStepIndex==null ? -1 : previousStepIndex).putAll(old.previous);
+                old.previousTaskId = previousStepTaskId;
+                old.nextTaskId = null;
+                return old;
+            });
+            oldStepInfo.compute(previousStepIndex==null ? -1 : previousStepIndex, (index, old) -> {
+                if (old==null) old = new OldStepRecord();
+                old.next = MutableSet.<Integer>of(currentStepIndex).putAll(old.next);
+                old.nextTaskId = t.getId();
+                return old;
+            });
+
+            persist();
+
+            Runnable next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+
             try {
                 currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
                 if (step.output!=null) {
@@ -640,6 +662,7 @@ public class WorkflowExecutionContext {
                 return old;
             });
 
+            previousStepTaskId = currentStepInstance.taskId;
             previousStepIndex = currentStepIndex;
             next.run();
         }

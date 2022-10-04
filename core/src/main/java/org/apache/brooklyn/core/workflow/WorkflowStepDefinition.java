@@ -26,6 +26,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -134,7 +135,11 @@ public abstract class WorkflowStepDefinition {
     }
 
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions) {
-        Task<?> t = Tasks.builder().displayName(computeName(context, true)).body(() -> {
+        Task<?> t = Tasks.builder().displayName(computeName(context, true))
+                //.tag(context)  // used to do this
+                .tag(BrooklynTaskTags.tagForWorkflow(context))
+                .tag(BrooklynTaskTags.WORKFLOW_TAG)
+                .body(() -> {
             log.debug("Starting step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
                     + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
                     + (continuationInstructions!=null ? " with custom behaviour" +
@@ -156,7 +161,7 @@ public abstract class WorkflowStepDefinition {
             }
             if (log.isTraceEnabled()) log.trace("Completed task for "+computeName(context, true)+", output "+result);
             return result;
-        }).tag(context).build();
+        }).build();
         context.taskId = t.getId();
         return t;
     }

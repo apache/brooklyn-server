@@ -128,6 +128,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             result = handleTokenIfPresent(w, true, MutableMap.of("*", this::handleMultiply, "/", this::handleDivide));
             if (result.isPresent()) return result.get();
 
+            result = handleTokenIfPresent(w, true, MutableMap.of("%", this::handleModulo));
+            if (result.isPresent()) return result.get();
+
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
             boolean resolveToString = w.size()>1;
             List<Object> objs = w.stream().map(t -> {
@@ -204,12 +207,17 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 return ((Maybe)asInteger(x)).orMaybe(() -> asDouble(x)).get();
             }
 
-            Maybe<Double> lhsD = asDouble(lhs);
-            Maybe<Double> rhsD = asDouble(rhs);
-            if (lhsD.isPresent() && rhsD.isPresent()) return asDouble(ifDouble.apply(lhsD.get(), rhsD.get())).get();
+            if (ifDouble!=null) {
+                Maybe<Double> lhsD = asDouble(lhs);
+                Maybe<Double> rhsD = asDouble(rhs);
+                if (lhsD.isPresent() && rhsD.isPresent()) return asDouble(ifDouble.apply(lhsD.get(), rhsD.get())).get();
 
-            if (lhsD.isAbsent()) throw new IllegalArgumentException("Invalid left argument to operation '"+op+"': "+lhs0+" => "+lhs);
-            if (rhsD.isAbsent()) throw new IllegalArgumentException("Invalid right argument to operation '"+op+"': "+rhs0+" = "+rhs);
+                if (lhsD.isAbsent()) throw new IllegalArgumentException("Invalid left argument to operation '"+op+"': "+lhs0+" => "+lhs);
+                if (rhsD.isAbsent()) throw new IllegalArgumentException("Invalid right argument to operation '"+op+"': "+rhs0+" = "+rhs);
+            }
+
+            if (lhsI.isAbsent()) throw new IllegalArgumentException("Invalid left argument to operation '"+op+"': "+lhs0+" => "+lhs);
+            if (rhsI.isAbsent()) throw new IllegalArgumentException("Invalid right argument to operation '"+op+"': "+rhs0+" = "+rhs);
 
             throw new IllegalArgumentException("Should not come here");
         }
@@ -228,6 +236,10 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object handleSubtract(List<String> lhs, List<String> rhs) {
             return applyMathOperator("-", lhs, rhs, (a,b)->a-b, (a,b)->a-b);
+        }
+
+        Object handleModulo(List<String> lhs, List<String> rhs) {
+            return applyMathOperator("%", lhs, rhs, (a,b)->a%b, null);
         }
 
 

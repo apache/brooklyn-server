@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.brooklyn.api.entity.Entity;
 
 import java.util.Arrays;
@@ -36,6 +37,7 @@ public class TypedValueToSet {
     }
 
     public String name;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public String type;
 
 

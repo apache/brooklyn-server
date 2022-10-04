@@ -74,6 +74,10 @@ public class WorkflowStepInstanceExecutionContext {
         return name;
     }
 
+    public int getStepIndex() {
+        return stepIndex;
+    }
+
     /** Returns the resolved value of the given key, converting to the type of the key */
     public <T> T getInput(ConfigKey<T> key) {
         return getInput(key.getName(), key.getTypeToken());

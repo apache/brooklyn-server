@@ -267,6 +267,14 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
+    public void testLetMathMode() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("s", "let x = 11 % 7 % 4", "output", "${x}")));
+        // should get 0, ie (11 % 7) % 4, not 11 % (7 % 4).
+        Asserts.assertEquals(output, 0);
+    }
+
+    @Test
     public void testLetQuoteVar() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let person = Anna",

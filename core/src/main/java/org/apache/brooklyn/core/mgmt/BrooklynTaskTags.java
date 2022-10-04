@@ -44,6 +44,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -85,6 +86,8 @@ public class BrooklynTaskTags extends TaskTags {
     public static final String EFFECTOR_TAG = "EFFECTOR";
     /** Tag for a task which represents a sensor being published */
     public static final String SENSOR_TAG = "SENSOR";
+    /** Tag for a task which represents a workflow or workflow step; look for a WorkflowTaskTag object to disambiguate */
+    public static final String WORKFLOW_TAG = "WORKFLOW";
     /** Tag for a task which *is* interesting, in contrast to {@link #TRANSIENT_TASK_TAG} */
     public static final String NON_TRANSIENT_TASK_TAG = "NON-TRANSIENT";
     /** indicates a task is transient, roughly that is to say it is uninteresting -- 
@@ -454,6 +457,7 @@ public class BrooklynTaskTags extends TaskTags {
     }
 
     public static class WorkflowTaskTag {
+        protected Integer stepIndex;
         protected String entityId;
         protected String workflowId;
 
@@ -464,12 +468,22 @@ public class BrooklynTaskTags extends TaskTags {
         public String getWorkflowId() {
             return workflowId;
         }
+
+        /** null if it is the task for the overall workflow */
+        public Integer getStepIndex() {
+            return stepIndex;
+        }
     }
 
     public static WorkflowTaskTag tagForWorkflow(WorkflowExecutionContext workflow) {
         WorkflowTaskTag t = new WorkflowTaskTag();
         t.entityId = workflow.getEntity().getId();
         t.workflowId = workflow.getWorkflowId();
+        return t;
+    }
+    public static WorkflowTaskTag tagForWorkflow(WorkflowStepInstanceExecutionContext workflowStep) {
+        WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
+        t.stepIndex = workflowStep.getStepIndex();
         return t;
     }
 
