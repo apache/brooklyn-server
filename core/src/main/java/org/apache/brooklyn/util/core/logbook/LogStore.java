@@ -18,17 +18,15 @@
  */
 package org.apache.brooklyn.util.core.logbook;
 
+import com.google.common.collect.Iterables;
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.util.collections.MutableSet;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-
-import org.apache.brooklyn.api.mgmt.HasTaskChildren;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.util.collections.MutableSet;
 
 public interface LogStore {
     /**
@@ -40,19 +38,35 @@ public interface LogStore {
      */
     List<BrooklynLogEntry> query(LogBookQueryParams query) throws IOException;
 
+    /** Find tasks descended from the given tasks or task IDs, up to {@code maxTasks} */
+    Set<String> enumerateTaskIds(Set<?> parents, int maxTasks);
+
     /** Breadth-first recursive enumeration of tasks up to {@code maxTasks} */
-    default Set<String> enumerateTaskIds(Task<?> parent, int maxTasks) {
-        Set<Task<?>> tasks = MutableSet.of(), current = MutableSet.of(parent), children;
+    static Set<String> enumerateTaskIdsDefault(ManagementContext mgmt, Set<?> parentTaskOrIds, int maxTasks) {
+        Set<String> tasks = MutableSet.of();
+        Set<Task<?>> current = MutableSet.of(), children;
+
+        if (parentTaskOrIds!=null) {
+            for (Object t : parentTaskOrIds) {
+                if (t instanceof String) { t = mgmt.getExecutionManager().getTask((String) t); }
+
+                if (t instanceof Task) current.add((Task) t);
+                else if (t == null) {}
+                else throw new IllegalArgumentException("Can only enumerate given task ID or string");
+            }
+        }
 
         enumerate: do {
             children = MutableSet.of();
             for (Task<?> task : current) {
                 if (task instanceof HasTaskChildren) {
                     Iterables.addAll(children, ((HasTaskChildren) task).getChildren());
-                    Iterables.addAll(tasks, Iterables.limit(children, maxTasks - tasks.size()));
-
-                    if (tasks.size() >= maxTasks) {
-                        break enumerate; // Limit reached
+                    for (Task<?> child: children) {
+                        if (tasks.add(child.getId())) {
+                            if (tasks.size() >= maxTasks) {
+                                break enumerate; // Limit reached
+                            }
+                        }
                     }
                 }
             }
@@ -60,10 +74,7 @@ public interface LogStore {
         } while (children.size() > 0);
 
         // Collect and return only the task ids
-        if (tasks.size() > 0) {
-            return tasks.stream()
-                    .map(Task::getId)
-                    .collect(Collectors.toSet());
-        } else return ImmutableSet.of();
+        return tasks;
     }
+
 }

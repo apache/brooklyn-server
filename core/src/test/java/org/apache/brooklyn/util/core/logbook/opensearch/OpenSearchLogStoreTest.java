@@ -22,8 +22,6 @@ import com.google.common.collect.ImmutableList;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
 import org.junit.Test;
 
-import java.util.Collections;
-
 import static org.apache.brooklyn.test.Asserts.assertEquals;
 
 public class OpenSearchLogStoreTest {
@@ -37,7 +35,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeFrom("2021-06-01T13:18:48,482");
         p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of());
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
@@ -53,12 +51,12 @@ public class OpenSearchLogStoreTest {
 
         // Tail disabled
         p.setTail(false);
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, EXPECTED_QUERY_HEAD);
 
         // Tail enabled - expect query with 'desc' sorting order, instead of 'asc'. Output is reversed back after 'desc' query.
         p.setTail(true);
-        query = cut.getJSONQuery(p);
+        query = cut.getJsonQuery(p);
         assertEquals(query, EXPECTED_QUERY_TAIL);
     }
 
@@ -70,7 +68,7 @@ public class OpenSearchLogStoreTest {
         p.setTail(false);
         p.setDateTimeFrom("2021-01-01T00:00:00,001");
         p.setLevels(ImmutableList.of());
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"gte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
     }
 
@@ -82,7 +80,7 @@ public class OpenSearchLogStoreTest {
         p.setTail(false);
         p.setDateTimeTo("2021-01-01T00:00:00,001");
         p.setLevels(ImmutableList.of());
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"range\":{\"timestamp\":{\"lte\":\"2021-01-01T00:00:00,001\"}}}]}}}");
     }
 
@@ -93,7 +91,7 @@ public class OpenSearchLogStoreTest {
         p.setNumberOfItems(10);
         p.setTail(false);
         p.setLevels(ImmutableList.of("WARN", "DEBUG"));
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}}]}}}");
     }
 
@@ -106,7 +104,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeFrom("2021-06-01T13:18:48,482");
         p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of("DEBUG"));
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
@@ -119,7 +117,7 @@ public class OpenSearchLogStoreTest {
         p.setDateTimeFrom("2021-06-01T13:18:48,482");
         p.setDateTimeTo("2021-06-01T13:28:48,482");
         p.setLevels(ImmutableList.of("WARN", "DEBUG"));
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"terms\":{\"level\":[\"warn\",\"debug\"]}},{\"range\":{\"timestamp\":{\"gte\":\"2021-06-01T13:18:48,482\",\"lte\":\"2021-06-01T13:28:48,482\"}}}]}}}");
     }
 
@@ -131,7 +129,7 @@ public class OpenSearchLogStoreTest {
         p.setTail(false);
         p.setLevels(ImmutableList.of());
         p.setSearchPhrase("some phrase");
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 
@@ -143,7 +141,7 @@ public class OpenSearchLogStoreTest {
         p.setTail(false);
         p.setLevels(ImmutableList.of());
         p.setEntityId("entityIdxx");
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}}]}}}");
     }
 
@@ -155,7 +153,7 @@ public class OpenSearchLogStoreTest {
         p.setTail(false);
         p.setLevels(ImmutableList.of());
         p.setTaskId("taskIdxxxx");
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}}]}}}");
     }
 
@@ -168,7 +166,7 @@ public class OpenSearchLogStoreTest {
         p.setLevels(ImmutableList.of());
         p.setEntityId("entityIdxx");
         p.setSearchPhrase("some phrase");
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"entityIds\":\"entityIdxx\"}},{\"match_phrase\":{\"message\":\"entityIdxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 
@@ -181,7 +179,7 @@ public class OpenSearchLogStoreTest {
         p.setLevels(ImmutableList.of());
         p.setTaskId("taskIdxxxx");
         p.setSearchPhrase("some phrase");
-        String query = cut.getJSONQuery(p);
+        String query = cut.getJsonQuery(p);
         assertEquals(query, "{\"sort\":{\"timestamp\":\"asc\"},\"size\":10,\"query\":{\"bool\":{\"must\":[{\"bool\":{\"should\":[{\"match_phrase\":{\"taskId\":\"taskIdxxxx\"}},{\"match_phrase\":{\"message\":\"taskIdxxxx\"}}]}},{\"match_phrase\":{\"message\":\"some phrase\"}}]}}}");
     }
 }

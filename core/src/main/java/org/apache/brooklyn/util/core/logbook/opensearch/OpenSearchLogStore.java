@@ -25,13 +25,12 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
-
 import net.minidev.json.JSONObject;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
@@ -185,7 +184,7 @@ public class OpenSearchLogStore implements LogStore {
     public List<BrooklynLogEntry> query(LogBookQueryParams params) throws IOException {
         HttpPost request = new HttpPost(host + "/" + indexName + "/_search");
         request.addHeader(HttpHeaders.CONTENT_TYPE, "application/json");
-        request.setEntity(new StringEntity(getJSONQuery(params)));
+        request.setEntity(new StringEntity(getJsonQuery(params)));
 
         try (CloseableHttpResponse response = httpClient.execute(request)) {
 
@@ -217,8 +216,13 @@ public class OpenSearchLogStore implements LogStore {
         }
     }
 
+    @Override
+    public Set<String> enumerateTaskIds(Set<?> parents, int maxTasks) {
+        return LogStore.enumerateTaskIdsDefault(mgmt, parents, maxTasks);
+    }
+
     @VisibleForTesting
-    protected String getJSONQuery(LogBookQueryParams params) {
+    protected String getJsonQuery(LogBookQueryParams params) {
         ImmutableMap qb = ImmutableMap.builder()
                 .put("size", params.getNumberOfItems())
                 .put("sort", ImmutableMap.of("timestamp", params.isTail() ? "desc" : "asc"))
@@ -265,8 +269,11 @@ public class OpenSearchLogStore implements LogStore {
             Set<String> taskIds = MutableSet.of(params.getTaskId());
             if (params.isRecursive()) {
                 if (mgmt != null) {
+                    // TODO ideally recurse against remote endpoint
                     Task<?> parent = mgmt.getExecutionManager().getTask(params.getTaskId());
-                    taskIds.addAll(enumerateTaskIds(parent, maxTasks));
+                    BrooklynTaskTags.WorkflowTaskTag wf = BrooklynTaskTags.getWorkflowTaskTag(parent, false);
+                    String workflowId = wf != null ? wf.getWorkflowId() : null;
+                    taskIds.addAll( enumerateTaskIds(MutableSet.of().putIfNotNull(parent).putIfNotNull(workflowId), maxTasks) );
                 }
             }
 

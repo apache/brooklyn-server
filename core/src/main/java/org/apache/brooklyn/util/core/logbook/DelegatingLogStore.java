@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Set;
 
 public class DelegatingLogStore implements LogStore {
     private static final Logger log = LoggerFactory.getLogger(DelegatingLogStore.class);
@@ -113,6 +114,11 @@ public class DelegatingLogStore implements LogStore {
     @Override
     public List<BrooklynLogEntry> query(LogBookQueryParams params) throws IOException {
         return getDelegate().query(params);
+    }
+
+    @Override
+    public Set<String> enumerateTaskIds(Set<?> parents, int maxTasks) {
+        return getDelegate().enumerateTaskIds(parents, maxTasks);
     }
 
     private class PropertiesListener implements ManagementContext.PropertiesReloadListener {

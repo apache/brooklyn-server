@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.logbook.BrooklynLogEntry;
 import org.apache.brooklyn.util.core.logbook.LogBookQueryParams;
@@ -134,8 +135,11 @@ public class FileLogStore implements LogStore {
             final Set<String> childTaskIds = MutableSet.of();
             if (Strings.isNonBlank(params.getTaskId()) && params.isRecursive()) {
                 if (mgmt != null) {
+                    // if a requested parent task is workflow, also include the workflow ID
                     Task<?> parent = mgmt.getExecutionManager().getTask(params.getTaskId());
-                    childTaskIds.addAll(enumerateTaskIds(parent, maxTasks));
+                    BrooklynTaskTags.WorkflowTaskTag wf = BrooklynTaskTags.getWorkflowTaskTag(parent, false);
+                    String workflowId = wf != null ? wf.getWorkflowId() : null;
+                    childTaskIds.addAll(enumerateTaskIds(MutableSet.of().putIfNotNull(parent).putIfNotNull(workflowId), maxTasks));
                 }
             }
 
@@ -257,11 +261,18 @@ public class FileLogStore implements LogStore {
     }
 
     private static final boolean STARTING_TASK_MESSAGE_IS_ALWAYS_THE_FIRST_MESSAGE_FOR_THAT_TASK = true;
+
     @Override
-    public Set<String> enumerateTaskIds(Task<?> parent, int maxTasks) {
+    public Set<String> enumerateTaskIds(Set<?> parents, int maxTasks) {
         Set<String> all = MutableSet.of();
-        if (parent!=null) {
-            Set<String> next = MutableSet.of(parent.getId());
+        if (parents!=null) {
+            Set<String> next = MutableSet.copyOf(parents.stream().map(t -> {
+                Object s = t;
+                if (s instanceof Task) s = ((Task)s).getId();
+                if (s instanceof String) return (String) s;
+                return null;
+            }).filter(x -> x!=null).collect(Collectors.toSet()));
+
             while (!next.isEmpty() && all.size() < maxTasks) {
                 Set<String> current = MutableSet.copyOf(next);
                 next.clear();
@@ -296,8 +307,6 @@ public class FileLogStore implements LogStore {
                     throw Exceptions.propagate(e);
                 }
             }
-            // add this explicitly, in case 0 tasks was requested
-            all.add(parent.getId());
         }
         return all;
     }
