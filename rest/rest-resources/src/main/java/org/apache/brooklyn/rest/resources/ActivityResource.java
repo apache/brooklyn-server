@@ -43,6 +43,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import org.apache.brooklyn.util.core.task.TaskInternal;
 
 public class ActivityResource extends AbstractBrooklynRestResource implements ActivityApi {
 
@@ -159,4 +160,11 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
                     Entitlements.getEntitlementContext().user(), entity);
         }
     }
+
+    @Override
+    public Boolean cancel(String taskId, Boolean noInterrupt) {
+        Task<?> t = findTask(taskId);
+        return t.cancel(noInterrupt==null || !noInterrupt);
+    }
+
 }

@@ -28,6 +28,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
+import org.apache.brooklyn.util.core.task.TaskInternal;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -117,4 +118,19 @@ public interface ActivityApi {
     public String stream(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
             @ApiParam(value = "Stream ID", required = true) @PathParam("streamId") String streamId);
+
+    @POST
+    @Path("/{task}/cancel")
+    @ApiOperation(value = "Sends a cancel to a task. Returns true if it was in a cancellable state (running and not already cancelled). It is task dependent at what point tasks stop running when cancelled.")
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Could not find task"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Boolean cancel(
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
+            @ApiParam(value = "Whether to skip sending an interrupt to the task; if true, tasks may continue to run but not be easily trackable, so use with care, only with tasks that check their cancelled status and will clean up nicely.", required = false)
+            @QueryParam("noInterrupt") @DefaultValue("false") Boolean noInterrupt);
 }

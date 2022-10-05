@@ -18,16 +18,17 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
+import com.google.common.base.Stopwatch;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -50,6 +51,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
 import org.apache.brooklyn.util.time.CountdownTimer;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
@@ -63,7 +65,7 @@ import com.google.common.collect.Iterables;
 public class ActivityRestTest extends BrooklynRestResourceTest {
 
     private static final Logger log = LoggerFactory.getLogger(ActivityRestTest.class);
-    
+
     /* a nice seed, initial run as follows;
 
 Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
@@ -84,17 +86,17 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
 
      */
     private final int SEED = 1;
-    
+
     private Entity entity;
     private Effector<?> effector;
 
     private Task<?> lastTask;
-    
+
     @BeforeClass(alwaysRun = true)
     public void setUp() throws Exception {
         startServer();
     }
-    
+
     @BeforeMethod(alwaysRun = true)
     public void setUpOneTest() throws Exception {
         initEntity(SEED);
@@ -105,161 +107,172 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
         if (entity != null && Entities.isManaged(entity)) {
             Entities.destroy(entity.getApplication(), true);
         }
-        
+
         CreationResult<BasicApplication, Void> app = EntityManagementUtils.createStarting(getManagementContext(),
-            EntitySpec.create(BasicApplication.class)
-                .child(EntitySpec.create(TestEntityWithEffectors.class)) );
+                EntitySpec.create(BasicApplication.class)
+                        .child(EntitySpec.create(TestEntityWithEffectors.class)));
         app.blockUntilComplete();
-        entity = Iterables.getOnlyElement( app.get().getChildren() );
-        
+        entity = Iterables.getOnlyElement(app.get().getChildren());
+
         SampleManyTasksEffector manyTasksAdder = new SampleManyTasksEffector(ConfigBag.newInstance().configure(SampleManyTasksEffector.RANDOM_SEED, seed));
         effector = manyTasksAdder.getEffector();
         manyTasksAdder.apply((org.apache.brooklyn.api.entity.EntityLocal) entity);
     }
 
-    /** finds a good seed, in case the effector changes */
-    public static void main(String[] args) throws Exception {
-        ActivityRestTest me = new ActivityRestTest();
-        me.setUpClass();
-        int i=0;
-        do {
-            me.initEntity(i);
-            try {
-                log.info("Trying seed "+i+"...");
-                me.testGood(Duration.millis(200));
-                break;
-            } catch (Throwable e) {
-                log.info("  "+Exceptions.collapseText(e));
-                // e.printStackTrace();
-                // continue
-            }
-            i++;
-        } while (true);
-        Dumper.dumpInfo(me.lastTask);
-        log.info("Seed "+i+" is good ^");
-    }
-    
+//    /**
+//     * finds a good seed, in case the effector changes
+//     */
+//    public static void main(String[] args) throws Exception {
+//        ActivityRestTest me = new ActivityRestTest();
+//        me.setUpClass();
+//        int i = 0;
+//        do {
+//            me.initEntity(i);
+//            try {
+//                log.info("Trying seed " + i + "...");
+//                me.testGood(Duration.millis(200));
+//                break;
+//            } catch (Throwable e) {
+//                log.info("  " + Exceptions.collapseText(e));
+//                // e.printStackTrace();
+//                // continue
+//            }
+//            i++;
+//        } while (true);
+//        Dumper.dumpInfo(me.lastTask);
+//        log.info("Seed " + i + " is good ^");
+//    }
+
     @Test
     public void testGood() {
         testGood(Duration.ONE_SECOND);
     }
-    
+
     void testGood(Duration timeout) {
         lastTask = entity.invoke(effector, null);
         Task<?> leaf = waitForCompletedDescendantWithChildAndSibling(lastTask, lastTask, CountdownTimer.newInstanceStarted(timeout), 0);
-        Assert.assertTrue(depthOf(leaf)>=4, "Not deep enough: "+depthOf(leaf));
+        Assert.assertTrue(depthOf(leaf) >= 4, "Not deep enough: " + depthOf(leaf));
     }
-    
+
     @Test
     public void testGetActivity() {
         Task<?> t = entity.invoke(effector, MutableMap.of(SampleManyTasksEffector.RANDOM_SEED.getName(), 10));
-        
-        Response response = client().path("/activities/"+t.getId())
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+
+        Response response = client().path("/activities/" + t.getId())
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
         TaskSummary task = response.readEntity(TaskSummary.class);
         Assert.assertEquals(task.getId(), t.getId());
         Asserts.assertThat(task.getTags(), tags -> tags.contains("EFFECTOR"));
         Optional<Object> effectorParams = task.getTags().stream().map(tag -> tag instanceof Map ? ((Map) tag).get("effectorParams") : null).filter(p -> p != null).findAny();
         Asserts.assertTrue(effectorParams.isPresent());
-        Asserts.assertEquals(((Map)effectorParams.get()).get(SampleManyTasksEffector.RANDOM_SEED.getName()), 10);
+        Asserts.assertEquals(((Map) effectorParams.get()).get(SampleManyTasksEffector.RANDOM_SEED.getName()), 10);
     }
-    
+
     // See https://issues.apache.org/jira/browse/BROOKLYN-571
     @Test
     public void testGetTaskOfUnmanagedEntity() {
         Task<?> t = entity.invoke(effector, null);
         Entities.unmanage(entity.getParent());
-        
-        Response response = client().path("/activities/"+t.getId())
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+
+        Response response = client().path("/activities/" + t.getId())
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
         TaskSummary task = response.readEntity(TaskSummary.class);
         Assert.assertEquals(task.getId(), t.getId());
         Assert.assertEquals(task.getEntityId(), entity.getId());
     }
-    
+
     @Test
     public void testGetActivitiesChildren() {
         Task<?> t = entity.invoke(effector, null);
         Task<?> leaf = waitForCompletedDescendantWithChildAndSibling(t, t, CountdownTimer.newInstanceStarted(Duration.ONE_SECOND), 0);
-        
-        Response response = client().path("/activities/"+leaf.getSubmittedByTask().getId()+"/children")
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+
+        Response response = client().path("/activities/" + leaf.getSubmittedByTask().getId() + "/children")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
-        List<TaskSummary> tasks = response.readEntity(new GenericType<List<TaskSummary>>() {});
-        log.info("Tasks children: "+tasks.size());
-        Assert.assertTrue(tasksContain(tasks, leaf), "tasks should have included leaf "+leaf+"; was "+tasks);
+        List<TaskSummary> tasks = response.readEntity(new GenericType<List<TaskSummary>>() {
+        });
+        log.info("Tasks children: " + tasks.size());
+        Assert.assertTrue(tasksContain(tasks, leaf), "tasks should have included leaf " + leaf + "; was " + tasks);
     }
-    
-    @Test(groups = "WIP")  // we rejigged how this works, it should have one unique name now, and gives intermittent errors
+
+    @Test(groups = "WIP")
+    // we rejigged how this works, it should have one unique name now, and gives intermittent errors
     public void testGetActivitiesRecursiveAndWithLimit() {
         Task<?> t = entity.invoke(effector, null);
         Task<?> leaf = waitForCompletedDescendantWithChildAndSibling(t, t, CountdownTimer.newInstanceStarted(Duration.ONE_SECOND), 0);
         Task<?> leafParent = leaf.getSubmittedByTask();
         Task<?> leafGrandparent = leafParent.getSubmittedByTask();
-        
-        Response response = client().path("/activities/"+leafGrandparent.getId()+"/children")
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
-        assertHealthy(response);
-        List<TaskSummary> tasksL = response.readEntity(new GenericType<List<TaskSummary>>() {});
-        Assert.assertFalse(tasksContain(tasksL, leaf), "non-recursive tasks should not have included leaf "+leaf+"; was "+tasksL);
-        Assert.assertTrue(tasksContain(tasksL, leafParent), "non-recursive tasks should have included leaf parent "+leafParent+"; was "+tasksL);
-        Assert.assertFalse(tasksContain(tasksL, leafGrandparent), "non-recursive tasks should not have included leaf grandparent "+leafGrandparent+"; was "+tasksL);
-        
-        response = client().path("/activities/"+leafGrandparent.getId()+"/children/recurse")
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
-        assertHealthy(response);
-        Map<String,TaskSummary> tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
-        Assert.assertTrue(tasksContain(tasks, leaf), "recursive tasks should have included leaf "+leaf+"; was "+tasks);
-        Assert.assertTrue(tasksContain(tasks, leafParent), "recursive tasks should have included leaf parent "+leafParent+"; was "+tasks);
-        Assert.assertFalse(tasksContain(tasks, leafGrandparent), "recursive tasks should not have included leaf grandparent "+leafGrandparent+"; was "+tasks);
-        
-        response = client().path("/activities/"+leafGrandparent.getId()+"/children/recurse")
-            .query("maxDepth", 1)
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
-        assertHealthy(response);
-        tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
-        Assert.assertFalse(tasksContain(tasks, leaf), "depth 1 recursive tasks should nont have included leaf "+leaf+"; was "+tasks);
-        Assert.assertTrue(tasksContain(tasks, leafParent), "depth 1 recursive tasks should have included leaf parent "+leafParent+"; was "+tasks);
 
-        response = client().path("/activities/"+leafGrandparent.getId()+"/children/recurse")
-            .query("maxDepth", 2)
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+        Response response = client().path("/activities/" + leafGrandparent.getId() + "/children")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
-        tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
-        Assert.assertTrue(tasksContain(tasks, leaf), "depth 2 recursive tasks should have included leaf "+leaf+"; was "+tasks);
-        Assert.assertTrue(tasksContain(tasks, leafParent), "depth 2 recursive tasks should have included leaf parent "+leafParent+"; was "+tasks);
-        Assert.assertFalse(tasksContain(tasks, leafGrandparent), "depth 2 recursive tasks should not have included leaf grandparent "+leafGrandparent+"; was "+tasks);
-        
-        Assert.assertTrue(children(leafGrandparent).size() >= 2, "children: "+children(leafGrandparent));
-        response = client().path("/activities/"+leafGrandparent.getId()+"/children/recurse")
-            .query("limit", children(leafGrandparent).size())
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+        List<TaskSummary> tasksL = response.readEntity(new GenericType<List<TaskSummary>>() {
+        });
+        Assert.assertFalse(tasksContain(tasksL, leaf), "non-recursive tasks should not have included leaf " + leaf + "; was " + tasksL);
+        Assert.assertTrue(tasksContain(tasksL, leafParent), "non-recursive tasks should have included leaf parent " + leafParent + "; was " + tasksL);
+        Assert.assertFalse(tasksContain(tasksL, leafGrandparent), "non-recursive tasks should not have included leaf grandparent " + leafGrandparent + "; was " + tasksL);
+
+        response = client().path("/activities/" + leafGrandparent.getId() + "/children/recurse")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
-        tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
+        Map<String, TaskSummary> tasks = response.readEntity(new GenericType<Map<String, TaskSummary>>() {
+        });
+        Assert.assertTrue(tasksContain(tasks, leaf), "recursive tasks should have included leaf " + leaf + "; was " + tasks);
+        Assert.assertTrue(tasksContain(tasks, leafParent), "recursive tasks should have included leaf parent " + leafParent + "; was " + tasks);
+        Assert.assertFalse(tasksContain(tasks, leafGrandparent), "recursive tasks should not have included leaf grandparent " + leafGrandparent + "; was " + tasks);
+
+        response = client().path("/activities/" + leafGrandparent.getId() + "/children/recurse")
+                .query("maxDepth", 1)
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        assertHealthy(response);
+        tasks = response.readEntity(new GenericType<Map<String, TaskSummary>>() {
+        });
+        Assert.assertFalse(tasksContain(tasks, leaf), "depth 1 recursive tasks should nont have included leaf " + leaf + "; was " + tasks);
+        Assert.assertTrue(tasksContain(tasks, leafParent), "depth 1 recursive tasks should have included leaf parent " + leafParent + "; was " + tasks);
+
+        response = client().path("/activities/" + leafGrandparent.getId() + "/children/recurse")
+                .query("maxDepth", 2)
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        assertHealthy(response);
+        tasks = response.readEntity(new GenericType<Map<String, TaskSummary>>() {
+        });
+        Assert.assertTrue(tasksContain(tasks, leaf), "depth 2 recursive tasks should have included leaf " + leaf + "; was " + tasks);
+        Assert.assertTrue(tasksContain(tasks, leafParent), "depth 2 recursive tasks should have included leaf parent " + leafParent + "; was " + tasks);
+        Assert.assertFalse(tasksContain(tasks, leafGrandparent), "depth 2 recursive tasks should not have included leaf grandparent " + leafGrandparent + "; was " + tasks);
+
+        Assert.assertTrue(children(leafGrandparent).size() >= 2, "children: " + children(leafGrandparent));
+        response = client().path("/activities/" + leafGrandparent.getId() + "/children/recurse")
+                .query("limit", children(leafGrandparent).size())
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        assertHealthy(response);
+        tasks = response.readEntity(new GenericType<Map<String, TaskSummary>>() {
+        });
         Assert.assertEquals(tasks.size(), children(leafGrandparent).size());
-        Assert.assertTrue(tasksContain(tasks, leafParent), "count limited recursive tasks should have included leaf parent "+leafParent+"; was "+tasks);
-        Assert.assertFalse(tasksContain(tasks, leaf), "count limited recursive tasks should not have included leaf "+leaf+"; was "+tasks);
-        
-        response = client().path("/activities/"+leafGrandparent.getId()+"/children/recurse")
-            .query("limit", children(leafGrandparent).size()+1)
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+        Assert.assertTrue(tasksContain(tasks, leafParent), "count limited recursive tasks should have included leaf parent " + leafParent + "; was " + tasks);
+        Assert.assertFalse(tasksContain(tasks, leaf), "count limited recursive tasks should not have included leaf " + leaf + "; was " + tasks);
+
+        response = client().path("/activities/" + leafGrandparent.getId() + "/children/recurse")
+                .query("limit", children(leafGrandparent).size() + 1)
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         response.bufferEntity();
         assertHealthy(response);
-        tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
-        Assert.assertEquals(tasks.size(), children(leafGrandparent).size()+1);
-        tasks = response.readEntity(new GenericType<Map<String,TaskSummary>>() {});
-        Assert.assertTrue(tasksContain(tasks, leafParent), "count+1 limited recursive tasks should have included leaf parent "+leafParent+"; was "+tasks);
+        tasks = response.readEntity(new GenericType<Map<String, TaskSummary>>() {
+        });
+        Assert.assertEquals(tasks.size(), children(leafGrandparent).size() + 1);
+        tasks = response.readEntity(new GenericType<Map<String, TaskSummary>>() {
+        });
+        Assert.assertTrue(tasksContain(tasks, leafParent), "count+1 limited recursive tasks should have included leaf parent " + leafParent + "; was " + tasks);
         // 2022-05-09 - race can cause this to fail occasionally. example output on failure:
         /*
          * expected: Task[eat]@qlQs4isq
@@ -298,7 +311,7 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
          * CYrgJWOX=TaskSummary{id='CYrgJWOX', displayName='eat', entityId='ngvnrjgey4', entityDisplayName='TestEntityWithEffectors:ngvn', description='', tags=[{wrappingType=contextEntity, entity={type=org.apache.brooklyn.api.entity.Entity, id=ngvnrjgey4}}, {type=org.apache.brooklyn.api.mgmt.ManagementContext}, SUB-TASK], submitTimeUtc=1655894929948, startTimeUtc=1655894929948, endTimeUtc=1655894929948, currentStatus='Completed', result=eat, isError=false, isCancelled=false, children=[], submittedByTask=LinkWithMetadata{link='/activities/OfboqeEb', metadata={id=OfboqeEb, taskName=rave, entityId=ngvnrjgey4, entityDisplayName=TestEntityWithEffectors:ngvn}}, blockingTask=null, blockingDetails='null', detailedStatus='Completed after 0ms
          *              Result: eat', streams={}, links={self=/activities/CYrgJWOX, children=/activities/CYrgJWOX/children, entity=/applications/frblu0wgjz/entities/ngvnrjgey4}}}
          */
-        Assert.assertTrue(tasksContain(tasks, leaf), "count+1 limited recursive tasks should have included leaf "+leaf+"; was "+tasks);
+        Assert.assertTrue(tasksContain(tasks, leaf), "count+1 limited recursive tasks should have included leaf " + leaf + "; was " + tasks);
     }
 
     private boolean tasksContain(Map<String, TaskSummary> tasks, Task<?> leaf) {
@@ -306,44 +319,46 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
     }
 
     private List<Task<?>> children(Task<?> t) {
-        return MutableList.copyOf( ((HasTaskChildren)t).getChildren() );
+        return MutableList.copyOf(((HasTaskChildren) t).getChildren());
     }
 
     @Test
     public void testGetEntityActivitiesAndWithLimit() {
         Task<?> t = entity.invoke(effector, null);
         Task<?> leaf = waitForCompletedDescendantWithChildAndSibling(t, t, CountdownTimer.newInstanceStarted(Duration.ONE_SECOND), 0);
-        
-        Response response = client().path("/applications/"+entity.getApplicationId()+
-                "/entities/"+entity.getId()+"/activities")
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+
+        Response response = client().path("/applications/" + entity.getApplicationId() +
+                        "/entities/" + entity.getId() + "/activities")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
-        List<TaskSummary> tasks = response.readEntity(new GenericType<List<TaskSummary>>() {});
-        log.info("Tasks now: "+tasks.size());
-        Assert.assertTrue(tasks.size() > 4, "tasks should have been big; was "+tasks);
-        Assert.assertTrue(tasksContain(tasks, leaf), "tasks should have included leaf "+leaf+"; was "+tasks);
-        
-        response = client().path("/applications/"+entity.getApplicationId()+
-            "/entities/"+entity.getId()+"/activities")
-            .query("limit", 3)
-            .accept(MediaType.APPLICATION_JSON)
-            .get();
+        List<TaskSummary> tasks = response.readEntity(new GenericType<List<TaskSummary>>() {
+        });
+        log.info("Tasks now: " + tasks.size());
+        Assert.assertTrue(tasks.size() > 4, "tasks should have been big; was " + tasks);
+        Assert.assertTrue(tasksContain(tasks, leaf), "tasks should have included leaf " + leaf + "; was " + tasks);
+
+        response = client().path("/applications/" + entity.getApplicationId() +
+                        "/entities/" + entity.getId() + "/activities")
+                .query("limit", 3)
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
         assertHealthy(response);
-        tasks = response.readEntity(new GenericType<List<TaskSummary>>() {});
-        log.info("Tasks limited: "+tasks.size());
-        Assert.assertEquals(tasks.size(), 3, "tasks should have been limited; was "+tasks);
-        Assert.assertFalse(tasksContain(tasks, leaf), "tasks should not have included leaf "+leaf+"; was "+tasks);
+        tasks = response.readEntity(new GenericType<List<TaskSummary>>() {
+        });
+        log.info("Tasks limited: " + tasks.size());
+        Assert.assertEquals(tasks.size(), 3, "tasks should have been limited; was " + tasks);
+        Assert.assertFalse(tasksContain(tasks, leaf), "tasks should not have included leaf " + leaf + "; was " + tasks);
     }
 
     private void assertHealthy(Response response) {
         if (!HttpAsserts.isHealthyStatusCode(response.getStatus())) {
-            Asserts.fail("Bad response: "+response.getStatus()+" "+response.readEntity(String.class));
+            Asserts.fail("Bad response: " + response.getStatus() + " " + response.readEntity(String.class));
         }
     }
 
     private static boolean tasksContain(List<TaskSummary> tasks, Task<?> leaf) {
-        for (TaskSummary ts: tasks) {
+        for (TaskSummary ts : tasks) {
             if (ts.getId().equals(leaf.getId())) return true;
         }
         return false;
@@ -351,21 +366,21 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
 
     private int depthOf(Task<?> t) {
         int depth = -1;
-        while (t!=null) {
+        while (t != null) {
             t = t.getSubmittedByTask();
             depth++;
         }
         return depth;
     }
-    
+
     private Task<?> waitForCompletedDescendantWithChildAndSibling(Task<?> tRoot, Task<?> t, CountdownTimer timer, int depthSoFar) {
         while (timer.isLive()) {
-            Iterable<Task<?>> children = ((HasTaskChildren)t).getChildren();
+            Iterable<Task<?>> children = ((HasTaskChildren) t).getChildren();
             Iterator<Task<?>> ci = children.iterator();
             Task<?> bestFinishedDescendant = null;
             while (ci.hasNext()) {
                 Task<?> tc = ci.next();
-                Task<?> finishedDescendant = waitForCompletedDescendantWithChildAndSibling(tRoot, tc, timer, depthSoFar+1);
+                Task<?> finishedDescendant = waitForCompletedDescendantWithChildAndSibling(tRoot, tc, timer, depthSoFar + 1);
                 if (depthOf(finishedDescendant) > depthOf(bestFinishedDescendant)) {
                     bestFinishedDescendant = finishedDescendant;
                 }
@@ -373,32 +388,167 @@ Task[eatand]@J90TKfIX: Waiting on Task[eat-sleep-rave-repeat]@QPa5o4kF
                 // log.info("finished "+tc+", depth "+finishedDescendantDepth);
                 if (finishedDescendantDepth < 2) {
                     if (ci.hasNext()) continue;
-                    throw new IllegalStateException("not deep enough: "+finishedDescendantDepth);
+                    throw new IllegalStateException("not deep enough: " + finishedDescendantDepth);
                 }
-                if (finishedDescendantDepth == depthSoFar+1) {
+                if (finishedDescendantDepth == depthSoFar + 1) {
                     // child completed; now check we complete soon, and assert we have siblings
                     if (ci.hasNext()) continue;
                     if (!t.blockUntilEnded(timer.getDurationRemaining())) {
                         Dumper.dumpInfo(tRoot);
                         // log.info("Incomplete after "+t+": "+t.getStatusDetail(false));
-                        throw Exceptions.propagate( new TimeoutException("parent didn't complete after child depth "+finishedDescendantDepth) );
+                        throw Exceptions.propagate(new TimeoutException("parent didn't complete after child depth " + finishedDescendantDepth));
                     }
                 }
-                if (finishedDescendantDepth == depthSoFar+2) {
-                    if (Iterables.size(children)<2) {
+                if (finishedDescendantDepth == depthSoFar + 2) {
+                    if (Iterables.size(children) < 2) {
                         Dumper.dumpInfo(tRoot);
                         throw new IllegalStateException("finished child's parent has no sibling");
                     }
                 }
-                
+
                 return bestFinishedDescendant;
             }
             Thread.yield();
-            
+
             // leaf nodeå
             if (t.isDone()) return t;
         }
-        throw Exceptions.propagate( new TimeoutException("expired waiting for children") );
+        throw Exceptions.propagate(new TimeoutException("expired waiting for children"));
     }
-    
+
+    static String getTaskDump(Task t) {
+        StringWriter sw = new StringWriter();
+        try {
+            Dumper.dumpInfo(t, sw);
+        } catch (IOException e) {
+            throw Exceptions.propagate(e);
+        }
+        return sw.toString();
+    }
+
+    @Test
+    public void testCancelQuick() {
+        Task<?> t = entity.invoke(effector, null);
+        // let it run for a bit
+        waitForCompletedDescendantWithChildAndSibling(t, t, CountdownTimer.newInstanceStarted(Duration.ONE_SECOND), 0);
+
+        Response response = client().path("/activities/" + t.getId() + "/cancel")
+                .accept(MediaType.APPLICATION_JSON)
+                .post(null);
+
+        assertHealthy(response);
+        boolean cancelled = response.readEntity(Boolean.class);
+        Asserts.assertEquals(cancelled, true);
+        Asserts.assertThat(t, task -> task.isDone());
+        Asserts.assertThat(t, task -> task.isCancelled());
+
+        Stopwatch sw = Stopwatch.createStarted();
+        Asserts.eventually(() -> t, task -> task.isDone(true));
+        Asserts.assertThat(Duration.of(sw), d -> d.isShorterThan(Duration.ONE_SECOND));
+    }
+
+    @Test(groups = "Integration", invocationCount = 100)  // because slow
+    public void testCancelElaborate() {
+        try {
+            SampleManyTasksEffector.OUTPUT = Collections.synchronizedList(MutableList.of());
+
+            Task<?> t = entity.invoke(effector, null);
+            // let it run for a bit
+            waitForCompletedDescendantWithChildAndSibling(t, t, CountdownTimer.newInstanceStarted(Duration.ONE_SECOND), 0);
+
+            String t0 = getTaskDump(t);
+            MutableList<String> output0 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+
+            Response response = client().path("/activities/" + t.getId() + "/cancel")
+                    .accept(MediaType.APPLICATION_JSON)
+                    .post(null);
+
+            String t1 = getTaskDump(t);
+            MutableList<String> output1 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+
+            assertHealthy(response);
+            boolean cancelled = response.readEntity(Boolean.class);
+            Asserts.assertEquals(cancelled, true);
+            Asserts.assertThat(t, task -> task.isDone());
+            Asserts.assertThat(t, task -> task.isCancelled());
+            Time.sleep(200);
+
+            // check task status and output quiesce within a short while following an interrupt, and all tasks done
+            String t2 = getTaskDump(t);
+            MutableList<String> output2 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+            Asserts.assertThat(t, task -> task.isDone(true));
+
+            // and nothing else running
+            Time.sleep(200);
+            String t3 = getTaskDump(t);
+            MutableList<String> output3 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+
+            Asserts.assertEquals(t2, t3);
+            Asserts.assertEquals(output2, output3);
+
+        } finally {
+            SampleManyTasksEffector.OUTPUT = null;
+        }
+    }
+
+    @Test(groups = "Integration", invocationCount = 100)  // because slow
+    public void testCancelWithoutInterrupting() {
+        try {
+            SampleManyTasksEffector.OUTPUT = Collections.synchronizedList(MutableList.of());
+
+            Task<?> t = entity.invoke(effector, null);
+            // let it run for a bit
+            waitForCompletedDescendantWithChildAndSibling(t, t, CountdownTimer.newInstanceStarted(Duration.ONE_SECOND), 0);
+
+            String t0 = getTaskDump(t);
+            MutableList<String> output0 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+
+            Response response = client().path("/activities/" + t.getId() + "/cancel")
+                    .query("noInterrupt", true)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .post(null);
+
+            String t1 = getTaskDump(t);
+            MutableList<String> output1 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+
+            assertHealthy(response);
+            boolean cancelled = response.readEntity(Boolean.class);
+            Asserts.assertEquals(cancelled, true);
+            Asserts.assertThat(t, task -> task.isDone());
+            Asserts.assertThat(t, task -> task.isCancelled());
+            Time.sleep(200);
+
+            Asserts.assertThat(t, task -> !task.isDone(true));
+
+            // should still be running
+            String t2 = getTaskDump(t);
+            MutableList<String> output2 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+
+            AtomicInteger i = new AtomicInteger(0);
+
+            Asserts.eventually(()->t, (task) -> {
+                String t3 = getTaskDump(task);
+                MutableList<String> output3 = MutableList.copyOf(SampleManyTasksEffector.OUTPUT);
+                System.out.println("TASKS:\n" + t3);
+
+                if (task.isDone(true)) Asserts.fail("Task finished unexpectedly");
+                if (t2.equals(t3)) return false;
+                if (output2.equals(output3)) return false;
+                // both have changed, tasks were active after interrupt, as expected
+                return true;
+            });
+
+            // then finally we can cancel it
+            t.cancel(true);
+            Asserts.eventually(()->t, task -> {
+                String t3 = getTaskDump(task);
+                System.out.println("TASKS (after forced interrupt):\n" + t3);
+                return task.isDone(true);
+            });
+
+        } finally {
+            SampleManyTasksEffector.OUTPUT = null;
+        }
+    }
+
 }

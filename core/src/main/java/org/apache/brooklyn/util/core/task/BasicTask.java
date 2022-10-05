@@ -18,35 +18,24 @@
  */
 package org.apache.brooklyn.util.core.task;
 
+import com.google.common.annotations.Beta;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Callables;
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.asString;
-import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvisString;
-
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.lang.management.LockInfo;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadInfo;
-import java.util.Collections;
-import java.util.ConcurrentModificationException;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
+import com.google.common.util.concurrent.ExecutionList;
+import com.google.common.util.concurrent.ListenableFuture;
+import groovy.lang.Closure;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -56,17 +45,17 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Sets;
-import com.google.common.util.concurrent.ExecutionList;
-import com.google.common.util.concurrent.ListenableFuture;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.lang.management.LockInfo;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
-import groovy.lang.Closure;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.asString;
+import static org.apache.brooklyn.util.JavaGroovyEquivalents.elvisString;
 
 /**
  * The basic concrete implementation of a {@link Task} to be executed.
@@ -316,7 +305,7 @@ public class BasicTask<T> implements TaskInternal<T> {
     
     @Override @Beta
     public synchronized boolean cancel(TaskCancellationMode mode) {
-        if (isDone()) return false;
+        if (isDone(true)) return false;
         if (log.isTraceEnabled()) {
             log.trace("BT cancelling "+this+" mode "+mode+", from thread "+Thread.currentThread());
         }
@@ -543,6 +532,26 @@ public class BasicTask<T> implements TaskInternal<T> {
         return getStatusString(multiline?2:1);
     }
 
+    protected static class StatusStringData {
+        boolean hasBlockingDetails = false;
+        String mainShortSummary = null;
+        protected void setSummary(String summary) {
+            if (mainShortSummary !=null) {
+                // irregular, but maybe during a race
+                mainShortSummary += "; and " + summary;
+            } else {
+                mainShortSummary = summary;
+            }
+        }
+        protected void appendToSummary(String detail) {
+            if (Strings.isNonBlank(detail)) {
+                mainShortSummary = mainShortSummary + detail;
+            }
+        }
+        Set<String> oneLineData = MutableSet.of();
+        Set<String> multiLineData = MutableSet.of();
+    }
+
     /**
      * This method is useful for callers to see the status of a task.
      *
@@ -551,189 +560,246 @@ public class BasicTask<T> implements TaskInternal<T> {
      * @param verbosity 0 = brief, 1 = one-line with some detail, 2 = lots of detail
      */
     protected String getStatusString(int verbosity) {
-//        Thread t = getThread();
-        String rv;
-        if (submitTimeUtc <= 0) rv = "Not submitted";
+        StatusStringData data = new StatusStringData();
+        if (submitTimeUtc <= 0) data.setSummary("Not submitted");
         else if (!isCancelled() && startTimeUtc <= 0) {
-            rv = "Submitted for execution";
+            data.setSummary("Submitted for execution");
             if (verbosity>0) {
-                rv += " "+Time.makeTimeStringRoundedSince(submitTimeUtc)+" ago";
+                data.appendToSummary(" "+Time.makeTimeStringRoundedSince(submitTimeUtc)+" ago");
             }
             if (verbosity >= 2 && getExtraStatusText()!=null) {
-                rv += "\n\n"+getExtraStatusText();
+                data.multiLineData.add(""+getExtraStatusText());
             }
         } else if (isDone()) {
             long elapsed = endTimeUtc - submitTimeUtc;
-            String duration = Time.makeTimeStringRounded(elapsed);
+            boolean allDone = isDone(true);
+            String duration = (elapsed>=0 ? " after "+Time.makeTimeStringRounded(elapsed) : allDone ? " but no end time" : "");
+            if (!allDone) duration += " but not ended";
+
             if (isCancelled()) {
-                rv = "Cancelled";
-                if (verbosity >= 1) rv+=" after "+duration;
-                
-                if (verbosity >= 2 && getExtraStatusText()!=null) {
-                    rv += "\n\n"+getExtraStatusText();
-                }
+                data.setSummary("Cancelled");
+                if (verbosity >= 1) data.appendToSummary(duration);
+                computeStatusStringError(verbosity, data);
+                computeStatusStringActive(verbosity, data);
+
             } else if (isError()) {
-                rv = "Failed";
-                if (verbosity >= 1) {
-                    rv += " after "+duration;
-                    Throwable error = Tasks.getError(this);
+                data.setSummary("Failed");
+                if (verbosity >= 1) data.appendToSummary(duration);
+                computeStatusStringError(verbosity, data);
+                computeStatusStringActive(verbosity, data);
 
-                    if (verbosity >= 2 && getExtraStatusText()!=null) {
-                        rv += "\n\n"+getExtraStatusText();
-                    }
-                    
-                    //remove outer ExecException which is reported by the get(), we want the exception the task threw
-                    while (error instanceof ExecutionException) error = error.getCause();
-                    String errorMessage = Exceptions.collapseText(error);
-
-                    if (verbosity == 1) rv += ": "+abbreviate(errorMessage);
-                    if (verbosity >= 2) {
-                        rv += ": "+errorMessage;
-                        StringWriter sw = new StringWriter();
-                        error.printStackTrace(new PrintWriter(sw));
-                        rv += "\n\n"+sw.getBuffer();
-                    }
-                }
             } else {
-                rv = "Completed";
+                data.setSummary("Completed");
                 if (verbosity>=1) {
                     if (verbosity==1) {
                         try {
                             Object v = get();
-                            rv += ", " +(v==null ? "no return value (null)" : "result: "+abbreviate(v.toString()));
+                            data.appendToSummary(", " +(v==null ? "no return value (null)" : "result: "+abbreviate(v.toString())));
                         } catch (Exception e) {
-                            rv += ", but error accessing result ["+e+"]"; //shouldn't happen
+                            data.appendToSummary(", but error accessing result ["+Exceptions.collapseText(e)+"]"); //shouldn't happen
                         }
                     } else {
-                        rv += " after "+duration;
+                        if (verbosity >= 1) data.appendToSummary(duration);
                         try {
                             Object v = get();
-                            rv += "\n\n" + (v==null ? "No return value (null)" : "Result: "+v);
+                            data.multiLineData.add(v==null ? "No return value (null)" : "Result: "+v);
+
                         } catch (Exception e) {
-                            rv += " at first\n" +
-                                    "Error accessing result ["+e+"]"; //shouldn't happen
-                        }
-                        if (verbosity >= 2 && getExtraStatusText()!=null) {
-                            rv += "\n\n"+getExtraStatusText();
+                            data.appendToSummary(", but error accessing result"); //shouldn't happen
+                            data.multiLineData.add("Error accessing result: "+e);
                         }
                     }
+
+                    computeStatusStringError(verbosity, data);
+                    computeStatusStringActive(verbosity, data);
                 }
             }
         } else {
-            rv = getActiveTaskStatusString(verbosity);
+            computeStatusStringActive(verbosity, data);
         }
-        return rv;
+
+        if (Strings.isBlank(data.mainShortSummary)) data.mainShortSummary = "Unknown"; //shouldn't happen
+        if (verbosity<=0) return data.mainShortSummary;
+        String result = data.mainShortSummary + Strings.join(data.oneLineData, "");
+        if (verbosity==1) return result;
+        return MutableList.of(result).appendAll(data.multiLineData).stream().filter(Strings::isNonBlank).map(String::trim)
+                .collect(Collectors.joining("\n\n"));
     }
-    
+
     private static String abbreviate(String s) {
         s = Strings.getFirstLine(s);
         if (s.length()>255) s = s.substring(0, 252)+ "...";
         return s;
     }
 
-    protected String getActiveTaskStatusString(int verbosity) {
-        String rv = "";
+    protected void computeStatusStringActive(int verbosity, StatusStringData data) {
         Thread t = getThread();
+        boolean done = isDone();
     
         // Normally, it's not possible for thread==null as we were started and not ended
         
-        // However, there is a race where the task starts sand completes between the calls to getThread()
+        // However, there is a race where the task starts and completes between the calls to getThread()
         // at the start of the method and this call to getThread(), so both return null even though
         // the intermediate checks returned started==true isDone()==false.
         if (t == null) {
-            if (isDone()) {
-                return getStatusString(verbosity);
+            if (done) {
+                if (data.mainShortSummary ==null) {
+                    data.setSummary("Finishing");
+                    data.appendToSummary("; just went done, no thread available");
+                }
             } else {
-                //should only happen for repeating task which is not active
-                return "Sleeping";
+                if (data.mainShortSummary ==null) {
+                    //should only happen for repeating task which is not active
+                    data.setSummary("Sleeping");
+                    data.appendToSummary("; no thread available");
+                }
             }
+            computeStatusStringOptionalDetails(verbosity, data);
+
+            return;
         }
 
         ThreadInfo ti = ManagementFactory.getThreadMXBean().getThreadInfo(t.getId(), (verbosity<=0 ? 0 : verbosity==1 ? 1 : Integer.MAX_VALUE));
-        if (getThread()==null)
-            //thread might have moved on to a new task; if so, recompute (it should now say "done")
-            return getStatusString(verbosity);
-        
-        if (verbosity >= 1 && Strings.isNonBlank(blockingDetails)) {
-            if (verbosity==1)
-                // short status string will just show blocking details
-                return blockingDetails;
-            //otherwise show the blocking details, then a new line, then additional information
-            rv = blockingDetails + "\n\n";
-        }
-        
-        if (verbosity >= 1 && blockingTask!=null) {
-            if (verbosity==1)
-                // short status string will just show blocking details
-                return "Waiting on "+blockingTask;
-            //otherwise show the blocking details, then a new line, then additional information
-            rv = "Waiting on "+blockingTask + "\n\n";
+        if (getThread()==null) {
+            //thread has moved on to a new task; if so, recompute (it should now say "done" or "finishing")
+            data.multiLineData.add("Task thread transitioned to null from "+t);
+            computeStatusStringOptionalDetails(verbosity, data);
+            return;
         }
 
-        if (verbosity>=2) {
-            if (getExtraStatusText()!=null) {
-                rv += getExtraStatusText()+"\n\n";
-            }
-            
-            rv += ""+toString()+"\n";
-            if (submittedByTask!=null) {
-                rv += "Submitted by "+submittedByTask+"\n";
-            }
 
-            if (this instanceof HasTaskChildren) {
-                // list children tasks for compound tasks
-                try {
-                    Iterable<Task<?>> childrenTasks = ((HasTaskChildren)this).getChildren();
-                    if (childrenTasks.iterator().hasNext()) {
-                        rv += "Children:\n";
-                        for (Task<?> child: childrenTasks) {
-                            rv += "  "+child+": "+child.getStatusDetail(false)+"\n";
-                        }
-                    }
-                } catch (ConcurrentModificationException exc) {
-                    rv += "  (children not available - currently being modified)\n";
-                }
-            }
-            rv += "\n";
+        if (!done) {
+            computeStatusStringOptionalDetails(verbosity, data);
+            if (Strings.isBlank(data.mainShortSummary)) data.setSummary("In progress");
+            computeStatusStringError(verbosity, data);
+        } else if (data.mainShortSummary ==null) {
+            data.setSummary("Finishing");
+            data.appendToSummary("; just went done");
+            computeStatusStringOptionalDetails(verbosity, data);
         }
-        
-        LockInfo lock = ti.getLockInfo();
-        rv += "In progress";
+
+        computeStatusStringThreadInfo(verbosity, data, ti);
+    }
+
+    protected void computeStatusStringThreadInfo(int verbosity, StatusStringData data, ThreadInfo ti) {
         if (verbosity>=1) {
+            LockInfo lock = ti.getLockInfo();
+            String msg = null;
             if (lock==null && ti.getThreadState()==Thread.State.RUNNABLE) {
                 //not blocked
                 if (ti.isSuspended()) {
-                    // when does this happen?
-                    rv += ", thread suspended";
+                    msg = "Thread suspended";
                 } else {
-                    if (verbosity >= 2) rv += " ("+ti.getThreadState()+")";
+                    if (verbosity >= 2) {
+                        msg += " (" + ti.getThreadState() + ")";
+                    }
                 }
             } else {
-                rv +=", thread waiting ";
+                msg = "Thread waiting ";
                 if (ti.getThreadState() == Thread.State.BLOCKED) {
-                    rv += "(mutex) on "+lookup(lock);
+                    msg += "(mutex) on "+lookup(lock);
                     //TODO could say who holds it
                 } else if (ti.getThreadState() == Thread.State.WAITING) {
-                    rv += "(notify) on "+lookup(lock);
+                    msg += "(notify) on "+lookup(lock);
                 } else if (ti.getThreadState() == Thread.State.TIMED_WAITING) {
-                    rv += "(timed) on "+lookup(lock);
+                    msg += "(timed) on "+lookup(lock);
                 } else {
-                    rv = "("+ti.getThreadState()+") on "+lookup(lock);
+                    msg += "("+ti.getThreadState()+") on "+lookup(lock);
                 }
             }
+            if (data.hasBlockingDetails) {
+                // if already has blocking details include this with lower priority
+                data.multiLineData.add(msg);
+            } else {
+                data.oneLineData.add(", "+Strings.toInitialLowerCase(msg));
+            }
+            data.hasBlockingDetails = true;
         }
         if (verbosity>=2) {
             StackTraceElement[] st = ti.getStackTrace();
             st = org.apache.brooklyn.util.javalang.StackTraceSimplifier.cleanStackTrace(st);
-            if (st!=null && st.length>0)
-                rv += "\n" +"At: "+st[0];
-            for (int ii=1; ii<st.length; ii++) {
-                rv += "\n" +"    "+st[ii];
+            if (st!=null && st.length>0) {
+                StringBuilder sb = new StringBuilder();
+                sb.append("At: " + st[0]);
+                for (int ii = 1; ii < st.length; ii++) {
+                    sb.append("\n" + "    " + st[ii]);
+                }
+                data.multiLineData.add(sb.toString());
             }
         }
-        return rv;
     }
-    
+
+    protected void computeStatusStringOptionalDetails(int verbosity, StatusStringData data) {
+        if (verbosity<1) return;
+        if (Strings.isNonBlank(blockingDetails)) {
+            data.hasBlockingDetails = true;
+            if (Strings.isBlank(data.mainShortSummary)) data.setSummary(blockingDetails);
+            else if (verbosity==1) data.appendToSummary("; "+blockingDetails);
+            else data.multiLineData.add(blockingDetails);
+        }
+
+        if (verbosity >= 1 && blockingTask!=null) {
+            String msg = "Waiting on " + blockingTask;
+            if (Strings.isBlank(data.mainShortSummary)) data.setSummary(msg);
+            else if (verbosity==1) {
+                if (!data.hasBlockingDetails) data.appendToSummary("; " + Strings.toInitialLowerCase(msg));
+            } else data.multiLineData.add(msg);
+            data.hasBlockingDetails = true;
+        }
+
+        if (verbosity >=2) {
+            if (getExtraStatusText()!=null) {
+                data.multiLineData.add( ""+getExtraStatusText() );
+            }
+
+            data.multiLineData.add(toString());
+            if (submittedByTask!=null) {
+                data.multiLineData.add("Submitted by "+submittedByTask);
+            }
+
+            if (this instanceof HasTaskChildren) {
+                // list children tasks for compound tasks
+                String msg = "";
+                try {
+                    Iterable<Task<?>> childrenTasks = ((HasTaskChildren)this).getChildren();
+                    if (childrenTasks.iterator().hasNext()) {
+                        msg += "Children:\n";
+                        for (Task<?> child: childrenTasks) {
+                            msg += "  "+child+": "+child.getStatusDetail(false)+"\n";
+                        }
+                    }
+                } catch (ConcurrentModificationException exc) {
+                    msg += "(children not available - currently being modified)\n";
+                }
+                if (Strings.isNonBlank(msg)) data.multiLineData.add(msg);
+            }
+        }
+    }
+
+    protected void computeStatusStringError(int verbosity, StatusStringData data) {
+        Throwable error = Tasks.getError(this, false);
+        if (error!=null) {
+
+            if (verbosity >= 1) {
+                //remove outer ExecException which is reported by the get(), we want the exception the task threw
+                while (error instanceof ExecutionException) error = error.getCause();
+                String errorMessage = Exceptions.collapseText(error);
+                boolean isCancelled = isCancelled() && error instanceof CancellationException;
+                if (!isCancelled) data.oneLineData.add(": " + abbreviate(errorMessage));
+                if (verbosity >= 2) {
+                    StringWriter sw = new StringWriter();
+                    error.printStackTrace(new PrintWriter(sw));
+                    String sws = sw.toString();
+                    if (isCancelled && sws.contains(BasicTask.class.getName()+"."+"computeStatusStringError")) {
+                        // don't add the cancellation exception generated by this call
+                    } else {
+                        data.multiLineData.add(sws);
+                    }
+                }
+            }
+        }
+    }
+
     protected String lookup(LockInfo info) {
         return info!=null ? ""+info : "unknown (sleep)";
     }

@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Callable;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -66,6 +67,15 @@ public class SampleManyTasksEffector extends AddEffectorInitializerAbstract {
     private SampleManyTasksEffector() {}
     public SampleManyTasksEffector(ConfigBag params) { super(params); }
 
+    @VisibleForTesting
+    public static List<String> OUTPUT;
+
+    public static String output(String msg) {
+        List<String> output = OUTPUT;
+        if (output!=null) output.add(msg);
+        return msg;
+    }
+
     @Override
     protected EffectorBuilder<String> newEffectorBuilder() {
         return Effectors.effector(String.class, initParam(EFFECTOR_NAME)).name("eatand").impl(body(initParams()));
@@ -94,13 +104,13 @@ public class SampleManyTasksEffector extends AddEffectorInitializerAbstract {
                     if (depth>4) x *= random.nextDouble();
                     if (depth>6) x *= random.nextDouble();
                     if (x<0.3) {
-                        t.displayName("eat").body(new Callable<Object>() { public Object call() { return "eat"; }});
+                        t.displayName("eat").body(new Callable<Object>() { public Object call() { return output("eat"); }});
                     } else if (x<0.6) {
                         final Duration time = Duration.millis(Math.round(10*1000*random.nextDouble()*random.nextDouble()*random.nextDouble()*random.nextDouble()*random.nextDouble()));
                         t.displayName("sleep").description("Sleeping "+time).body(new Callable<Object>() { public Object call() {
                             Tasks.setBlockingDetails("sleeping "+time);
                             Time.sleep(time);
-                            return "slept "+time;
+                            return output("slept "+time);
                         }});
                     } else if (x<0.8) {
                         t.displayName("rave").body(new Callable<Object>() { public Object call() {
@@ -108,7 +118,7 @@ public class SampleManyTasksEffector extends AddEffectorInitializerAbstract {
                             for (Task<Object> tt: ts) {
                                 DynamicTasks.queue(tt);
                             }
-                            return "raved with "+ts.size()+" tasks";
+                            return output("raved with "+ts.size()+" tasks");
                         }});
                     } else {
                         t.displayName("repeat").addAll(tasks(depth+1));

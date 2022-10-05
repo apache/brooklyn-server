@@ -452,17 +452,24 @@ public class Tasks {
 
     /** returns the error thrown by the task if {@link Task#isError()}, or null if no error or not done */
     public static Throwable getError(Task<?> t) {
+        return getError(t, true);
+    }
+
+    public static Throwable getError(Task<?> t, boolean preferCancellationException) {
         if (t==null) return null;
         if (!t.isDone()) return null;
-        if (t.isCancelled()) return new CancellationException();
+        if (preferCancellationException && t.isCancelled()) return new CancellationException();
         try {
             t.get();
-            return null;
         } catch (Throwable error) {
             // do not propagate as we are pretty much guaranteed above that it wasn't this
             // thread which originally threw the error
             return error;
         }
+
+        if (t.isCancelled()) return new CancellationException();
+
+        return null;
     }
     public static Task<Void> fail(final String name, final Throwable optionalError) {
         return Tasks.<Void>builder().dynamic(false).displayName(name).body(new Runnable() { @Override public void run() { 

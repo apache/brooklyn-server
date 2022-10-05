@@ -37,8 +37,8 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.task.BasicExecutionManager.BrooklynTaskLoggingMdc;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
 import com.google.common.annotations.Beta;
@@ -210,23 +210,29 @@ public class ScheduledTask extends BasicTask<Object> {
     }
     
     @Override
-    protected String getActiveTaskStatusString(int verbosity) {
-        StringBuilder rv = new StringBuilder("Scheduler");
-        if (runCount > 0) {
-            rv.append(", iteration ").append(runCount + 1);
+    protected void computeStatusStringActive(int verbosity, StatusStringData data) {
+        if (Strings.isNonBlank(data.mainShortSummary)) {
+            data.appendToSummary("; scheduled task");
+        } else {
+            data.setSummary("Scheduler");
         }
-        if (recentRun != null) {
-            Duration start = Duration.sinceUtc(recentRun.getStartTimeUtc());
-            rv.append(", last run ").append(start).append(" ago");
+
+        if (verbosity>=1) {
+            if (runCount > 0) {
+                data.appendToSummary(", iteration "+(runCount + 1));
+            }
+            if (recentRun != null) {
+                Duration start = Duration.sinceUtc(recentRun.getStartTimeUtc());
+                data.appendToSummary(", last run "+start+" ago");
+            }
+            if (groovyTruth(getNextScheduled())) {
+                Duration untilNext = Duration.millis(getNextScheduled().getDelay(TimeUnit.MILLISECONDS));
+                if (untilNext.isPositive())
+                    data.appendToSummary(", next in "+untilNext);
+                else
+                    data.appendToSummary(", next imminent");
+            }
         }
-        if (groovyTruth(getNextScheduled())) {
-            Duration untilNext = Duration.millis(getNextScheduled().getDelay(TimeUnit.MILLISECONDS));
-            if (untilNext.isPositive())
-                rv.append(", next in ").append(untilNext);
-            else 
-                rv.append(", next imminent");
-        }
-        return rv.toString();
     }
     
     @Override

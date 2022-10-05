@@ -184,7 +184,7 @@ public class DynamicSequentialTask<T> extends BasicTask<T> implements HasTaskChi
     }
     
     protected boolean cancel(TaskCancellationMode mode, Boolean interruptPrimaryThreadOverride) {
-        if (isDone()) return false;
+        if (isDone(true)) return false;
         if (log.isTraceEnabled()) log.trace("cancelling DST {}", this);
         
         // first do the super's cancel, setting cancelled, and calling doCancel to cancel children
