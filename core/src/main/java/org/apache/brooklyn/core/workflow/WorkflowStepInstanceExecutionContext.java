@@ -69,6 +69,8 @@ public class WorkflowStepInstanceExecutionContext {
     Set<BrooklynTaskTags.WorkflowTaskTag> subWorkflows = MutableSet.of();
 
     Object output;
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    Map<String,Object> otherMetadata = MutableMap.of();
 
     public void injectContext(WorkflowExecutionContext context) {
         if (this.context!=null && this.context!=context) throw new IllegalStateException("Cannot change context, from "+this.context+" to "+context);
@@ -174,4 +176,10 @@ public class WorkflowStepInstanceExecutionContext {
     public ManagementContext getManagementContext() {
         return getWorkflowExectionContext().getManagementContext();
     }
+
+    /** sets other metadata, e.g. for the UI */
+    public void noteOtherMetadata(String key, Object value) {
+        this.otherMetadata.put(key, value);
+    }
+
 }

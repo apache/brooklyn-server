@@ -65,7 +65,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object resolvedValue = new SetVariableEvaluation(context, type==null ? TypeToken.of(Object.class) : type, unresolvedValue, Boolean.TRUE.equals(context.getInput(TRIM)), type!=null ).evaluate();
 
-        context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        Object oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        context.noteOtherMetadata("Value set", resolvedValue);
+        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
         return context.getPreviousStepOutput();
     }
 

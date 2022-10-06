@@ -51,9 +51,11 @@ public class SetConfigWorkflowStep extends WorkflowStepDefinition {
         Object resolvedValue = context.getInput(VALUE.getName(), type);
         Entity entity = config.entity;
         if (entity==null) entity = context.getEntity();
-        entity.config().set( (ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
+        Object oldValue = entity.config().set((ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
 
         // see note on type in SetSensorWorkflowStep
+        context.noteOtherMetadata("Value set", resolvedValue);
+        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
 
         return context.getPreviousStepOutput();
     }

@@ -55,7 +55,8 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         Object resolvedValue = context.getInput(VALUE.getName(), type);
         Entity entity = sensor.entity;
         if (entity==null) entity = context.getEntity();
-        entity.sensors().set( (AttributeSensor<Object>) Sensors.newSensor(type, sensorName), resolvedValue);
+        AttributeSensor<Object> s = (AttributeSensor<Object>) Sensors.newSensor(type, sensorName);
+        Object oldValue = entity.sensors().set( s, resolvedValue);
 
 //        // might need to be careful if defined type is different or more generic than type specified here;
 //        // but that should be fine as XML persistence preserves types
@@ -63,6 +64,9 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
 //        if (!type.isSupertypeOf(sd.getTypeToken())) {
 //            ...
 //        }
+
+        context.noteOtherMetadata("Value set", resolvedValue);
+        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
 
         return context.getPreviousStepOutput();
     }

@@ -104,8 +104,61 @@ public class WorkflowExecutionContext {
     transient Task<Object> task;
 
     /** all tasks created for this workflow */
-    Set<String> taskIds = MutableSet.of();
+    Set<WorkflowReplayRecord> replays = MutableSet.of();
+    transient WorkflowReplayRecord currentReplay = null;
 
+    static class WorkflowReplayRecord {
+        String taskId;
+        String reasonForReplay;
+        long submitTimeUtc;
+        long startTimeUtc;
+        long endTimeUtc;
+        String status;
+        Boolean isError;
+        Object result;
+
+        public static void add(WorkflowExecutionContext ctx, Task<?> task, String reasonForReplay) {
+            WorkflowReplayRecord wrr = new WorkflowReplayRecord();
+            wrr.taskId = task.getId();
+            wrr.reasonForReplay = reasonForReplay;
+            ctx.replays.add(wrr);
+            ctx.currentReplay = wrr;
+            update(ctx, task);
+        }
+
+        private static void updateInternal(WorkflowExecutionContext ctx, Task<?> task, Boolean forceEndSuccessOrError, Object result) {
+            if (ctx.currentReplay==null || ctx.currentReplay.taskId!=task.getId()) {
+                log.warn("Mismatch in workflow replays for "+ctx+": "+ctx.currentReplay+" vs "+task);
+                return;
+            }
+            ctx.currentReplay.submitTimeUtc = task.getSubmitTimeUtc();
+            ctx.currentReplay.startTimeUtc = task.getStartTimeUtc();
+            ctx.currentReplay.endTimeUtc = task.getEndTimeUtc();
+            ctx.currentReplay.status = task.getStatusSummary();
+
+            if (forceEndSuccessOrError==null) {
+                ctx.currentReplay.isError = task.isDone() ? task.isError() : null;
+                try {
+                    ctx.currentReplay.result = task.isDone() ? task.get() : null;
+                } catch (Throwable t) {
+                    ctx.currentReplay.result = Exceptions.collapseTextInContext(t, task);
+                }
+            } else {
+                if (ctx.currentReplay.endTimeUtc <= 0) ctx.currentReplay.endTimeUtc = System.currentTimeMillis();
+                ctx.currentReplay.isError = forceEndSuccessOrError;
+                ctx.currentReplay.result = result;
+            }
+        }
+        public static void update(WorkflowExecutionContext ctx, Task<?> task) {
+            updateInternal(ctx, task, null, null);
+        }
+        public static void updateAsError(WorkflowExecutionContext ctx, Task<?> task, Throwable error) {
+            updateInternal(ctx, task, false, Exceptions.collapseTextInContext(error, task));
+        }
+        public static void updateAsSuccess(WorkflowExecutionContext ctx, Task<?> task, Object result) {
+            updateInternal(ctx, task, true, result);
+        }
+    }
 
     Integer currentStepIndex;
     Integer previousStepIndex;
@@ -199,7 +252,7 @@ public class WorkflowExecutionContext {
         if (optionalTaskFlags!=null) tb.flags(optionalTaskFlags);
         else tb.displayName(name);
         task = tb.body(new Body()).build();
-        taskIds.add(task.getId());
+        WorkflowReplayRecord.add(this, task, "initial run");
         workflowId = taskId = task.getId();
         TaskTags.addTagDynamically(task, BrooklynTaskTags.WORKFLOW_TAG);
         TaskTags.addTagDynamically(task, BrooklynTaskTags.tagForWorkflow(this));
@@ -293,7 +346,7 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(stepIndex, null)).build();
-        taskIds.add(task.getId());
+        WorkflowReplayRecord.add(this, task, "manual replay from step "+(stepIndex+1));
         taskId = task.getId();
         return task;
     }
@@ -306,7 +359,7 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null, null)).build();
-        taskIds.add(task.getId());
+        WorkflowReplayRecord.add(this, task, "manual replay from last run step"+(reinitializeStep ? " (reinitialized)" : " (continuing)"));
         taskId = task.getId();
         return task;
     }
@@ -326,7 +379,8 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(null, continuationInstructions)).build();
-        taskIds.add(task.getId());
+        WorkflowReplayRecord.add(this, task, continuationInstructions.customBehaviourExplanation);
+
         taskId = task.getId();
 
         return task;
@@ -424,8 +478,8 @@ public class WorkflowExecutionContext {
         return taskId;
     }
 
-    public Set<String> getTaskIds() {
-        return taskIds;
+    public Set<WorkflowReplayRecord> getReplays() {
+        return replays;
     }
 
     public WorkflowStatus getStatus() {
@@ -462,6 +516,9 @@ public class WorkflowExecutionContext {
         @Override
         public Object call() throws Exception {
             try {
+                // show task running
+                WorkflowReplayRecord.update(WorkflowExecutionContext.this, task);
+
                 stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition));
                 status = WorkflowStatus.RUNNING;
 
@@ -533,11 +590,16 @@ public class WorkflowExecutionContext {
                     old.previousTaskId = previousStepTaskId;
                     return old;
                 });
+
+                WorkflowReplayRecord.updateAsSuccess(WorkflowExecutionContext.this, task, output);
+
                 persist();
 
                 return output;
 
             } catch (Throwable e) {
+                WorkflowReplayRecord.updateAsError(WorkflowExecutionContext.this, task, e);
+
                 try {
                     // do not propagateIfFatal, we need to handle most throwables
                     if (Exceptions.isCausedByInterruptInAnyThread(e) || Exceptions.getFirstThrowableMatching(e, t -> t instanceof CancellationException)!=null) {

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -73,7 +75,9 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
 
         WaitWorkflowStepMode mode = context.getInput(MODE);
 
-        Object resolvedValue = context.resolveWaiting(input.get(VALUE.getName()), type);
+        Stopwatch sw = Stopwatch.createStarted();
+        Object unresolvedValue = input.get(VALUE.getName());
+        Object resolvedValue = context.resolveWaiting(unresolvedValue, type);
         if (WaitWorkflowStepMode.TASK == mode) {
             if (resolvedValue instanceof String) {
                 resolvedValue = ((ManagementContextInternal) ((EntityInternal) context.getWorkflowExectionContext().getEntity())).getExecutionManager().getTask((String) resolvedValue);
@@ -86,11 +90,17 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
                 }
             }
         }
+        Duration duration = Duration.of(sw);
+        context.noteOtherMetadata("Duration", ""+duration);
+        log.debug("Wait resolved after "+duration+", "+input.get(unresolvedValue)+" is: "+resolvedValue);
 
         if (name!=null) {
-            context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+            Object oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+            if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+            context.noteOtherMetadata("Value set", resolvedValue);
             return context.getPreviousStepOutput();
         } else {
+            context.noteOtherMetadata("Value", resolvedValue);
             return resolvedValue;
         }
     }
