@@ -429,14 +429,14 @@ public interface EntityApi {
             @ApiResponse(code = 404, message = "Application or entity missing"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public Map<String, WorkflowExecutionContext> getWorkflows(
+    public List<WorkflowExecutionContext> getWorkflows(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") String entity);
 
     @GET
-    @Path("/{entity}/workflow/{workflowId}")
+    @Path("/{entity}/workflows/{workflowId}")
     @ApiOperation(value = "Get a workflow on this entity")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),

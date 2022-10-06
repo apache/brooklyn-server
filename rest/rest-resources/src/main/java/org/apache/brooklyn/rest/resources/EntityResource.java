@@ -361,14 +361,15 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public Map<String, WorkflowExecutionContext> getWorkflows(String applicationId, String entityId) {
+    public List<WorkflowExecutionContext> getWorkflows(String applicationId, String entityId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        return new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity);
+        return MutableList.copyOf(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values());
     }
 
     @Override
-    public WorkflowExecutionContext getWorkflow(String application, String entity, String workflowId) {
-        WorkflowExecutionContext w = getWorkflows(application, entity).get(workflowId);
+    public WorkflowExecutionContext getWorkflow(String applicationId, String entityId, String workflowId) {
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
+        WorkflowExecutionContext w = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).get(workflowId);
         if (w==null) throw WebResourceUtils.notFound("Cannot find workflow with ID '%s'", workflowId);
         return w;
     }

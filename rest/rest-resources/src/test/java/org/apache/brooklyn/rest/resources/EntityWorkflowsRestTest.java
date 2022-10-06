@@ -49,6 +49,7 @@ import org.testng.annotations.Test;
 import javax.ws.rs.core.GenericType;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
+import java.util.List;
 import java.util.Map;
 
 /** Tests {@link EntityResource} workflow methods */
@@ -108,15 +109,15 @@ public class EntityWorkflowsRestTest extends BrooklynRestResourceTest {
         Response response = client().path("/applications/"+entity.getApplicationId()+"/entities/"+entity.getId()+"/workflows")
                 .accept(MediaType.APPLICATION_JSON).get();
         assertHealthy(response);
-        Map<String, WorkflowExecutionContext> workflows = response.readEntity(new GenericType<Map<String,WorkflowExecutionContext>>(new TypeToken<Map<String,WorkflowExecutionContext>>() {}.getType()) {});
-        WorkflowExecutionContext wf1 = Iterables.getOnlyElement(workflows.values());
+        List<WorkflowExecutionContext> workflows = response.readEntity(new GenericType<List<WorkflowExecutionContext>>(new TypeToken<List<WorkflowExecutionContext>>() {}.getType()) {});
+        WorkflowExecutionContext wf1 = Iterables.getOnlyElement(workflows);
         Asserts.assertEquals(wf1.getStatus(), WorkflowExecutionContext.WorkflowStatus.RUNNING);
 
         entity.sensors().set(Sensors.newBooleanSensor("gate"), true);
         lastTask.getUnchecked();
 
         // get workflow now and assert finished
-        response = client().path("/applications/"+entity.getApplicationId()+"/entities/"+entity.getId()+"/workflow/"+wf1.getWorkflowId())
+        response = client().path("/applications/"+entity.getApplicationId()+"/entities/"+entity.getId()+"/workflows/"+wf1.getWorkflowId())
                 .accept(MediaType.APPLICATION_JSON).get();
         assertHealthy(response);
         WorkflowExecutionContext wf2 = response.readEntity(WorkflowExecutionContext.class);
