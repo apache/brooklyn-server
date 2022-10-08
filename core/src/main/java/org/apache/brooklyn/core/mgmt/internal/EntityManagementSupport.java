@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
@@ -43,6 +44,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.EntityAndItem;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements.StringAndArgument;
@@ -53,6 +55,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
@@ -185,6 +188,7 @@ public class EntityManagementSupport {
     public void onManagementStarting(ManagementTransitionInfo info) {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management starting")
             .dynamic(false)
+            .tag(BrooklynTaskTags.ENTITY_INITIALIZATION)
 //            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
             .body(() -> {
                 try {
@@ -214,11 +218,14 @@ public class EntityManagementSupport {
                                 Map<String, WorkflowExecutionContext> workflows = persister.getWorkflows(entity);
                                 List<WorkflowExecutionContext> wasRunningWorkflows = workflows.values().stream().filter(w -> !w.getStatus().ended).collect(Collectors.toList());
                                 if (!wasRunningWorkflows.isEmpty()) {
+                                    log.debug("Discovered workflows noted as 'running' on startup at "+entity+", will mark as interrupted: "+wasRunningWorkflows);
                                     entity.getExecutionContext().submit("Marking " + wasRunningWorkflows.size() + " interrupted workflow" + (wasRunningWorkflows.size() != 1 ? "s" : "") + " as shutdown", () -> {
                                         wasRunningWorkflows.forEach(WorkflowExecutionContext::markShutdown);
                                         // not necessary as in memory, but good practice
                                         persister.updateWithoutPersist(entity, wasRunningWorkflows);
                                     }).get();
+                                } else {
+                                    log.debug("No workflows identified as interrupted");
                                 }
                             }
                         }
@@ -288,11 +295,17 @@ public class EntityManagementSupport {
                                                     w.getParentId() == null)
                                     .collect(Collectors.toList());
                             if (!shutdownInterruptedWorkflows.isEmpty()) {
+                                log.debug("Discovered workflows noted as 'interrupted' on startup at "+entity+", will resume as dangling: "+shutdownInterruptedWorkflows);
                                 entity.getExecutionContext().submit(DynamicTasks.of("Resuming with failure " + shutdownInterruptedWorkflows.size() + " interrupted workflow" + (shutdownInterruptedWorkflows.size() != 1 ? "s" : ""), () -> {
-                                    shutdownInterruptedWorkflows.forEach(w -> DynamicTasks.queue(w.createTaskReplayingWithCustom(
-                                            new WorkflowStepDefinition.ReplayContinuationInstructions("resumed as dangling", () -> {
-                                                throw new DanglingWorkflowException();
-                                            }))));
+                                    shutdownInterruptedWorkflows.forEach(w -> {
+                                        Task<Object> task = Entities.submit(entity, w.createTaskReplayingWithCustom(
+                                                new WorkflowStepDefinition.ReplayContinuationInstructions("resumed as dangling", () -> {
+                                                    throw new DanglingWorkflowException();
+                                                })));
+
+                                        // could do this, but instead it is handled specially in the UI
+                                        //TaskTags.addTagDynamically(task, BrooklynTaskTags.TOP_LEVEL_TASK);
+                                    });
                                 }));  // backgrounded
                             }
                         }
@@ -309,6 +322,7 @@ public class EntityManagementSupport {
     public void onManagementStarted(ManagementTransitionInfo info) {
         info.getManagementContext().getExecutionContext(entity).get( Tasks.builder().displayName("Management started")
             .dynamic(false)
+            .tag(BrooklynTaskTags.ENTITY_INITIALIZATION)
 //            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
             .body(() -> { try { synchronized (this) {
                 boolean alreadyManaged = isFullyManaged();

@@ -80,6 +80,7 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.AbstractLocation;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.BrooklynClassLoadingContextSequential;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
@@ -722,7 +723,8 @@ public abstract class RebindIteration {
                     }
                 };
                 ((EntityInternal) entity).getExecutionContext().get(Tasks.<Void>builder()
-                        .displayName("rebind-adjuncts-" + entity.getId())
+                        .displayName("Rebind adjuncts for " + entity.getId())
+                        .tag(BrooklynTaskTags.ENTITY_INITIALIZATION)
                         .dynamic(false)
                         .body(new RebindAdjuncts(entityMemento, entity, rebindContext, exceptionHandler))
                         .build());

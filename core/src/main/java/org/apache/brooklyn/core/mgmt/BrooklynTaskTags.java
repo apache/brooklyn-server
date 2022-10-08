@@ -83,6 +83,11 @@ public class BrooklynTaskTags extends TaskTags {
 
     /** Tag for tasks which are running on behalf of the management server, rather than any entity */
     public static final String BROOKLYN_SERVER_TASK_TAG = "BROOKLYN-SERVER";
+
+    /** Tag for a task which should be treated as a top-level task, for the purpose of listing */
+    public static final Object TOP_LEVEL_TASK = "TOP-LEVEL";
+    /** Tag for a task which represents entity initialization */
+    public static final Object ENTITY_INITIALIZATION = "INITALIZATION";
     /** Tag for a task which represents an effector */
     public static final String EFFECTOR_TAG = "EFFECTOR";
     /** Tag for a task which represents a sensor being published */
