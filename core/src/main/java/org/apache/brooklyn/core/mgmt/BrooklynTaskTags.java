@@ -20,9 +20,7 @@ package org.apache.brooklyn.core.mgmt;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -40,7 +38,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementContext;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.AbstractManagementContext;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
@@ -55,7 +52,6 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.MemoryUsageTracker;
 import org.apache.brooklyn.util.stream.Streams;
-import org.apache.brooklyn.util.text.StringEscapes.BashStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -464,10 +460,12 @@ public class BrooklynTaskTags extends TaskTags {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class WorkflowTaskTag {
-        protected Integer stepIndex;
         protected String applicationId;
         protected String entityId;
         protected String workflowId;
+
+        protected Integer stepIndex;
+        protected String supersededByWorkflow;
 
         public String getApplicationId() {
             return applicationId;
@@ -481,9 +479,17 @@ public class BrooklynTaskTags extends TaskTags {
             return workflowId;
         }
 
-        /** null if it is the task for the overall workflow */
+        /** null if it is the task for the overall workflow or sub-workflow*/
         public Integer getStepIndex() {
             return stepIndex;
+        }
+
+        /** if not null, this sub-workflow has been superseded, ie replayed in a different workflow */
+        public String getSupersededByWorkflow() {
+            return supersededByWorkflow;
+        }
+        public void setSupersededByWorkflow(String supersededByWorkflow) {
+            this.supersededByWorkflow = supersededByWorkflow;
         }
     }
 

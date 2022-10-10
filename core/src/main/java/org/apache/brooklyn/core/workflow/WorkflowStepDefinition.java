@@ -61,13 +61,6 @@ public abstract class WorkflowStepDefinition {
 
     protected String userSuppliedShorthand;
 
-    // TODO
-//    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)
-//    protected Duration timeout;
-//    public Duration getTimeout() {
-//        return timeout;
-//    }
-
     //    next:  the next step to go to, assuming the step runs and succeeds; if omitted, or if the condition does not apply, it goes to the next step per the ordering (described below)
     @JsonProperty("next")  //use this field for access, not the getter/setter
     protected String next;
@@ -91,9 +84,19 @@ public abstract class WorkflowStepDefinition {
     protected Object output;
     protected boolean isOutputHandledByTask() { return false; }
 
-    // TODO
-//    on-error:  a description of how to handle errors section
-//    log-marker:  a string which is included in all log messages in the workflow or step and any sub-tasks and subtasks in to easily identify the actions of this workflow (in addition to task IDs)
+    protected WorkflowReplayUtils.ReplayableOption replayable;
+    public WorkflowReplayUtils.ReplayableOption getReplayable() {
+        return replayable;
+    }
+
+    // TODO timeout
+//    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)
+//    protected Duration timeout;
+//    public Duration getTimeout() {
+//        return timeout;
+//    }
+    // TODO on-error
+    //    on-error:  a description of how to handle errors section
 
     @JsonAnySetter
     public void setInput(String key, Object value) {
@@ -148,6 +151,9 @@ public abstract class WorkflowStepDefinition {
                     + " in task "+context.taskId);
             boolean handled = false;
             Object result = null;
+
+            // TODO clear parent step, figure out if can go mid-workflow. depends on subworkflow state doesn't it.
+
             if (continuing && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
                 List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context);
                 if (unfinished!=null) {
@@ -234,14 +240,19 @@ public abstract class WorkflowStepDefinition {
     }
 
     public static class ReplayContinuationInstructions {
+        /** null means last, -1 means workflow start */
+        public final Integer stepToReplayFrom;
+
         public final String customBehaviourExplanation;
         /** if supplied, custom behavior run before the primary doTaskBody; may throw exceptions or set things in stepState which are interpreted by the body */
         public final Runnable customBehaviour;
+        public final boolean forced;
 
-        public ReplayContinuationInstructions(String customBehaviourExplanation, Runnable customBehaviour) {
+        public ReplayContinuationInstructions(Integer stepToReplayFrom, String customBehaviourExplanation, Runnable customBehaviour, boolean forced) {
+            this.stepToReplayFrom = stepToReplayFrom;
             this.customBehaviourExplanation = customBehaviourExplanation;
             this.customBehaviour = customBehaviour;
-            // TODO resume from a given step in a subworkflow?
+            this.forced = forced;
         }
     }
 

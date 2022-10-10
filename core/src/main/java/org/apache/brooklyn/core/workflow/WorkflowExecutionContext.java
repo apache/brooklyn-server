@@ -104,61 +104,12 @@ public class WorkflowExecutionContext {
     transient Task<Object> task;
 
     /** all tasks created for this workflow */
-    Set<WorkflowReplayRecord> replays = MutableSet.of();
-    transient WorkflowReplayRecord currentReplay = null;
-
-    static class WorkflowReplayRecord {
-        String taskId;
-        String reasonForReplay;
-        long submitTimeUtc;
-        long startTimeUtc;
-        long endTimeUtc;
-        String status;
-        Boolean isError;
-        Object result;
-
-        public static void add(WorkflowExecutionContext ctx, Task<?> task, String reasonForReplay) {
-            WorkflowReplayRecord wrr = new WorkflowReplayRecord();
-            wrr.taskId = task.getId();
-            wrr.reasonForReplay = reasonForReplay;
-            ctx.replays.add(wrr);
-            ctx.currentReplay = wrr;
-            update(ctx, task);
-        }
-
-        private static void updateInternal(WorkflowExecutionContext ctx, Task<?> task, Boolean forceEndSuccessOrError, Object result) {
-            if (ctx.currentReplay==null || ctx.currentReplay.taskId!=task.getId()) {
-                log.warn("Mismatch in workflow replays for "+ctx+": "+ctx.currentReplay+" vs "+task);
-                return;
-            }
-            ctx.currentReplay.submitTimeUtc = task.getSubmitTimeUtc();
-            ctx.currentReplay.startTimeUtc = task.getStartTimeUtc();
-            ctx.currentReplay.endTimeUtc = task.getEndTimeUtc();
-            ctx.currentReplay.status = task.getStatusSummary();
-
-            if (forceEndSuccessOrError==null) {
-                ctx.currentReplay.isError = task.isDone() ? task.isError() : null;
-                try {
-                    ctx.currentReplay.result = task.isDone() ? task.get() : null;
-                } catch (Throwable t) {
-                    ctx.currentReplay.result = Exceptions.collapseTextInContext(t, task);
-                }
-            } else {
-                if (ctx.currentReplay.endTimeUtc <= 0) ctx.currentReplay.endTimeUtc = System.currentTimeMillis();
-                ctx.currentReplay.isError = forceEndSuccessOrError;
-                ctx.currentReplay.result = result;
-            }
-        }
-        public static void update(WorkflowExecutionContext ctx, Task<?> task) {
-            updateInternal(ctx, task, null, null);
-        }
-        public static void updateAsError(WorkflowExecutionContext ctx, Task<?> task, Throwable error) {
-            updateInternal(ctx, task, false, Exceptions.collapseTextInContext(error, task));
-        }
-        public static void updateAsSuccess(WorkflowExecutionContext ctx, Task<?> task, Object result) {
-            updateInternal(ctx, task, true, result);
-        }
-    }
+    Set<WorkflowReplayUtils.WorkflowReplayRecord> replays = MutableSet.of();
+    transient WorkflowReplayUtils.WorkflowReplayRecord replayCurrent = null;
+    /** null if not replayable; number if a step is the last so marked; -1 if should replay from start, -2 if completed successfully */
+    Integer replayableLastStep;
+    boolean replayableFromStart = true;  // starts off true, cleared when task starts to run
+    WorkflowReplayUtils.ReplayableOption replayableCurrentSetting;
 
     Integer currentStepIndex;
     Integer previousStepIndex;
@@ -177,6 +128,9 @@ public class WorkflowExecutionContext {
 
         /** context for last _completed_ instance of step */
         WorkflowStepInstanceExecutionContext context;
+        /** is step replayable */
+        WorkflowReplayUtils.ReplayableOption replayableCurrentSetting;
+        boolean replayableFromHere;
         /** scratch for last _started_ instance of step */
         Map<String,Object> workflowScratch;
         /** steps that immediately preceded this, updated when _this_ step started */
@@ -228,6 +182,7 @@ public class WorkflowExecutionContext {
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.STEPS),
                 input,
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.OUTPUT),
+                paramsDefiningWorkflow.get(WorkflowCommonConfig.REPLAYABLE),
                 optionalTaskFlags);
 
         // some fields need to be resolved at setting time, in the context of the workflow
@@ -238,7 +193,9 @@ public class WorkflowExecutionContext {
         return w;
     }
 
-    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name, List<Object> stepsDefinition, Map<String,Object> input, Object output, Map<String, Object> optionalTaskFlags) {
+    protected WorkflowExecutionContext(BrooklynObject entityOrAdjunctWhereRunning, WorkflowExecutionContext parent, String name,
+                                       List<Object> stepsDefinition, Map<String,Object> input, Object output,
+                                       WorkflowReplayUtils.ReplayableOption replayableWorkflowSetting, Map<String, Object> optionalTaskFlags) {
         initParent(parent);
         this.name = name;
         this.adjunct = entityOrAdjunctWhereRunning instanceof Entity ? null : entityOrAdjunctWhereRunning;
@@ -247,12 +204,13 @@ public class WorkflowExecutionContext {
 
         this.input = input;
         this.outputDefinition = output;
+        this.replayableCurrentSetting = replayableWorkflowSetting;
 
         TaskBuilder<Object> tb = Tasks.builder().dynamic(true);
         if (optionalTaskFlags!=null) tb.flags(optionalTaskFlags);
         else tb.displayName(name);
         task = tb.body(new Body()).build();
-        WorkflowReplayRecord.add(this, task, "initial run");
+        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, "initial run", false);
         workflowId = taskId = task.getId();
         TaskTags.addTagDynamically(task, BrooklynTaskTags.WORKFLOW_TAG);
         TaskTags.addTagDynamically(task, BrooklynTaskTags.tagForWorkflow(this));
@@ -318,11 +276,7 @@ public class WorkflowExecutionContext {
     }
 
     @JsonIgnore
-    public Maybe<Task<Object>> getOrCreateTask() {
-        return getOrCreateTask(true);
-    }
-    @JsonIgnore
-    public Maybe<Task<Object>> getOrCreateTask(boolean checkCondition) {
+    public Maybe<Task<Object>> getTask(boolean checkCondition) {
         if (checkCondition && condition!=null) {
             if (!condition.apply(getEntityOrAdjunctWhereRunning())) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
@@ -338,30 +292,97 @@ public class WorkflowExecutionContext {
         return Maybe.of(task);
     }
 
-    public synchronized Task<Object> createTaskReplayingFromStep(int stepIndex) {
+    public synchronized Task<Object> createTaskReplayingFromStep(int stepIndex, String reason, boolean forced) {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name)
-                .tag(BrooklynTaskTags.tagForWorkflow(this))
-                .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .body(new Body(stepIndex, null)).build();
-        WorkflowReplayRecord.add(this, task, "manual replay from step "+(stepIndex+1));
-        taskId = task.getId();
-        return task;
+
+        if (!forced) {
+            Set<Integer> considered = MutableSet.of();
+            Set<Integer> possibleOthers = MutableSet.of();
+            while (true) {
+                if (WorkflowReplayUtils.isReplayable(this, stepIndex) || stepIndex==-1) {
+                    break;
+                }
+
+                // look at the previous step
+                OldStepRecord osi = oldStepInfo.get(stepIndex);
+                if (osi==null) {
+                    log.warn("Unable to backtrack from step "+(stepIndex)+"; no step information. Replaying overall workflow.");
+                    stepIndex = -1;
+                    break;
+                }
+
+                Set<Integer> prev = osi.previous;
+                if (prev==null || prev.isEmpty()) {
+                    log.warn("Unable to backtrack from step "+(stepIndex)+"; no previous step recorded. Replaying overall workflow.");
+                    stepIndex = -1;
+                    break;
+                }
+
+                boolean repeating = !considered.add(stepIndex);
+                if (repeating) {
+                    if (possibleOthers.size()!=1) {
+                        log.warn("Unable to backtrack from step " + (stepIndex) + "; ambiguous precedents " + prev + " / " + possibleOthers + ". Replaying overall workflow.");
+                        stepIndex = -1;
+                        break;
+                    } else {
+                        stepIndex = possibleOthers.iterator().next();
+                        continue;
+                    }
+                }
+
+                Iterator<Integer> prevI = prev.iterator();
+                stepIndex = prevI.next();
+                while (prevI.hasNext()) {
+                    possibleOthers.add(prevI.next());
+                }
+            }
+        }
+
+        if (!forced && !WorkflowReplayUtils.isReplayable(this, stepIndex)) {
+            throw new IllegalStateException("Workflow is not replayable");
+        }
+
+        return createTaskReplayingWithCustom(new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced));
     }
 
-    public synchronized Task<Object> createTaskReplayingCurrentStep(boolean reinitializeStep) {
+    public synchronized Task<Object> createTaskReplayingFromStart(String reason, boolean forced) {
+        return createTaskReplayingFromStep(-1, reason, forced);
+    }
+
+    public synchronized Task<Object> createTaskReplayingLast(String reason, boolean forced) {
+        return createTaskReplayingLast(reason, forced, null);
+    }
+
+    public synchronized Task<Object> createTaskReplayingLastForcedWithCustom(String reason, Runnable code) {
+        return createTaskReplayingLast(reason, true, code);
+    }
+
+    protected synchronized Task<Object> createTaskReplayingLast(String reason, boolean forced, Runnable code) {
         if (task!=null && !task.isDone()) {
             throw new IllegalStateException("Cannot replay ongoing workflow");
         }
-        task = Tasks.builder().dynamic(true).displayName(name)
-                .tag(BrooklynTaskTags.tagForWorkflow(this))
-                .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .body(new Body(reinitializeStep ? (currentStepIndex==null ? 0 : currentStepIndex) : null, null)).build();
-        WorkflowReplayRecord.add(this, task, "manual replay from last run step"+(reinitializeStep ? " (reinitialized)" : " (continuing)"));
-        taskId = task.getId();
-        return task;
+
+        Integer replayFromStep = null;
+        if (currentStepIndex == null) {
+            // not yet started
+            replayFromStep = -1;
+        } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
+            // replaying from a different step, or current step which has either not run or completed but didn't save
+            log.debug("Replaying workflow '" + name + "', cannot replay within step " + currentStepIndex + " because step instance not known; will reinitialize then replay that step");
+            replayFromStep = currentStepIndex;
+        }
+
+        if (!forced) {
+            int replayFromStepActual = replayFromStep!=null ? replayFromStep : currentStepIndex;
+            if (!WorkflowReplayUtils.isReplayable(this, replayFromStepActual)) {
+                if (code!=null) throw new IllegalArgumentException("Cannot supply code without forcing");
+                return createTaskReplayingFromStep(replayFromStepActual, reason, forced);
+            }
+        }
+
+        return createTaskReplayingWithCustom(new WorkflowStepDefinition.ReplayContinuationInstructions(replayFromStep, reason, code, forced));
     }
 
     public void markShutdown() {
@@ -378,8 +399,8 @@ public class WorkflowExecutionContext {
         task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")")
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .body(new Body(null, continuationInstructions)).build();
-        WorkflowReplayRecord.add(this, task, continuationInstructions.customBehaviourExplanation);
+                .body(new Body(continuationInstructions)).build();
+        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, continuationInstructions.customBehaviourExplanation, continuationInstructions.stepToReplayFrom!=null && continuationInstructions.stepToReplayFrom!=-1);
 
         taskId = task.getId();
 
@@ -466,6 +487,10 @@ public class WorkflowExecutionContext {
         return null;
     }
 
+    public Object getOutput() {
+        return output;
+    }
+
     public String getName() {
         return name;
     }
@@ -478,7 +503,7 @@ public class WorkflowExecutionContext {
         return taskId;
     }
 
-    public Set<WorkflowReplayRecord> getReplays() {
+    public Set<WorkflowReplayUtils.WorkflowReplayRecord> getReplays() {
         return replays;
     }
 
@@ -501,8 +526,8 @@ public class WorkflowExecutionContext {
             replaying = false;
         }
 
-        public Body(Integer replayFromStepOrLast, WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
-            this.replayFromStep = replayFromStepOrLast;
+        public Body(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+            this.replayFromStep = continuationInstructions.stepToReplayFrom;
             this.continuationInstructions = continuationInstructions;
             replaying = true;
         }
@@ -516,33 +541,40 @@ public class WorkflowExecutionContext {
         @Override
         public Object call() throws Exception {
             try {
-                // show task running
-                WorkflowReplayRecord.update(WorkflowExecutionContext.this, task);
-
                 stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition));
+
+                WorkflowReplayUtils.updateOnWorkflowTaskStartup(WorkflowExecutionContext.this, task, stepsResolved, !replaying, replayFromStep);
+
+                // show task running
                 status = WorkflowStatus.RUNNING;
 
                 if (replaying) {
-                    // replaying workflow
-                    log.debug("Replaying workflow '" + name + "', from step " + (replayFromStep==null ? "<CURRENT>" : workflowStepReference(replayFromStep))+
-                            " (was at "+(currentStepIndex==null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex))+")");
-                    if (replayFromStep==null) {
-                        if (currentStepIndex==null) {
-                            // not yet started
-                            replayFromStep = 0;
-                        } else if (currentStepInstance==null || currentStepInstance.stepIndex!=currentStepIndex) {
-                            // replaying from a different step, or current step which has either not run or completed but didn't save
-                            log.debug("Replaying workflow '" + name + "', cannot replay within step "+workflowStepReference(currentStepIndex)+" because step instance not initialized yet, so will reinitialize that step");
-                            replayFromStep = currentStepIndex;
+                    if (replayFromStep!=null && replayFromStep==-1) {
+                        log.debug("Replaying workflow '" + name + "', from start " +
+                                " (was at "+(currentStepIndex==null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex))+")");
+                        currentStepIndex = 0;
+                        workflowScratchVariables = MutableMap.of();
+
+                    } else {
+
+                        // replaying workflow
+                        log.debug("Replaying workflow '" + name + "', from step " + (replayFromStep == null ? "<CURRENT>" : workflowStepReference(replayFromStep)) +
+                                " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
+                        if (replayFromStep == null) {
+                            // replayFromLast should correct the cases below
+                            if (currentStepIndex == null) {
+                                throw new IllegalStateException("Invalid instructions to continue from last bypassing convenience method, and there is no last");
+                            } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
+                                throw new IllegalStateException("Invalid instructions to continue from last step which is unknown, bypassing convenience method");
+                            }
+                        }
+                        if (replayFromStep != null) {
+                            OldStepRecord last = oldStepInfo.get(replayFromStep);
+                            if (last != null) workflowScratchVariables = last.workflowScratch;
+                            if (workflowScratchVariables == null) workflowScratchVariables = MutableMap.of();
+                            currentStepIndex = replayFromStep;
                         }
                     }
-                    if (replayFromStep!=null) {
-                        OldStepRecord last = oldStepInfo.get(replayFromStep);
-                        if (last!=null) workflowScratchVariables = last.workflowScratch;
-                        if (workflowScratchVariables==null) workflowScratchVariables = MutableMap.of();
-                        currentStepIndex = replayFromStep;
-                    }
-
                 } else {
                     if (replayFromStep == null && currentStepIndex == null) {
                         currentStepIndex = 0;
@@ -591,14 +623,14 @@ public class WorkflowExecutionContext {
                     return old;
                 });
 
-                WorkflowReplayRecord.updateAsSuccess(WorkflowExecutionContext.this, task, output);
+                WorkflowReplayUtils.updateOnWorkflowSuccess(WorkflowExecutionContext.this, task, output);
 
                 persist();
 
                 return output;
 
             } catch (Throwable e) {
-                WorkflowReplayRecord.updateAsError(WorkflowExecutionContext.this, task, e);
+                WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
 
                 try {
                     // do not propagateIfFatal, we need to handle most throwables
@@ -682,12 +714,13 @@ public class WorkflowExecutionContext {
             }
 
             // about to run -- checkpoint noting current and previous steps
-            oldStepInfo.compute(currentStepIndex, (index, old) -> {
-                if (old==null) old = new OldStepRecord();
+            OldStepRecord currentStepRecord = oldStepInfo.compute(currentStepIndex, (index, old) -> {
+                if (old == null) old = new OldStepRecord();
                 old.countStarted++;
-                if (!workflowScratchVariables.isEmpty()) old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
+                if (!workflowScratchVariables.isEmpty())
+                    old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
                 else old.workflowScratch = null;
-                old.previous = MutableSet.<Integer>of(previousStepIndex==null ? -1 : previousStepIndex).putAll(old.previous);
+                old.previous = MutableSet.<Integer>of(previousStepIndex == null ? -1 : previousStepIndex).putAll(old.previous);
                 old.previousTaskId = previousStepTaskId;
                 old.nextTaskId = null;
                 return old;
@@ -698,6 +731,9 @@ public class WorkflowExecutionContext {
                 old.nextTaskId = t.getId();
                 return old;
             });
+
+            // and update replayable info
+            WorkflowReplayUtils.updateOnWorkflowStepChange(currentStepRecord, currentStepInstance, step);
 
             persist();
 

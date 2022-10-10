@@ -20,10 +20,8 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -34,12 +32,12 @@ import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowReplayUtils;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,11 +88,7 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        WorkflowExecutionContext w = Iterables.getOnlyElement(subworkflows);
-
-        Task<Object> t = w.createTaskReplayingWithCustom(instructions);
-        LOG.debug("Step " + context.getWorkflowStepReference() + " resuming workflow effector " + w.getWorkflowId() + " in task " + t.getId());
-        return DynamicTasks.queue(t).getUnchecked();
+        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, subworkflows, instructions, ()->doTaskBody(context));
     }
 
     @Override
@@ -122,8 +116,9 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
         Effector<Object> effector = (Effector) ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
         TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
             // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
-            context.setStepState(workflowTag, true);
+            context.getSubWorkflows().forEach(tag -> tag.setSupersededByWorkflow(workflowTag.getWorkflowId()));
             context.getSubWorkflows().add(workflowTag);
+            context.setStepState(workflowTag, true);
         });
 
         return DynamicTasks.queue(invocation).asTask().getUnchecked();

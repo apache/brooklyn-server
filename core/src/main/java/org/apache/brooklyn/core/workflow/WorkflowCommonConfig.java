@@ -37,18 +37,19 @@ public interface WorkflowCommonConfig {
     ConfigKey<List<Object>> STEPS = ConfigKeys.newConfigKey(new TypeToken<List<Object>>() {}, "steps",
             "List of step definitions (string or map) defining a workflow");
 
+    ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
+            "Condition required for this workflow to run");
+
+    ConfigKey<WorkflowReplayUtils.ReplayableOption> REPLAYABLE = ConfigKeys.newConfigKey(WorkflowReplayUtils.ReplayableOption.class, "replayable",
+            "Indication of from what points the workflow is replayable");
+
     // TODO
 //    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)
 //    protected Duration timeout;
 //    public Duration getTimeout() {
 //        return timeout;
 //    }
-
-    ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
-            "Condition required for this workflow to run");
-
     // TODO
 //    on-error:  a description of how to handle errors section
-//    log-marker:
 
 }

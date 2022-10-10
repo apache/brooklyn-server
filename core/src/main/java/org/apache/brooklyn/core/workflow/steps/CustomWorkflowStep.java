@@ -88,11 +88,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        WorkflowExecutionContext w = Iterables.getOnlyElement(subworkflows);
-
-        Task<Object> t = w.createTaskReplayingWithCustom(instructions);
-        LOG.debug("Step " + context.getWorkflowStepReference() + " resuming nested workflow " + w.getWorkflowId() + " in task " + t.getId());
-        return DynamicTasks.queue(t).getUnchecked();
+        return WorkflowReplayUtils.replayInSubWorkflow("nested workflow", context, subworkflows, instructions, ()->doTaskBody(context));
     }
 
     @Override
@@ -105,15 +101,17 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 null,
                 ConfigBag.newInstance(getInput()), null);
 
-        nestedWorkflowContext.getOrCreateTask();
-        context.setStepState(MutableList.of(nestedWorkflowContext.getWorkflowId()), true);  // save the sub-workflow ID before submitting it
+        nestedWorkflowContext.getTask(true);
+        context.getSubWorkflows().forEach(tag -> tag.setSupersededByWorkflow(nestedWorkflowContext.getWorkflowId()));
         context.getSubWorkflows().add(BrooklynTaskTags.tagForWorkflow(nestedWorkflowContext));
 
+        // save the sub-workflow ID before submitting it, and before child knows about parent, per invoke effector step notes
+        context.setStepState(MutableList.of(nestedWorkflowContext.getWorkflowId()), true);
         nestedWorkflowContext.persist();
 
         LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getWorkflowId()+" in task "+nestedWorkflowContext.getTaskId());
 
-        return DynamicTasks.queue( nestedWorkflowContext.getOrCreateTask().get() ).getUnchecked();
+        return DynamicTasks.queue( nestedWorkflowContext.getTask(true).get() ).getUnchecked();
     }
 
     public String getNameOrDefault() {

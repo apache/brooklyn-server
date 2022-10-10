@@ -784,6 +784,7 @@ public class Entities {
                             log.debug("destroyed app "+app+"; mgmt now "+mgmt);
                         } catch (Exception e) {
                             log.warn("problems destroying app "+app+" (mgmt now "+mgmt+", will rethrow at least one exception): "+e);
+                            log.debug("Problem was:", e);
                             error.compareAndSet(null, e);
                         }
                     }}));

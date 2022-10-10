@@ -298,10 +298,9 @@ public class EntityManagementSupport {
                                 log.debug("Discovered workflows noted as 'interrupted' on startup at "+entity+", will resume as dangling: "+shutdownInterruptedWorkflows);
                                 entity.getExecutionContext().submit(DynamicTasks.of("Resuming with failure " + shutdownInterruptedWorkflows.size() + " interrupted workflow" + (shutdownInterruptedWorkflows.size() != 1 ? "s" : ""), () -> {
                                     shutdownInterruptedWorkflows.forEach(w -> {
-                                        Task<Object> task = Entities.submit(entity, w.createTaskReplayingWithCustom(
-                                                new WorkflowStepDefinition.ReplayContinuationInstructions("resumed as dangling", () -> {
+                                        Task<Object> task = Entities.submit(entity, w.createTaskReplayingLastForcedWithCustom("resumed as dangling", () -> {
                                                     throw new DanglingWorkflowException();
-                                                })));
+                                                }));
 
                                         // could do this, but instead it is handled specially in the UI
                                         //TaskTags.addTagDynamically(task, BrooklynTaskTags.TOP_LEVEL_TASK);

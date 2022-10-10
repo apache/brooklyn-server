@@ -152,7 +152,7 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
         @Override
         public Object call() throws Exception {
             WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, params, null, null, null);
-            Maybe<Task<Object>> wt = wc.getOrCreateTask(false /* condition checked by poll config framework */);
+            Maybe<Task<Object>> wt = wc.getTask(false /* condition checked by poll config framework */);
             return DynamicTasks.queue(wt.get()).getUnchecked();
         }
     }

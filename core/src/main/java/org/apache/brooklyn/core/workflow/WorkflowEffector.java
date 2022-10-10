@@ -100,7 +100,7 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
                     effector.getParameters().stream().map(Effectors::asConfigKey).collect(Collectors.toSet()),
                     invocationParams,
                     getFlagsForTaskInvocationAt(entity, effector, invocationParams));
-            Task<Object> task = w.getOrCreateTask().get();
+            Task<Object> task = w.getTask(true).get();
             if (parentInitializer!=null) {
                 // allow the parent to record the child workflow _before_ the child workflow gets persisted
                 parentInitializer.accept(BrooklynTaskTags.getWorkflowTaskTag(task, false));

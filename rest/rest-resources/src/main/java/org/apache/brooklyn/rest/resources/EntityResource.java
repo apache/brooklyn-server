@@ -60,6 +60,8 @@ import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -372,6 +374,25 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         WorkflowExecutionContext w = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).get(workflowId);
         if (w==null) throw WebResourceUtils.notFound("Cannot find workflow with ID '%s'", workflowId);
         return w;
+    }
+
+    @Override
+    public String replayWorkflow(String application, String entity, String workflowId, String step, String reason, Boolean force) {
+        WorkflowExecutionContext w = getWorkflow(application, entity, workflowId);
+        if (reason!=null) reason = "manually requested";
+        boolean forced = Boolean.TRUE.equals(force);
+        Task<Object> t = null;
+        if ("end".equalsIgnoreCase(step)) t = w.createTaskReplayingLast(reason, forced);
+        else if ("start".equalsIgnoreCase(step)) w.createTaskReplayingFromStart(reason, forced);
+        else {
+            Maybe<Integer> stepNumberRequested = TypeCoercions.tryCoerce(step, Integer.class);
+            if (stepNumberRequested.isPresent()) t = w.createTaskReplayingFromStep(stepNumberRequested.get(), reason, forced);
+            else {
+                // could support resuming from a step ID, but not so important; UI can find that
+                throw new IllegalStateException("Unsupported to resume from '"+step+"'");
+            }
+        }
+        return t.getId();
     }
 
 }
