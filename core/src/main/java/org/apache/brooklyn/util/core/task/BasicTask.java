@@ -735,11 +735,11 @@ public class BasicTask<T> implements TaskInternal<T> {
             data.hasBlockingDetails = true;
             if (Strings.isBlank(data.mainShortSummary)) data.setSummary(blockingDetails);
             else if (verbosity==1) data.appendToSummary("; "+blockingDetails);
-            else data.multiLineData.add(blockingDetails);
+            else data.multiLineData.add("Waiting: "+blockingDetails);
         }
 
         if (verbosity >= 1 && blockingTask!=null) {
-            String msg = "Waiting on " + blockingTask;
+            String msg = "Waiting on: " + blockingTask;
             if (Strings.isBlank(data.mainShortSummary)) data.setSummary(msg);
             else if (verbosity==1) {
                 if (!data.hasBlockingDetails) data.appendToSummary("; " + Strings.toInitialLowerCase(msg));
@@ -747,14 +747,16 @@ public class BasicTask<T> implements TaskInternal<T> {
             data.hasBlockingDetails = true;
         }
 
-        if (verbosity >=2) {
+        if (verbosity >= 2) {
+
             if (getExtraStatusText()!=null) {
                 data.multiLineData.add( ""+getExtraStatusText() );
             }
 
-            data.multiLineData.add(toString());
-            if (submittedByTask!=null) {
-                data.multiLineData.add("Submitted by "+submittedByTask);
+            data.multiLineData.add("Known as: " + toString());
+
+            if (submittedByTask!=null && submittedByTask.isPresent()) {
+                data.multiLineData.add("Submitted by: "+submittedByTask.get());
             }
 
             if (this instanceof HasTaskChildren) {
