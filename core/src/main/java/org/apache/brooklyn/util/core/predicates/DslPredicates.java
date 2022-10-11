@@ -214,8 +214,8 @@ public class DslPredicates {
         public @JsonProperty("greater-than-or-equal-to") Object greaterThanOrEqualTo;
 
         public @JsonProperty("java-instance-of") DslPredicate javaInstanceOf;
-        // TODO
         public @JsonProperty("error-cause") DslPredicate errorCause;
+        // TODO
         public @JsonProperty("error-field") DslPredicate errorField;
 
         public static class CheckCounts {
@@ -414,40 +414,8 @@ public class DslPredicates {
             checker.checkTest(any, test -> test.stream().anyMatch(p -> nestedPredicateCheck(p, result)));
             checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
-            checker.check(javaInstanceOf, result, (test, value) -> {
-                if (value==null) return false;
-
-                // first check if implicitly equal to a registered type
-                if (test instanceof DslPredicateBase) {
-                    Object implicitRegisteredType = ((DslPredicateBase) test).implicitEquals;
-                    if (implicitRegisteredType instanceof String) {
-                        Entity ent = null;
-                        if (value instanceof Entity) ent = (Entity)value;
-                        if (ent==null) ent = BrooklynTaskTags.getContextEntity(Tasks.current());
-                        if (ent!=null) {
-                            Maybe<TypeToken<?>> tm = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken((String) implicitRegisteredType);
-                            if (tm.isPresent()) {
-                                return tm.get().getRawType().isInstance(value);
-                            }
-                        }
-                    }
-                }
-
-                // now go through type of result and all superclasses
-                Set<Class<?>> visited = MutableSet.of();
-                Set<Class<?>> toVisit = MutableSet.of(value.getClass());
-                while (!toVisit.isEmpty()) {
-                    MutableList<Class<?>> visitingNow = MutableList.copyOf(toVisit);
-                    toVisit.clear();
-                    for (Class<?> v: visitingNow) {
-                        if (v==null || !visited.add(v)) continue;
-                        if (nestedPredicateCheck(javaInstanceOf, Maybe.of(v))) return true;
-                        toVisit.add(v.getSuperclass());
-                        toVisit.addAll(Arrays.asList(v.getInterfaces()));
-                    }
-                }
-                return false;
-            });
+            checker.check(javaInstanceOf, result, this::checkJavaInstanceOf);
+            checker.check(errorCause, result, this::checkErrorCause);
         }
 
         protected void failOnAssertCondition(Maybe<Object> result, CheckCounts callerChecker) {
@@ -504,6 +472,59 @@ public class DslPredicates {
                     default: return false;
                 }
             });
+        }
+
+        protected boolean checkJavaInstanceOf(DslPredicate javaInstanceOf, Object value) {
+            if (value==null) return false;
+
+            // first check if implicitly equal to a registered type
+            if (javaInstanceOf instanceof DslPredicateBase) {
+                Object implicitRegisteredType = ((DslPredicateBase) javaInstanceOf).implicitEquals;
+                if (implicitRegisteredType instanceof String) {
+                    Entity ent = null;
+                    if (value instanceof Entity) ent = (Entity)value;
+                    if (ent==null) ent = BrooklynTaskTags.getContextEntity(Tasks.current());
+                    if (ent!=null) {
+                        Maybe<TypeToken<?>> tm = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken((String) implicitRegisteredType);
+                        if (tm.isPresent()) {
+                            return tm.get().getRawType().isInstance(value);
+                        }
+                    }
+                }
+            }
+
+            // now go through type of result and all superclasses
+            Set<Class<?>> visited = MutableSet.of();
+            Set<Class<?>> toVisit = MutableSet.of(value.getClass());
+            while (!toVisit.isEmpty()) {
+                MutableList<Class<?>> visitingNow = MutableList.copyOf(toVisit);
+                toVisit.clear();
+                for (Class<?> v: visitingNow) {
+                    if (v==null || !visited.add(v)) continue;
+                    if (nestedPredicateCheck(javaInstanceOf, Maybe.of(v))) return true;
+                    toVisit.add(v.getSuperclass());
+                    toVisit.addAll(Arrays.asList(v.getInterfaces()));
+                }
+            }
+            return false;
+        }
+
+        protected boolean checkErrorCause(DslPredicate errorCause, Object value) {
+            if (value==null || !(value instanceof Throwable)) return false;
+
+            // now go through type of result and all superclasses
+            Set<Throwable> visited = MutableSet.of();
+            Set<Throwable> toVisit = MutableSet.of((Throwable)value);
+            while (!toVisit.isEmpty()) {
+                MutableList<Throwable> visitingNow = MutableList.copyOf(toVisit);
+                toVisit.clear();
+                for (Throwable v: visitingNow) {
+                    if (v==null || !visited.add(v)) continue;
+                    if (nestedPredicateCheck(errorCause, Maybe.of(v))) return true;
+                    toVisit.add(v.getCause());
+                }
+            }
+            return false;
         }
 
         protected boolean nestedPredicateCheck(DslPredicate p, Maybe<Object> result) {

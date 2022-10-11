@@ -269,9 +269,8 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     @Test
     public void testErrorCause() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
-                "error-cause", "TestException"), DslPredicates.DslPredicate.class);
+                "error-cause", MutableMap.of("java-instance-of", "TestException")), DslPredicates.DslPredicate.class);
 
-        // TODO make this work
         Asserts.assertTrue(p.test(new TestException("hello mezzage", "hello world", null)));
         Asserts.assertTrue(p.test(new IllegalStateException("hello root", new TestException("hello mezzage", "hello planet", null))));
         Asserts.assertFalse(p.test(new IllegalStateException("hello mezzage")));
