@@ -68,7 +68,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -342,8 +341,7 @@ public class DslPredicates {
             if (errorField!=null) resolvers.put("error-field", (value) -> {
                 if (!(value instanceof Throwable)) return Maybe.absent("Unable to apply error-field to non-throwable "+value);
                 Throwable t = (Throwable)value;
-                Maybe<Object> v = Reflections.getFieldValueMaybe(value, errorField);
-                if (v.isPresent()) return v;
+
                 Maybe<Method> m = Reflections.getMethodFromArgs(value, "get" + Strings.toInitialCapOnly(errorField), MutableList.of());
                 if (m.isPresent()) return m.map(mm -> {
                     try {
@@ -352,7 +350,16 @@ public class DslPredicates {
                         throw Exceptions.propagate(e);
                     }
                 });
+
+                Maybe<Object> v = Reflections.getFieldValueMaybe(value, errorField);
+                if (v.isPresent()) return v;
+
                 return Maybe.absent("No such field or getter for '"+errorField+"'");
+            });
+
+            if (errorCause!=null) resolvers.put("error-cause", (value) -> {
+                if (!(value instanceof Throwable)) return Maybe.absent("Unable to apply error-field to non-throwable "+value);
+                return Maybe.cast(findErrorCause(errorCause, value));
             });
         }
 
@@ -380,9 +387,22 @@ public class DslPredicates {
             CheckCounts counts = new CheckCounts();
             applyToResolved(result, counts);
             if (counts.checksDefined==0) {
-                throw new IllegalStateException("Predicate does not define any checks; if always true or always false is desired, use 'when'");
+                handleNoChecks(result, counts);
             }
             return counts.allPassed(true);
+        }
+
+        protected void handleNoChecks(Maybe<Object> result, CheckCounts checker) {
+            if (errorCause!=null) {
+                // if no test specified, but test or config is, then treat as implicit presence check
+                checkWhen(WhenPresencePredicate.PRESENT_NON_NULL, result, checker);
+                return;
+            }
+
+            // check again in case this, or a subclass, ran some checks
+            if (checker.checksDefined==0) {
+                throw new IllegalStateException("Predicate does not define any checks; if always true or always false is desired, use 'when'");
+            }
         }
 
         public void applyToResolved(Maybe<Object> result, CheckCounts checker) {
@@ -434,7 +454,6 @@ public class DslPredicates {
             checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
             checker.check(javaInstanceOf, result, this::checkJavaInstanceOf);
-            checker.check(errorCause, result, this::checkErrorCause);
         }
 
         protected void failOnAssertCondition(Maybe<Object> result, CheckCounts callerChecker) {
@@ -528,8 +547,8 @@ public class DslPredicates {
             return false;
         }
 
-        protected boolean checkErrorCause(DslPredicate errorCause, Object value) {
-            if (value==null || !(value instanceof Throwable)) return false;
+        protected Maybe<Throwable> findErrorCause(DslPredicate errorCause, Object value) {
+            if (value==null || !(value instanceof Throwable)) return Maybe.absent("Cannot look for causes of non-throwable "+value);
 
             // now go through type of result and all superclasses
             Set<Throwable> visited = MutableSet.of();
@@ -539,11 +558,11 @@ public class DslPredicates {
                 toVisit.clear();
                 for (Throwable v: visitingNow) {
                     if (v==null || !visited.add(v)) continue;
-                    if (nestedPredicateCheck(errorCause, Maybe.of(v))) return true;
+                    if (nestedPredicateCheck(errorCause, Maybe.of(v))) return Maybe.of(v);
                     toVisit.add(v.getCause());
                 }
             }
-            return false;
+            return Maybe.absent("Nothing in causal chain matches test");
         }
 
         protected boolean nestedPredicateCheck(DslPredicate p, Maybe<Object> result) {
@@ -758,13 +777,17 @@ public class DslPredicates {
             super.applyToResolved(result, checker);
 
             checker.check(tag, result, this::checkTag);
+        }
 
-            if (checker.checksDefined==0) {
-                if (target!=null || config!=null || sensor!=null) {
-                    // if no test specified, but test or config is, then treat as implicit presence check
-                    checkWhen(WhenPresencePredicate.PRESENT_NON_NULL, result, checker);
-                }
+        @Override
+        protected void handleNoChecks(Maybe<Object> result, CheckCounts checker) {
+            if (target!=null || config!=null || sensor!=null) {
+                // if no test specified, but test or config is, then treat as implicit presence check
+                checkWhen(WhenPresencePredicate.PRESENT_NON_NULL, result, checker);
+                return;
             }
+
+            super.handleNoChecks(result, checker);
         }
 
         public boolean checkTag(DslPredicate tagCheck, Object value) {
