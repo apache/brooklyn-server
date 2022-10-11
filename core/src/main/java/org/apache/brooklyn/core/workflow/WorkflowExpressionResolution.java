@@ -114,16 +114,21 @@ public class WorkflowExpressionResolution {
             if ("id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getWorkflowId());
             if ("task_id".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.getTaskId());
 
-            // TODO variable reference for link and error
+            // TODO variable reference for link
             //link (a link in the UI to this instance of workflow or step)
+
             //error (if there is an error in scope)
+            WorkflowStepInstanceExecutionContext currentStepInstance = context.currentStepInstance;
+            WorkflowStepInstanceExecutionContext errorHandlerContext = currentStepInstance != null ? currentStepInstance.errorHandlerContext : null;
+            if ("error".equals(key)) return TemplateProcessor.wrapAsTemplateModel(errorHandlerContext!=null ? errorHandlerContext.error : null);
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.input);
             if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.output);
 
             //current_step.yyy and previous_step.yyy (where yyy is any of the above)
             //step.xxx.yyy ? - where yyy is any of the above and xxx any step id
-            if ("current_step".equals(key)) return new WorkflowStepModel(context.currentStepInstance);
+            if ("error_handler".equals(key)) return new WorkflowStepModel(errorHandlerContext);
+            if ("current_step".equals(key)) return new WorkflowStepModel(currentStepInstance);
             if ("previous_step".equals(key)) return newWorkflowStepModelForStepIndex(context.previousStepIndex);
             if ("step".equals(key)) return new WorkflowStepModel();
 

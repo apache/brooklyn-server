@@ -63,8 +63,8 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
 
     @Override
     public void validateStep() {
-        super.validateStep();
         if (!getInput().containsKey(EFFECTOR.getName())) throw new IllegalArgumentException("Missing required input: "+EFFECTOR.getName());
+        super.validateStep();
     }
 
 

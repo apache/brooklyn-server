@@ -516,4 +516,17 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Asserts.assertEquals(invocation2.getUnchecked(), expected);
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), expected);
     }
+
+    @Test
+    public void testSimpleErrorHandler() throws IOException {
+        lastInvocation = runSteps(MutableList.of(
+                    MutableMap.of("s", "invoke-effector does-not-exist",
+                        "output", "should have failed",
+                        "on-error", MutableList.of(
+                                MutableMap.of("type", "no-op",
+                                        "output", "error-handler worked!")))),
+                    null);
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+    }
+
 }

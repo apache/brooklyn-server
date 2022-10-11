@@ -31,9 +31,11 @@ import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
+import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +47,7 @@ public abstract class WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowStepDefinition.class);
 
-//    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
+    //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     protected Map<String,Object> input = MutableMap.of();
 
@@ -89,14 +91,17 @@ public abstract class WorkflowStepDefinition {
         return replayable;
     }
 
-    // TODO timeout
-//    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)
-//    protected Duration timeout;
-//    public Duration getTimeout() {
-//        return timeout;
-//    }
-    // TODO on-error
-    //    on-error:  a description of how to handle errors section
+    protected Duration timeout;
+    public Duration getTimeout() {
+        return timeout;
+    }
+
+    @JsonProperty("on-error")
+    protected List<Object> onError = MutableList.of();
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    public List<Object> getOnError() {
+        return onError;
+    }
 
     @JsonAnySetter
     public void setInput(String key, Object value) {
@@ -130,29 +135,33 @@ public abstract class WorkflowStepDefinition {
     }
 
     final Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
-        return newTask(context, false, null);
+        return newTask(context, false, null, null, null);
+    }
+
+    final Task<?> newTaskForErrorHandler(WorkflowStepInstanceExecutionContext context, int errorHandlerIndex, Task<?> errorHandlerParentTask) {
+        return newTask(context, false, null, errorHandlerIndex, errorHandlerParentTask);
     }
 
     final Task<?> newTaskContinuing(WorkflowStepInstanceExecutionContext context, ReplayContinuationInstructions continuationInstructions) {
-        return newTask(context, true, continuationInstructions);
+        return newTask(context, true, continuationInstructions, null, null);
     }
 
-    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions) {
-        Task<?> t = Tasks.builder().displayName(computeName(context, true))
+    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions, Integer errorHandlerIndex, Task<?> errorHandlerParentTask) {
+        Task<?> t = Tasks.builder().displayName((errorHandlerIndex!=null ? "Error handler "+(errorHandlerIndex+1)+" for: " : "") + computeName(context, true))
                 //.tag(context)  // used to do this
-                .tag(BrooklynTaskTags.tagForWorkflow(context))
+                .tag(errorHandlerIndex!=null ? BrooklynTaskTags.tagForWorkflowError(context, ""+errorHandlerIndex, errorHandlerParentTask.getId()) : BrooklynTaskTags.tagForWorkflow(context))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
+                .tag(TaskTags.INESSENTIAL_TASK)  // we handle this specially, don't want the thread to fail
                 .body(() -> {
-            log.debug("Starting step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
+            log.debug("Starting "+(errorHandlerIndex!=null ? "error handler "+errorHandlerIndex+" for " : "")+
+                    "step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
                     + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
                     + (continuationInstructions!=null ? " with custom behaviour" +
                         (continuationInstructions.customBehaviourExplanation!=null ? "("+continuationInstructions.customBehaviourExplanation+")" : "") : "")
                     + (continuing ? " (continuation)" : "")
-                    + " in task "+context.taskId);
+                    + " in task "+Tasks.current().getId());
             boolean handled = false;
             Object result = null;
-
-            // TODO clear parent step, figure out if can go mid-workflow. depends on subworkflow state doesn't it.
 
             if (continuing && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
                 List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context);
@@ -224,7 +233,10 @@ public abstract class WorkflowStepDefinition {
     }
 
     /** allows subclasses to throw exception early if required fields not set */
-    public void validateStep() {}
+    public void validateStep() {
+        // not needed here, done at parse time because error step validation is slightly stricter
+        //getOnError().forEach(errorStep -> ((WorkflowStepDefinition)errorStep).validateStep());
+    }
 
     public interface WorkflowStepDefinitionWithSpecialDeserialization {
         WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse);

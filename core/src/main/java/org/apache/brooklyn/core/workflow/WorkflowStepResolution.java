@@ -104,7 +104,19 @@ public class WorkflowStepResolution {
                 defW.userSuppliedShorthand = userSuppliedShorthand;
             }
 
+            List<Object> onError = defW.getOnError();
+            if (onError!=null && !onError.isEmpty()) {
+                defW.onError = MutableList.of();
+                onError.forEach(errorStep -> {
+                    WorkflowStepDefinition errorStepResolved = resolveStep(mgmt, errorStep);
+                    errorStepResolved.validateStep();
+                    if (errorStepResolved.getId()!=null) throw new IllegalArgumentException("Error handler steps are not permitted to have IDs: "+errorStep);
+                    defW.onError.add(errorStepResolved);
+                });
+            }
+
             defW.validateStep();
+
             return defW;
         } else {
             throw new IllegalArgumentException("Unable to resolve step; unexpected object "+ def);

@@ -40,14 +40,12 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.TaskBuilder;
-import org.apache.brooklyn.util.core.task.TaskTags;
-import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.*;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +54,7 @@ import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -425,7 +424,22 @@ public class WorkflowExecutionContext {
         return new WorkflowStatePersistenceViaSensors(getManagementContext());
     }
 
+    @JsonIgnore
+    protected boolean isInErrorHandlerSubWorkflow() {
+        if (parent!=null) {
+            if (parent.currentStepInstance!=null && parent.currentStepInstance.error!=null) {
+                return true;
+            }
+            return parent.isInErrorHandlerSubWorkflow();
+        }
+        return false;
+    }
+
     public void persist() {
+        if (isInErrorHandlerSubWorkflow()) {
+            // currently don't persist error handler sub-workflows
+            return;
+        }
         getPersister().checkpoint(this);
     }
 
@@ -738,31 +752,50 @@ public class WorkflowExecutionContext {
 
             // and update replayable info
             WorkflowReplayUtils.updateOnWorkflowStepChange(currentStepRecord, currentStepInstance, step);
+            currentStepInstance.errorHandlerContext = null;
 
             persist();
 
-            Runnable next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+            AtomicReference<String> nextDueToError = new AtomicReference<>();
+            Runnable next = () -> moveToNextStep(Strings.isNonBlank(nextDueToError.get()) ? nextDueToError.get() : step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+            Consumer<Object> saveOutput = output -> {
+                if (output!=null) currentStepInstance.output = resolve(output, Object.class);
+            };
 
             try {
-                currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
-                if (step.output!=null) {
-                    // allow output to be customized / overridden
-                    currentStepInstance.output = resolve(step.output, Object.class);
+                Duration duration = step.getTimeout();
+                if (duration!=null) {
+                    currentStepInstance.output = DynamicTasks.queue(t).getUnchecked(duration);
+                } else {
+                    currentStepInstance.output = DynamicTasks.queue(t).getUnchecked();
                 }
 
+                // allow output to be customized / overridden
+                saveOutput.accept(step.output);
+
             } catch (Exception e) {
+                if (!step.onError.isEmpty()) {
+                    WorkflowErrorHandling.WorkflowErrorHandlingResult result;
+                    try {
+                        result = DynamicTasks.queue(WorkflowErrorHandling.createTask(step, currentStepInstance, t, e)).getUnchecked();
+                        if (result!=null) {
+                            if (Strings.isNonBlank(result.next)) nextDueToError.set(result.next);
+                            saveOutput.accept(result.output);
+                        }
 
-                // TODO custom error handling (also needed at workflow level)
-                // if onError
-                // log debug
-                // try
-                // next = () -> moveToNextStep(step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
-                // catch
-                // log warn throw propagate
-                // else
+                    } catch (Exception e2) {
+                        log.warn("Error in step '" + t.getDisplayName() + "' error handler for -- "+Exceptions.collapseText(e)+" -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                        log.debug("Full trace of original error was: "+e2, e2);
+                        throw Exceptions.propagate(e);
+                    }
+                    if (result==null) {
+                        log.warn("Error in step '" + t.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(e));
+                    }
 
-                log.warn("Error in step '"+t.getDisplayName()+"' (rethrowing): "+ Exceptions.collapseText(e));
-                throw Exceptions.propagate(e);
+                } else {
+                    log.warn("Error in step '" + t.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
+                    throw Exceptions.propagate(e);
+                }
             }
 
             oldStepInfo.compute(currentStepIndex, (index, old) -> {
@@ -824,8 +857,16 @@ public class WorkflowExecutionContext {
     }
     @JsonIgnore
     String getWorkflowStepReference(int index, String optionalStepId) {
-        return workflowId+"-"+(index+1)+
+        return workflowId+"-"+(index>=0 ? index+1 : indexCode(index))+
                 (Strings.isNonBlank(optionalStepId) ? "-"+optionalStepId : "");
+    }
+
+    private String indexCode(int index) {
+        // these numbers shouldn't be used for much, but they are used in a few places :(
+        if (index==-1) return "start";
+        if (index==-2) return "end";
+        if (index==-3) return "error-handler";
+        return "neg-"+(index); // unknown
     }
 
 }

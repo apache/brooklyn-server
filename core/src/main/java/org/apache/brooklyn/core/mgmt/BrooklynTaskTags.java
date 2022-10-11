@@ -29,6 +29,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
@@ -99,6 +100,8 @@ public class BrooklynTaskTags extends TaskTags {
     public static final String TRANSIENT_TASK_TAG = "TRANSIENT";
     /** marks that a task is meant to return immediately, without blocking (or if absolutely necessary blocking for a short while) */
     public static final String IMMEDIATE_TASK_TAG = "IMMEDIATE";
+
+    public static final String ERROR_HANDLED_BY_TASK_TAG = "ERROR_HANDLED_BY";
 
     // ------------- entity tags -------------------------
     
@@ -465,7 +468,10 @@ public class BrooklynTaskTags extends TaskTags {
         protected String workflowId;
 
         protected Integer stepIndex;
+        // TODO handle these in the UI:
         protected String supersededByWorkflow;
+        protected String errorHandlerForTask;
+        protected String errorHandlerIndex;
 
         public String getApplicationId() {
             return applicationId;
@@ -504,6 +510,18 @@ public class BrooklynTaskTags extends TaskTags {
         WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
         t.stepIndex = workflowStep.getStepIndex();
         return t;
+    }
+
+    public static WorkflowTaskTag tagForWorkflowError(WorkflowStepInstanceExecutionContext workflowStep, String errorHandlerIndex, String errorHandlerForTask) {
+        WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
+        t.stepIndex = workflowStep.getStepIndex();
+        t.errorHandlerIndex = errorHandlerIndex;
+        t.errorHandlerForTask = errorHandlerForTask;
+        if (Strings.isBlank(t.errorHandlerForTask)) t.errorHandlerForTask = "task-unavailable";  // ensure not null
+        return t;
+    }
+    public static Map<String,String> tagForErrorHandledBy(Task<?> handler) {
+        return ImmutableMap.of(ERROR_HANDLED_BY_TASK_TAG, handler.getId());
     }
 
     /**

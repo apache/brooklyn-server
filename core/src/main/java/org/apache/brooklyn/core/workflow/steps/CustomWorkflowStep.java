@@ -64,6 +64,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     public void validateStep() {
         if (steps==null) throw new IllegalStateException("No steps defined for "+getName());
+        super.validateStep();
     }
 
     @Override
