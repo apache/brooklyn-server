@@ -294,7 +294,11 @@ public class WorkflowExecutionContext {
 
     public synchronized Task<Object> createTaskReplayingFromStep(int stepIndex, String reason, boolean forced) {
         if (task!=null && !task.isDone()) {
-            throw new IllegalStateException("Cannot replay ongoing workflow");
+            if (!task.isSubmitted()) {
+                log.warn("Abandoning workflow task that was never submitted: "+task+" for "+this);
+            } else {
+                throw new IllegalStateException("Cannot replay ongoing workflow");
+            }
         }
 
         if (!forced) {

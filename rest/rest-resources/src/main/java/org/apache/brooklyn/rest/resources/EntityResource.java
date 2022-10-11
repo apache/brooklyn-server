@@ -61,6 +61,7 @@ import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -377,10 +378,13 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public String replayWorkflow(String application, String entity, String workflowId, String step, String reason, Boolean force) {
-        WorkflowExecutionContext w = getWorkflow(application, entity, workflowId);
-        if (reason!=null) reason = "manually requested";
+    public String replayWorkflow(String applicationId, String entityId, String workflowId, String step, String reason, Boolean force) {
+        WorkflowExecutionContext w = getWorkflow(applicationId, entityId, workflowId);
+        Entity entity = brooklyn().getEntity(applicationId, entityId);
         boolean forced = Boolean.TRUE.equals(force);
+        String msg = "Replaying workflow "+workflowId+" on "+entity+", from step '"+step+"', reason '"+reason+"'";
+        if (forced) log.warn(msg); else log.debug(msg);
+        if (reason==null) reason = "manually requested";
         Task<Object> t = null;
         if ("end".equalsIgnoreCase(step)) t = w.createTaskReplayingLast(reason, forced);
         else if ("start".equalsIgnoreCase(step)) w.createTaskReplayingFromStart(reason, forced);
@@ -392,7 +396,8 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
                 throw new IllegalStateException("Unsupported to resume from '"+step+"'");
             }
         }
-        return t.getId();
+        DynamicTasks.submit(t, entity);
+        return (String) WebResourceUtils.getValueForDisplay(mapper(), t.getId(), true, true);
     }
 
 }

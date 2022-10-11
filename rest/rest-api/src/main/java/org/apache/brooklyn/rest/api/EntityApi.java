@@ -453,7 +453,7 @@ public interface EntityApi {
             @ApiParam(value = "Workflow ID", required = true)
             @PathParam("workflowId") String workflowId);
 
-    @GET
+    @POST
     @Path("/{entity}/workflows/{workflowId}/replay/from/{step}")
     @ApiOperation(value = "Replays a workflow from the given step, or 'start' to restart or 'end' to resume from last replayable point; the workflow will rollback to the previous replay point unless forced; returns the task ID of the replay")
     @ApiResponses(value = {

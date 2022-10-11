@@ -86,7 +86,7 @@ public class WorkflowReplayUtils {
                 }
             } else {
                 if (ctx.replayCurrent.endTimeUtc <= 0) ctx.replayCurrent.endTimeUtc = System.currentTimeMillis();
-                ctx.replayCurrent.isError = forceEndSuccessOrError;
+                ctx.replayCurrent.isError = !forceEndSuccessOrError;
                 ctx.replayCurrent.result = result;
             }
         }
