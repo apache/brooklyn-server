@@ -252,17 +252,15 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
                 "error-field", "x", "glob", "*world*"), DslPredicates.DslPredicate.class);
 
-        // TODO make this work
         Asserts.assertTrue(p.test(new TestException("hello mezzage", "hello world", null)));
         Asserts.assertFalse(p.test(new TestException("hello mezzage", "hello planet", null)));
         Asserts.assertFalse(p.test(new TestException("hello mezzage", null, null)));
 
         p = TypeCoercions.coerce(MutableMap.of(
                 "error-field", "message", "glob", "*world*"), DslPredicates.DslPredicate.class);
-        Asserts.assertTrue(p.test(new TestException("hello message", null, null)));
-        Asserts.assertFalse(p.test(new TestException("hello mezzage", null, null)));
+        Asserts.assertTrue(p.test(new TestException("hello world", null, null)));
+        Asserts.assertFalse(p.test(new TestException("hello planet", null, null)));
 
-        // TODO or throws an error?
         Asserts.assertFalse(p.test(MutableMap.of("message", "hello message")));
     }
 

@@ -59,13 +59,17 @@ import org.apache.brooklyn.util.exceptions.UserFacingException;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.SerializablePredicate;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.text.WildcardGlobs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -215,8 +219,7 @@ public class DslPredicates {
 
         public @JsonProperty("java-instance-of") DslPredicate javaInstanceOf;
         public @JsonProperty("error-cause") DslPredicate errorCause;
-        // TODO
-        public @JsonProperty("error-field") DslPredicate errorField;
+        public @JsonProperty("error-field") String errorField;
 
         public static class CheckCounts {
             int checksDefined = 0;
@@ -334,6 +337,22 @@ public class DslPredicates {
                 // above will throw if jsonpath doesn't match anything
                 // this will return single object possibly null, or a list possibly empty
                 return Maybe.ofAllowingNull(result);
+            });
+
+            if (errorField!=null) resolvers.put("error-field", (value) -> {
+                if (!(value instanceof Throwable)) return Maybe.absent("Unable to apply error-field to non-throwable "+value);
+                Throwable t = (Throwable)value;
+                Maybe<Object> v = Reflections.getFieldValueMaybe(value, errorField);
+                if (v.isPresent()) return v;
+                Maybe<Method> m = Reflections.getMethodFromArgs(value, "get" + Strings.toInitialCapOnly(errorField), MutableList.of());
+                if (m.isPresent()) return m.map(mm -> {
+                    try {
+                        return mm.invoke(t);
+                    } catch (Exception e) {
+                        throw Exceptions.propagate(e);
+                    }
+                });
+                return Maybe.absent("No such field or getter for '"+errorField+"'");
             });
         }
 
