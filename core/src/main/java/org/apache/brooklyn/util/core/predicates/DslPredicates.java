@@ -47,6 +47,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -65,10 +66,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -85,11 +83,7 @@ public class DslPredicates {
         TypeCoercions.registerAdapter(java.util.function.Predicate.class, DslPredicate.class, DslPredicateAdapter::new);
 
         // TODO could use json shorthand instead?
-        TypeCoercions.registerAdapter(String.class, DslPredicate.class, s -> {
-            DslPredicateDefault result = new DslPredicateDefault();
-            result.implicitEquals = s;
-            return result;
-        });
+        TypeCoercions.registerAdapter(String.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);
     }
     static {
         init();
@@ -125,7 +119,11 @@ public class DslPredicates {
 
         // different type hierarchies, consider coercion if one is json and not json, or one is string and the other a non-string primitive
         BiFunction<Object,Object,Maybe<Boolean>> maybeCoercedEquals = (ma,mb) -> {
-            if ((isJson(ma) && !isJson(mb)) || (ma instanceof String && Boxing.isPrimitiveOrBoxedClass(mb.getClass()))) {
+            if (ma instanceof String && mb instanceof Class) {
+                // if comparing to a class, look at the name
+                if (ma.equals(((Class<?>) mb).getName()) || ma.equals(((Class<?>) mb).getSimpleName())) return Maybe.of(true);
+
+            } else if ((isJson(ma) && !isJson(mb)) || (ma instanceof String && Boxing.isPrimitiveOrBoxedClass(mb.getClass()))) {
                 Maybe<? extends Object> mma = TypeCoercions.tryCoerce(ma, mb.getClass());
                 if (mma.isPresent()) {
                     // repeat equality check
@@ -133,7 +131,7 @@ public class DslPredicates {
                 }
                 return Maybe.absent("coercion not supported in equality check, to "+mb.getClass());
             }
-            return Maybe.absent("coercion not permitted for equality check with these arhument types");
+            return Maybe.absent("coercion not permitted for equality check with these argument types");
         };
         return maybeCoercedEquals.apply(a, b)
                 .orMaybe(()->maybeCoercedEquals.apply(b, a))
@@ -174,7 +172,7 @@ public class DslPredicates {
     }
 
     private static boolean isStringOrPrimitive(Object a) {
-        return a!=null && a instanceof String || Boxing.isPrimitiveOrBoxedClass(a.getClass());
+        return a!=null && (a instanceof String || Boxing.isPrimitiveOrBoxedClass(a.getClass()));
     }
 
     private static boolean isJson(Object a) {
@@ -182,7 +180,7 @@ public class DslPredicates {
     }
 
     static boolean asStringTestOrFalse(Object value, Predicate<String> test) {
-        return isStringOrPrimitive(value) ? test.test(value.toString()) : false;
+        return isStringOrPrimitive(value) || value instanceof Throwable ? test.test(value.toString()) : value instanceof Class ? test.test(((Class)value).getName()) : false;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -215,8 +213,10 @@ public class DslPredicates {
         public @JsonProperty("less-than-or-equal-to") Object lessThanOrEqualTo;
         public @JsonProperty("greater-than-or-equal-to") Object greaterThanOrEqualTo;
 
-        public @JsonProperty("java-type-name") DslPredicate javaTypeName;
-        public @JsonProperty("java-instance-of") Object javaInstanceOf;
+        public @JsonProperty("java-instance-of") DslPredicate javaInstanceOf;
+        // TODO
+        public @JsonProperty("error-cause") DslPredicate errorCause;
+        public @JsonProperty("error-field") DslPredicate errorField;
 
         public static class CheckCounts {
             int checksDefined = 0;
@@ -415,20 +415,39 @@ public class DslPredicates {
             checker.checkTest(all, test -> test.stream().allMatch(p -> nestedPredicateCheck(p, result)));
 
             checker.check(javaInstanceOf, result, (test, value) -> {
-                Entity ent = null;
-                if (value instanceof Entity) ent = (Entity)value;
-                if (ent==null) ent = BrooklynTaskTags.getContextEntity(Tasks.current());
-                if (ent==null) return false;
+                if (value==null) return false;
 
-                Maybe<TypeToken<?>> tt = Maybe.absent("Unsupported type "+test);
-                if (test instanceof String) tt = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken((String)test);
-                else if (test instanceof Class) tt = Maybe.of(TypeToken.of((Class)test));
-                else if (test instanceof TypeToken) tt = Maybe.of((TypeToken)test);
-                if (tt.isAbsentOrNull()) return false;
+                // first check if implicitly equal to a registered type
+                if (test instanceof DslPredicateBase) {
+                    Object implicitRegisteredType = ((DslPredicateBase) test).implicitEquals;
+                    if (implicitRegisteredType instanceof String) {
+                        Entity ent = null;
+                        if (value instanceof Entity) ent = (Entity)value;
+                        if (ent==null) ent = BrooklynTaskTags.getContextEntity(Tasks.current());
+                        if (ent!=null) {
+                            Maybe<TypeToken<?>> tm = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("predicate", CatalogUtils.getClassLoadingContext(ent), true, true).findTypeToken((String) implicitRegisteredType);
+                            if (tm.isPresent()) {
+                                return tm.get().getRawType().isInstance(value);
+                            }
+                        }
+                    }
+                }
 
-                return tt.get().isSupertypeOf(value.getClass());
+                // now go through type of result and all superclasses
+                Set<Class<?>> visited = MutableSet.of();
+                Set<Class<?>> toVisit = MutableSet.of(value.getClass());
+                while (!toVisit.isEmpty()) {
+                    MutableList<Class<?>> visitingNow = MutableList.copyOf(toVisit);
+                    toVisit.clear();
+                    for (Class<?> v: visitingNow) {
+                        if (v==null || !visited.add(v)) continue;
+                        if (nestedPredicateCheck(javaInstanceOf, Maybe.of(v))) return true;
+                        toVisit.add(v.getSuperclass());
+                        toVisit.addAll(Arrays.asList(v.getInterfaces()));
+                    }
+                }
+                return false;
             });
-            checker.checkTest(javaTypeName, (test) -> nestedPredicateCheck(test, result.map(v -> v.getClass().getName())));
         }
 
         protected void failOnAssertCondition(Maybe<Object> result, CheckCounts callerChecker) {
@@ -845,9 +864,15 @@ public class DslPredicates {
         return result;
     }
 
+    public static DslPredicate implicitlyEqualTo(Object x) {
+        DslEntityPredicateDefault result = new DslEntityPredicateDefault();
+        result.implicitEquals = x;
+        return result;
+    }
+
     public static DslPredicate instanceOf(Object x) {
         DslEntityPredicateDefault result = new DslEntityPredicateDefault();
-        result.javaInstanceOf = x;
+        result.javaInstanceOf = x instanceof DslPredicate ? ((DslPredicate) x) : implicitlyEqualTo(x);
         return result;
     }
 

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.util.core.predicates;
 
+import net.bytebuddy.implementation.bytecode.Throw;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -30,8 +31,10 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
 
@@ -185,11 +188,108 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testTypeName() {
+    public void testInstanceOf() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
-                "java-type-name", String.class), DslPredicates.DslPredicate.class);
+                "java-instance-of", String.class), DslPredicates.DslPredicate.class);
         Asserts.assertTrue(p.test("some-str"));
         Asserts.assertFalse(p.test(18));
+    }
+
+    static class TestException extends Throwable implements Supplier<Object> {
+        public TestException(String msg, String x, Throwable cause) {
+            super(msg, cause);
+            this.x = x;
+        }
+        String x;
+
+        @Override
+        public String toString() {
+            return super.toString()+"; x="+x;
+        }
+
+        @Override
+        public Object get() {
+            return null;
+        }
+    }
+
+    @Test
+    public void testErrorInstanceOf() {
+        // checks can apply to any superclasses and interfaces
+
+        BiConsumer<Object,Object> checkInstanceOf = (instanceOfTest,target) -> {
+            DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                    "java-instance-of", instanceOfTest), DslPredicates.DslPredicate.class);
+            Asserts.assertTrue(p.test(target));
+        };
+
+        TestException exc = new TestException("hello mezzage", "hello world", null);
+
+        checkInstanceOf.accept(Throwable.class, exc);
+        checkInstanceOf.accept(MutableMap.of("equals", "TestException"), exc);
+        checkInstanceOf.accept("Supplier", exc);
+        checkInstanceOf.accept(Object.class.getName(), exc);
+        checkInstanceOf.accept(MutableMap.of("glob", "*.brooklyn.*$TestException"), exc);
+
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "java-instance-of", "UnknownType"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(exc));
+    }
+
+    @Test
+    public void testErrorToString() {
+        // toString
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "glob", "*world*"), DslPredicates.DslPredicate.class);
+
+        Asserts.assertTrue(p.test(new TestException("hello mezzage", "hello world", null)));
+        Asserts.assertTrue(p.test(new TestException("hello world", "hello mezzge", null)));
+        Asserts.assertFalse(p.test(new TestException("hello mezzage", "hello planet", null)));
+    }
+
+    @Test
+    public void testErrorField() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "error-field", "x", "glob", "*world*"), DslPredicates.DslPredicate.class);
+
+        // TODO make this work
+        Asserts.assertTrue(p.test(new TestException("hello mezzage", "hello world", null)));
+        Asserts.assertFalse(p.test(new TestException("hello mezzage", "hello planet", null)));
+        Asserts.assertFalse(p.test(new TestException("hello mezzage", null, null)));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "error-field", "message", "glob", "*world*"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(new TestException("hello message", null, null)));
+        Asserts.assertFalse(p.test(new TestException("hello mezzage", null, null)));
+
+        // TODO or throws an error?
+        Asserts.assertFalse(p.test(MutableMap.of("message", "hello message")));
+    }
+
+    @Test
+    public void testErrorCause() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "error-cause", "TestException"), DslPredicates.DslPredicate.class);
+
+        // TODO make this work
+        Asserts.assertTrue(p.test(new TestException("hello mezzage", "hello world", null)));
+        Asserts.assertTrue(p.test(new IllegalStateException("hello root", new TestException("hello mezzage", "hello planet", null))));
+        Asserts.assertFalse(p.test(new IllegalStateException("hello mezzage")));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "glob", "*TestException*"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(new IllegalStateException("hello root", new TestException("hello mezzage", "hello planet", null))));
+        p = TypeCoercions.coerce(MutableMap.of(
+                "error-cause", MutableMap.of("glob", "*TestException*")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(new IllegalStateException("hello root", new TestException("hello mezzage", "hello planet", null))));
+        p = TypeCoercions.coerce(MutableMap.of(
+                "error-cause", MutableMap.of("glob", "*root*")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(new IllegalStateException("hello root", new TestException("hello mezzage", "hello planet", null))));
+        p = TypeCoercions.coerce(MutableMap.of(
+                "error-cause", MutableMap.of("glob", "*mezzage*")), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(new IllegalStateException("hello root", new TestException("hello mezzage", "hello planet", null))));
+        Asserts.assertTrue(p.test(new IllegalStateException("hello mezzage", new TestException("hello sub", "hello planet", null))));
+        Asserts.assertFalse(p.test(new IllegalStateException("hello root", new TestException("hello sub", "hello planet", null))));
     }
 
     @Test
