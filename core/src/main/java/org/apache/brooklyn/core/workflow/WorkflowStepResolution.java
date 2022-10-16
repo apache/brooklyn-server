@@ -44,6 +44,8 @@ public class WorkflowStepResolution {
     }
 
     static WorkflowStepDefinition resolveStep(ManagementContext mgmt, Object def) {
+        if (def instanceof WorkflowStepDefinition) return (WorkflowStepDefinition) def;
+
         BrooklynClassLoadingContext loader = RegisteredTypes.getCurrentClassLoadingContextOrManagement(mgmt);
         String shorthand = null;
 
@@ -106,13 +108,7 @@ public class WorkflowStepResolution {
 
             List<Object> onError = defW.getOnError();
             if (onError!=null && !onError.isEmpty()) {
-                defW.onError = MutableList.of();
-                onError.forEach(errorStep -> {
-                    WorkflowStepDefinition errorStepResolved = resolveStep(mgmt, errorStep);
-                    errorStepResolved.validateStep();
-                    if (errorStepResolved.getId()!=null) throw new IllegalArgumentException("Error handler steps are not permitted to have IDs: "+errorStep);
-                    defW.onError.add(errorStepResolved);
-                });
+                defW.onError = (List) resolveOnErrorSteps(mgmt, onError);
             }
 
             defW.validateStep();
@@ -121,6 +117,20 @@ public class WorkflowStepResolution {
         } else {
             throw new IllegalArgumentException("Unable to resolve step; unexpected object "+ def);
         }
+    }
+
+    public static List<WorkflowStepDefinition> resolveOnErrorSteps(ManagementContext mgmt, List<Object> onError) {
+        List<WorkflowStepDefinition> result = MutableList.of();
+        if (onError!=null) {
+            onError.forEach(errorStep -> {
+                WorkflowStepDefinition errorStepResolved = resolveStep(mgmt, errorStep);
+                errorStepResolved.validateStep();
+                if (errorStepResolved.getId() != null)
+                    throw new IllegalArgumentException("Error handler steps are not permitted to have IDs: " + errorStep);
+                result.add(errorStepResolved);
+            });
+        }
+        return result;
     }
 
     public static void validateWorkflowParameters(BrooklynObject entityOrAdjunctWhereRunningIfKnown, ConfigBag params) {

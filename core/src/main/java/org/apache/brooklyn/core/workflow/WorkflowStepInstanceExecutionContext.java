@@ -57,8 +57,6 @@ public class WorkflowStepInstanceExecutionContext {
     Map<String,Object> input = MutableMap.of();
     transient WorkflowExecutionContext context;
 
-    WorkflowStepInstanceExecutionContext errorHandlerContext;
-
     /** set if the step is in an error handler context, containing the error being handled */
     Throwable error;
 
@@ -92,10 +90,6 @@ public class WorkflowStepInstanceExecutionContext {
 
     public int getStepIndex() {
         return stepIndex;
-    }
-
-    public WorkflowStepInstanceExecutionContext getErrorHandlerContext() {
-        return errorHandlerContext;
     }
 
     /** Returns the resolved value of the given key, converting to the type of the key */

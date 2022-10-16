@@ -18,12 +18,15 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.base.Throwables;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagementSupport;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
@@ -49,7 +52,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicApplication> {
 
@@ -73,11 +79,15 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         return runSteps(MutableList.<Object>of(step), appFunction);
     }
     Task<?> runSteps(List<Object> steps, Consumer<BasicApplication> appFunction) {
+        return runSteps(steps, appFunction, null);
+    }
+    Task<?> runSteps(List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag initialEffectorConfig) {
         BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
         this.app = app;
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.STEPS, steps)
+                .copy(initialEffectorConfig)
         );
         if (appFunction!=null) appFunction.accept(app);
         eff.apply((EntityLocal)app);
@@ -518,7 +528,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
-    public void testSimpleErrorHandler() throws IOException {
+    public void testSimpleErrorHandlerOnStep() throws IOException {
         lastInvocation = runSteps(MutableList.of(
                     MutableMap.of("s", "invoke-effector does-not-exist",
                         "output", "should have failed",
@@ -527,6 +537,94 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                                         "output", "error-handler worked!")))),
                     null);
         Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+    }
+
+    @Test
+    public void testSimpleErrorHandlerOnWorkflow() throws IOException {
+        lastInvocation = runSteps(MutableList.of(
+                        MutableMap.of("s", "invoke-effector does-not-exist",
+                                "output", "should have failed")),
+                null,
+                ConfigBag.newInstance().configure(
+                                WorkflowEffector.ON_ERROR, MutableList.of(
+                                        MutableMap.of("type", "no-op",
+                                                "output", "error-handler worked!"))));
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+    }
+
+    @Test
+    public void testTimeoutOnStep() throws Exception {
+        doTestTimeout(false, true);
+    }
+
+    @Test
+    public void testTimeoutOnWorkflow() throws Exception {
+        doTestTimeout(false, false);
+    }
+
+    @Test
+    public void testTimeoutNotApplyingOnStep() throws Exception {
+        doTestTimeout(true, true);
+    }
+
+    @Test
+    public void testTimeoutNotApplyingOnWorkflow() throws Exception {
+        doTestTimeout(true, false);
+    }
+
+    public void doTestTimeout(boolean finishesBeforeTimeout, boolean onStep) throws Exception {
+        Stopwatch sw = Stopwatch.createStarted();
+        Duration sleepTime, timeout;
+        ConfigBag effConfig = ConfigBag.newInstance();
+        if (finishesBeforeTimeout) {
+            sleepTime = Duration.seconds(1);
+            timeout = Duration.seconds(10);
+        } else {
+            sleepTime = Duration.seconds(10);
+            timeout = Duration.seconds(1);
+        }
+
+        Map<String,Object> step = MutableMap.of("s", "sleep "+sleepTime);
+        if (!onStep) effConfig.configure(WorkflowEffector.TIMEOUT, timeout);
+        else step.put("timeout", ""+timeout);
+
+        try {
+            lastInvocation = runSteps(MutableList.of(step), null, effConfig);
+            Object result = lastInvocation.getUnchecked();
+
+            if (finishesBeforeTimeout) {
+                // expected
+            } else {
+                throw Asserts.fail("Should have timed out, instead gave: " + result);
+            }
+
+        } catch (Exception e) {
+            if (!finishesBeforeTimeout && Exceptions.getFirstThrowableOfType(e, onStep ? (Class)TimeoutException.class : CancellationException.class)!=null) {
+                // expected; for step, the workflow should always capture it as a timeout exception;
+                // for workflow-level timeouts, per comments in WorkflowExecutionContext where it throws TimeoutException,
+                // we cannot easily prevent a CancellationException from being reported
+            } else {
+                throw Asserts.fail(e);
+            }
+        }
+
+        if (finishesBeforeTimeout) {
+            if (Duration.of(sw).isShorterThan(sleepTime))
+                Asserts.fail("Finished too quick: " + Duration.of(sw));
+            if (Duration.of(sw).isLongerThan(timeout)) Asserts.fail("Took too long: " + Duration.of(sw));
+        } else {
+            if (Duration.of(sw).isShorterThan(timeout)) Asserts.fail("Finished too quick: " + Duration.of(sw));
+            if (Duration.of(sw).isLongerThan(sleepTime)) Asserts.fail("Took too long: " + Duration.of(sw));
+        }
+
+        //app.getManagementContext().getExecutionManager().getTasksWithAllTags(
+        Asserts.eventually(() -> ((EntityInternal)app).getExecutionContext().getTasks().stream().filter(t -> !t.isDone()).collect(Collectors.toList()),
+            unfinishedTasks -> {
+                System.out.println("TASKS: "+unfinishedTasks);
+                System.out.println(lastInvocation);
+                return unfinishedTasks.isEmpty();
+            }, Duration.FIVE_SECONDS
+        );
     }
 
 }

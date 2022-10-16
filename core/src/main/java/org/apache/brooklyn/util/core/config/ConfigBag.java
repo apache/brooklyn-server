@@ -682,9 +682,11 @@ public class ConfigBag {
     protected ConfigBag copyWhileSynched(ConfigBag other) {
         if (sealed) 
             throw new IllegalStateException("Cannot copy "+other+" to "+this+": this config bag has been sealed and is now immutable.");
-        putAll(other.getAllConfig());
-        markAll(Sets.difference(other.getAllConfig().keySet(), other.getUnusedConfig().keySet()));
-        setDescription(other.getDescription());
+        if (other!=null) {
+            putAll(other.getAllConfig());
+            markAll(Sets.difference(other.getAllConfig().keySet(), other.getUnusedConfig().keySet()));
+            setDescription(other.getDescription());
+        }
         return this;
     }
 

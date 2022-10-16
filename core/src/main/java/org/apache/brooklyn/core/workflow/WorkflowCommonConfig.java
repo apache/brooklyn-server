@@ -24,6 +24,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.AddEffectorInitializerAbstractProto;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
+import org.apache.brooklyn.util.time.Duration;
 
 import java.util.List;
 import java.util.Map;
@@ -43,13 +44,10 @@ public interface WorkflowCommonConfig {
     ConfigKey<WorkflowReplayUtils.ReplayableOption> REPLAYABLE = ConfigKeys.newConfigKey(WorkflowReplayUtils.ReplayableOption.class, "replayable",
             "Indication of from what points the workflow is replayable");
 
-    // TODO
-//    //    timeout:  a duration, after which the task is interrupted (and should cancel the task); if omitted, there is no explicit timeout at a step (the containing workflow may have a timeout)
-//    protected Duration timeout;
-//    public Duration getTimeout() {
-//        return timeout;
-//    }
-    // TODO
-//    on-error:  a description of how to handle errors section
+    ConfigKey<List<Object>> ON_ERROR = ConfigKeys.newConfigKey(new TypeToken<List<Object>>() {}, "on-error",
+            "List of potential error handlers");
+
+    ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout",
+            "Time after which a workflow should be automatically interrupted and failed");
 
 }

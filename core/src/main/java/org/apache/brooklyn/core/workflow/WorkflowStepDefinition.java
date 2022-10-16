@@ -96,6 +96,7 @@ public abstract class WorkflowStepDefinition {
         return timeout;
     }
 
+    // might be nice to support a shorthand for on-error; but not yet
     @JsonProperty("on-error")
     protected List<Object> onError = MutableList.of();
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -149,7 +150,7 @@ public abstract class WorkflowStepDefinition {
     protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions, Integer errorHandlerIndex, Task<?> errorHandlerParentTask) {
         Task<?> t = Tasks.builder().displayName((errorHandlerIndex!=null ? "Error handler "+(errorHandlerIndex+1)+" for: " : "") + computeName(context, true))
                 //.tag(context)  // used to do this
-                .tag(errorHandlerIndex!=null ? BrooklynTaskTags.tagForWorkflowError(context, ""+errorHandlerIndex, errorHandlerParentTask.getId()) : BrooklynTaskTags.tagForWorkflow(context))
+                .tag(errorHandlerIndex!=null ? BrooklynTaskTags.tagForWorkflowStepErrorHandler(context, ""+errorHandlerIndex, errorHandlerParentTask.getId()) : BrooklynTaskTags.tagForWorkflow(context))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .tag(TaskTags.INESSENTIAL_TASK)  // we handle this specially, don't want the thread to fail
                 .body(() -> {

@@ -29,6 +29,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.Callable;
 
 public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.WorkflowErrorHandlingResult> {
@@ -42,29 +43,40 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
      * if any of the handler steps match, the parent will have ERROR_HANDLED_BY pointing at it, and will have a task with the workflow tag with
      * 'errorHandlerForTask' field pointing at the parent and also 'errorHandlerIndex' set to the index in the step's error list, but not ERROR_HANDLED_BY.
      *
-     * the step context's errorHandlerContext will point at the error handler context,
+     * the workflow execution context's errorHandlerContext will point at the error handler context,
      * but this is cleared when the step runs, and sub-workflows there are not stored or replayable.
      */
 
     /** returns a result, or null if nothing applied (and caller should rethrow the error) */
-    public static Task<WorkflowErrorHandlingResult> createTask(WorkflowStepDefinition step, WorkflowStepInstanceExecutionContext context, Task<?> stepTask, Exception error) {
+    public static Task<WorkflowErrorHandlingResult> createStepErrorHandlerTask(WorkflowStepDefinition step, WorkflowStepInstanceExecutionContext context, Task<?> stepTask, Throwable error) {
         log.debug("Creating handler for error in step '" + stepTask.getDisplayName() + ": " + Exceptions.collapseText(error));
         Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName("Error handler for: " + stepTask.getDisplayName())
-                .tag(BrooklynTaskTags.tagForWorkflowError(context, null, context.getTaskId()))
-                .body(new WorkflowErrorHandling(step, context, stepTask, error))
+                .tag(BrooklynTaskTags.tagForWorkflowStepErrorHandler(context, null, context.getTaskId()))
+                .body(new WorkflowErrorHandling(step.getOnError(), context.getWorkflowExectionContext(), stepTask, error))
                 .build();
         TaskTags.addTagDynamically(stepTask, BrooklynTaskTags.tagForErrorHandledBy(task));
         return task;
     }
 
-    final WorkflowStepDefinition step;
-    final WorkflowStepInstanceExecutionContext callerContext;
-    final Task<?> stepTask;
-    final Exception error;
+    /** returns a result, or null if nothing applied (and caller should rethrow the error) */
+    public static Task<WorkflowErrorHandlingResult> createWorkflowErrorHandlerTask(WorkflowExecutionContext context, Task<?> workflowTask, Throwable error) {
+        log.debug("Creating handler for error in workflow '" + workflowTask.getDisplayName() + ": " + Exceptions.collapseText(error));
+        Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName("Error handler for: " + workflowTask.getDisplayName())
+                .tag(BrooklynTaskTags.tagForWorkflowStepErrorHandler(context))
+                .body(new WorkflowErrorHandling(context.onError, context, workflowTask, error))
+                .build();
+        TaskTags.addTagDynamically(workflowTask, BrooklynTaskTags.tagForErrorHandledBy(task));
+        return task;
+    }
 
-    public WorkflowErrorHandling(WorkflowStepDefinition step, WorkflowStepInstanceExecutionContext context, Task<?> stepTask, Exception error) {
-        this.step = step;
-        this.callerContext = context;
+    final List<WorkflowStepDefinition> errorOptions;
+    final WorkflowExecutionContext context;
+    final Task<?> stepTask;
+    final Throwable error;
+
+    public WorkflowErrorHandling(List<Object> errorOptions, WorkflowExecutionContext context, Task<?> stepTask, Throwable error) {
+        this.errorOptions = WorkflowStepResolution.resolveOnErrorSteps(context.getManagementContext(), errorOptions);
+        this.context = context;
         this.stepTask = stepTask;
         this.error = error;
     }
@@ -72,16 +84,16 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     @Override
     public WorkflowErrorHandlingResult call() throws Exception {
         WorkflowErrorHandlingResult result = new WorkflowErrorHandlingResult();
-        log.debug("Running handler for error in step '" + stepTask.getDisplayName() + ", "+step.getOnError().size()+" handler option(s)");
+        log.debug("Running handler for error in step '" + stepTask.getDisplayName() + ", "+ errorOptions.size()+" handler option(s)");
         Task handlerParent = Tasks.current();
 
-        for (int i=0; i<step.getOnError().size(); i++) {
+        for (int i = 0; i< errorOptions.size(); i++) {
             // go through steps, find first that matches
 
-            WorkflowStepDefinition errorStep = (WorkflowStepDefinition) step.getOnError().get(i);
+            WorkflowStepDefinition errorStep = errorOptions.get(i);
 
-            WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(-3, errorStep, callerContext.getWorkflowExectionContext());
-            callerContext.errorHandlerContext = handlerContext;
+            WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(-3, errorStep, context);
+            context.errorHandlerContext = handlerContext;
             handlerContext.error = error;
 
             DslPredicates.DslPredicate condition = errorStep.getConditionResolved(handlerContext);

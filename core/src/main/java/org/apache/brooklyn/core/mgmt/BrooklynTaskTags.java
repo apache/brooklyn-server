@@ -512,11 +512,17 @@ public class BrooklynTaskTags extends TaskTags {
         return t;
     }
 
-    public static WorkflowTaskTag tagForWorkflowError(WorkflowStepInstanceExecutionContext workflowStep, String errorHandlerIndex, String errorHandlerForTask) {
+    public static WorkflowTaskTag tagForWorkflowStepErrorHandler(WorkflowStepInstanceExecutionContext workflowStep, String errorHandlerIndex, String errorHandlerForTask) {
         WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
-        t.stepIndex = workflowStep.getStepIndex();
+        t.stepIndex = workflowStep!=null ? workflowStep.getStepIndex() : null;
         t.errorHandlerIndex = errorHandlerIndex;
         t.errorHandlerForTask = errorHandlerForTask;
+        if (Strings.isBlank(t.errorHandlerForTask)) t.errorHandlerForTask = "task-unavailable";  // ensure not null
+        return t;
+    }
+    public static WorkflowTaskTag tagForWorkflowStepErrorHandler(WorkflowExecutionContext context) {
+        WorkflowTaskTag t = tagForWorkflow(context);
+        t.errorHandlerForTask = context.getTaskId();
         if (Strings.isBlank(t.errorHandlerForTask)) t.errorHandlerForTask = "task-unavailable";  // ensure not null
         return t;
     }
