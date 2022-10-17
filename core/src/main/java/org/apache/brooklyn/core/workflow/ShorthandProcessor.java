@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import org.apache.brooklyn.util.collections.CollectionMerger;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -27,6 +28,8 @@ import org.apache.brooklyn.util.text.Strings;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +42,7 @@ import java.util.stream.Collectors;
  *
  * ${VAR} - to set VAR, which should be of the regex [A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*, with dot separation used to set nested maps;
  *   will match a quoted string if supplied, else up to the next literal if the next token is a literal, else the next work.
+ * ${VAR...} - as above, but will collect multiple args if needed (if the next token is a literal matched further on, or if at end of word)
  * "LITERAL" - to expect a literal expression. this must include the quotation marks and should include spaces if spaces are required.
  * [ TOKEN ] - to indicate TOKEN is optional, where TOKEN is one of the above sections. parsing is attempted first with it, then without it.
  * [ ?${VAR} TOKEN ] - as `[ TOKEN ]` but VAR is set true or false depending whether this optional section was matched.
@@ -72,6 +76,7 @@ public class ShorthandProcessor {
         boolean optionalSkippingInput = false;
         private String inputRemaining;
         Map<String, Object> result;
+        Consumer<String> valueUpdater;
 
         ShorthandProcessorAttempt(ShorthandProcessor proc, String input) {
             this.template = proc.template;
@@ -94,7 +99,15 @@ public class ShorthandProcessor {
             }
             Maybe<Object> error = doCall();
             if (error.isAbsent()) return Maybe.Absent.castAbsent(error);
-            if (Strings.isNonBlank(inputRemaining)) return Maybe.absent("Input has trailing characters after template is matched: '"+inputRemaining+"'");
+            inputRemaining = Strings.trimStart(inputRemaining);
+            if (Strings.isNonBlank(inputRemaining)) {
+                if (valueUpdater!=null) {
+                    QuotedStringTokenizer qstInput = qst(inputRemaining);
+                    valueUpdater.accept(getRemainderPossiblyRaw(qstInput));
+                } else {
+                    return Maybe.absent("Input has trailing characters after template is matched: '" + inputRemaining + "'");
+                }
+            }
             return Maybe.of(result);
         }
 
@@ -135,7 +148,9 @@ public class ShorthandProcessor {
                     }
                     Maybe<Object> cr;
                     if (!optionalSkippingInput) {
-                        MutableMap<String, Object> backupResult = MutableMap.copyOf(result);
+                        // make a deep copy so that valueUpdater writes get replayed
+                        Map<String, Object> backupResult = (Map) CollectionMerger.builder().deep(true).build().merge(MutableMap.of(), result);
+                        Consumer<String> backupValueUpdater = valueUpdater;
                         String backupInputRemaining = inputRemaining;
                         List<String> backupTemplateTokens = MutableList.copyOf(templateTokens);
 
@@ -149,6 +164,7 @@ public class ShorthandProcessor {
                         } else {
                             // restore
                             result = backupResult;
+                            valueUpdater = backupValueUpdater;
                             if (optionalPresentVar!=null) result.put(optionalPresentVar, false);
                             inputRemaining = backupInputRemaining;
                             templateTokens.clear();
@@ -163,7 +179,10 @@ public class ShorthandProcessor {
                             }
                         }
                     } else {
-                        if (optionalPresentVar!=null) result.put(optionalPresentVar, false);
+                        if (optionalPresentVar!=null) {
+                            result.put(optionalPresentVar, false);
+                            valueUpdater = null;
+                        }
                         optionalDepth++;
                         cr = doCall();
                         if (cr.isPresent()) {
@@ -187,11 +206,20 @@ public class ShorthandProcessor {
                     String literal = qst.unwrapIfQuoted(t);
                     do {
                         // ignore leading spaces (since the quoted string tokenizer will have done that anyway); but their _absence_ can be significant for intra-token searching when matching a var
-                        if (Strings.trimStart(inputRemaining).startsWith(Strings.trimStart(literal))) {
-                            inputRemaining = Strings.trimStart(inputRemaining).substring(Strings.trimStart(literal).length());
+                        inputRemaining = Strings.trimStart(inputRemaining);
+                        if (inputRemaining.startsWith(Strings.trimStart(literal))) {
+                            // literal found
+                            inputRemaining = inputRemaining.substring(Strings.trimStart(literal).length());
                             continue outer;
                         }
                         if (inputRemaining.isEmpty()) return Maybe.absent("Literal '"+literal+"' expected, when end of input reached");
+                        if (valueUpdater!=null) {
+                            QuotedStringTokenizer qstInput = qst(inputRemaining);
+                            if (!qstInput.hasMoreTokens()) return Maybe.absent("Literal '"+literal+"' expected, when end of input tokens reached");
+                            String value = getNextInputTokenUpToPossibleExpectedLiteral(qstInput, literal);
+                            valueUpdater.accept(value);
+                            continue;
+                        }
                         return Maybe.absent("Literal '"+literal+"' expected, when encountered '"+inputRemaining+"'");
                     } while (true);
                 }
@@ -208,64 +236,96 @@ public class ShorthandProcessor {
 
                     if (!templateTokens.stream().filter(x -> !x.equals("]")).findFirst().isPresent()) {
                         // last word (whether optional or not) takes everything, but trimmed parsed and joined with spaces
-                        if (finalMatchRaw) {
-                            value = Strings.join(qstInput.remainderRaw(), "");
-                        } else {
-                            List<String> remainder = qstInput.remainderAsList();
-                            value = Strings.join(remainder.stream()
-                                    .map(qstInput::unwrapIfQuoted)
-                                    .collect(Collectors.toList()), " ");
-                        }
+                        value = getRemainderPossiblyRaw(qstInput);
                         inputRemaining = "";
 
                     } else {
-                        String v = qstInput.nextToken();
-                        if (qstInput.isQuoted(v)) {
-                            // input was quoted, eg "\"foo=b\" ..." -- ignore the = in "foo=b"
-                            value = qstInput.unwrapIfQuoted(v);
-                            inputRemaining = inputRemaining.substring(v.length());
-                        } else {
-                            // input not quoted, if next template token is literal, look for it
-                            String nextLiteral = templateTokens.get(0);
-                            if (qstInput.isQuoted(nextLiteral)) {
-                                nextLiteral = qstInput.unwrapIfQuoted(nextLiteral);
-                                int nli = v.indexOf(nextLiteral);
-                                if (nli>0) {
-                                    // literal found in unquoted string, eg "foo=bar" when literal is =
-                                    value = v.substring(0, nli);
-                                    inputRemaining = inputRemaining.substring(value.length());
-                                } else {
-                                    // literal not found
-                                    value = v;
-                                    inputRemaining = inputRemaining.substring(value.length());
-                                }
+                        value = getNextInputTokenUpToPossibleExpectedLiteral(qstInput, null);
+                    }
+                    boolean multiMatch = t.endsWith("...");
+                    if (multiMatch) t = Strings.removeFromEnd(t, "...");
+                    String keys[] = t.split("\\.");
+                    final String tt = t;
+                    valueUpdater = v2 -> {
+                        Map target = result;
+                        for (int i=0; i<keys.length; i++) {
+                            if (!Pattern.compile("[A-Za-z0-9_-]+").matcher(keys[i]).matches()) {
+                                throw new IllegalArgumentException("Invalid variable '"+tt+"'");
+                            }
+                            if (i == keys.length - 1) {
+                                target.compute(keys[i], (k, v) -> v == null ? v2 : v + " " + v2);
                             } else {
-                                // next is not a literal, so the whole token is the value
-                                value = v;
-                                inputRemaining = inputRemaining.substring(value.length());
+                                // need to make sure we have a map or null
+                                target = (Map) target.compute(keys[i], (k, v) -> {
+                                    if (v == null) return MutableMap.of();
+                                    if (v instanceof Map) return v;
+                                    return Maybe.absent("Cannot process shorthand for " + Arrays.asList(keys) + " because entry '" + k + "' is not a map (" + v + ")");
+                                });
                             }
                         }
-                    }
-                    String keys[] = t.split("\\.");
-                    Map target = result;
-                    for (int i=0; i<keys.length; i++) {
-                        if (i==keys.length-1) target.put(keys[i], value);
-                        else {
-                            // need to make sure we have a map or null
-                            target = (Map) target.compute(keys[i], (k,v) -> {
-                                if (v==null) return MutableMap.of();
-                                if (v instanceof Map) return v;
-                                return Maybe.absent("Cannot process shorthand for "+ Arrays.asList(keys)+" because entry '"+k+"' is not a map ("+v+")");
-                            });
-                        }
-                    }
-
+                    };
+                    valueUpdater.accept(value);
+                    if (!multiMatch) valueUpdater = null;
                     continue;
                 }
 
                 // unexpected token
                 return Maybe.absent("Unexpected token in shorthand pattern '"+template+"'");
             }
+        }
+
+        private String getRemainderPossiblyRaw(QuotedStringTokenizer qstInput) {
+            String value;
+            if (finalMatchRaw) {
+                value = Strings.join(qstInput.remainderRaw(), "");
+            } else {
+                List<String> remainder = qstInput.remainderAsList();
+                value = remainder.stream()
+                        .map(qstInput::unwrapIfQuoted)
+                        .collect(Collectors.joining(" "));
+            }
+            return value;
+        }
+
+        private String getNextInputTokenUpToPossibleExpectedLiteral(QuotedStringTokenizer qstInput, String nextLiteral) {
+            String value;
+            String v = qstInput.nextToken();
+            if (qstInput.isQuoted(v)) {
+                // input was quoted, eg "\"foo=b\" ..." -- ignore the = in "foo=b"
+                value = qstInput.unwrapIfQuoted(v);
+                inputRemaining = inputRemaining.substring(v.length());
+            } else {
+                // input not quoted, if next template token is literal, look for it
+                boolean isLiteralExpected;
+                if (nextLiteral==null) {
+                    nextLiteral = templateTokens.get(0);
+                    if (qstInput.isQuoted(nextLiteral)) {
+                        nextLiteral = qstInput.unwrapIfQuoted(nextLiteral);
+                        isLiteralExpected = true;
+                    } else {
+                        isLiteralExpected = false;
+                    }
+                } else {
+                    isLiteralExpected = true;
+                }
+                if (isLiteralExpected) {
+                    int nli = v.indexOf(nextLiteral);
+                    if (nli>0) {
+                        // literal found in unquoted string, eg "foo=bar" when literal is =
+                        value = v.substring(0, nli);
+                        inputRemaining = inputRemaining.substring(value.length());
+                    } else {
+                        // literal not found
+                        value = v;
+                        inputRemaining = inputRemaining.substring(value.length());
+                    }
+                } else {
+                    // next is not a literal, so the whole token is the value
+                    value = v;
+                    inputRemaining = inputRemaining.substring(value.length());
+                }
+            }
+            return value;
         }
     }
 

@@ -26,7 +26,7 @@ import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 
 public class ReturnWorkflowStep extends WorkflowStepDefinition {
 
-    public static final String SHORTHAND = "${value}";
+    public static final String SHORTHAND = "${value...}";
 
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 

@@ -33,7 +33,7 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
 
-    public static final String SHORTHAND = "${message}";
+    public static final String SHORTHAND = "${message...}";
     public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
 
     @Override

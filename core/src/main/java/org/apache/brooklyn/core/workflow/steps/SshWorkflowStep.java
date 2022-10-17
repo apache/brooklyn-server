@@ -41,7 +41,7 @@ import java.util.Map;
 
 public class SshWorkflowStep extends WorkflowStepDefinition {
 
-    public static final String SHORTHAND = "[ \"to \" ${endpoint} ] ${command}";
+    public static final String SHORTHAND = "[ \"to \" ${endpoint} ] ${command...}";
 
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");

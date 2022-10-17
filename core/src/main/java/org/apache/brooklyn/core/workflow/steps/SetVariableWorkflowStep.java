@@ -42,7 +42,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(SetVariableWorkflowStep.class);
 
-    public static final String SHORTHAND = "[ ?${trim} \"trimmed\" ] [ ${variable.type} ] ${variable.name} \"=\" ${value}";
+    public static final String SHORTHAND = "[ ?${trim} \"trimmed\" ] [ ${variable.type} ] ${variable.name} \"=\" ${value...}";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");

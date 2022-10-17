@@ -108,4 +108,17 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         assertShorthandOfGives("${x} [ ${y} ]", "hi world 1 and 2", MutableMap.of("x", "hi", "y", "world 1 and 2"));
     }
 
+    @Test
+    public void testMultiWordShorthand() {
+        assertShorthandOfGives("${x...} \" is \" ${y}", "a b is c", MutableMap.of("x", "a b", "y", "c"));
+        assertShorthandOfGives("[${type}] ${key...} \"=\" ${value}", "integer a b x=1", MutableMap.of("type", "integer", "key", "a b x", "value", "1"));
+        assertShorthandOfGives("[${type}] ${key...} [\"=\" ${value}]", "integer a b x=1", MutableMap.of("type", "integer", "key", "a b x", "value", "1"));
+        assertShorthandOfGives("[${type}] ${key...} [\"=\" ${value}]", "integer a b x", MutableMap.of("type", "integer", "key", "a b x"));
+
+        assertShorthandFailsWith("[${type}] ${key} [\"=\" ${value}]", "integer a b x",
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "input", "trailing characters", "b x"));
+        assertShorthandFailsWith("[${type}] ${key%...} [\"=\" ${value}]", "integer a b x",
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "invalid", "key%"));
+    }
+
 }

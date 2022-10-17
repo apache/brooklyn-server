@@ -35,7 +35,7 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger LOG = LoggerFactory.getLogger(SetSensorWorkflowStep.class);
 
-    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} \"=\" ${value}";
+    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} \"=\" ${value...}";
 
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
