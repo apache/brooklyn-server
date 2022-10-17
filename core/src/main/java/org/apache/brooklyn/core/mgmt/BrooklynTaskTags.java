@@ -471,7 +471,7 @@ public class BrooklynTaskTags extends TaskTags {
         // TODO handle these in the UI:
         protected String supersededByWorkflow;
         protected String errorHandlerForTask;
-        protected String errorHandlerIndex;
+        protected Integer errorHandlerIndex;
 
         public String getApplicationId() {
             return applicationId;
@@ -497,6 +497,10 @@ public class BrooklynTaskTags extends TaskTags {
         public void setSupersededByWorkflow(String supersededByWorkflow) {
             this.supersededByWorkflow = supersededByWorkflow;
         }
+
+        public Integer getErrorHandlerIndex() {
+            return errorHandlerIndex;
+        }
     }
 
     public static WorkflowTaskTag tagForWorkflow(WorkflowExecutionContext workflow) {
@@ -512,7 +516,7 @@ public class BrooklynTaskTags extends TaskTags {
         return t;
     }
 
-    public static WorkflowTaskTag tagForWorkflowStepErrorHandler(WorkflowStepInstanceExecutionContext workflowStep, String errorHandlerIndex, String errorHandlerForTask) {
+    public static WorkflowTaskTag tagForWorkflowStepErrorHandler(WorkflowStepInstanceExecutionContext workflowStep, Integer errorHandlerIndex, String errorHandlerForTask) {
         WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
         t.stepIndex = workflowStep!=null ? workflowStep.getStepIndex() : null;
         t.errorHandlerIndex = errorHandlerIndex;

@@ -139,23 +139,24 @@ public abstract class WorkflowStepDefinition {
         return newTask(context, false, null, null, null);
     }
 
-    final Task<?> newTaskForErrorHandler(WorkflowStepInstanceExecutionContext context, int errorHandlerIndex, Task<?> errorHandlerParentTask) {
-        return newTask(context, false, null, errorHandlerIndex, errorHandlerParentTask);
+    final Task<?> newTaskForErrorHandler(WorkflowStepInstanceExecutionContext context, String specialName, BrooklynTaskTags.WorkflowTaskTag specialTag) {
+        return newTask(context, false, null, specialName, specialTag);
     }
 
     final Task<?> newTaskContinuing(WorkflowStepInstanceExecutionContext context, ReplayContinuationInstructions continuationInstructions) {
         return newTask(context, true, continuationInstructions, null, null);
     }
 
-    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions, Integer errorHandlerIndex, Task<?> errorHandlerParentTask) {
-        Task<?> t = Tasks.builder().displayName((errorHandlerIndex!=null ? "Error handler "+(errorHandlerIndex+1)+" for: " : "") + computeName(context, true))
-                //.tag(context)  // used to do this
-                .tag(errorHandlerIndex!=null ? BrooklynTaskTags.tagForWorkflowStepErrorHandler(context, ""+errorHandlerIndex, errorHandlerParentTask.getId()) : BrooklynTaskTags.tagForWorkflow(context))
+    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions,
+                              String specialName, BrooklynTaskTags.WorkflowTaskTag tagOverride) {
+//                              Integer errorHandlerIndex, Task<?> errorHandlerParentTask) {
+        Task<?> t = Tasks.builder().displayName(specialName!=null ? specialName : computeName(context, true))
+                .tag(tagOverride != null ? tagOverride : BrooklynTaskTags.tagForWorkflow(context))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .tag(TaskTags.INESSENTIAL_TASK)  // we handle this specially, don't want the thread to fail
                 .body(() -> {
-            log.debug("Starting "+(errorHandlerIndex!=null ? "error handler "+errorHandlerIndex+" for " : "")+
-                    "step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this)
+            log.debug("Starting " +
+                    (specialName!=null ? specialName : "step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this))
                     + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
                     + (continuationInstructions!=null ? " with custom behaviour" +
                         (continuationInstructions.customBehaviourExplanation!=null ? "("+continuationInstructions.customBehaviourExplanation+")" : "") : "")

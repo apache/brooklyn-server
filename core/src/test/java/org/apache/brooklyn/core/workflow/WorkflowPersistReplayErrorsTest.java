@@ -36,6 +36,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -529,27 +530,59 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
     @Test
     public void testSimpleErrorHandlerOnStep() throws IOException {
-        lastInvocation = runSteps(MutableList.of(
-                    MutableMap.of("s", "invoke-effector does-not-exist",
-                        "output", "should have failed",
-                        "on-error", MutableList.of(
-                                MutableMap.of("type", "no-op",
-                                        "output", "error-handler worked!")))),
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName())) {
+            lastInvocation = runSteps(MutableList.of(
+                            MutableMap.of("s", "invoke-effector does-not-exist",
+                                    "output", "should have failed",
+                                    "on-error", MutableList.of(
+                                            MutableMap.of("type", "no-op",
+                                                    "output", "error-handler worked!")))),
                     null);
-        Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+            Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+
+            List<String> msgs = logWatcher.getMessages();
+            log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
+            Asserts.assertEntriesSatisfy(msgs, MutableList.of(
+                m -> m.matches("Starting workflow 'Workflow for effector myWorkflow', moving to first step .*-1"),
+                m -> m.matches("Starting step .*-1 in task .*"),
+                m -> m.matches("Encountered error in step .*-1 '1 - invoke-effector does-not-exist' .handler present.: No effector matching 'does-not-exist'"),
+                m -> m.matches("Creating step .*-1 error handler .*-1-error-handler in task .*"),
+                m -> m.matches("Starting .*-1-error-handler with 1 handler in task .*"),
+                m -> m.matches("Creating handler .*-1-error-handler-1 'NoOp' in task .*"),
+                m -> m.matches("Starting .*-1-error-handler-1 in task .*"),
+                m -> m.matches("Completed handler .*-1-error-handler-1; proceeding to default next step"),
+                m -> m.matches("Completed step .*-1; no further steps: Workflow completed")));
+        }
     }
 
     @Test
     public void testSimpleErrorHandlerOnWorkflow() throws IOException {
-        lastInvocation = runSteps(MutableList.of(
-                        MutableMap.of("s", "invoke-effector does-not-exist",
-                                "output", "should have failed")),
-                null,
-                ConfigBag.newInstance().configure(
-                                WorkflowEffector.ON_ERROR, MutableList.of(
-                                        MutableMap.of("type", "no-op",
-                                                "output", "error-handler worked!"))));
-        Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName())) {
+            lastInvocation = runSteps(MutableList.of(
+                            MutableMap.of("s", "invoke-effector does-not-exist",
+                                    "output", "should have failed")),
+                    null,
+                    ConfigBag.newInstance().configure(
+                            WorkflowEffector.ON_ERROR, MutableList.of(
+                                    MutableMap.of("type", "no-op",
+                                            "output", "error-handler worked!"))));
+            Asserts.assertEquals(lastInvocation.getUnchecked(), "error-handler worked!");
+
+            List<String> msgs = logWatcher.getMessages();
+            log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
+            Asserts.assertEntriesSatisfy(msgs, MutableList.of(
+                    m -> m.matches("Starting workflow 'Workflow for effector myWorkflow', moving to first step .*-1"),
+                    m -> m.matches("Starting step .*-1 in task .*"),
+                    m -> m.matches("Error in step '1 - invoke-effector does-not-exist', no error handler so rethrowing: No effector matching 'does-not-exist'"),
+                    m -> m.matches("Error in workflow 'Workflow for effector myWorkflow' around step .*-1 'myWorkflow', running error handler"),
+                    m -> m.matches("Encountered error in workflow .*/.* 'myWorkflow' .handler present.: No effector matching 'does-not-exist'"),
+                    m -> m.matches("Creating workflow .* error handler .*-error-handler in task .*"),
+                    m -> m.matches("Starting .*-error-handler with 1 handler in task .*"),
+                    m -> m.matches("Creating handler .*-error-handler-1 'NoOp' in task .*"),
+                    m -> m.matches("Starting .*-error-handler-1 in task .*"),
+                    m -> m.matches("Completed handler .*-error-handler-1; proceeding to default next step"),
+                    m -> m.matches("Handled error in workflow around step .*-1; explicit next 'end': Workflow completed")));
+        }
     }
 
     @Test

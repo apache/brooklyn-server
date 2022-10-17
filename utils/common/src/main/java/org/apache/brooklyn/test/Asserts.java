@@ -1492,6 +1492,16 @@ public class Asserts {
         throw fail("Expected absent value; instead got: "+candidate.get());
     }
 
+    public static <T> void assertEntriesSatisfy(Collection<T> list, Collection<java.util.function.Predicate<T>> tests) {
+        Asserts.assertEquals(list.size(), tests.size(), "List of test is different length to list of data to test");
+        Iterator<T> li = list.iterator();
+        Iterator<java.util.function.Predicate<T>> ti = tests.iterator();
+        for (int i=0; i<list.size(); i++) {
+            T l = li.next();
+            Asserts.assertTrue(ti.next().test(l), "Failed at index "+i+": "+l);
+        }
+    }
+
     public static MemoryAssertions startMemoryAssertions(String message) {
         MemoryAssertions result = new MemoryAssertions();
         result.pushUsedMemory(message);

@@ -736,7 +736,7 @@ public class WorkflowExecutionContext {
                     if (onError != null && !onError.isEmpty() && provisionalStatus.persistable) {
                         WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
                         try {
-                            log.debug("Error in workflow " + getName() + " around step '" + task.getDisplayName() + "', running error handler");
+                            log.debug("Error in workflow '" + getName() + "' around step "+workflowStepReference(currentStepIndex)+" '" + task.getDisplayName() + "', running error handler");
                             result = DynamicTasks.queue(WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e)).getUnchecked();
                             if (result != null) {
                                 errorHandled = true;
@@ -744,24 +744,23 @@ public class WorkflowExecutionContext {
                                 if (result.output != null) output = resolve(result.output, Object.class);
 
                                 String next = Strings.isNonBlank(result.next) ? result.next : "end";
-                                log.debug("Error in workflow " + getName() + " around step '" + task.getDisplayName() + "', error handled, proceeding to: "+next);
-                                moveToNextStep(next, "Error handled at step " + workflowStepReference(currentStepIndex));
+                                moveToNextStep(next, "Handled error in workflow around step " + workflowStepReference(currentStepIndex));
 
                                 if (currentStepIndex<stepsResolved.size()) {
                                     errorHandledAndContinuing = true;
                                 }
                             } else {
-                                log.debug("Error in workflow " + getName() + " around step '" + task.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(e));
+                                log.debug("Handler not applicable for error in workflow around step " + workflowStepReference(currentStepIndex) + ", rethrowing: " + Exceptions.collapseText(e));
                             }
 
                         } catch (Exception e2) {
-                            log.warn("Error in workflow " + getName() + " around step '" + task.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                            log.warn("Error in workflow '" + getName() + "' around step "+workflowStepReference(currentStepIndex)+" '" + task.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
                             log.debug("Full trace of original error was: " + e, e);
                             e = e2;
                         }
 
                     } else {
-                        log.debug("Error in workflow " + getName() + " around step '" + task.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
+                        log.debug("Error in workflow '" + getName() + "' around step "+workflowStepReference(currentStepIndex)+" '" + task.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
                     }
 
                     if (!errorHandled) {
@@ -955,19 +954,29 @@ public class WorkflowExecutionContext {
         }
 
         String workflowStepReference(int index) {
-            if (index>=stepsResolved.size()) return getWorkflowStepReference(index, "<END>");
+            if (index>=stepsResolved.size()) return getWorkflowStepReference(index, "<END>", false);
             return getWorkflowStepReference(index, stepsResolved.get(index));
         }
     }
 
-    @JsonIgnore
-    public String getWorkflowStepReference(int index, WorkflowStepDefinition step) {
-        return getWorkflowStepReference(index, step!=null ? step.id : null);
+    String getWorkflowStepReference(int index, WorkflowStepDefinition step) {
+        return getWorkflowStepReference(index, step!=null ? step.id : null, false);
     }
-    @JsonIgnore
-    String getWorkflowStepReference(int index, String optionalStepId) {
-        return workflowId+"-"+(index>=0 ? index+1 : indexCode(index))+
-                (Strings.isNonBlank(optionalStepId) ? "-"+optionalStepId : "");
+    String getWorkflowStepReference(int index, String optionalStepId, boolean isError) {
+        // error handler step number not always available here,
+        // and risk of ID ambiguity with error-handler phrase;
+        // only for logging so this is okay;
+        // for canonical usage, prefer the Task-based method below
+        return workflowId+"-"+(index>=0 ? index+1 : indexCode(index))
+                +(Strings.isNonBlank(optionalStepId) ? "-"+optionalStepId : "")
+                +(isError ? "-error-handler" : "");
+    }
+    String getWorkflowStepReference(Task<?> t) {
+        BrooklynTaskTags.WorkflowTaskTag wt = BrooklynTaskTags.getWorkflowTaskTag(t, false);
+        return wt.getWorkflowId()
+                +(wt.getStepIndex()!=null && wt.getStepIndex()>=0 && wt.getStepIndex()<stepsDefinition.size() ? "-"+(wt.getStepIndex()+1) : "")
+                +(wt.getErrorHandlerIndex()!=null ? "-error-handler-"+(wt.getErrorHandlerIndex()+1) : "")
+                ;
     }
 
     private String indexCode(int index) {

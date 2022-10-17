@@ -49,79 +49,90 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
     /** returns a result, or null if nothing applied (and caller should rethrow the error) */
     public static Task<WorkflowErrorHandlingResult> createStepErrorHandlerTask(WorkflowStepDefinition step, WorkflowStepInstanceExecutionContext context, Task<?> stepTask, Throwable error) {
-        log.debug("Creating handler for error in step '" + stepTask.getDisplayName() + ": " + Exceptions.collapseText(error));
-        Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName("Error handler for: " + stepTask.getDisplayName())
+        log.debug("Encountered error in step "+context.getWorkflowStepReference()+" '" + stepTask.getDisplayName() + "' (handler present): " + Exceptions.collapseText(error));
+        Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName(context.getWorkflowStepReference()+"-error-handler")
                 .tag(BrooklynTaskTags.tagForWorkflowStepErrorHandler(context, null, context.getTaskId()))
-                .body(new WorkflowErrorHandling(step.getOnError(), context.getWorkflowExectionContext(), stepTask, error))
+                .body(new WorkflowErrorHandling(step.getOnError(), context.getWorkflowExectionContext(), context.getWorkflowExectionContext().currentStepIndex, stepTask, error))
                 .build();
         TaskTags.addTagDynamically(stepTask, BrooklynTaskTags.tagForErrorHandledBy(task));
+        log.debug("Creating step "+context.getWorkflowStepReference()+" error handler "+task.getDisplayName()+" in task " + task.getId());
         return task;
     }
 
     /** returns a result, or null if nothing applied (and caller should rethrow the error) */
     public static Task<WorkflowErrorHandlingResult> createWorkflowErrorHandlerTask(WorkflowExecutionContext context, Task<?> workflowTask, Throwable error) {
-        log.debug("Creating handler for error in workflow '" + workflowTask.getDisplayName() + ": " + Exceptions.collapseText(error));
-        Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName("Error handler for: " + workflowTask.getDisplayName())
+        log.debug("Encountered error in workflow "+context.getWorkflowId()+"/"+context.getTaskId()+" '" + workflowTask.getDisplayName() + "' (handler present): " + Exceptions.collapseText(error));
+        Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName(context.getWorkflowId()+"-error-handler")
                 .tag(BrooklynTaskTags.tagForWorkflowStepErrorHandler(context))
-                .body(new WorkflowErrorHandling(context.onError, context, workflowTask, error))
+                .body(new WorkflowErrorHandling(context.onError, context, null, workflowTask, error))
                 .build();
         TaskTags.addTagDynamically(workflowTask, BrooklynTaskTags.tagForErrorHandledBy(task));
+        log.debug("Creating workflow "+context.getWorkflowId()+"/"+context.getTaskId()+" error handler "+task.getDisplayName()+" in task " + task.getId());
         return task;
     }
 
     final List<WorkflowStepDefinition> errorOptions;
     final WorkflowExecutionContext context;
-    final Task<?> stepTask;
+    final Integer stepIndexIfStepErrorHandler;
+    /** The step or the workflow task */
+    final Task<?> failedTask;
     final Throwable error;
 
-    public WorkflowErrorHandling(List<Object> errorOptions, WorkflowExecutionContext context, Task<?> stepTask, Throwable error) {
+    public WorkflowErrorHandling(List<Object> errorOptions, WorkflowExecutionContext context, Integer stepIndexIfStepErrorHandler, Task<?> failedTask, Throwable error) {
         this.errorOptions = WorkflowStepResolution.resolveOnErrorSteps(context.getManagementContext(), errorOptions);
         this.context = context;
-        this.stepTask = stepTask;
+        this.stepIndexIfStepErrorHandler = stepIndexIfStepErrorHandler;
+        this.failedTask = failedTask;
         this.error = error;
     }
 
     @Override
     public WorkflowErrorHandlingResult call() throws Exception {
         WorkflowErrorHandlingResult result = new WorkflowErrorHandlingResult();
-        log.debug("Running handler for error in step '" + stepTask.getDisplayName() + ", "+ errorOptions.size()+" handler option(s)");
         Task handlerParent = Tasks.current();
+        log.debug("Starting "+handlerParent.getDisplayName()+" with "+ errorOptions.size()+" handler"+(errorOptions.size()!=1 ? " options" : "")+" in task "+handlerParent.getId());
 
         for (int i = 0; i< errorOptions.size(); i++) {
             // go through steps, find first that matches
 
             WorkflowStepDefinition errorStep = errorOptions.get(i);
 
-            WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(-3, errorStep, context);
+            WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(stepIndexIfStepErrorHandler!=null ? stepIndexIfStepErrorHandler : -3, errorStep, context);
             context.errorHandlerContext = handlerContext;
             handlerContext.error = error;
 
+            String potentialTaskName = Tasks.current().getDisplayName()+"-"+(i+1);
             DslPredicates.DslPredicate condition = errorStep.getConditionResolved(handlerContext);
             if (condition!=null) {
-                // TODO new tests on predicate: instance-of (condition), error-cause, error-field
-
-                if (log.isTraceEnabled()) log.trace("Considering condition " + condition + " for error handler " + i);
+                if (log.isTraceEnabled()) log.trace("Considering condition " + condition + " for " + potentialTaskName);
                 boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(condition, error, handlerContext.getEntity());
-                if (log.isTraceEnabled()) log.trace("Considered condition " + condition + " for error handler " + i + ": " + conditionMet);
+                if (log.isTraceEnabled()) log.trace("Considered condition " + condition + " for " + potentialTaskName + ": " + conditionMet);
                 if (!conditionMet) continue;
             }
 
-            log.debug("Error handler " + i + " applies: " + errorStep);
 
-            Task<?> handlerI = errorStep.newTaskForErrorHandler(handlerContext, i, handlerParent);
+            Task<?> handlerI = errorStep.newTaskForErrorHandler(handlerContext,
+                    potentialTaskName, BrooklynTaskTags.tagForWorkflowStepErrorHandler(handlerContext, i, handlerParent.getId()));
             TaskTags.addTagDynamically(handlerParent, BrooklynTaskTags.tagForErrorHandledBy(handlerI));
 
+            log.debug("Creating handler " + potentialTaskName + " '" + errorStep.computeName(handlerContext, false)+"' in task "+handlerI.getId());
+            if (!potentialTaskName.equals(context.getWorkflowStepReference(handlerI))) {
+                // shouldn't happen, but double check
+                log.warn("Mismatch in step name: "+potentialTaskName+" / "+context.getWorkflowStepReference(handlerI));
+            }
+
             result.output = DynamicTasks.queue(handlerI).getUnchecked();
+
             if (errorStep.output!=null) {
-                // TODO inject special contextual resolution for handler, local, and error
                 result.output = handlerContext.resolve(errorStep.output, Object.class);
             }
             result.next = errorStep.getNext();
+            log.debug("Completed handler " + potentialTaskName + "; proceeding to " + (result.next!=null ? result.next : "default next step"));
             return result;
         }
 
         // if none apply
-        log.debug("No error handlers applied for step '" + stepTask.getDisplayName() + " error, caller should rethrow");
+        log.debug("No error handler options applied at "+handlerParent.get()+"; will rethrow error");
         return null;
     }
 

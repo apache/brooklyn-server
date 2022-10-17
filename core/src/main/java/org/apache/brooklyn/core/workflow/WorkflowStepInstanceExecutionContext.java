@@ -176,7 +176,7 @@ public class WorkflowStepInstanceExecutionContext {
 
     @JsonIgnore
     public String getWorkflowStepReference() {
-        return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId);
+        return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, error!=null);
     }
 
     @JsonIgnore
