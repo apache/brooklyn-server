@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
@@ -159,5 +160,15 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             result.output = null;
         }
         return result;
+    }
+
+    public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig) {
+        return WorkflowExecutionContext.newInstancePersisted(entity, name,
+                ConfigBag.newInstance()
+                        .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
+                        .configure(WorkflowCommonConfig.STEPS, steps)
+                        .configure(WorkflowCommonConfig.OUTPUT, workflowOutput),
+                null,
+                ConfigBag.newInstance(getInput()).putAll(extraConfig), null);
     }
 }

@@ -982,7 +982,9 @@ public class WorkflowExecutionContext {
             }
         }
 
-        String workflowStepReference(int index) {
+        String workflowStepReference(Integer index) {
+            if (index==null) return workflowId+"-<no-step>";
+
             if (index>=getStepsResolved().size()) return getWorkflowStepReference(index, "<END>", false);
             return getWorkflowStepReference(index, getStepsResolved().get(index));
         }
