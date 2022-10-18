@@ -91,7 +91,9 @@ public abstract class WorkflowStepDefinition {
         return replayable;
     }
 
+    @JsonProperty("timeout")
     protected Duration timeout;
+    @JsonIgnore
     public Duration getTimeout() {
         return timeout;
     }
@@ -267,6 +269,14 @@ public abstract class WorkflowStepDefinition {
             this.customBehaviourExplanation = customBehaviourExplanation;
             this.customBehaviour = customBehaviour;
             this.forced = forced;
+        }
+
+        @Override
+        public String toString() {
+            return "Replay["+(Strings.isNonBlank(customBehaviourExplanation) ? customBehaviourExplanation : "(no explanation)")
+                    +(stepToReplayFrom!=null ? "; step "+stepToReplayFrom : "; continuing")
+                    +(forced ? "; FORCED" : "")
+                    +"]";
         }
     }
 

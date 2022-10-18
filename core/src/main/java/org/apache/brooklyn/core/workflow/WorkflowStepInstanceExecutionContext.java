@@ -56,6 +56,7 @@ public class WorkflowStepInstanceExecutionContext {
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
     transient WorkflowExecutionContext context;
+    public WorkflowStepDefinition.ReplayContinuationInstructions nextReplay;
 
     /** set if the step is in an error handler context, containing the error being handled */
     Throwable error;
@@ -150,6 +151,11 @@ public class WorkflowStepInstanceExecutionContext {
 
     public Set<BrooklynTaskTags.WorkflowTaskTag> getSubWorkflows() {
         return subWorkflows;
+    }
+
+    /** Return any error we are handling, if we are an error handler; otherwise null */
+    public Throwable getError() {
+        return error;
     }
 
     public TypeToken<?> lookupType(String type, Supplier<TypeToken<?>> ifUnset) {

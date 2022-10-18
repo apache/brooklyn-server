@@ -27,6 +27,7 @@ import java.io.Serializable;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.util.text.Strings;
@@ -137,6 +138,11 @@ public class Duration implements Comparable<Duration>, Serializable {
         return nanos;
     }
 
+    public Duration toPositive() {
+        if (isNegative()) return multiply(-1);
+        return this;
+    }
+
     /** 
      * See {@link Time#parseElapsedTime(String)}; 
      * also accepts "forever" (and for those who prefer things exceedingly accurate, "practically_forever").
@@ -187,6 +193,11 @@ public class Duration implements Comparable<Duration>, Serializable {
     /** creates new {@link Duration} instance of the given length of time */
     public static Duration nanos(Number n) {
         return new Duration(n.longValue(), TimeUnit.NANOSECONDS);
+    }
+
+    /** creates new {@link Duration} instance from the first instant to the second */
+    public static Duration between(Instant t1, Instant t2) {
+        return millis(t2.toEpochMilli() - t1.toEpochMilli());
     }
 
     public static Function<Number, String> millisToStringRounded() { return millisToStringRounded; }

@@ -67,7 +67,6 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     @Override
     protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
-        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
         return super.decorateOrigOrNewManagementContext(mgmt);
     }
 
@@ -141,7 +140,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.SUCCESS);
 
         app.sensors().set(Sensors.newBooleanSensor("gate"), false);
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplayingFromStep(1, "test", true), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingFromStep(1, "test", true)), app);
         // sensor should go back to 1 because workflow vars are stored per-state
         EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
         Time.sleep(10);
@@ -175,7 +174,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Integer index = lastWorkflowContext.getCurrentStepIndex();
         Asserts.assertTrue(index >= 2 && index <= 3, "Index is "+index);
 
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplayingLast("test", true), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", true)), app);
         // the gate is set so this will finish soon
         Asserts.assertEquals(invocation2.getUnchecked(), 11);
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 11);
@@ -251,7 +250,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             Asserts.assertThat(app.sensors().get(Sensors.newSensor(Integer.class, "x")), x -> x == null || x == 1);
 
             // now we can tell it to resume from where it crashed
-            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplayingLast("test", true));
+            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", true)));
 
             // will wait on gate, ie not finish
             Time.sleep((long) (Math.random() * Math.random() * 200));
@@ -385,7 +384,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 Asserts.assertEquals(lastWorkflowContext.status.ended, false);
             }
 
-            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplayingLast("test", true));
+            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", true)));
             if (lastInvocation.blockUntilEnded(Duration.millis(20))) {
                 Asserts.fail("Invocation ended when it shouldn't have, with "+lastInvocation.get());
             }
@@ -452,7 +451,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         }
 
         // replay
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplayingLast("test", false), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", false)), app);
 
         // should get 2 because it replays from 0
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);
@@ -520,7 +519,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         }
 
         // replay
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplayingLast("test", false), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", false)), app);
 
         // should get 2 because it replays from 0
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);

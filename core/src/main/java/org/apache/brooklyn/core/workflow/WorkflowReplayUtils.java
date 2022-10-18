@@ -119,7 +119,7 @@ public class WorkflowReplayUtils {
     }
 
     /** called when the workflow task is starting to run, after WorkflowStartOrReplay */
-    public static void updateOnWorkflowTaskStartup(WorkflowExecutionContext ctx, Task<?> task, List<WorkflowStepDefinition> stepsResolved, boolean firstRun, Integer optionalReplayStep) {
+    public static void updateOnWorkflowTaskStartupOrReplay(WorkflowExecutionContext ctx, Task<?> task, List<WorkflowStepDefinition> stepsResolved, boolean firstRun, Integer optionalReplayStep) {
         WorkflowReplayRecord.updateInternal(ctx, task, null, null);
 
         if (firstRun) {
@@ -183,11 +183,11 @@ public class WorkflowReplayUtils {
             throw new IllegalStateException("Cannot replay a nested workflow where the parent started at a specific step");
         } else if (instructions.customBehaviour!=null) {
             // forced, eg throwing exception
-            return subWorkflow.createTaskReplayingLastForcedWithCustom(instructions.customBehaviourExplanation, instructions.customBehaviour);
+            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLastForcedWithCustom(instructions.customBehaviourExplanation, instructions.customBehaviour));
         } else {
             if (Objects.equals(subWorkflow.replayableLastStep, -2)) return null;
             // may throw if not forced and not replayable
-            return subWorkflow.createTaskReplayingLast(instructions.customBehaviourExplanation, instructions.forced);
+            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLast(instructions.customBehaviourExplanation, instructions.forced));
         }
     }
 

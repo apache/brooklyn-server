@@ -53,12 +53,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -151,6 +153,9 @@ public class WorkflowExecutionContext {
 
     Map<String,Object> workflowScratchVariables = MutableMap.of();
 
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    Map<String,List<Instant>> retryRecords = MutableMap.of();
+
     // deserialization constructor
     private WorkflowExecutionContext() {}
 
@@ -237,10 +242,10 @@ public class WorkflowExecutionContext {
         this.parentId = parent ==null ? null : parent.workflowId;
     }
 
-    public static final Map<String, Consumer<WorkflowExecutionContext>> PREDEFINED_NEXT_TARGETS = MutableMap.<String, Consumer<WorkflowExecutionContext>>of(
-            "start", c -> { c.currentStepIndex = 0; },
-            "end", c -> { c.currentStepIndex = c.stepsDefinition.size(); },
-            "default", c -> { c.currentStepIndex++; }).asUnmodifiable();
+    public static final Map<String, Function<WorkflowExecutionContext,Integer>> PREDEFINED_NEXT_TARGETS = MutableMap.<String, Function<WorkflowExecutionContext,Integer>>of(
+            "start", c -> 0,
+            "end", c -> c.stepsDefinition.size(),
+            "default", c -> c.currentStepIndex+1).asUnmodifiable();
 
     public static void validateSteps(ManagementContext mgmt, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
         if (!alreadyValidatedIndividualSteps) {
@@ -257,6 +262,7 @@ public class WorkflowExecutionContext {
             if (s.id != null) {
                 if (PREDEFINED_NEXT_TARGETS.containsKey(s.id.toLowerCase()))
                     throw new IllegalStateException("Token '" + s + "' is a reserved word and cannot be used as a step ID");
+
                 Pair<Integer, WorkflowStepDefinition> old = stepsWithExplicitId.put(s.id, Pair.of(i, s));
                 if (old != null) throw new IllegalStateException("Same step ID '" + s + "' used for multiple steps ("+(old.getLeft()+1)+" and "+(i+1)+")");
             }
@@ -287,6 +293,10 @@ public class WorkflowExecutionContext {
         return workflowScratchVariables;
     }
 
+    public Map<String, List<Instant>> getRetryRecords() {
+        return retryRecords;
+    }
+
     @JsonIgnore
     public Maybe<Task<Object>> getTask(boolean checkCondition) {
         if (checkCondition && condition!=null) {
@@ -304,41 +314,33 @@ public class WorkflowExecutionContext {
         return Maybe.of(task);
     }
 
-    public synchronized Task<Object> createTaskReplayingFromStep(int stepIndex, String reason, boolean forced) {
-        if (task!=null && !task.isDone()) {
-            if (!task.isSubmitted()) {
-                log.warn("Abandoning workflow task that was never submitted: "+task+" for "+this);
-            } else {
-                throw new IllegalStateException("Cannot replay ongoing workflow");
-            }
-        }
-
+    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStep(int stepIndex, String reason, boolean forced) {
         if (!forced) {
             Set<Integer> considered = MutableSet.of();
             Set<Integer> possibleOthers = MutableSet.of();
             while (true) {
-                if (WorkflowReplayUtils.isReplayable(this, stepIndex) || stepIndex==-1) {
+                if (WorkflowReplayUtils.isReplayable(this, stepIndex) || stepIndex == -1) {
                     break;
                 }
 
                 // look at the previous step
                 OldStepRecord osi = oldStepInfo.get(stepIndex);
-                if (osi==null) {
-                    log.warn("Unable to backtrack from step "+(stepIndex)+"; no step information. Replaying overall workflow.");
+                if (osi == null) {
+                    log.warn("Unable to backtrack from step " + (stepIndex) + "; no step information. Replaying overall workflow.");
                     stepIndex = -1;
                     break;
                 }
 
                 Set<Integer> prev = osi.previous;
-                if (prev==null || prev.isEmpty()) {
-                    log.warn("Unable to backtrack from step "+(stepIndex)+"; no previous step recorded. Replaying overall workflow.");
+                if (prev == null || prev.isEmpty()) {
+                    log.warn("Unable to backtrack from step " + (stepIndex) + "; no previous step recorded. Replaying overall workflow.");
                     stepIndex = -1;
                     break;
                 }
 
                 boolean repeating = !considered.add(stepIndex);
                 if (repeating) {
-                    if (possibleOthers.size()!=1) {
+                    if (possibleOthers.size() != 1) {
                         log.warn("Unable to backtrack from step " + (stepIndex) + "; ambiguous precedents " + prev + " / " + possibleOthers + ". Replaying overall workflow.");
                         stepIndex = -1;
                         break;
@@ -360,26 +362,22 @@ public class WorkflowExecutionContext {
             throw new IllegalStateException("Workflow is not replayable");
         }
 
-        return createTaskReplayingWithCustom(new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced));
+        return new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced);
     }
 
-    public synchronized Task<Object> createTaskReplayingFromStart(String reason, boolean forced) {
-        return createTaskReplayingFromStep(-1, reason, forced);
+    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStart(String reason, boolean forced) {
+        return makeInstructionsForReplayingFromStep(-1, reason, forced);
     }
 
-    public synchronized Task<Object> createTaskReplayingLast(String reason, boolean forced) {
-        return createTaskReplayingLast(reason, forced, null);
+    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingLast(String reason, boolean forced) {
+        return makeInstructionsForReplayingLast(reason, forced, null);
     }
 
-    public synchronized Task<Object> createTaskReplayingLastForcedWithCustom(String reason, Runnable code) {
-        return createTaskReplayingLast(reason, true, code);
+    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingLastForcedWithCustom(String reason, Runnable code) {
+        return makeInstructionsForReplayingLast(reason, true, code);
     }
 
-    protected synchronized Task<Object> createTaskReplayingLast(String reason, boolean forced, Runnable code) {
-        if (task!=null && !task.isDone()) {
-            throw new IllegalStateException("Cannot replay ongoing workflow");
-        }
-
+    protected WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingLast(String reason, boolean forced, Runnable code) {
         Integer replayFromStep = null;
         if (currentStepIndex == null) {
             // not yet started
@@ -394,11 +392,11 @@ public class WorkflowExecutionContext {
             int replayFromStepActual = replayFromStep!=null ? replayFromStep : currentStepIndex;
             if (!WorkflowReplayUtils.isReplayable(this, replayFromStepActual)) {
                 if (code!=null) throw new IllegalArgumentException("Cannot supply code without forcing");
-                return createTaskReplayingFromStep(replayFromStepActual, reason, forced);
+                return makeInstructionsForReplayingFromStep(replayFromStepActual, reason, forced);
             }
         }
 
-        return createTaskReplayingWithCustom(new WorkflowStepDefinition.ReplayContinuationInstructions(replayFromStep, reason, code, forced));
+        return new WorkflowStepDefinition.ReplayContinuationInstructions(replayFromStep, reason, code, forced);
     }
 
     public void markShutdown() {
@@ -407,11 +405,16 @@ public class WorkflowExecutionContext {
         // don't persist; that will happen when workflows are kicked off
     }
 
-    public synchronized Task<Object> createTaskReplayingWithCustom(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
-        String explanation = continuationInstructions!=null ? continuationInstructions.customBehaviourExplanation!=null ? continuationInstructions.customBehaviourExplanation : "no explanation" : "no continuation";
-        if (task!=null && !task.isDone()) {
-            throw new IllegalStateException("Cannot replay ongoing workflow with custom behavior ("+explanation+")");
+    public Task<Object> createTaskReplaying(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+        if (task != null && !task.isDone()) {
+            if (!task.isSubmitted()) {
+                log.warn("Abandoning workflow task that was never submitted: " + task + " for " + this);
+            } else {
+                throw new IllegalStateException("Cannot replay ongoing workflow, given "+continuationInstructions);
+            }
         }
+
+        String explanation = continuationInstructions.customBehaviourExplanation!=null ? continuationInstructions.customBehaviourExplanation : "no explanation";
         task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")")
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
@@ -438,9 +441,10 @@ public class WorkflowExecutionContext {
     }
 
     @JsonIgnore
+    /** Error handlers _could_ launch sub-workflow, but they typically don't */
     protected boolean isInErrorHandlerSubWorkflow() {
         if (parent!=null) {
-            if (parent.currentStepInstance!=null && parent.currentStepInstance.error!=null) {
+            if (parent.getErrorHandlerContext()!=null) {
                 return true;
             }
             return parent.isInErrorHandlerSubWorkflow();
@@ -542,257 +546,278 @@ public class WorkflowExecutionContext {
         return status;
     }
 
+    public WorkflowStepInstanceExecutionContext getErrorHandlerContext() {
+        return errorHandlerContext;
+    }
+
+    transient Map<String,Pair<Integer,WorkflowStepDefinition>> stepsWithExplicitId;
+    transient List<WorkflowStepDefinition> stepsResolved;
+    @JsonIgnore
+    List<WorkflowStepDefinition> getStepsResolved() {
+        if (stepsResolved ==null) {
+            stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition));
+        }
+        return stepsResolved;
+    }
+
+    @JsonIgnore
+    public Map<String, Pair<Integer,WorkflowStepDefinition>> getStepsWithExplicitIdById() {
+        if (stepsWithExplicitId ==null) stepsWithExplicitId = computeStepsWithExplicitIdById(getStepsResolved());
+        return stepsWithExplicitId;
+    }
+
+
     protected class Body implements Callable<Object> {
-        /** step to start with, if replaying. if null when replaying, starts at the current step but skipping the reinitialization of that step (all inputs, conditions, etc recomputed) */
-        private Integer replayFromStep;
-        private boolean replaying;
         private WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions;
 
-        List<WorkflowStepDefinition> stepsResolved;
-        
-        transient Map<String,Pair<Integer,WorkflowStepDefinition>> stepsWithExplicitId;
-
         public Body() {
-            replayFromStep = null;
-            replaying = false;
         }
 
         public Body(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
-            this.replayFromStep = continuationInstructions.stepToReplayFrom;
             this.continuationInstructions = continuationInstructions;
-            replaying = true;
-        }
-
-        @JsonIgnore
-        public Map<String, Pair<Integer,WorkflowStepDefinition>> getStepsWithExplicitIdById() {
-            if (stepsWithExplicitId==null) stepsWithExplicitId = computeStepsWithExplicitIdById(stepsResolved);
-            return stepsWithExplicitId;
         }
 
         @Override
         public Object call() throws Exception {
-            boolean errorHandledAndContinuing, errorHandled;
+            boolean continueOnErrorHandledOrNextReplay;
 
-            do {
-                errorHandled = errorHandledAndContinuing = false;
-                Task<?> timerTask = null;
-                AtomicReference<Boolean> timerCancelled = new AtomicReference<>(false);
-                try {
-                    if (timeout != null) {
-                        Task<?> otherTask = Tasks.current();
-                        timerTask = Entities.submit(getEntity(), Tasks.builder().displayName("Timer for " + WorkflowExecutionContext.this.toString() + ":" + taskId)
-                                .body(() -> {
-                                    try {
-                                        Time.sleep(timeout);
-                                        if (!otherTask.isDone()) {
-                                            timerCancelled.set(true);
-                                            log.debug("Cancelling " + otherTask + " after timeout of " + timeout);
-                                            otherTask.cancel(true);
-                                        }
-                                    } catch (Throwable e) {
-                                        if (Exceptions.isRootCauseIsInterruption(e)) {
-                                            // normal, just exit
-                                        } else {
-                                            throw Exceptions.propagate(e);
-                                        }
+            Task<?> timerTask = null;
+            AtomicReference<Boolean> timerCancelled = new AtomicReference<>(false);
+            try {
+                if (timeout != null) {
+                    Task<?> otherTask = Tasks.current();
+                    timerTask = Entities.submit(getEntity(), Tasks.builder().displayName("Timer for " + WorkflowExecutionContext.this.toString() + ":" + taskId)
+                            .body(() -> {
+                                try {
+                                    Time.sleep(timeout);
+                                    if (!otherTask.isDone()) {
+                                        timerCancelled.set(true);
+                                        log.debug("Cancelling " + otherTask + " after timeout of " + timeout);
+                                        otherTask.cancel(true);
                                     }
-                                }).dynamic(false)
-                                .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
-                                .tag(BrooklynTaskTags.INESSENTIAL_TASK)
-                                .build());
-                    }
-                    stepsResolved = MutableList.copyOf(WorkflowStepResolution.resolveSteps(getManagementContext(), WorkflowExecutionContext.this.stepsDefinition));
+                                } catch (Throwable e) {
+                                    if (Exceptions.isRootCauseIsInterruption(e)) {
+                                        // normal, just exit
+                                    } else {
+                                        throw Exceptions.propagate(e);
+                                    }
+                                }
+                            }).dynamic(false)
+                            .tag(BrooklynTaskTags.TRANSIENT_TASK_TAG)
+                            .tag(BrooklynTaskTags.INESSENTIAL_TASK)
+                            .build());
+                }
 
-                    WorkflowReplayUtils.updateOnWorkflowTaskStartup(WorkflowExecutionContext.this, task, stepsResolved, !replaying, replayFromStep);
+                RecoveryAndReplay: do {
+                    continueOnErrorHandledOrNextReplay = false;
 
-                    // show task running
-                    status = WorkflowStatus.RUNNING;
+                    try {
+                        boolean replaying = continuationInstructions!=null;
+                        Integer replayFromStep = replaying ? continuationInstructions.stepToReplayFrom : null;
+                        WorkflowReplayUtils.updateOnWorkflowTaskStartupOrReplay(WorkflowExecutionContext.this, task, getStepsResolved(), !replaying, replayFromStep);
 
-                    if (replaying) {
-                        if (replayFromStep != null && replayFromStep == -1) {
-                            log.debug("Replaying workflow '" + name + "', from start " +
-                                    " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
-                            currentStepIndex = 0;
-                            workflowScratchVariables = MutableMap.of();
+                        // show task running
+                        status = WorkflowStatus.RUNNING;
 
-                        } else {
+                        if (replaying) {
+                            if (replayFromStep != null && replayFromStep == -1) {
+                                log.debug("Replaying workflow '" + name + "', from start " +
+                                        " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
+                                currentStepIndex = 0;
+                                workflowScratchVariables = MutableMap.of();
 
-                            // replaying workflow
-                            log.debug("Replaying workflow '" + name + "', from step " + (replayFromStep == null ? "<CURRENT>" : workflowStepReference(replayFromStep)) +
-                                    " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
-                            if (replayFromStep == null) {
-                                // replayFromLast should correct the cases below
-                                if (currentStepIndex == null) {
-                                    throw new IllegalStateException("Invalid instructions to continue from last bypassing convenience method, and there is no last");
-                                } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
-                                    throw new IllegalStateException("Invalid instructions to continue from last step which is unknown, bypassing convenience method");
+                            } else {
+
+                                // replaying workflow
+                                log.debug("Replaying workflow '" + name + "', from step " + (replayFromStep == null ? "<CURRENT>" : workflowStepReference(replayFromStep)) +
+                                        " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
+                                if (replayFromStep == null) {
+                                    // replayFromLast should correct the cases below
+                                    if (currentStepIndex == null) {
+                                        throw new IllegalStateException("Invalid instructions to continue from last bypassing convenience method, and there is no last");
+                                    } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
+                                        throw new IllegalStateException("Invalid instructions to continue from last step which is unknown, bypassing convenience method");
+                                    }
+                                }
+                                if (replayFromStep != null) {
+                                    OldStepRecord last = oldStepInfo.get(replayFromStep);
+                                    if (last != null) workflowScratchVariables = last.workflowScratch;
+                                    if (workflowScratchVariables == null) workflowScratchVariables = MutableMap.of();
+                                    currentStepIndex = replayFromStep;
                                 }
                             }
-                            if (replayFromStep != null) {
-                                OldStepRecord last = oldStepInfo.get(replayFromStep);
-                                if (last != null) workflowScratchVariables = last.workflowScratch;
-                                if (workflowScratchVariables == null) workflowScratchVariables = MutableMap.of();
-                                currentStepIndex = replayFromStep;
+                        } else {
+                            if (replayFromStep == null && currentStepIndex == null) {
+                                currentStepIndex = 0;
+                                log.debug("Starting workflow '" + name + "', moving to first step " + workflowStepReference(currentStepIndex));
+
+                            } else {
+                                // shouldn't come here
+                                throw new IllegalStateException("Should either be replaying or unstarted, but not invoked as replaying, and current=" + currentStepIndex + " replay=" + replayFromStep);
                             }
                         }
-                    } else {
-                        if (replayFromStep == null && currentStepIndex == null) {
-                            currentStepIndex = 0;
-                            log.debug("Starting workflow '" + name + "', moving to first step " + workflowStepReference(currentStepIndex));
 
-                        } else {
-                            // shouldn't come here
-                            throw new IllegalStateException("Should either be replaying or unstarted, but not invoked as replaying, and current=" + currentStepIndex + " replay=" + replayFromStep);
-                        }
-                    }
+                        if (!Objects.equals(taskId, Tasks.current().getId()))
+                            throw new IllegalStateException("Running workflow in unexpected task, " + taskId + " does not match " + task);
 
-                    if (!Objects.equals(taskId, Tasks.current().getId()))
-                        throw new IllegalStateException("Running workflow in unexpected task, " + taskId + " does not match " + task);
-
-                    if (replaying && replayFromStep == null) {
-                        // clear output before re-running
-                        currentStepInstance.output = null;
-                        currentStepInstance.injectContext(WorkflowExecutionContext.this);
-                        log.debug("Replaying workflow '" + name + "', reusing instance " + currentStepInstance + " for step " + workflowStepReference(currentStepIndex) + ")");
-                        runCurrentStepInstanceApproved(stepsResolved.get(currentStepIndex));
-                    }
-
-                    while (currentStepIndex < stepsResolved.size()) {
-                        runCurrentStepIfPreconditions();
-                    }
-
-                    if (outputDefinition != null) {
-                        output = resolve(outputDefinition, Object.class);
-                    } else {
-                        // (default is the output of the last step)
-                        // ((unlike steps, workflow output is not available as a default value, but previous step always is, so there is no need to do this
-                        // before the above; slight chance if onError is triggered by a failure to resolve something in outputDefinition, but that can be ignored))
-                        output = getPreviousStepOutput();
-                    }
-
-                    // finished -- checkpoint noting previous step and null for current because finished
-                    status = WorkflowStatus.SUCCESS;
-                    // record how it ended
-                    oldStepInfo.compute(previousStepIndex == null ? -1 : previousStepIndex, (index, old) -> {
-                        if (old == null) old = new OldStepRecord();
-                        old.next = MutableSet.<Integer>of(-1).putAll(old.next);
-                        old.nextTaskId = null;
-                        return old;
-                    });
-                    oldStepInfo.compute(-1, (index, old) -> {
-                        if (old == null) old = new OldStepRecord();
-                        old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
-                        old.previousTaskId = previousStepTaskId;
-                        return old;
-                    });
-
-                } catch (Throwable e) {
-                    // do not propagateIfFatal, we need to handle most throwables
-
-                    boolean isTimeout = false;
-
-                    if (timerCancelled.get()) {
-                        if (Exceptions.getCausalChain(e).stream().anyMatch(cause -> cause instanceof TimeoutException || cause instanceof InterruptedException || cause instanceof CancellationException || cause instanceof RuntimeInterruptedException)) {
-                            // timed out, and a cause is related to cancellation
-
-                            // NOTE: this just gets used for logging, it is not ever stored by the calling task or returned to a user;
-                            // when the task is cancelled, the only information available to callers is that it was cancelled
-                            // (we could add indications of why but that is a lot of work, and not clear we need it)
-                            TimeoutException timeoutException = new TimeoutException("Timeout after " + timeout + ": " + getName());
-                            timeoutException.initCause(e);
-                            e = timeoutException;
-                            isTimeout = true;
-                        }
-                    }
-
-                    WorkflowStatus provisionalStatus;
-
-                    if (Exceptions.isCausedByInterruptInAnyThread(e) || Exceptions.getFirstThrowableMatching(e,
-                            // could do with a more precise check that workflow is cancelled or has timed out; exceptions could come from other unrelated causes (but unlikely)
-                            t -> t instanceof CancellationException || t instanceof TimeoutException) != null) {
-                        if (!Thread.currentThread().isInterrupted()) {
-                            // might be a data model error
-                            if (Exceptions.getFirstThrowableOfType(e, TemplateProcessor.TemplateModelDataUnavailableException.class) != null) {
-                                provisionalStatus = WorkflowStatus.ERROR;
+                        while (currentStepIndex < getStepsResolved().size()) {
+                            if (replaying && replayFromStep == null) {
+                                // clear output before re-running
+                                currentStepInstance.output = null;
+                                currentStepInstance.injectContext(WorkflowExecutionContext.this);
+                                log.debug("Replaying workflow '" + name + "', reusing instance " + currentStepInstance + " for step " + workflowStepReference(currentStepIndex) + ")");
+                                runCurrentStepInstanceApproved(getStepsResolved().get(currentStepIndex));
                             } else {
-                                // cancelled or a subtask interrupted
+                                runCurrentStepIfPreconditions();
+                            }
+                            replaying = false;
+
+                            if (currentStepInstance.nextReplay!=null) {
+                                continuationInstructions = currentStepInstance.nextReplay;
+                                continueOnErrorHandledOrNextReplay = true;
+                                continue RecoveryAndReplay;
+                            }
+                        }
+
+                        if (outputDefinition != null) {
+                            output = resolve(outputDefinition, Object.class);
+                        } else {
+                            // (default is the output of the last step)
+                            // ((unlike steps, workflow output is not available as a default value, but previous step always is, so there is no need to do this
+                            // before the above; slight chance if onError is triggered by a failure to resolve something in outputDefinition, but that can be ignored))
+                            output = getPreviousStepOutput();
+                        }
+
+                        // finished -- checkpoint noting previous step and null for current because finished
+                        status = WorkflowStatus.SUCCESS;
+                        // record how it ended
+                        oldStepInfo.compute(previousStepIndex == null ? -1 : previousStepIndex, (index, old) -> {
+                            if (old == null) old = new OldStepRecord();
+                            old.next = MutableSet.<Integer>of(-1).putAll(old.next);
+                            old.nextTaskId = null;
+                            return old;
+                        });
+                        oldStepInfo.compute(-1, (index, old) -> {
+                            if (old == null) old = new OldStepRecord();
+                            old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
+                            old.previousTaskId = previousStepTaskId;
+                            return old;
+                        });
+
+                    } catch (Throwable e) {
+                        // do not propagateIfFatal, we need to handle most throwables
+
+                        boolean isTimeout = false;
+
+                        if (timerCancelled.get()) {
+                            if (Exceptions.getCausalChain(e).stream().anyMatch(cause -> cause instanceof TimeoutException || cause instanceof InterruptedException || cause instanceof CancellationException || cause instanceof RuntimeInterruptedException)) {
+                                // timed out, and a cause is related to cancellation
+
+                                // NOTE: this just gets used for logging, it is not ever stored by the calling task or returned to a user;
+                                // when the task is cancelled, the only information available to callers is that it was cancelled
+                                // (we could add indications of why but that is a lot of work, and not clear we need it)
+                                TimeoutException timeoutException = new TimeoutException("Timeout after " + timeout + ": " + getName());
+                                timeoutException.initCause(e);
+                                e = timeoutException;
+                                isTimeout = true;
+                            }
+                        }
+
+                        WorkflowStatus provisionalStatus;
+
+                        if (Exceptions.isCausedByInterruptInAnyThread(e) || Exceptions.getFirstThrowableMatching(e,
+                                // could do with a more precise check that workflow is cancelled or has timed out; exceptions could come from other unrelated causes (but unlikely)
+                                t -> t instanceof CancellationException || t instanceof TimeoutException) != null) {
+                            if (!Thread.currentThread().isInterrupted()) {
+                                // might be a data model error
+                                if (Exceptions.getFirstThrowableOfType(e, TemplateProcessor.TemplateModelDataUnavailableException.class) != null) {
+                                    provisionalStatus = WorkflowStatus.ERROR;
+                                } else {
+                                    // cancelled or a subtask interrupted
+                                    provisionalStatus = WorkflowStatus.ERROR_CANCELLED;
+                                }
+                            } else {
                                 provisionalStatus = WorkflowStatus.ERROR_CANCELLED;
                             }
-                        } else {
-                            provisionalStatus = WorkflowStatus.ERROR_CANCELLED;
-                        }
-                        if (provisionalStatus == WorkflowStatus.ERROR_CANCELLED) {
-                            if (!getManagementContext().isRunning()) {
-                                // if mgmt is shutting down we should record that. maybe enough if thread is interrupted we note that.
-                                provisionalStatus = WorkflowStatus.ERROR_SHUTDOWN;
-                            } else if (Entities.isUnmanagingOrNoLongerManaged(entity)) {
-                                provisionalStatus = WorkflowStatus.ERROR_ENTITY_DESTROYED;
-                            }
-                        }
-                    } else {
-                        provisionalStatus = WorkflowStatus.ERROR;
-                    }
-
-                    if (onError != null && !onError.isEmpty() && provisionalStatus.persistable) {
-                        WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
-                        try {
-                            log.debug("Error in workflow '" + getName() + "' around step "+workflowStepReference(currentStepIndex)+" '" + task.getDisplayName() + "', running error handler");
-                            result = DynamicTasks.queue(WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e)).getUnchecked();
-                            if (result != null) {
-                                errorHandled = true;
-
-                                if (result.output != null) output = resolve(result.output, Object.class);
-
-                                String next = Strings.isNonBlank(result.next) ? result.next : "end";
-                                moveToNextStep(next, "Handled error in workflow around step " + workflowStepReference(currentStepIndex));
-
-                                if (currentStepIndex<stepsResolved.size()) {
-                                    errorHandledAndContinuing = true;
+                            if (provisionalStatus == WorkflowStatus.ERROR_CANCELLED) {
+                                if (!getManagementContext().isRunning()) {
+                                    // if mgmt is shutting down we should record that. maybe enough if thread is interrupted we note that.
+                                    provisionalStatus = WorkflowStatus.ERROR_SHUTDOWN;
+                                } else if (Entities.isUnmanagingOrNoLongerManaged(entity)) {
+                                    provisionalStatus = WorkflowStatus.ERROR_ENTITY_DESTROYED;
                                 }
-                            } else {
-                                log.debug("Handler not applicable for error in workflow around step " + workflowStepReference(currentStepIndex) + ", rethrowing: " + Exceptions.collapseText(e));
                             }
-
-                        } catch (Exception e2) {
-                            log.warn("Error in workflow '" + getName() + "' around step "+workflowStepReference(currentStepIndex)+" '" + task.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
-                            log.debug("Full trace of original error was: " + e, e);
-                            e = e2;
+                        } else {
+                            provisionalStatus = WorkflowStatus.ERROR;
                         }
 
-                    } else {
-                        log.debug("Error in workflow '" + getName() + "' around step "+workflowStepReference(currentStepIndex)+" '" + task.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
-                    }
+                        boolean errorHandled = false;
+                        if (isTimeout) {
+                            // don't run error handler
+                            log.debug("Timeout in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', throwing: " + Exceptions.collapseText(e));
 
-                    if (!errorHandled) {
-                        status = provisionalStatus;
-                        WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
+                        } else if (onError != null && !onError.isEmpty() && provisionalStatus.persistable) {
+                            WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
+                            try {
+                                log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', running error handler");
+                                result = DynamicTasks.queue(WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e)).getUnchecked();
+                                if (result != null) {
+                                    errorHandled = true;
 
-                        try {
-                            if (status.persistable) {
-                                log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
-                                log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
-                                persist();
-                            } else {
-                                log.debug("Error running workflow " + this + ", unsurprising because " + status);
+                                    if (result.output != null) output = resolve(result.output, Object.class);
+
+                                    String next = Strings.isNonBlank(result.next) ? result.next : "end";
+                                    moveToNextStep(next, "Handled error in workflow around step " + workflowStepReference(currentStepIndex));
+
+                                    if (currentStepIndex < getStepsResolved().size()) {
+                                        continueOnErrorHandledOrNextReplay = true;
+                                    }
+                                } else {
+                                    log.debug("Handler not applicable for error in workflow around step " + workflowStepReference(currentStepIndex) + ", rethrowing: " + Exceptions.collapseText(e));
+                                }
+
+                            } catch (Exception e2) {
+                                log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                                log.debug("Full trace of original error was: " + e, e);
+                                e = e2;
                             }
 
-                        } catch (Throwable e2) {
-                            log.error("Error persisting workflow " + this + " after error in workflow; persistence error: " + e2);
-                            log.debug("Error persisting workflow " + this + " after error in workflow; persistence error (details): " + e2, e2);
-                            log.warn("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e);
-                            log.trace("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e, e);
+                        } else {
+                            log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
                         }
 
-                        throw Exceptions.propagate(e);
+                        if (!errorHandled) {
+                            status = provisionalStatus;
+                            WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
+
+                            try {
+                                if (status.persistable) {
+                                    log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
+                                    log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
+                                    persist();
+                                } else {
+                                    log.debug("Error running workflow " + this + ", unsurprising because " + status);
+                                }
+
+                            } catch (Throwable e2) {
+                                log.error("Error persisting workflow " + this + " after error in workflow; persistence error: " + e2);
+                                log.debug("Error persisting workflow " + this + " after error in workflow; persistence error (details): " + e2, e2);
+                                log.warn("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e);
+                                log.trace("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e, e);
+                            }
+
+                            throw Exceptions.propagate(e);
+                        }
                     }
 
-                } finally {
-                    if (timerTask != null && !timerTask.isDone() && !timerCancelled.get()) {
-                        log.debug("Cancelling " + timerTask + " on completion of this task");
-                        timerTask.cancel(true);
-                    }
+                } while (continueOnErrorHandledOrNextReplay);
+
+            } finally {
+                if (timerTask != null && !timerTask.isDone() && !timerCancelled.get()) {
+                    log.debug("Cancelling " + timerTask + " on completion of this task");
+                    timerTask.cancel(true);
                 }
-            } while (errorHandledAndContinuing);
+            }
 
             WorkflowReplayUtils.updateOnWorkflowSuccess(WorkflowExecutionContext.this, task, output);
             persist();
@@ -800,7 +825,7 @@ public class WorkflowExecutionContext {
         }
 
         protected void runCurrentStepIfPreconditions() {
-            WorkflowStepDefinition step = stepsResolved.get(currentStepIndex);
+            WorkflowStepDefinition step = getStepsResolved().get(currentStepIndex);
             if (step!=null) {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
                 if (step.condition!=null) {
@@ -825,10 +850,9 @@ public class WorkflowExecutionContext {
 
         private void runCurrentStepInstanceApproved(WorkflowStepDefinition step) {
             Task<?> t;
-            if (replaying) {
+            if (continuationInstructions!=null) {
                 t = step.newTaskContinuing(currentStepInstance, continuationInstructions);
                 continuationInstructions = null;
-                replaying = false;
             } else {
                 t = step.newTask(currentStepInstance);
             }
@@ -858,8 +882,8 @@ public class WorkflowExecutionContext {
 
             persist();
 
-            AtomicReference<String> nextDueToError = new AtomicReference<>();
-            Runnable next = () -> moveToNextStep(Strings.isNonBlank(nextDueToError.get()) ? nextDueToError.get() : step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
+            AtomicReference<String> customNext = new AtomicReference<>();
+            Runnable next = () -> moveToNextStep(Strings.isNonBlank(customNext.get()) ? customNext.get() : step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
             Consumer<Object> saveOutput = output -> {
                 if (output!=null) currentStepInstance.output = resolve(output, Object.class);
             };
@@ -887,7 +911,7 @@ public class WorkflowExecutionContext {
                     try {
                         result = DynamicTasks.queue(WorkflowErrorHandling.createStepErrorHandlerTask(step, currentStepInstance, t, e)).getUnchecked();
                         if (result!=null) {
-                            if (Strings.isNonBlank(result.next)) nextDueToError.set(result.next);
+                            if (Strings.isNonBlank(result.next)) customNext.set(result.next);
                             saveOutput.accept(result.output);
                         }
 
@@ -924,39 +948,53 @@ public class WorkflowExecutionContext {
         }
 
         private void moveToNextStep(String optionalRequestedNextStep, String prefix) {
+            if (currentStepInstance!=null && currentStepInstance.nextReplay!=null) {
+                log.debug(prefix + "proceeding to custom replay: "+currentStepInstance.nextReplay);
+                continuationInstructions = currentStepInstance.nextReplay;
+                return;
+            }
+
             prefix = prefix + "; ";
             if (optionalRequestedNextStep==null) {
                 currentStepIndex++;
-                if (currentStepIndex < stepsResolved.size()) {
+                if (currentStepIndex < getStepsResolved().size()) {
                     log.debug(prefix + "moving to sequential next step " + workflowStepReference(currentStepIndex));
                 } else {
                     log.debug(prefix + "no further steps: Workflow completed");
                 }
             } else {
-                Consumer<WorkflowExecutionContext> predefined = PREDEFINED_NEXT_TARGETS.get(optionalRequestedNextStep.toLowerCase());
-                if (predefined!=null) {
-                    predefined.accept(WorkflowExecutionContext.this);
-                    if (currentStepIndex < stepsResolved.size()) {
-                        log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for '" + optionalRequestedNextStep + "'");
+                Maybe<Pair<Integer, Boolean>> nextResolved = getIndexOfStepId(optionalRequestedNextStep);
+                if (nextResolved.isAbsent()) {
+                    log.warn(prefix + "explicit next step '"+optionalRequestedNextStep+"' not found (failing)");
+                    nextResolved.get();
+                }
+
+                currentStepIndex = nextResolved.get().getLeft();
+                if (nextResolved.get().getRight()) {
+                    if (currentStepIndex < getStepsResolved().size()) {
+                        log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for token '" + optionalRequestedNextStep + "'");
                     } else {
                         log.debug(prefix + "explicit next '"+optionalRequestedNextStep+"': Workflow completed");
                     }
                 } else {
-                    Pair<Integer, WorkflowStepDefinition> next = getStepsWithExplicitIdById().get(optionalRequestedNextStep);
-                    if (next==null) {
-                        log.warn(prefix + "explicit next step '"+optionalRequestedNextStep+"' not found (failing)");
-                        throw new NoSuchElementException("Step with ID '"+optionalRequestedNextStep+"' not found");
-                    }
-                    currentStepIndex = next.getLeft();
-                    log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for id '" + optionalRequestedNextStep + "'; ");
+                    log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for id '" + optionalRequestedNextStep + "'");
                 }
             }
         }
 
         String workflowStepReference(int index) {
-            if (index>=stepsResolved.size()) return getWorkflowStepReference(index, "<END>", false);
-            return getWorkflowStepReference(index, stepsResolved.get(index));
+            if (index>=getStepsResolved().size()) return getWorkflowStepReference(index, "<END>", false);
+            return getWorkflowStepReference(index, getStepsResolved().get(index));
         }
+    }
+
+    public Maybe<Pair<Integer,Boolean>> getIndexOfStepId(String next) {
+        if (next==null) return Maybe.absent("Null step ID supplied");
+        Function<WorkflowExecutionContext, Integer> predefined = PREDEFINED_NEXT_TARGETS.get(next.toLowerCase());
+        if (predefined!=null) return Maybe.of(Pair.of(predefined.apply(this), true));
+        Pair<Integer, WorkflowStepDefinition> explicit = getStepsWithExplicitIdById().get(next);
+        if (explicit!=null) return Maybe.of(Pair.of(explicit.getLeft(), false));
+        return Maybe.absent(new NoSuchElementException("Step with ID '"+next+"' not found"));
     }
 
     String getWorkflowStepReference(int index, WorkflowStepDefinition step) {
@@ -971,7 +1009,7 @@ public class WorkflowExecutionContext {
                 +(Strings.isNonBlank(optionalStepId) ? "-"+optionalStepId : "")
                 +(isError ? "-error-handler" : "");
     }
-    String getWorkflowStepReference(Task<?> t) {
+    public String getWorkflowStepReference(Task<?> t) {
         BrooklynTaskTags.WorkflowTaskTag wt = BrooklynTaskTags.getWorkflowTaskTag(t, false);
         return wt.getWorkflowId()
                 +(wt.getStepIndex()!=null && wt.getStepIndex()>=0 && wt.getStepIndex()<stepsDefinition.size() ? "-"+(wt.getStepIndex()+1) : "")
