@@ -68,21 +68,23 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations()).orThrow("No SSH location available for workflow at "+context.getEntity()+" and no endpoint specified");
         }
 
+        return DynamicTasks.queue(customizeProcessTaskFactory(context, SshTasks.newSshExecTaskFactory(machine, command)).newTask()).asTask().getUnchecked();
+    }
+
+    public static <U, T extends ProcessTaskFactory<U>> ProcessTaskFactory<Map<?,?>> customizeProcessTaskFactory(WorkflowStepInstanceExecutionContext context, T tf) {
         DslPredicates.DslPredicate<Integer> exitcode = context.getInput(EXIT_CODE);
-        ProcessTaskFactory<?> tf = SshTasks.newSshExecTaskFactory(machine, command);
         if (exitcode!=null) tf.allowingNonZeroExitCode();
         Map<String, Object> env = context.getInput(ENv);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
-        tf.returning(ptw -> {
+        return tf.returning(ptw -> {
             checkExitCode(ptw, exitcode);
             return MutableMap.of("stdout", ptw.getStdout(),
                     "stderr", ptw.getStderr(),
                     "exit_code", ptw.getExitCode());
         });
-        return DynamicTasks.queue(tf.newTask()).asTask().getUnchecked();
     }
 
-    protected void checkExitCode(ProcessTaskWrapper<?> ptw, DslPredicates.DslPredicate<Integer> exitcode) {
+    protected static void checkExitCode(ProcessTaskWrapper<?> ptw, DslPredicates.DslPredicate<Integer> exitcode) {
         if (exitcode==null) return;
         if (exitcode instanceof DslPredicates.DslPredicateBase) {
             Object implicit = ((DslPredicates.DslPredicateBase) exitcode).implicitEquals;
