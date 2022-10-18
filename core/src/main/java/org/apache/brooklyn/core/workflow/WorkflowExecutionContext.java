@@ -672,8 +672,7 @@ public class WorkflowExecutionContext {
                             }
                             replaying = false;
 
-                            if (currentStepInstance.nextReplay!=null) {
-                                continuationInstructions = currentStepInstance.nextReplay;
+                            if (continuationInstructions!=null) {
                                 continueOnErrorHandledOrNextReplay = true;
                                 continue RecoveryAndReplay;
                             }
@@ -769,8 +768,9 @@ public class WorkflowExecutionContext {
                                     String next = Strings.isNonBlank(result.next) ? result.next : "end";
                                     moveToNextStep(next, "Handled error in workflow around step " + workflowStepReference(currentStepIndex));
 
-                                    if (currentStepIndex < getStepsResolved().size()) {
+                                    if (continuationInstructions!=null || currentStepIndex < getStepsResolved().size()) {
                                         continueOnErrorHandledOrNextReplay = true;
+                                        continue RecoveryAndReplay;
                                     }
                                 } else {
                                     log.debug("Handler not applicable for error in workflow around step " + workflowStepReference(currentStepIndex) + ", rethrowing: " + Exceptions.collapseText(e));
@@ -822,6 +822,12 @@ public class WorkflowExecutionContext {
             WorkflowReplayUtils.updateOnWorkflowSuccess(WorkflowExecutionContext.this, task, output);
             persist();
             return output;
+        }
+
+        private WorkflowStepDefinition.ReplayContinuationInstructions getSpecialNextReplay() {
+            if (errorHandlerContext!=null && errorHandlerContext.nextReplay!=null) return errorHandlerContext.nextReplay;
+            if (currentStepInstance!=null && currentStepInstance.nextReplay!=null) return currentStepInstance.nextReplay;
+            return null;
         }
 
         protected void runCurrentStepIfPreconditions() {
@@ -948,9 +954,9 @@ public class WorkflowExecutionContext {
         }
 
         private void moveToNextStep(String optionalRequestedNextStep, String prefix) {
-            if (currentStepInstance!=null && currentStepInstance.nextReplay!=null) {
+            continuationInstructions = getSpecialNextReplay();
+            if (continuationInstructions!=null) {
                 log.debug(prefix + "proceeding to custom replay: "+currentStepInstance.nextReplay);
-                continuationInstructions = currentStepInstance.nextReplay;
                 return;
             }
 

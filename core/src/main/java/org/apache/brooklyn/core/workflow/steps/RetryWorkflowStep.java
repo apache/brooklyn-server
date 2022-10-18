@@ -23,29 +23,31 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.ShorthandProcessor;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 public class RetryWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(RetryWorkflowStep.class);
 
-    public static final String SHORTHAND = "retry [${replay} \"replay\"] [ \" from \" ${next} ] [ \" limit \" ${limit...} ] [ \" backoff \" ${backoff...} ] [ \" timeout \" ${timeout} ]";
+    public static final String SHORTHAND = "[ ?${replay} \"replay\" ] [ \" from \" ${next} ] [ \" limit \" ${limit...} ] [ \" backoff \" ${backoff...} ] [ \" timeout \" ${timeout} ]";
 
     public static final ConfigKey<RetryReplayOption> REPLAY = ConfigKeys.newConfigKey(RetryReplayOption.class, "replay");
     public static final ConfigKey<List<RetryLimit>> LIMIT = ConfigKeys.newConfigKey(new TypeToken<List<RetryLimit>>() {}, "limit");
@@ -73,10 +75,17 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             return result;
         }
 
-        public boolean isExceeded(List<Instant> retries) {
+        public Maybe<String> isReached(List<Instant> retries) {
             Instant now = Instant.now();
-            if (retries.stream().filter(r -> duration==null || duration.isLongerThan(Duration.between(r, now))).count() > count) return true;
-            return false;
+            List<Instant> filtered = retries.stream().filter(r -> duration == null || duration.isLongerThan(Duration.between(r, now))).collect(Collectors.toList());
+            if (filtered.size() >= count) {
+                if (filtered.isEmpty()) return Maybe.of("Max count 0 reached");
+                return Maybe.of(
+                        (filtered.size() < retries.size() ? retries.size()+" retries total, "+filtered.size() :
+                                (retries.size()==1 ? "1 retry" : retries.size()+" retries")+" total" )+
+                        " since "+(Duration.between(filtered.get(0), now))+" ago (limit "+this+")");
+            }
+            return Maybe.absent("Limit not reached");
         }
 
         @Override
@@ -88,12 +97,20 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     public static class RetryBackoff {
         List<Duration> initial;
         Double factor;
+        Duration increase;
         Double jitter;
         Duration max;
 
-        /** accepts eg: "0 0 100ms *1.1 max 1m" */
+        public void setInitial(List<Duration> initial) {
+            this.initial = initial;
+        }
+        public void setInitial(String initial) {
+            this.initial = MutableList.of(Duration.of(initial));
+        }
+
+        /** accepts eg: "0 0 100ms increasing 100% up to 1m" */
         public static RetryBackoff fromString(String s) {
-            Maybe<Map<String, Object>> resultM = new ShorthandProcessor("${initial...} [ \"*\" ${factor} ] [\" max \" ${max}]").process(s);
+            Maybe<Map<String, Object>> resultM = new ShorthandProcessor("${initial...} [ \" increasing \" ${factor} ] [ \" up to \" ${max}]").process(s);
             if (resultM.isAbsent()) throw new IllegalArgumentException("Invalid shorthand expression for backoff: '"+s+"'", Maybe.Absent.getException(resultM));
 
             RetryBackoff result = new RetryBackoff();
@@ -105,7 +122,17 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             result.initial = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).keepInternalQuotes(true).failOnOpenQuote(true).build(initialS).remainderAsList().stream()
                     .map(Duration::of).collect(Collectors.toList());
 
-            result.factor = TypeCoercions.coerce(resultM.get().get("factor"), Double.class);
+            String factor = (String) resultM.get().get("factor");
+            if (factor!=null) {
+                if (factor.endsWith("x")) {
+                    result.factor = TypeCoercions.coerce(Strings.removeFromEnd(factor, "x"), Double.class);
+                } else if (factor.endsWith("%")) {
+                    result.factor = 1 + TypeCoercions.coerce(Strings.removeFromEnd(factor, "%"), Double.class) / 100;
+                } else {
+                    result.increase = Duration.of(factor);
+                }
+            }
+
             result.max = TypeCoercions.coerce(resultM.get().get("max"), Duration.class);
 
             return result;
@@ -128,6 +155,8 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
         Duration timeout = TypeCoercions.coerce(input.remove("timeout"), Duration.class);
         if (timeout!=null) this.timeout = timeout;
+
+        if (Boolean.FALSE.equals(input.get(REPLAY.getName()))) input.remove(REPLAY.getName()); // remove replay=false
     }
 
     @Override
@@ -165,11 +194,55 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         List<RetryLimit> limit = context.getInput(LIMIT);
         if (limit!=null) {
             limit.forEach(l -> {
-                if (l.isExceeded(retries)) throw new RetriesExceeded("More than "+l, context.getError());
+                Maybe<String> reachedMessage = l.isReached(retries);
+                if (reachedMessage.isPresent()) throw new RetriesExceeded(reachedMessage.get(), context.getError());
             });
         }
-        // TODO check overall timeout
-        // TODO delay for backoff
+
+        Duration t = getMaximumRetryTimeout();
+        if (t!=null) {
+            Instant oldest = retries.stream().min((i1, i2) -> i1.compareTo(i2)).orElse(null);
+            if (oldest != null) {
+                Duration sinceFirst = Duration.between(oldest, Instant.now());
+                if (sinceFirst.isLongerThan(t)) {
+                    throw Exceptions.propagate(new TimeoutException("Workflow duration of "+sinceFirst+" exceeds timeout of "+t).initCause(context.getError()));
+                }
+            }
+        }
+
+        RetryBackoff backoff = context.getInput(BACKOFF);
+        if (backoff!=null) {
+            Duration delay;
+            int exponent = 0;
+            if (backoff.initial!=null && !backoff.initial.isEmpty()) {
+                if (backoff.initial.size() > retries.size()) {
+                    delay = backoff.initial.get(retries.size());
+                } else {
+                    delay = backoff.initial.get(backoff.initial.size()-1);
+                    exponent = 1 + retries.size() - backoff.initial.size();
+                }
+            } else {
+                // shouldn't be possible
+                delay = Duration.ZERO;
+            }
+            if (backoff.factor!=null) while (exponent-- > 0) delay = delay.multiply(backoff.factor);
+            if (backoff.increase !=null) delay = delay.add(backoff.increase.multiply(exponent));
+
+            if (backoff.jitter!=null) delay = delay.multiply(1 + Math.random()*backoff.jitter);
+
+            if (delay.isPositive()) {
+                Duration ddelay = delay;
+                try {
+                    Tasks.withBlockingDetails("Waiting " + delay + " before retry #" + (retries.size() + 1), () -> {
+                        log.debug("Waiting " + ddelay + " before retry #" + (retries.size() + 1));
+                        Time.sleep(ddelay);
+                        return null;
+                    });
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+        }
 
         retries.add(Instant.now());
         context.getWorkflowExectionContext().getRetryRecords().put(key, retries);
@@ -183,17 +256,17 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         if (replay!=RetryReplayOption.FALSE) {
             if (next==null) {
                 context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingLast(
-                        "workflow requested retry to '"+next+"' from step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                        "workflow requested retry replaying when failing in step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
             } else {
                 context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
-                        "workflow requested retry of last from step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                        "workflow requested retry replaying from '"+next+"' when failing in step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
             }
             log.debug("Retrying with "+context.nextReplay);
         } else {
             if (next==null) {
                 throw new IllegalStateException("Cannot retry with replay disabled and no specified next");
             } else {
-                log.debug("Retrying to explicit next step '"+next+"'");
+                log.debug("Retrying from explicit next step '"+next+"'");
                 // will go to next
             }
         }
