@@ -46,8 +46,10 @@ import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -122,14 +124,20 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testShorthandStepResolution() {
+    public void testShorthandStepResolution() throws JsonProcessingException {
         loadTypes();
         String input = "sleep 1s";
 
-        // only util will work for shorthand
+        // jackson doesn't handle shorthand; our custom method does that
         WorkflowStepDefinition s = WorkflowStepResolution.resolveStep(mgmt, input);
         Asserts.assertInstanceOf(s, SleepWorkflowStep.class);
         Asserts.assertEquals( Duration.of(s.getInput().get(SleepWorkflowStep.DURATION.getName())), Duration.ONE_SECOND);
+
+        String output1 = BrooklynObjectsJsonMapper.newDslToStringSerializingMapper(mgmt).writeValueAsString(s);
+        String output2 = BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writerFor(Object.class).writeValueAsString(s);
+
+        Asserts.assertStringContains(output1, "\"shorthandTypeName\":\"sleep\"");
+        Asserts.assertStringContains(output2, "shorthandTypeName: \"sleep\"");
     }
 
     @Test

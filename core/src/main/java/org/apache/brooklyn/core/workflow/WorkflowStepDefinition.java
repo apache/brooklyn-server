@@ -43,6 +43,7 @@ import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
 
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public abstract class WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowStepDefinition.class);
@@ -59,6 +60,7 @@ public abstract class WorkflowStepDefinition {
     }
 
     protected String userSuppliedShorthand;
+    protected String shorthandTypeName;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     protected Map<String,Object> input = MutableMap.of();
@@ -229,7 +231,11 @@ public abstract class WorkflowStepDefinition {
         return Strings.join(parts, " - ");
     }
 
-    protected String getShorthandTypeName() {
+    public void setShorthandTypeName(String shorthandTypeDefinition) { this.shorthandTypeName = shorthandTypeDefinition; }
+    @JsonProperty("shorthandTypeName")  // REST API should prefer this accessor
+    public String getShorthandTypeName() {
+        if (Strings.isNonBlank(shorthandTypeName)) return shorthandTypeName;
+
         String name = getClass().getSimpleName();
         if (Strings.isBlank(name)) return getClass().getCanonicalName();
         name = Strings.removeFromEnd(name, "WorkflowStep");

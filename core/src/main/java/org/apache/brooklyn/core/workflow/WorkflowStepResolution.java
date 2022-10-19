@@ -105,6 +105,9 @@ public class WorkflowStepResolution {
             if (userSuppliedShorthand!=null) {
                 defW.userSuppliedShorthand = userSuppliedShorthand;
             }
+            if (typeBestGuess!=null) {
+                defW.shorthandTypeName = typeBestGuess;
+            }
 
             List<Object> onError = defW.getOnError();
             if (onError!=null && !onError.isEmpty()) {

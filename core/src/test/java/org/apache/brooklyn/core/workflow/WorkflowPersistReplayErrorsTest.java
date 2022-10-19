@@ -577,7 +577,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                     m -> m.matches("Encountered error in workflow .*/.* 'myWorkflow' .handler present.: No effector matching 'does-not-exist'"),
                     m -> m.matches("Creating workflow .* error handler .*-error-handler in task .*"),
                     m -> m.matches("Starting .*-error-handler with 1 handler in task .*"),
-                    m -> m.matches("Creating handler .*-error-handler-1 'NoOp' in task .*"),
+                    m -> m.matches("Creating handler .*-error-handler-1 'no-op' in task .*"),
                     m -> m.matches("Starting .*-error-handler-1 in task .*"),
                     m -> m.matches("Completed handler .*-error-handler-1; proceeding to default next step"),
                     m -> m.matches("Handled error in workflow around step .*-1; explicit next 'end': Workflow completed")));

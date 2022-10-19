@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
 
 import java.util.Map;
 
@@ -75,10 +76,12 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
         Map<String, Object> env = context.getInput(ENV);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
         return tf.returning(ptw -> {
-            checkExitCode(ptw, exitcode);
-            return MutableMap.of("stdout", ptw.getStdout(),
+            context.setOutput(MutableMap.of("stdout", ptw.getStdout(),
                     "stderr", ptw.getStderr(),
-                    "exit_code", ptw.getExitCode());
+                    "exit_code", ptw.getExitCode()));
+            // make sure the output is set even if there is an error
+            checkExitCode(ptw, exitcode);
+            return (Map<?,?>) context.getOutput();
         });
     }
 

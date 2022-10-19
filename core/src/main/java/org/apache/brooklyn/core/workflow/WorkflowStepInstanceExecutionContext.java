@@ -136,6 +136,13 @@ public class WorkflowStepInstanceExecutionContext {
         return context;
     }
 
+    public Object getOutput() {
+        return output;
+    }
+    public void setOutput(Object output) {
+        this.output = output;
+    }
+
     @JsonIgnore
     public Object getPreviousStepOutput() {
         return getWorkflowExectionContext().getPreviousStepOutput();

@@ -160,8 +160,10 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
         Predicate<Integer> exitcode = context.getInput(STATUS_CODE);
         if (exitcode==null) exitcode = code -> HttpTool.isStatusCodeHealthy(code);
 
+        context.setOutput(MutableMap.of("status_code", response.code(), "headers", response.headers(), "content", contentString, "content_bytes", contentBytes, "duration", Duration.millis(endTime - startTime)));
+        // make sure the output is set even if there is an error
         checkExitCode(response.code(), exitcode);
-        return MutableMap.of("status_code", response.code(), "headers", response.headers(), "content", contentString, "content_bytes", contentBytes, "duration", Duration.millis(endTime - startTime));
+        return context.getOutput();
     }
 
     protected void checkExitCode(Integer code, Predicate<Integer> exitcode) {
