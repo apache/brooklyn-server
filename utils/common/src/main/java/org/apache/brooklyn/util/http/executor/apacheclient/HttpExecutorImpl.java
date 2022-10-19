@@ -61,6 +61,7 @@ public class HttpExecutorImpl implements HttpExecutor {
 
     HttpConfig config = DEFAULT_CONFIG;
 
+    /** config to use if none is specified on the request */
     public HttpExecutorImpl withConfig(HttpConfig config) {
         this.config = config;
         return this;
@@ -68,7 +69,7 @@ public class HttpExecutorImpl implements HttpExecutor {
 
     @Override
     public HttpResponse execute(HttpRequest request) throws IOException {
-        HttpConfig config = (request.config() != null) ? request.config() : DEFAULT_CONFIG;
+        HttpConfig config = (request.config() != null) ? request.config() : this.config!=null ? this.config : DEFAULT_CONFIG;
         Credentials creds = (request.credentials() != null) ? new UsernamePasswordCredentials(request.credentials().getUser(), request.credentials().getPassword()) : null;
         HttpClient httpClient = HttpTool.httpClientBuilder()
                 .uri(request.uri())

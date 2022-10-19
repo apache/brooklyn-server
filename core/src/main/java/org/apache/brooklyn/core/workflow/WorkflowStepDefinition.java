@@ -47,21 +47,21 @@ public abstract class WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowStepDefinition.class);
 
-    //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    protected Map<String,Object> input = MutableMap.of();
-
     protected String id;
     public String getId() {
         return id;
     }
 
+    //    name:  a name to display in the UI; if omitted it is constructed from the step ID and step type
     protected String name;
     public String getName() {
         return name;
     }
 
     protected String userSuppliedShorthand;
+
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    protected Map<String,Object> input = MutableMap.of();
 
     //    next:  the next step to go to, assuming the step runs and succeeds; if omitted, or if the condition does not apply, it goes to the next step per the ordering (described below)
     @JsonProperty("next")  //use this field for access, not the getter/setter

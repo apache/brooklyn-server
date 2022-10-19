@@ -34,6 +34,7 @@ import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.auth.UsernamePassword;
+import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.http.executor.HttpExecutor;
 import org.apache.brooklyn.util.http.executor.HttpRequest;
 import org.apache.brooklyn.util.http.executor.HttpResponse;
@@ -61,6 +62,9 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> STATUS_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "status-code");
     public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<>(String.class, "headers");
     public static final ConfigKey<String> METHOD = ConfigKeys.newStringConfigKey("method");
+
+    /** directly customizable here, otherwise based on entity and brooklyn.properties per {@link BrooklynHttpConfig} */
+    public static final ConfigKey<HttpConfig> HTTPS_CONFIG = ConfigKeys.newConfigKey(HttpConfig.class, "config");
 
     public static final ConfigKey<String> USERNAME = ConfigKeys.newStringConfigKey("username", "Username for HTTP request, if required");
     public static final ConfigKey<String> PASSWORD = ConfigKeys.newStringConfigKey("password", "Password for HTTP request, if required");
@@ -115,6 +119,8 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
 
         Map<String, String> headers = context.getInput(HEADERS);
         if (headers!=null) httpb.headers(headers);
+
+        httpb.config(context.getInput(HTTPS_CONFIG));
 
         String method = context.getInput(METHOD);
         if (Strings.isBlank(method)) method = "get";

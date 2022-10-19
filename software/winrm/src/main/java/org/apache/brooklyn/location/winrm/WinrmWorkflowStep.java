@@ -41,7 +41,7 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
 
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
-    public static final ConfigKey<Map<String,Object>> ENv = new MapConfigKey.Builder(Object.class, "env").build();
+    public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit-code");
 
     @Override
@@ -67,7 +67,7 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
         DslPredicates.DslPredicate<Integer> exitcode = context.getInput(EXIT_CODE);
         ProcessTaskFactory<?> tf = WinRmTasks.newWinrmExecTaskFactory(machine, command);
         if (exitcode!=null) tf.allowingNonZeroExitCode();
-        Map<String, Object> env = context.getInput(ENv);
+        Map<String, Object> env = context.getInput(ENV);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
         tf.returning(ptw -> {
             checkExitCode(ptw, exitcode);

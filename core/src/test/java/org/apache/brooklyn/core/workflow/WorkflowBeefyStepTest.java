@@ -24,35 +24,25 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
-import org.apache.brooklyn.location.ssh.SshMachineLocationReuseIntegrationTest;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.net.Networking;
-import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -69,6 +59,9 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         return runSteps(MutableList.<Object>of(step), appFunction);
     }
     Object runSteps(List<Object> steps, Consumer<BasicApplication> appFunction) {
+        return runSteps(steps, appFunction, null);
+    }
+    Object runSteps(List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag defaultConfig) {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
         this.lastApp = app;
@@ -76,6 +69,7 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
                 .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("p1", MutableMap.of("defaultValue", "p1v")))
                 .configure(WorkflowEffector.STEPS, steps)
+                .putAll(defaultConfig)
         );
         if (appFunction!=null) appFunction.accept(app);
         eff.apply((EntityLocal)app);
@@ -85,7 +79,7 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testEffector() throws IOException {
+    public void testEffector() {
         Object result = runSteps(MutableList.of(
                 "let x = ${entity.sensor.x} + 1 ?? 0",
                 "set-sensor x = ${x}",
@@ -128,6 +122,41 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result.get("content"), "ack");
         Asserts.assertEquals(new String((byte[])result.get("content_bytes")), "ack");
         Asserts.assertThat(result.get("duration"), x -> Duration.nanos(1).isShorterThan(Duration.of(x)));
+    }
+
+    @Test(groups="Integration") //requires internet
+    public void testHttps() throws IOException {
+        doTestHttpsGoogle("https://www.google.com", null, true);
+        doTestHttpsGoogle("www.google.com", null, true);
+        // IP of google won't work unless we trust it
+        doTestHttpsGoogle("172.217.169.68", null, false);
+        doTestHttpsGoogle("172.217.169.68", MutableMap.of("config", HttpConfig.builder().trustAll(true).build()), true);
+        doTestHttpsGoogle("172.217.169.68", MutableMap.of("config", MutableMap.of("trustAll", true)), true);
+        doTestHttpsGoogle("172.217.169.68", MutableMap.of("config", MutableMap.of("trustAll", false)), false);
+    }
+
+    public Map doTestHttpsGoogle(String url, Map<String, Object> extraConfig, Boolean shouldWork) {
+        Map result = null;
+        try {
+            result = (Map) runStep(MutableMap.<String, Object>of("s", "http " + url).add(extraConfig), null);
+            if (shouldWork == null) {
+                // no op, just return result
+            } else if (shouldWork) {
+                Asserts.assertEquals(result.get("status_code"), 200);
+                MutableList.of("" + result.get("content"), "" + new String((byte[]) result.get("content_bytes"))).forEach(s ->
+                        Asserts.assertStringContains(s, "<html", "google.timers.load"));
+            } else {
+                Asserts.shouldHaveFailedPreviously("Instead got: " + result);
+            }
+        } catch (Exception e) {
+            if (Boolean.FALSE.equals(shouldWork)) {
+                // expected, just make sure it isn't the "should have failed" exception
+                Asserts.expectedFailure(e);
+            } else {
+                Asserts.fail(e);
+            }
+        }
+        return result;
     }
 
     // container, winrm defined in downstream projects and tested in those projects and/or workflow yaml

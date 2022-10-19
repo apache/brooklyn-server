@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.workflow.steps;
 
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -34,7 +33,6 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
-import org.apache.brooklyn.util.core.units.Range;
 import org.apache.brooklyn.util.text.Strings;
 
 import java.util.Map;
@@ -45,7 +43,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
 
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
-    public static final ConfigKey<Map<String,Object>> ENv = new MapConfigKey.Builder(Object.class, "env").build();
+    public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit-code");
 
     @Override
@@ -74,7 +72,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
     public static <U, T extends ProcessTaskFactory<U>> ProcessTaskFactory<Map<?,?>> customizeProcessTaskFactory(WorkflowStepInstanceExecutionContext context, T tf) {
         DslPredicates.DslPredicate<Integer> exitcode = context.getInput(EXIT_CODE);
         if (exitcode!=null) tf.allowingNonZeroExitCode();
-        Map<String, Object> env = context.getInput(ENv);
+        Map<String, Object> env = context.getInput(ENV);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
         return tf.returning(ptw -> {
             checkExitCode(ptw, exitcode);

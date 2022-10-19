@@ -19,7 +19,6 @@
 package org.apache.brooklyn.tasks.kubectl;
 
 import com.google.common.reflect.TypeToken;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -30,11 +29,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.ssh.SshTasks;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
 
 import java.util.Arrays;
 import java.util.List;
@@ -49,7 +44,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<List<String>> COMMANDS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "commands");
     public static final ConfigKey<List<String>> RAW_COMMAND = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "raw-command");
     public static final ConfigKey<PullPolicy> PULL_POLICY = ConfigKeys.newConfigKey(PullPolicy.class, "pull-policy", ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDescription(), ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDefaultValue());
-    public static final ConfigKey<Map<String,Object>> ENv = new MapConfigKey.Builder(Object.class, "env").build();
+    public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit-code");
 
     @Override
@@ -92,7 +87,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
             throw new IllegalStateException("Incompatible command specification, max 1, received: "+commandTypesSet);
         }
 
-        Map<String, Object> env = context.getInput(ENv);
+        Map<String, Object> env = context.getInput(ENV);
         if (env != null)
             tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
 

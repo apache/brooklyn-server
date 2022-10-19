@@ -57,6 +57,11 @@ public class HttpConfig {
     private final boolean trustAll;
     private final boolean trustSelfSigned;
 
+    /** jackson provider */
+    protected HttpConfig() {
+        this(builder());
+    }
+
     protected HttpConfig(Builder builder) {
         laxRedirect = builder.laxRedirect;
         trustAll = builder.trustAll;

@@ -125,7 +125,7 @@ public interface HttpRequest {
     Credentials credentials();
 
     /**
-     * Additional optional configuration to customize how the call is done.
+     * Redirect and trust/cert settings. If supplied, overrides the executor's. If blank, takes from the exector.
      */
     @Nullable
     HttpConfig config();
