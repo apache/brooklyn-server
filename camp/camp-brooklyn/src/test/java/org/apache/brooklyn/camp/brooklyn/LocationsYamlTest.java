@@ -297,16 +297,20 @@ public class LocationsYamlTest extends AbstractYamlTest {
         LocalhostMachineProvisioningLocation loc = (LocalhostMachineProvisioningLocation) Iterables.getOnlyElement(app.getLocations());
         assertNotNull(loc);
         Assert.assertTrue(loc.tags().containsTag("foo"), "location tags missing: "+loc.tags().getTags());
+        // ensure tags not set as config
+        Assert.assertNull(loc.config().getBag().getStringKey("tags"));
     }
 
-
     @Test
-    public void testJcloudsLocationWithTagsDoesntWork() throws Exception {
-        // NOTE: 'tags' on jclouds is used to set a config, NOT brooklyn object tags
+    public void testJcloudsLocationWithTagsActsCorrectly() throws Exception {
+        // NOTE: 'tags' on jclouds _was_ used to set a config, NOT brooklyn object tags
+        // CHANGED 2022-10 to be tags on the location, otherwise spec_hierarchy tags get passed to VMs; use brooklyn.config
         String yaml =
                 "location:\n"+
                 "  jclouds:aws-ec2:\n"+
-                "    tags: [ foo ]\n"+
+                "    tags: [ bar ]\n"+
+                "    brooklyn.config:\n"+
+                "      tags: [ foo ]\n"+
                 "services:\n"+
                 "- type: org.apache.brooklyn.core.test.entity.TestEntity\n";
 
@@ -314,7 +318,10 @@ public class LocationsYamlTest extends AbstractYamlTest {
         JcloudsLocation loc = (JcloudsLocation) Iterables.getOnlyElement(app.getLocations());
         assertNotNull(loc);
         Assert.assertFalse(loc.tags().containsTag("foo"), "location tags for jclouds shouldn't support 'tags' flag: "+loc.tags().getTags());
+        Assert.assertTrue(loc.tags().containsTag("bar"));
+        Asserts.assertNull(loc.config().getBag().getStringKey("brooklyn.config"));
         Asserts.assertThat(loc.config().get(JcloudsLocation.STRING_TAGS), r -> r instanceof Collection && ((Collection)r).contains("foo"));
+        Asserts.assertThat(loc.config().get(JcloudsLocation.STRING_TAGS), r -> r instanceof Collection && !((Collection)r).contains("bar"));
     }
 
     @Test

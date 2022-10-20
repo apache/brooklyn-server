@@ -443,14 +443,29 @@ public class BasicLocationRegistry implements LocationRegistry {
 
             if (resolver != null) {
                 try {
+                    Object tags = locationFlags.remove("tags");
+                    Object brTags = locationFlags.remove("brooklyn.tags");
+                    Object brConfig = locationFlags.remove("brooklyn.config");
+
                     LocationSpec<? extends Location> specO = resolver.newLocationSpecFromString(spec, locationFlags, this);
+
+                    if (tags!=null) {
+                        if (tags instanceof Iterable) specO.tagsAdd((Iterable)tags);
+                        else specO.configure("tags", tags);
+                    }
+                    if (brTags!=null) {
+                        if (brTags instanceof Iterable) specO.tagsAdd((Iterable)brTags);
+                        else specO.configure("brooklyn.tags", brTags);
+                    }
+                    if (brConfig!=null) {
+                        if (brConfig instanceof Map) specO.configure((Map)brConfig);
+                        else specO.configure("brooklyn.config", brConfig);
+                    }
+
                     specO.configure(LocationInternal.ORIGINAL_SPEC, spec);
                     specO.configure(LocationInternal.NAMED_SPEC_NAME, spec);
-                    Object tags = locationFlags.get("brooklyn.tags");
-                    if (tags instanceof Iterable) {
-                        specO.tagsAdd((Iterable<?>)tags);
-                    }
                     return (Maybe) Maybe.of(specO);
+
                 } catch (RuntimeException e) {
                      return Maybe.absent(Suppliers.ofInstance(e));
                 }

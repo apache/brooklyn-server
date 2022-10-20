@@ -260,8 +260,7 @@ public class RebindLocationTest extends RebindTestFixtureWithApp {
     
     @Test
     public void testLocationTags() throws Exception {
-        Location origLoc = origManagementContext.getLocationManager().createLocation(LocationSpec.create(MyLocation.class));
-        origLoc.tags().addTag("foo");
+        Location origLoc = origManagementContext.getLocationManager().createLocation(LocationSpec.create(MyLocation.class).tag("foo"));
         origLoc.tags().addTag(origApp);
         origApp.start(ImmutableList.of(origLoc));
 
