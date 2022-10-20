@@ -97,7 +97,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
             WorkflowStepDefinition errorStep = errorOptions.get(i);
 
-            WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(stepIndexIfStepErrorHandler!=null ? stepIndexIfStepErrorHandler : -3, errorStep, context);
+            WorkflowStepInstanceExecutionContext handlerContext = new WorkflowStepInstanceExecutionContext(stepIndexIfStepErrorHandler!=null ? stepIndexIfStepErrorHandler : WorkflowExecutionContext.STEP_INDEX_FOR_ERROR_HANDLER, errorStep, context);
             context.errorHandlerContext = handlerContext;
             handlerContext.error = error;
 

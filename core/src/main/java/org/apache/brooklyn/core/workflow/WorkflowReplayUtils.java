@@ -118,7 +118,7 @@ public class WorkflowReplayUtils {
 
     public static void updateOnWorkflowSuccess(WorkflowExecutionContext ctx, Task<?> task, Object result) {
         WorkflowReplayRecord.updateInternal(ctx, task, true, result);
-        ctx.replayableLastStep = -2;
+        ctx.replayableLastStep = WorkflowExecutionContext.STEP_INDEX_FOR_END;
     }
 
     public static void updateOnWorkflowError(WorkflowExecutionContext ctx, Task<?> task, Throwable error) {
@@ -193,8 +193,8 @@ public class WorkflowReplayUtils {
             // forced, eg throwing exception
             return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLastForcedWithCustom(instructions.customBehaviourExplanation, instructions.customBehaviour));
         } else {
-            if (Objects.equals(subWorkflow.replayableLastStep, -2)) return null;
-            // may throw if not forced and not replayable
+            if (Objects.equals(subWorkflow.replayableLastStep, WorkflowExecutionContext.STEP_INDEX_FOR_END)) return null;
+            // may throw if not forced and not replayable[
             return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLast(instructions.customBehaviourExplanation, instructions.forced));
         }
     }

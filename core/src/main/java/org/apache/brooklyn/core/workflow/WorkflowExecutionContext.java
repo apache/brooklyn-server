@@ -70,6 +70,11 @@ public class WorkflowExecutionContext {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionContext.class);
 
+    public static final int STEP_INDEX_FOR_START = -1;
+    public static final int STEP_INDEX_FOR_END = -2;
+    public static final int STEP_INDEX_FOR_ERROR_HANDLER = -3;
+
+
     String name;
     @Nullable BrooklynObject adjunct;
     Entity entity;
@@ -324,7 +329,7 @@ public class WorkflowExecutionContext {
             Set<Integer> considered = MutableSet.of();
             Set<Integer> possibleOthers = MutableSet.of();
             while (true) {
-                if (WorkflowReplayUtils.isReplayable(this, stepIndex) || stepIndex == -1) {
+                if (WorkflowReplayUtils.isReplayable(this, stepIndex) || stepIndex == STEP_INDEX_FOR_START) {
                     break;
                 }
 
@@ -332,14 +337,14 @@ public class WorkflowExecutionContext {
                 OldStepRecord osi = oldStepInfo.get(stepIndex);
                 if (osi == null) {
                     log.warn("Unable to backtrack from step " + (stepIndex) + "; no step information. Replaying overall workflow.");
-                    stepIndex = -1;
+                    stepIndex = STEP_INDEX_FOR_START;
                     break;
                 }
 
                 Set<Integer> prev = osi.previous;
                 if (prev == null || prev.isEmpty()) {
                     log.warn("Unable to backtrack from step " + (stepIndex) + "; no previous step recorded. Replaying overall workflow.");
-                    stepIndex = -1;
+                    stepIndex = STEP_INDEX_FOR_START;
                     break;
                 }
 
@@ -347,7 +352,7 @@ public class WorkflowExecutionContext {
                 if (repeating) {
                     if (possibleOthers.size() != 1) {
                         log.warn("Unable to backtrack from step " + (stepIndex) + "; ambiguous precedents " + prev + " / " + possibleOthers + ". Replaying overall workflow.");
-                        stepIndex = -1;
+                        stepIndex = STEP_INDEX_FOR_START;
                         break;
                     } else {
                         stepIndex = possibleOthers.iterator().next();
@@ -371,7 +376,7 @@ public class WorkflowExecutionContext {
     }
 
     public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStart(String reason, boolean forced) {
-        return makeInstructionsForReplayingFromStep(-1, reason, forced);
+        return makeInstructionsForReplayingFromStep(STEP_INDEX_FOR_START, reason, forced);
     }
 
     public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingLast(String reason, boolean forced) {
@@ -386,7 +391,7 @@ public class WorkflowExecutionContext {
         Integer replayFromStep = null;
         if (currentStepIndex == null) {
             // not yet started
-            replayFromStep = -1;
+            replayFromStep = STEP_INDEX_FOR_START;
         } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
             // replaying from a different step, or current step which has either not run or completed but didn't save
             log.debug("Replaying workflow '" + name + "', cannot replay within step " + currentStepIndex + " because step instance not known; will reinitialize then replay that step");
@@ -424,7 +429,7 @@ public class WorkflowExecutionContext {
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new Body(continuationInstructions)).build();
-        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, continuationInstructions.customBehaviourExplanation, continuationInstructions.stepToReplayFrom!=null && continuationInstructions.stepToReplayFrom!=-1);
+        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, continuationInstructions.customBehaviourExplanation, continuationInstructions.stepToReplayFrom!=null && continuationInstructions.stepToReplayFrom!=STEP_INDEX_FOR_START);
 
         taskId = task.getId();
 
@@ -629,7 +634,7 @@ public class WorkflowExecutionContext {
                         status = WorkflowStatus.RUNNING;
 
                         if (replaying) {
-                            if (replayFromStep != null && replayFromStep == -1) {
+                            if (replayFromStep != null && replayFromStep == STEP_INDEX_FOR_START) {
                                 log.debug("Replaying workflow '" + name + "', from start " +
                                         " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
                                 currentStepIndex = 0;
@@ -699,13 +704,13 @@ public class WorkflowExecutionContext {
                         // finished -- checkpoint noting previous step and null for current because finished
                         status = WorkflowStatus.SUCCESS;
                         // record how it ended
-                        oldStepInfo.compute(previousStepIndex == null ? -1 : previousStepIndex, (index, old) -> {
+                        oldStepInfo.compute(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
                             if (old == null) old = new OldStepRecord();
-                            old.next = MutableSet.<Integer>of(-1).putAll(old.next);
+                            old.next = MutableSet.<Integer>of(STEP_INDEX_FOR_START).putAll(old.next);
                             old.nextTaskId = null;
                             return old;
                         });
-                        oldStepInfo.compute(-1, (index, old) -> {
+                        oldStepInfo.compute(STEP_INDEX_FOR_START, (index, old) -> {
                             if (old == null) old = new OldStepRecord();
                             old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
                             old.previousTaskId = previousStepTaskId;
@@ -879,12 +884,12 @@ public class WorkflowExecutionContext {
                 if (!workflowScratchVariables.isEmpty())
                     old.workflowScratch = MutableMap.copyOf(workflowScratchVariables);
                 else old.workflowScratch = null;
-                old.previous = MutableSet.<Integer>of(previousStepIndex == null ? -1 : previousStepIndex).putAll(old.previous);
+                old.previous = MutableSet.<Integer>of(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex).putAll(old.previous);
                 old.previousTaskId = previousStepTaskId;
                 old.nextTaskId = null;
                 return old;
             });
-            oldStepInfo.compute(previousStepIndex==null ? -1 : previousStepIndex, (index, old) -> {
+            oldStepInfo.compute(previousStepIndex==null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
                 if (old==null) old = new OldStepRecord();
                 old.next = MutableSet.<Integer>of(currentStepIndex).putAll(old.next);
                 old.nextTaskId = t.getId();
@@ -1036,9 +1041,9 @@ public class WorkflowExecutionContext {
 
     private String indexCode(int index) {
         // these numbers shouldn't be used for much, but they are used in a few places :(
-        if (index==-1) return "start";
-        if (index==-2) return "end";
-        if (index==-3) return "error-handler";
+        if (index==STEP_INDEX_FOR_START) return "start";
+        if (index==STEP_INDEX_FOR_END) return "end";
+        if (index==STEP_INDEX_FOR_ERROR_HANDLER) return "error-handler";
         return "neg-"+(index); // unknown
     }
 
