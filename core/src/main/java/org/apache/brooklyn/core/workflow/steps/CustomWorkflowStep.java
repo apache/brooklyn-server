@@ -20,14 +20,17 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.collect.Iterables;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
@@ -58,6 +61,9 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     Map<String,Object> parameters;
+
+    // should be treated as raw json
+    @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
     List<Object> steps;
 
     Object workflowOutput;
@@ -170,5 +176,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                         .configure(WorkflowCommonConfig.OUTPUT, workflowOutput),
                 null,
                 ConfigBag.newInstance(getInput()).putAll(extraConfig), null);
+    }
+
+    @VisibleForTesting
+    public List<Object> peekSteps() {
+        return steps;
     }
 }

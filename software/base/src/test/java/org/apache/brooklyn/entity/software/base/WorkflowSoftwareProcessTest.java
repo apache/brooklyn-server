@@ -35,7 +35,10 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.sensor.function.FunctionSensor;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.enricher.stock.UpdatingMap;
 import org.apache.brooklyn.entity.software.base.SoftwareProcess.ChildStartableMode;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
@@ -56,6 +59,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -121,6 +125,11 @@ public class WorkflowSoftwareProcessTest extends BrooklynAppUnitTestSupport {
 
         EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_UP, true);
         EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+
+        WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(child).values().iterator().next();
+        List<Object> defs = lastWorkflowContext.getStepsDefinition();
+        // step definitions should not be resolved by jackson
+        defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
 
         app.stop();
 

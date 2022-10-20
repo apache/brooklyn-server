@@ -44,6 +44,7 @@ import java.lang.reflect.AccessibleObject;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class AsPropertyIfAmbiguous {
 
@@ -116,7 +117,31 @@ public class AsPropertyIfAmbiguous {
         }
     }
 
-    /** Type deserializer which undersrtands a '@type' property if 'type' conflicts with a field on the class and which uses the base type if no type is specified */
+    static ThreadLocal<AtomicInteger> suppressingTypeFieldDeserialization = new ThreadLocal<>();
+    static boolean isSuppressingTypeFieldDeserialization() {
+        AtomicInteger count = suppressingTypeFieldDeserialization.get();
+        if (count==null) return false;
+        return count.get() > 0;
+    }
+    static void startSuppressingTypeFieldDeserialization() {
+        AtomicInteger count = suppressingTypeFieldDeserialization.get();
+        if (count==null) {
+            count = new AtomicInteger();
+            suppressingTypeFieldDeserialization.set(count);
+        }
+        count.incrementAndGet();
+    }
+    static void stopSuppressingTypeFieldDeserialization() {
+        AtomicInteger count = suppressingTypeFieldDeserialization.get();
+        if (count==null) {
+            throw new IllegalStateException("Count mismatch starting/stopping type field deserialization");
+        }
+        if (count.decrementAndGet()==0) {
+            suppressingTypeFieldDeserialization.remove();
+        }
+    }
+
+    /** Type deserializer which understands a '@type' property if 'type' conflicts with a field on the class and which uses the base type if no type is specified */
     public static class AsPropertyButNotIfFieldConflictTypeDeserializer extends AsPropertyTypeDeserializer {
         public AsPropertyButNotIfFieldConflictTypeDeserializer(JavaType bt, TypeIdResolver idRes, String typePropertyName, boolean typeIdVisible, JavaType defaultImpl, As inclusion) {
             super(bt, idRes, typePropertyName, typeIdVisible, defaultImpl, inclusion);
@@ -171,6 +196,10 @@ public class AsPropertyIfAmbiguous {
 
         // copied from super class
         private Object deserializeTypedFromObjectSuper(JsonParser p, DeserializationContext ctxt, boolean mustUseConflictingTypePrefix) throws IOException {
+            if (isSuppressingTypeFieldDeserialization()) {
+                return _deserializeTypedUsingDefaultImpl(p, ctxt, null, "typed deserialization is suppressed");
+            }
+
 //            return super.deserializeTypedFromObject(p, ctxt);
 
             // 02-Aug-2013, tatu: May need to use native type ids

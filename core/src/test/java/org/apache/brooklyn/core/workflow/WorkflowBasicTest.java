@@ -40,6 +40,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.*;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
@@ -110,7 +111,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testStepResolution() {
+    public void testStepResolution() throws JsonProcessingException {
         loadTypes();
         Map<String,Object> input = MutableMap.of("type", "no-op");
 
@@ -121,6 +122,12 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         // util
         s = WorkflowStepResolution.resolveStep(mgmt, input);
         Asserts.assertInstanceOf(s, NoOpWorkflowStep.class);
+
+        String output1 = BrooklynObjectsJsonMapper.newDslToStringSerializingMapper(mgmt).writeValueAsString(s);
+        String output2 = BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writerFor(Object.class).writeValueAsString(s);
+
+        Asserts.assertStringContains(output1, "\"shorthandTypeName\":\"no-op\"");
+        Asserts.assertStringContains(output2, "shorthandTypeName: \"no-op\"");
     }
 
     @Test
@@ -157,7 +164,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
-    public void testCommonStepsInEffector() {
+    public void testCommonStepsInEffector() throws JsonProcessingException {
         loadTypes();
         BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
 
@@ -217,6 +224,13 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertNull(badSensor);
         Asserts.assertEquals(app.sensors().get(Sensors.newSensor(Object.class, "bad")), null);
         Asserts.assertThat(app.sensors().getAll().keySet().stream().map(Sensor::getName).collect(Collectors.toSet()), s -> !s.contains("bad"));
+
+        WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).values().iterator().next();
+        String output1 = BrooklynObjectsJsonMapper.newDslToStringSerializingMapper(mgmt).writeValueAsString(lastWorkflowContext);
+        String output2 = BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writerFor(Object.class).writeValueAsString(lastWorkflowContext);
+
+        Asserts.assertStringContains(output1, "\"type\":\"no-op\"");
+        Asserts.assertStringContains(output2, "type: \"no-op\"");
     }
 
     public static class WorkflowTestStep extends WorkflowStepDefinition {

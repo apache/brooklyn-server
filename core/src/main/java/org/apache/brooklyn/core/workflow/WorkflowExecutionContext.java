@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -32,6 +33,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -94,7 +96,10 @@ public class WorkflowExecutionContext {
     transient WorkflowExecutionContext parent;
     String parentId;
 
+    // should be treated as raw json
+    @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
     List<Object> stepsDefinition;
+
     DslPredicates.DslPredicate condition;
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -548,6 +553,10 @@ public class WorkflowExecutionContext {
 
     public WorkflowStepInstanceExecutionContext getErrorHandlerContext() {
         return errorHandlerContext;
+    }
+
+    public List<Object> getStepsDefinition() {
+        return MutableList.copyOf(stepsDefinition).asUnmodifiable();
     }
 
     transient Map<String,Pair<Integer,WorkflowStepDefinition>> stepsWithExplicitId;

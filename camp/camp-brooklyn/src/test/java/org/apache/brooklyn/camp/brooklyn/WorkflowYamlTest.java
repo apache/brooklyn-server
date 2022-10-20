@@ -19,33 +19,48 @@
 package org.apache.brooklyn.camp.brooklyn;
 
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.location.Location;
+import org.apache.brooklyn.api.location.LocationSpec;
+import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
+import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
-import org.apache.brooklyn.core.workflow.WorkflowEffector;
-import org.apache.brooklyn.core.workflow.WorkflowPolicy;
-import org.apache.brooklyn.core.workflow.WorkflowSensor;
+import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.entity.software.base.WorkflowSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicEntity;
+import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinrmWorkflowStep;
 import org.apache.brooklyn.tasks.kubectl.ContainerWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
@@ -53,8 +68,12 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
+import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecsContain;
 
 public class WorkflowYamlTest extends AbstractYamlTest {
 
@@ -212,6 +231,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         } else {
             EntityAsserts.assertAttributeEqualsContinually(entity, s, null);
         }
+
+        WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values().iterator().next();
+        List<Object> defs = lastWorkflowContext.getStepsDefinition();
+        // step definitions should not be resolved by jackson
+        defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
     }
 
     public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
@@ -459,5 +483,61 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, "resolve step", "unsupported-type");
         }
+    }
+
+    @Test
+    public void testWorkflowSoftwareProcessAsYaml() throws Exception {
+        RecordingSshTool.clear();
+
+        FixedListMachineProvisioningLocation loc = mgmt().getLocationManager().createLocation(LocationSpec.create(FixedListMachineProvisioningLocation.class)
+                .configure(FixedListMachineProvisioningLocation.MACHINE_SPECS, ImmutableList.<LocationSpec<? extends MachineLocation>>of(
+                        LocationSpec.create(SshMachineLocation.class)
+                                .configure("address", "1.2.3.4")
+                                .configure(SshMachineLocation.SSH_TOOL_CLASS, RecordingSshTool.class.getName()))));
+
+        Application app = createApplicationUnstarted(
+                "services:",
+                "- type: " + WorkflowSoftwareProcess.class.getName(),
+                "  brooklyn.config:",
+                "    "+BrooklynConfigKeys.SKIP_ON_BOX_BASE_DIR_RESOLUTION.getName()+": true",
+                "    install.workflow:",
+                "      steps:",
+                "        - ssh installWorkflow",
+                "        - set-sensor boolean installed = true",
+                "        - type: no-op",
+                "    stop.workflow:",
+                "      steps:",
+                "        - ssh stopWorkflow",
+                "        - set-sensor boolean stopped = true"
+        );
+
+        Entity child = app.getChildren().iterator().next();
+        List<Object> steps = child.config().get(WorkflowSoftwareProcess.INSTALL_WORKFLOW).peekSteps();
+        // should not be resolved yet
+        steps.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
+
+        ((Startable)app).start(MutableList.of(loc));
+
+        assertExecsContain(RecordingSshTool.getExecCmds(), ImmutableList.of(
+                "installWorkflow"));
+
+        EntityAsserts.assertAttributeEquals(child, Sensors.newSensor(Boolean.class, "installed"), true);
+        EntityAsserts.assertAttributeEquals(child, Sensors.newSensor(Boolean.class, "stopped"), null);
+
+        EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_UP, true);
+        EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+
+        WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(child).values().iterator().next();
+        List<Object> defs = lastWorkflowContext.getStepsDefinition();
+        // step definitions should not be resolved by jackson
+        defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
+
+        ((Startable)app).stop();
+
+        EntityAsserts.assertAttributeEquals(child, Sensors.newSensor(Boolean.class, "stopped"), true);
+        assertExecContains(RecordingSshTool.getLastExecCmd(), "stopWorkflow");
+
+        EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_UP, false);
+        EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
     }
 }
