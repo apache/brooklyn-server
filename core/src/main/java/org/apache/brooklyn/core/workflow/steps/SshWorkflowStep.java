@@ -86,7 +86,11 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
     }
 
     protected static void checkExitCode(ProcessTaskWrapper<?> ptw, DslPredicates.DslPredicate<Integer> exitcode) {
-        if (exitcode==null) return;
+        if (exitcode==null) {
+            if (ptw.getExitCode()!=0) throw new IllegalStateException("Invalid exit code '"+ptw.getExitCode()+"'");
+            return;
+        }
+
         if (exitcode instanceof DslPredicates.DslPredicateBase) {
             Object implicit = ((DslPredicates.DslPredicateBase) exitcode).implicitEquals;
             if (implicit!=null) {
@@ -99,7 +103,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             // ranges still require `exit-code: { range: [0, 4] }`, same with `exit-code: { less-than: 5 }`.
         }
         if (!exitcode.apply(ptw.getExitCode())) {
-            throw new IllegalStateException("Invalid exit code '"+ptw.getExitCode()+"'");
+            throw new IllegalStateException("Invalid exit code '"+ptw.getExitCode()+"'; does not match explicit exit-code requirement");
         }
     }
 
