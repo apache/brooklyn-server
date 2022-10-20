@@ -454,6 +454,37 @@ public interface EntityApi {
             @PathParam("workflowId") String workflowId);
 
     @POST
+    @ApiOperation(value = "Run a workflow on this entity from a YAML workflow spec",
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class)
+    @Consumes({"application/x-yaml",
+            // per addChildren
+            "text/yaml", "text/x-yaml", "application/yaml", MediaType.APPLICATION_JSON})
+    @Path("/{entity}/workflows")
+    @ApiResponses(value = {
+            @ApiResponse(code = 201, message = "Accepted"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response runWorkflow(
+            @PathParam("application") final String application,
+            @PathParam("entity") final String entity,
+
+            @ApiParam(name = "timeout", value = "Delay before server should respond with incomplete activity task, rather than completed task: " +
+                    "'never' means block until complete; " +
+                    "'0' means return task immediately; " +
+                    "and e.g. '20ms' (the default) will wait 20ms for completed task information to be available",
+                    required = false, defaultValue = "20ms")
+            @QueryParam("timeout") final String timeout,
+
+            @ApiParam(
+                    name = "workflowSpec",
+                    value = "Workflow spec in YAML (including 'steps' root element with a list of steps)",
+                    required = true)
+                    String yaml);
+
+    @POST
     @Path("/{entity}/workflows/{workflowId}/replay/from/{step}")
     @ApiOperation(value = "Replays a workflow from the given step, or 'start' to restart or 'end' to resume from last replayable point; the workflow will rollback to the previous replay point unless forced; returns the task ID of the replay")
     @ApiResponses(value = {

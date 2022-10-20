@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
@@ -48,9 +49,11 @@ public class WorkflowReplayUtils {
         //   - replays others
     }
 
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class WorkflowReplayRecord {
         String taskId;
         String reasonForReplay;
+        String submittedByTaskId;
         long submitTimeUtc;
         long startTimeUtc;
         long endTimeUtc;
@@ -72,6 +75,7 @@ public class WorkflowReplayUtils {
                 log.warn("Mismatch in workflow replays for "+ctx+": "+ctx.replayCurrent +" vs "+task);
                 return;
             }
+            ctx.replayCurrent.submittedByTaskId = task.getSubmittedByTaskId();
             ctx.replayCurrent.submitTimeUtc = task.getSubmitTimeUtc();
             ctx.replayCurrent.startTimeUtc = task.getStartTimeUtc();
             ctx.replayCurrent.endTimeUtc = task.getEndTimeUtc();
@@ -85,7 +89,11 @@ public class WorkflowReplayUtils {
                     ctx.replayCurrent.result = Exceptions.collapseTextInContext(t, task);
                 }
             } else {
-                if (ctx.replayCurrent.endTimeUtc <= 0) ctx.replayCurrent.endTimeUtc = System.currentTimeMillis();
+                // when forcing end, we are invoked _by_ the task so we fake the completion information
+                if (ctx.replayCurrent.endTimeUtc <= 0) {
+                    ctx.replayCurrent.endTimeUtc = System.currentTimeMillis();
+                    ctx.replayCurrent.status = forceEndSuccessOrError ? "Completed" : "Failed";
+                }
                 ctx.replayCurrent.isError = !forceEndSuccessOrError;
                 ctx.replayCurrent.result = result;
             }

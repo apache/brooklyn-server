@@ -22,6 +22,9 @@ import static javax.ws.rs.core.Response.created;
 import static javax.ws.rs.core.Response.status;
 import static javax.ws.rs.core.Response.Status.ACCEPTED;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
@@ -46,8 +49,10 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
 import org.apache.brooklyn.core.mgmt.entitlement.EntitlementPredicates;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.rest.api.EntityApi;
 import org.apache.brooklyn.rest.domain.*;
@@ -59,10 +64,13 @@ import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.ClassLoadingContext;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -400,4 +408,31 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         return (String) WebResourceUtils.getValueForDisplay(mapper(), t.getId(), true, true);
     }
 
+    @Override
+    public Response runWorkflow(String applicationToken, String entityToken, String timeoutS, String yaml) {
+        final Entity target = brooklyn().getEntity(applicationToken, entityToken);
+        // TODO new entitlement, here and above
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, target)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entityToken);
+        }
+        CustomWorkflowStep workflow;
+        try {
+            workflow = BeanWithTypeUtils.newYamlMapper(mgmt(), true, RegisteredTypes.getClassLoadingContext(target), true)
+                    .readerFor(CustomWorkflowStep.class).readValue(yaml);
+        } catch (JsonProcessingException e) {
+            return ApiError.of(e).asBadRequestResponseJson();
+        }
+
+        WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
+                Strings.firstNonBlank(workflow.getName(), workflow.getId(), "API workflow invocation"), null);
+
+        Task<Object> task = Entities.submit(target, execution.getTask(true).get());
+        task.blockUntilEnded(timeoutS==null ? Duration.millis(20) : Duration.of(timeoutS));
+
+        URI ref = serviceAbsoluteUriBuilder(uriInfo.getBaseUriBuilder(), EntityApi.class, "getWorkflow")
+                .build(target.getApplicationId(), target.getId(), execution.getWorkflowId());
+        ResponseBuilder response = created(ref);
+        return response.entity(TaskTransformer.taskSummary(task, ui.getBaseUriBuilder())).build();
+    }
 }
