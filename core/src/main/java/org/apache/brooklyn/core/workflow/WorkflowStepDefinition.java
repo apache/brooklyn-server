@@ -58,6 +58,9 @@ public abstract class WorkflowStepDefinition {
     public String getName() {
         return name;
     }
+    public void setName(String name) {
+        this.name = name;
+    }
 
     protected String userSuppliedShorthand;
     protected String shorthandTypeName;

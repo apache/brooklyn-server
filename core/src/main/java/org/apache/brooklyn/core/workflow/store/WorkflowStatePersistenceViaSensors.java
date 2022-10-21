@@ -26,16 +26,21 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.workflow.WorkflowErrorHandling;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class WorkflowStatePersistenceViaSensors {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowStatePersistenceViaSensors.class);
 
     public static final AttributeSensor<Map<String,WorkflowExecutionContext>> INTERNAL_WORKFLOWS = Sensors.newSensor(new TypeToken<Map<String, WorkflowExecutionContext>>() {}, "internals.brooklyn.workflow");
 
@@ -54,6 +59,24 @@ public class WorkflowStatePersistenceViaSensors {
             entity.sensors().modify(INTERNAL_WORKFLOWS, v -> {
                 if (v == null) v = MutableMap.of();
                 v.put(context.getWorkflowId(), context);
+                String k = Strings.firstNonBlank(context.getExpiryKey(), "empty-expiry-key");  //should always be set
+                // TODO follow expiry instructions; for now, just keep 3 latest, apart from this one
+                List<WorkflowExecutionContext> finishedTwins = v.values().stream()
+                        .filter(c -> k.equals(c.getExpiryKey()))
+                        .filter(c -> c.getStatus()!=null && c.getStatus().ended)
+                        .filter(c -> !c.equals(context))
+                        .collect(Collectors.toList());
+                if (finishedTwins.size()>3) {
+                    finishedTwins = MutableList.copyOf(finishedTwins);
+                    Collections.sort(finishedTwins, (t1,t2) -> Long.compare(t2.getMostRecentActivityTime(), t1.getMostRecentActivityTime()));
+                    Iterator<WorkflowExecutionContext> ti = finishedTwins.iterator();
+                    for (int i=0; i<3; i++) ti.next();
+                    while (ti.hasNext()) {
+                        WorkflowExecutionContext w = ti.next();
+                        log.debug("Expiring old workflow "+w+" because it is finished and there are newer ones");
+                        v.remove(w.getWorkflowId());
+                    }
+                }
                 return Maybe.of(v);
             });
             mgmt.getRebindManager().forcePersistNow(false, null);

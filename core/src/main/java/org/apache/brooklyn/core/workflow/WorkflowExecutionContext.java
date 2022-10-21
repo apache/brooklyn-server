@@ -20,7 +20,9 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -60,6 +62,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -120,6 +123,9 @@ public class WorkflowExecutionContext {
     /** current or most recent executing task created for this workflow, corresponding to task */
     String taskId;
     transient Task<Object> task;
+
+    @JsonProperty("expiryKey")
+    String expiryKey;
 
     /** all tasks created for this workflow */
     Set<WorkflowReplayUtils.WorkflowReplayRecord> replays = MutableSet.of();
@@ -239,7 +245,7 @@ public class WorkflowExecutionContext {
 
         TaskBuilder<Object> tb = Tasks.builder().dynamic(true);
         if (optionalTaskFlags!=null) tb.flags(optionalTaskFlags);
-        else tb.displayName(name);
+        if (Strings.isBlank(tb.getDisplayName())) tb.displayName(name);
         task = tb.body(new Body()).build();
         WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, "initial run", false);
         workflowId = taskId = task.getId();
@@ -564,6 +570,49 @@ public class WorkflowExecutionContext {
         return errorHandlerContext;
     }
 
+    @JsonIgnore
+    public String getExpiryKey() {
+        if (Strings.isNonBlank(expiryKey)) return expiryKey;
+        if (Strings.isNonBlank(getName())) return getName();
+        return "anonymous-workflow";
+    }
+
+    /** look in tasks, steps, and replays to find most recent activity */
+    public long getMostRecentActivityTime() {
+        AtomicLong result = new AtomicLong(-1);
+
+        Consumer<Long> consider = l -> {
+            if (l!=null && l>result.get()) result.set(l);
+        };
+        Consumer<Task> considerTask = task -> {
+            if (task!=null) {
+                consider.accept(task.getEndTimeUtc());
+                consider.accept(task.getStartTimeUtc());
+                consider.accept(task.getSubmitTimeUtc());
+            }
+        };
+        considerTask.accept(getTask(false).orNull());
+
+        Consumer<WorkflowReplayUtils.WorkflowReplayRecord> considerReplay = replay -> {
+            if (replay!=null) {
+                consider.accept(replay.endTimeUtc);
+                consider.accept(replay.startTimeUtc);
+                consider.accept(replay.submitTimeUtc);
+            }
+        };
+        if (replayCurrent!=null) {
+            considerReplay.accept(replayCurrent);
+        } else if (!replays.isEmpty()) {
+            considerReplay.accept(Iterables.getLast(replays));
+        }
+
+        if (currentStepInstance!=null) {
+            considerTask.accept(getManagementContext().getExecutionManager().getTask(currentStepInstance.getTaskId()));
+        }
+
+        return result.get();
+    }
+
     public List<Object> getStepsDefinition() {
         return MutableList.copyOf(stepsDefinition).asUnmodifiable();
     }
@@ -771,12 +820,12 @@ public class WorkflowExecutionContext {
                         boolean errorHandled = false;
                         if (isTimeout) {
                             // don't run error handler
-                            log.debug("Timeout in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', throwing: " + Exceptions.collapseText(e));
+                            log.debug("Timeout in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", throwing: " + Exceptions.collapseText(e));
 
                         } else if (onError != null && !onError.isEmpty() && provisionalStatus.persistable) {
                             WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
                             try {
-                                log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', running error handler");
+                                log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler");
                                 Task<WorkflowErrorHandling.WorkflowErrorHandlingResult> workflowErrorHandlerTask = WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e);
                                 errorHandlerTaskId = workflowErrorHandlerTask.getId();
                                 result = DynamicTasks.queue(workflowErrorHandlerTask).getUnchecked();
@@ -797,13 +846,13 @@ public class WorkflowExecutionContext {
                                 }
 
                             } catch (Exception e2) {
-                                log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                                log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
                                 log.debug("Full trace of original error was: " + e, e);
                                 e = e2;
                             }
 
                         } else {
-                            log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
+                            log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", no error handler so rethrowing: " + Exceptions.collapseText(e));
                         }
 
                         if (!errorHandled) {

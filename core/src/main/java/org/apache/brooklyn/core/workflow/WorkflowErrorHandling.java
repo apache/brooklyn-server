@@ -52,6 +52,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
         log.debug("Encountered error in step "+context.getWorkflowStepReference()+" '" + stepTask.getDisplayName() + "' (handler present): " + Exceptions.collapseText(error));
         Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName(context.getWorkflowStepReference()+"-error-handler")
                 .tag(BrooklynTaskTags.tagForWorkflowStepErrorHandler(context, null, context.getTaskId()))
+                .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new WorkflowErrorHandling(step.getOnError(), context.getWorkflowExectionContext(), context.getWorkflowExectionContext().currentStepIndex, stepTask, error))
                 .build();
         TaskTags.addTagDynamically(stepTask, BrooklynTaskTags.tagForErrorHandledBy(task));
@@ -64,6 +65,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
         log.debug("Encountered error in workflow "+context.getWorkflowId()+"/"+context.getTaskId()+" '" + workflowTask.getDisplayName() + "' (handler present): " + Exceptions.collapseText(error));
         Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName(context.getWorkflowId()+"-error-handler")
                 .tag(BrooklynTaskTags.tagForWorkflowStepErrorHandler(context))
+                .tag(BrooklynTaskTags.WORKFLOW_TAG)
                 .body(new WorkflowErrorHandling(context.onError, context, null, workflowTask, error))
                 .build();
         TaskTags.addTagDynamically(workflowTask, BrooklynTaskTags.tagForErrorHandledBy(task));

@@ -71,7 +71,10 @@ public class TaskBuilder<T> {
         this.displayName = displayName;
         return this;
     }
-    
+    public String getDisplayName() {
+        return displayName;
+    }
+
     public TaskBuilder<T> description(String description) {
         this.description = description;
         return this;

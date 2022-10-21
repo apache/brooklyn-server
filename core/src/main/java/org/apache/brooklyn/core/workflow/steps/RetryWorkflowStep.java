@@ -53,6 +53,10 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<List<RetryLimit>> LIMIT = ConfigKeys.newConfigKey(new TypeToken<List<RetryLimit>>() {}, "limit");
     public static final ConfigKey<RetryBackoff> BACKOFF = ConfigKeys.newConfigKey(RetryBackoff.class, "backoff");
 
+    // if multiple retry steps declare the same key, their counts will be combined; used if the same error might be handled in different ways
+    // note that the limits and backoff _instructions_ apply only at the step where they are defing, so they may need to be defined at each step
+    public static final ConfigKey<String> KEY = ConfigKeys.newStringConfigKey("key");
+
     public enum RetryReplayOption { TRUE, FALSE, FORCE }
 
     public static class RetryLimit {
@@ -188,7 +192,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
 
-        String key = context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current());
+        String key = Strings.firstNonBlank(context.getInput(KEY), context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()));
         List<Instant> retries = context.getWorkflowExectionContext().getRetryRecords().compute(key, (k, v) -> v != null ? v : MutableList.of());
 
         List<RetryLimit> limit = context.getInput(LIMIT);
