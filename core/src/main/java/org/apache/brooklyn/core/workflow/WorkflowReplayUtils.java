@@ -22,10 +22,12 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -75,8 +77,18 @@ public class WorkflowReplayUtils {
                 log.warn("Mismatch in workflow replays for "+ctx+": "+ctx.replayCurrent +" vs "+task);
                 return;
             }
-            ctx.replayCurrent.submittedByTaskId = task.getSubmittedByTaskId();
+
+            // try hard to get submitter data in case tasks go awol before execution
+            if (task.getSubmittedByTaskId()!=null) {
+                ctx.replayCurrent.submittedByTaskId = task.getSubmittedByTaskId();
+            } else if (ctx.replayCurrent.submittedByTaskId==null && Tasks.current()!=null && !Tasks.current().equals(task)) {
+                ctx.replayCurrent.submittedByTaskId = Tasks.current().getId();
+            }
             ctx.replayCurrent.submitTimeUtc = task.getSubmitTimeUtc();
+            // fake this because we won't see the real value until we also see the start value.
+            // however we need to ensure any workflow that is created is intended to be run.
+            if (ctx.replayCurrent.submitTimeUtc<=0) ctx.replayCurrent.submitTimeUtc = Instant.now().toEpochMilli();
+
             ctx.replayCurrent.startTimeUtc = task.getStartTimeUtc();
             ctx.replayCurrent.endTimeUtc = task.getEndTimeUtc();
             ctx.replayCurrent.status = task.getStatusSummary();

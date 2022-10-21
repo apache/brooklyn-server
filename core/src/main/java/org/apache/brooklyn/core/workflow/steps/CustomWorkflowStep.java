@@ -28,6 +28,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
@@ -168,14 +169,23 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return result;
     }
 
+    /** Returns a top-level workflow running the workflow defined here */
     public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig) {
+        return newWorkflowExecution(entity, name, extraConfig, null);
+    }
+    public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig, Map extraTaskFlags) {
         return WorkflowExecutionContext.newInstancePersisted(entity, name,
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                         .configure(WorkflowCommonConfig.STEPS, steps)
-                        .configure(WorkflowCommonConfig.OUTPUT, workflowOutput),
+                        .configure(WorkflowCommonConfig.INPUT, input)
+                        .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
+                        .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
+                        .configure(WorkflowCommonConfig.ON_ERROR, onError)
+                        .configure(WorkflowCommonConfig.TIMEOUT, timeout)
+                        .configure((ConfigKey) WorkflowCommonConfig.CONDITION, condition),
                 null,
-                ConfigBag.newInstance(getInput()).putAll(extraConfig), null);
+                ConfigBag.newInstance(getInput()).putAll(extraConfig), extraTaskFlags);
     }
 
     @VisibleForTesting

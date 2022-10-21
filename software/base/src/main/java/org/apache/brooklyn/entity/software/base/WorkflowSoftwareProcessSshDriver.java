@@ -93,7 +93,7 @@ public class WorkflowSoftwareProcessSshDriver extends AbstractSoftwareProcessSsh
         WorkflowExecutionContext workflowContext = workflow.newWorkflowExecution(entity, key.getName().toLowerCase(),
                 null /* could getInput from workflow, and merge shell environment here */);
 
-        return Maybe.of(DynamicTasks.queue( workflowContext.getTask(true).get() ).getUnchecked());
+        return Maybe.of(DynamicTasks.queueIfPossible( workflowContext.getTask(true).get() ).orSubmitAsync(entity).getTask().getUnchecked());
     }
 
     @Override

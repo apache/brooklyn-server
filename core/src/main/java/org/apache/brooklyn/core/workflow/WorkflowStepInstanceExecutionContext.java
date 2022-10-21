@@ -61,6 +61,9 @@ public class WorkflowStepInstanceExecutionContext {
     /** set if the step is in an error handler context, containing the error being handled */
     Throwable error;
 
+    /** set if there was an error handled locally */
+    String errorHandlerTaskId;
+
     public String getTaskId() {
         return taskId;
     }

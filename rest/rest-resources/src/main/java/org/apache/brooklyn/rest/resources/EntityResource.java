@@ -64,6 +64,7 @@ import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -425,7 +426,9 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         }
 
         WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
-                Strings.firstNonBlank(workflow.getName(), workflow.getId(), "API workflow invocation"), null);
+                Strings.firstNonBlank(workflow.getName(), workflow.getId(), "API workflow invocation"),
+                null,
+                MutableMap.of("tags", MutableMap.of("workflow_yaml", yaml)));
 
         Task<Object> task = Entities.submit(target, execution.getTask(true).get());
         task.blockUntilEnded(timeoutS==null ? Duration.millis(20) : Duration.of(timeoutS));

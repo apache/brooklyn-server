@@ -134,6 +134,10 @@ public class WorkflowExecutionContext {
     String previousStepTaskId;
 
     WorkflowStepInstanceExecutionContext currentStepInstance;
+
+    /** set if an error handler is the last thing which ran */
+    String errorHandlerTaskId;
+    /** set for the last _step_ inside the error handler */
     WorkflowStepInstanceExecutionContext errorHandlerContext;
 
     Map<Integer, OldStepRecord> oldStepInfo = MutableMap.of();
@@ -773,7 +777,9 @@ public class WorkflowExecutionContext {
                             WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
                             try {
                                 log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " '" + task.getDisplayName() + "', running error handler");
-                                result = DynamicTasks.queue(WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e)).getUnchecked();
+                                Task<WorkflowErrorHandling.WorkflowErrorHandlingResult> workflowErrorHandlerTask = WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e);
+                                errorHandlerTaskId = workflowErrorHandlerTask.getId();
+                                result = DynamicTasks.queue(workflowErrorHandlerTask).getUnchecked();
                                 if (result != null) {
                                     errorHandled = true;
 
@@ -899,6 +905,7 @@ public class WorkflowExecutionContext {
             // and update replayable info
             WorkflowReplayUtils.updateOnWorkflowStepChange(currentStepRecord, currentStepInstance, step);
             errorHandlerContext = null;
+            errorHandlerTaskId = null;
 
             persist();
 
@@ -929,7 +936,9 @@ public class WorkflowExecutionContext {
                 if (!step.onError.isEmpty()) {
                     WorkflowErrorHandling.WorkflowErrorHandlingResult result;
                     try {
-                        result = DynamicTasks.queue(WorkflowErrorHandling.createStepErrorHandlerTask(step, currentStepInstance, t, e)).getUnchecked();
+                        Task<WorkflowErrorHandling.WorkflowErrorHandlingResult> stepErrorHandlerTask = WorkflowErrorHandling.createStepErrorHandlerTask(step, currentStepInstance, t, e);
+                        currentStepInstance.errorHandlerTaskId = stepErrorHandlerTask.getId();
+                        result = DynamicTasks.queue(stepErrorHandlerTask).getUnchecked();
                         if (result!=null) {
                             if (Strings.isNonBlank(result.next)) customNext.set(result.next);
                             saveOutput.accept(result.output);

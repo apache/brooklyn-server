@@ -18,10 +18,7 @@
  */
 package org.apache.brooklyn.util.core.task;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.Callable;
 
 import org.apache.brooklyn.api.mgmt.Task;
@@ -34,9 +31,13 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 
 import com.google.common.collect.Iterables;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Convenience for creating tasks; note that DynamicSequentialTask is the default */
 public class TaskBuilder<T> {
+
+    private static final Logger log = LoggerFactory.getLogger(TaskBuilder.class);
 
     String displayName = null;
     String description = null;
@@ -152,7 +153,11 @@ public class TaskBuilder<T> {
         MutableMap<String, Object> taskFlags = MutableMap.copyOf(flags);
         if (displayName!=null) taskFlags.put("displayName", displayName);
         if (description!=null) taskFlags.put("description", description);
-        if (!tags.isEmpty()) taskFlags.put("tags", tags);
+        if (!tags.isEmpty()) {
+            Object otherTags = taskFlags.put("tags", tags);
+            if (otherTags instanceof Collection) tags.addAll((Collection)otherTags);
+            else log.warn("Ignoring unexpected 'tags' flag in task: "+otherTags);
+        }
         
         if (Boolean.FALSE.equals(dynamic) && children.isEmpty()) {
             if (swallowChildrenFailures!=null)
