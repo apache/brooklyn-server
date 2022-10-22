@@ -57,13 +57,14 @@ public class WorkflowStepResolution {
             defM = MutableMap.copyOf((Map)def);
             if (!defM.containsKey("type")) {
                 // if there isn't a type, pull out shorthand
-                Object s = defM.remove("shorthand");
+                Object s = defM.remove("step");
+                if (s == null) s = defM.remove("shorthand");
                 if (s == null) s = defM.remove("s");
                 if (s == null) {
-                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `shorthand` / `s`");
+                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s`");
                 }
                 if (!(s instanceof String)) {
-                    throw new IllegalArgumentException("shorthand must be a string");
+                    throw new IllegalArgumentException("step shorthand must be a string");
                 }
                 shorthand = (String) s;
             }

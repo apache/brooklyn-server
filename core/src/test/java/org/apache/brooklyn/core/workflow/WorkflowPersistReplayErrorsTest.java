@@ -659,4 +659,16 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         );
     }
 
+    @Test
+    public void testFail() {
+        Task<?> out = runSteps(
+                MutableList.of("fail message wtf"),
+                null,
+                ConfigBag.newInstance().configure(WorkflowCommonConfig.ON_ERROR,
+                        MutableList.of(MutableMap.of("step", "return Yay WTF",
+                                "condition", MutableMap.of("error-cause", MutableMap.of("regex", ".*Fail.*wtf.*")))))
+        );
+        Asserts.assertEquals(out.getUnchecked(), "Yay WTF");
+    }
+
 }

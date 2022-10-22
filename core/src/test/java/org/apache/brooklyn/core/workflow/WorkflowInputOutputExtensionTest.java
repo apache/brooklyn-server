@@ -315,15 +315,14 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     public void testAccessLocalOutput() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 MutableMap.of("id" , "l1",
-                        "s", "let x = ${x} + ${workflow.step.l1.output.prev} ?? 1",
+                        "step", "let x = ${x} + ${workflow.step.l1.output.prev} ?? 1",
                         "output", MutableMap.of("prev", "${x}")),
                 "log ${x}",
                 MutableMap.of(
-                        "s", "let x = ${x} + 2 * ${prev}",
+                        "step", "let x = ${x} + 2 * ${prev}",
                         "output", MutableMap.of("prev", "${x}")),
                 "log ${x}",
-                MutableMap.of("type" , "no-op",
-                        "next", "l1",
+                MutableMap.of("step" , "goto l1",
                         "condition", MutableMap.of("target", "${x}", "less-than", 10)),
                 "return ${workflow.step.l1.output.prev}"
         ));
