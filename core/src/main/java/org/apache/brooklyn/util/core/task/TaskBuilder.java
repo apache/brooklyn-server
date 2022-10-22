@@ -158,8 +158,10 @@ public class TaskBuilder<T> {
         if (description!=null) taskFlags.put("description", description);
         if (!tags.isEmpty()) {
             Object otherTags = taskFlags.put("tags", tags);
-            if (otherTags instanceof Collection) tags.addAll((Collection)otherTags);
-            else log.warn("Ignoring unexpected 'tags' flag in task: "+otherTags);
+            if (otherTags!=null) {
+                if (otherTags instanceof Collection) tags.addAll((Collection) otherTags);
+                else log.warn("Ignoring unexpected 'tags' flag in task: " + otherTags);
+            }
         }
         
         if (Boolean.FALSE.equals(dynamic) && children.isEmpty()) {
