@@ -706,7 +706,15 @@ public class DslPredicates {
                 ValueResolver<Object> resolver = Tasks.resolving(target).as(Object.class).allowDeepResolution(true).immediately(true);
                 Entity entity = getTypeFromValueOrContext(Entity.class, input);
                 if (entity!=null) resolver = resolver.context(entity);
-                result = resolver.getMaybe();
+                try {
+                    result = resolver.getMaybe();
+                } catch (Throwable t) {
+                    if (Exceptions.getCausalChain(t).stream().anyMatch(ti -> ti instanceof ResolutionFailureTreatedAsAbsent)) {
+                        result = Maybe.absent(t);
+                    } else {
+                        throw Exceptions.propagate(t);
+                    }
+                }
             }
 
             result = result.isPresent() ? super.resolveTargetAgainstInput(result.get()) : result;

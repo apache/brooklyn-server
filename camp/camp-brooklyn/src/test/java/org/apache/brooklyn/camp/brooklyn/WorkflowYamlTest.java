@@ -68,6 +68,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -228,14 +229,15 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             Duration d3 = Duration.of(sw).subtract(d2);
             // the next iteration should obey the time constraint specified above
             if (!timeCheckOrNullIfShouldFail.test(d3)) Asserts.fail("Timing error, took " + d3);
+
+            WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values().iterator().next();
+            List<Object> defs = lastWorkflowContext.getStepsDefinition();
+            // step definitions should not be resolved by jackson
+            defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
         } else {
             EntityAsserts.assertAttributeEqualsContinually(entity, s, null);
+            Asserts.assertThat(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values(), Collection::isEmpty);
         }
-
-        WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values().iterator().next();
-        List<Object> defs = lastWorkflowContext.getStepsDefinition();
-        // step definitions should not be resolved by jackson
-        defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
     }
 
     public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
@@ -551,15 +553,19 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "unresolveable", "regex"));
     }
     @Test
-    public void testConditionBadExpression() throws Exception {
-        // TODO would be nice if it could silently ignore this condition
-        // TODO also handle multi-line errors (eg from freemarker)
-        Asserts.assertFailsWith(() -> doTestCondition(Strings.lines(
+    public void testBadExpressionAllowedInCondition() throws Exception {
+        Asserts.assertEquals(doTestCondition(Strings.lines(
                 "any:",
-                    "- regex: .*oh no.*",
-                    "- target: ${bad_var}",
-                    "  when: absent")),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "unresolveable", "bad_var"));
+                "- target: ${bad_var}",
+                "  when: absent"
+        )), "expected failure");
+    }
+    @Test
+    public void testMultilineErrorMessageRegexHandling() throws Exception {
+        Asserts.assertEquals(doTestCondition(Strings.lines(
+                "any:",
+                "- regex: .*oh no.*"
+        )), "expected failure");
     }
 
     Object doTestCondition(String lines) throws Exception {

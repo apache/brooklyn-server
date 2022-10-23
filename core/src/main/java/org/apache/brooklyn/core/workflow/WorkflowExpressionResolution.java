@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.predicates.ResolutionFailureTreatedAsAbsent;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -232,10 +233,15 @@ public class WorkflowExpressionResolution {
         try {
             result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false);
         } catch (Exception e) {
+            Exception e2 = e;
             if (!allowWaiting && Exceptions.isCausedByInterruptInAnyThread(e)) {
-                throw new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
+                e2 = new IllegalArgumentException("Expression value '"+expression+"' unavailable and not permitted to wait: "+ Exceptions.collapseText(e), e);
+            }
+            if (useWrappedValue) {
+                // in wrapped value mode, errors don't throw until accessed, and when used in conditions they can be tested as absent
+                return WrappedResolvedExpression.ofError(expression, new ResolutionFailureTreatedAsAbsent.ResolutionFailureTreatedAsAbsentDefaultException(e2));
             } else {
-                throw Exceptions.propagate(e);
+                throw Exceptions.propagate(e2);
             }
         } finally {
             if (!allowWaiting) {
@@ -265,17 +271,29 @@ public class WorkflowExpressionResolution {
     public static class WrappedResolvedExpression<T> implements DeferredSupplier<T> {
         String expression;
         T value;
+        Throwable error;
         public WrappedResolvedExpression() {}
         public WrappedResolvedExpression(String expression, T value) {
             this.expression = expression;
             this.value = value;
         }
+        public static WrappedResolvedExpression ofError(String expression, Throwable error) {
+            WrappedResolvedExpression result = new WrappedResolvedExpression(expression, null);
+            result.error = error;
+            return result;
+        }
         @Override
         public T get() {
+            if (error!=null) {
+                throw Exceptions.propagate(error);
+            }
             return value;
         }
         public String getExpression() {
             return expression;
+        }
+        public Throwable getError() {
+            return error;
         }
     }
 

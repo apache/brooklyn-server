@@ -223,7 +223,7 @@ public class WorkflowExecutionContext {
         WorkflowStepResolution.resolveOnErrorSteps(w.getManagementContext(), w.onError);
 
         // some fields need to be resolved at setting time, in the context of the workflow
-        w.setCondition(w.resolveConfig(paramsDefiningWorkflow, WorkflowCommonConfig.CONDITION));
+        w.setCondition(w.resolveWrapped(paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
 
         // finished -- checkpoint noting this has been created but not yet started
         w.status = WorkflowStatus.STAGED;
