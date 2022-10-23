@@ -75,6 +75,11 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         });
     }
 
+    DslPredicates.DslPredicate predicate(String key, Object value) {
+        return TypeCoercions.coerce(MutableMap.of(
+               key, value), DslPredicates.DslPredicate.class);
+    }
+
     @Test
     public void testGlob() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
@@ -86,11 +91,15 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
 
     @Test
     public void testRegex() {
-        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
-                "regex", "x.*z"), DslPredicates.DslPredicate.class);
+        DslPredicates.DslPredicate p = predicate("regex", "x.*z");
         Asserts.assertTrue(p.test("xz"));
         Asserts.assertTrue(p.test("xaz"));
         Asserts.assertFalse(p.test("yxaz"));
+
+        Asserts.assertFalse(predicate("regex", "y").test("xyz"));
+        Asserts.assertFalse(predicate("regex", "y").test("y\nx"));
+        Asserts.assertTrue(predicate("regex", "y\\s+x").test("y\nx"));
+        Asserts.assertTrue(predicate("regex", ".*y.*").test("y\nx"));
     }
 
     @Test

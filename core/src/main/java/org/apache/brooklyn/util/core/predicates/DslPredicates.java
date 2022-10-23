@@ -73,6 +73,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 
 public class DslPredicates {
 
@@ -416,7 +417,7 @@ public class DslPredicates {
                 return DslPredicates.coercedEqual(test, value);
             });
             checker.check(equals, result, DslPredicates::coercedEqual);
-            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> v.matches(test)));
+            checker.check(regex, result, (test, value) -> asStringTestOrFalse(value, v -> Pattern.compile(test, Pattern.DOTALL).matcher(v).matches()));
             checker.check(glob, result, (test, value) -> asStringTestOrFalse(value, v -> WildcardGlobs.isGlobMatched(test, v)));
 
             checker.check(inRange, result, (test,value) ->

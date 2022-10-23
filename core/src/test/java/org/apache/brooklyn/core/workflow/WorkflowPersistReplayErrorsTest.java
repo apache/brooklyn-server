@@ -603,6 +603,18 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
+    public void testMultilineErrorRegex() throws IOException {
+        lastInvocation = runSteps(MutableList.of(
+                        MutableMap.of("step", "log ${var_does_not_exist}",
+                                "output", "should have failed",
+                                "on-error", MutableList.of(
+                                        MutableMap.of("step", "return error handled",
+                                                "condition", MutableMap.of("regex", ".*InvalidReference.*var_does_not_exist.*"))))),
+                null);
+        Asserts.assertEquals(lastInvocation.getUnchecked(), "error handled");
+    }
+
+    @Test
     public void testTimeoutOnStep() throws Exception {
         doTestTimeout(false, true);
     }
