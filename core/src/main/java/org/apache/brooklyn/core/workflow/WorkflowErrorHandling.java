@@ -134,8 +134,8 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
         }
 
         // if none apply
-        log.debug("No error handler options applied at "+handlerParent.get()+"; will rethrow error");
-        return null;
+        log.debug("No error handler options applied at "+handlerParent.getId()+"; will rethrow error");
+        throw Exceptions.propagate(error);
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

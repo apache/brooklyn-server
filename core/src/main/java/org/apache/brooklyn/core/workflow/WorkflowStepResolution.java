@@ -38,7 +38,13 @@ public class WorkflowStepResolution {
     static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps) {
         List<WorkflowStepDefinition> result = MutableList.of();
         if (steps==null || steps.isEmpty()) throw new IllegalStateException("No steps defined in workflow");
-        steps.forEach((def) -> result.add(resolveStep(mgmt, def)));
+        for (int i=0; i<steps.size(); i++) {
+            try {
+                result.add(resolveStep(mgmt, steps.get(i)));
+            } catch (Exception e) {
+                throw Exceptions.propagateAnnotated("Error in definition of step "+(i+1)+" ("+steps.get(i)+")", e);
+            }
+        }
         WorkflowExecutionContext.validateSteps(mgmt, result, true);
         return result;
     }

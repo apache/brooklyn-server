@@ -33,6 +33,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -84,7 +85,11 @@ public abstract class WorkflowStepDefinition {
     }
     @JsonIgnore
     public DslPredicates.DslPredicate getConditionResolved(WorkflowStepInstanceExecutionContext context) {
-        return context.resolveWrapped(condition, TypeToken.of(DslPredicates.DslPredicate.class));
+        try {
+            return context.resolveWrapped(condition, TypeToken.of(DslPredicates.DslPredicate.class));
+        } catch (Exception e) {
+            throw Exceptions.propagateAnnotated("Unresolveable condition ("+condition+")", e);
+        }
     }
 
     // output of steps can be overridden

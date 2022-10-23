@@ -841,14 +841,17 @@ public class WorkflowExecutionContext {
                                         continueOnErrorHandledOrNextReplay = true;
                                         continue RecoveryAndReplay;
                                     }
-                                } else {
-                                    log.debug("Handler not applicable for error in workflow around step " + workflowStepReference(currentStepIndex) + ", rethrowing: " + Exceptions.collapseText(e));
                                 }
 
                             } catch (Exception e2) {
-                                log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
-                                log.debug("Full trace of original error was: " + e, e);
-                                e = e2;
+                                Throwable e0 = e;
+                                if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3==e0)) {
+                                    // wraps/rethrows original, don't need to log
+                                } else {
+                                    log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                                    log.debug("Full trace of original error was: " + e, e);
+                                    e = e2;
+                                }
                             }
 
                         } else {
@@ -994,8 +997,12 @@ public class WorkflowExecutionContext {
                         }
 
                     } catch (Exception e2) {
-                        log.warn("Error in step '" + t.getDisplayName() + "' error handler for -- "+Exceptions.collapseText(e)+" -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
-                        log.debug("Full trace of original error was: "+e, e);
+                        if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3==e)) {
+                            // is, or wraps, original error, don't need to log
+                        } else {
+                            log.warn("Error in step '" + t.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                            log.debug("Full trace of original error was: " + e, e);
+                        }
                         throw Exceptions.propagate(e2);
                     }
                     if (result==null) {

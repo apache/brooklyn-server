@@ -551,6 +551,9 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 m -> m.matches("Starting .*-1-error-handler-1 in task .*"),
                 m -> m.matches("Completed handler .*-1-error-handler-1; proceeding to default next step"),
                 m -> m.matches("Completed step .*-1; no further steps: Workflow completed")));
+
+            lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).values().iterator().next();
+            Asserts.assertEquals(lastWorkflowContext.currentStepIndex, (Integer) 1);
         }
     }
 
@@ -582,6 +585,21 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                     m -> m.matches("Completed handler .*-error-handler-1; proceeding to default next step"),
                     m -> m.matches("Handled error in workflow around step .*-1; explicit next 'end': Workflow completed")));
         }
+    }
+
+    @Test
+    public void testErrorHandlerRethrows() throws IOException {
+        lastInvocation = runSteps(MutableList.of(
+                        MutableMap.of("step", "fail message expected exception",
+                                "output", "should have failed",
+                                "on-error", MutableList.of(
+                                        MutableMap.of("step", "return not applicable",
+                                                "condition", "not matched")))),
+                null);
+        Asserts.assertFailsWith(() -> Asserts.fail("Did not fail, returned: "+lastInvocation.getUnchecked()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "expected exception"));
+        lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).values().iterator().next();
+        Asserts.assertEquals(lastWorkflowContext.currentStepIndex, (Integer) 0);
     }
 
     @Test

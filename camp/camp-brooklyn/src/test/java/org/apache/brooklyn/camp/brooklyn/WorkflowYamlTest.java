@@ -540,4 +540,48 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_UP, false);
         EntityAsserts.assertAttributeEqualsEventually(child, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
     }
+
+    @Test
+    public void testConditionNormal() throws Exception {
+        Asserts.assertEquals(doTestCondition("regex: .*oh no.*"), "expected failure");
+    }
+    @Test
+    public void testConditionBadSerialization() throws Exception {
+        Asserts.assertFailsWith(() -> doTestCondition("- regex: .*oh no.*"),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "unresolveable", "regex"));
+    }
+    @Test
+    public void testConditionBadExpression() throws Exception {
+        // TODO would be nice if it could silently ignore this condition
+        // TODO also handle multi-line errors (eg from freemarker)
+        Asserts.assertFailsWith(() -> doTestCondition(Strings.lines(
+                "any:",
+                    "- regex: .*oh no.*",
+                    "- target: ${bad_var}",
+                    "  when: absent")),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "unresolveable", "bad_var"));
+    }
+
+    Object doTestCondition(String lines) throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        - step: fail message oh no",
+                "          on-error:",
+                "          - step: return expected failure",
+                "            condition:",
+                Strings.indent(14, lines));
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+
+        Task<?> invocation = entity.invoke(effector, null);
+        return invocation.getUnchecked();
+    }
+
 }
