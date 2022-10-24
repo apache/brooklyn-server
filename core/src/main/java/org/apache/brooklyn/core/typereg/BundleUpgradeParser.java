@@ -609,7 +609,7 @@ public class BundleUpgradeParser {
             (i) -> { 
                 VersionedName targetTypeAtBundleVersion = new VersionedName(i.getSymbolicName(), bundle.getVersion());
                 if (!typeSupplierNames.contains(VersionedName.toOsgiVersionedName(targetTypeAtBundleVersion))) {
-                    throw new IllegalStateException("Bundle manifest declares it upgrades "+i+" "
+                    throw new IllegalStateException("Bundle manifest for "+bundle+" declares it upgrades "+i+" "
                         + "but does not declare an explicit target and does not contain inferred target "+targetTypeAtBundleVersion);
                 }
                 return targetTypeAtBundleVersion; 

@@ -174,6 +174,13 @@ public class RegisteredTypes {
         }
         @Override public String getPlanYaml() { throw new UnsupportedOperationException(); }
         @Override public RebindSupport<CatalogItemMemento> getRebindSupport() { throw new UnsupportedOperationException(); }
+
+        @Override
+        public String toString() {
+            return "CatalogItemFromRegisteredType{" +
+                    "type=" + type +
+                    '}';
+        }
     }
     
     /** Preferred mechanism for defining a bean {@link RegisteredType}. 
