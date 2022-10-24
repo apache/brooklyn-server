@@ -205,7 +205,31 @@ public class MementosGenerators {
     public static LocationMemento newLocationMemento(Location location) {
         return newLocationMementoBuilder(location).build();
     }
-    
+
+    static Set<String> nonPersistableFlagNames(Object typeInstance, boolean forRemoval) {
+        MutableSet<String> result = MutableSet.copyOf(MutableMap.<String, Object>builder()
+                .putAll(typeInstance == null ? null : FlagUtils.getFieldsWithFlagsWithModifiers(typeInstance, Modifier.TRANSIENT))
+                .putAll(typeInstance == null ? null : FlagUtils.getFieldsWithFlagsWithModifiers(typeInstance, Modifier.STATIC))
+                .filterValues(Predicates.not(Predicates.instanceOf(ConfigKey.class)))
+                .build()
+                .keySet());
+        if (!forRemoval) {
+            result
+                .put("id")
+                .put("name")
+                .put("tags")
+                .put("brooklyn.tags");
+        }
+        return result;
+    }
+
+    static Map<String,Object> persistableFlagValues(Object typeInstance) {
+        return MutableMap.copyOf(MutableMap.<String, Object>builder()
+                .putAll(FlagUtils.getFieldsWithFlagsExcludingModifiers(typeInstance, Modifier.STATIC ^ Modifier.TRANSIENT))
+                .removeAll(nonPersistableFlagNames(typeInstance, false))
+                .build());
+    }
+
     /**
      * @deprecated since 0.7.0; use {@link #newBasicMemento(BrooklynObject)} instead
      */
@@ -214,21 +238,11 @@ public class MementosGenerators {
         BasicLocationMemento.Builder builder = BasicLocationMemento.builder();
         populateBrooklynObjectMementoBuilder(location, builder);
 
-        Set<String> nonPersistableFlagNames = MutableMap.<String,Object>builder()
-                .putAll(FlagUtils.getFieldsWithFlagsWithModifiers(location, Modifier.TRANSIENT))
-                .putAll(FlagUtils.getFieldsWithFlagsWithModifiers(location, Modifier.STATIC))
-                .put("id", String.class)
-                .filterValues(Predicates.not(Predicates.instanceOf(ConfigKey.class)))
-                .build()
-                .keySet();
-        Map<String, Object> persistableFlags = MutableMap.<String, Object>builder()
-                .putAll(FlagUtils.getFieldsWithFlagsExcludingModifiers(location, Modifier.STATIC ^ Modifier.TRANSIENT))
-                .removeAll(nonPersistableFlagNames)
-                .build();
-        ConfigBag persistableConfig = new ConfigBag().copy( ((LocationInternal)location).config().getLocalBag() ).removeAll(nonPersistableFlagNames);
+        ConfigBag persistableConfig = new ConfigBag().copy( ((LocationInternal)location).config().getLocalBag() )
+                .removeAll(nonPersistableFlagNames(location, true));
 
         builder.copyConfig(persistableConfig);
-        builder.locationConfig.putAll(persistableFlags);
+        builder.locationConfig.putAll(persistableFlagValues(location));
 
         Location parentLocation = location.getParent();
         builder.parent = (parentLocation != null) ? parentLocation.getId() : null;
@@ -253,7 +267,6 @@ public class MementosGenerators {
         // TODO persist config keys as well? Or only support those defined on policy class;
         // current code will lose the ConfigKey type on rebind for anything not defined on class.
         // Whereas entities support that.
-        // TODO Do we need the "nonPersistableFlagNames" that locations use?
         Map<ConfigKey<?>, Object> config = ((AbstractPolicy)policy).config().getInternalConfigMap().getAllConfigLocalRaw();
         for (Map.Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), "config=%s", config);
@@ -263,12 +276,7 @@ public class MementosGenerators {
 
         builder.highlights(policy.getHighlights());
 
-        Map<String, Object> persistableFlags = MutableMap.<String, Object>builder()
-                .putAll(FlagUtils.getFieldsWithFlagsExcludingModifiers(policy, Modifier.STATIC ^ Modifier.TRANSIENT))
-                .remove("id")
-                .remove("name")
-                .build();
-        builder.config.putAll(persistableFlags);
+        builder.config.putAll(persistableFlagValues(policy));
 
         return builder.build();
     }
@@ -285,7 +293,6 @@ public class MementosGenerators {
         // TODO persist config keys as well? Or only support those defined on policy class;
         // current code will lose the ConfigKey type on rebind for anything not defined on class.
         // Whereas entities support that.
-        // TODO Do we need the "nonPersistableFlagNames" that locations use?
         Map<ConfigKey<?>, Object> config = ((AbstractEnricher)enricher).config().getInternalConfigMap().getAllConfigLocalRaw();
         for (Map.Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), "config=%s", config);
@@ -293,12 +300,7 @@ public class MementosGenerators {
             builder.config.put(key.getName(), value); 
         }
         
-        Map<String, Object> persistableFlags = MutableMap.<String, Object>builder()
-                .putAll(FlagUtils.getFieldsWithFlagsExcludingModifiers(enricher, Modifier.STATIC ^ Modifier.TRANSIENT))
-                .remove("id")
-                .remove("name")
-                .build();
-        builder.config.putAll(persistableFlags);
+        builder.config.putAll(persistableFlagValues(enricher));
 
         return builder.build();
     }
@@ -315,13 +317,14 @@ public class MementosGenerators {
         // TODO persist config keys as well? Or only support those defined on policy class;
         // current code will lose the ConfigKey type on rebind for anything not defined on class.
         // Whereas entities support that.
-        // TODO Do we need the "nonPersistableFlagNames" that locations use?
         Map<ConfigKey<?>, Object> config = ((AbstractFeed)feed).config().getInternalConfigMap().getAllConfigLocalRaw();
         for (Map.Entry<ConfigKey<?>, Object> entry : config.entrySet()) {
             ConfigKey<?> key = checkNotNull(entry.getKey(), "config=%s", config);
             Object value = configValueToPersistable(entry.getValue(), feed, key.getName());
             builder.config.put(key.getName(), value); 
         }
+
+        // feed does not include flags
         
         return builder.build();
     }

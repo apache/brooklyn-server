@@ -41,9 +41,10 @@ public class RebindJcloudsLocationTest extends RebindTestFixtureWithApp {
     public void setUp() throws Exception {
         super.setUp();
         origLoc = (JcloudsLocation) origManagementContext.getLocationRegistry().getLocationManaged(LOC_SPEC);
+        origLoc.tags().addTag("Tag");
     }
 
-    // Previously, the rebound config contained "id" which was then passed to createTemporarySshMachineLocation, causing
+    // Previously, the rebound config contained "id" and "tags" which was then passed to createTemporarySshMachineLocation, causing
     // that to fail (because the LocationSpec should not have had "id" in its config)
     @Test
     public void testReboundConfigDoesNotContainId() throws Exception {
@@ -55,7 +56,8 @@ public class RebindJcloudsLocationTest extends RebindTestFixtureWithApp {
         ConfigBag config = ConfigBag.newInstanceCopying(newLocConfig);
         
         assertNull(newLocConfig.getStringKey(("id")));
-        
+        assertNull(newLocConfig.getStringKey(("tags")));
+
         SshMachineLocation tempMachine = newLoc.createTemporarySshMachineLocation(
                 HostAndPort.fromParts("localhost", 1234), 
                 LoginCredentials.builder().identity("myuser").password("mypass").noPrivateKey().build(), 
