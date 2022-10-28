@@ -37,7 +37,10 @@ import java.util.function.Supplier;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowStepInstanceExecutionContext {
 
-    // see getInput
+    // see getInput, here and for workflow context
+    // "remembering" it is simplistic, it simply replaces in the map.
+    // this will continually resolve the previously resolved value which is usually fine but
+    // won't work for things like $brooklyn:literal("$brooklyn:config(...)")
     static final boolean REMEMBER_RESOLVED_INPUT = true;
 
     private WorkflowStepInstanceExecutionContext() {}
@@ -106,7 +109,7 @@ public class WorkflowStepInstanceExecutionContext {
         if (keyTyped!=null) return getInput(keyTyped);
         return getInput(key, Object.class);
     }
-    /** Returns the resolved value of the given key, converting to the given type */
+    /** Returns the resolved value of the given key, converting to the given type. Applies Brooklyn DSL resolution AND Freemarker resolution. */
     public <T> T getInput(String key, Class<T> type) {
         return getInput(key, TypeToken.of(type));
     }

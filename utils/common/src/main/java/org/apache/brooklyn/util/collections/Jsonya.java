@@ -30,6 +30,7 @@ import java.util.Stack;
 import javax.annotation.Nonnull;
 
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 
 import com.google.common.annotations.Beta;
@@ -108,6 +109,10 @@ public class Jsonya {
     public static boolean isJsonPrimitiveCompatible(Object x) {
         if (x==null) return true;
         return convertToJsonPrimitive(x).equals(x);
+    }
+    public static boolean isTypeJsonPrimitiveCompatible(Object x) {
+        if (x==null) return true;
+        return x instanceof Map || x instanceof Collection || x instanceof String || Boxing.isPrimitiveOrBoxedObject(x);
     }
 
     @SuppressWarnings({"rawtypes","unchecked"})

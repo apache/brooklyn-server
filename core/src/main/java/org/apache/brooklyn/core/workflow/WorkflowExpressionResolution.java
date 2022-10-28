@@ -25,15 +25,22 @@ import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.ResolutionFailureTreatedAsAbsent;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.*;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -80,7 +87,7 @@ public class WorkflowExpressionResolution {
                     if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
                 }
 
-                candidate = currentStep.input.get(key);
+                candidate = currentStep.getInput(key, Object.class);
                 if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
             }
             //workflow.previous_step.output.somevar
@@ -95,8 +102,10 @@ public class WorkflowExpressionResolution {
             if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
 
             //workflow.input.somevar
-            candidate = context.input.get(key);
-            if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            if (context.input.containsKey(key)) {
+                candidate = context.getInput(key);
+                if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            }
 
             return ifNoMatches();
         }
@@ -201,9 +210,14 @@ public class WorkflowExpressionResolution {
     /** does not use templates */
     public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
         try {
-            // try yaml coercion, as values are normally set from yaml and will be raw at this stage
-            return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
-                    RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
+            if (expression==null || Jsonya.isTypeJsonPrimitiveCompatible(expression)) {
+                // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
+                // (might be better to always to TC.coerce)
+                return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
+                        RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
+            } else {
+                return TypeCoercions.coerce(expression, type);
+            }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
             try {
@@ -220,11 +234,20 @@ public class WorkflowExpressionResolution {
         if (expression instanceof String) return processTemplateExpressionString((String)expression);
         if (expression instanceof Map) return processTemplateExpressionMap((Map)expression);
         if (expression instanceof Collection) return processTemplateExpressionCollection((Collection)expression);
-        return expression;
+        if (expression==null || Boxing.isPrimitiveOrBoxedObject(expression)) return expression;
+        // otherwise resolve DSL
+        return resolveDsl(expression);
+    }
+
+    private Object resolveDsl(Object expression) {
+        return Tasks.resolving(expression).as(Object.class).context(context.getEntity()).get();
     }
 
     public Object processTemplateExpressionString(String expression) {
         if (expression==null) return null;
+        if (expression.startsWith("$brooklyn:")) {
+            return processTemplateExpression(resolveDsl(expression));
+        }
 
         TemplateHashModel model = new WorkflowFreemarkerModel();
         Object result;

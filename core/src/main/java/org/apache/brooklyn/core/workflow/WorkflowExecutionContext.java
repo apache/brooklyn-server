@@ -112,6 +112,7 @@ public class WorkflowExecutionContext {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
+
     Object outputDefinition;
     Object output;
 
@@ -478,6 +479,25 @@ public class WorkflowExecutionContext {
             return;
         }
         getPersister().checkpoint(this);
+    }
+
+    /** Get the value of the input. Supports Brooklyn DSL resolution but NOT Freemarker resolution. */
+    public Object getInput(String key) {
+        return getInputMaybe(key, TypeToken.of(Object.class), Maybe.ofAllowingNull(null)).get();
+    }
+    public <T> Maybe<T> getInputMaybe(String key, TypeToken<T> type, Maybe<T> valueIfUndefined) {
+        if (!input.containsKey(key)) return valueIfUndefined;
+
+        Object v = input.get(key);
+        // DSL resolution/coercion only, not workflow syntax here (as no workflow scope)
+        Maybe<T> vm = Tasks.resolving(v).as(type).context(getEntity()).immediately(true).deep().getMaybe();
+        if (vm.isPresent()) {
+            if (WorkflowStepInstanceExecutionContext.REMEMBER_RESOLVED_INPUT) {
+                // this will keep spending time resolving, but will resolve the resolved value
+                input.put(key, vm.get());
+            }
+        }
+        return vm;
     }
 
     public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {

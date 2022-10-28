@@ -397,7 +397,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
     }
 
     protected boolean isEvaluatingImmediately() {
-        return immediately || BrooklynTaskTags.hasTag(Tasks.current(), BrooklynTaskTags.IMMEDIATE_TASK_TAG);
+        return immediately || BrooklynTaskTags.hasTag(Tasks.current(), BrooklynTaskTags.IMMEDIATE_TASK_TAG) || Thread.currentThread().isInterrupted();
     }
 
     public static boolean isDeferredOrTaskInternal(Object o) {
