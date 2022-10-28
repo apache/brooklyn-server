@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class SshWorkflowStep extends WorkflowStepDefinition {
 
@@ -86,8 +87,16 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
     }
 
     protected static void checkExitCode(ProcessTaskWrapper<?> ptw, DslPredicates.DslPredicate<Integer> exitcode) {
+        Supplier<String> extraInfo = () -> {
+            String err = ptw.getStderr();
+            if (Strings.isBlank(err)) return "";
+            err = err.trim();
+            if (err.length()>80) err = "..." + err.substring(err.length()-80, err.length());
+            err = Strings.replaceAll(err, "\n", " / ");
+            return ". Stderr is: "+err;
+        };
         if (exitcode==null) {
-            if (ptw.getExitCode()!=0) throw new IllegalStateException("Invalid exit code "+ptw.getExitCode());
+            if (ptw.getExitCode()!=0) throw new IllegalStateException("Invalid exit code "+ptw.getExitCode()+extraInfo.get());
             return;
         }
 
@@ -103,7 +112,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             // ranges still require `exit-code: { range: [0, 4] }`, same with `exit-code: { less-than: 5 }`.
         }
         if (!exitcode.apply(ptw.getExitCode())) {
-            throw new IllegalStateException("Invalid exit code "+ptw.getExitCode()+"; does not match explicit exit-code requirement");
+            throw new IllegalStateException("Invalid exit code "+ptw.getExitCode()+"; does not match explicit exit-code requirement"+extraInfo.get());
         }
     }
 
