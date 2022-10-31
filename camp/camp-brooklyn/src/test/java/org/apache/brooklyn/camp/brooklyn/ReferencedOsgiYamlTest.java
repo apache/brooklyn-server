@@ -75,7 +75,7 @@ public class ReferencedOsgiYamlTest extends AbstractYamlTest {
             "  libraries:",
             "  - url: " + OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL,
             "  item:",
-            "    type: classpath://yaml-ref-osgi-entity.yaml");
+            "    type: "+ReferencedYamlTest.getYamlRefBlueprint("osgi-entity", true));
         
         String entityName = "YAML -> catalog item -> yaml url (osgi)";
         Entity app = createAndStartApplication(

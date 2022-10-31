@@ -21,6 +21,7 @@ package org.apache.brooklyn.camp.brooklyn;
 import java.util.Collection;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.testng.Assert;
@@ -30,13 +31,21 @@ import com.google.common.collect.Iterables;
 
 public class ReferencedYamlTest extends AbstractYamlTest {
 
+    public static String getYamlRefBlueprint(String type, boolean respectUnmappingBlockedSetting) {
+        if (EntityManagementUtils.DIFFERENT_NAME_BLOCKS_UNWRAPPING && respectUnmappingBlockedSetting) {
+            return "classpath://yaml-ref-"+type+"-just-one-name.yaml";
+        } else {
+            return "classpath://yaml-ref-"+type+".yaml";
+        }
+    }
+
     @Test
     public void testReferenceEntityYamlAsPlatformComponent() throws Exception {
         String entityName = "Reference child name";
         Entity app = createAndStartApplication(
             "services:",
             "- name: " + entityName,
-            "  type: classpath://yaml-ref-entity.yaml");
+            "  type: "+getYamlRefBlueprint("entity", true)+"");
         
         checkChildEntitySpec(app, entityName);
     }
@@ -45,7 +54,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
     public void testAnonymousReferenceEntityYamlAsPlatformComponent() throws Exception {
         Entity app = createAndStartApplication(
             "services:",
-            "- type: classpath://yaml-ref-entity.yaml");
+            "- type: "+getYamlRefBlueprint("entity", true)+"");
         
         // the name declared at the root trumps the name on the item itself
         checkChildEntitySpec(app, "Basic entity");
@@ -56,7 +65,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(
             "services:",
             "- name: Reference child name",
-            "  type: classpath://yaml-ref-app.yaml");
+            "  type: "+getYamlRefBlueprint("app", true));
         
         Assert.assertEquals(app.getChildren().size(), 0);
         Assert.assertEquals(app.getDisplayName(), "Reference child name");
@@ -73,7 +82,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "- type: org.apache.brooklyn.entity.stock.BasicEntity",
             "  brooklyn.children:",
             "  - name: " + entityName,
-            "    type: classpath://yaml-ref-entity.yaml");
+            "    type: "+getYamlRefBlueprint("entity", true)+"");
         
         checkGrandchildEntitySpec(createAndStartApplication, entityName);
     }
@@ -84,7 +93,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "services:",
             "- type: org.apache.brooklyn.entity.stock.BasicEntity",
             "  brooklyn.children:",
-            "  - type: classpath://yaml-ref-entity.yaml");
+            "  - type: "+getYamlRefBlueprint("entity", true)+"");
         
         checkGrandchildEntitySpec(createAndStartApplication, "Basic entity");
     }
@@ -96,7 +105,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "  id: yaml.reference",
             "  version: " + TEST_VERSION,
             "  itemType: entity",
-            "  item: classpath://yaml-ref-entity.yaml");
+            "  item: "+getYamlRefBlueprint("entity", true)+"");
         
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
@@ -115,7 +124,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "  version: " + TEST_VERSION,
             "  itemType: entity",
             "  item:",
-            "    type: classpath://yaml-ref-entity.yaml");
+            "    type: "+getYamlRefBlueprint("entity", true)+"");
         
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
@@ -140,7 +149,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         Entity app = createAndStartApplication(
             "services:",
             "- name: " + entityName,
-            "  type: classpath://yaml-ref-catalog.yaml");
+            "  type: "+getYamlRefBlueprint("catalog", true));
         
         checkChildEntitySpec(app, entityName);
     }
@@ -169,7 +178,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
     
-    @Test(groups="Broken")  // long form discouraged but references should still work (but only in OSGi subclass)
+    @Test  // long form discouraged but references should still work
     public void testYamlReferencingEarlierItemLongFormEntity() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -222,7 +231,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
 
-    @Test(groups="Broken")  // references to co-bundled items work even in nested url yaml (but only in OSGi subclass)
+    @Test  // references to co-bundled items work even in nested url yaml
     public void testYamlReferencingEarlierItemInUrl() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -234,7 +243,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "      type: org.apache.brooklyn.entity.stock.BasicEntity",
             "  - id: yaml.reference",
             "    version: " + TEST_VERSION,
-            "    item: classpath://yaml-ref-catalog.yaml");  // this references yaml.basic above
+            "    item: "+getYamlRefBlueprint("catalog", true));  // this references yaml.basic above
 
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
@@ -245,7 +254,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
         checkChildEntitySpec(app, entityName);
     }
     
-    @Test(groups="Broken")  // reference to co-bundled items work also in nested url yaml as a type (but only in OSGi subclass)
+    @Test  // reference to co-bundled items work also in nested url yaml as a type
     public void testYamlReferencingEarlierItemInUrlAsType() throws Exception {
         addCatalogItems(
             "brooklyn.catalog:",
@@ -258,7 +267,7 @@ public class ReferencedYamlTest extends AbstractYamlTest {
             "  - id: yaml.reference",
             "    version: " + TEST_VERSION,
             "    item:",
-            "      type: classpath://yaml-ref-catalog.yaml");  // this references yaml.basic above
+            "      type: "+getYamlRefBlueprint("catalog", true));  // this references yaml.basic above
 
         String entityName = "YAML -> catalog item -> yaml url";
         Entity app = createAndStartApplication(
