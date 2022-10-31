@@ -49,11 +49,14 @@ public class DslParseComponentsTest extends AbstractYamlTest {
     Entity app = null;
     
     protected Entity app() throws Exception {
+        return app("one");
+    }
+    protected Entity app(String id) throws Exception {
         if (app==null) {
             app = createAndStartApplication(
                     "services:",
                     "- type: " + BasicApplication.class.getName(),
-                    "  id: one",
+                    "  id: "+id,
                     "  brooklyn.config:",
                     "    dest: 1",
                     "    dest2: 1",
@@ -169,6 +172,42 @@ public class DslParseComponentsTest extends AbstractYamlTest {
         
         String z2 = Tasks.resolveValue(z1, String.class, ((EntityInternal) find("one")).getExecutionContext());
         Assert.assertEquals(z2.toString(), "2-1");
+    }
+
+    @Test
+    public void testAppReference() throws Exception {
+        app("other_app");
+        Entity appOther = app;
+        app = null;
+        app();
+
+        String otherTwoId = appOther.getChildren().iterator().next().getId();
+        String localTwoId = app.getChildren().iterator().next().getId();
+
+        Entity result = Tasks.resolveValue(parseDslExpression("$brooklyn:application(\"other_app\").entity(\"two\")"), Entity.class, ((EntityInternal) app).getExecutionContext());
+        Asserts.assertEquals(result.getParent(), appOther);
+
+        result = Tasks.resolveValue(parseDslExpression("$brooklyn:application(\"other_app\").entity(\""+otherTwoId+"\")"), Entity.class, ((EntityInternal) app).getExecutionContext());
+        Asserts.assertEquals(result.getParent(), appOther);
+
+        // does not get other app
+        result = Tasks.resolveValue(parseDslExpression("$brooklyn:entity(\"two\")"), Entity.class, ((EntityInternal) app).getExecutionContext());
+        Asserts.assertEquals(result.getParent(), app);
+
+        // does not find without app specified
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(parseDslExpression("$brooklyn:entity(\""+otherTwoId+"\")"), Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> {
+                    Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", otherTwoId, app.getId());
+                    Asserts.expectedFailureDoesNotContain(e, appOther.getId());
+                    return true;
+                });
+
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(parseDslExpression("$brooklyn:application(\"other_app\").entity(\""+localTwoId+"\")"), Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> {
+                    Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", localTwoId, appOther.getId());
+                    // Asserts.expectedFailureDoesNotContain(e, app.getId());   // does contain app as well, because that is context
+                    return true;
+                });
     }
 
 }

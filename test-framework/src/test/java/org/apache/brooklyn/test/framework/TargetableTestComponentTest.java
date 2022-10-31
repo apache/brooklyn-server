@@ -122,7 +122,7 @@ public class TargetableTestComponentTest extends BrooklynAppUnitTestSupport {
         } catch (Exception e) {
             NoSuchElementException e2 = Exceptions.getFirstThrowableOfType(e, NoSuchElementException.class);
             if (e2 == null) throw e;
-            Asserts.expectedFailureContains(e2, "No entity matching id myTargetId");
+            Asserts.expectedFailureContainsIgnoreCase(e2, "no entity match", "myTargetId");
         }
     }
     
@@ -140,7 +140,7 @@ public class TargetableTestComponentTest extends BrooklynAppUnitTestSupport {
         } catch (Exception e) {
             NoSuchElementException e2 = Exceptions.getFirstThrowableOfType(e, NoSuchElementException.class);
             if (e2 == null) throw e;
-            Asserts.expectedFailureContains(e2, "No entity matching id myTargetId");
+            Asserts.expectedFailureContainsIgnoreCase(e2, "no entity match", "myTargetId");
         }
     }
 }
