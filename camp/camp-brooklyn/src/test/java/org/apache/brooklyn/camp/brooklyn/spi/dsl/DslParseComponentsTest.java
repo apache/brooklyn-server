@@ -16,6 +16,7 @@
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.BasicCampPlatform;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampConstants;
@@ -24,6 +25,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
+import org.apache.brooklyn.entity.group.BasicGroup;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -208,6 +210,44 @@ public class DslParseComponentsTest extends AbstractYamlTest {
                     // Asserts.expectedFailureDoesNotContain(e, app.getId());   // does contain app as well, because that is context
                     return true;
                 });
+    }
+
+    @Test
+    public void testMemberReference() throws Exception {
+        app();
+        BasicGroup group = app.addChild(EntitySpec.create(BasicGroup.class));
+
+        Object memberGroupRef = parseDslExpression("$brooklyn:entity(\"" + group.getId() + "\").member(\"two\")");
+        Object memberOnlyGroupRef = parseDslExpression("$brooklyn:entity(\"" + group.getId() + "\").component(\"members_only\", \"two\")");
+
+        // does not find in group when not a member
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(memberGroupRef, Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "two") );
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(memberOnlyGroupRef, Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "two") );
+
+        // does find as member relative to root
+        Object memberRefRoot = parseDslExpression("$brooklyn:member(\"two\")");
+        Entity two = Tasks.resolveValue(memberRefRoot, Entity.class, ((EntityInternal) app).getExecutionContext());
+        group.addMember(two);
+
+        // but not as members only from root
+        Object memberOnlyRootRef = parseDslExpression("$brooklyn:component(\"members_only\", \"two\")");
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(memberOnlyRootRef, Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "two") );
+
+        // and then does find in group
+        Asserts.assertEquals(Tasks.resolveValue(memberGroupRef, Entity.class, ((EntityInternal) app).getExecutionContext()), two);
+        Asserts.assertEquals(Tasks.resolveValue(memberOnlyGroupRef, Entity.class, ((EntityInternal) app).getExecutionContext()), two);
+
+        // but not as child
+        Object descendantsOnlyGroupRef = parseDslExpression("$brooklyn:entity(\"" + group.getId() + "\").descendant(\"two\")");
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(descendantsOnlyGroupRef, Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "two") );
+
+        Object childOnlyGroupRef = parseDslExpression("$brooklyn:entity(\"" + group.getId() + "\").child(\"two\")");
+        Asserts.assertFailsWith(() -> Tasks.resolveValue(childOnlyGroupRef, Entity.class, ((EntityInternal) app).getExecutionContext()),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "two") );
     }
 
 }

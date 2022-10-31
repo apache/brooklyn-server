@@ -20,8 +20,10 @@ package org.apache.brooklyn.core.mgmt.internal;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.util.collections.MutableSet;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -77,15 +79,21 @@ public class AppGroupTraverser {
     Entity ancestorBound = null;
     // children whom we have not yet visited, because they are part of a new topology template
     Set<Entity> descendantBounds = MutableSet.of();
+    boolean allowMembers = false;
 
     protected AppGroupTraverser() {
     }
 
     AppGroupTraverser(Entity source) {
+        this(source, false);
+    }
+
+    AppGroupTraverser(Entity source, boolean allowMembers) {
         this.visitedThisTime.add(source);
         this.visited.add(source);
         this.ancestorBound = source.getParent();
-        this.descendantBounds.addAll(source.getChildren());
+        this.allowMembers = allowMembers;
+        this.descendantBounds.addAll(getNextGeneration(source));
     }
 
     AppGroupTraverser next() {
@@ -94,6 +102,14 @@ public class AppGroupTraverser {
         result.depth = depth + 1;
         descendantBounds.forEach(c -> result.visitDescendants(c, true));
         if (ancestorBound != null) result.visitAncestorsAndTheirDescendants(ancestorBound);
+        return result;
+    }
+
+    protected Collection<Entity> getNextGeneration(Entity parent) {
+        if (!allowMembers || !(parent instanceof Group)) return parent.getChildren();
+        Set<Entity> result = MutableSet.of();
+        result.addAll(parent.getChildren());
+        result.addAll( ((Group)parent).getMembers());
         return result;
     }
 
@@ -117,7 +133,7 @@ public class AppGroupTraverser {
         if (!isFirst && node instanceof Application) {
             descendantBounds.add(node);
         } else {
-            node.getChildren().forEach(c -> this.visitDescendants(c, false));
+            getNextGeneration(node).forEach(c -> this.visitDescendants(c, false));
         }
     }
 
@@ -130,8 +146,11 @@ public class AppGroupTraverser {
         return next().expandUntilMatchesFound(test);
     }
 
-    /** Progressively expands across {@link Application} boundaries until one or more matching entities are found. */
     public static List<Entity> findFirstGroupOfMatches(Entity source, Predicate<Entity> test) {
+        return findFirstGroupOfMatches(source, false, test);
+    }
+    /** Progressively expands across {@link Application} boundaries until one or more matching entities are found. */
+    public static List<Entity> findFirstGroupOfMatches(Entity source, boolean allowMembers, Predicate<Entity> test) {
         AppGroupTraverser traversed = new AppGroupTraverser(source).expandUntilMatchesFound(test);
         return traversed.visitedThisTime.stream().filter(test).collect(Collectors.toList());
     }

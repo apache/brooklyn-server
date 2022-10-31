@@ -38,6 +38,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -388,10 +389,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
             @Override
             Maybe<Entity> resolve() {
-                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
+                // TODO inefficient when looking at descendants or ancestors, as it also traverses in the other direction,
+                // and compares against a pre-determined set. ideally the traversal is more scope- or direction- aware.
+
+                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity, true,
                         Predicates.and(EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, componentId), acceptableEntity::test)::apply);
                 if (firstGroupOfMatches.isEmpty()) {
-                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
+                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity, true,
                             Predicates.and(EntityPredicates.idEqualTo(componentId), acceptableEntity::test)::apply);
                 }
                 if (!firstGroupOfMatches.isEmpty()) {
@@ -417,7 +421,7 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 case SCOPE_ROOT:
                     return new SingleRelativeEntityResolver(Entities::catalogItemScopeRoot);
 
-                case ANY_APP:
+                case APPLICATIONS:
                     return new ApplicationEntityResolver();
 
                 case GLOBAL:
@@ -450,6 +454,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
                 case DESCENDANT:
                     return new AcceptableEntityResolver(entity -> MutableSet.copyOf(Entities.descendantsWithoutSelf(entity))::contains);
+                case MEMBERS:
+                    return new AcceptableEntityResolver(entity -> MutableSet.copyOf(Entities.descendantsAndMembersWithoutSelf(entity))::contains);
+                case MEMBERS_ONLY:
+                    return new AcceptableEntityResolver(entity -> {
+                        Set<Entity> acceptable = MutableSet.of();
+                        if (entity instanceof Group) acceptable.addAll( ((Group)entity).getMembers() );
+                        return acceptable::contains;
+                    });
                 case ANCESTOR:
                     return new AcceptableEntityResolver(entity -> MutableSet.copyOf(Entities.ancestorsWithoutSelf(entity))::contains);
                 case SIBLING:
@@ -593,7 +605,12 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
 
     @DslAccessible
     public DslComponent application(Object id) {
-        return DslComponent.newInstance(this, Scope.ANY_APP, id);
+        return DslComponent.newInstance(this, Scope.APPLICATIONS, id);
+    }
+
+    @DslAccessible
+    public DslComponent member(Object id) {
+        return DslComponent.newInstance(this, Scope.MEMBERS, id);
     }
 
     // DSL words which return things
@@ -616,13 +633,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
             Entity targetEntity = targetEntityMaybe.get();
 
-            return Maybe.<Object>of(targetEntity.getId());
+            return Maybe.of(targetEntity.getId());
         }
         
         @Override
         public Task<Object> newTask() {
             Entity targetEntity = component.get();
-            return Tasks.create("identity", Callables.<Object>returning(targetEntity.getId()));
+            return Tasks.create("identity", Callables.returning(targetEntity.getId()));
         }
 
         @Override
@@ -1168,12 +1185,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     public static enum Scope {
-        ANY_APP,
+        APPLICATIONS,
         GLOBAL,
         CHILD,
         PARENT,
         SIBLING,
         DESCENDANT,
+        MEMBERS,
+        MEMBERS_ONLY,
         ANCESTOR,
         ROOT,
         /** root node of blueprint where the the DSL is used; usually the depth in ancestor,

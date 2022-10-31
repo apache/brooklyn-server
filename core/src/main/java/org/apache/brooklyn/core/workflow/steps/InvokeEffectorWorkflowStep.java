@@ -97,10 +97,10 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
         if (te==null) te = context.getEntity();
         if (te instanceof String) {
             String desiredComponentId = (String) te;
-            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(),
+            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
                     Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, desiredComponentId), x->true)::apply);
             if (firstGroupOfMatches.isEmpty()) {
-                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(),
+                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
                         Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), x->true)::apply);
             }
             if (!firstGroupOfMatches.isEmpty()) {
