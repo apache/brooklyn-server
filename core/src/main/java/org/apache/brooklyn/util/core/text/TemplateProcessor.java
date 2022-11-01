@@ -774,6 +774,7 @@ public class TemplateProcessor {
         try {
             Configuration cfg = new Configuration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
             cfg.setLogTemplateExceptions(logErrors);
+            cfg.setNumberFormat("computer");
 
             StringTemplateLoader templateLoader = new StringTemplateLoader();
             templateLoader.putTemplate(context, templateContents);

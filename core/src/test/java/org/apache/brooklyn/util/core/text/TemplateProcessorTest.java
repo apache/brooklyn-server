@@ -82,17 +82,29 @@ public class TemplateProcessorTest extends BrooklynAppUnitTestSupport {
                 .configure(TestEntity.CONF_OBJECT, 123456));
         String templateContents = "${config['"+TestEntity.CONF_OBJECT.getName()+"']}";
         String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
-        assertEquals(result, "123,456");
+        // 2022-11 changed so ?c is the default
+        assertEquals(result, "123456");
     }
     
     @Test
-    public void testEntityConfigNumberUnadorned() {
+    public void testEntityConfigNumberComputerExplicit() {
         // ?c is needed to avoid commas (i always forget this!)
         TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
                 .configure(TestEntity.CONF_OBJECT, 123456));
         String templateContents = "${config['"+TestEntity.CONF_OBJECT.getName()+"']?c}";
         String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
         assertEquals(result, "123456");
+    }
+
+
+    @Test
+    public void testEntityConfigNumberLocaleExplicit() {
+        // ?c is needed to avoid commas (i always forget this!)
+        TestEntity entity = app.createAndManageChild(EntitySpec.create(TestEntity.class)
+                .configure(TestEntity.CONF_OBJECT, 123456));
+        String templateContents = "${config['"+TestEntity.CONF_OBJECT.getName()+"']?string.number}";
+        String result = TemplateProcessor.processTemplateContents(templateContents, entity, ImmutableMap.<String,Object>of());
+        assertEquals(result, "123,456");
     }
     
     @Test
