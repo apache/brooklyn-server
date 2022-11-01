@@ -18,12 +18,14 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+import com.google.common.base.Objects;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.steps.SshWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
@@ -35,6 +37,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.commons.lang3.ObjectUtils.firstNonNull;
+
 public class ContainerWorkflowStep extends WorkflowStepDefinition {
 
     public static final String SHORTHAND = "${image} [ ${command} ]";
@@ -42,10 +46,12 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<String> IMAGE = ConfigKeys.newStringConfigKey("image");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
     public static final ConfigKey<List<String>> COMMANDS = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "commands");
-    public static final ConfigKey<List<String>> RAW_COMMAND = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "raw-command");
-    public static final ConfigKey<PullPolicy> PULL_POLICY = ConfigKeys.newConfigKey(PullPolicy.class, "pull-policy", ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDescription(), ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDefaultValue());
+    public static final ConfigKey<List<String>> RAW_COMMAND = ConfigKeys.newConfigKey(new TypeToken<List<String>>() {}, "raw_command");
+    public static final ConfigKey<PullPolicy> PULL_POLICY = ConfigKeys.newConfigKey(PullPolicy.class, "pull_policy", ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDescription(), ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDefaultValue());
+    public static final ConfigKey<PullPolicy> PULL_POLICY_ALT = ConfigKeys.newConfigKey(PullPolicy.class, "pull-policy", ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDescription(), ContainerCommons.CONTAINER_IMAGE_PULL_POLICY.getDefaultValue());
     public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
-    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit-code");
+    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit_code");
+    public static final ConfigKey<Integer> OUTPUT_MAX_SIZE = ConfigKeys.newIntegerConfigKey("output_max_size", "Maximum size for stdout and stderr, or -1 for no limit", 100000);
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -62,7 +68,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
         ContainerTaskFactory.ConcreteContainerTaskFactory<ContainerTaskResult> tf = ContainerTaskFactory.newInstance()
                 .summary(image + " container task for workflow")
                 .jobIdentifier(context.getWorkflowStepReference())
-                .imagePullPolicy(context.getInput(PULL_POLICY))
+                .imagePullPolicy(firstNonNull(context.getInput(PULL_POLICY), context.getInput(PULL_POLICY_ALT)))
                 .image(image);
 
         List<String> commandTypesSet = MutableList.of();
@@ -94,7 +100,7 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
         if (exitcode != null) tf.allowingNonZeroExitCode();
         tf.returning(ptw -> {
             checkExitCode(ptw, exitcode);
-            return MutableMap.of("stdout", ptw.getMainStdout(),
+            return MutableMap.of("stdout", SshWorkflowStep.truncate(ptw.getMainStdout(), context.getInput(OUTPUT_MAX_SIZE)),
                     "exit_code", ptw.getMainExitCode());
         });
         return DynamicTasks.queue(tf.newTask()).asTask().getUnchecked();

@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.core.workflow.steps.SshWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
@@ -108,6 +109,16 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
 
         Asserts.assertEquals(RecordingSshTool.getExecCmds().stream().map(ex -> ex.commands).collect(Collectors.toList()), MutableList.of(MutableList.of("echo foo")));
         Asserts.assertEquals(result, MutableMap.of("exit_code", 0, "stdout", "foo", "stderr", "<testing stderr>"));
+    }
+
+    @Test
+    public void testSshTruncate() {
+        Asserts.assertEquals("... utput\n", SshWorkflowStep.truncate("hello world\nmore output\n", 10));
+        Asserts.assertEquals("hello world\nmore output\n", SshWorkflowStep.truncate("hello world\nmore output\n", 100));
+        Asserts.assertEquals("", SshWorkflowStep.truncate("hello world\nmore output\n", 0));
+        Asserts.assertEquals("put", SshWorkflowStep.truncate("hello world\nmore output", 3));
+        Asserts.assertEquals("tput", SshWorkflowStep.truncate("hello world\nmore output", 4));
+        Asserts.assertEquals("... t", SshWorkflowStep.truncate("hello world\nmore output", 5));
     }
 
     @Test

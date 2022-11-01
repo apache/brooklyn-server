@@ -46,7 +46,8 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
     public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
-    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit-code");
+    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit_code");
+    public static final ConfigKey<Integer> OUTPUT_MAX_SIZE = ConfigKeys.newIntegerConfigKey("output_max_size", "Maximum size for stdout and stderr, or -1 for no limit", 100000);
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -76,9 +77,10 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
         if (exitcode!=null) tf.allowingNonZeroExitCode();
         Map<String, Object> env = context.getInput(ENV);
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
+        Integer maxLength = context.getInput(OUTPUT_MAX_SIZE);
         return tf.returning(ptw -> {
-            context.setOutput(MutableMap.of("stdout", ptw.getStdout(),
-                    "stderr", ptw.getStderr(),
+            context.setOutput(MutableMap.of("stdout", truncate(ptw.getStdout(), maxLength),
+                    "stderr", truncate(ptw.getStderr(), maxLength),
                     "exit_code", ptw.getExitCode()));
             // make sure the output is set even if there is an error
             checkExitCode(ptw, exitcode);
@@ -104,16 +106,22 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             Object implicit = ((DslPredicates.DslPredicateBase) exitcode).implicitEquals;
             if (implicit!=null) {
                 if ("any".equalsIgnoreCase(""+implicit)) {
-                    // if any is supplied as the implicit value, we accept; e.g. user says "exit-code: any"
+                    // if any is supplied as the implicit value, we accept; e.g. user says "exit_code: any"
                     return;
                 }
             }
             // no other implicit values need be treated specially; 0 or 1 or 255 will work.
-            // ranges still require `exit-code: { range: [0, 4] }`, same with `exit-code: { less-than: 5 }`.
+            // ranges still require `exit_code: { range: [0, 4] }`, same with `exit_code: { less-than: 5 }`.
         }
         if (!exitcode.apply(ptw.getExitCode())) {
-            throw new IllegalStateException("Invalid exit code "+ptw.getExitCode()+"; does not match explicit exit-code requirement"+extraInfo.get());
+            throw new IllegalStateException("Invalid exit code "+ptw.getExitCode()+"; does not match explicit exit_code requirement"+extraInfo.get());
         }
+    }
+
+    public static String truncate(String input, Integer maxLength) {
+        if (input==null || maxLength==null || maxLength<0 || input.length() < maxLength) return input;
+        if (maxLength<=4) return input.substring(input.length()-maxLength);
+        return "... " + input.substring(input.length()-maxLength+4);
     }
 
 }

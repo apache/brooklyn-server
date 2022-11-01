@@ -59,7 +59,7 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<Map<String,Object>> QUERY = new MapConfigKey.Builder(Object.class, "query").build();
     public static final ConfigKey<Object> BODY = ConfigKeys.newConfigKey(Object.class, "body");
     public static final ConfigKey<String> CHARSET = ConfigKeys.newStringConfigKey("charset", "Character set to interpret content as when converting to string, and for converting body to bytes to upload if body is set");
-    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> STATUS_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "status-code");
+    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> STATUS_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "status_code");
     public static final ConfigKey<Map<String, String>> HEADERS = new MapConfigKey<>(String.class, "headers");
     public static final ConfigKey<String> METHOD = ConfigKeys.newStringConfigKey("method");
 
@@ -172,12 +172,12 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
             Object implicit = ((DslPredicates.DslPredicateBase) exitcode).implicitEquals;
             if (implicit!=null) {
                 if ("any".equalsIgnoreCase(""+implicit)) {
-                    // if any is supplied as the implicit value, we accept; e.g. user says "exit-code: any"
+                    // if any is supplied as the implicit value, we accept; e.g. user says "exit_code: any"
                     return;
                 }
             }
             // no other implicit values need be treated specially; 0 or 1 or 255 will work.
-            // ranges still require `exit-code: { range: [0, 4] }`, same with `exit-code: { less-than: 5 }`.
+            // ranges still require `exit_code: { range: [0, 4] }`, same with `exit_code: { less-than: 5 }`.
         }
         if (!exitcode.test(code)) {
             throw new IllegalStateException("Invalid response status code '"+code+"'");
