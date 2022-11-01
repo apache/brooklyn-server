@@ -85,7 +85,6 @@ public interface EffectorApi {
             @ApiParam(name = "effector", value = "Name of the effector to trigger", required = true)
             @PathParam("effector") String effectorName,
             
-            // TODO test timeout; and should it be header, form, or what?
             @ApiParam(name = "timeout", value = "Delay before server should respond with activity task ID rather than result (in millis if no unit specified): " +
                     "'never' (blocking) is default; " +
                     "'0' means 'always' return task activity ID; " +

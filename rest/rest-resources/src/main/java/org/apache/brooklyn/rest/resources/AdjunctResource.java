@@ -294,11 +294,11 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     }
 
     @Override
-    public List<TaskSummary> listTasks(String applicationId, String entityId, String adjunctToken, int limit, Boolean recurse) {
+    public List<TaskSummary> listTasks(String applicationId, String entityId, String adjunctToken, int limit, Boolean recurse, Boolean suppressSecrets) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
         return TaskTransformer.fromTasks(MutableList.copyOf(BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), adjunct)),
-            limit, recurse, entity, ui);
+            limit, recurse, entity, ui, resolving(null), suppressSecrets);
     }
 
     @Override

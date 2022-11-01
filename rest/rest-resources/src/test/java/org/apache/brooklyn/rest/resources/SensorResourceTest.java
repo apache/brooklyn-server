@@ -50,6 +50,7 @@ import org.apache.brooklyn.rest.domain.EntitySpec;
 import org.apache.brooklyn.rest.test.config.render.TestRendererHints;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.rest.testing.mocks.RestMockSimpleEntity;
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.http.HttpAsserts;
@@ -58,6 +59,7 @@ import org.apache.brooklyn.util.text.StringFunctions;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.apache.cxf.jaxrs.client.WebClient;
+import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -88,6 +90,9 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
     static final String SENSORS_ENDPOINT = "/applications/simple-app/entities/simple-ent/sensors";
     static final String SENSOR_NAME = "amphibian.count";
     static final AttributeSensor<Integer> SENSOR = Sensors.newIntegerSensor(SENSOR_NAME);
+    static final String SECRET_SENSOR_NAME = "secret.count";
+    static final AttributeSensor<Integer> SECRET_SENSOR = Sensors.newIntegerSensor(SECRET_SENSOR_NAME);
+    static final Integer SECRET_VALUE = 99999;
 
     EntityInternal entity;
 
@@ -106,6 +111,7 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
 
         entity = (EntityInternal) Iterables.find(getManagementContext().getEntityManager().getEntities(), EntityPredicates.displayNameEqualTo("simple-ent"));
         addAmphibianSensor(entity);
+        addSecretSensor(entity);
     }
 
     static void addAmphibianSensor(EntityInternal entity) {
@@ -115,6 +121,12 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
 
         // Register display value hint
         RendererHints.register(SENSOR, RendererHints.displayValue(Functions.compose(StringFunctions.append(" frogs"), Functions.toStringFunction())));
+    }
+
+    static void addSecretSensor(EntityInternal entity) {
+        // Add new sensor
+        entity.getMutableEntityType().addSensor(SECRET_SENSOR);
+        entity.sensors().set(SECRET_SENSOR, SECRET_VALUE);
     }
 
     @AfterClass(alwaysRun = true)
@@ -130,15 +142,22 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
                 .get();
         Map<String, ?> currentState = response.readEntity(new GenericType<Map<String,?>>(Map.class) {});
 
+        int found = 0;
         for (String sensor : currentState.keySet()) {
             if (sensor.equals(SENSOR_NAME)) {
+                found++;
                 assertEquals(currentState.get(sensor), "12345 frogs");
             }
+            if (sensor.equals(SECRET_SENSOR_NAME)) {
+                found++;
+                assertEquals(currentState.get(sensor), SECRET_VALUE);
+            }
         }
+        Asserts.assertEquals(found, 2);
     }
 
     /** Check setting {@code raw} to {@code true} ignores display value hint. */
-    @Test(dependsOnMethods = "testBatchSensorRead")
+    @Test
     public void testBatchSensorReadRaw() throws Exception {
         Response response = client().path(SENSORS_ENDPOINT + "/current-state")
                 .query("raw", "true")
@@ -146,11 +165,18 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
                 .get();
         Map<String, ?> currentState = response.readEntity(new GenericType<Map<String,?>>(Map.class) {});
 
+        int found = 0;
         for (String sensor : currentState.keySet()) {
             if (sensor.equals(SENSOR_NAME)) {
+                found++;
                 assertEquals(currentState.get(sensor), Integer.valueOf(12345));
             }
+            if (sensor.equals(SECRET_SENSOR_NAME)) {
+                found++;
+                assertEquals(currentState.get(sensor), SECRET_VALUE);
+            }
         }
+        Asserts.assertEquals(found, 2);
     }
 
     protected Response doSensorTest(Boolean displayHints, Boolean raw, MediaType acceptsType, Object expectedValue) {
@@ -218,7 +244,7 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
         doSensorTest(true,true, MediaType.APPLICATION_JSON_TYPE, 12345);
     }
     
-    /** As {@link #testGetRaw()} but with plain set, returns the number */
+    /** As {@link #testGetRawJson()} but with plain set, returns the number */
     @Test
     public void testGetPlainRaw() throws Exception {
         // have to pass a string because that's how PLAIN is deserialized
@@ -385,5 +411,37 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
             Time.sleep(duration);
             return null;
         }
+    }
+
+    @Test
+    public void testSecretSensorSuppressed() throws Exception {
+        Response response = client().path(SENSORS_ENDPOINT + "/current-state")
+                .query("raw", "true")
+                .query("suppressSecrets", "true")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        Map<String, ?> currentState = response.readEntity(new GenericType<Map<String,?>>(Map.class) {});
+
+        int found = 0;
+        for (String sensor : currentState.keySet()) {
+            if (sensor.equals(SECRET_SENSOR_NAME)) {
+                found++;
+                Asserts.assertStringDoesNotContain(""+currentState.get(sensor), ""+SECRET_VALUE);
+            }
+        }
+        Asserts.assertEquals(found, 1);
+
+        response = client().path(SENSORS_ENDPOINT + "/" + SECRET_SENSOR_NAME)
+                .query("suppressSecrets", "true")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        Asserts.assertStringDoesNotContain(""+response.readEntity(Object.class), ""+SECRET_VALUE);
+
+        response = client().path(SENSORS_ENDPOINT + "/" + SECRET_SENSOR_NAME)
+                .query("raw", "true")
+                .query("suppressSecrets", "true")
+                .accept(MediaType.APPLICATION_JSON)
+                .get();
+        Asserts.assertStringDoesNotContain(""+response.readEntity(Object.class), ""+SECRET_VALUE);
     }
 }

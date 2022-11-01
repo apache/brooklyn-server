@@ -32,6 +32,7 @@ import org.apache.brooklyn.util.core.task.TaskInternal;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
 
 @Path("/activities")
 @Api("Activities")
@@ -49,8 +50,17 @@ public interface ActivityApi {
             @ApiResponse(code = 404, message = "Could not find task"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public TaskSummary get(
-            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
+    public Response get(
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
+            @ApiParam(name = "timeout", value = "Delay before server should block until task completes before returinging (in millis if no unit specified): " +
+                    "'0' means 'always' return task activity ID and is the default; " +
+                    "'never' or '-1' means wait until the task finishes (or HTTP times out); " +
+                    "and e.g. '1000' or '1s' will return the task as soon as it completes or after one second whichever is sooner, with 202 returned if the task is still ongoing",
+                    required = false, defaultValue = "0")
+            @QueryParam("timeout")
+            String timeout,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/{task}/children")
@@ -67,7 +77,9 @@ public interface ActivityApi {
             @ApiParam(value = "Whether to include non-subtask backgrounded tasks submitted by this task", required = false)
             @QueryParam("includeBackground") @DefaultValue("false") Boolean includeBackground,
             @ApiParam(value = "Max number of tasks to include, or -1 for all (default 200)", required = false)
-            @QueryParam("limit") @DefaultValue("200") int limit);
+            @QueryParam("limit") @DefaultValue("200") int limit,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/{task}/children/recurse")
@@ -86,25 +98,9 @@ public interface ActivityApi {
             @ApiParam(value = "Max number of tasks to include, or -1 for all (default 200)", required = false)
             @QueryParam("limit") @DefaultValue("200") int limit,
             @ApiParam(value = "Max depth to traverse, or -1 for all (default)", required = false)
-            @QueryParam("maxDepth") @DefaultValue("-1") int maxDepth);
-
-    /** @deprecated since 0.12.0 use {@link #getAllChildrenAsMap(String, int, int)} with depth -1 */
-    @GET
-    @Path("/{task}/children/recurse/deprecated")
-    @ApiOperation(
-            value = "Fetch all child tasks details as Map<String,TaskSummary> map key == Task ID. Deprecated since 0.12.0. Use " +
-                    "/activities/{task}/children/recurse instead.",
-            response = Map.class)
-    @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
-            @ApiResponse(code = 400, message = "Bad Request"),
-            @ApiResponse(code = 401, message = "Unauthorized"),
-            @ApiResponse(code = 404, message = "Could not find task"),
-            @ApiResponse(code = 500, message = "Internal Server Error")
-    })
-    @Deprecated
-    public Map<String,TaskSummary> getAllChildrenAsMap(
-            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
+            @QueryParam("maxDepth") @DefaultValue("-1") int maxDepth,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/{task}/stream/{streamId}")

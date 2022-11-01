@@ -18,14 +18,9 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import javax.annotation.Nullable;
-import javax.ws.rs.core.Response;
-
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
+import com.google.common.collect.FluentIterable;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -46,9 +41,12 @@ import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Function;
-import com.google.common.base.Predicate;
-import com.google.common.collect.FluentIterable;
+import javax.annotation.Nullable;
+import javax.ws.rs.core.Response;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @HaHotStateRequired
 public class EffectorResource extends AbstractBrooklynRestResource implements EffectorApi {
@@ -106,7 +104,7 @@ public class EffectorResource extends AbstractBrooklynRestResource implements Ef
                     if (timeoutMillis == 0) throw new TimeoutException();
                     result = t.get(timeoutMillis, TimeUnit.MILLISECONDS);
                 } catch (TimeoutException e) {
-                    result = TaskTransformer.taskSummary(t, ui.getBaseUriBuilder());
+                    result = TaskTransformer.taskSummary(t, ui.getBaseUriBuilder(), resolving(null), null);
                 }
             }
             return Response.status(Response.Status.ACCEPTED).entity(result).build();

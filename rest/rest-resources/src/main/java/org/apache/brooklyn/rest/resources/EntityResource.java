@@ -18,32 +18,20 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import static javax.ws.rs.core.Response.created;
-import static javax.ws.rs.core.Response.status;
-import static javax.ws.rs.core.Response.Status.ACCEPTED;
-
 import com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
-import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
-
-import java.net.URI;
-import java.util.*;
-
-import javax.ws.rs.core.Context;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.UriInfo;
-
-import com.google.common.collect.*;
+import com.google.common.annotations.Beta;
+import com.google.common.base.Objects;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
+import com.google.common.io.Files;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
+import org.apache.brooklyn.core.mgmt.BrooklynTags.SpecSummary;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils.CreationResult;
@@ -55,7 +43,10 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.rest.api.EntityApi;
-import org.apache.brooklyn.rest.domain.*;
+import org.apache.brooklyn.rest.domain.EntitySummary;
+import org.apache.brooklyn.rest.domain.LocationSummary;
+import org.apache.brooklyn.rest.domain.RelationSummary;
+import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.EntityTransformer;
 import org.apache.brooklyn.rest.transform.LocationTransformer;
@@ -65,20 +56,31 @@ import org.apache.brooklyn.rest.util.EntityRelationUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.ClassLoadingContext;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.Objects;
-import com.google.common.io.Files;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.UriInfo;
+import java.net.URI;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+
+import static javax.ws.rs.core.Response.Status.ACCEPTED;
+import static javax.ws.rs.core.Response.created;
+import static javax.ws.rs.core.Response.status;
+import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceAbsoluteUriBuilder;
 
 @HaHotStateRequired
 public class EntityResource extends AbstractBrooklynRestResource implements EntityApi {
@@ -145,14 +147,14 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         } else {
             response = Response.status(Status.CREATED);
         }
-        return response.entity(TaskTransformer.taskSummary(added.task(), ui.getBaseUriBuilder())).build();
+        return response.entity(TaskTransformer.taskSummary(added.task(), ui.getBaseUriBuilder(), resolving(null), null)).build();
     }
 
     @Override
-    public List<TaskSummary> listTasks(String applicationId, String entityId, int limit, Boolean recurse) {
+    public List<TaskSummary> listTasks(String applicationId, String entityId, int limit, Boolean recurse, Boolean suppressSecrets) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         return TaskTransformer.fromTasks(MutableList.copyOf(BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity)),
-            limit, recurse, entity, ui);
+            limit, recurse, entity, ui, resolving(null), suppressSecrets);
     }
 
     /** API does not guarantee order, but this is a the one we use (when there are lots of tasks):
@@ -246,13 +248,8 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         }
     }
     
-    @Override @Deprecated
-    public List<TaskSummary> listTasks(String applicationId, String entityId) {
-        return listTasks(applicationId, entityId, -1, false);
-    }
-
     @Override
-    public TaskSummary getTask(final String application, final String entityToken, String taskId) {
+    public TaskSummary getTask(final String application, final String entityToken, String taskId, Boolean suppressSecrets) {
         // TODO deprecate in favour of ActivityApi.get ?
         Entity entity =brooklyn().getApplication(application);
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
@@ -262,7 +259,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
         if (t == null)
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
-        return TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
+        return TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets).apply(t);
     }
 
     @SuppressWarnings("unchecked")
@@ -331,7 +328,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public Response expunge(String application, String entity, boolean release) {
         Entity instance = brooklyn().getEntity(application, entity);
         Task<?> task = brooklyn().expunge(instance, release);
-        TaskSummary summary = TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(task);
+        TaskSummary summary = TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null),  false).apply(task);
         return status(ACCEPTED).entity(summary).build();
     }
 
@@ -341,9 +338,9 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public Map<String, Object> getDescendantsSensor(String application, String entity, String sensor, String typeRegex) {
+    public Map<String, Object> getDescendantsSensor(String application, String entity, String sensor, String typeRegex, Boolean suppressSecrets) {
         Iterable<Entity> descs = brooklyn().descendantsOfType(application, entity, typeRegex);
-        return ApplicationResource.getSensorMap(sensor, descs);
+        return ApplicationResource.getSensorMap(sensor, descs, resolving(null), suppressSecrets);
     }
 
     @Override
@@ -362,24 +359,28 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         NamedStringTag spec = BrooklynTags.findFirstNamedStringTag(BrooklynTags.YAML_SPEC_KIND, entity.tags().getTags());
         if (spec == null)
             return null;
-        return (String) WebResourceUtils.getValueForDisplay(spec.getContents(), false, true);
+        return (String) resolving(null).getValueForDisplay(spec.getContents(), false, true, null);
     }
 
     @Override
-    public List<Object>  getSpecList(String applicationId, String entityId) {
+    public List<Object> getSpecList(String applicationId, String entityId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         List<SpecSummary> specTag = BrooklynTags.findSpecHierarchyTag(entity.tags().getTags());
         return (List<Object>) resolving(specTag).preferJson(true).resolve();
     }
 
     @Override
-    public List<WorkflowExecutionContext> getWorkflows(String applicationId, String entityId) {
+    public Response getWorkflows(String applicationId, String entityId, Boolean suppressSecrets) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
-        return MutableList.copyOf(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values());
+        return Response.ok(resolving(null).getValueForDisplay(MutableList.copyOf(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values()), true, true, suppressSecrets)).build();
     }
 
     @Override
-    public WorkflowExecutionContext getWorkflow(String applicationId, String entityId, String workflowId) {
+    public Response getWorkflow(String applicationId, String entityId, String workflowId, Boolean suppressSecrets) {
+        return Response.ok(resolving(null).getValueForDisplay(findWorkflow(applicationId, entityId, workflowId), true, true, suppressSecrets)).build();
+    }
+
+    WorkflowExecutionContext findWorkflow(String applicationId, String entityId, String workflowId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         WorkflowExecutionContext w = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).get(workflowId);
         if (w==null) throw WebResourceUtils.notFound("Cannot find workflow with ID '%s'", workflowId);
@@ -387,8 +388,8 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
 
     @Override
-    public String replayWorkflow(String applicationId, String entityId, String workflowId, String step, String reason, Boolean force) {
-        WorkflowExecutionContext w = getWorkflow(applicationId, entityId, workflowId);
+    public TaskSummary replayWorkflow(String applicationId, String entityId, String workflowId, String step, String reason, Boolean force) {
+        WorkflowExecutionContext w = findWorkflow(applicationId, entityId, workflowId);
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         boolean forced = Boolean.TRUE.equals(force);
         String msg = "Replaying workflow "+workflowId+" on "+entity+", from step '"+step+"', reason '"+reason+"'";
@@ -406,11 +407,11 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
             }
         }
         DynamicTasks.submit(t, entity);
-        return (String) WebResourceUtils.getValueForDisplay(mapper(), t.getId(), true, true);
+        return TaskTransformer.taskSummary(t, ui.getBaseUriBuilder(), resolving(null), null);
     }
 
     @Override
-    public Response runWorkflow(String applicationToken, String entityToken, String timeoutS, String yaml) {
+    public TaskSummary runWorkflow(String applicationToken, String entityToken, String timeoutS, String yaml) {
         final Entity target = brooklyn().getEntity(applicationToken, entityToken);
         // TODO new entitlement, here and above
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, target)) {
@@ -422,20 +423,20 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
             workflow = BeanWithTypeUtils.newYamlMapper(mgmt(), true, RegisteredTypes.getClassLoadingContext(target), true)
                     .readerFor(CustomWorkflowStep.class).readValue(yaml);
         } catch (JsonProcessingException e) {
-            return ApiError.of(e).asBadRequestResponseJson();
+            throw WebResourceUtils.badRequest(e);
         }
 
         WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
                 Strings.firstNonBlank(workflow.getName(), workflow.getId(), "API workflow invocation"),
                 null,
-                MutableMap.of("tags", MutableMap.of("workflow_yaml", yaml)));
+                MutableMap.of("tags", MutableList.of(MutableMap.of("workflow_yaml", yaml))));
 
         Task<Object> task = Entities.submit(target, execution.getTask(true).get());
-        task.blockUntilEnded(timeoutS==null ? Duration.millis(20) : Duration.of(timeoutS));
+        task.blockUntilEnded(timeoutS==null ? Duration.millis(20) : "never".equalsIgnoreCase(timeoutS) ? Duration.PRACTICALLY_FOREVER : "always".equalsIgnoreCase(timeoutS) ? Duration.ZERO : Duration.of(timeoutS));
 
         URI ref = serviceAbsoluteUriBuilder(uriInfo.getBaseUriBuilder(), EntityApi.class, "getWorkflow")
                 .build(target.getApplicationId(), target.getId(), execution.getWorkflowId());
         ResponseBuilder response = created(ref);
-        return response.entity(TaskTransformer.taskSummary(task, ui.getBaseUriBuilder())).build();
+        return TaskTransformer.taskSummary(task, ui.getBaseUriBuilder(), resolving(null), null);
     }
 }

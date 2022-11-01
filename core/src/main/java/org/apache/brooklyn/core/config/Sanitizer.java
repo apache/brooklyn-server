@@ -229,9 +229,11 @@ public final class Sanitizer {
     }
 
     public static Object suppressNestedSecretsJson(Object x, boolean excludeBrooklynDslExpressions) {
-        if (x==null || Boxing.isPrimitiveOrBoxedObject(x) || x instanceof CharSequence) {
+        if (x==null || Boxing.isPrimitiveOrBoxedObject(x)) {
             // no further action needed
             return x;
+        } else if (x instanceof CharSequence) {
+            return sanitizeMultilineString(x.toString());
         } else if (x instanceof Map) {
             Map y = MutableMap.of();
             ((Map)x).forEach((k,v) -> {

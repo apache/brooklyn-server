@@ -158,24 +158,10 @@ public interface EntityApi {
             @ApiParam(value = "Max number of tasks, or -1 for all (default 200)", required = false) 
             @QueryParam("limit") @DefaultValue("200") int limit,
             @ApiParam(value = "Whether to include subtasks recursively across different entities (default false)", required = false)
-            @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
+            @QueryParam("recurse") @DefaultValue("false") Boolean recurse,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
-    /** @deprecated since 0.12.0 use {@link #listTasks(String, String, int, Boolean)} */
-    @GET
-    @Path("/{entity}/activities/deprecated")
-    @ApiOperation(value = "Fetch list of tasks for this entity", hidden = true)
-    @ApiResponses(value = {
-            @ApiResponse(code = 200, message = "OK"),
-            @ApiResponse(code = 400, message = "Bad Request"),
-            @ApiResponse(code = 401, message = "Unauthorized"),
-            @ApiResponse(code = 404, message = "Application or entity missing"),
-            @ApiResponse(code = 500, message = "Internal Server Error")
-    })
-    @Deprecated
-    public List<TaskSummary> listTasks(
-            @ApiParam(value = "Application ID or name", required = true) @PathParam("application") String applicationId,
-            @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") String entityId);
-        
     @GET
     @Path("/{entity}/activities/{task}")
     @ApiOperation(value = "Fetch task details", response = org.apache.brooklyn.rest.domain.TaskSummary.class)
@@ -190,7 +176,9 @@ public interface EntityApi {
     public TaskSummary getTask(
             @ApiParam(value = "Application ID or name", required = true) @PathParam("application") final String application,
             @ApiParam(value = "Entity ID or name", required = true) @PathParam("entity") final String entityToken,
-            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId);
+            @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @ApiOperation(value = "Returns an icon for the entity, if defined")
@@ -367,7 +355,9 @@ public interface EntityApi {
             @PathParam("sensor") String sensor,
             @ApiParam(value="Regular expression applied to filter descendant entities based on their type", required=false)
             @DefaultValue(".*")
-            @QueryParam("typeRegex") String typeRegex);
+            @QueryParam("typeRegex") String typeRegex,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/{entity}/locations")
@@ -421,7 +411,7 @@ public interface EntityApi {
 
     @GET
     @Path("/{entity}/workflows")
-    @ApiOperation(value = "Get all workflows stored on this entity")
+    @ApiOperation(value = "Get all workflows stored on this entity", response = WorkflowExecutionContext.class, responseContainer = "List")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
@@ -429,15 +419,17 @@ public interface EntityApi {
             @ApiResponse(code = 404, message = "Application or entity missing"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public List<WorkflowExecutionContext> getWorkflows(
+    public Response getWorkflows(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)
-            @PathParam("entity") String entity);
+            @PathParam("entity") String entity,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/{entity}/workflows/{workflowId}")
-    @ApiOperation(value = "Get a workflow on this entity")
+    @ApiOperation(value = "Get a workflow on this entity", response = WorkflowExecutionContext.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
@@ -445,13 +437,15 @@ public interface EntityApi {
             @ApiResponse(code = 404, message = "Application or entity missing"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public WorkflowExecutionContext getWorkflow(
+    public Response getWorkflow(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)
             @PathParam("entity") String entity,
             @ApiParam(value = "Workflow ID", required = true)
-            @PathParam("workflowId") String workflowId);
+            @PathParam("workflowId") String workflowId,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @POST
     @ApiOperation(value = "Run a workflow on this entity from a YAML workflow spec",
@@ -467,7 +461,7 @@ public interface EntityApi {
             @ApiResponse(code = 404, message = "Application or entity missing"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public Response runWorkflow(
+    public TaskSummary runWorkflow(
             @PathParam("application") final String application,
             @PathParam("entity") final String entity,
 
@@ -486,7 +480,7 @@ public interface EntityApi {
 
     @POST
     @Path("/{entity}/workflows/{workflowId}/replay/from/{step}")
-    @ApiOperation(value = "Replays a workflow from the given step, or 'start' to restart or 'end' to resume from last replayable point; the workflow will rollback to the previous replay point unless forced; returns the task ID of the replay")
+    @ApiOperation(value = "Replays a workflow from the given step, or 'start' to restart or 'end' to resume from last replayable point; the workflow will rollback to the previous replay point unless forced; returns the task of the replay")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
@@ -494,7 +488,7 @@ public interface EntityApi {
             @ApiResponse(code = 404, message = "Application or entity missing"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
-    public String replayWorkflow(
+    public TaskSummary replayWorkflow(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
             @ApiParam(value = "Entity ID or name", required = true)

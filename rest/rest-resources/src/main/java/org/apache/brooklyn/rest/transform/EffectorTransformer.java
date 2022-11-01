@@ -18,30 +18,30 @@
  */
 package org.apache.brooklyn.rest.transform;
 
-import java.net.URI;
-import java.util.Set;
-
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.api.effector.Effector;
-import org.apache.brooklyn.api.effector.ParameterType;
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.core.config.Sanitizer;
-import org.apache.brooklyn.rest.domain.EffectorSummary;
-import org.apache.brooklyn.rest.domain.EffectorSummary.ParameterSummary;
-import org.apache.brooklyn.rest.util.WebResourceUtils;
-import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import javax.ws.rs.core.UriBuilder;
+import org.apache.brooklyn.api.effector.Effector;
+import org.apache.brooklyn.api.effector.ParameterType;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.config.Sanitizer;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.rest.api.ApplicationApi;
 import org.apache.brooklyn.rest.api.EffectorApi;
 import org.apache.brooklyn.rest.api.EntityApi;
+import org.apache.brooklyn.rest.domain.EffectorSummary;
+import org.apache.brooklyn.rest.domain.EffectorSummary.ParameterSummary;
+import org.apache.brooklyn.rest.resources.AbstractBrooklynRestResource;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+
+import javax.annotation.Nullable;
+import javax.ws.rs.core.UriBuilder;
+import java.net.URI;
+import java.util.Set;
+
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 public class EffectorTransformer {
@@ -84,10 +84,12 @@ public class EffectorTransformer {
                     .context(entity)
                     .immediately(true)
                     .getMaybe();
+            boolean isSecret = Sanitizer.IS_SECRET_PREDICATE.apply(parameterType.getName());
             return new ParameterSummary(parameterType.getName(), parameterType.getParameterClassName(), 
                 parameterType.getDescription(), 
-                WebResourceUtils.getValueForDisplay(defaultValue.orNull(), true, false),
-                Sanitizer.IS_SECRET_PREDICATE.apply(parameterType.getName()));
+                AbstractBrooklynRestResource.RestValueResolver.resolving(((EntityInternal)entity).getManagementContext(), null).getValueForDisplay(defaultValue.orNull(), true, false,
+                        isSecret ? false : null),
+                isSecret);
         } catch (Exception e) {
             throw Exceptions.propagate(e);
         }

@@ -428,12 +428,12 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
     }
 
     @Override
-    public String getConfig(String configKey) {
+    public String getConfig(String configKey, Boolean suppressSecrets) {
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ALL_SERVER_INFO, null)) {
             throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
         }
         ConfigKey<String> config = ConfigKeys.newStringConfigKey(configKey);
-        return (String) WebResourceUtils.getValueForDisplay(mapper(), mgmt().getConfig().getConfig(config), true, true);
+        return (String) resolving(null).getValueForDisplay(mgmt().getConfig().getConfig(config), true, true, suppressSecrets);
     }
 
     @Override
@@ -537,7 +537,7 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         
         EntitlementContext entitlementContext = Entitlements.getEntitlementContext();
         if (entitlementContext!=null && entitlementContext.user()!=null){
-            return (String) WebResourceUtils.getValueForDisplay(mapper(), entitlementContext.user(), true, true);
+            return (String) resolving(null).getValueForDisplay(entitlementContext.user(), true, true, null);
         } else {
             return null; //User can be null if no authentication was requested
         }

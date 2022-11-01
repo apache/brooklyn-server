@@ -146,7 +146,8 @@ public class Duration implements Comparable<Duration>, Serializable {
     /** 
      * See {@link Time#parseElapsedTime(String)}; 
      * also accepts "forever" (and for those who prefer things exceedingly accurate, "practically_forever").
-     * If null or blank or 'null' is passed in, then null will be returned. 
+     * If null or blank or 'null' is passed in, then null will be returned.
+     * If no units then millis is assumed.
      * Also see {@link #of(Object)}.
      */
     public static Duration parse(String textualDescription) {

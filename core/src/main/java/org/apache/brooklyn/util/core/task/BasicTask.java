@@ -32,12 +32,14 @@ import groovy.lang.Closure;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -115,7 +117,7 @@ public class BasicTask<T> implements TaskInternal<T> {
         if (ftags!=null) {
             if (ftags instanceof Iterable) Iterables.addAll(tags, (Iterable<?>)ftags);
             else {
-                log.info("deprecated use of non-collection argument for 'tags' ("+ftags+") in "+this, new Throwable("trace of discouraged use of non-colleciton tags argument"));
+                log.info("deprecated use of non-collection argument for 'tags' ("+ftags+") in "+this, new Throwable("trace of discouraged use of non-collection tags argument"));
                 tags.add(ftags);
             }
         }
@@ -591,9 +593,34 @@ public class BasicTask<T> implements TaskInternal<T> {
             } else {
                 data.setSummary("Completed");
                 if (verbosity>=1) {
+
+                    Callable<String> valueGetter = () -> {
+                        Object v = get();
+                        if (v == null) {
+                            return null;
+                        } else if (v instanceof String) {
+                            // ensure anything map-like is multiline so sanitization works
+                            if (Strings.isMultiLine((String) v) || ((String) v).contains(": ") || ((String) v).contains("="))
+                                return "\n" + Strings.indent(2, (String) v);
+                            return (String) v;
+                        } else if (Boxing.isPrimitiveOrBoxedObject(v)) {
+                            return ""+v;
+                        } else {
+                            String vs;
+                            try {
+                                vs = BeanWithTypeUtils.newYamlMapper(null, false, null, false).writeValueAsString(v);
+                                if (vs.trim().startsWith("---")) vs = Strings.removeFromStart(vs.trim(), "---").trim();
+                            } catch (Exception e) {
+                                Exceptions.propagateIfFatal(e);
+                                vs = v.toString();
+                            }
+                            return "\n"+Strings.indent(2, vs);
+                        }
+                    };
+
                     if (verbosity==1) {
                         try {
-                            Object v = get();
+                            String v = valueGetter.call();
                             data.appendToSummary(", " +(v==null ? "no return value (null)" : "result: "+abbreviate(v.toString())));
                         } catch (Exception e) {
                             data.appendToSummary(", but error accessing result ["+Exceptions.collapseText(e)+"]"); //shouldn't happen
@@ -601,7 +628,7 @@ public class BasicTask<T> implements TaskInternal<T> {
                     } else {
                         if (verbosity >= 1) data.appendToSummary(duration);
                         try {
-                            Object v = get();
+                            String v = valueGetter.call();
                             data.multiLineData.add(v==null ? "No return value (null)" : "Result: "+v);
 
                         } catch (Exception e) {
@@ -627,8 +654,11 @@ public class BasicTask<T> implements TaskInternal<T> {
     }
 
     private static String abbreviate(String s) {
+        boolean isMultiline = Strings.isMultiLine(s);
         s = Strings.getFirstLine(s);
+        if (Strings.isBlank(s) && isMultiline) s = Strings.getFirstLine(s.trim());
         if (s.length()>255) s = s.substring(0, 252)+ "...";
+        else if (isMultiline) s = s+" ...";
         return s;
     }
 

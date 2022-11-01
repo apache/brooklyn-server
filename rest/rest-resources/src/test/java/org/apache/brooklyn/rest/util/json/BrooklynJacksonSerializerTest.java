@@ -63,6 +63,7 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.NotSerializableException;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -218,6 +219,41 @@ public class BrooklynJacksonSerializerTest {
 
         now2 = mapper.readerFor(Object.class).readValue( asMap );
         Asserts.assertEquals(now2, now);
+    }
+
+    @Test
+    public void testNumberReadWriteYaml() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        Map<String, ?> x = MutableMap.of("int", 1, "double", 1.0d);
+        String xYaml = mapper.writer().writeValueAsString(x);
+        Asserts.assertEquals(xYaml.trim(), "---\nint: 1\ndouble: 1.0");
+
+        Object x2 = mapper.readerFor(Object.class).readValue(xYaml);
+        Asserts.assertInstanceOf(x2, Map.class);
+        Asserts.assertSize( (Map)x2, 2 );
+        Asserts.assertEquals( ((Map)x2).get("int"), 1 );
+        Asserts.assertThat( ((Map)x2).get("double"), v -> v.equals(1.0d) || v.equals(BigDecimal.valueOf(1.0d)) );
+    }
+
+    @Test
+    public void testNumberReadWriteJson() throws JsonProcessingException {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            ObjectMapper mapper = BrooklynJacksonJsonProvider.findAnyObjectMapper(mgmt);
+
+            Map<String, ?> x = MutableMap.of("int", 1, "double", 1.0d);
+            String xYaml = mapper.writer().writeValueAsString(x);
+            Asserts.assertEquals(xYaml.trim(), "{\"int\":1,\"double\":1.0}");
+
+            Object x2 = mapper.readerFor(Object.class).readValue(xYaml);
+            Asserts.assertInstanceOf(x2, Map.class);
+            Asserts.assertSize((Map) x2, 2);
+            Asserts.assertEquals(((Map) x2).get("int"), 1);
+            Asserts.assertThat(((Map) x2).get("double"), v -> v.equals(1.0d) || v.equals(BigDecimal.valueOf(1.0d)));
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
     }
 
     @Test
