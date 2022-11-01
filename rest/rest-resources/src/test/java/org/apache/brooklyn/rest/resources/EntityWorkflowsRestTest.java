@@ -185,8 +185,9 @@ public class EntityWorkflowsRestTest extends BrooklynRestResourceTest {
                 "  password1: PASSWORD\n" +
                 "steps:\n" +
                 "  - input:\n" +
+                "      public: ${password1}0\n" +
                 "      password2: ${password1}2\n" +
-                "    step: log EXPECTED password2 is ${password2} which is a permitted display of a pseudo-secret, but should be the only one\n" +
+                "    step: log EXPECTED password2 is ${password2} and public ${public} which are permitted displays of a pseudo-secret, but should be the only one\n" +
                 "    output:\n" +
                 "      password3: ${password1}3\n";
 
@@ -223,7 +224,7 @@ public class EntityWorkflowsRestTest extends BrooklynRestResourceTest {
                     throw Exceptions.propagate(e);
                 }
 
-                // remove any log output messages, eg input resolved
+                // should only be needed if log output is included
                 yaml = Strings.replaceAllRegex(yaml, "(?s)"+"EXPECTED password2 is PASSWORD2 .* pseudo-secret", "REMOVED");
 
                 if (sanitized) {

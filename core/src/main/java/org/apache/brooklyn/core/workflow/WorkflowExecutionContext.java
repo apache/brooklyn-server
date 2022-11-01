@@ -112,6 +112,8 @@ public class WorkflowExecutionContext {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
+    @JsonIgnore  // persist as sensor but not via REST in case it has secrets resolved
+    Map<String,Object> inputResolved = MutableMap.of();
 
     Object outputDefinition;
     Object output;
@@ -488,13 +490,15 @@ public class WorkflowExecutionContext {
     public <T> Maybe<T> getInputMaybe(String key, TypeToken<T> type, Maybe<T> valueIfUndefined) {
         if (!input.containsKey(key)) return valueIfUndefined;
 
+        if (inputResolved.containsKey(key)) return Maybe.ofAllowingNull((T)inputResolved.get(key));
+
         Object v = input.get(key);
         // DSL resolution/coercion only, not workflow syntax here (as no workflow scope)
         Maybe<T> vm = Tasks.resolving(v).as(type).context(getEntity()).immediately(true).deep().getMaybe();
         if (vm.isPresent()) {
             if (WorkflowStepInstanceExecutionContext.REMEMBER_RESOLVED_INPUT) {
                 // this will keep spending time resolving, but will resolve the resolved value
-                input.put(key, vm.get());
+                inputResolved.put(key, vm.get());
             }
         }
         return vm;
