@@ -161,7 +161,7 @@ public class TaskTransformer {
         return new LinkWithMetadata(taskUri.toString(), data);
     }
     
-    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, Entity entity, UriInfo ui) {
+    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui) {
         int sizeRemaining = limit;
         InterestingTasksFirstComparator comparator = new InterestingTasksFirstComparator(entity);
         if (limit>0 && tasksToScan.size() > limit) {

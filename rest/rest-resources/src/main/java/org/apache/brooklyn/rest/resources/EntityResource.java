@@ -179,9 +179,9 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
      */
     @Beta  
     public static class InterestingTasksFirstComparator implements Comparator<Task<?>> {
-        Entity context;
+        Entity optionalEntityContext;
         public InterestingTasksFirstComparator() { this(null); }
-        public InterestingTasksFirstComparator(Entity entity) { this.context = entity; }
+        public InterestingTasksFirstComparator(Entity entity) { this.optionalEntityContext = entity; }
         @Override
         public int compare(Task<?> o1, Task<?> o2) {
             // absolute pref for submitted items

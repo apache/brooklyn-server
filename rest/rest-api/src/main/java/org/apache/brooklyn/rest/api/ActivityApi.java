@@ -65,7 +65,9 @@ public interface ActivityApi {
     public List<TaskSummary> children(
             @ApiParam(value = "Task ID", required = true) @PathParam("task") String taskId,
             @ApiParam(value = "Whether to include non-subtask backgrounded tasks submitted by this task", required = false)
-            @QueryParam("includeBackground") @DefaultValue("false") Boolean includeBackground);
+            @QueryParam("includeBackground") @DefaultValue("false") Boolean includeBackground,
+            @ApiParam(value = "Max number of tasks to include, or -1 for all (default 200)", required = false)
+            @QueryParam("limit") @DefaultValue("200") int limit);
 
     @GET
     @Path("/{task}/children/recurse")
