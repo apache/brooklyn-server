@@ -172,7 +172,7 @@ public class TypeTransformer {
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())
-                effectors.add(EffectorTransformer.effectorSummaryForCatalog(x));
+                effectors.add(EffectorTransformer.effectorSummaryForCatalog(b.mgmt(), x));
             
             result.setExtraField("config", config);
             result.setExtraField("sensors", sensors);

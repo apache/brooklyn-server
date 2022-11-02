@@ -395,13 +395,14 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         String msg = "Replaying workflow "+workflowId+" on "+entity+", from step '"+step+"', reason '"+reason+"'";
         if (forced) log.warn(msg); else log.debug(msg);
         if (reason==null) reason = "manually requested";
-        Task<Object> t = null;
+        Task<Object> t;
         if ("end".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingLast(reason, forced));
-        else if ("start".equalsIgnoreCase(step)) w.createTaskReplaying(w.makeInstructionsForReplayingFromStart(reason, forced));
+        else if ("start".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStart(reason, forced));
         else {
             Maybe<Integer> stepNumberRequested = TypeCoercions.tryCoerce(step, Integer.class);
-            if (stepNumberRequested.isPresent()) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStep(stepNumberRequested.get(), reason, forced));
-            else {
+            if (stepNumberRequested.isPresent()) {
+                t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStep(stepNumberRequested.get(), reason, forced));
+            } else {
                 // could support resuming from a step ID, but not so important; UI can find that
                 throw new IllegalStateException("Unsupported to resume from '"+step+"'");
             }

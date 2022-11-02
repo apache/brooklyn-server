@@ -90,6 +90,8 @@ public class BrooklynRestResourceUtils {
         this.mgmt = mgmt;
     }
 
+    public ManagementContext mgmt() { return mgmt; }
+
     public BrooklynTypeRegistry getTypeRegistry() {
         return mgmt.getTypeRegistry();
     }

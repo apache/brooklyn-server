@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.core.config.Sanitizer;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.rest.api.ApplicationApi;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.Null;
 import javax.ws.rs.core.UriBuilder;
 import java.net.URI;
 import java.util.Set;
@@ -55,7 +57,7 @@ public class EffectorTransformer {
                 new Function<ParameterType<?>, EffectorSummary.ParameterSummary<?>>() {
                     @Override
                     public EffectorSummary.ParameterSummary<?> apply(@Nullable ParameterType<?> parameterType) {
-                        return parameterSummary(entity, parameterType);
+                        return parameterSummary(((EntityInternal)entity).getManagementContext(), entity, parameterType);
                     }
                 })), effector.getDescription(), ImmutableMap.of(
                 "self", selfUri,
@@ -64,12 +66,12 @@ public class EffectorTransformer {
         ));
     }
 
-    public static EffectorSummary effectorSummaryForCatalog(Effector<?> effector) {
+    public static EffectorSummary effectorSummaryForCatalog(@Nullable /* if called from CLI */ ManagementContext mgmt, Effector<?> effector) {
         Set<EffectorSummary.ParameterSummary<?>> parameters = ImmutableSet.copyOf(Iterables.transform(effector.getParameters(),
                 new Function<ParameterType<?>, EffectorSummary.ParameterSummary<?>>() {
                     @Override
                     public EffectorSummary.ParameterSummary<?> apply(ParameterType<?> parameterType) {
-                        return parameterSummary(null, parameterType);
+                        return parameterSummary(mgmt, null, parameterType);
                     }
                 }));
         return new EffectorSummary(effector.getName(),
@@ -77,7 +79,7 @@ public class EffectorTransformer {
     }
     
     @SuppressWarnings({ "unchecked", "rawtypes" })
-    protected static EffectorSummary.ParameterSummary<?> parameterSummary(Entity entity, ParameterType<?> parameterType) {
+    protected static EffectorSummary.ParameterSummary<?> parameterSummary(ManagementContext mgmt, @Nullable Entity entity, ParameterType<?> parameterType) {
         try {
             Maybe<?> defaultValue = Tasks.resolving(parameterType.getDefaultValue())
                     .as(parameterType.getParameterType())
@@ -86,8 +88,9 @@ public class EffectorTransformer {
                     .getMaybe();
             boolean isSecret = Sanitizer.IS_SECRET_PREDICATE.apply(parameterType.getName());
             return new ParameterSummary(parameterType.getName(), parameterType.getParameterClassName(), 
-                parameterType.getDescription(), 
-                AbstractBrooklynRestResource.RestValueResolver.resolving(((EntityInternal)entity).getManagementContext(), null).getValueForDisplay(defaultValue.orNull(), true, false,
+                parameterType.getDescription(),
+                mgmt==null ? /* should only be null if called from CLI context */ defaultValue.orNull() :
+                    AbstractBrooklynRestResource.RestValueResolver.resolving(mgmt, null).getValueForDisplay(defaultValue.orNull(), true, false,
                         isSecret ? false : null),
                 isSecret);
         } catch (Exception e) {
