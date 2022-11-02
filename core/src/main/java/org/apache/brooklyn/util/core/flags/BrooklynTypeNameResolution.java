@@ -71,6 +71,7 @@ public class BrooklynTypeNameResolution {
 
             .put("map", Map.class)
             .put("list", List.class)
+            .put("set", Set.class)
 
             .put("wrapped", WrappedValue.class)
             .put("wrapped-value", WrappedValue.class)

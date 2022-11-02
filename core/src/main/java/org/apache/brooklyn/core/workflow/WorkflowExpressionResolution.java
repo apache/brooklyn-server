@@ -43,6 +43,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class WorkflowExpressionResolution {
@@ -210,7 +211,7 @@ public class WorkflowExpressionResolution {
     /** does not use templates */
     public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
         try {
-            if (expression==null || Jsonya.isTypeJsonPrimitiveCompatible(expression)) {
+            if (expression==null || (Jsonya.isTypeJsonPrimitiveCompatible(expression) && !(expression instanceof Set))) {
                 // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
                 // (might be better to always to TC.coerce)
                 return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,

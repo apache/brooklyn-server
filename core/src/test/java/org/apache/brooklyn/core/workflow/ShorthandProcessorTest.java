@@ -121,4 +121,9 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "invalid", "key%"));
     }
 
+    @Test
+    public void testShorthandWithNestedOptional() {
+        assertShorthandOfGives("[ [ ${a} ] ${b} [ \"=\" ${c...} ] ]", "b = c", MutableMap.of("b", "b", "c", "c"));
+        assertShorthandOfGives("[ [ ${a} ] ${b} [ \"=\" ${c...} ] ]", "a b = c", MutableMap.of("a", "a", "b", "b", "c", "c"));
+    }
 }

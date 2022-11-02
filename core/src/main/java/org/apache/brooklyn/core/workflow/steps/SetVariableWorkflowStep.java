@@ -23,7 +23,10 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.util.collections.CollectionMerger;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -33,24 +36,47 @@ import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(SetVariableWorkflowStep.class);
 
-    public static final String SHORTHAND = "[ ?${trim} \"trimmed\" ] [ ${variable.type} ] ${variable.name} \"=\" ${value...}";
+    public static final String SHORTHAND =
+            "[ ?${trim} \"trim \" ] [ ?${trimmed} \"trimmed \" ] " +
+            "[ ?${merge} \"merge \" [ ?${merge_deep} \"deep \" ] [ ?${clean} \"clean \" ] ] " +
+            "[ ?${wait} \"wait \" ] " +
+            "[ [ ${variable.type} ] ${variable.name} [ \"=\" ${value...} ] ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
+
     public static final ConfigKey<Boolean> TRIM = ConfigKeys.newConfigKey(Boolean.class, "trim");
+    public static final ConfigKey<Boolean> TRIMMED = ConfigKeys.newConfigKey(Boolean.class, "trimmed");
+
+    public static final ConfigKey<Boolean> WAIT = ConfigKeys.newConfigKey(Boolean.class, "wait");
+    public static final ConfigKey<Boolean> MERGE = ConfigKeys.newConfigKey(Boolean.class, "merge");
+    public static final ConfigKey<Boolean> CLEAN = ConfigKeys.newConfigKey(Boolean.class, "clean");
+    public static final ConfigKey<Boolean> MERGE_DEEP = ConfigKeys.newConfigKey(Boolean.class, "merge_deep");
 
     @Override
     public void populateFromShorthand(String expression) {
         populateFromShorthandTemplate(SHORTHAND, expression, true);
+    }
+
+    @Override
+    public void validateStep() {
+        super.validateStep();
+        if (!input.containsKey(VARIABLE.getName())) {
+            throw new IllegalArgumentException("Variable name is required");
+        }
+        if (!input.containsKey(VALUE.getName())) {
+            throw new IllegalArgumentException("Value is required");
+        }
     }
 
     @Override
@@ -63,33 +89,110 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object unresolvedValue = input.get(VALUE.getName());
 
-        Object resolvedValue = new SetVariableEvaluation(context, type==null ? TypeToken.of(Object.class) : type, unresolvedValue, Boolean.TRUE.equals(context.getInput(TRIM)), type!=null ).evaluate();
+        Object resolvedValue = new SetVariableEvaluation(context, type==null ? TypeToken.of(Object.class) : type, unresolvedValue,
+                Boolean.TRUE.equals(context.getInput(TRIM)) || Boolean.TRUE.equals(context.getInput(TRIMMED)),
+                Boolean.TRUE.equals(context.getInput(WAIT)),
+                Boolean.TRUE.equals(context.getInput(MERGE_DEEP)) ? LetMergeMode.DEEP : Boolean.TRUE.equals(context.getInput(MERGE)) ? LetMergeMode.SHALLOW : LetMergeMode.NONE,
+                Boolean.TRUE.equals(context.getInput(CLEAN)),
+                type!=null ).evaluate();
 
-        Object oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        Object oldValue;
+
+        if (name.contains(".")) {
+            String[] names = name.split("\\.");
+            Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names[0]);
+            if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + name + " is " + (h == null ? "not set" : "not a map"));
+            for (int i=1; i<names.length-1; i++) {
+                Object hi = ((Map<?, ?>) h).get(names[i]);
+                if (hi==null) {
+                    hi = MutableMap.of();
+                    ((Map)h).put(names[i], hi);
+                } else if (!(hi instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names[i] + " is not a map");
+                h = hi;
+            }
+            oldValue = ((Map)h).put(names[names.length-1], resolvedValue);
+        } else {
+            oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        }
         context.noteOtherMetadata("Value set", resolvedValue);
         if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
         return context.getPreviousStepOutput();
     }
+
+    private enum LetMergeMode { NONE, SHALLOW, DEEP }
 
     public static class SetVariableEvaluation<T> {
         protected final WorkflowStepInstanceExecutionContext context;
         protected final TypeToken<T> type;
         protected final Object unresolvedValue;
         private final boolean trim;
+        private final boolean wait;
+        private final LetMergeMode merge;
+        private final boolean clean;
         private final boolean typeSpecified;
         private QuotedStringTokenizer qst;
 
 
-        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, boolean trim, boolean typeSpecified) {
+        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, boolean trim, boolean wait, LetMergeMode merge, boolean clean, boolean typeSpecified) {
             this.context = context;
             this.type = type;
             this.unresolvedValue = unresolvedValue;
             this.trim = trim;
+            this.wait = wait;
+            this.merge = merge;
+            this.clean = clean;
             this.typeSpecified = typeSpecified;
         }
 
         public T evaluate() {
             Object result = unresolvedValue;
+
+            if (merge==LetMergeMode.DEEP || merge==LetMergeMode.SHALLOW) {
+                try {
+                    if (Map.class.isAssignableFrom(type.getRawType())) {
+                        Map holder = type.getRawType().isInterface() ? MutableMap.of() : (Map) type.getRawType().newInstance();
+                        mergeInto(result, (term,value) -> {
+                            Map xm;
+                            if (value instanceof Map) xm = (Map)value;
+                            else if (value==null) {
+                                if (trim) xm = Collections.emptyMap();
+                                else throw new IllegalArgumentException("Cannot merge "+term+" which is null when trim not specified");
+                            } else {
+                                throw new IllegalArgumentException("Cannot merge "+term+" which is not a map ("+term.getClass().getName()+")");
+                            }
+                            if (merge==LetMergeMode.DEEP) {
+                                xm = CollectionMerger.builder().build().merge(holder, xm);
+                            }
+                            xm.forEach((k,v) -> {
+                                if (clean && (k==null || v==null)) return;
+                                holder.put(k, v);
+                            });
+                        });
+                        return (T) holder;
+                    } else if (Collection.class.isAssignableFrom(type.getRawType())) {
+                        if (merge==LetMergeMode.DEEP) throw new IllegalArgumentException("Merge deep only supported for map");
+                        Collection holder = type.getRawType().isInterface() ? Set.class.isAssignableFrom(type.getRawType()) ? MutableSet.of() : MutableList.of() : (Collection) type.getRawType().newInstance();
+                        mergeInto(result, (term,value) -> {
+                            Collection xm;
+                            if (value instanceof Collection) xm = (Collection)value;
+                            else if (value==null) {
+                                if (trim) xm = Collections.emptyList();
+                                else xm = MutableList.of(null);
+                            } else {
+                                xm = MutableList.of(value);
+                            }
+                            if (clean) xm = (List) xm.stream().filter(i -> i!=null).collect(Collectors.toList());
+                            holder.addAll(xm);
+                        });
+                        return (T) holder;
+                    } else {
+                        throw new IllegalArgumentException("Type 'map' or 'list' must be specified for 'let merge'");
+                    }
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+
             if (result instanceof String) {
                 result = process((String) result);
                 if (trim && result instanceof String) {
@@ -101,8 +204,24 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                     }
                 }
                 return context.getWorkflowExectionContext().resolveCoercingOnly(result, type);
+
             } else {
-                return context.resolve(result, type);
+                return wait ? context.resolveWaiting(result, type) : context.resolve(result, type);
+            }
+        }
+
+        public void mergeInto(Object input, BiConsumer<String,Object> holderAdd) {
+            if (input instanceof String) {
+                qst = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).keepInternalQuotes(true).failOnOpenQuote(false).build((String) input);
+                List<String> wordsByQuote = qst.remainderAsList();
+                wordsByQuote.forEach(word -> {
+                    if (Strings.isBlank(word)) return;
+                    Maybe<Object> wordResolved = processMaybe(MutableList.of(word));
+                    if (trim && wordResolved.isAbsent()) return;
+                    holderAdd.accept(word, wordResolved.get());
+                });
+            } else {
+                holderAdd.accept("value", input);
             }
         }
 
@@ -137,7 +256,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             boolean resolveToString = w.size()>1;
             List<Object> objs = w.stream().map(t -> {
                 if (qst.isQuoted(t)) return qst.unwrapIfQuoted(t);
-                return resolveToString ? context.resolve(t, String.class) : context.resolve(t);
+                TypeToken<?> target = resolveToString ? TypeToken.of(String.class) : TypeToken.of(Object.class);
+                return wait ? context.resolveWaiting(t, target) : context.resolve(t, target);
             }).collect(Collectors.toList());
             if (!resolveToString) return objs.get(0);
             return ((List<String>)(List)objs).stream().collect(Collectors.joining());
@@ -164,24 +284,29 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object handleNullish(List<String> lhs, List<String> rhs) {
+            return processMaybe(lhs).or(() -> process(rhs));
+        }
+
+        Maybe<Object> processMaybe(List<String> lhs) {
             try {
                 Object result = process(lhs);
-                if (result!=null) return result;
+                if (result!=null) return Maybe.of(result);
+                return Maybe.absent("null");
 
             } catch (Exception e) {
                 if (Exceptions.isCausedByInterruptInAnyThread(e) && !Thread.currentThread().isInterrupted()) {
                     // value was unavailable, pass through to RHS
+                    return Maybe.absent("unavailable");
 
                 } else {
                     Exceptions.propagateIfFatal(e);
                 }
 
                 if (log.isTraceEnabled()) {
-                    log.trace("Nullish operator got non-fatal exception processing "+lhs+" (ignoring, returning RHS)", e);
+                    log.trace("Non-fatal exception processing expression "+ lhs +" (in context where there is an alterantive)", e);
                 }
+                return Maybe.absent(e);
             }
-
-            return process(rhs);
         }
 
         Maybe<Integer> asInteger(Object x) {

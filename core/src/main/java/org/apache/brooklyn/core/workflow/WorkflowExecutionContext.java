@@ -520,7 +520,8 @@ public class WorkflowExecutionContext {
         return resolve(expression, TypeToken.of(type));
     }
 
-    /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
+    /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion.
+     * if the type is a string, null is not permitted, otherwise it is. */
     public <T> T resolve(Object expression, TypeToken<T> type) {
         return new WorkflowExpressionResolution(this, false, false).resolveWithTemplates(expression, type);
     }
