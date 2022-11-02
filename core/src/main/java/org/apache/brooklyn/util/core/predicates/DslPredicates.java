@@ -471,10 +471,14 @@ public class DslPredicates {
                     checkWhen(whenT, result, checker);
                     assertionPassed = checker.allPassed(true);
                 } else {
-                    assertionPassed = ((DslPredicateBase) assertCondition).apply(result.get());
-                    if (!assertionPassed) {
-                        // switch the result so error message is better
-                        result = ((DslPredicateBase) assertCondition).resolveTargetAgainstInput(result.get());
+                    if (result.isAbsent()) {
+                        assertionPassed = false;
+                    } else {
+                        assertionPassed = ((DslPredicateBase) assertCondition).apply(result.get());
+                        if (!assertionPassed) {
+                            // switch the result so error message is better
+                            result = ((DslPredicateBase) assertCondition).resolveTargetAgainstInput(result.get());
+                        }
                     }
                 }
 
