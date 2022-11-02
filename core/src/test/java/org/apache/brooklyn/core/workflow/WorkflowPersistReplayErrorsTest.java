@@ -140,7 +140,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.SUCCESS);
 
         app.sensors().set(Sensors.newBooleanSensor("gate"), false);
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingFromStep(1, "test", true)), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingFromStep(1, "Test", true)), app);
         // sensor should go back to 1 because workflow vars are stored per-state
         EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
         Time.sleep(10);

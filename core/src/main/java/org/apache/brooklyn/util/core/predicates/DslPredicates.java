@@ -463,17 +463,20 @@ public class DslPredicates {
 
             boolean assertionPassed;
             if (assertCondition instanceof DslPredicateBase) {
-
                 Object implicitWhen = ((DslPredicateBase) assertCondition).implicitEquals;
-                CheckCounts checker = new CheckCounts();
                 if (implicitWhen!=null) {
+                    // can assume no other checks, if one is implicit
+                    CheckCounts checker = new CheckCounts();
                     WhenPresencePredicate whenT = TypeCoercions.coerce(implicitWhen, WhenPresencePredicate.class);
                     checkWhen(whenT, result, checker);
-                    // can assume no other checks, if one is implicit
+                    assertionPassed = checker.allPassed(true);
                 } else {
-                    ((DslPredicateBase) assertCondition).applyToResolved(result, checker);
+                    assertionPassed = ((DslPredicateBase) assertCondition).apply(result.get());
+                    if (!assertionPassed) {
+                        // switch the result so error message is better
+                        result = ((DslPredicateBase) assertCondition).resolveTargetAgainstInput(result.get());
+                    }
                 }
-                assertionPassed = checker.allPassed(true);
 
             } else {
                 assertionPassed = result.isPresent() && assertCondition.apply(result.get());
@@ -660,18 +663,22 @@ public class DslPredicates {
                     cv = (Configurable) getFromPredicateEvaluationContext(Configurable.class);
                 }
                 if (cv!=null) {
-                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> cv.config().get(ConfigKeys.newConfigKey(Object.class, config)))
-                            .as(Object.class).allowDeepResolution(true).immediately(true);
+                    if (cv.config().findKeysDeclared(k -> config.equals(k.getName())).isEmpty()) {
+                        return Maybe.absent("No config '" + config + "' on " + cv);
+                    } else {
+                        ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> cv.config().get(ConfigKeys.newConfigKey(Object.class, config)))
+                                .as(Object.class).allowDeepResolution(true).immediately(true);
 
-                    Entity entity = getTypeFromValueOrContext(Entity.class, value);
-                    if (entity!=null) resolver.context( entity );
-                    Maybe<Object> result = resolver.getMaybe();
-                    if (result.isAbsent()) {
-                        if (entity==null && BrooklynTaskTags.getContextEntity(Tasks.current())==null) {
-                            throw new IllegalStateException("Unable to resolve config '"+config+"' on "+value+", likely because outside of an entity task unless entity target or context explicitly supplied");
+                        Entity entity = getTypeFromValueOrContext(Entity.class, value);
+                        if (entity != null) resolver.context(entity);
+                        Maybe<Object> result = resolver.getMaybe();
+                        if (result.isAbsent()) {
+                            if (entity == null && BrooklynTaskTags.getContextEntity(Tasks.current()) == null) {
+                                throw new IllegalStateException("Unable to resolve config '" + config + "' on " + value + ", likely because outside of an entity task unless entity target or context explicitly supplied");
+                            }
                         }
+                        return result;
                     }
-                    return result;
                 } else {
                     return Maybe.absent("Config not supported on " + value + " and no applicable DslPredicate context (testing config '" + config + "')");
                 }
@@ -680,9 +687,13 @@ public class DslPredicates {
             if (sensor!=null) resolvers.put("sensor", (value) -> {
                 Entity entity = getTypeFromValueOrContext(Entity.class, value);
                 if (entity!=null) {
-                    ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> (entity).sensors().get(Sensors.newSensor(Object.class, sensor)))
-                            .as(Object.class).allowDeepResolution(true).immediately(true).context(entity);
-                    return resolver.getMaybe();
+                    if (!entity.sensors().getAll().keySet().stream().anyMatch(s -> sensor.equals(s.getName()))) {
+                        return Maybe.absent("No sensor '"+sensor+"' on "+entity);
+                    } else {
+                        ValueResolver<Object> resolver = Tasks.resolving((DeferredSupplier) () -> entity.sensors().get(Sensors.newSensor(Object.class, sensor)))
+                                .as(Object.class).allowDeepResolution(true).immediately(true).context(entity);
+                        return resolver.getMaybe();
+                    }
                 } else {
                     return Maybe.absent("Sensors not supported on " + value + " and no applicable DslPredicate context (testing sensor '" + sensor + "')");
                 }

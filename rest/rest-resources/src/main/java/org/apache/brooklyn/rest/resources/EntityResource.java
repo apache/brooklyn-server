@@ -394,7 +394,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         boolean forced = Boolean.TRUE.equals(force);
         String msg = "Replaying workflow "+workflowId+" on "+entity+", from step '"+step+"', reason '"+reason+"'";
         if (forced) log.warn(msg); else log.debug(msg);
-        if (reason==null) reason = "manually requested";
+        if (reason==null) reason = "API replay" + (forced ? " forced" : "");
         Task<Object> t;
         if ("end".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingLast(reason, forced));
         else if ("start".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStart(reason, forced));

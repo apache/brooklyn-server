@@ -669,6 +669,11 @@ public class WorkflowExecutionContext {
         }
 
         @Override
+        public String toString() {
+            return "WorkflowExecutionContext.Body["+workflowId+"; " + continuationInstructions + "]";
+        }
+
+        @Override
         public Object call() throws Exception {
             boolean continueOnErrorHandledOrNextReplay;
 
@@ -783,13 +788,13 @@ public class WorkflowExecutionContext {
                         // record how it ended
                         oldStepInfo.compute(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
                             if (old == null) old = new OldStepRecord();
-                            old.next = MutableSet.<Integer>of(STEP_INDEX_FOR_START).putAll(old.next);
+                            old.next = MutableSet.<Integer>of(STEP_INDEX_FOR_END).putAll(old.next);
                             old.nextTaskId = null;
                             return old;
                         });
-                        oldStepInfo.compute(STEP_INDEX_FOR_START, (index, old) -> {
+                        oldStepInfo.compute(STEP_INDEX_FOR_END, (index, old) -> {
                             if (old == null) old = new OldStepRecord();
-                            old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
+                            old.previous = MutableSet.<Integer>of(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex).putAll(old.previous);
                             old.previousTaskId = previousStepTaskId;
                             return old;
                         });
@@ -932,7 +937,7 @@ public class WorkflowExecutionContext {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
                 if (step.condition!=null) {
                     if (log.isTraceEnabled()) log.trace("Considering condition "+step.condition+" for "+ workflowStepReference(currentStepIndex));
-                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, getEntityOrAdjunctWhereRunning());
+                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), WorkflowExecutionContext.this, getEntityOrAdjunctWhereRunning());
                     if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
                         moveToNextStep(null, "Skipping step "+ workflowStepReference(currentStepIndex));

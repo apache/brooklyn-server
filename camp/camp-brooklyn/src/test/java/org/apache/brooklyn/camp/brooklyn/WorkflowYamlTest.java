@@ -630,5 +630,39 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         invocation.getUnchecked();
     }
 
+    @Test
+    public void testConditionSensorAbsent() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: toTest",   // supports old syntax { name: x, targetType: T } or new syntax simple { sensor: Name } or full { sensor: { name: Name, type: T } }
+                "      steps:",
+                "        - step: set-sensor foo = 1",
+                "          condition:",
+                "            sensor: foo",
+                "            when: absent",
+                "        - let foo = ${entity.sensor.foo} + 1",
+                "        - set-sensor foo = ${foo}",
+                "        - step: goto start",
+                "          condition:",
+                "            sensor: foo",
+                "            less-than: 10",
+                "        - return ${entity.sensor.foo}",
+                "");
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("toTest").get();
+
+        Task<?> invocation = entity.invoke(effector, null);
+        Object result = invocation.getUnchecked();
+        Asserts.assertEquals(result, 10);
+
+        invocation = entity.invoke(effector, null);
+        result = invocation.getUnchecked();
+        Asserts.assertEquals(result, 11);
+    }
 
 }
