@@ -18,9 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.CollectionMerger;
@@ -85,7 +88,14 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
         String name = context.resolve(variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-        TypeToken<?> type = context.lookupType(variable.type, () -> null);
+        String specialCoercionMode = null;
+        TypeToken<?> type;
+        if ("yaml".equalsIgnoreCase(variable.type) || "json".equalsIgnoreCase(variable.type)) {
+            type = TypeToken.of(String.class);
+            specialCoercionMode = variable.type.toLowerCase();
+        } else {
+            type = context.lookupType(variable.type, () -> null);
+        }
 
         Object unresolvedValue = input.get(VALUE.getName());
 
@@ -94,6 +104,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 Boolean.TRUE.equals(context.getInput(WAIT)),
                 Boolean.TRUE.equals(context.getInput(MERGE_DEEP)) ? LetMergeMode.DEEP : Boolean.TRUE.equals(context.getInput(MERGE)) ? LetMergeMode.SHALLOW : LetMergeMode.NONE,
                 Boolean.TRUE.equals(context.getInput(CLEAN)),
+                specialCoercionMode,
                 type!=null ).evaluate();
 
         Object oldValue;
@@ -129,11 +140,12 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         private final boolean wait;
         private final LetMergeMode merge;
         private final boolean clean;
+        private final String specialCoercionMode;
         private final boolean typeSpecified;
         private QuotedStringTokenizer qst;
 
 
-        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, boolean trim, boolean wait, LetMergeMode merge, boolean clean, boolean typeSpecified) {
+        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, boolean trim, boolean wait, LetMergeMode merge, boolean clean, String specialCoercionMode, boolean typeSpecified) {
             this.context = context;
             this.type = type;
             this.unresolvedValue = unresolvedValue;
@@ -141,6 +153,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             this.wait = wait;
             this.merge = merge;
             this.clean = clean;
+            this.specialCoercionMode = specialCoercionMode;
             this.typeSpecified = typeSpecified;
         }
 
@@ -193,21 +206,41 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 }
             }
 
+            Object resultCoerced;
+            TypeToken<? extends Object> typeIntermediate = Strings.isNonBlank(specialCoercionMode) ? TypeToken.of(Object.class) : type;
             if (result instanceof String) {
                 result = process((String) result);
                 if (trim && result instanceof String) {
-                    Class<? super T> rt = type.getRawType();
                     if (typeSpecified) {
                         result = Yamls.lastDocumentFunction().apply((String)result);
                     } else {
                         result = ((String) result).trim();
                     }
                 }
-                return context.getWorkflowExectionContext().resolveCoercingOnly(result, type);
+                resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(result, typeIntermediate);
 
             } else {
-                return wait ? context.resolveWaiting(result, type) : context.resolve(result, type);
+                resultCoerced = wait ? context.resolveWaiting(result, typeIntermediate) : context.resolve(result, typeIntermediate);
             }
+            if (Strings.isNonBlank(specialCoercionMode)) {
+                // convert result to yaml or json string
+                ObjectMapper mapper;
+                if ("yaml".equals(specialCoercionMode)) mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), false, null, true);
+                else if ("json".equals(specialCoercionMode)) mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), false, null, true);
+                else throw new IllegalArgumentException("Unknown special coercion mode '"+specialCoercionMode+"'");
+                try {
+                    resultCoerced = mapper.writeValueAsString(resultCoerced);
+                    // remvoe doc start marker (now no longer included from jackson normally but maybe from others)
+                    resultCoerced = Strings.removeFromStart((String)resultCoerced, "---");
+                    resultCoerced = Strings.trimStart((String)resultCoerced);
+                    // for convenience don't make multiline unless we have to
+                    if (!Strings.isMultiLine(Strings.trim((String)resultCoerced))) resultCoerced = Strings.trim((String)resultCoerced);
+                } catch (JsonProcessingException e) {
+                    throw Exceptions.propagate(e);
+                }
+            }
+
+            return (T) resultCoerced;
         }
 
         public void mergeInto(Object input, BiConsumer<String,Object> holderAdd) {

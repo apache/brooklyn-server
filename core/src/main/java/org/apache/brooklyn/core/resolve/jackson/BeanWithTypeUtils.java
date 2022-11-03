@@ -22,6 +22,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
@@ -67,7 +68,9 @@ public class BeanWithTypeUtils {
     }
 
     public static ObjectMapper newYamlMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
-        return applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+        ObjectMapper mapper = applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+        mapper = mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        return mapper;
     }
 
     public static ObjectMapper applyCommonMapperConfig(ObjectMapper mapper, ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
@@ -96,7 +99,7 @@ public class BeanWithTypeUtils {
     public static YAMLMapper newSimpleYamlMapper() {
         // for use with json maps (no special type resolution, even the field "type" is ignored);
         // do not split lines as that makes output harder to read
-        return YAMLMapper.builder().build().disable(YAMLGenerator.Feature.SPLIT_LINES);
+        return YAMLMapper.builder().build().enable(YAMLGenerator.Feature.MINIMIZE_QUOTES).disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER).disable(YAMLGenerator.Feature.SPLIT_LINES);
     }
 
     public static boolean isPureJson(Object o) {

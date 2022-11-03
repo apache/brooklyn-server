@@ -144,7 +144,7 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         Assert.assertEquals(deser("5s", Duration.class), Duration.FIVE_SECONDS);
         Assert.assertEquals(deser("nanos: 5000000000", Duration.class), Duration.FIVE_SECONDS);
 
-        Assert.assertEquals(ser(Duration.FIVE_SECONDS, Duration.class), JavaStringEscapes.wrapJavaString("5s"));
+        Assert.assertEquals(ser(Duration.FIVE_SECONDS, Duration.class), "5s");
     }
 
 
@@ -159,8 +159,7 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
     @Test
     public void testDateTimeInRegisteredTypes() throws Exception {
         mapper = BeanWithTypeUtils.newYamlMapper(null, false, null, true);
-//        customMapper.findAndRegisterModules();
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//        mapper.findAndRegisterModules();
 
         DateTimeBean impl = new DateTimeBean();
         Asserts.assertEquals(ser(impl, DateTimeBean.class), "{}" );
@@ -174,11 +173,11 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         impl.calendar.set(GregorianCalendar.MILLISECOND, 0);
         impl.instant = impl.calendar.toInstant();
         Asserts.assertEquals(ser(impl, DateTimeBean.class), Strings.lines(
-                "x: \"foo\"",
-                "juDate: \"1970-01-01T00:01:00.000Z\"",
-//                "localDateTime: \"2020-01-01T12:00:00\"",
-                "calendar: \"2020-01-01T12:00:00.000+00:00\"",
-                "instant: \"2020-01-01T12:00:00.000Z\""));
+                "x: foo",
+                "juDate: 1970-01-01T00:01:00.000Z",
+//                "localDateTime: 2020-01-01T12:00:00",
+                "calendar: 2020-01-01T12:00:00.000+00:00",
+                "instant: 2020-01-01T12:00:00.000Z"));
 
         // ones commented out cannot be parsed
         DateTimeBean impl2 = deser(Strings.lines(

@@ -114,12 +114,6 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(result.get("e"), "b");
     }
 
-//    static class WorkflowTestEffector1 extends WorkflowEffector {
-//        WorkflowTestEffector1() {
-//            initParams().put(
-//        }
-//    }
-
     public RegisteredType addBeanWithType(String typeName, String version, String plan) {
         RegisteredType type = RegisteredTypes.bean(typeName, version, new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
         ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, false);
@@ -376,6 +370,17 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S:")).findAny().get(), "PERSON_S:  name: Anna ");
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S2:")).findAny().get(), "PERSON_S2: name: Anna");
         Asserts.assertEquals(output, MutableMap.of("name", "Anna"));
+    }
+
+    @Test
+    public void testOutputYamlAndJson() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let map x = { i: [ 1, 'A' ] }",
+                "let map result = {}",
+                "let yaml result.y = ${x}",
+                "let json result.j = ${x}",
+                "return ${result}"));
+        Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", "{\"i\":[1,\"A\"]}"));
     }
 
     // test complex object in an expression
