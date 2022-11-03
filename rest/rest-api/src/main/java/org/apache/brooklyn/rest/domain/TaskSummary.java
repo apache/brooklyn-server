@@ -77,7 +77,7 @@ public class TaskSummary implements HasId, Serializable {
             @JsonProperty("description") String description,
             @JsonProperty("entityId") String entityId,
             @JsonProperty("entityDisplayName") String entityDisplayName,
-            @JsonProperty("tags") Set<Object> tags,
+            @JsonProperty("tags") Collection<Object> tags,
             @JsonProperty("submitTimeUtc") Long submitTimeUtc,
             @JsonProperty("startTimeUtc") Long startTimeUtc,
             @JsonProperty("endTimeUtc") Long endTimeUtc,

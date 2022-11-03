@@ -73,7 +73,7 @@ public class ShorthandProcessor {
         private final String template;
         private final boolean finalMatchRaw;
         int optionalDepth = 0;
-        boolean optionalSkippingInput = false;
+        int optionalSkippingInput = 0;
         private String inputRemaining;
         Map<String, Object> result;
         Consumer<String> valueUpdater;
@@ -105,6 +105,7 @@ public class ShorthandProcessor {
                     QuotedStringTokenizer qstInput = qst(inputRemaining);
                     valueUpdater.accept(getRemainderPossiblyRaw(qstInput));
                 } else {
+                    // shouldn't come here
                     return Maybe.absent("Input has trailing characters after template is matched: '" + inputRemaining + "'");
                 }
             }
@@ -119,7 +120,7 @@ public class ShorthandProcessor {
                         throw new IllegalStateException("Unexpected optional block closure");
                     }
                     optionalDepth--;
-                    if (optionalSkippingInput) {
+                    if (optionalSkippingInput>0) {
                         // we were in a block where we skipped something optional because it couldn't be matched; outer parser is now canonical,
                         // and should stop skipping
                         return Maybe.of(true);
@@ -128,6 +129,9 @@ public class ShorthandProcessor {
                 }
 
                 if (templateTokens.isEmpty()) {
+                    if (Strings.isNonBlank(inputRemaining) && valueUpdater==null) return Maybe.absent("Input has trailing characters after template is matched: '" + inputRemaining + "'");
+                    if (optionalDepth>0)
+                        return Maybe.absent("Mismatched optional marker in template");
                     return Maybe.of(true);
                 }
                 String t = templateTokens.remove(0);
@@ -147,12 +151,14 @@ public class ShorthandProcessor {
                         }
                     }
                     Maybe<Object> cr;
-                    if (!optionalSkippingInput) {
+                    if (optionalSkippingInput<=0) {
                         // make a deep copy so that valueUpdater writes get replayed
                         Map<String, Object> backupResult = (Map) CollectionMerger.builder().deep(true).build().merge(MutableMap.of(), result);
                         Consumer<String> backupValueUpdater = valueUpdater;
                         String backupInputRemaining = inputRemaining;
                         List<String> backupTemplateTokens = MutableList.copyOf(templateTokens);
+                        int oldDepth = optionalDepth;
+                        int oldSkippingDepth = optionalSkippingInput;
 
                         optionalDepth++;
                         cr = doCall();
@@ -169,12 +175,14 @@ public class ShorthandProcessor {
                             inputRemaining = backupInputRemaining;
                             templateTokens.clear();
                             templateTokens.addAll(backupTemplateTokens);
+                            optionalDepth = oldDepth;
+                            optionalSkippingInput = oldSkippingDepth;
 
-                            optionalSkippingInput = true;
+                            optionalSkippingInput++;
                             optionalDepth++;
                             cr = doCall();
                             if (cr.isPresent()) {
-                                optionalSkippingInput = false;
+                                optionalSkippingInput--;
                                 continue;
                             }
                         }
@@ -201,7 +209,7 @@ public class ShorthandProcessor {
                 }
 
                 if (qst.isQuoted(t)) {
-                    if (optionalSkippingInput) continue;
+                    if (optionalSkippingInput>0) continue;
 
                     String literal = qst.unwrapIfQuoted(t);
                     do {
@@ -225,7 +233,7 @@ public class ShorthandProcessor {
                 }
 
                 if (t.startsWith("${") && t.endsWith("}")) {
-                    if (optionalSkippingInput) continue;
+                    if (optionalSkippingInput>0) continue;
 
                     t = t.substring(2, t.length()-1);
                     String value;
@@ -270,7 +278,7 @@ public class ShorthandProcessor {
                 }
 
                 // unexpected token
-                return Maybe.absent("Unexpected token in shorthand pattern '"+template+"'");
+                return Maybe.absent("Unexpected token in shorthand pattern '"+template+"' at position "+(template.lastIndexOf(t)+1));
             }
         }
 

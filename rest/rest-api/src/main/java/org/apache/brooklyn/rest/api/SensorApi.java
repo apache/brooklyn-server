@@ -82,7 +82,9 @@ public interface SensorApi {
             @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
             @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
             @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
-            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/{sensor}")
@@ -106,7 +108,9 @@ public interface SensorApi {
             @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
             @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
             @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
-            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     // this method is used if user has requested plain (ie not converting to json)
     @GET
@@ -131,7 +135,9 @@ public interface SensorApi {
             @ApiParam(value = "Whether to format/annotate values with hints for for display", required = false)
             @QueryParam("useDisplayHints") @DefaultValue("true") final Boolean useDisplayHints,
             @ApiParam(value = "Return raw sensor data instead of display values (deprecated, see useDisplayHints)", required = false)
-            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw);
+            @Deprecated @QueryParam("raw") @DefaultValue("false") final Boolean raw,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @POST
     @ApiOperation(value = "Manually set multiple sensor values")

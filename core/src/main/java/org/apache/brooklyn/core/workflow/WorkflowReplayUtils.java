@@ -37,7 +37,7 @@ public class WorkflowReplayUtils {
     private static final Logger log = LoggerFactory.getLogger(WorkflowReplayUtils.class);
 
     public enum ReplayableOption {
-        OFF, ON, YES, NO, TRUE, FALSE,
+        OFF, ON, YES, NO, TRUE, FALSE;
         // where a step has nested workflow,
         // if it is replaying from an explicit step
         // - all previous children workflows are marked as old
@@ -49,6 +49,9 @@ public class WorkflowReplayUtils {
         //   - replays from latest those which are pre-existing and replayable
         //   - marks others as old
         //   - replays others
+        static ReplayableOption fromBoolean(boolean b) {
+            if (b) return YES; else return NO;
+        }
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

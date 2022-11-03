@@ -46,15 +46,12 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
 
     private static final Logger log = LoggerFactory.getLogger(WaitWorkflowStep.class);
 
-    public static final String SHORTHAND = "[ [ ${variable.type} ] ${variable.name} \"=\" ] [ ${mode} ] ${value}";
+    public static final String SHORTHAND = "[ [ ${variable.type} ] ${variable.name} \"=\" ] [ ?${task} \"task\" ] ${value}";
 
+    // note: if setting a variable and not taking from a task, 'let wait x = ...' is probably better
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
-    public static final ConfigKey<WaitWorkflowStepMode> MODE = ConfigKeys.newConfigKey(WaitWorkflowStepMode.class, "mode");
-
-    public enum WaitWorkflowStepMode {
-        EXPRESSION, TASK
-    }
+    public static final ConfigKey<Boolean> TASK = ConfigKeys.newBooleanConfigKey("task");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -73,12 +70,12 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
             type = context.lookupType(variable.type, () -> TypeToken.of(Object.class));
         }
 
-        WaitWorkflowStepMode mode = context.getInput(MODE);
+        boolean task = Boolean.TRUE.equals(context.getInput(TASK));
 
         Stopwatch sw = Stopwatch.createStarted();
         Object unresolvedValue = input.get(VALUE.getName());
         Object resolvedValue = context.resolveWaiting(unresolvedValue, type);
-        if (WaitWorkflowStepMode.TASK == mode) {
+        if (task) {
             if (resolvedValue instanceof String) {
                 resolvedValue = ((ManagementContextInternal) ((EntityInternal) context.getWorkflowExectionContext().getEntity())).getExecutionManager().getTask((String) resolvedValue);
             }

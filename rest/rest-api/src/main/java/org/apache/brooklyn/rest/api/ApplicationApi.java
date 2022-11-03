@@ -424,6 +424,8 @@ public interface ApplicationApi {
             @PathParam("sensor") String sensor,
             @ApiParam(value="Regular expression for an entity type which must be matched", required=false)
             @DefaultValue(".*")
-            @QueryParam("typeRegex") String typeRegex);
+            @QueryParam("typeRegex") String typeRegex,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
 }

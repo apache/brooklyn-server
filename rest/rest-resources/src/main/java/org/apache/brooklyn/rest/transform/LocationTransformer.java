@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.rest.api.LocationApi;
 import org.apache.brooklyn.rest.domain.CatalogLocationSummary;
 import org.apache.brooklyn.rest.domain.LocationSummary;
+import org.apache.brooklyn.rest.resources.AbstractBrooklynRestResource;
 import org.apache.brooklyn.rest.util.BrooklynRestResourceUtils;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -94,7 +95,7 @@ public class LocationTransformer {
                 Strings.isNonBlank(name) ? name : spec!=null ? spec.getDisplayName() : null,
                 Strings.isNonBlank(specString) ? specString : spec!=null ? spec.getCatalogItemId() : null,
                 null,
-                copyConfig(config, level),
+                copyConfig(config, level, AbstractBrooklynRestResource.RestValueResolver.resolving(mgmt, null)),
                 catalogSummary,
                 ImmutableMap.of("self", selfUri));
     }
@@ -110,12 +111,12 @@ public class LocationTransformer {
             ld.getId(), ld.getName(), ld.getSpec(), level, ub);
     }
 
-    private static Map<String, ?> copyConfig(Map<String,?> entries, LocationDetailLevel level) {
+    private static Map<String, ?> copyConfig(Map<String,?> entries, LocationDetailLevel level, AbstractBrooklynRestResource.RestValueResolver resolver) {
         MutableMap.Builder<String, Object> builder = MutableMap.builder();
         if (level!=LocationDetailLevel.NONE) {
             for (Map.Entry<String,?> entry : entries.entrySet()) {
                 if (level==LocationDetailLevel.FULL_INCLUDING_SECRET || !Sanitizer.IS_SECRET_PREDICATE.apply(entry.getKey())) {
-                    builder.put(entry.getKey(), WebResourceUtils.getValueForDisplay(entry.getValue(), true, false));
+                    builder.put(entry.getKey(), resolver.getValueForDisplay(entry.getValue(), true, false, Sanitizer.IS_SECRET_PREDICATE.apply(entry.getKey()) ? false : null));
                 }
             }
         }
@@ -175,7 +176,7 @@ public class LocationTransformer {
                 if (dn.isPresent()) configOrig.configure(LocationConfigKeys.DISPLAY_NAME, l.config().get(LocationConfigKeys.DISPLAY_NAME));
             }
         }
-        Map<String, ?> config = level==LocationDetailLevel.NONE ? null : copyConfig(configOrig.getAllConfig(), level);
+        Map<String, ?> config = level==LocationDetailLevel.NONE ? null : copyConfig(configOrig.getAllConfig(), level, AbstractBrooklynRestResource.RestValueResolver.resolving(mgmt, null));
         
         URI selfUri = serviceUriBuilder(ub, LocationApi.class, "get").build(l.getId());
         URI parentUri = l.getParent() == null ? null : serviceUriBuilder(ub, LocationApi.class, "get").build(l.getParent().getId());

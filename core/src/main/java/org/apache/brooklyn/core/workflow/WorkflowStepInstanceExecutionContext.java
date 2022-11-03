@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.entity.internal.ConfigUtilsInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.guava.Maybe;
 
 import java.util.Map;
 import java.util.Objects;
@@ -37,7 +38,9 @@ import java.util.function.Supplier;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowStepInstanceExecutionContext {
 
-    // see getInput
+    // see getInput, here and for workflow context; once resolved, use the resolved value, without re-resolving;
+    // do not return the resolved value via REST/JSON as it might have secrets, but do persist it so replays
+    // can use the same values
     static final boolean REMEMBER_RESOLVED_INPUT = true;
 
     private WorkflowStepInstanceExecutionContext() {}
@@ -55,6 +58,9 @@ public class WorkflowStepInstanceExecutionContext {
     String taskId;
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
+    @JsonIgnore  // persist as sensor but not via REST in case it has secrets resolved
+    Map<String,Object> inputResolved = MutableMap.of();
+
     transient WorkflowExecutionContext context;
     public WorkflowStepDefinition.ReplayContinuationInstructions nextReplay;
 
@@ -106,7 +112,7 @@ public class WorkflowStepInstanceExecutionContext {
         if (keyTyped!=null) return getInput(keyTyped);
         return getInput(key, Object.class);
     }
-    /** Returns the resolved value of the given key, converting to the given type */
+    /** Returns the resolved value of the given key, converting to the given type. Applies Brooklyn DSL resolution AND Freemarker resolution. */
     public <T> T getInput(String key, Class<T> type) {
         return getInput(key, TypeToken.of(type));
     }
@@ -115,11 +121,13 @@ public class WorkflowStepInstanceExecutionContext {
      * (Input is not resolved until first access because some implementations, such as 'let', might handle errors in resolution.
      * But once resolved we don't want inconsistent return values.) */
     public <T> T getInput(String key, TypeToken<T> type) {
+        if (inputResolved.containsKey(key)) return (T)inputResolved.get(key);
+
         Object v = input.get(key);
         T v2 = context.resolve(v, type);
         if (REMEMBER_RESOLVED_INPUT) {
             if (!Objects.equals(v, v2)) {
-                input.put(key, v2);
+                inputResolved.put(key, v2);
             }
         }
         return v2;

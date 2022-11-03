@@ -18,14 +18,8 @@
  */
 package org.apache.brooklyn.rest.resources;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -38,31 +32,43 @@ import org.apache.brooklyn.rest.transform.TaskTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 
-import com.google.common.collect.Collections2;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
-import org.apache.brooklyn.util.core.task.TaskInternal;
+import javax.ws.rs.core.Response;
+import java.util.*;
 
 public class ActivityResource extends AbstractBrooklynRestResource implements ActivityApi {
 
     @Override
-    public TaskSummary get(String taskId) {
+    public Response get(String taskId, String timeout, Boolean suppressSecrets) {
         Task<?> t = findTask(taskId);
 
-        return TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
+        try {
+            Object result;
+            if (timeout == null || timeout.isEmpty() || "always".equalsIgnoreCase(timeout)) {
+                timeout = "0";
+            } else if ("never".equalsIgnoreCase(timeout)) {
+                timeout = "-1";
+            }
+            Duration timeoutD = Time.parseDuration(timeout);
+            if (timeoutD.isNegative()) timeoutD = Duration.PRACTICALLY_FOREVER;
+
+            boolean ended = t.blockUntilEnded(timeoutD);
+
+            return Response.status(ended ? Response.Status.OK : Response.Status.ACCEPTED).entity(TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets).apply(t)).build();
+
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        }
+
     }
 
-    @Override @Deprecated
-    public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId) {
-        return getAllChildrenAsMap(taskId, 200, -1);
-    }
-    
     @Override
-    public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId, final int limit, final int maxDepth) {
+    public Map<String, TaskSummary> getAllChildrenAsMap(final String taskId, final int limit, final int maxDepth, Boolean suppressSecrets) {
         final Task<?> parentTask = findTask(taskId);
-        return getAllDescendantTasks(parentTask, limit, maxDepth);
+        return getAllDescendantTasks(parentTask, limit, maxDepth, suppressSecrets);
     }
 
     protected Task<?> findTask(final String taskId) {
@@ -74,7 +80,7 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         return task;
     }
 
-    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask, int limit, int maxDepth) {
+    private LinkedHashMap<String, TaskSummary> getAllDescendantTasks(final Task<?> parentTask, int limit, int maxDepth, Boolean suppressSecrets) {
         final LinkedHashMap<String, TaskSummary> result = Maps.newLinkedHashMap();
         if (!(parentTask instanceof HasTaskChildren)) {
             return result;
@@ -84,7 +90,7 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
             Set<Task<?>> thisLayer = nextLayer;
             nextLayer = MutableSet.of();
             for (final Task<?> childTask : thisLayer) {
-                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(childTask));
+                TaskSummary wasThere = result.put(childTask.getId(), TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets).apply(childTask));
                 if (wasThere==null) {
                     if (--limit == 0) {
                         break outer;
@@ -98,38 +104,36 @@ public class ActivityResource extends AbstractBrooklynRestResource implements Ac
         return result;
     }
 
-
     @Override
-    public List<TaskSummary> children(String taskId, Boolean includeBackground) {
+    public List<TaskSummary> children(String taskId, Boolean includeBackground, int limit, Boolean suppressSecrets) {
         Task<?> t = findTask(taskId);
 
-        Set<TaskSummary> result = MutableSet.copyOf(getSubTaskChildren(t));
+        List<Task<?>> result = MutableList.copyOf(getSubTaskChildren(t));
         if (Boolean.TRUE.equals(includeBackground)) {
             result.addAll(getBackgroundedChildren(t));
         }
-        return MutableList.copyOf(result);
+        return TaskTransformer.fromTasks(result, limit, false, null, ui, resolving(null), suppressSecrets);
     }
 
-    private Collection<? extends TaskSummary> getBackgroundedChildren(Task<?> t) {
+    private Collection<Task<?>> getBackgroundedChildren(Task<?> t) {
         Entity entity = BrooklynTaskTags.getContextEntity(t);
-        List<TaskSummary> result = MutableList.of();
+        List<Task<?>> result = MutableList.of();
         if (entity!=null) {
             Set<Task<?>> tasks = BrooklynTaskTags.getTasksInEntityContext(mgmt().getExecutionManager(), entity);
             for (Task<?> ti: tasks) {
                 if (t.equals(ti.getSubmittedByTask())) {
-                    result.add(TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(ti));
+                    result.add(ti);  // TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(ti));
                 }
             }
         }
         return result;
     }
 
-    private List<TaskSummary> getSubTaskChildren(Task<?> t) {
+    private Iterable<Task<?>> getSubTaskChildren(Task<?> t) {
         if (!(t instanceof HasTaskChildren)) {
             return Collections.emptyList();
         }
-        return new LinkedList<TaskSummary>(Collections2.transform(Lists.newArrayList(((HasTaskChildren) t).getChildren()),
-                TaskTransformer.fromTask(ui.getBaseUriBuilder())));
+        return ((HasTaskChildren) t).getChildren();
     }
 
     @Override

@@ -35,6 +35,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigInheritance;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.Effectors;
+import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.trait.Startable;
@@ -75,6 +76,11 @@ public class EntityManagementUtils {
     public static final ConfigKey<Boolean> WRAPPER_APP_MARKER = ConfigKeys.builder(Boolean.class, "brooklyn.wrapper_app")
             .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
             .build();
+
+    static final Set<String> ALLOWABLE_COLLAPSING_KEYS = MutableList.of(WRAPPER_APP_MARKER, BrooklynConfigKeys.TEMPLATE_ID).stream().map(ConfigKey::getName).collect(Collectors.toSet());
+
+    public static final boolean DIFFERENT_NAME_BLOCKS_UNWRAPPING = true;
+    public static final boolean DIFFERENT_CONFIG_BLOCKS_UNWRAPPING = true;
 
     /** creates an application from the given app spec, managed by the given management context */
     public static <T extends Application> T createUnstarted(ManagementContext mgmt, EntitySpec<T> spec) {
@@ -339,6 +345,38 @@ public class EntityManagementUtils {
         // as their semantics could well be different whether they are on the parent or the child
         EntitySpec<? extends Entity> child = Iterables.getOnlyElement(spec.getChildren());
         if (!allParentSubsetOfChild(spec, child, EntitySpec::getEnricherSpecs, EntitySpec::getInitializers, EntitySpec::getPolicySpecs)) return false;
+
+        // prevent merge if different names defined
+        if (DIFFERENT_NAME_BLOCKS_UNWRAPPING) {
+            if (Strings.isNonBlank(spec.getDisplayName()) && Strings.isNonBlank(child.getDisplayName()) && !spec.getDisplayName().equals(child.getDisplayName()))
+                return false;
+        }
+
+        if (DIFFERENT_CONFIG_BLOCKS_UNWRAPPING) {
+            // prevent merge if conflicting config (apart from selected expected-different keys); includes 'id'
+            Map<String, Object> configAndFlagValues = MutableMap.of();
+            for (Map.Entry<String, ?> entry : spec.getFlags().entrySet()) {
+                String kn = entry.getKey();
+                if (ALLOWABLE_COLLAPSING_KEYS.contains(kn)) continue;
+                configAndFlagValues.put(kn, entry.getValue());
+            }
+            for (Map.Entry<ConfigKey<?>, Object> entry : spec.getConfig().entrySet()) {
+                String kn = entry.getKey().getName();
+                if (ALLOWABLE_COLLAPSING_KEYS.contains(kn)) continue;
+                configAndFlagValues.put(kn, entry.getValue());
+            }
+
+            for (Map.Entry<String, ?> entry : child.getFlags().entrySet()) {
+                String kn = entry.getKey();
+                Object v = configAndFlagValues.get(kn);
+                if (v != null && !v.equals(entry.getValue())) return false;
+            }
+            for (Map.Entry<ConfigKey<?>, Object> entry : child.getConfig().entrySet()) {
+                String kn = entry.getKey().getName();
+                Object v = configAndFlagValues.get(kn);
+                if (v != null && !v.equals(entry.getValue())) return false;
+            }
+        }
 
         // prevent merge if a location is defined at both levels
         if (! ((spec.getLocations().isEmpty() && spec.getLocationSpecs().isEmpty()) ||

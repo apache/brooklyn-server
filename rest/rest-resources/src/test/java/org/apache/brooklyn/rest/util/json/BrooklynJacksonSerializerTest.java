@@ -63,6 +63,7 @@ import org.testng.annotations.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.NotSerializableException;
 import java.lang.reflect.Field;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -202,7 +203,7 @@ public class BrooklynJacksonSerializerTest {
 
         Instant now = Instant.now();
         String nowYaml = mapper.writerFor(Instant.class).writeValueAsString(now);
-        Asserts.assertEquals(nowYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString(Time.makeIso8601DateStringZ(now)));
+        Asserts.assertEquals(nowYaml.trim(), Time.makeIso8601DateStringZ(now));
 
         String nowS = Time.makeIso8601DateStringZ(now);
         Object now2 = mapper.readerFor(Instant.class).readValue(nowS);
@@ -211,13 +212,48 @@ public class BrooklynJacksonSerializerTest {
         // but this test has passed in IDE w 1000 invocations, and with delays introduced on every line above, so not sure what is up; maybe a weird rounding error
         Asserts.assertEquals(now2, now, "Now deserialized off by one milli, from '"+nowS+"' (from "+now+") to "+now2);
 
-        final String asMap = "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(Instant.class.getName())+"\n"+
-                "value: "+StringEscapes.JavaStringEscapes.wrapJavaString(Time.makeIso8601DateStringZ(now));
+        final String asMap = "type: "+Instant.class.getName()+"\n"+
+                "value: "+Time.makeIso8601DateStringZ(now);
         nowYaml = mapper.writerFor(Object.class).writeValueAsString(now);
-        Asserts.assertEquals(nowYaml.trim(), "---\n" + asMap);
+        Asserts.assertEquals(nowYaml.trim(), asMap);
 
         now2 = mapper.readerFor(Object.class).readValue( asMap );
         Asserts.assertEquals(now2, now);
+    }
+
+    @Test
+    public void testNumberReadWriteYaml() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        Map<String, ?> x = MutableMap.of("int", 1, "double", 1.0d);
+        String xYaml = mapper.writer().writeValueAsString(x);
+        Asserts.assertEquals(xYaml.trim(), "int: 1\ndouble: 1.0");
+
+        Object x2 = mapper.readerFor(Object.class).readValue(xYaml);
+        Asserts.assertInstanceOf(x2, Map.class);
+        Asserts.assertSize( (Map)x2, 2 );
+        Asserts.assertEquals( ((Map)x2).get("int"), 1 );
+        Asserts.assertThat( ((Map)x2).get("double"), v -> v.equals(1.0d) || v.equals(BigDecimal.valueOf(1.0d)) );
+    }
+
+    @Test
+    public void testNumberReadWriteJson() throws JsonProcessingException {
+        ManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            ObjectMapper mapper = BrooklynJacksonJsonProvider.findAnyObjectMapper(mgmt);
+
+            Map<String, ?> x = MutableMap.of("int", 1, "double", 1.0d);
+            String xYaml = mapper.writer().writeValueAsString(x);
+            Asserts.assertEquals(xYaml.trim(), "{\"int\":1,\"double\":1.0}");
+
+            Object x2 = mapper.readerFor(Object.class).readValue(xYaml);
+            Asserts.assertInstanceOf(x2, Map.class);
+            Asserts.assertSize((Map) x2, 2);
+            Asserts.assertEquals(((Map) x2).get("int"), 1);
+            Asserts.assertThat(((Map) x2).get("double"), v -> v.equals(1.0d) || v.equals(BigDecimal.valueOf(1.0d)));
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
     }
 
     @Test
@@ -225,15 +261,15 @@ public class BrooklynJacksonSerializerTest {
         ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
 
         String vYaml = mapper.writerFor(Duration.class).writeValueAsString(Duration.minutes(90));
-        Asserts.assertEquals(vYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString("1h 30m"));
+        Asserts.assertEquals(vYaml.trim(), "1h 30m");
 
         Object v2 = mapper.readerFor(Duration.class).readValue( "1h  30 m" );
         Asserts.assertEquals(v2, Duration.minutes(90));
 
-        final String asMap = "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(Duration.class.getName())+"\n"+
-                "value: \"1h 30m\"";
+        final String asMap = "type: "+Duration.class.getName()+"\n"+
+                "value: 1h 30m";
         vYaml = mapper.writerFor(Object.class).writeValueAsString(Duration.minutes(90));
-        Asserts.assertEquals(vYaml.trim(), "---\n" + asMap);
+        Asserts.assertEquals(vYaml.trim(), asMap);
 
         v2 = mapper.readerFor(Object.class).readValue( asMap );
         Asserts.assertEquals(v2, Duration.minutes(90));
@@ -258,13 +294,12 @@ public class BrooklynJacksonSerializerTest {
             Asserts.assertEquals(mgmt2, mgmt);
 
             String mgmtYaml = mapper.writerFor(ManagementContext.class).writeValueAsString(mgmt);
-            Asserts.assertEquals(mgmtYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString(BrooklynJacksonSerializationUtils.DEFAULT));
+            Asserts.assertEquals(mgmtYaml.trim(), BrooklynJacksonSerializationUtils.DEFAULT);
 
-            final String asMap = "type: \"org.apache.brooklyn.api.mgmt.ManagementContext\"\n"+
-                    "value: "+ StringEscapes.JavaStringEscapes.wrapJavaString(BrooklynJacksonSerializationUtils.DEFAULT);
+            final String asMap = "type: org.apache.brooklyn.api.mgmt.ManagementContext\n"+
+                    "value: "+ BrooklynJacksonSerializationUtils.DEFAULT;
             mgmtYaml = mapper.writerFor(Object.class).writeValueAsString(mgmt);
-            Asserts.assertEquals(mgmtYaml.trim(), "---\n" +
-                    asMap);
+            Asserts.assertEquals(mgmtYaml.trim(), asMap);
 
             mgmt2 = mapper.readerFor(Object.class).readValue(asMap);
             Asserts.assertEquals(mgmt2, mgmt);
@@ -286,13 +321,12 @@ public class BrooklynJacksonSerializerTest {
             Asserts.assertEquals(e2, e1);
 
             String eYaml = mapper.writerFor(Entity.class).writeValueAsString(e1);
-            Asserts.assertEquals(eYaml.trim(), "--- " + StringEscapes.JavaStringEscapes.wrapJavaString(e1.getId()));
+            Asserts.assertEquals(eYaml.trim(), e1.getId());
 
-            final String asMap = "type: "+StringEscapes.JavaStringEscapes.wrapJavaString(BrooklynObject.class.getName())+"\n"+
-                    "value: "+ StringEscapes.JavaStringEscapes.wrapJavaString(e1.getId());
+            final String asMap = "type: "+BrooklynObject.class.getName()+"\n"+
+                    "value: "+ e1.getId();
             eYaml = mapper.writerFor(Object.class).writeValueAsString(e1);
-            Asserts.assertEquals(eYaml.trim(), "---\n" +
-                    asMap);
+            Asserts.assertEquals(eYaml.trim(), asMap);
 
             e2 = mapper.readerFor(Object.class).readValue(asMap);
             Asserts.assertEquals(e2, e1);

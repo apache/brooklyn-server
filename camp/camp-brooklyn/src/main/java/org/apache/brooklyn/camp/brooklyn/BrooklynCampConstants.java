@@ -34,10 +34,7 @@ public class BrooklynCampConstants {
 
     public static final ConfigKey<String> PLAN_ID = BrooklynConfigKeys.PLAN_ID;
 
-    public static final ConfigKey<String> TEMPLATE_ID = ConfigKeys.builder(String.class, "camp.template.id")
-            .description("UID of the component in the CAMP template from which this entity was created")
-            .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
-            .build();
+    public static final ConfigKey<String> TEMPLATE_ID = BrooklynConfigKeys.TEMPLATE_ID;
 
     public static final ConfigKey<CampPlatform> CAMP_PLATFORM = ConfigKeys.newConfigKey(CampPlatform.class, "brooklyn.camp.platform",
             "Config set at brooklyn management platform to find the CampPlatform instance (bi-directional)");

@@ -312,6 +312,11 @@ public class BrooklynConfigKeys {
             .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
             .build();
 
+    public static final ConfigKey<String> TEMPLATE_ID = ConfigKeys.builder(String.class, "camp.template.id")
+            .description("UID of the component in the template from which this entity was created")
+            .runtimeInheritance(BasicConfigInheritance.NEVER_INHERITED)
+            .build();
+
     private BrooklynConfigKeys() {}
 
 }

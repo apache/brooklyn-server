@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.entity;
 
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.internal.*;
@@ -523,7 +524,7 @@ public class Entities {
     public static Iterable<Entity> descendantsAndSelf(Entity root) {
         Set<Entity> result = Sets.newLinkedHashSet();
         result.add(root);
-        descendantsWithoutSelf(root, result);
+        descendantsWithoutSelf(root, result, false);
         return result;
     }
 
@@ -534,7 +535,13 @@ public class Entities {
      */
     public static Iterable<Entity> descendantsWithoutSelf(Entity root) {
         Set<Entity> result = Sets.newLinkedHashSet();
-        descendantsWithoutSelf(root, result);
+        descendantsWithoutSelf(root, result, false);
+        return result;
+    }
+
+    public static Iterable<Entity> descendantsAndMembersWithoutSelf(Entity root) {
+        Set<Entity> result = Sets.newLinkedHashSet();
+        descendantsWithoutSelf(root, result, true);
         return result;
     }
 
@@ -545,6 +552,16 @@ public class Entities {
      * @see Iterables#filter(Iterable, Class)
      */
     public static <T extends Entity> Iterable<T> descendantsAndSelf(Entity root, Class<T> ofType) {
+        return Iterables.filter(descendantsAndSelf(root), ofType);
+    }
+
+    /**
+     * Return all descendants of given entity of the given type, potentially including the given root.
+     *
+     * @see #descendants(Entity)
+     * @see Iterables#filter(Iterable, Class)
+     */
+    public static <T extends Entity> Iterable<T> descendantsAndMembersAndSelf(Entity root, Class<T> ofType) {
         return Iterables.filter(descendantsAndSelf(root), ofType);
     }
 
@@ -599,14 +616,21 @@ public class Entities {
     /**
      * Side-effects {@code result} to return descendants (not including {@code root}).
      */
-    private static void descendantsWithoutSelf(Entity root, Collection<Entity> result) {
+    private static void descendantsWithoutSelf(Entity root, Collection<Entity> result, boolean includeMembers) {
         Stack<Entity> tovisit = new Stack<Entity>();
+        Set<Entity> visited = MutableSet.of();
         tovisit.add(root);
 
         while (!tovisit.isEmpty()) {
             Entity e = tovisit.pop();
-            result.addAll(e.getChildren());
-            tovisit.addAll(e.getChildren());
+            if (visited.add(e)) {
+                result.addAll(e.getChildren());
+                tovisit.addAll(e.getChildren());
+                if (includeMembers && e instanceof Group) {
+                    result.addAll(((Group) e).getMembers());
+                    tovisit.addAll(((Group) e).getMembers());
+                }
+            }
         }
     }
     

@@ -95,7 +95,7 @@ public class CatalogTransformer {
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())
-                effectors.add(EffectorTransformer.effectorSummaryForCatalog(x));
+                effectors.add(EffectorTransformer.effectorSummaryForCatalog(b.mgmt(), x));
 
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
@@ -267,7 +267,7 @@ public class CatalogTransformer {
             for (Sensor<?> x: type.getSensors())
                 sensors.add(SensorTransformer.sensorSummaryForCatalog(x));
             for (Effector<?> x: type.getEffectors())
-                effectors.add(EffectorTransformer.effectorSummaryForCatalog(x));
+                effectors.add(EffectorTransformer.effectorSummaryForCatalog(b.mgmt(), x));
 
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);

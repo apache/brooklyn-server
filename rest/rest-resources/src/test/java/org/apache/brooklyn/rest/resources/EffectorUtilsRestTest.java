@@ -50,8 +50,6 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import static org.testng.Assert.*;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class EffectorUtilsRestTest extends BrooklynAppUnitTestSupport {
     private static final Logger log = LoggerFactory.getLogger(EffectorUtils.class);
@@ -78,7 +76,7 @@ public class EffectorUtilsRestTest extends BrooklynAppUnitTestSupport {
         final String sensitiveField2 = "secretPin";
         Task<?> t = entity.invoke(effector.get(), ImmutableMap.of(sensitiveField1, "#$%'332985$23$#\"sd'", "secretPin", 1234));
 
-        TaskSummary summary = TaskTransformer.taskSummary(t, uriBuilder);
+        TaskSummary summary = TaskTransformer.taskSummary(t, uriBuilder, AbstractBrooklynRestResource.RestValueResolver.resolving(mgmt, null), false);
 
         try {
             t.get();

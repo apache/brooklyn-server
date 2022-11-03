@@ -291,7 +291,9 @@ public interface AdjunctApi {
             @ApiParam(value = "Max number of tasks, or -1 for all (default 200)", required = false) 
             @QueryParam("limit") @DefaultValue("200") int limit,
             @ApiParam(value = "Whether to include subtasks recursively across different entities (default false)", required = false)
-            @QueryParam("recurse") @DefaultValue("false") Boolean recurse);
+            @QueryParam("recurse") @DefaultValue("false") Boolean recurse,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @ApiOperation(value = "Returns an icon for the adjunct, if defined")

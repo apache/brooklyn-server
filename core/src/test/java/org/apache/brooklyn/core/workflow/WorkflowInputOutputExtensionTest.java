@@ -35,6 +35,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
@@ -112,12 +113,6 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(result.get("d"), "b");
         Asserts.assertEquals(result.get("e"), "b");
     }
-
-//    static class WorkflowTestEffector1 extends WorkflowEffector {
-//        WorkflowTestEffector1() {
-//            initParams().put(
-//        }
-//    }
 
     public RegisteredType addBeanWithType(String typeName, String version, String plan) {
         RegisteredType type = RegisteredTypes.bean(typeName, version, new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
@@ -258,6 +253,73 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
+    public void testLetMergeMaps() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let map a = { i: 1, z: { a: 1 } }",
+                "let map b = { ii: 2, z: { b: 2 } }",
+                "let merge map x = ${a} ${b}",
+                "return ${x}"));
+        Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2, "z", MutableMap.of("b", 2)));
+    }
+
+    @Test
+    public void testLetMergeMapsDeep() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let map a = { i: 1, z: { a: 1 } }",
+                "let map b = { ii: 2, z: { b: 2 } }",
+                "let merge deep map x = ${a} ${b}",
+                "return ${x}"));
+        Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2, "z", MutableMap.of("a", 1, "b", 2)));
+    }
+
+    @Test
+    public void testLetMergeLists() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list a = [ 1, 2 ]",
+                MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
+                "let merge list x = ${a} ${b}",
+                "return ${x}"));
+        Asserts.assertEquals(output, MutableList.of(1, 2, 2, 3));
+    }
+
+    @Test
+    public void testLetMergeSets() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list a = [ 1, 2 ]",
+                MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
+                "let merge set x = ${a} ${b}",
+                "return ${x}"));
+        Asserts.assertEquals(output, MutableSet.of(1, 2, 3));
+    }
+
+    @Test
+    public void testLetTrimMergeAllowsNull() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list a = [ 1 ]",
+                "let trim merge list x = ${a} ${b}",
+                "return ${x}"));
+        Asserts.assertEquals(output, MutableList.of(1));
+    }
+
+    @Test
+    public void testLetMergeCleanRemovesNull() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.of("step", "let a", "value", MutableList.of(2, null)),
+                "let merge clean list x = ${a}",
+                "return ${x}"));
+        Asserts.assertEquals(output, MutableList.of(2));
+    }
+
+    @Test
+    public void testLetKey() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let map a = { i: 1 }",
+                "let integer a.ii = 2",
+                "return ${a}"));
+        Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2));
+    }
+
+    @Test
     public void testLetMathOps() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let double x = 99 / 0 ?? ${x} ?? 4 * 4 - 5 * 3",
@@ -308,6 +370,17 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S:")).findAny().get(), "PERSON_S:  name: Anna ");
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S2:")).findAny().get(), "PERSON_S2: name: Anna");
         Asserts.assertEquals(output, MutableMap.of("name", "Anna"));
+    }
+
+    @Test
+    public void testOutputYamlAndJson() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let map x = { i: [ 1, 'A' ] }",
+                "let map result = {}",
+                "let yaml result.y = ${x}",
+                "let json result.j = ${x}",
+                "return ${result}"));
+        Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", "{\"i\":[1,\"A\"]}"));
     }
 
     // test complex object in an expression

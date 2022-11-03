@@ -378,7 +378,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         Application app = brooklyn().create(applicationSpec);
         Task<?> t = brooklyn().start(app, locations);
         waitForStart(app, Duration.millis(100));
-        TaskSummary ts = TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
+        TaskSummary ts = TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), false).apply(t);
         URI ref = serviceAbsoluteUriBuilder(uriInfo.getBaseUriBuilder(), ApplicationApi.class, "get")
                 .build(app.getApplicationId());
         return created(ref).entity(ts).build();
@@ -493,7 +493,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
             URI ref = serviceAbsoluteUriBuilder(ui.getBaseUriBuilder(), ApplicationApi.class, "get").build(app.getApplicationId());
             ResponseBuilder response = created(ref);
             if (result.task() != null)
-                response.entity(TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(result.task()));
+                response.entity(TaskTransformer.fromTask(ui.getBaseUriBuilder(), RestValueResolver.resolving(mgmt, null), false).apply(result.task()));
             return response.build();
         } catch (ConstraintViolationException e) {
             throw new UserFacingException(e);
@@ -605,7 +605,7 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
                 Entitlements.getEntitlementContext().user(), app);
         }
         Task<?> t = brooklyn().destroy(app);
-        TaskSummary ts = TaskTransformer.fromTask(ui.getBaseUriBuilder()).apply(t);
+        TaskSummary ts = TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), false).apply(t);
         return status(ACCEPTED).entity(ts).build();
     }
 
@@ -673,17 +673,17 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
     }
 
     @Override
-    public Map<String, Object> getDescendantsSensor(String application, String sensor, String typeRegex) {
+    public Map<String, Object> getDescendantsSensor(String application, String sensor, String typeRegex, Boolean suppressSecrets) {
         Entity entity =brooklyn().getApplication(application);
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see the value of sensor '%s' for descendants of entity '%s'",
                     Entitlements.getEntitlementContext().user(), sensor, entity);
         }
         Iterable<Entity> descs = brooklyn().descendantsOfType(application, application, typeRegex);
-        return getSensorMap(sensor, descs);
+        return getSensorMap(sensor, descs, resolving(null), suppressSecrets);
     }
 
-    public static Map<String, Object> getSensorMap(String sensor, Iterable<Entity> descs) {
+    public static Map<String, Object> getSensorMap(String sensor, Iterable<Entity> descs, RestValueResolver resolver, Boolean suppressSecrets) {
         if (Iterables.isEmpty(descs))
             return Collections.emptyMap();
         Map<String, Object> result = MutableMap.of();
@@ -702,8 +702,9 @@ public class ApplicationResource extends AbstractBrooklynRestResource implements
         }
         for (Entity e: descs) {
             Object v = EntityAttributesUtils.tryGetAttribute(e, (AttributeSensor<?>)s);
-            if (v!=null)
-                result.put(e.getId(), v);
+            if (v!=null) {
+                result.put(e.getId(), resolver.getValueForDisplay(v, true, false, suppressSecrets));
+            }
         }
         return result;
     }

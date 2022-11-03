@@ -108,10 +108,10 @@ public abstract class AbstractAddTriggerableSensor<T> extends AbstractAddSensorF
             Entity entity = t.entity;
             if (entity==null && t.entityId!=null) {
                 String desiredComponentId = t.entityId;
-                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context,
+                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context, true,
                         Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, desiredComponentId), x->true)::apply);
                 if (firstGroupOfMatches.isEmpty()) {
-                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context,
+                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context, true,
                             Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), x->true)::apply);
                 }
                 if (!firstGroupOfMatches.isEmpty()) {

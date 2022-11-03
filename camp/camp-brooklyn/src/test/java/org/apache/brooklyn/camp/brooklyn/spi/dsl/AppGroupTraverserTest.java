@@ -114,7 +114,7 @@ public class AppGroupTraverserTest extends AbstractYamlTest {
         Application app = createAndStartApplication(APP_findIDISameApp);
 
         Entity ent1 = findEntity(app, "ENT1");
-        Entity ent2 = AppGroupTraverser.findFirstGroupOfMatches(ent1, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, "ENT2")::apply).get(0);
+        Entity ent2 = AppGroupTraverser.findFirstGroupOfMatches(ent1, true, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, "ENT2")::apply).get(0);
 
         assertEquals(ent2.getDisplayName(), "SAME_APP");
 
@@ -124,7 +124,7 @@ public class AppGroupTraverserTest extends AbstractYamlTest {
         Application app = createAndStartApplication(APP_findIDISameApp);
 
         Entity ent1 = findEntity(app, "APP2");
-        Entity ent2 = AppGroupTraverser.findFirstGroupOfMatches(ent1, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, "ENT2")::apply).get(0);
+        Entity ent2 = AppGroupTraverser.findFirstGroupOfMatches(ent1, true, EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, "ENT2")::apply).get(0);
 
         assertEquals(ent2.getDisplayName(), "SAME_APP");
 
@@ -139,7 +139,7 @@ public class AppGroupTraverserTest extends AbstractYamlTest {
 
     private Set<String> traverseFullTreeRecordingNodes(Entity startEntity) {
         Set<String> myIDs = new HashSet<>();
-        AppGroupTraverser.findFirstGroupOfMatches(startEntity, entity -> {
+        AppGroupTraverser.findFirstGroupOfMatches(startEntity, true, entity -> {
             myIDs.add(entity.getConfig(BrooklynCampConstants.PLAN_ID));
             return false; //Traverse all nodes
         });
@@ -147,7 +147,7 @@ public class AppGroupTraverserTest extends AbstractYamlTest {
     }
 
     private Entity findEntity(Application app, String s) {
-        return AppGroupTraverser.findFirstGroupOfMatches(app, entity -> {
+        return AppGroupTraverser.findFirstGroupOfMatches(app, true, entity -> {
             String campId = entity.getConfig(BrooklynCampConstants.PLAN_ID);
             return s.equals(campId);
         }).get(0);

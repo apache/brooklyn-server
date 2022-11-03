@@ -174,7 +174,9 @@ public interface ServerApi {
     })
     public String getConfig(
             @ApiParam(value = "Config key ID", required = true)
-            @PathParam("configKey") String configKey);
+            @PathParam("configKey") String configKey,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
     @GET
     @Path("/ha/state")

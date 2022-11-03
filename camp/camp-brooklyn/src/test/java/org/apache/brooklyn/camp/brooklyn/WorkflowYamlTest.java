@@ -590,4 +590,79 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         return invocation.getUnchecked();
     }
 
+    @Test
+    public void testAccessEntities() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.config:",
+                "    e1: $brooklyn:self()",
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      input:",
+                "        e2: $brooklyn:self()",
+                "        e3: $brooklyn:config(\"e1\")",
+                "      steps:",
+                "        - log e1 is ${entity.config.e1.name}",
+                "        - log e2 is ${e2.name}",
+                "        - log e3 is ${e3.name}",
+                "        - step: log e0-a is ${e0.name}",
+                "          input:",
+                "            e0: $brooklyn:self()",
+                "        - step: log e0-b is ${e0.name}",
+                "          input:",
+                "            e0: $brooklyn:config(\"e1\")",
+                "        - step: log e0-c is ${e0.name}",
+                "          input:",
+                "            e0: ${e2}",
+                "        - step: log e0-d is ${e0.name}",
+                "          input:",
+                "            e0: ${e3}",
+                "");
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("myWorkflow").get();
+
+        // none of the above should throw exceptions
+        Task<?> invocation = entity.invoke(effector, null);
+        invocation.getUnchecked();
+    }
+
+    @Test
+    public void testConditionSensorAbsent() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-effector",
+                "    brooklyn.config:",
+                "      name: toTest",   // supports old syntax { name: x, targetType: T } or new syntax simple { sensor: Name } or full { sensor: { name: Name, type: T } }
+                "      steps:",
+                "        - step: set-sensor foo = 1",
+                "          condition:",
+                "            sensor: foo",
+                "            when: absent",
+                "        - let foo = ${entity.sensor.foo} + 1",
+                "        - set-sensor foo = ${foo}",
+                "        - step: goto start",
+                "          condition:",
+                "            sensor: foo",
+                "            less-than: 10",
+                "        - return ${entity.sensor.foo}",
+                "");
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        Effector<?> effector = entity.getEntityType().getEffectorByName("toTest").get();
+
+        Task<?> invocation = entity.invoke(effector, null);
+        Object result = invocation.getUnchecked();
+        Asserts.assertEquals(result, 10);
+
+        invocation = entity.invoke(effector, null);
+        result = invocation.getUnchecked();
+        Asserts.assertEquals(result, 11);
+    }
+
 }

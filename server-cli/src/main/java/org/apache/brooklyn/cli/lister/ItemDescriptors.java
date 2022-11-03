@@ -146,7 +146,7 @@ public class ItemDescriptors {
                 result.put("sensors", sensors);
                 
                 for (Effector<?> x: ((EntityType)type).getEffectors())
-                    effectors.add(EffectorTransformer.effectorSummaryForCatalog(x));
+                    effectors.add(EffectorTransformer.effectorSummaryForCatalog(null, x));
                 result.put("effectors", effectors);
             }
         }

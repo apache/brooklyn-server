@@ -129,7 +129,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         String output2 = BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writerFor(Object.class).writeValueAsString(s);
 
         Asserts.assertStringContains(output1, "\"shorthandTypeName\":\"no-op\"");
-        Asserts.assertStringContains(output2, "shorthandTypeName: \"no-op\"");
+        Asserts.assertStringContains(output2, "shorthandTypeName: no-op");
     }
 
     @Test
@@ -146,7 +146,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         String output2 = BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writerFor(Object.class).writeValueAsString(s);
 
         Asserts.assertStringContains(output1, "\"shorthandTypeName\":\"sleep\"");
-        Asserts.assertStringContains(output2, "shorthandTypeName: \"sleep\"");
+        Asserts.assertStringContains(output2, "shorthandTypeName: sleep");
     }
 
     @Test
@@ -232,7 +232,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         String output2 = BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writerFor(Object.class).writeValueAsString(lastWorkflowContext);
 
         Asserts.assertStringContains(output1, "\"type\":\"no-op\"");
-        Asserts.assertStringContains(output2, "type: \"no-op\"");
+        Asserts.assertStringContains(output2, "type: no-op");
     }
 
     public static class WorkflowTestStep extends WorkflowStepDefinition {

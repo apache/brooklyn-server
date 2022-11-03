@@ -68,9 +68,16 @@ public class AppYamlTest extends AbstractYamlTest {
                 "  name: myEntityName");
         
         Entity app = createStartWaitAndLogApplication(yaml);
-        assertNull(app.getConfig(EntityManagementUtils.WRAPPER_APP_MARKER));
-        assertEquals(app.getDisplayName(), "myTopLevelName");
-        assertEquals(app.getChildren().size(), 0);
+        if (EntityManagementUtils.DIFFERENT_NAME_BLOCKS_UNWRAPPING) {
+            assertEquals(app.getConfig(EntityManagementUtils.WRAPPER_APP_MARKER), Boolean.TRUE);
+            assertEquals(app.getDisplayName(), "myTopLevelName");
+            assertEquals(app.getChildren().size(), 1);
+            assertEquals(app.getChildren().iterator().next().getDisplayName(), "myEntityName");
+        } else {
+            assertNull(app.getConfig(EntityManagementUtils.WRAPPER_APP_MARKER));
+            assertEquals(app.getDisplayName(), "myTopLevelName");
+            assertEquals(app.getChildren().size(), 0);
+        }
     }
     
     @Test

@@ -112,6 +112,9 @@ public class WorkflowExecutionContext {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     Map<String,Object> input = MutableMap.of();
+    @JsonIgnore  // persist as sensor but not via REST in case it has secrets resolved
+    Map<String,Object> inputResolved = MutableMap.of();
+
     Object outputDefinition;
     Object output;
 
@@ -480,6 +483,27 @@ public class WorkflowExecutionContext {
         getPersister().checkpoint(this);
     }
 
+    /** Get the value of the input. Supports Brooklyn DSL resolution but NOT Freemarker resolution. */
+    public Object getInput(String key) {
+        return getInputMaybe(key, TypeToken.of(Object.class), Maybe.ofAllowingNull(null)).get();
+    }
+    public <T> Maybe<T> getInputMaybe(String key, TypeToken<T> type, Maybe<T> valueIfUndefined) {
+        if (!input.containsKey(key)) return valueIfUndefined;
+
+        if (inputResolved.containsKey(key)) return Maybe.ofAllowingNull((T)inputResolved.get(key));
+
+        Object v = input.get(key);
+        // DSL resolution/coercion only, not workflow syntax here (as no workflow scope)
+        Maybe<T> vm = Tasks.resolving(v).as(type).context(getEntity()).immediately(true).deep().getMaybe();
+        if (vm.isPresent()) {
+            if (WorkflowStepInstanceExecutionContext.REMEMBER_RESOLVED_INPUT) {
+                // this will keep spending time resolving, but will resolve the resolved value
+                inputResolved.put(key, vm.get());
+            }
+        }
+        return vm;
+    }
+
     public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {
         if (Strings.isBlank(typeName)) return ifUnset.get();
         BrooklynClassLoadingContext loader = getEntity() != null ? RegisteredTypes.getClassLoadingContext(getEntity()) : null;
@@ -496,7 +520,8 @@ public class WorkflowExecutionContext {
         return resolve(expression, TypeToken.of(type));
     }
 
-    /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
+    /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion.
+     * if the type is a string, null is not permitted, otherwise it is. */
     public <T> T resolve(Object expression, TypeToken<T> type) {
         return new WorkflowExpressionResolution(this, false, false).resolveWithTemplates(expression, type);
     }
@@ -645,6 +670,11 @@ public class WorkflowExecutionContext {
         }
 
         @Override
+        public String toString() {
+            return "WorkflowExecutionContext.Body["+workflowId+"; " + continuationInstructions + "]";
+        }
+
+        @Override
         public Object call() throws Exception {
             boolean continueOnErrorHandledOrNextReplay;
 
@@ -759,13 +789,13 @@ public class WorkflowExecutionContext {
                         // record how it ended
                         oldStepInfo.compute(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
                             if (old == null) old = new OldStepRecord();
-                            old.next = MutableSet.<Integer>of(STEP_INDEX_FOR_START).putAll(old.next);
+                            old.next = MutableSet.<Integer>of(STEP_INDEX_FOR_END).putAll(old.next);
                             old.nextTaskId = null;
                             return old;
                         });
-                        oldStepInfo.compute(STEP_INDEX_FOR_START, (index, old) -> {
+                        oldStepInfo.compute(STEP_INDEX_FOR_END, (index, old) -> {
                             if (old == null) old = new OldStepRecord();
-                            old.previous = MutableSet.<Integer>of(previousStepIndex).putAll(old.previous);
+                            old.previous = MutableSet.<Integer>of(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex).putAll(old.previous);
                             old.previousTaskId = previousStepTaskId;
                             return old;
                         });
@@ -908,7 +938,7 @@ public class WorkflowExecutionContext {
                 currentStepInstance = new WorkflowStepInstanceExecutionContext(currentStepIndex, step, WorkflowExecutionContext.this);
                 if (step.condition!=null) {
                     if (log.isTraceEnabled()) log.trace("Considering condition "+step.condition+" for "+ workflowStepReference(currentStepIndex));
-                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), this, getEntityOrAdjunctWhereRunning());
+                    boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), WorkflowExecutionContext.this, getEntityOrAdjunctWhereRunning());
                     if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
                         moveToNextStep(null, "Skipping step "+ workflowStepReference(currentStepIndex));

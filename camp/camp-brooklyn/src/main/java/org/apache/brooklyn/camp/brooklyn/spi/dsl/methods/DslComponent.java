@@ -30,15 +30,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Callables;
 import com.thoughtworks.xstream.annotations.XStreamConverter;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
+
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -50,6 +50,8 @@ import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslAccessible;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslFunctionSource;
+
+import static com.jayway.jsonpath.Filter.filter;
 import static org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils.resolved;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -58,9 +60,11 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.internal.LocalEntityManager;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -72,8 +76,12 @@ import org.apache.brooklyn.util.core.xstream.ObjectWithDefaultStringImplConverte
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements DslFunctionSource {
+
+    private static final Logger log = LoggerFactory.getLogger(DslComponent.class);
 
     private static final long serialVersionUID = -7715984495268724954L;
     
@@ -275,120 +283,254 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             }
         }
 
-        protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
-            Maybe<Entity> entityMaybe = getEntity(immediate);
-            if (immediate && entityMaybe.isAbsent()) {
-                return entityMaybe;
+        static abstract class DslEntityResolver {
+            Scope scope;
+            boolean needsBaseEntity;
+            boolean needsComponentId;
+            Entity entity;
+            String componentId;
+
+            public void withScope(Scope scope) {
+                this.scope = scope;
             }
-            EntityInternal entity = (EntityInternal) entityMaybe.get();
 
-            java.util.function.Predicate<Entity> acceptableEntity = x -> true;
-            Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
+            void withBaseEntity(Entity entity) {
+                this.entity = entity;
+            }
+            void withComponentId(String componentId) {
+                this.componentId = componentId;
+            }
 
-            switch (scope) {
-                case THIS:
-                    return Maybe.<Entity>of(entity);
-                case PARENT:
-                    return Maybe.<Entity>of(entity.getParent());
-                case GLOBAL:
-                    if (Entities.isManaged(entity())) {
-                        // use management context if entity is managed (usual case, more efficient)
-                        String appId = entity().getApplicationId();
-                        acceptableEntity = ee -> appId!=null && appId.equals(ee.getApplicationId());
+            abstract boolean test(Entity entity);
+            abstract Maybe<Entity> resolve();
+        }
 
-                    } else {
-                        // otherwise traverse the application
-                        if (entity()!=null && entity().getApplication()!=null) {
-                            Set<Entity> toVisit = MutableSet.of(entity().getApplication()), visited = MutableSet.of(entity().getApplication());
-                            while (!toVisit.isEmpty()) {
-                                Set<Entity> visiting = MutableSet.copyOf(toVisit);
-                                toVisit.clear();
-                                visiting.forEach(e -> {
-                                    e.getChildren().forEach(ec -> {
-                                        if (visited.add(ec)) toVisit.add(ec);
-                                    });
-                                });
-                            }
-                            acceptableEntity = visited::contains;
-                        } else {
-                            // nothing to do
-                        }
+        static class ApplicationEntityResolver extends DslEntityResolver {
+            public ApplicationEntityResolver() {
+                this.needsBaseEntity = false;
+                this.needsComponentId = true;
+            }
+            boolean test(Entity entity) {
+                return entity.getParent()==null;
+            }
+
+            @Override
+            Maybe<Entity> resolve() {
+                Entity result = managementContext().getEntityManager().getEntity(componentId);
+
+                Entity nonAppMatch = null;
+                if (result!=null) {
+                    if (test(result)) Maybe.of(result);
+                    nonAppMatch = result;
+                }
+
+                List<Entity> allMatches = managementContext().getEntityManager().getEntities().stream()
+                        .filter(EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, componentId))
+                        .collect(Collectors.toList());
+
+                List<Entity> appMatches = allMatches.stream().filter(this::test).collect(Collectors.toList());
+
+                if (!appMatches.isEmpty()) {
+                    if (appMatches.size() > 1) {
+                        log.warn("Multiple matches for '"+componentId+"', returning the first: "+appMatches);
                     }
-                    break;
+                    return Maybe.of(appMatches.iterator().next());
+                }
+
+                if (nonAppMatch!=null) allMatches = MutableList.of(nonAppMatch).appendAll(allMatches);
+                return Maybe.absent("No application entity matching ID '"+componentId+"'" +
+                        (allMatches.isEmpty() ? "" : "; non-application entity matches: "+allMatches));
+            }
+        }
+
+        static class SingleRelativeEntityResolver extends DslEntityResolver {
+            private final Function<Entity, Maybe<Entity>> relativeFinder;
+
+            public SingleRelativeEntityResolver(Function<Entity,Entity> relativeFinder) {
+                this.needsBaseEntity = true;
+                this.relativeFinder = input -> {
+                    Entity result = relativeFinder.apply(input);
+                    if (result==null) return Maybe.absent("No entity found for scope "+scope+" realtive to "+entity);
+                    else return Maybe.of(result);
+                };
+            }
+
+            @Override
+            boolean test(Entity entity) {
+                return false;
+            }
+
+            @Override
+            Maybe<Entity> resolve() {
+                return relativeFinder.apply(entity);
+            }
+        }
+
+        static class AcceptableEntityResolver extends DslEntityResolver {
+            Function<Entity,java.util.function.Predicate<Entity>> acceptableEntityProducer;
+            java.util.function.Predicate<Entity> acceptableEntity;
+
+            public AcceptableEntityResolver(Function<Entity,java.util.function.Predicate<Entity>> acceptableEntityProducer) {
+                this.needsBaseEntity = true;
+                this.needsComponentId = true;
+                this.acceptableEntityProducer = acceptableEntityProducer;
+            }
+
+            @Override
+            boolean test(Entity entity) {
+                return acceptableEntity.test(entity);
+            }
+
+            @Override
+            void withBaseEntity(Entity entity) {
+                super.withBaseEntity(entity);
+                this.acceptableEntity = acceptableEntityProducer.apply(entity);
+            }
+
+            @Override
+            Maybe<Entity> resolve() {
+                // TODO inefficient when looking at descendants or ancestors, as it also traverses in the other direction,
+                // and compares against a pre-determined set. ideally the traversal is more scope- or direction- aware.
+
+                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity, true,
+                        Predicates.and(EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, componentId), acceptableEntity::test)::apply);
+                if (firstGroupOfMatches.isEmpty()) {
+                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity, true,
+                            Predicates.and(EntityPredicates.idEqualTo(componentId), acceptableEntity::test)::apply);
+                }
+                if (!firstGroupOfMatches.isEmpty()) {
+                    return Maybe.of(firstGroupOfMatches.get(0));
+                }
+
+                // could be nice if DSL has an extra .block() method to allow it to wait for a matching entity.
+                // previously we threw if nothing existed; now we return an absent with a detailed error
+                return Maybe.absent(new NoSuchElementException("No entity matching id '" + componentId+"'"+
+                        (scope==Scope.GLOBAL ? " near entity " : " in scope "+scope+" of ")+entity));
+            }
+        }
+
+        static DslEntityResolver getResolverForScope(Scope scope) {
+            switch (scope) {
+                // component-less items
+                case THIS:
+                    return new SingleRelativeEntityResolver(entity -> entity);
+                case PARENT:
+                    return new SingleRelativeEntityResolver(Entity::getParent);
                 case ROOT:
-                    return Maybe.<Entity>of(entity.getApplication());
+                    return new SingleRelativeEntityResolver(Entity::getApplication);
                 case SCOPE_ROOT:
-                    return Maybe.<Entity>of(Entities.catalogItemScopeRoot(entity));
+                    return new SingleRelativeEntityResolver(Entities::catalogItemScopeRoot);
+
+                case APPLICATIONS:
+                    return new ApplicationEntityResolver();
+
+                case GLOBAL:
+                    return new AcceptableEntityResolver(entity -> {
+                        if (Entities.isManaged(entity)) {
+                            // use management context if entity is managed (usual case, more efficient)
+                            String appId = entity.getApplicationId();
+                            return ee -> appId != null && appId.equals(ee.getApplicationId());
+
+                        } else {
+                            // otherwise traverse the application (probably we could drop this)
+                            if (entity != null && entity.getApplication() != null) {
+                                Set<Entity> toVisit = MutableSet.of(entity.getApplication()), visited = MutableSet.of(entity.getApplication());
+                                while (!toVisit.isEmpty()) {
+                                    Set<Entity> visiting = MutableSet.copyOf(toVisit);
+                                    toVisit.clear();
+                                    visiting.forEach(e -> {
+                                        e.getChildren().forEach(ec -> {
+                                            if (visited.add(ec)) toVisit.add(ec);
+                                        });
+                                    });
+                                }
+                                return visited::contains;
+                            } else {
+                                // accept any (again probably we could drop this)
+                                return x -> true;
+                            }
+                        }
+                    });
+
                 case DESCENDANT:
-                    acceptableEntity = MutableSet.copyOf(Entities.descendantsWithoutSelf(entity))::contains;
-                    break;
+                    return new AcceptableEntityResolver(entity -> MutableSet.copyOf(Entities.descendantsWithoutSelf(entity))::contains);
+                case MEMBERS:
+                    return new AcceptableEntityResolver(entity -> MutableSet.copyOf(Entities.descendantsAndMembersWithoutSelf(entity))::contains);
+                case MEMBERS_ONLY:
+                    return new AcceptableEntityResolver(entity -> {
+                        Set<Entity> acceptable = MutableSet.of();
+                        if (entity instanceof Group) acceptable.addAll( ((Group)entity).getMembers() );
+                        return acceptable::contains;
+                    });
                 case ANCESTOR:
-                    acceptableEntity = MutableSet.copyOf(Entities.ancestorsWithoutSelf(entity))::contains;
-                    break;
+                    return new AcceptableEntityResolver(entity -> MutableSet.copyOf(Entities.ancestorsWithoutSelf(entity))::contains);
                 case SIBLING:
-                    acceptableEntity = MutableSet.copyOf(Iterables.filter(entity.getParent().getChildren(), notSelfPredicate))::contains;
-                    break;
+                    return new AcceptableEntityResolver(entity -> {
+                        Predicate<Entity> notSelfPredicate = Predicates.not(Predicates.<Entity>equalTo(entity));
+                        return MutableSet.copyOf(Iterables.filter(entity.getParent().getChildren(), notSelfPredicate))::contains;
+                    });
                 case CHILD:
-                    acceptableEntity = MutableSet.copyOf(entity.getChildren())::contains;
-                    break;
+                    return new AcceptableEntityResolver(entity -> MutableSet.copyOf(entity.getChildren())::contains);
                 default:
                     throw new IllegalStateException("Unexpected scope "+scope);
             }
-            
-            String desiredComponentId;
-            if (componentId == null) {
-                if (componentIdSupplier == null) {
-                    throw new IllegalArgumentException("No component-id or component-id supplier, when resolving entity in scope '" + scope + "' wrt " + entity);
-                }
-                
-                Maybe<Object> maybeComponentId = Tasks.resolving(componentIdSupplier)
-                        .as(Object.class)
-                        .context(getExecutionContext())
-                        .immediately(immediate)
-                        .description("Resolving component-id from " + componentIdSupplier)
-                        .getMaybe();
-                
-                if (immediate) {
-                    if (maybeComponentId.isAbsent()) {
-                        return ImmediateValueNotAvailableException.newAbsentWrapping("Cannot find component ID", maybeComponentId);
-                    }
-                }
-                
-                // Support being passed an explicit entity via the DSL
-                Object candidate = maybeComponentId.get();
-                if (candidate instanceof BrooklynObject) {
-                    if (acceptableEntity.test((Entity)candidate)) {
-                        return Maybe.of((Entity)candidate);
-                    } else {
-                        throw new IllegalStateException("Resolved component " + maybeComponentId.get() + " is not in scope '" + scope + "' wrt " + entity);
-                    }
-                }
-                
-                desiredComponentId = TypeCoercions.coerce(maybeComponentId.get(), String.class);
+        }
 
-                if (Strings.isBlank(desiredComponentId)) {
-                    throw new IllegalStateException("component-id blank, from " + componentIdSupplier);
+        protected Maybe<Entity> callImpl(boolean immediate) throws Exception {
+            DslEntityResolver resolver = getResolverForScope(scope);
+            resolver.withScope(scope);
+
+            if (resolver.needsBaseEntity) {
+                Maybe<Entity> entityMaybe = getEntity(immediate);
+                if (immediate && entityMaybe.isAbsent()) {
+                    return entityMaybe;
                 }
-                
-            } else {
-                desiredComponentId = componentId;
+                resolver.withBaseEntity( entityMaybe.get() );
             }
 
-            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
-                    Predicates.and(EntityPredicates.configEqualTo(BrooklynCampConstants.PLAN_ID, desiredComponentId), acceptableEntity::test)::apply);
-            if (firstGroupOfMatches.isEmpty()) {
-                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(entity,
-                        Predicates.and(EntityPredicates.idEqualTo(desiredComponentId), acceptableEntity::test)::apply);
+            if (resolver.needsComponentId) {
+                if (componentId == null) {
+                    if (componentIdSupplier == null) {
+                        throw new IllegalArgumentException("No component-id or component-id supplier, when resolving entity in scope '" + scope + "' wrt " + resolver.entity);
+                    }
+
+                    Maybe<Object> maybeComponentId = Tasks.resolving(componentIdSupplier)
+                            .as(Object.class)
+                            .context(getExecutionContext())
+                            .immediately(immediate)
+                            .description("Resolving component-id from " + componentIdSupplier)
+                            .getMaybe();
+
+                    if (immediate) {
+                        if (maybeComponentId.isAbsent()) {
+                            return ImmediateValueNotAvailableException.newAbsentWrapping("Cannot find component ID", maybeComponentId);
+                        }
+                    }
+
+                    // Support being passed an explicit entity via the DSL
+                    Object candidate = maybeComponentId.get();
+                    if (candidate instanceof BrooklynObject) {
+                        resolver.withComponentId( ((BrooklynObject)candidate).getId() );
+
+                        if (resolver.test((Entity) candidate)) {
+                            return Maybe.of((Entity) candidate);
+                        } else {
+                            throw new IllegalStateException("Resolved component " + maybeComponentId.get() + " is not in scope '" + scope + "' wrt " + resolver.entity);
+                        }
+                    }
+
+                    resolver.withComponentId( TypeCoercions.coerce(maybeComponentId.get(), String.class) );
+
+                    if (Strings.isBlank(resolver.componentId)) {
+                        throw new IllegalStateException("component-id blank, from " + componentIdSupplier);
+                    }
+
+                } else {
+                    resolver.withComponentId( componentId );
+                }
             }
-            if (!firstGroupOfMatches.isEmpty()) {
-                return Maybe.of(firstGroupOfMatches.get(0));
-            }
-            
-            // could be nice if DSL has an extra .block() method to allow it to wait for a matching entity.
-            // previously we threw if nothing existed; now we return an absent with a detailed error
-            return Maybe.absent(new NoSuchElementException("No entity matching id " + desiredComponentId+
-                (scope==Scope.GLOBAL ? "" : ", in scope "+scope+" wrt "+entity+
-                (scopeComponent!=null ? " ("+scopeComponent+" from "+entity()+")" : ""))));
+
+            return resolver.resolve();
         }
         
         private ExecutionContext getExecutionContext() {
@@ -461,6 +603,16 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
         return DslComponent.newInstance(this, DslComponent.Scope.fromString(scope), id);
     }
 
+    @DslAccessible
+    public DslComponent application(Object id) {
+        return DslComponent.newInstance(this, Scope.APPLICATIONS, id);
+    }
+
+    @DslAccessible
+    public DslComponent member(Object id) {
+        return DslComponent.newInstance(this, Scope.MEMBERS, id);
+    }
+
     // DSL words which return things
 
     @DslAccessible
@@ -481,13 +633,13 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
             if (targetEntityMaybe.isAbsent()) return ImmediateValueNotAvailableException.newAbsentWrapping("Target entity is not available: "+component, targetEntityMaybe);
             Entity targetEntity = targetEntityMaybe.get();
 
-            return Maybe.<Object>of(targetEntity.getId());
+            return Maybe.of(targetEntity.getId());
         }
         
         @Override
         public Task<Object> newTask() {
             Entity targetEntity = component.get();
-            return Tasks.create("identity", Callables.<Object>returning(targetEntity.getId()));
+            return Tasks.create("identity", Callables.returning(targetEntity.getId()));
         }
 
         @Override
@@ -1033,11 +1185,14 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
     }
 
     public static enum Scope {
+        APPLICATIONS,
         GLOBAL,
         CHILD,
         PARENT,
         SIBLING,
         DESCENDANT,
+        MEMBERS,
+        MEMBERS_ONLY,
         ANCESTOR,
         ROOT,
         /** root node of blueprint where the the DSL is used; usually the depth in ancestor,

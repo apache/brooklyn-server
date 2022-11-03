@@ -207,6 +207,16 @@ public class BrooklynDslCommon {
         return DslComponent.newInstance(DslComponent.Scope.fromString(scope), id);
     }
 
+    @DslAccessible
+    public static DslComponent application(Object id) {
+        return DslComponent.newInstance(Scope.APPLICATIONS, id);
+    }
+
+    @DslAccessible
+    public static DslComponent member(Object id) {
+        return DslComponent.newInstance(Scope.MEMBERS, id);
+    }
+
     // Access things on entities
 
     @DslAccessible

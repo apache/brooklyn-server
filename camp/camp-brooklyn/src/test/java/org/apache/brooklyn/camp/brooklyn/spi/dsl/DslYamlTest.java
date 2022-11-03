@@ -15,17 +15,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn.spi.dsl;
 
-import org.apache.brooklyn.core.entity.EntityAsserts;
-import static org.testng.Assert.assertEquals;
-
-import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-
+import com.google.common.base.Function;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -53,8 +44,9 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.testng.annotations.Test;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Iterables;
+import java.util.concurrent.ExecutionException;
+
+import static org.testng.Assert.assertEquals;
 
 // Doesn't test executing the DSL from different contexts (i.e. fetching the config from children inheriting it)
 public class DslYamlTest extends AbstractYamlTest {
@@ -161,7 +153,7 @@ public class DslYamlTest extends AbstractYamlTest {
             assertEquals(getConfigEventually(app, DEST3), app);
             Asserts.shouldHaveFailedPreviously("Self not in descendant scope");
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "No entity matching id self");
+            Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "'self'");
         }
     }
 
@@ -194,7 +186,7 @@ public class DslYamlTest extends AbstractYamlTest {
             assertEquals(getConfigEventually(app, DEST), app);
             Asserts.shouldHaveFailedPreviously("App not in ancestor scope");
         } catch (Exception e) {
-            Asserts.expectedFailureContains(e, "No entity matching id app");
+            Asserts.expectedFailureContainsIgnoreCase(e, "no entity match", "'app'");
         }
     }
 

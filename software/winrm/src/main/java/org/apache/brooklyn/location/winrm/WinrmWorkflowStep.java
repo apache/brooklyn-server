@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.steps.SshWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -42,7 +43,8 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
     public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
-    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit-code");
+    public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit_code");
+    public static final ConfigKey<Integer> OUTPUT_MAX_SIZE = ConfigKeys.newIntegerConfigKey("output_max_size", "Maximum size for stdout and stderr, or -1 for no limit", 100000);
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -71,8 +73,8 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
         if (env!=null) tf.environmentVariables(new ShellEnvironmentSerializer(context.getWorkflowExectionContext().getManagementContext()).serialize(env));
         tf.returning(ptw -> {
             checkExitCode(ptw, exitcode);
-            return MutableMap.of("stdout", ptw.getStdout(),
-                    "stderr", ptw.getStderr(),
+            return MutableMap.of("stdout", SshWorkflowStep.truncate(ptw.getStdout(), context.getInput(OUTPUT_MAX_SIZE)),
+                    "stderr", SshWorkflowStep.truncate(ptw.getStderr(), context.getInput(OUTPUT_MAX_SIZE)),
                     "exit_code", ptw.getExitCode());
         });
         return DynamicTasks.queue(tf.newTask()).asTask().getUnchecked();

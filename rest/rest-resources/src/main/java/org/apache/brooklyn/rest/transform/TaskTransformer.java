@@ -18,44 +18,38 @@
  */
 package org.apache.brooklyn.rest.transform;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import javax.annotation.Nullable;
-
-import org.apache.brooklyn.rest.resources.EntityResource;
-import org.apache.brooklyn.util.collections.MutableSet;
-import org.apache.brooklyn.util.text.StringEscapes;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.mgmt.HasTaskChildren;
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
-import org.apache.brooklyn.rest.domain.LinkWithMetadata;
-import org.apache.brooklyn.rest.domain.TaskSummary;
-import org.apache.brooklyn.rest.resources.EntityResource.InterestingTasksFirstComparator;
-import org.apache.brooklyn.rest.util.WebResourceUtils;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.task.TaskInternal;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.Strings;
-
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-
-import javax.ws.rs.core.UriBuilder;
-import javax.ws.rs.core.UriInfo;
-
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags.WrappedStream;
 import org.apache.brooklyn.rest.api.ActivityApi;
 import org.apache.brooklyn.rest.api.EntityApi;
+import org.apache.brooklyn.rest.domain.LinkWithMetadata;
+import org.apache.brooklyn.rest.domain.TaskSummary;
+import org.apache.brooklyn.rest.resources.AbstractBrooklynRestResource;
+import org.apache.brooklyn.rest.resources.EntityResource.InterestingTasksFirstComparator;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.TaskInternal;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.StringEscapes;
+import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.*;
+
 import static org.apache.brooklyn.rest.util.WebResourceUtils.serviceUriBuilder;
 
 public class TaskTransformer {
@@ -63,16 +57,16 @@ public class TaskTransformer {
     @SuppressWarnings("unused")
     private static final Logger log = LoggerFactory.getLogger(TaskTransformer.class);
 
-    public static final Function<Task<?>, TaskSummary> fromTask(final UriBuilder ub) {
+    public static final Function<Task<?>, TaskSummary> fromTask(final UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
         return new Function<Task<?>, TaskSummary>() {
             @Override
             public TaskSummary apply(@Nullable Task<?> input) {
-                return taskSummary(input, ub);
+                return taskSummary(input, ub, resolver, suppressSecrets);
             }
         };
     };
 
-    public static TaskSummary taskSummary(Task<?> task, UriBuilder ub) {
+    public static TaskSummary taskSummary(Task<?> task, UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
       try {
         Preconditions.checkNotNull(task);
         Entity entity = BrooklynTaskTags.getContextEntity(task);
@@ -115,25 +109,29 @@ public class TaskTransformer {
         Map<String,URI> links = MutableMap.of("self", new URI(selfLink),
                 "children", new URI(selfLink+"/"+"children"));
         if (entityLink!=null) links.put("entity", entityLink);
-        
+
+        Collection<Object> tags = (Collection<Object>) resolver.getValueForDisplay(task.getTags(), true, false, suppressSecrets);
+
         Object result;
         try {
             if (task.isDone()) {
-                result = WebResourceUtils.getValueForDisplay(task.get(), true, false);
+                result = resolver.getValueForDisplay(task.get(), true, false, suppressSecrets);
             } else {
                 result = null;
             }
         } catch (Throwable t) {
             result = Exceptions.collapseTextInContext(t, task);
         }
+
+        String detailedStatus = (String) resolver.getValueForDisplay(task.getStatusDetail(true), true, false, suppressSecrets);
         
         return new TaskSummary(task.getId(), task.getDisplayName(), task.getDescription(), entityId, entityDisplayName, 
-                task.getTags(), ifPositive(task.getSubmitTimeUtc()), ifPositive(task.getStartTimeUtc()), ifPositive(task.getEndTimeUtc()),
+                tags, ifPositive(task.getSubmitTimeUtc()), ifPositive(task.getStartTimeUtc()), ifPositive(task.getEndTimeUtc()),
                 task.getStatusSummary(), result, task.isError(), task.isCancelled(),
                 children, asLink(task.getSubmittedByTask(), ub),
                 task.isDone() ? null : task instanceof TaskInternal ? asLink(((TaskInternal<?>)task).getBlockingTask(), ub) : null,
                 task.isDone() ? null : task instanceof TaskInternal ? ((TaskInternal<?>)task).getBlockingDetails() : null, 
-                task.getStatusDetail(true),
+                detailedStatus,
                 streams,
                 links);
       } catch (URISyntaxException e) {
@@ -161,7 +159,7 @@ public class TaskTransformer {
         return new LinkWithMetadata(taskUri.toString(), data);
     }
     
-    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, Entity entity, UriInfo ui) {
+    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
         int sizeRemaining = limit;
         InterestingTasksFirstComparator comparator = new InterestingTasksFirstComparator(entity);
         if (limit>0 && tasksToScan.size() > limit) {
@@ -213,6 +211,6 @@ public class TaskTransformer {
             }
         }
         return new LinkedList<TaskSummary>(Collections2.transform(tasksLoaded.values(), 
-            TaskTransformer.fromTask(ui.getBaseUriBuilder())));
+            TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolver, suppressSecrets)));
     }
 }
