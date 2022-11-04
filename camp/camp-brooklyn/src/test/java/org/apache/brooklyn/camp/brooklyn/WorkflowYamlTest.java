@@ -206,7 +206,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let trimmed map x = ${out}",
+                "        - let yaml map x = ${out}",
                 "        - return ${x}",
                 "");
 
@@ -259,7 +259,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let trimmed map x = ${out}",
+                "        - let yaml map x = ${out}",
                 "        - set-sensor myWorkflowSensor = ${x}",
                 "");
 

@@ -24,6 +24,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.CollectionMerger;
@@ -33,6 +34,7 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -43,6 +45,7 @@ import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class SetVariableWorkflowStep extends WorkflowStepDefinition {
@@ -50,21 +53,23 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(SetVariableWorkflowStep.class);
 
     public static final String SHORTHAND =
-            "[ ?${trim} \"trim \" ] [ ?${trimmed} \"trimmed \" ] " +
-            "[ ?${merge} \"merge \" [ ?${merge_deep} \"deep \" ] [ ?${clean} \"clean \" ] ] " +
+            "[ ?${merge} \"merge \" [ ?${merge_deep} \"deep \" ] ] " +
+            "[ ?${trim} \"trim \" ] " +
+            "[ ?${yaml} \"yaml \" ] " +
+            "[ ?${json} \"json \" ] " +
             "[ ?${wait} \"wait \" ] " +
             "[ [ ${variable.type} ] ${variable.name} [ \"=\" ${value...} ] ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
-    public static final ConfigKey<Boolean> TRIM = ConfigKeys.newConfigKey(Boolean.class, "trim");
-    public static final ConfigKey<Boolean> TRIMMED = ConfigKeys.newConfigKey(Boolean.class, "trimmed");
-
-    public static final ConfigKey<Boolean> WAIT = ConfigKeys.newConfigKey(Boolean.class, "wait");
     public static final ConfigKey<Boolean> MERGE = ConfigKeys.newConfigKey(Boolean.class, "merge");
-    public static final ConfigKey<Boolean> CLEAN = ConfigKeys.newConfigKey(Boolean.class, "clean");
     public static final ConfigKey<Boolean> MERGE_DEEP = ConfigKeys.newConfigKey(Boolean.class, "merge_deep");
+
+    public static final ConfigKey<Boolean> TRIM = ConfigKeys.newConfigKey(Boolean.class, "trim");
+    public static final ConfigKey<Boolean> YAML = ConfigKeys.newConfigKey(Boolean.class, "yaml");
+    public static final ConfigKey<Boolean> JSON = ConfigKeys.newConfigKey(Boolean.class, "json");
+    public static final ConfigKey<Boolean> WAIT = ConfigKeys.newConfigKey(Boolean.class, "wait");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -88,24 +93,11 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
         String name = context.resolve(variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-        String specialCoercionMode = null;
-        TypeToken<?> type;
-        if ("yaml".equalsIgnoreCase(variable.type) || "json".equalsIgnoreCase(variable.type)) {
-            type = TypeToken.of(String.class);
-            specialCoercionMode = variable.type.toLowerCase();
-        } else {
-            type = context.lookupType(variable.type, () -> null);
-        }
+        TypeToken<?> type = context.lookupType(variable.type, () -> null);
 
         Object unresolvedValue = input.get(VALUE.getName());
 
-        Object resolvedValue = new SetVariableEvaluation(context, type==null ? TypeToken.of(Object.class) : type, unresolvedValue,
-                Boolean.TRUE.equals(context.getInput(TRIM)) || Boolean.TRUE.equals(context.getInput(TRIMMED)),
-                Boolean.TRUE.equals(context.getInput(WAIT)),
-                Boolean.TRUE.equals(context.getInput(MERGE_DEEP)) ? LetMergeMode.DEEP : Boolean.TRUE.equals(context.getInput(MERGE)) ? LetMergeMode.SHALLOW : LetMergeMode.NONE,
-                Boolean.TRUE.equals(context.getInput(CLEAN)),
-                specialCoercionMode,
-                type!=null ).evaluate();
+        Object resolvedValue = new SetVariableEvaluation(context, type, unresolvedValue).evaluate();
 
         Object oldValue;
 
@@ -139,22 +131,52 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         private final boolean trim;
         private final boolean wait;
         private final LetMergeMode merge;
-        private final boolean clean;
-        private final String specialCoercionMode;
+        private String specialCoercionMode;
         private final boolean typeSpecified;
         private QuotedStringTokenizer qst;
 
 
-        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, boolean trim, boolean wait, LetMergeMode merge, boolean clean, String specialCoercionMode, boolean typeSpecified) {
+        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue) {
             this.context = context;
-            this.type = type;
             this.unresolvedValue = unresolvedValue;
-            this.trim = trim;
-            this.wait = wait;
-            this.merge = merge;
-            this.clean = clean;
-            this.specialCoercionMode = specialCoercionMode;
-            this.typeSpecified = typeSpecified;
+            this.merge = Boolean.TRUE.equals(context.getInput(MERGE_DEEP)) ? LetMergeMode.DEEP : Boolean.TRUE.equals(context.getInput(MERGE)) ? LetMergeMode.SHALLOW : LetMergeMode.NONE;
+            this.trim = Boolean.TRUE.equals(context.getInput(TRIM));
+            this.wait = Boolean.TRUE.equals(context.getInput(WAIT));
+            if (Boolean.TRUE.equals(context.getInput(YAML))) this.specialCoercionMode = "yaml";
+            if (Boolean.TRUE.equals(context.getInput(JSON))) {
+                if (this.specialCoercionMode!=null) throw new IllegalArgumentException("Cannot specify both JSON and YAML");
+                this.specialCoercionMode = "json";
+            }
+            if (specialCoercionMode!=null) {
+                if (this.merge != LetMergeMode.NONE) throw new IllegalArgumentException("Cannot specify both JSON and YAML");
+            }
+
+            if (type!=null) {
+                this.type = type;
+                this.typeSpecified = true;
+            } else {
+                this.type = (TypeToken) TypeToken.of(Object.class);
+                this.typeSpecified = false;
+            }
+        }
+
+        public boolean unquotedStartsWith(String s, char c) {
+            if (s==null) return false;
+            s = s.trim();
+            s = Strings.removeFromStart(s, "\"");
+            s = Strings.removeFromStart(s, "\'");
+            s = s.trim();
+            return (s.startsWith(""+c));
+        }
+
+        public boolean trimmedEndsWithQuote(String s) {
+            if (s==null) return false;
+            s = s.trim();
+            return s.endsWith("\"") || s.endsWith("\'");
+        }
+
+        public Function<String,TypeToken<?>> ifUnquotedStartsWithThen(char c, Class<?> clazz) {
+            return s -> (!unquotedStartsWith(s, c)) ? null : TypeToken.of(clazz);
         }
 
         public T evaluate() {
@@ -164,7 +186,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 try {
                     if (Map.class.isAssignableFrom(type.getRawType())) {
                         Map holder = type.getRawType().isInterface() ? MutableMap.of() : (Map) type.getRawType().newInstance();
-                        mergeInto(result, (term,value) -> {
+                        mergeInto(result, ifUnquotedStartsWithThen('{', Map.class), (term,value) -> {
                             Map xm;
                             if (value instanceof Map) xm = (Map)value;
                             else if (value==null) {
@@ -177,7 +199,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                                 xm = CollectionMerger.builder().build().merge(holder, xm);
                             }
                             xm.forEach((k,v) -> {
-                                if (clean && (k==null || v==null)) return;
+                                if (trim && (k==null || v==null)) return;
                                 holder.put(k, v);
                             });
                         });
@@ -185,7 +207,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                     } else if (Collection.class.isAssignableFrom(type.getRawType())) {
                         if (merge==LetMergeMode.DEEP) throw new IllegalArgumentException("Merge deep only supported for map");
                         Collection holder = type.getRawType().isInterface() ? Set.class.isAssignableFrom(type.getRawType()) ? MutableSet.of() : MutableList.of() : (Collection) type.getRawType().newInstance();
-                        mergeInto(result, (term,value) -> {
+                        mergeInto(result, ifUnquotedStartsWithThen('[', List.class), (term,value) -> {
                             Collection xm;
                             if (value instanceof Collection) xm = (Collection)value;
                             else if (value==null) {
@@ -194,12 +216,12 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                             } else {
                                 xm = MutableList.of(value);
                             }
-                            if (clean) xm = (List) xm.stream().filter(i -> i!=null).collect(Collectors.toList());
+                            if (trim) xm = (List) xm.stream().filter(i -> i!=null).collect(Collectors.toList());
                             holder.addAll(xm);
                         });
                         return (T) holder;
                     } else {
-                        throw new IllegalArgumentException("Type 'map' or 'list' must be specified for 'let merge'");
+                        throw new IllegalArgumentException("Type 'map' or 'list' or 'set' must be specified for 'let merge'");
                     }
                 } catch (Exception e) {
                     throw Exceptions.propagate(e);
@@ -209,32 +231,46 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             Object resultCoerced;
             TypeToken<? extends Object> typeIntermediate = Strings.isNonBlank(specialCoercionMode) ? TypeToken.of(Object.class) : type;
             if (result instanceof String) {
+                if (trim && result instanceof String) result = ((String) result).trim();
                 result = process((String) result);
-                if (trim && result instanceof String) {
-                    if (typeSpecified) {
-                        result = Yamls.lastDocumentFunction().apply((String)result);
-                    } else {
-                        result = ((String) result).trim();
-                    }
-                }
                 resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(result, typeIntermediate);
-
             } else {
                 resultCoerced = wait ? context.resolveWaiting(result, typeIntermediate) : context.resolve(result, typeIntermediate);
             }
+            if (trim && resultCoerced instanceof String) resultCoerced = ((String) resultCoerced).trim();
+
             if (Strings.isNonBlank(specialCoercionMode)) {
-                // convert result to yaml or json string
-                ObjectMapper mapper;
-                if ("yaml".equals(specialCoercionMode)) mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), false, null, true);
-                else if ("json".equals(specialCoercionMode)) mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), false, null, true);
-                else throw new IllegalArgumentException("Unknown special coercion mode '"+specialCoercionMode+"'");
                 try {
-                    resultCoerced = mapper.writeValueAsString(resultCoerced);
-                    // remvoe doc start marker (now no longer included from jackson normally but maybe from others)
-                    resultCoerced = Strings.removeFromStart((String)resultCoerced, "---");
-                    resultCoerced = Strings.trimStart((String)resultCoerced);
-                    // for convenience don't make multiline unless we have to
-                    if (!Strings.isMultiLine(Strings.trim((String)resultCoerced))) resultCoerced = Strings.trim((String)resultCoerced);
+                    ObjectMapper mapper;
+                    if ("yaml".equals(specialCoercionMode))
+                        mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), false, null, true);
+                    else if ("json".equals(specialCoercionMode))
+                        mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), false, null, true);
+                    else
+                        throw new IllegalArgumentException("Unknown special coercion mode '" + specialCoercionMode + "'");
+
+                    if (typeSpecified || !Boxing.isPrimitiveOrBoxedObject(resultCoerced)) {
+                        boolean wantsStringifiedOutput = typeSpecified && String.class.equals(type.getRawType());
+                        if ("yaml".equals(specialCoercionMode) && resultCoerced instanceof String && !wantsStringifiedOutput) {
+                            resultCoerced = Yamls.lastDocumentFunction().apply((String) resultCoerced);
+                        }
+                        if (!(resultCoerced instanceof String) || wantsStringifiedOutput) {
+                            resultCoerced = mapper.writeValueAsString(resultCoerced);
+                        }
+                        if (!wantsStringifiedOutput) {
+                            resultCoerced = mapper.readValue((String) resultCoerced, BrooklynJacksonType.asTypeReference(type));
+                        }
+                    }
+                    if (resultCoerced instanceof String) {
+                        boolean doTrim = trim;
+                        if (!doTrim) {
+                            String rst = ((String) resultCoerced).trim();
+                            if (rst.endsWith("\"") || rst.endsWith("'")) doTrim = true;
+                            else if (rst.endsWith("+") || rst.endsWith("|")) doTrim = false;  //yaml trailing whitespace signifier
+                            else doTrim = !Strings.isMultiLine(rst);     //lastly trim if not multiline
+                        }
+                        if (doTrim) resultCoerced = ((String) resultCoerced).trim();
+                    }
                 } catch (JsonProcessingException e) {
                     throw Exceptions.propagate(e);
                 }
@@ -243,13 +279,13 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             return (T) resultCoerced;
         }
 
-        public void mergeInto(Object input, BiConsumer<String,Object> holderAdd) {
+        public void mergeInto(Object input, Function<String,TypeToken<?>> explicitType, BiConsumer<String,Object> holderAdd) {
             if (input instanceof String) {
                 qst = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).keepInternalQuotes(true).failOnOpenQuote(false).build((String) input);
-                List<String> wordsByQuote = qst.remainderAsList();
+                List<String> wordsByQuote = qst.remainderRaw();
                 wordsByQuote.forEach(word -> {
                     if (Strings.isBlank(word)) return;
-                    Maybe<Object> wordResolved = processMaybe(MutableList.of(word));
+                    Maybe<Object> wordResolved = processMaybe(MutableList.of(word), explicitType);
                     if (trim && wordResolved.isAbsent()) return;
                     holderAdd.accept(word, wordResolved.get());
                 });
@@ -265,10 +301,10 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             qst = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).keepInternalQuotes(true).failOnOpenQuote(false).build(input);
             List<String> wordsByQuote = qst.remainderAsList();
             // then look for operators etc
-            return process(wordsByQuote);
+            return process(wordsByQuote, null);
         }
 
-        Object process(List<String> w) {
+        Object process(List<String> w, Function<String,TypeToken<?>> explicitType) {
             // if no tokens, treat as null
             if (w.isEmpty()) return null;
 
@@ -317,12 +353,12 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object handleNullish(List<String> lhs, List<String> rhs) {
-            return processMaybe(lhs).or(() -> process(rhs));
+            return processMaybe(lhs, null).or(() -> process(rhs, null));
         }
 
-        Maybe<Object> processMaybe(List<String> lhs) {
+        Maybe<Object> processMaybe(List<String> lhs, Function<String,TypeToken<?>> explicitType) {
             try {
-                Object result = process(lhs);
+                Object result = process(lhs, explicitType);
                 if (result!=null) return Maybe.of(result);
                 return Maybe.absent("null");
 
@@ -357,8 +393,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         }
 
         Object applyMathOperator(String op, List<String> lhs0, List<String> rhs0, BiFunction<Integer,Integer,Number> ifInt, BiFunction<Double,Double,Number> ifDouble) {
-            Object lhs = process(lhs0);
-            Object rhs = process(rhs0);
+            Object lhs = process(lhs0, null);
+            Object rhs = process(rhs0, null);
 
             Maybe<Integer> lhsI = asInteger(lhs);
             Maybe<Integer> rhsI = asInteger(rhs);
