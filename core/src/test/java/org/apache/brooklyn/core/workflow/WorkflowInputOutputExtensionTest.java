@@ -491,4 +491,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
             "1", "3",  "4", "12"
         ));
     }
+
+    @Test
+    public void testLoadData() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "load x = classpath://hello-world.txt",
+                "return ${x}"));
+        Asserts.assertStringContains((String)output, "The file hello-world.war contains its source code.");
+    }
+
 }

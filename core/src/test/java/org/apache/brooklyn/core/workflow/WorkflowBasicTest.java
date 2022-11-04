@@ -85,6 +85,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "clear-sensor", ClearSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "let", SetVariableWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "load", LoadWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-workflow-variable", SetVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "clear-workflow-variable", ClearVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "wait", WaitWorkflowStep.class);

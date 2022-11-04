@@ -52,8 +52,8 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         String sensorName = context.resolve(sensor.name, String.class);
         if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
         TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
-        Object resolvedValue = context.getInput(VALUE.getName(), type);
         Entity entity = sensor.entity;
+        Object resolvedValue = context.getInput(VALUE.getName(), type);
         if (entity==null) entity = context.getEntity();
         AttributeSensor<Object> s = (AttributeSensor<Object>) Sensors.newSensor(type, sensorName);
         Object oldValue = entity.sensors().set( s, resolvedValue);

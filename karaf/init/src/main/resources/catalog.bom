@@ -19,7 +19,7 @@ brooklyn.catalog:
   version: "1.1.0-SNAPSHOT" # BROOKLYN_VERSION
 
   items:
-  # provides aliases for the most common items
+  # provides aliases for the most common items
   # (used to import the other bundles but now this is done by dist feature catalog-core)
   - id: server
     iconUrl: classpath://brooklyn/icons/server.svg
@@ -129,6 +129,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.WaitWorkflowStep
+  - id: load
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.LoadWorkflowStep
   - id: return
     format: java-type-name
     itemType: bean

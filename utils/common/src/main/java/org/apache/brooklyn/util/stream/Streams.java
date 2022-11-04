@@ -86,6 +86,7 @@ public class Streams {
     }
     
     public static Reader reader(InputStream stream, Charset charset) {
+        if (charset==null) return new InputStreamReader(stream);
         return new InputStreamReader(stream, charset);
     }
 
@@ -128,8 +129,19 @@ public class Streams {
     }
 
     public static String readFullyStringAndClose(InputStream is) {
+        return readFullyStringAndClose(is, null);
+    }
+
+    /**
+     * Consider using {@link #readFullyStringAndClose(InputStream)} instead.
+     */
+    public static String readFullyString(InputStream is, Charset charset) {
+        return readFully(reader(is, charset));
+    }
+
+    public static String readFullyStringAndClose(InputStream is, Charset charset) {
         try {
-            return readFullyString(is);
+            return readFullyString(is, charset);
         } finally {
             Streams.closeQuietly(is);
         }

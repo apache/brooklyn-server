@@ -30,6 +30,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.nio.charset.Charset;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.function.Supplier;
@@ -532,6 +533,16 @@ public class ResourceUtils {
     public String getResourceAsString(String url) {
         try {
             return Streams.readFullyStringAndClose(getResourceFromUrl(url));
+        } catch (Exception e) {
+            log.debug("ResourceUtils got error reading "+url+(context==null?"":" "+context)+" (rethrowing): "+e);
+            throw Throwables.propagate(e);
+        }
+    }
+
+    /** takes {@link #getResourceFromUrl(String)} and reads fully, into a string */
+    public String getResourceAsString(String url, Charset charset) {
+        try {
+            return Streams.readFullyStringAndClose(getResourceFromUrl(url), charset);
         } catch (Exception e) {
             log.debug("ResourceUtils got error reading "+url+(context==null?"":" "+context)+" (rethrowing): "+e);
             throw Throwables.propagate(e);
