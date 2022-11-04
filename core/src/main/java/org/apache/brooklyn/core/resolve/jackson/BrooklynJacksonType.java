@@ -144,6 +144,13 @@ public class BrooklynJacksonType extends SimpleType implements TypeVariable<Gene
         for (Object x : t.getSuperTypes()) {
             if (x instanceof Class) return (Class<?>) x;
         }
+
+        // we should throw; but there is one place we need to assume Object, and that is if we are
+        // adding multiple things to catalog, we assume parent type is object first even if it cannot be resolved.
+        // see CustomTypeConfigYamlTest.TestRegisteredType_InheritFromPeer
+
+        // throw new IllegalStateException("Accessing concrete type of unresolved registered type "+t);
+
         return Object.class;
     }
 

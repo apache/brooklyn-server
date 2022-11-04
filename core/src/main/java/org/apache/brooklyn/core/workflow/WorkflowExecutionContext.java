@@ -507,7 +507,7 @@ public class WorkflowExecutionContext {
     public TypeToken<?> lookupType(String typeName, Supplier<TypeToken<?>> ifUnset) {
         if (Strings.isBlank(typeName)) return ifUnset.get();
         BrooklynClassLoadingContext loader = getEntity() != null ? RegisteredTypes.getClassLoadingContext(getEntity()) : null;
-        return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("", loader, true, true).getTypeToken(typeName);
+        return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("workflow", loader, true, true).getTypeToken(typeName);
     }
 
     /** as {@link #resolve(Object, TypeToken)} but without type coercion */

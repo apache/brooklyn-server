@@ -24,10 +24,12 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -37,11 +39,15 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -115,9 +121,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     public RegisteredType addBeanWithType(String typeName, String version, String plan) {
-        RegisteredType type = RegisteredTypes.bean(typeName, version, new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, false);
-        return type;
+        loadTypes();
+        return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, typeName, version,
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
     }
 
     ClassLogWatcher lastLogWatcher;
@@ -296,7 +302,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     public void testLetTrimMergeAllowsNull() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1 ]",
-                "let trim merge list x = ${a} ${b}",
+                "let merge trim list x = ${a} ${b}",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(1));
     }
@@ -305,7 +311,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     public void testLetMergeCleanRemovesNull() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 MutableMap.of("step", "let a", "value", MutableList.of(2, null)),
-                "let merge clean list x = ${a}",
+                "let merge trim list x = ${a}",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(2));
     }
@@ -350,26 +356,107 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let person_spaces = \" Anna \"",
                 "let string person = ${person_spaces}",
-                "let trimmed person_tidied = ${person_spaces}",
+                "let trim person_tidied = ${person_spaces}",
                 "log PERSON: ${person}",
                 "log PERSON_TIDIED: ${person_tidied}"));
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON:")).findAny().get(), "PERSON:  Anna ");
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_TIDIED:")).findAny().get(), "PERSON_TIDIED: Anna");
     }
 
+    private void assertLogMessageFor(String prefix, String value) {
+        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith(prefix+": ")).findAny().get(),
+                prefix+": "+value);
+    }
+
+    private Object let(String prefix, Object expression) throws Exception {
+        return invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.<String,Object>of("step", "let x1", "value",
+                        expression instanceof String
+                                ? StringEscapes.JavaStringEscapes.wrapJavaString((String)expression)
+                                : expression instanceof Maybe
+                                ? ((Maybe)expression).get()
+                                : expression),
+                "let "+prefix+" x2 = ${x1}", "return ${x2}"));
+    }
+
+    private void checkLet(String prefix, Object expression, Object expectedResult) throws Exception {
+        Object out = let(prefix, expression);
+        Asserts.assertEquals(out, expectedResult);
+    }
+
+    private void checkLetBidi(String prefix, Object expression, String expectedResult) throws Exception {
+        Object out = let(prefix, expression);
+
+        Object backIn = BeanWithTypeUtils.newYamlMapper(null, false, null, false).readValue((String) out, Object.class);
+        Asserts.assertEquals(backIn, expression);
+
+        Asserts.assertEquals(out, expectedResult, "YAML encoding (for whitespace) different to expected; interesting, but not a real fault");
+    }
+
     @Test
-    public void testLetTrimYaml() throws Exception {
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
-                "let person_yaml = \"ignore\n---\n name: Anna \"",
-                "let trimmed string person_s = ${person_yaml}",
-                "let trimmed person_s2 = ${person_s}",
-                "let trimmed map person_m = ${person_yaml}",
-                "log PERSON_S: ${person_s}",
-                "log PERSON_S2: ${person_s2}",
-                "return ${person_m}"));
-        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S:")).findAny().get(), "PERSON_S:  name: Anna ");
-        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON_S2:")).findAny().get(), "PERSON_S2: name: Anna");
-        Asserts.assertEquals(output, MutableMap.of("name", "Anna"));
+    public void testLetYaml() throws Exception {
+        // null not permitted as return type; would be nice to support but not vital
+//        checkLetBidi("yaml string", null, "null");
+
+        checkLet("yaml", 2, 2);
+        checkLet("yaml", Maybe.of("2"), 2);
+        checkLet("yaml", "2", 2);  //wrapped by our test, unwrapped once by shorthand, again by step
+        checkLet("yaml", "\"2\"", "2");  //wrapped by our test, unwrapped once by shorthand, again by step
+        checkLetBidi("yaml string", 2, "2");
+        checkLetBidi("yaml string", "2", "\"2\"");
+        // for these especially the exact yaml is not significant, but included for interest
+        checkLetBidi("yaml string", "\"2\"", "'\"2\"'");
+        checkLetBidi("yaml string", " ", "' '");
+        checkLetBidi("yaml string", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
+        checkLetBidi("yaml string", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
+
+        checkLet("trim yaml", "ignore \n---\n x: 1 \n", MutableMap.of("x", 1));
+        checkLetBidi("yaml string", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
+        checkLet("trim yaml string", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
+        checkLet("trim string", "ignore \n---\n x: 1 \n", "ignore \n---\n x: 1");
+
+        checkLetBidi("yaml string", MutableMap.of("a", 1), "a: 1");
+        checkLetBidi("yaml string", MutableMap.of("a", MutableList.of(null), "x", "1"), "a:\n- null\nx: \"1\"");
+        checkLet("yaml", MutableMap.of("x", 1), MutableMap.of("x", 1));
+    }
+
+    @Test
+    public void testLetJson() throws Exception {
+        checkLet("json", 2, 2);
+        checkLet("json", Maybe.of("2"), 2);
+        checkLet("json", "2", 2);
+        checkLet("json", "\"2\"", "2");
+        checkLetBidi("json string", 2, "2");
+        checkLetBidi("json string", "2", "\"2\"");
+        checkLetBidi("json string", "\"2\"", "\"\\\"2\\\"\"");
+        checkLetBidi("json string", " ", "\" \"");
+        checkLetBidi("json string", "\n", "\"\\n\"");
+        checkLetBidi("json string", " \n ", "\" \\n \"");
+
+        checkLetBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
+        checkLetBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
+        checkLet("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
+    }
+
+    public static class MockObject {
+        String id;
+        String name;
+    }
+
+    @Test
+    public void testLetYamlCoercion() throws Exception {
+        addBeanWithType("mock-object", "1", "type: " + MockObject.class.getName());
+        Object result = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.<String, Object>of("step", "let x1", "value",
+                        "ignore\n" +
+                        "---\n" +
+                        "  id: x\n" +
+                        "  name: foo"),
+                "let yaml mock-object result = ${x1}",
+                "return ${result}"));
+        Asserts.assertThat(result, r -> r instanceof MockObject);
+        Asserts.assertEquals(((MockObject)result).id, "x");
+        Asserts.assertEquals(((MockObject)result).name, "foo");
     }
 
     @Test
@@ -377,8 +464,8 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map x = { i: [ 1, 'A' ] }",
                 "let map result = {}",
-                "let yaml result.y = ${x}",
-                "let json result.j = ${x}",
+                "let yaml string result.y = ${x}",
+                "let json string result.j = ${x}",
                 "return ${result}"));
         Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", "{\"i\":[1,\"A\"]}"));
     }
@@ -404,4 +491,13 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
             "1", "3",  "4", "12"
         ));
     }
+
+    @Test
+    public void testLoadData() throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "load x = classpath://hello-world.txt",
+                "return ${x}"));
+        Asserts.assertStringContains((String)output, "The file hello-world.war contains its source code.");
+    }
+
 }

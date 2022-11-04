@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -42,6 +43,7 @@ import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
@@ -82,19 +84,16 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
     @SuppressWarnings("deprecation")
     static RegisteredType addRegisteredTypeBean(ManagementContext mgmt, String symName, Class<?> clazz) {
-        RegisteredType rt = RegisteredTypes.bean(symName, VERSION,
+        return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, symName, VERSION,
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
-        ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
-        return rt;
     }
 
-    static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz) {
+    static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz, Class<? extends BrooklynObject> superClazz) {
         RegisteredType rt = RegisteredTypes.spec(symName, VERSION,
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
-        RegisteredTypes.addSuperType(rt, Policy.class);
-
-        ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
-        return rt;
+        RegisteredTypes.addSuperType(rt, superClazz);
+        mgmt.getCatalog().validateType(rt, null, false);
+        return mgmt.getTypeRegistry().get(rt.getSymbolicName(), rt.getVersion());
     }
 
     public static void addWorkflowTypes(ManagementContext mgmt) {
@@ -105,7 +104,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
         addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
-        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class);
+        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class, Policy.class);
     }
 
     @BeforeMethod(alwaysRun = true)
@@ -206,7 +205,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let trimmed map x = ${out}",
+                "        - let yaml map x = ${out}",
                 "        - return ${x}",
                 "");
 
@@ -259,7 +258,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let trimmed map x = ${out}",
+                "        - let yaml map x = ${out}",
                 "        - set-sensor myWorkflowSensor = ${x}",
                 "");
 

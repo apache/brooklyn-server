@@ -45,6 +45,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
 
     public static final ConfigKey<String> ENDPOINT = ConfigKeys.newStringConfigKey("endpoint");
     public static final ConfigKey<String> COMMAND = ConfigKeys.newStringConfigKey("command");
+    //TODO public static final ConfigKey<String> COMMAND_URL = ConfigKeys.newStringConfigKey("command_url");
     public static final ConfigKey<Map<String,Object>> ENV = new MapConfigKey.Builder(Object.class, "env").build();
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit_code");
     public static final ConfigKey<Integer> OUTPUT_MAX_SIZE = ConfigKeys.newIntegerConfigKey("output_max_size", "Maximum size for stdout and stderr, or -1 for no limit", 100000);

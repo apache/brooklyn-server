@@ -215,13 +215,12 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
 
     @Test
     public void testAddChildrenWithServicesBlock_RegisteredType() throws Exception {
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(
-                RegisteredTypes.bean("add-child", "1",
+        addBean("add-child", "1",
                 new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT,
                         "type: "+AddChildrenEffector.class.getName()+"\n" +
                         "brooklyn.config:\n" +
                         "  name: add\n"+
-                        "  blueprint_yaml: OVERRIDE")), false);
+                        "  blueprint_yaml: OVERRIDE"));
         testAddChildrenWithServicesBlock(() ->
                 makeAppAndAddChild(Strings.lines(
                         "  - type: add-child",

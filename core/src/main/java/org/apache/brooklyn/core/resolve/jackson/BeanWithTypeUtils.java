@@ -99,7 +99,10 @@ public class BeanWithTypeUtils {
     public static YAMLMapper newSimpleYamlMapper() {
         // for use with json maps (no special type resolution, even the field "type" is ignored);
         // do not split lines as that makes output harder to read
-        return YAMLMapper.builder().build().enable(YAMLGenerator.Feature.MINIMIZE_QUOTES).disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER).disable(YAMLGenerator.Feature.SPLIT_LINES);
+        return YAMLMapper.builder().build().enable(YAMLGenerator.Feature.MINIMIZE_QUOTES)
+                .enable(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS)  //otherwise "1" becomes 1
+                .disable(YAMLGenerator.Feature.WRITE_DOC_START_MARKER)
+                .disable(YAMLGenerator.Feature.SPLIT_LINES);
     }
 
     public static boolean isPureJson(Object o) {

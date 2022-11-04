@@ -20,7 +20,6 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.Reader;
 import java.util.Collection;
 import java.util.Map;
@@ -47,6 +46,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests.Builder;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
@@ -246,7 +246,11 @@ public abstract class AbstractYamlTest {
     protected <T extends Application> EntitySpec<T> createAppEntitySpec(String... yaml) {
         return (EntitySpec<T>) EntityManagementUtils.createEntitySpecForApplication(mgmt(), CampTypePlanTransformer.FORMAT, joinLines(yaml));
     }
-    
+
+    protected RegisteredType addBean(String name, String version, RegisteredType.TypeImplementationPlan plan) {
+        return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt(), name, version, plan);
+    }
+
     protected void addCatalogItems(Iterable<String> catalogYaml) {
         addCatalogItems(joinLines(catalogYaml));
     }
