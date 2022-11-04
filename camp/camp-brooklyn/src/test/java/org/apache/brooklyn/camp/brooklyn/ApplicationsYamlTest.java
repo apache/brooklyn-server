@@ -429,6 +429,24 @@ public class ApplicationsYamlTest extends AbstractYamlTest {
         Assert.assertEquals(Iterables.getOnlyElement(retrievedItems).getVersion(), TEST_VERSION);
     }
 
+    @Test
+    public void testGoodErrorFromServicesEvenWhenEnricherBlockOkay() throws Exception {
+        Asserts.assertFailsWith(() -> {
+                    addCatalogItems(
+                            "brooklyn.catalog:",
+                            "  id: simple-test",
+                            "  version: " + TEST_VERSION,
+                            "brooklyn.enrichers:",
+                            "- type: " + TestEnricher.class.getName(),
+                            "services:",
+                            "- type: not_a_real_service");
+                    RegisteredType t = mgmt().getTypeRegistry().get("simple-test", TEST_VERSION);
+                    return t+" - "+t.getSuperTypes();
+                },
+        e -> Asserts.expectedFailureContains(e, "not_a_real_service"));
+    }
+
+
     @Override
     protected Logger getLogger() {
         return log;

@@ -1410,9 +1410,13 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // as we parse using CAMP and need that
             // so prefer those for now (may change with YOML)
 
-            attemptLegacySpecTransformersForType(CatalogItemType.POLICY, POLICIES_KEY);
-            attemptLegacySpecTransformersForType(CatalogItemType.ENRICHER, ENRICHERS_KEY);
-            attemptLegacySpecTransformersForType(CatalogItemType.LOCATION, LOCATIONS_KEY);
+            if (item.containsKey("services")) {
+                // other legacy types not permitted if there is a services block
+            } else {
+                attemptLegacySpecTransformersForType(CatalogItemType.POLICY, POLICIES_KEY);
+                attemptLegacySpecTransformersForType(CatalogItemType.ENRICHER, ENRICHERS_KEY);
+                attemptLegacySpecTransformersForType(CatalogItemType.LOCATION, LOCATIONS_KEY);
+            }
         }
 
         boolean suspicionOfABean = false;
