@@ -19,9 +19,18 @@
 package org.apache.brooklyn.core.test;
 
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.BeforeMethod;
+
+import java.util.Collection;
 
 /**
  * To be extended by unit/integration tests.
@@ -52,4 +61,12 @@ public class BrooklynAppUnitTestSupport extends BrooklynMgmtUnitTestSupport {
         app = mgmt.getEntityManager().createEntity(appSpec);
     }
 
+    @SuppressWarnings("deprecation")
+    public static RegisteredType addRegisteredTypeBean(ManagementContext mgmt, String symName, String version, RegisteredType.TypeImplementationPlan plan) {
+        RegisteredType rt = RegisteredTypes.bean(symName, version, plan);
+        Collection<Throwable> errors = mgmt.getCatalog().validateType(rt, null, true);
+        if (!errors.isEmpty()) Asserts.fail(Exceptions.propagate("Failed to validate", errors));
+        // the resolved type is added, not necessarily type above which will be unresolved
+        return mgmt.getTypeRegistry().get(symName, version);
+    }
 }

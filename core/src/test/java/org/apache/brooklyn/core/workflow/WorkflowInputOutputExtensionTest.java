@@ -26,9 +26,10 @@ import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
+import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
@@ -38,6 +39,7 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
@@ -45,6 +47,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -118,9 +121,9 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     public RegisteredType addBeanWithType(String typeName, String version, String plan) {
-        RegisteredType type = RegisteredTypes.bean(typeName, version, new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(type, false);
-        return type;
+        loadTypes();
+        return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, typeName, version,
+                new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
     }
 
     ClassLogWatcher lastLogWatcher;
@@ -433,6 +436,27 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         checkLetBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
         checkLetBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
         checkLet("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
+    }
+
+    public static class MockObject {
+        String id;
+        String name;
+    }
+
+    @Test
+    public void testLetYamlCoercion() throws Exception {
+        addBeanWithType("mock-object", "1", "type: " + MockObject.class.getName());
+        Object result = invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.<String, Object>of("step", "let x1", "value",
+                        "ignore\n" +
+                        "---\n" +
+                        "  id: x\n" +
+                        "  name: foo"),
+                "let yaml mock-object result = ${x1}",
+                "return ${result}"));
+        Asserts.assertThat(result, r -> r instanceof MockObject);
+        Asserts.assertEquals(((MockObject)result).id, "x");
+        Asserts.assertEquals(((MockObject)result).name, "foo");
     }
 
     @Test

@@ -243,9 +243,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 try {
                     ObjectMapper mapper;
                     if ("yaml".equals(specialCoercionMode))
-                        mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), false, null, true);
+                        mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), true, null, true);
                     else if ("json".equals(specialCoercionMode))
-                        mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), false, null, true);
+                        mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), true, null, true);
                     else
                         throw new IllegalArgumentException("Unknown special coercion mode '" + specialCoercionMode + "'");
 

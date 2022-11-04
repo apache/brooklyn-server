@@ -52,7 +52,10 @@ public class BrooklynJacksonTypeTest {
     public static TypeToken<?> parseTestTypes(String s1) {
         return BrooklynTypeNameResolution.parseTypeToken(s1, s2 -> {
             if ("foo".equals(s2))
-                return Maybe.of(BrooklynJacksonType.asTypeToken(RegisteredTypes.bean("foo", "1", new BasicTypeImplementationPlan("x", null))));
+                return Maybe.of(BrooklynJacksonType.asTypeToken(
+                        RegisteredTypes.addSuperType(
+                            RegisteredTypes.bean("foo", "1", new BasicTypeImplementationPlan("x", null)), Object.class
+                        )));
             if ("iterable".equals(s2)) return Maybe.of(TypeToken.of(Iterable.class));
             return BrooklynTypeNameResolution.getTypeTokenForBuiltInTypeName(s2);
         }).get();

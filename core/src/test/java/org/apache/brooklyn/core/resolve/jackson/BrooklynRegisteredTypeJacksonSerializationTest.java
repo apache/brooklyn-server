@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.StaticSensor;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
@@ -76,9 +77,8 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     @Test
     public void testDeserializeAlias() throws Exception {
-        RegisteredType rt = RegisteredTypes.bean("sample", "1",
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt,"sample", "1",
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, SampleBean.class.getName()));
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
 
         Object impl = deser("{\"type\":\"sample\",\"x\":\"hello\"}");
         Asserts.assertInstanceOf(impl, SampleBean.class);
@@ -87,13 +87,12 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     @Test
     public void testSimpleBeanRegisteredType() throws Exception {
-        RegisteredType rt = RegisteredTypes.bean("sample-hello", "1",
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "sample-hello", "1",
                 new BasicTypeImplementationPlan(BeanWithTypeUtils.FORMAT,
                         "type: " + SampleBean.class.getName() + "\n" +
-                        "x: hello\n" +
-                        "y: hi"
-        ));
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
+                                "x: hello\n" +
+                                "y: hi"
+                ));
         Object impl = mgmt().getTypeRegistry().create(rt, null, null);
         Asserts.assertInstanceOf(impl, SampleBean.class);
         Asserts.assertEquals(((SampleBean)impl).x, "hello");
@@ -114,11 +113,10 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     @Test
     public void testExtendedListBeanRegisteredType() throws Exception {
-        RegisteredType rt = RegisteredTypes.bean("list-extended", "1",
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "list-extended", "1",
                 new BasicTypeImplementationPlan(BeanWithTypeUtils.FORMAT,
                         "type: " + ListExtended.class.getName()
                 ));
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(rt, false);
 
         Object impl = mgmt().getTypeRegistry().create(rt, null, null);
         Asserts.assertInstanceOf(impl, ListExtended.class);

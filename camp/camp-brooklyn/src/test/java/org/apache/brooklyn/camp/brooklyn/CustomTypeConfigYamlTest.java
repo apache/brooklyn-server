@@ -216,10 +216,8 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
     }
 
     private void registerCustomType() {
-        RegisteredType bean = RegisteredTypes.bean("custom-type", "1",
+        addBean("custom-type", "1",
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, TestingCustomType.class.getName()));
-        bean = RegisteredTypes.addSuperType(bean, TestingCustomType.class);
-        ((BasicBrooklynTypeRegistry)mgmt().getTypeRegistry()).addToLocalUnpersistedTypeRegistry(bean, false);
     }
 
     @Test
@@ -336,6 +334,7 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                 "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
                 "      x: foo2",
                 "  - id: custom-type",
+                "    format: bean-with-type",
                 "    item:",
                 "      type: custom-type-0",
                 "      y: bar");
