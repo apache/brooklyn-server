@@ -30,12 +30,15 @@ import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.Map;
 
 public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmtUnitTestSupport implements MapperTestFixture {
 
@@ -77,8 +80,7 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     @Test
     public void testDeserializeAlias() throws Exception {
-        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt,"sample", "1",
-                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, SampleBean.class.getName()));
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt,"sample", "1", SampleBean.class);
 
         Object impl = deser("{\"type\":\"sample\",\"x\":\"hello\"}");
         Asserts.assertInstanceOf(impl, SampleBean.class);
@@ -113,10 +115,7 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     @Test
     public void testExtendedListBeanRegisteredType() throws Exception {
-        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "list-extended", "1",
-                new BasicTypeImplementationPlan(BeanWithTypeUtils.FORMAT,
-                        "type: " + ListExtended.class.getName()
-                ));
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "list-extended", "1", ListExtended.class);
 
         Object impl = mgmt().getTypeRegistry().create(rt, null, null);
         Asserts.assertInstanceOf(impl, ListExtended.class);
@@ -139,6 +138,59 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
                 +",\"brooklyn.config\":{\"name\":\"mytestsensor\"}"
                 +"}");
         Asserts.assertInstanceOf(impl, EntityInitializer.class);
+    }
+
+    public static class SampleBeanWithType extends SampleBean {
+        public String type;
+    }
+
+    @Test
+    public void testDeserializeEntityInitializerWithTypeField() throws Exception {
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        Object impl = deser("{\"type\":\""+ WorkflowSensor.class.getName()+"\""
+                +",\"brooklyn.config\":{\"sensor\":{\"name\":\"mytestsensor\",\"type\":\"samplebean-with-type\"}}"
+                +"}");
+        Asserts.assertInstanceOf(impl, WorkflowSensor.class);
+    }
+
+    @Test
+    public void testDeserializeEntityInitializerWithTypeFieldNeededForDeserialization() throws Exception {
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        // 'type' field used to give type because the expected type does not expect 'type'
+        Object impl = deser("{\"x\":\"mytestsensor\",\"type\":\"samplebean-with-type\"}", SampleBean.class);
+        Asserts.assertInstanceOf(impl, SampleBeanWithType.class);
+        Asserts.assertEquals( ((SampleBean)impl).x, "mytestsensor");
+        Asserts.assertEquals( ((SampleBeanWithType)impl).type, null);
+    }
+
+    @Test
+    public void testDeserializeEntityInitializerWithTypeFieldUsedForDeserialization() throws Exception {
+        // 'type' field used to give type because it is the very first thing in an object, e.g. in a catalog definition
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        Object impl = deser("{\"type\":\"samplebean-with-type\",\"x\":\"mytestsensor\"}", Object.class);
+        Asserts.assertInstanceOf(impl, SampleBeanWithType.class);
+        Asserts.assertEquals( ((SampleBean)impl).x, "mytestsensor");
+        Asserts.assertEquals( ((SampleBeanWithType)impl).type, null);
+    }
+
+    @Test
+    public void testDeserializeEntityInitializerWithTypeFieldNotUsedForDeserialization() throws Exception {
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        Object impl = deser("{\"x\":\"mytestsensor\",\"type\":\"samplebean-with-type\"}", Object.class);
+        // above cases don't apply, we get a map with both set as fields
+        Asserts.assertInstanceOf(impl, Map.class);
+        Asserts.assertEquals( ((Map)impl).get("x"), "mytestsensor");
+        Asserts.assertEquals( ((Map)impl).get("type"), "samplebean-with-type");
+    }
+
+    @Test
+    public void testDeserializeEntityInitializerWithUnambiguousTypeFieldUsedForDeserialization() throws Exception {
+        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        Object impl = deser("{\"x\":\"mytestsensor\",\"@type\":\"samplebean-with-type\",\"type\":\"other\"}", Object.class);
+        // above cases don't apply, we get a map with both set as fields
+        Asserts.assertInstanceOf(impl, SampleBeanWithType.class);
+        Asserts.assertEquals( ((SampleBean)impl).x, "mytestsensor");
+        Asserts.assertEquals( ((SampleBeanWithType)impl).type, "other");
     }
 
     @Test

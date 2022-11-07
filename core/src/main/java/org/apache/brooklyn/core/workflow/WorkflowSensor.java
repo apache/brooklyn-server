@@ -108,7 +108,8 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
     protected AttributeSensor<T> sensor(Entity entity) {
         // overridden because sensor type defaults to object here; and we support 'sensor'
         EntityValueToSet s = lookupSensorReference(entity);
-        TypeToken<T> clazz = getType(entity, s.type, s.name);
+        // could assert compatibility with defined sensor, or tighten; but currently we don't
+        TypeToken<T> clazz = s.type == null ? (TypeToken)TypeToken.of(Object.class) : getType(entity, s.type, s.name);
         return Sensors.newSensor(clazz, s.name);
     }
 
@@ -129,6 +130,7 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
         if (s.entity!=null && !s.entity.equals(entity)) throw new IllegalArgumentException("Not permitted to specify different entity ("+s.entity+") for workflow-sensor on "+entity);
 
         String t2 = initParam(SENSOR_TYPE);
+        if (Object.class.getName().equals(t2)) t2 = null;
         if (s.type!=null && t2!=null && !t2.equals(s.type)) throw new IllegalArgumentException("Incompatible types "+s.type+" and "+t2);
         if (t2!=null) s.type = t2;
 

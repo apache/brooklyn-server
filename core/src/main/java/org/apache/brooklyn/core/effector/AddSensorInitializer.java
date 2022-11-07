@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.core.effector;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
@@ -89,7 +91,14 @@ public class AddSensorInitializer<T> extends EntityInitializers.InitializerPatte
     // kept for backwards deserialization compatibility
     private String name;
     private Duration period;
+
+    @JsonIgnore   // handle legacy deserialization carefully; this allows the property to be passed in but doesn't trigger requiring @type as key
     private String type;
+    @JsonProperty("type")
+    private void setType(String type) {
+        this.type = type;
+    }
+
     private AttributeSensor<T> sensor;
     private ConfigBag params;
     // introduced in 1.1 for legacy compatibility

@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.resolve.jackson;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonLocation;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.type.WritableTypeId;
@@ -33,20 +34,27 @@ import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.tuple.Pair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.lang.reflect.AccessibleObject;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class AsPropertyIfAmbiguous {
+
+    private static final Logger LOG = LoggerFactory.getLogger(AsPropertyIfAmbiguous.class);
+    private static Set<String> warnedAmbiguousTypeProperty = MutableSet.of();
 
     public static final String CONFLICTING_TYPE_NAME_PROPERTY_PREFIX = "@";
 
@@ -160,6 +168,12 @@ public class AsPropertyIfAmbiguous {
             return new AsPropertyButNotIfFieldConflictTypeDeserializer(_baseType, _idResolver, newTypePropertyName, _typeIdVisible, _defaultImpl, _inclusion);
         }
 
+        protected boolean hasTypePropertyNameAsField(JavaType type) {
+            // object has field with same name as the type property - don't treat the type property supplied here as the type
+            return presentAndNotJsonIgnored(Reflections.findFieldMaybe(type.getRawClass(), _typePropertyName))
+                    || // or object has getter with same name as the type property
+                    presentAndNotJsonIgnored(Reflections.findMethodMaybe(type.getRawClass(), "get" + Strings.toInitialCapOnly(_typePropertyName)));
+        }
         @Override
         public Object deserializeTypedFromObject(JsonParser p, DeserializationContext ctxt) throws IOException {
             AsPropertyButNotIfFieldConflictTypeDeserializer target = this;
@@ -168,11 +182,7 @@ public class AsPropertyIfAmbiguous {
             if (_idResolver instanceof HasBaseType) {
                 JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
                 if (baseType != null ) {
-                    if (// object has field with same name as the type property - don't treat the type property supplied here as the type
-                            presentAndNotJsonIgnored(Reflections.findFieldMaybe(baseType.getRawClass(), _typePropertyName))
-                                    || // or object has getter with same name as the type property
-                                    presentAndNotJsonIgnored(Reflections.findMethodMaybe(baseType.getRawClass(), "get" + Strings.toInitialCapOnly(_typePropertyName)))
-                    ) {
+                    if (hasTypePropertyNameAsField(baseType)) {
                         // look for an '@' type
 //                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName).deserializeTypedFromObject(p, ctxt);
                         // now we always look for @ first, in case the type is not known but that field is present; but if we know 'type' is a bean field, don't allow it to be used
@@ -246,17 +256,57 @@ public class AsPropertyIfAmbiguous {
         private Pair<String,TokenBuffer> findTypeIdOrUnambiguous(JsonParser p, DeserializationContext ctxt, JsonToken t, TokenBuffer tb, boolean ignoreCase, boolean mustUseConflictingTypePrefix) throws IOException {
             String typeUnambiguous = CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName;
 
+            JsonLocation loc = p.currentTokenLocation(); //p.getCurrentLocation();
             for (; t == JsonToken.FIELD_NAME; t = p.nextToken()) {
                 final String name = p.currentName();
                 p.nextToken(); // to point to the value
 
-                // require unambiguous one is first if present; otherwise maintaining the parser and token buffer in the desired states is too hard
-                if (name.equals(typeUnambiguous) || (!mustUseConflictingTypePrefix && (name.equals(_typePropertyName)
-                        || (ignoreCase && name.equalsIgnoreCase(_typePropertyName))))) { // gotcha!
+                // unambiguous property should precede ambiguous property name in cases where property name is required
+                // maintaining the parser and token buffer in the desired states to allow either anywhere is too hard
+                boolean unambiguousName = name.equals(typeUnambiguous);
+                boolean ambiguousName = !unambiguousName && (!mustUseConflictingTypePrefix && (name.equals(_typePropertyName)
+                        || (ignoreCase && name.equalsIgnoreCase(_typePropertyName))));
+                if (ambiguousName || unambiguousName) { // gotcha!
                     // 09-Sep-2021, tatu: [databind#3271]: Avoid converting null to "null"
                     String typeId = p.getValueAsString();
                     if (typeId != null) {
-                        return Pair.of(typeId, tb);
+                        boolean disallowed = false;
+                        if (ambiguousName) {
+                            JavaType tt = _idResolver.typeFromId(ctxt, typeId);
+                            if (tt!=null && hasTypePropertyNameAsField(tt)) {
+                                // if there is a property called 'type' then caller should use @type.
+                                disallowed = true;
+                                // unless we need a type to conform to coercion.
+                                if (_idResolver instanceof HasBaseType) {
+                                    JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
+                                    if (baseType==null || baseType.getRawClass().equals(Object.class)) {
+                                        if (loc.getCharOffset()<=1) {
+                                            // 'type' should be treated as a normal key when an object is expected, if type it references has a field 'type',
+                                            // except if it is the first key in the definition, to facilitate messy places where we say 'type: xxx' as the definition
+                                            if (warnedAmbiguousTypeProperty.add(typeId)) {
+                                                LOG.warn("Ambiguous type property '" + _typePropertyName + "' used for '" + typeId + "' as first entry in definition; this looks like a type specification but this could also refer to the property; " +
+                                                        "using for the former, but specification should have used '" + CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName + "' as key earlier in the map, " +
+                                                        "or if setting the field is intended put an explicit '" + CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName + "' before it");
+                                            }
+                                            disallowed = false;
+                                        } else {
+                                            // leave disallowed
+                                        }
+                                    } else if (baseType.isMapLikeType()) {
+                                        // leave disalloed
+                                    } else {
+                                        if (warnedAmbiguousTypeProperty.add(typeId)) {
+                                            LOG.warn("Ambiguous type property '" + _typePropertyName + "' used for '" + typeId + "'; a type specification is needed to comply with expectations, but this could also refer to the property; " +
+                                                    "using for the former, but specification should have used " + CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName + " as key earlier in the map");
+                                        }
+                                        disallowed = false;
+                                    }
+                                }
+                            }
+                        }
+                        if (!disallowed) {
+                            return Pair.of(typeId, tb);
+                        }
                     }
                 }
                 if (tb == null) {
@@ -264,6 +314,9 @@ public class AsPropertyIfAmbiguous {
                 }
                 tb.writeFieldName(name);
                 tb.copyCurrentStructure(p);
+
+                // advance so we no longer think we are at the beginning
+                loc = p.getCurrentLocation();
             }
             return Pair.of(null, tb);
         }
