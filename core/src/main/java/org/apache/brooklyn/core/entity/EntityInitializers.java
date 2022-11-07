@@ -26,6 +26,7 @@ import java.util.function.BiConsumer;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.base.Function;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -33,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.objs.BasicConfigurableObject;
+import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -191,12 +193,12 @@ public class EntityInitializers {
 
         ConfigBag initParams() { return initParams; }
 
-        @JsonAnySetter
+        @JsonAnySetter @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
         protected void initField(String key, Object value) {
             initFromConfigBag(ConfigBag.newInstance(MutableMap.of(key, value)));
         }
 
-        @JsonProperty("brooklyn.config")
+        @JsonProperty("brooklyn.config") @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
         private void initBrooklynConfig(Map<String,Object> params) {
             initFromConfigBag(ConfigBag.newInstance(params));
         }

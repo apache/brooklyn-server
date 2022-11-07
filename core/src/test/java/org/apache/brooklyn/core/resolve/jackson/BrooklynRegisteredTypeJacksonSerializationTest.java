@@ -146,7 +146,7 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 
     @Test
     public void testDeserializeEntityInitializerWithTypeField() throws Exception {
-        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
         Object impl = deser("{\"type\":\""+ WorkflowSensor.class.getName()+"\""
                 +",\"brooklyn.config\":{\"sensor\":{\"name\":\"mytestsensor\",\"type\":\"samplebean-with-type\"}}"
                 +"}");
@@ -154,8 +154,28 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
     }
 
     @Test
+    public void testDeserializeEntityInitializerWithTypeFieldInParent() throws Exception {
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean", "1", SampleBean.class);
+        Object impl = deser("{\"type\":\""+ WorkflowSensor.class.getName()+"\""
+                +",\"brooklyn.config\":{\"x\":\"y\""
+                +",\"sensor\":{\"name\":\"mytestsensor\",\"type\":\"samplebean\"}"
+                +"}}");
+        Asserts.assertInstanceOf(impl, WorkflowSensor.class);
+    }
+
+    @Test
+    public void testDeserializeEntityInitializerFromCatalogWithTypeField() throws Exception {
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "workflow-sensor", "1", WorkflowSensor.class);
+        Object impl = deser("{\"type\":\"workflow-sensor\""
+                +",\"brooklyn.config\":{\"sensor\":{\"name\":\"mytestsensor\",\"type\":\"samplebean-with-type\"}}"
+                +"}");
+        Asserts.assertInstanceOf(impl, WorkflowSensor.class);
+    }
+
+    @Test
     public void testDeserializeEntityInitializerWithTypeFieldNeededForDeserialization() throws Exception {
-        RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
+        BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
         // 'type' field used to give type because the expected type does not expect 'type'
         Object impl = deser("{\"x\":\"mytestsensor\",\"type\":\"samplebean-with-type\"}", SampleBean.class);
         Asserts.assertInstanceOf(impl, SampleBeanWithType.class);
