@@ -19,6 +19,8 @@
 package org.apache.brooklyn.launcher;
 
 import java.util.jar.Attributes;
+
+import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -131,8 +133,12 @@ public abstract class AbstractBrooklynLauncherRebindTest {
     }
     
     protected BrooklynLauncher newLauncherForTests(PersistMode persistMode, HighAvailabilityMode haMode) {
+        return newLauncherForTests(persistMode, haMode);
+    }
+
+    protected BrooklynLauncher newLauncherForTests(PersistMode persistMode, HighAvailabilityMode haMode, BrooklynProperties optionalProperties) {
         BrooklynLauncher launcher = BrooklynLauncher.newInstance()
-                .brooklynProperties(LocalManagementContextForTests.builder(true).setOsgiEnablementAndReuse(useOsgi(), reuseOsgi()).buildProperties())
+                .brooklynProperties(optionalProperties!=null ? optionalProperties : LocalManagementContextForTests.builder(true).setOsgiEnablementAndReuse(useOsgi(), reuseOsgi()).buildProperties())
                 .persistMode(persistMode)
                 .highAvailabilityMode(haMode)
                 .persistPeriod(Duration.millis(10))

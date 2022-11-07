@@ -99,8 +99,7 @@ public class BrooklynLauncherRebindManagementNodeStateListenerTest extends Abstr
             }
         };
 
-        return super.newLauncherForTests(persistMode, haMode)
-                .brooklynProperties(brooklynProperties)
+        return super.newLauncherForTests(persistMode, haMode, brooklynProperties)
                 .catalogInitialization(catInit);
     }
 

@@ -110,9 +110,9 @@ public class BrooklynPropertiesFactoryHelper {
             return builder;
         } else {
             if (globalBrooklynPropertiesFile != null)
-                LOG.warn("Ignoring globalBrooklynPropertiesFile "+globalBrooklynPropertiesFile+" because explicit brooklynProperties supplied");
+                LOG.info("Ignoring globalBrooklynPropertiesFile "+globalBrooklynPropertiesFile+" because explicit brooklynProperties supplied");
             if (localBrooklynPropertiesFile != null)
-                LOG.warn("Ignoring localBrooklynPropertiesFile "+localBrooklynPropertiesFile+" because explicit brooklynProperties supplied");
+                LOG.info("Ignoring localBrooklynPropertiesFile "+localBrooklynPropertiesFile+" because explicit brooklynProperties supplied");
             return Builder.fromProperties(brooklynProperties);
         }
     }
