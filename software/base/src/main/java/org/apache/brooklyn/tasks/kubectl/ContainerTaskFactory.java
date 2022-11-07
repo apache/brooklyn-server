@@ -213,9 +213,9 @@ public class ContainerTaskFactory<T extends ContainerTaskFactory<T,RET>,RET> imp
                             ProcessTaskWrapper<String> retrieveOutput = runTask(entity, newSimpleTaskFactory(String.format(JOBS_LOGS_CMD, kubeJobName, namespace)).summary("Retrieve output").newTask(), false, true);
                             ProcessTaskWrapper<String> retrieveExitCode = runTask(entity, newSimpleTaskFactory(String.format(PODS_EXIT_CODE_CMD, namespace, kubeJobName)).summary("Retrieve exit code").newTask(), false, true);
 
-                            result.mainStdout = retrieveOutput.get();
-
-                            updateStdoutWithNewData(stdout, result.mainStdout);
+                            String newStdout = retrieveOutput.get();
+                            result.mainStdout = newStdout;  //prevent tag contents from being enormous; suppress in JSON serialization
+                            updateStdoutWithNewData(stdout, newStdout);
 
                             retrieveExitCode.get();
                             String exitCodeS = retrieveExitCode.getStdout();

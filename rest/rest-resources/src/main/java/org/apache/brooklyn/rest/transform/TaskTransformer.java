@@ -67,6 +67,9 @@ public class TaskTransformer {
     };
 
     public static TaskSummary taskSummary(Task<?> task, UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
+        return taskSummary(task, ub, resolver, suppressSecrets, true);
+    }
+    public static TaskSummary taskSummary(Task<?> task, UriBuilder ub, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets, boolean includeDetail) {
       try {
         Preconditions.checkNotNull(task);
         Entity entity = BrooklynTaskTags.getContextEntity(task);
@@ -112,18 +115,22 @@ public class TaskTransformer {
 
         Collection<Object> tags = (Collection<Object>) resolver.getValueForDisplay(task.getTags(), true, false, suppressSecrets);
 
-        Object result;
-        try {
-            if (task.isDone()) {
-                result = resolver.getValueForDisplay(task.get(), true, false, suppressSecrets);
-            } else {
-                result = null;
+        Object result = null;
+        String detailedStatus = null;
+
+        if (includeDetail) {
+            try {
+                if (task.isDone()) {
+                    result = resolver.getValueForDisplay(task.get(), true, false, suppressSecrets);
+                } else {
+                    result = null;
+                }
+            } catch (Throwable t) {
+                result = Exceptions.collapseTextInContext(t, task);
             }
-        } catch (Throwable t) {
-            result = Exceptions.collapseTextInContext(t, task);
         }
 
-        String detailedStatus = (String) resolver.getValueForDisplay(task.getStatusDetail(true), true, false, suppressSecrets);
+        detailedStatus = (String) resolver.getValueForDisplay(task.getStatusDetail(true), true, false, suppressSecrets);
         
         return new TaskSummary(task.getId(), task.getDisplayName(), task.getDescription(), entityId, entityDisplayName, 
                 tags, ifPositive(task.getSubmitTimeUtc()), ifPositive(task.getStartTimeUtc()), ifPositive(task.getEndTimeUtc()),
@@ -160,6 +167,9 @@ public class TaskTransformer {
     }
     
     public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets) {
+        return fromTasks(tasksToScan, limit, recurse, entity, ui, resolver, suppressSecrets, !Boolean.TRUE.equals(recurse));
+    }
+    public static List<TaskSummary> fromTasks(List<Task<?>> tasksToScan, int limit, Boolean recurse, @Nullable Entity entity, UriInfo ui, AbstractBrooklynRestResource.RestValueResolver resolver, Boolean suppressSecrets, boolean includeDetail) {
         int sizeRemaining = limit;
         InterestingTasksFirstComparator comparator = new InterestingTasksFirstComparator(entity);
         if (limit>0 && tasksToScan.size() > limit) {

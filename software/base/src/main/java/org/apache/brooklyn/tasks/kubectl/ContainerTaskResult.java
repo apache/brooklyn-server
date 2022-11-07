@@ -18,6 +18,8 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Object containing details of a container task. This object is notified when containerStarted and containerEnded are set.
  */
@@ -38,6 +40,13 @@ public class ContainerTaskResult {
     }
 
     public String getMainStdout() {
+        return mainStdout;
+    }
+    @JsonProperty("mainStdout")
+    public String getMainStdoutForJson() {
+        if (mainStdout!=null && mainStdout.length()>200) {
+            return "... "+mainStdout.substring(mainStdout.length()-196);
+        }
         return mainStdout;
     }
 

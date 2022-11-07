@@ -36,6 +36,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 
+@JsonInclude(Include.NON_NULL)
 public class TaskSummary implements HasId, Serializable {
 
     private static final long serialVersionUID = 4637850742127078158L;
