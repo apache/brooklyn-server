@@ -133,7 +133,7 @@ public abstract class AbstractBrooklynLauncherRebindTest {
     }
     
     protected BrooklynLauncher newLauncherForTests(PersistMode persistMode, HighAvailabilityMode haMode) {
-        return newLauncherForTests(persistMode, haMode);
+        return newLauncherForTests(persistMode, haMode, null);
     }
 
     protected BrooklynLauncher newLauncherForTests(PersistMode persistMode, HighAvailabilityMode haMode, BrooklynProperties optionalProperties) {
