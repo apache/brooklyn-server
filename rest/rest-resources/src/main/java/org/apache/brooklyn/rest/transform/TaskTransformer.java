@@ -120,6 +120,7 @@ public class TaskTransformer {
 
         if (includeDetail) {
             try {
+                detailedStatus = (String) resolver.getValueForDisplay(task.getStatusDetail(true), true, false, suppressSecrets);
                 if (task.isDone()) {
                     result = resolver.getValueForDisplay(task.get(), true, false, suppressSecrets);
                 } else {
@@ -130,8 +131,7 @@ public class TaskTransformer {
             }
         }
 
-        detailedStatus = (String) resolver.getValueForDisplay(task.getStatusDetail(true), true, false, suppressSecrets);
-        
+
         return new TaskSummary(task.getId(), task.getDisplayName(), task.getDescription(), entityId, entityDisplayName, 
                 tags, ifPositive(task.getSubmitTimeUtc()), ifPositive(task.getStartTimeUtc()), ifPositive(task.getEndTimeUtc()),
                 task.getStatusSummary(), result, task.isError(), task.isCancelled(),

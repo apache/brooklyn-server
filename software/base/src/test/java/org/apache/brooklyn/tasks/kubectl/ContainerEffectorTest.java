@@ -22,15 +22,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
-import org.apache.brooklyn.core.workflow.steps.HttpWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -40,6 +41,7 @@ import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import static org.testng.Assert.assertTrue;
@@ -102,7 +104,7 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     // `bash` installs to /usr/local/bin/bash but we hardcode /bin/bash so can't use `bash`
-    private static final String BASH_SCRIPT_CONTAINER = "perl";
+    public static final String BASH_SCRIPT_CONTAINER = "perl";
 
     @Test
     public void testEchoBashCommandAsWorkflowEffector() {
@@ -164,12 +166,18 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
     }
 
     protected Object doTestEchoBashCommand(Supplier<EntityInitializer> initializerMaker) {
+        return doTestEchoBashCommand(app, initializerMaker, null);
+    }
+
+    // used also in WorkflowYamlTest
+    public static Object doTestEchoBashCommand(TestApplication app, Supplier<EntityInitializer> initializerMaker, Consumer<TestEntity> appCustomizer) {
         EntityInitializer initializer = initializerMaker.get();
 
         TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).addInitializer(initializer));
         app.start(ImmutableList.of());
 
         EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
+        if (appCustomizer!=null) appCustomizer.accept(parentEntity);
         return Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-container-effector")).getUnchecked(Duration.ONE_MINUTE);
     }
 
@@ -205,5 +213,22 @@ public class ContainerEffectorTest extends BrooklynAppUnitTestSupport {
         EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
         Object output = Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-container-effector")).getUnchecked(Duration.ONE_MINUTE);
         assertTrue(output.toString().contains("WORLD"));
+    }
+
+    @Test
+    public void testEchoMultiBashCommandWithEnv() {
+        ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
+                ContainerEffector.EFFECTOR_NAME, "test-container-effector",
+                ContainerCommons.CONTAINER_IMAGE, "bash",
+                ContainerCommons.ARGUMENTS, ImmutableList.of( "-c", "date; echo $HELLO"),
+                BrooklynConfigKeys.SHELL_ENVIRONMENT, ImmutableMap.<String, Object>of("HELLO", "$brooklyn:config(\"hello\")")));
+
+        ContainerEffector initializer = new ContainerEffector(parameters);
+        TestEntity parentEntity = app.createAndManageChild(EntitySpec.create(TestEntity.class).configure("hello", "world").addInitializer(initializer));
+        app.start(ImmutableList.of());
+
+        EntityAsserts.assertAttributeEqualsEventually(parentEntity, Attributes.SERVICE_UP, true);
+        Object output = Entities.invokeEffector(app, parentEntity, parentEntity.getEffector("test-container-effector")).getUnchecked(Duration.ONE_MINUTE);
+        assertTrue(output.toString().contains("WORLD"), "Wrong output: "+output);
     }
 }

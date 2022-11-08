@@ -24,6 +24,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.NoMachinesAvailableException;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;

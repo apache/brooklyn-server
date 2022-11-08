@@ -24,6 +24,7 @@ import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.Jsonya;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -43,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import javax.swing.*;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -241,13 +243,34 @@ public class WorkflowExpressionResolution {
     }
 
     private Object resolveDsl(Object expression) {
+        boolean DEFINITELY_DSL = false;
+        if (expression instanceof String || expression instanceof Map || expression instanceof Collection) {
+            if (expression instanceof String) {
+                if (!((String)expression).startsWith("$brooklyn:")) {
+                    // not DSL
+                    return expression;
+                } else {
+                    DEFINITELY_DSL = true;
+                }
+            }
+            if (BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION==null) {
+                if (DEFINITELY_DSL) {
+                    log.warn("BROOKLYN_PARSE_DSL_FUNCTION not set when processing DSL expression "+expression+"; will not be resolved");
+                }
+            } else {
+                expression = BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION.apply(context.getManagementContext(), expression);
+            }
+        }
         return Tasks.resolving(expression).as(Object.class).context(context.getEntity()).get();
     }
 
     public Object processTemplateExpressionString(String expression) {
         if (expression==null) return null;
         if (expression.startsWith("$brooklyn:")) {
-            return processTemplateExpression(resolveDsl(expression));
+            Object e2 = resolveDsl(expression);
+            if (!Objects.equals(e2, expression)) {
+                return processTemplateExpression(e2);
+            }
         }
 
         TemplateHashModel model = new WorkflowFreemarkerModel();
