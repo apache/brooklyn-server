@@ -350,7 +350,7 @@ public class Exceptions {
                     // (sometimes generating subsequent OOME's in logback that mask the first!)
                     // coarse heuristic for how to reduce it, but that's better than killing cpu, causing further errors, and suppressing the root cause altogether!
                     String msg = chain.get(0).getMessage();
-                    if (msg.length() > 512) msg = msg.substring(0, 500)+"...";
+                    if (msg!=null && msg.length() > 512) msg = msg.substring(0, 500)+"...";
                     return new PropagatedRuntimeException("Huge stack trace (size "+chain.size()+", removing all but last few), "
                             + "starting: "+chain.get(0).getClass().getName()+": "+msg+"; ultimately caused by: ", 
                             chain.get(chain.size() - 10));
