@@ -427,7 +427,11 @@ public class WorkflowExpressionResolution {
                 expression = BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION.apply(context.getManagementContext(), expression);
             }
         }
-        return Tasks.resolving(expression).as(Object.class).context(context.getEntity()).get();
+        return processDslComponents(expression);
+    }
+
+    private Object processDslComponents(Object expression) {
+        return Tasks.resolving(expression).as(Object.class).deep().context(context.getEntity()).get();
     }
 
     public Object processTemplateExpressionString(String expression) {
@@ -435,7 +439,12 @@ public class WorkflowExpressionResolution {
         if (expression.startsWith("$brooklyn:")) {
             Object e2 = resolveDsl(expression);
             if (!Objects.equals(e2, expression)) {
-                return processTemplateExpression(e2);
+                if (e2 instanceof String) {
+                    // proceed to below
+                    expression = (String) e2;
+                } else {
+                    return processTemplateExpression(e2);
+                }
             }
         }
 
@@ -463,8 +472,13 @@ public class WorkflowExpressionResolution {
             }
         }
 
-        if (useWrappedValue) {
-            if (!expression.equals(result)) return new WrappedResolvedExpression<Object>(expression, result);
+        if (!expression.equals(result)) {
+            if (useWrappedValue) {
+                return new WrappedResolvedExpression<Object>(expression, result);
+            } else {
+                // we try, but don't guarantee, that DSL expressions aren't re-resolved, ie $brooklyn:literal("$brooklyn:literal(\"x\")") won't return x
+                result = processDslComponents(result);
+            }
         }
 
         return result;

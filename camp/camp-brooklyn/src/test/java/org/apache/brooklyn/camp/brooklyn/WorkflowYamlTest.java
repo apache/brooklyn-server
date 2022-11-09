@@ -34,7 +34,9 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -686,9 +688,22 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(output.toString().trim(), message + " world");
     }
 
+    public static class SetDeepTestStep extends WorkflowStepDefinition {
+        @Override
+        public void populateFromShorthand(String value) {
+            // no shorthand
+        }
+
+        @Override
+        protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+            return MutableMap.of("x", DslUtils.parseBrooklynDsl(context.getManagementContext(), "$brooklyn:config(\"arg1\")"));
+        }
+    }
+
     @Test(groups="Live")
-    public void testSshEchoBashCommandAsWorkflowEffectorWithVarFromConfig() throws Exception {
+    public void testSshEchoBashCommandAsWorkflowEffectorWithDeepVarFromConfig() throws Exception {
         WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "container", ContainerWorkflowStep.class);
+        WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "set-deep", SetDeepTestStep.class);
         BrooklynDslCommon.registerSerializationHooks();
         final String message = ("hello " + Strings.makeRandomId(10)).toLowerCase();
 
@@ -701,7 +716,9 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 WorkflowEffector.STEPS, MutableList.of(
                         MutableMap.of("step", "let map env_local", "value", MutableMap.of("VAR1", "$brooklyn:config(\"hello\")", "ENTITY_ID", "$brooklyn:entityId()")),
                         "let merge map env = ${env} ${env_local}",
-                        MutableMap.<String, Object>of("step", "ssh echo "+ message+" Entity:$ENTITY_ID:$VAR1:$VAR2",
+                        "set-deep",
+                        "let env.VAR3 = ${workflow.previous_step.output}",
+                        MutableMap.<String, Object>of("step", "ssh echo "+ message+" Entity:$ENTITY_ID:$VAR1:$VAR2:$VAR3",
                                 "input",
                                 MutableMap.of("env", "${env}"),
                                 "output", "${stdout}"))));
@@ -712,10 +729,12 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 addInitializer(initializer));
         app.start(ImmutableList.of());
         child.config().set(ConfigKeys.newStringConfigKey("hello"), "world");
+        child.config().set(ConfigKeys.newStringConfigKey("arg1"), "Arg1");
 
-        Object output = Entities.invokeEffector(app, child, ((EntityInternal) child).getEffector("test-ssh-effector"), MutableMap.of("env", MutableMap.of("VAR2","Arg1"))).getUnchecked(Duration.ONE_MINUTE);
+        Object output = Entities.invokeEffector(app, child, ((EntityInternal) child).getEffector("test-ssh-effector"), MutableMap.of("env",
+                MutableMap.of("VAR2", DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:config(\"arg1\")")))).getUnchecked(Duration.ONE_MINUTE);
 
-        Asserts.assertEquals(output.toString().trim(), message + " Entity:"+app.getChildren().iterator().next().getId()+":"+"world:Arg1");
+        Asserts.assertEquals(output.toString().trim(), message + " Entity:"+app.getChildren().iterator().next().getId()+":"+"world:Arg1:{\"x\":\"Arg1\"}");
     }
 
 
