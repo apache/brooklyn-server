@@ -27,7 +27,9 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.ResolutionFailureTreatedAsAbsent;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -38,14 +40,12 @@ import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.swing.*;
-import java.util.Collection;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class WorkflowExpressionResolution {
@@ -233,13 +233,34 @@ public class WorkflowExpressionResolution {
         }
     }
 
+    static ThreadLocal<Set<Pair<WorkflowExecutionContext,Object>>> RESOLVE_STACK = new ThreadLocal<>();
+
     public Object processTemplateExpression(Object expression) {
-        if (expression instanceof String) return processTemplateExpressionString((String)expression);
-        if (expression instanceof Map) return processTemplateExpressionMap((Map)expression);
-        if (expression instanceof Collection) return processTemplateExpressionCollection((Collection)expression);
-        if (expression==null || Boxing.isPrimitiveOrBoxedObject(expression)) return expression;
-        // otherwise resolve DSL
-        return resolveDsl(expression);
+        Set<Pair<WorkflowExecutionContext,Object>> stack = null;
+        try {
+            stack = RESOLVE_STACK.get();
+            if (stack==null) {
+                stack = MutableSet.of();
+                RESOLVE_STACK.set(stack);
+            }
+            if (!stack.add(Pair.of(context, expression))) {
+                throw new IllegalStateException("Recursive reference: "+stack.stream().map(p -> ""+p.getRight()).collect(Collectors.joining("->")));
+            }
+            if (stack.size()>100) {
+                throw new IllegalStateException("Reference exceeded max depth 100: "+stack.stream().map(p -> ""+p.getRight()).collect(Collectors.joining("->")));
+            }
+
+            if (expression instanceof String) return processTemplateExpressionString((String) expression);
+            if (expression instanceof Map) return processTemplateExpressionMap((Map) expression);
+            if (expression instanceof Collection) return processTemplateExpressionCollection((Collection) expression);
+            if (expression == null || Boxing.isPrimitiveOrBoxedObject(expression)) return expression;
+            // otherwise resolve DSL
+            return resolveDsl(expression);
+
+        } finally {
+            stack.remove(Pair.of(context, expression));
+            if (stack.isEmpty()) RESOLVE_STACK.remove();
+        }
     }
 
     private Object resolveDsl(Object expression) {

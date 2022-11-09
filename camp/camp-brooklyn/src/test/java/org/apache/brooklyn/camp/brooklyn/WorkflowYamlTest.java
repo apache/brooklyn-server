@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -36,24 +37,24 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Attributes;
-import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
-import org.apache.brooklyn.core.entity.Dumper;
-import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.WorkflowSoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
+import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.location.winrm.WinrmWorkflowStep;
 import org.apache.brooklyn.tasks.kubectl.ContainerEffectorTest;
@@ -664,8 +665,8 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(result, 11);
     }
 
-    @Test
-    public void testEchoBashCommandAsWorkflowEffectorWithVarFromConfig() throws Exception {
+    @Test(groups="Live")
+    public void testContainerEchoBashCommandAsWorkflowEffectorWithVarFromConfig() throws Exception {
         WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "container", ContainerWorkflowStep.class);
         BrooklynDslCommon.registerSerializationHooks();
         final String message = ("hello " + Strings.makeRandomId(10)).toLowerCase();
@@ -677,7 +678,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
                     WorkflowEffector.EFFECTOR_NAME, "test-container-effector",
                     WorkflowEffector.STEPS, MutableList.of(
-                            MutableMap.<String, Object>of("s", "container " + ContainerEffectorTest.BASH_SCRIPT_CONTAINER + " echo " + message + " $VAR",
+                            MutableMap.<String, Object>of("step", "container " + ContainerEffectorTest.BASH_SCRIPT_CONTAINER + " echo " + message + " $VAR",
                                     "input",
                                     MutableMap.of("env", MutableMap.of("VAR", "$brooklyn:config(\"hello\")")),
                                     "output", "${stdout}"))));
@@ -685,6 +686,38 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             return new WorkflowEffector(parameters);
         }, entity -> entity.config().set(ConfigKeys.newStringConfigKey("hello"), "world"));
         Asserts.assertEquals(output.toString().trim(), message + " world");
+    }
+
+    @Test(groups="Live")
+    public void testSshEchoBashCommandAsWorkflowEffectorWithVarFromConfig() throws Exception {
+        WorkflowBasicTest.addRegisteredTypeBean(mgmt(), "container", ContainerWorkflowStep.class);
+        BrooklynDslCommon.registerSerializationHooks();
+        final String message = ("hello " + Strings.makeRandomId(10)).toLowerCase();
+
+        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class);
+        TestApplication app = mgmt().getEntityManager().createEntity(appSpec);
+
+        ConfigBag parameters = ConfigBag.newInstance(ImmutableMap.of(
+                WorkflowEffector.EFFECTOR_NAME, "test-ssh-effector",
+                WorkflowEffector.PARAMETER_DEFS, MutableMap.of("env", null),
+                WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of("step", "let map env_local", "value", MutableMap.of("VAR1", "$brooklyn:config(\"hello\")", "ENTITY_ID", "$brooklyn:entityId()")),
+                        "let merge map env = ${env} ${env_local}",
+                        MutableMap.<String, Object>of("step", "ssh echo "+ message+" Entity:$ENTITY_ID:$VAR1:$VAR2",
+                                "input",
+                                MutableMap.of("env", "${env}"),
+                                "output", "${stdout}"))));
+
+        WorkflowEffector initializer = new WorkflowEffector(parameters);
+
+        EmptySoftwareProcess child = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class).location(LocationSpec.create(LocalhostMachineProvisioningLocation.class)).
+                addInitializer(initializer));
+        app.start(ImmutableList.of());
+        child.config().set(ConfigKeys.newStringConfigKey("hello"), "world");
+
+        Object output = Entities.invokeEffector(app, child, ((EntityInternal) child).getEffector("test-ssh-effector"), MutableMap.of("env", MutableMap.of("VAR2","Arg1"))).getUnchecked(Duration.ONE_MINUTE);
+
+        Asserts.assertEquals(output.toString().trim(), message + " Entity:"+app.getChildren().iterator().next().getId()+":"+"world:Arg1");
     }
 
 
