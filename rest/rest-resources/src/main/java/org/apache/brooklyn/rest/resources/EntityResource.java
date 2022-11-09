@@ -328,6 +328,12 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public Response expunge(String application, String entity, boolean release) {
         Entity instance = brooklyn().getEntity(application, entity);
         Task<?> task = brooklyn().expunge(instance, release);
+
+        if (instance.getDisplayName()==null || !instance.getDisplayName().startsWith("[DESTROYING] ")) {
+            // usually this is quick but if it isn't change the name so there is a clear indication
+            instance.setDisplayName("[DESTROYING] " + instance.getDisplayName());
+        }
+
         TaskSummary summary = TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null),  false).apply(task);
         return status(ACCEPTED).entity(summary).build();
     }

@@ -85,6 +85,8 @@ public class BrooklynTaskTags extends TaskTags {
     public static final Object TOP_LEVEL_TASK = "TOP-LEVEL";
     /** Tag for a task which represents entity initialization */
     public static final Object ENTITY_INITIALIZATION = "INITIALIZATION";
+    /** Tag for a task which represents entity destruction */
+    public static final Object ENTITY_DESTRUCTION = "DESTRUCTION";
     /** Tag for a task which represents an effector */
     public static final String EFFECTOR_TAG = "EFFECTOR";
     /** Tag for a task which represents a sensor being published */

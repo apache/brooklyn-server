@@ -476,7 +476,7 @@ public class BrooklynRestResourceUtils {
             Map<String, Object> flags = MutableMap.<String, Object>of("displayName", "expunging " + entity, "description", "REST call to expunge entity "
                     + entity.getDisplayName() + " (" + entity + ")");
             if (Entitlements.getEntitlementContext() != null) {
-                flags.put("tags", MutableSet.of(BrooklynTaskTags.tagForEntitlement(Entitlements.getEntitlementContext())));
+                flags.put("tags", MutableSet.of(BrooklynTaskTags.ENTITY_DESTRUCTION, BrooklynTaskTags.tagForEntitlement(Entitlements.getEntitlementContext())));
             }
             return mgmt.getExecutionManager().submit(
                     flags, new Runnable() {
