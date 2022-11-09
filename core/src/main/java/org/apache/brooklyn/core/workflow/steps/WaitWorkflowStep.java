@@ -25,22 +25,13 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.List;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 
 public class WaitWorkflowStep extends WorkflowStepDefinition {
 
@@ -65,7 +56,7 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
         TypeToken<?> type = TypeToken.of(Object.class);
 
         if (variable!=null) {
-            name = context.resolve(variable.name, String.class);
+            name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
             if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
             type = context.lookupType(variable.type, () -> TypeToken.of(Object.class));
         }
@@ -74,10 +65,10 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
 
         Stopwatch sw = Stopwatch.createStarted();
         Object unresolvedValue = input.get(VALUE.getName());
-        Object resolvedValue = context.resolveWaiting(unresolvedValue, type);
+        Object resolvedValue = context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, unresolvedValue, type);
         if (task) {
             if (resolvedValue instanceof String) {
-                resolvedValue = ((ManagementContextInternal) ((EntityInternal) context.getWorkflowExectionContext().getEntity())).getExecutionManager().getTask((String) resolvedValue);
+                resolvedValue = ((ManagementContextInternal) (context.getWorkflowExectionContext().getEntity())).getExecutionManager().getTask((String) resolvedValue);
             }
             if (resolvedValue !=null) {
                 if (resolvedValue instanceof TaskAdaptable) {

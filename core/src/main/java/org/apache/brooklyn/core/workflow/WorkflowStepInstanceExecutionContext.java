@@ -121,10 +121,14 @@ public class WorkflowStepInstanceExecutionContext {
      * (Input is not resolved until first access because some implementations, such as 'let', might handle errors in resolution.
      * But once resolved we don't want inconsistent return values.) */
     public <T> T getInput(String key, TypeToken<T> type) {
+        return getInput(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key, type);
+    }
+    public <T> T getInput(WorkflowExpressionResolution.WorkflowExpressionStage stage, String key, TypeToken<T> type) {
         if (inputResolved.containsKey(key)) return (T)inputResolved.get(key);
 
         Object v = input.get(key);
-        T v2 = context.resolve(v, type);
+        T v2 = WorkflowExpressionResolution.allowingRecursionWhenSetting(context, WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, key,
+                () -> context.resolve(stage, v, type));
         if (REMEMBER_RESOLVED_INPUT) {
             if (!Objects.equals(v, v2)) {
                 inputResolved.put(key, v2);
@@ -180,22 +184,22 @@ public class WorkflowStepInstanceExecutionContext {
         return context.lookupType(type, ifUnset);
     }
 
-    public Object resolve(String expression) {
-        return context.resolve(expression);
+    public Object resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, String expression) {
+        return context.resolve(stage, expression);
     }
 
-    public <T> T resolve(Object expression, Class<T> type) {
-        return context.resolve(expression, type);
+    public <T> T resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, Class<T> type) {
+        return context.resolve(stage, expression, type);
     }
 
-    public <T> T resolve(Object expression, TypeToken<T> type) {
-        return context.resolve(expression, type);
+    public <T> T resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return context.resolve(stage, expression, type);
     }
-    public <T> T resolveWrapped(Object expression, TypeToken<T> type) {
-        return context.resolveWrapped(expression, type);
+    public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return context.resolveWrapped(stage, expression, type);
     }
-    public <T> T resolveWaiting(Object expression, TypeToken<T> type) {
-        return context.resolveWaiting(expression, type);
+    public <T> T resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return context.resolveWaiting(stage, expression, type);
     }
 
     @JsonIgnore

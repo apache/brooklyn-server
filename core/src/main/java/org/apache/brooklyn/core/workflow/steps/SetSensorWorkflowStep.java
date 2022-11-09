@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
@@ -49,7 +50,7 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         EntityValueToSet sensor = context.getInput(SENSOR);
         if (sensor==null) throw new IllegalArgumentException("Sensor name is required");
-        String sensorName = context.resolve(sensor.name, String.class);
+        String sensorName = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, sensor.name, String.class);
         if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
         TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
         Entity entity = sensor.entity;

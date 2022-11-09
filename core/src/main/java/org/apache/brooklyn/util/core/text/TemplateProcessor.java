@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.ThreadLocalStack;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -75,15 +76,17 @@ public class TemplateProcessor {
 
     static BrooklynFreemarkerUnwrappableObjectWrapper BROOKLYN_WRAPPER = new BrooklynFreemarkerUnwrappableObjectWrapper();
 
-    static ThreadLocal<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocal<>();
-    static ThreadLocal<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocal<>();
+    static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>(true);
+    static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>(true);
 
     static class BrooklynFreemarkerUnwrappableObjectWrapper extends BrooklynFreemarkerObjectWrapper {
 
         public Maybe<Object> unwrapMaybe(TemplateModel model) {
-            Map<TemplateModel, Object> unwrappingMap = TEMPLATE_MODEL_UNWRAP_CACHE.get();
-            if (unwrappingMap==null) return Maybe.absent("This thread does not support unwrapping");
-            if (!unwrappingMap.containsKey(model)) {
+            Maybe<Map<TemplateModel, Object>> unwrappingMapM = TEMPLATE_MODEL_UNWRAP_CACHE.peek();
+            if (unwrappingMapM.isAbsent()) {
+                return Maybe.absent("This thread does not support unwrapping");
+            }
+            if (!unwrappingMapM.get().containsKey(model)) {
                 // happens if we return a constant within a model
                 if (model instanceof TemplateScalarModel) {
                     try {
@@ -94,11 +97,11 @@ public class TemplateProcessor {
                 }
                 return Maybe.absent("Type and source of model is unknown: " + model);
             }
-            return Maybe.ofAllowingNull(unwrappingMap.get(model));
+            return Maybe.ofAllowingNull(unwrappingMapM.get().get(model));
         }
 
         public TemplateModel rememberWrapperIfSupported(Object o, TemplateModel m) {
-            Map<TemplateModel, Object> unwrappingMap = TEMPLATE_MODEL_UNWRAP_CACHE.get();
+            Map<TemplateModel, Object> unwrappingMap = TEMPLATE_MODEL_UNWRAP_CACHE.peek().orNull();
             if (unwrappingMap!=null) unwrappingMap.put(m, o);
             return m;
         }
@@ -482,11 +485,11 @@ public class TemplateProcessor {
 
         protected EntityAttributeTemplateModel(EntityInternal entity, SensorResolutionMode mode) {
             this.entity = entity;
-            if (TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.get()!=null) {
+            if (TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.peek().isPresentAndNonNull()) {
                 // in templates, we have only ever supported attribute when ready. preserve that for now, but warn of deprecation.
                 if (mode != SensorResolutionMode.ATTRIBUTE_WHEN_READY) {
                     log.warn("Using deprecated legacy attributeWhenReady behaviour of ${entity.attribute...} or ${entity.sensor...}. Template should be updated to use ${entity.attributeWhenReady...} if that is required: "
-                        + TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.get());
+                        + TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.peek());
                     mode = SensorResolutionMode.ATTRIBUTE_WHEN_READY;
                 }
             }
@@ -763,10 +766,10 @@ public class TemplateProcessor {
     @Deprecated /** since 1.1, used to warn about deprecated use of ${entity.sensor.value} to have attribute-when-ready behaviour */
     private static Object processTemplateContentsLegacy(String context, String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors) {
         try {
-            TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.set(context);
+            TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.push(context);
             return processTemplateContents(context, templateContents, substitutions, allowSingleVariableObject, logErrors);
         } finally {
-            TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.remove();
+            TEMPLATE_FILE_WANTING_LEGACY_SYNTAX.pop();
         }
     }
 
@@ -788,7 +791,7 @@ public class TemplateProcessor {
                 Environment env = template.createProcessingEnvironment(substitutions, null);
                 Maybe<Method> evalMethod = Reflections.findMethodMaybe(Expression.class, "eval", Environment.class);
                 try {
-                    TEMPLATE_MODEL_UNWRAP_CACHE.set(MutableMap.of());
+                    TEMPLATE_MODEL_UNWRAP_CACHE.push(MutableMap.of());
                     Maybe<Object> model = evalMethod.isAbsent() ? Maybe.Absent.castAbsent(evalMethod) : escapedExpression.map(expr -> {
                         try {
                             return Reflections.invokeMethodFromArgs(expr,
@@ -809,7 +812,7 @@ public class TemplateProcessor {
                         log.warn("Unable to access FreeMarker internals to resolve " + templateContents + "; will cast argument as string");
                     }
                 } finally {
-                    TEMPLATE_MODEL_UNWRAP_CACHE.remove();
+                    TEMPLATE_MODEL_UNWRAP_CACHE.pop();
                 }
             }
 

@@ -26,37 +26,48 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.util.collections.Jsonya;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.ResolutionFailureTreatedAsAbsent;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
-import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
-import org.apache.brooklyn.util.core.task.ValueResolver;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
 import java.util.*;
+import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class WorkflowExpressionResolution {
+
+    public enum WorkflowExpressionStage implements Comparable<WorkflowExpressionStage> {
+        WORKFLOW_INPUT,
+        WORKFLOW_STARTING_POST_INPUT,
+        STEP_PRE_INPUT,
+        STEP_INPUT,
+        STEP_RUNNING,
+        STEP_OUTPUT,
+        STEP_FINISHING_POST_OUTPUT,
+        WORKFLOW_OUTPUT;
+
+        public boolean after(WorkflowExpressionStage other) {
+            return compareTo(other) > 0;
+        }
+    }
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExpressionResolution.class);
     private final WorkflowExecutionContext context;
     private final boolean allowWaiting;
     private final boolean useWrappedValue;
+    private final WorkflowExpressionStage stage;
 
-    public WorkflowExpressionResolution(WorkflowExecutionContext context, boolean allowWaiting, boolean wrapExpressionValues) {
+    public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, boolean wrapExpressionValues) {
         this.context = context;
+        this.stage = stage;
         this.allowWaiting = allowWaiting;
         this.useWrappedValue = wrapExpressionValues;
     }
@@ -70,6 +81,8 @@ public class WorkflowExpressionResolution {
     class WorkflowFreemarkerModel implements TemplateHashModel {
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
+            List<Throwable> errors = MutableList.of();
+
             if ("workflow".equals(key)) {
                 return new WorkflowExplicitModel();
             }
@@ -83,32 +96,83 @@ public class WorkflowExpressionResolution {
             Object candidate;
 
             //workflow.current_step.input.somevar
-            WorkflowStepInstanceExecutionContext currentStep = context.currentStepInstance;
-            if (currentStep!=null) {
-                if (currentStep.output instanceof Map) {
-                    candidate = ((Map) currentStep.output).get(key);
-                    if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            if (stage.after(WorkflowExpressionStage.STEP_PRE_INPUT)) {
+                WorkflowStepInstanceExecutionContext currentStep = context.currentStepInstance;
+                if (currentStep != null && stage.after(WorkflowExpressionStage.STEP_OUTPUT)) {
+                    if (currentStep.output instanceof Map) {
+                        candidate = ((Map) currentStep.output).get(key);
+                        if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                    }
                 }
 
-                candidate = currentStep.getInput(key, Object.class);
-                if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                try {
+                    candidate = currentStep.getInput(key, Object.class);
+                } catch (Throwable t) {
+                    Exceptions.propagateIfFatal(t);
+                    if (stage==WorkflowExpressionStage.STEP_INPUT && WorkflowVariableResolutionStackEntry.isStackForSettingVariable(RESOLVE_STACK.getAll(true), key) && Exceptions.getFirstThrowableOfType(t, WorkflowVariableRecursiveReference.class)!=null) {
+
+                        // input evaluation can look at local input, and will gracefully handle some recursive references.
+                        // this is needed so we can handle things like env:=${env} in input, and also {message:="Hi ${name}", name:="Bob"}.
+                        // but there are
+                        // if we have a chain input1:=input2, and input input2:=input1 with both defined on step and on workflow
+                        //
+                        // (a) eval of either will give recursive reference error and allow retry immediately;
+                        //     then it's a bit weird, inconsistent, step input1 will resolve to local input2 which resolves as global input1;
+                        //     but step input2 will resolve to local input1 which this time will resolve as global input2.
+                        //     and whichever is invoked first will cause both to be stored as resolved, so if input2 resolved first then
+                        //     step input1 subsequently returns global input2.
+                        //
+                        // (b) recursive reference error only recoverable at the outermost stage,
+                        //     so step input1 = global input2, step input2 = global input1,
+                        //     prevents inconsistency but blocks useful things, eg log ${message} wrapped with message:="Hi ${name}",
+                        //     then invoked with name: "person who says ${message}" to refer to a previous step's message,
+                        //     or even name:="Mr ${name}" to refer to an outer variable.
+                        //     in this case if name is resolved first then message resolves as Hi Mr X, but if message resolved first
+                        //     it only recovers when resolving message which would become "Hi X", and if message:="${greeting} ${name}"
+                        //     then it fails to find a local ${greeting}. (with strategy (a) these both do what is expected.)
+                        //
+                        // (to handle this we include stage in the stack, needed in both cases above)
+                        //
+                        // ideally we would know which vars are from a wrapper, but that info is lost when we build up the step
+                        //
+                        // (c) we could just fail fast, disallow the nice things we wanted, require explicit
+                        //
+                        // (d) we could fail in edge cases, so the obvious cases above work as expected, but anything more sophisticated, eg A calling B calling A, will fail
+                        //
+                        // settled on (d) effectively; we allow local references, and fail on recursive references, with exceptions.
+                        // the main exception, handled here, is if we are setting an input
+                        candidate = null;
+                        errors.add(t);
+                    } else {
+                        throw Exceptions.propagate(t);
+                    }
+                }
+                if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
             }
+
             //workflow.previous_step.output.somevar
-            Object prevStepOutput = context.getPreviousStepOutput();
-            if (prevStepOutput instanceof Map) {
-                candidate = ((Map)prevStepOutput).get(key);
-                if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            if (stage.after(WorkflowExpressionStage.WORKFLOW_INPUT)) {
+                Object prevStepOutput = context.getPreviousStepOutput();
+                if (prevStepOutput instanceof Map) {
+                    candidate = ((Map) prevStepOutput).get(key);
+                    if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+                }
             }
 
             //workflow.scratch.somevar
-            candidate = context.workflowScratchVariables.get(key);
-            if (candidate!=null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            if (stage.after(WorkflowExpressionStage.WORKFLOW_INPUT)) {
+                candidate = context.workflowScratchVariables.get(key);
+                if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
+            }
 
             //workflow.input.somevar
             if (context.input.containsKey(key)) {
                 candidate = context.getInput(key);
+                // the subtlety around step input above doesn't apply here as workflow inputs are not resolved with freemarker
                 if (candidate != null) return TemplateProcessor.wrapAsTemplateModel(candidate);
             }
+
+            if (!errors.isEmpty()) Exceptions.propagate("Errors resolving "+key, errors);
 
             return ifNoMatches();
         }
@@ -233,21 +297,103 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    static ThreadLocal<Set<Pair<WorkflowExecutionContext,Object>>> RESOLVE_STACK = new ThreadLocal<>();
+    static class WorkflowVariableResolutionStackEntry {
+        WorkflowExecutionContext context;
+        WorkflowExpressionStage stage;
+        Object object;
+        String settingVariable;
+
+        public static WorkflowVariableResolutionStackEntry of(WorkflowExecutionContext context, WorkflowExpressionStage stage, Object expression) {
+            WorkflowVariableResolutionStackEntry result = new WorkflowVariableResolutionStackEntry();
+            result.context = context;
+            result.stage = stage;
+            result.object = expression;
+            return result;
+        }
+
+        public static WorkflowVariableResolutionStackEntry setting(WorkflowExecutionContext context, WorkflowExpressionStage stage, String settingVariable) {
+            WorkflowVariableResolutionStackEntry result = new WorkflowVariableResolutionStackEntry();
+            result.context = context;
+            result.stage = stage;
+            result.settingVariable = settingVariable;
+            return result;
+        }
+
+        public static boolean isStackForSettingVariable(Collection<WorkflowVariableResolutionStackEntry> stack, String key) {
+            if (stack==null) return true;
+            MutableList<WorkflowVariableResolutionStackEntry> s2 = MutableList.copyOf(stack);
+            Collections.reverse(s2);
+            Optional<WorkflowVariableResolutionStackEntry> s = s2.stream().filter(si -> si.settingVariable != null).findFirst();
+            if (!s.isPresent()) return false;
+            return s.get().settingVariable.equals(key);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            WorkflowVariableResolutionStackEntry that = (WorkflowVariableResolutionStackEntry) o;
+
+            if (context != null && that.context != null ? !Objects.equals(context.getWorkflowId(), that.context.getWorkflowId()) : !Objects.equals(context, that.context)) return false;
+            if (stage != that.stage) return false;
+            if (object != null ? !object.equals(that.object) : that.object != null) return false;
+            if (settingVariable != null ? !settingVariable.equals(that.settingVariable) : that.settingVariable != null) return false;
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = context != null && context.getWorkflowId()!=null ? context.getWorkflowId().hashCode() : 0;
+            result = 31 * result + (stage != null ? stage.hashCode() : 0);
+            result = 31 * result + (object != null ? object.hashCode() : 0);
+            result = 31 * result + (settingVariable != null ? settingVariable.hashCode() : 0);
+            return result;
+        }
+    }
+
+    /** method which can be used to indicate that a reference to the variable, if it is recursive, is recoverable, because we are in the process of setting that variable.
+     * see discussion on usages of WorkflowVariableResolutionStackEntry.isStackForSettingVariable */
+    public static <T> T allowingRecursionWhenSetting(WorkflowExecutionContext context, WorkflowExpressionStage stage, String variable, Supplier<T> callable) {
+        WorkflowVariableResolutionStackEntry entry = null;
+        try {
+            entry = WorkflowVariableResolutionStackEntry.setting(context, stage, variable);
+            if (!RESOLVE_STACK.push(entry)) {
+                entry = null;
+                throw new WorkflowVariableRecursiveReference("Recursive reference setting "+variable+": "+RESOLVE_STACK.getAll(false).stream().map(p -> p.object!=null ? p.object.toString() : p.settingVariable).collect(Collectors.joining("->")));
+            }
+
+            return callable.get();
+
+        } finally {
+            if (entry!=null) {
+                RESOLVE_STACK.pop(entry);
+            }
+        }
+    }
+
+    static ThreadLocalStack<WorkflowVariableResolutionStackEntry> RESOLVE_STACK = new ThreadLocalStack<>(false);
+
+    WorkflowExpressionStage previousStage() {
+        return RESOLVE_STACK.peekPenultimate().map(s -> s.stage).orNull();
+    }
+
+    public static class WorkflowVariableRecursiveReference extends IllegalArgumentException {
+        public WorkflowVariableRecursiveReference(String msg) {
+            super(msg);
+        }
+    }
 
     public Object processTemplateExpression(Object expression) {
-        Set<Pair<WorkflowExecutionContext,Object>> stack = null;
+        WorkflowVariableResolutionStackEntry entry = null;
         try {
-            stack = RESOLVE_STACK.get();
-            if (stack==null) {
-                stack = MutableSet.of();
-                RESOLVE_STACK.set(stack);
+            entry = WorkflowVariableResolutionStackEntry.of(context, stage, expression);
+            if (!RESOLVE_STACK.push(entry)) {
+                entry = null;
+                throw new WorkflowVariableRecursiveReference("Recursive reference: "+RESOLVE_STACK.getAll(false).stream().map(p -> ""+p.object).collect(Collectors.joining("->")));
             }
-            if (!stack.add(Pair.of(context, expression))) {
-                throw new IllegalStateException("Recursive reference: "+stack.stream().map(p -> ""+p.getRight()).collect(Collectors.joining("->")));
-            }
-            if (stack.size()>100) {
-                throw new IllegalStateException("Reference exceeded max depth 100: "+stack.stream().map(p -> ""+p.getRight()).collect(Collectors.joining("->")));
+            if (RESOLVE_STACK.size()>100) {
+                throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: "+RESOLVE_STACK.getAll(false).stream().map(p -> ""+p.object).collect(Collectors.joining("->")));
             }
 
             if (expression instanceof String) return processTemplateExpressionString((String) expression);
@@ -258,8 +404,7 @@ public class WorkflowExpressionResolution {
             return resolveDsl(expression);
 
         } finally {
-            stack.remove(Pair.of(context, expression));
-            if (stack.isEmpty()) RESOLVE_STACK.remove();
+            if (entry!=null) RESOLVE_STACK.pop(entry);
         }
     }
 

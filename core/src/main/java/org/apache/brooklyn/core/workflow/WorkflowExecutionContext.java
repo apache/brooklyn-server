@@ -226,7 +226,7 @@ public class WorkflowExecutionContext {
         WorkflowStepResolution.resolveOnErrorSteps(w.getManagementContext(), w.onError);
 
         // some fields need to be resolved at setting time, in the context of the workflow
-        w.setCondition(w.resolveWrapped(paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
+        w.setCondition(w.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_STARTING_POST_INPUT, paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
 
         // finished -- checkpoint noting this has been created but not yet started
         w.status = WorkflowStatus.STAGED;
@@ -510,42 +510,42 @@ public class WorkflowExecutionContext {
         return new BrooklynTypeNameResolution.BrooklynTypeNameResolver("workflow", loader, true, true).getTypeToken(typeName);
     }
 
-    /** as {@link #resolve(Object, TypeToken)} but without type coercion */
-    public Object resolve(String expression) {
-        return resolve(expression, Object.class);
+    /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)} but without type coercion */
+    public Object resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, String expression) {
+        return resolve(stage, expression, Object.class);
     }
 
-    /** as {@link #resolve(Object, TypeToken)} */
-    public <T> T resolve(Object expression, Class<T> type) {
-        return resolve(expression, TypeToken.of(type));
+    /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)} */
+    public <T> T resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, Class<T> type) {
+        return resolve(stage, expression, TypeToken.of(type));
     }
 
     /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion.
      * if the type is a string, null is not permitted, otherwise it is. */
-    public <T> T resolve(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, false, false).resolveWithTemplates(expression, type);
+    public <T> T resolve(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, stage, false, false).resolveWithTemplates(expression, type);
     }
 
-    public <T> T resolveCoercingOnly(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, false, false).resolveCoercingOnly(expression, type);
+    public <T> T resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, stage, false, false).resolveCoercingOnly(expression, type);
     }
 
-    /** as {@link #resolve(Object, TypeToken)}, but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
+    /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)}, but returning DSL/supplier for values (so the indication of their dynamic nature is preserved, even if the value returned by it is resolved;
      * this is needed e.g. for conditions which treat dynamic expressions differently to explicit values) */
-    public <T> T resolveWrapped(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, false, true).resolveWithTemplates(expression, type);
+    public <T> T resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, stage, false, true).resolveWithTemplates(expression, type);
     }
 
-    /** as {@link #resolve(Object, TypeToken)}, but waiting on any expressions which aren't ready */
-    public <T> T resolveWaiting(Object expression, TypeToken<T> type) {
-        return new WorkflowExpressionResolution(this, true, false).resolveWithTemplates(expression, type);
+    /** as {@link #resolve(WorkflowExpressionResolution.WorkflowExpressionStage, Object, TypeToken)}, but waiting on any expressions which aren't ready */
+    public <T> T resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage stage, Object expression, TypeToken<T> type) {
+        return new WorkflowExpressionResolution(this, stage, true, false).resolveWithTemplates(expression, type);
     }
 
     /** resolution of ${interpolation} and $brooklyn:dsl and deferred suppliers, followed by type coercion */
-    public <T> T resolveConfig(ConfigBag config, ConfigKey<T> key) {
+    public <T> T resolveConfig(WorkflowExpressionResolution.WorkflowExpressionStage stage, ConfigBag config, ConfigKey<T> key) {
         Object v = config.getStringKey(key.getName());
         if (v==null) return null;
-        return resolve(v, key.getTypeToken());
+        return resolve(stage, v, key.getTypeToken());
     }
 
     public Integer getCurrentStepIndex() {
@@ -776,7 +776,7 @@ public class WorkflowExecutionContext {
                         }
 
                         if (outputDefinition != null) {
-                            output = resolve(outputDefinition, Object.class);
+                            output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, outputDefinition, Object.class);
                         } else {
                             // (default is the output of the last step)
                             // ((unlike steps, workflow output is not available as a default value, but previous step always is, so there is no need to do this
@@ -862,7 +862,7 @@ public class WorkflowExecutionContext {
                                 if (result != null) {
                                     errorHandled = true;
 
-                                    if (result.output != null) output = resolve(result.output, Object.class);
+                                    if (result.output != null) output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, result.output, Object.class);
 
                                     String next = Strings.isNonBlank(result.next) ? result.next : "end";
                                     moveToNextStep(next, "Handled error in workflow around step " + workflowStepReference(currentStepIndex));
@@ -994,7 +994,7 @@ public class WorkflowExecutionContext {
             AtomicReference<String> customNext = new AtomicReference<>();
             Runnable next = () -> moveToNextStep(Strings.isNonBlank(customNext.get()) ? customNext.get() : step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
             Consumer<Object> saveOutput = output -> {
-                if (output!=null) currentStepInstance.output = resolve(output, Object.class);
+                if (output!=null) currentStepInstance.output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, output, Object.class);
             };
 
             try {

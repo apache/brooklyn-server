@@ -25,6 +25,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.CollectionMerger;
@@ -80,7 +81,7 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         TypedValueToSet variable = context.getInput(VARIABLE);
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-        String name = context.resolve(variable.name, String.class);
+        String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
         TypeToken<?> type = context.lookupType(variable.type, () -> TypeToken.of(String.class));
 
@@ -95,7 +96,7 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
         } else {
             data = r.getResourceAsString("" + url);
         }
-        Object resolvedValue = context.resolve(data, type);
+        Object resolvedValue = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, data, type);
 
         Object oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
 

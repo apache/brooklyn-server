@@ -24,6 +24,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
@@ -43,7 +44,7 @@ public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         EntityValueToSet config = context.getInput(CONFIG);
         if (config==null) throw new IllegalArgumentException("Config key name is required");
-        String configName = context.resolve(config.name, String.class);
+        String configName = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, config.name, String.class);
         if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
         Entity entity = config.entity;

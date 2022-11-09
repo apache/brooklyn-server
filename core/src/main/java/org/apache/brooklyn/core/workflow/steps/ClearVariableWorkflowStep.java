@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
@@ -39,7 +40,7 @@ public class ClearVariableWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         TypedValueToSet variable = context.getInput(VARIABLE);
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-        String name = context.resolve(variable.name, String.class);
+        String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
         context.getWorkflowExectionContext().getWorkflowScratchVariables().remove(name);
         return context.getPreviousStepOutput();

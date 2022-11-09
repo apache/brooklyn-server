@@ -86,7 +86,7 @@ public abstract class WorkflowStepDefinition {
     @JsonIgnore
     public DslPredicates.DslPredicate getConditionResolved(WorkflowStepInstanceExecutionContext context) {
         try {
-            return context.resolveWrapped(condition, TypeToken.of(DslPredicates.DslPredicate.class));
+            return context.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, condition, TypeToken.of(DslPredicates.DslPredicate.class));
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Unresolveable condition ("+condition+")", e);
         }

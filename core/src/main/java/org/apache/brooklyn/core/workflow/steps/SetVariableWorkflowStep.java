@@ -25,6 +25,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.CollectionMerger;
@@ -91,7 +92,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         TypedValueToSet variable = context.getInput(VARIABLE);
         if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-        String name = context.resolve(variable.name, String.class);
+        String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
         if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
         TypeToken<?> type = context.lookupType(variable.type, () -> null);
 
@@ -233,9 +234,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if (result instanceof String) {
                 if (trim && result instanceof String) result = ((String) result).trim();
                 result = process((String) result);
-                resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(result, typeIntermediate);
+                resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
             } else {
-                resultCoerced = wait ? context.resolveWaiting(result, typeIntermediate) : context.resolve(result, typeIntermediate);
+                resultCoerced = wait ? context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate) : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
             }
             if (trim && resultCoerced instanceof String) resultCoerced = ((String) resultCoerced).trim();
 
@@ -326,7 +327,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             List<Object> objs = w.stream().map(t -> {
                 if (qst.isQuoted(t)) return qst.unwrapIfQuoted(t);
                 TypeToken<?> target = resolveToString ? TypeToken.of(String.class) : TypeToken.of(Object.class);
-                return wait ? context.resolveWaiting(t, target) : context.resolve(t, target);
+                return wait ? context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, t, target) : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, t, target);
             }).collect(Collectors.toList());
             if (!resolveToString) return objs.get(0);
             return ((List<String>)(List)objs).stream().collect(Collectors.joining());

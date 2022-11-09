@@ -126,7 +126,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
             result.output = DynamicTasks.queue(handlerI).getUnchecked();
 
             if (errorStep.output!=null) {
-                result.output = handlerContext.resolve(errorStep.output, Object.class);
+                result.output = handlerContext.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, errorStep.output, Object.class);
             }
             result.next = errorStep.getNext();
             log.debug("Completed handler " + potentialTaskName + "; proceeding to " + (result.next!=null ? result.next : "default next step"));
