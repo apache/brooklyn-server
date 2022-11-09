@@ -323,7 +323,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             List tasksIds = (List) ids.get("tasks");
 
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
-                    "Starting workflow 'Workflow for effector myWorkflow', moving to first step "+workflowId+"-1",
+                    "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
                     "one",
                     "Completed step "+workflowId+"-1; moving to sequential next step "+workflowId+"-2-ii",

@@ -545,7 +545,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             List<String> msgs = logWatcher.getMessages();
             log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
             Asserts.assertEntriesSatisfy(msgs, MutableList.of(
-                m -> m.matches("Starting workflow 'Workflow for effector myWorkflow', moving to first step .*-1"),
+                m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),
                 m -> m.matches("Starting step .*-1 in task .*"),
                 m -> m.matches("Encountered error in step .*-1 '1 - invoke-effector does-not-exist' .handler present.: No effector matching 'does-not-exist'"),
                 m -> m.matches("Creating step .*-1 error handler .*-1-error-handler in task .*"),
@@ -576,11 +576,11 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             List<String> msgs = logWatcher.getMessages();
             log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
             Asserts.assertEntriesSatisfy(msgs, MutableList.of(
-                    m -> m.matches("Starting workflow 'Workflow for effector myWorkflow', moving to first step .*-1"),
+                    m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),
                     m -> m.matches("Starting step .*-1 in task .*"),
                     m -> m.matches("Error in step '1 - invoke-effector does-not-exist', no error handler so rethrowing: No effector matching 'does-not-exist'"),
-                    m -> m.matches("Error in workflow 'Workflow for effector myWorkflow' around step .*-1, running error handler"),
-                    m -> m.matches("Encountered error in workflow .*/.* 'Workflow for effector myWorkflow' .handler present.: No effector matching 'does-not-exist'"),
+                    m -> m.matches("Error in workflow 'myWorkflow .workflow effector.' around step .*-1, running error handler"),
+                    m -> m.matches("Encountered error in workflow .*/.* 'myWorkflow .workflow effector.' .handler present.: No effector matching 'does-not-exist'"),
                     m -> m.matches("Creating workflow .* error handler .*-error-handler in task .*"),
                     m -> m.matches("Starting .*-error-handler with 1 handler in task .*"),
                     m -> m.matches("Creating handler .*-error-handler-1 'no-op' in task .*"),

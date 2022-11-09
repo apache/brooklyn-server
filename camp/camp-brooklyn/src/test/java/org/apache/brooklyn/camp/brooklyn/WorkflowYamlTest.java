@@ -334,7 +334,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         assertLogStepMessages(
                 "test message 1",
-                "test message 2, step 'Second Step' id second in workflow 'Workflow for effector myWorkflow'");
+                "test message 2, step 'Second Step' id second in workflow 'myWorkflow (workflow effector)'");
     }
 
     @Test
