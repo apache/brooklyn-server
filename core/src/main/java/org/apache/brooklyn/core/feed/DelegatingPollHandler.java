@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.feed;
 import java.util.List;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.brooklyn.util.text.Strings;
 
 /**
  * A poll handler that delegates each call to a set of poll handlers.
@@ -81,8 +82,11 @@ public class DelegatingPollHandler<V> implements PollHandler<V> {
         sb.append("[");
         int count = 0;
         for (AttributePollHandler<? super V> delegate : delegates) {
-            if (count>0) sb.append("; ");
-            sb.append(delegate.getDescription());
+            String d = delegate.getDescription();
+            if (Strings.isNonBlank(d)) {
+                if (count > 0) sb.append("; ");
+                sb.append(d);
+            }
             if (count>2) {
                 sb.append("; ...");
                 break;

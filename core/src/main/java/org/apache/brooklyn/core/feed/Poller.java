@@ -38,6 +38,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
@@ -231,13 +232,13 @@ public class Poller<V> {
         Duration minPeriod = null;
         Set<String> sensorSummaries = MutableSet.of();
         for (final PollJob<V> pollJob : pollJobs) {
-            final String scheduleName = (adjunct !=null ? adjunct.getDisplayName()+", " : "") +pollJob.handler.getDescription();
+            final String scheduleName = MutableList.of(adjunct !=null ? adjunct.getDisplayName() : null, pollJob.handler.getDescription())
+                    .stream().filter(Strings::isNonBlank).collect(Collectors.joining("; "));
             boolean added = false;
 
             Callable<Task<?>> tf = () -> {
                 DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity),
-                        /** TODO why the hell is this running before the entity is managed??? and remove logging, and invocationCount=100. */
-                        new Callable<Void>() { @Override public Void call() {
+                        () -> {
                             if (!Entities.isManagedActive(entity)) {
                                 return null;
                             }
@@ -246,7 +247,7 @@ public class Poller<V> {
                             }
                             pollJob.wrappedJob.run();
                             return null;
-                        } } );
+                        });
                 // explicitly make non-transient -- we want to see its execution, even if parent is transient
                 BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
                 return task;

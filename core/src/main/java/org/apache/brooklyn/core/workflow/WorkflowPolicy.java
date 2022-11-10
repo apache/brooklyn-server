@@ -99,8 +99,8 @@ public final class WorkflowPolicy<T> extends AbstractPolicy {
     }
 
     public String getDescription() {
-        // more info? customizable?
-        return "Policy to run a workflow on an event";
+        // used for poll handler; could be set later
+        return null;
     }
 
     @Override

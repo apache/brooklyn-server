@@ -25,12 +25,14 @@ import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddSensorInitializer;
 import org.apache.brooklyn.core.effector.AddSensorInitializerAbstractProto;
 import org.apache.brooklyn.core.entity.EntityInitializers;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.steps.EntityValueToSet;
@@ -156,6 +158,11 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
         public Object call() throws Exception {
             WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, params, null, null, null);
             Task<Object> wt = wc.getTask(false /* condition checked by poll config framework */).get();
+            if (entityOrAdjunct instanceof EntityAdjunct) {
+                // add tag to each task so it shows up in list on mgmt context
+                BrooklynTaskTags.addTagDynamically(wt, BrooklynTaskTags.tagForContextAdjunct((EntityAdjunct) entityOrAdjunct));
+            }
+
             if (entityOrAdjunct instanceof WorkflowPolicy) {
                 ((WorkflowPolicy)entityOrAdjunct).highlightAction("Workflow running", wt);
             }
