@@ -73,7 +73,8 @@ public class Entitlements {
     public static EntitlementClass<EntityAndItem<String>> SEE_CONFIG = new BasicEntitlementClassDefinition<EntityAndItem<String>>("config.see", EntityAndItem.typeToken(String.class));
     public static EntitlementClass<TaskAndItem<String>> SEE_ACTIVITY_STREAMS = new BasicEntitlementClassDefinition<TaskAndItem<String>>("activity.streams.see", TaskAndItem.typeToken(String.class));
     // string is effector name; argument may be a map or a list, depending how the args were supplied
-    // currently this permission gates even _seeing_ the effector; in future we might have a separate permission for that
+    // currently this permission gates even _seeing_ the effector; in future we might have a separate permission for that;
+    // this permission also controls setting of _reconfigurable_ config; any other config requires modify entity
     public static EntitlementClass<EntityAndItem<StringAndArgument>> INVOKE_EFFECTOR = new BasicEntitlementClassDefinition<EntityAndItem<StringAndArgument>>("effector.invoke", EntityAndItem.typeToken(StringAndArgument.class));
     public static EntitlementClass<Entity> MODIFY_ENTITY = new BasicEntitlementClassDefinition<Entity>("entity.modify", Entity.class);
 
@@ -294,6 +295,7 @@ public class Entitlements {
                         !ROOT.equals(permission) &&
                         !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
                         !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
+                        !MODIFY_ENTITY.equals(permission) &&
                         !HA_ADMIN.equals(permission);
             }
             @Override
@@ -317,6 +319,7 @@ public class Entitlements {
                         !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
                         !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
                         !ADD_JAVA.equals(permission) &&
+                        !MODIFY_ENTITY.equals(permission) &&
                         !HA_ADMIN.equals(permission);
             }
             @Override

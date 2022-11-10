@@ -249,9 +249,10 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     }
     
     @Override
-    public TaskSummary getTask(final String application, final String entityToken, String taskId, Boolean suppressSecrets) {
+    public TaskSummary getTask(final String applicationToken, final String entityToken, String taskId, Boolean suppressSecrets) {
         // TODO deprecate in favour of ActivityApi.get ?
-        Entity entity =brooklyn().getApplication(application);
+        Entity entity = brooklyn().getEntity(applicationToken, entityToken);
+
         if (entity != null && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.SEE_ENTITY, entity)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to see the task '%s' for the entity '%s'",
                     Entitlements.getEntitlementContext().user(), taskId, entity);
@@ -259,6 +260,12 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         Task<?> t = mgmt().getExecutionManager().getTask(taskId);
         if (t == null)
             throw WebResourceUtils.notFound("Cannot find task '%s'", taskId);
+
+        Entity entityOfTask = BrooklynTaskTags.getContextEntity(t);
+        if (entityOfTask==null) throw WebResourceUtils.notFound("Cannot find task '%s' on entity", taskId);
+
+        if (!entityOfTask.equals(entity)) throw WebResourceUtils.notFound("Cannot find task '%s' on entity '%s'", taskId, entity.getId());
+
         return TaskTransformer.fromTask(ui.getBaseUriBuilder(), resolving(null), suppressSecrets).apply(t);
     }
 
@@ -397,7 +404,19 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     public TaskSummary replayWorkflow(String applicationId, String entityId, String workflowId, String step, String reason, Boolean force) {
         WorkflowExecutionContext w = findWorkflow(applicationId, entityId, workflowId);
         Entity entity = brooklyn().getEntity(applicationId, entityId);
+
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, Entitlements.EntityAndItem.of(entity, Entitlements.StringAndArgument.of(
+                "replay-workflow", workflowId)))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to replay workflow '%s' on '%s'",
+                    Entitlements.getEntitlementContext().user(), workflowId, entity);
+        }
+
         boolean forced = Boolean.TRUE.equals(force);
+        if (forced && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s', required to forcibly replay workflow",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+
         String msg = "Replaying workflow "+workflowId+" on "+entity+", from step '"+step+"', reason '"+reason+"'";
         if (forced) log.warn(msg); else log.debug(msg);
         if (reason==null) reason = "API replay" + (forced ? " forced" : "");
@@ -420,7 +439,6 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
     @Override
     public TaskSummary runWorkflow(String applicationToken, String entityToken, String timeoutS, String yaml) {
         final Entity target = brooklyn().getEntity(applicationToken, entityToken);
-        // TODO new entitlement, here and above
         if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, target)) {
             throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
                     Entitlements.getEntitlementContext().user(), entityToken);
