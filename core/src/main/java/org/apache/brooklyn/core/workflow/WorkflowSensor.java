@@ -39,6 +39,7 @@ import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -154,8 +155,29 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
         @Override
         public Object call() throws Exception {
             WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, params, null, null, null);
-            Maybe<Task<Object>> wt = wc.getTask(false /* condition checked by poll config framework */);
-            return DynamicTasks.queue(wt.get()).getUnchecked();
+            Task<Object> wt = wc.getTask(false /* condition checked by poll config framework */).get();
+            if (entityOrAdjunct instanceof WorkflowPolicy) {
+                ((WorkflowPolicy)entityOrAdjunct).highlightAction("Workflow running", wt);
+            }
+            try {
+                Object result = DynamicTasks.queue(wt).getUnchecked();
+
+                if (entityOrAdjunct instanceof WorkflowPolicy) {
+                    ((WorkflowPolicy)entityOrAdjunct).highlightAction("Workflow run (success)", wt);
+                }
+
+                return result;
+            } catch (Exception e) {
+                if (entityOrAdjunct instanceof WorkflowPolicy) {
+                    ((WorkflowPolicy)entityOrAdjunct).highlightAction("Workflow run, with error: "+
+                            Exceptions.collapseText(e), wt);
+                }
+
+                throw e;
+            }
         }
+
+        protected void onStart() {}
+        protected void onEnd() {}
     }
 }

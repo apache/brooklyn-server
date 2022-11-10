@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.commons.lang3.StringUtils;
@@ -26,18 +27,32 @@ import org.apache.commons.lang3.StringUtils;
 import javax.annotation.Nullable;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 
 public class ShellEnvironmentSerializer {
     private ObjectMapper mapper;
-    
+    private final Function<Object, Object> resolver;
+
     public ShellEnvironmentSerializer(ManagementContext mgmt) {
+        this(mgmt, null);
+    }
+    public ShellEnvironmentSerializer(ManagementContext mgmt, Function<Object,Object> resolver) {
         mapper = BrooklynObjectsJsonMapper.newMapper(mgmt);
+        this.resolver = resolver;
     }
 
     public String serialize(Object value) {
         if (value == null) return null;
         if (value instanceof String) return (String)value;
         try {
+            if (value instanceof DeferredSupplier) {
+                if (resolver!=null) {
+                    value = resolver.apply(value);
+                } else {
+                    // could warn, because this probably isn't intended, but it might be
+                    // throw new IllegalStateException("Cannot pass deferred suppliers to shell environment without a resolve function.");
+                }
+            }
             String str = mapper.writeValueAsString(value);
             if (isJsonString(str)) {
                 // previously (2022-06) we would just write value.toString() in this block; but some things are serialized more nicely than toString, so prefer that format

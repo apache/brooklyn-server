@@ -476,7 +476,8 @@ public class WorkflowExpressionResolution {
             if (useWrappedValue) {
                 return new WrappedResolvedExpression<Object>(expression, result);
             } else {
-                // we try, but don't guarantee, that DSL expressions aren't re-resolved, ie $brooklyn:literal("$brooklyn:literal(\"x\")") won't return x
+                // we try, but don't guarantee, that DSL expressions aren't re-resolved, ie $brooklyn:literal("$brooklyn:literal(\"x\")") won't return x;
+                // this block will
                 result = processDslComponents(result);
             }
         }

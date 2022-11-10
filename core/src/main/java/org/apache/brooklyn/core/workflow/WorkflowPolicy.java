@@ -99,8 +99,13 @@ public final class WorkflowPolicy<T> extends AbstractPolicy {
     }
 
     public String getDescription() {
-        // TODO
-        return "workflow policy";
+        // more info? customizable?
+        return "Policy to run a workflow on an event";
+    }
+
+    @Override
+    protected String getDefaultDisplayName() {
+        return "Workflow policy";
     }
 
     @Override
@@ -117,7 +122,8 @@ public final class WorkflowPolicy<T> extends AbstractPolicy {
                 .condition(new ConditionSupplierFromAdjunct());
 
         Set<PollConfig> pollConfigs = MutableSet.of(pc);
-        poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable("Workflow for policy "+this, this, config().getBag()), new PolicyNoOpPollHandler());
+        poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable(
+                getDisplayName() + " (workflow)", this, config().getBag()), new PolicyNoOpPollHandler());
 
         if (!isSuspended()) resume();
     }

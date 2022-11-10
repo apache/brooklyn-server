@@ -45,6 +45,7 @@ import org.apache.brooklyn.util.core.task.DynamicSequentialTask;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -228,7 +229,7 @@ public class Poller<V> {
         }
         
         Duration minPeriod = null;
-        Set<String> sensors = MutableSet.of();
+        Set<String> sensorSummaries = MutableSet.of();
         for (final PollJob<V> pollJob : pollJobs) {
             final String scheduleName = (adjunct !=null ? adjunct.getDisplayName()+", " : "") +pollJob.handler.getDescription();
             boolean added = false;
@@ -275,7 +276,9 @@ public class Poller<V> {
                     throw new IllegalStateException(String.format("Attempt to start poller %s of entity %s when already has subscription %s",
                             this, entity, pollJob.subscription));
                 }
-                sensors.add(pollJob.pollTriggerSensor.getName());
+                String summary = pollJob.pollTriggerSensor.getName();
+                if (pollJob.pollTriggerEntity!=null && !pollJob.pollTriggerEntity.equals(entity)) summary += " on "+pollJob.pollTriggerEntity;
+                sensorSummaries.add(summary);
                 pollJob.subscription = adjunct.subscriptions().subscribe(pollJob.pollTriggerEntity !=null ? pollJob.pollTriggerEntity : adjunct.getEntity(), pollJob.pollTriggerSensor, event -> {
                     // submit this on every event
                     try {
@@ -292,17 +295,17 @@ public class Poller<V> {
         }
         
         if (adjunct !=null) {
-            if (sensors.isEmpty()) {
-                if (minPeriod==null) {
+            if (sensorSummaries.isEmpty()) {
+                if (minPeriod==null || minPeriod.equals(Duration.PRACTICALLY_FOREVER) || !minPeriod.isPositive()) {
                     adjunct.highlightTriggers("Not configured with a period or triggers");
                 } else {
                     highlightTriggerPeriod(minPeriod);
                 }
             } else if (minPeriod==null) {
-                adjunct.highlightTriggers("Triggered by: "+sensors);
+                adjunct.highlightTriggers("Triggered by: "+ Strings.join(sensorSummaries, "; "));
             } else {
                 // both
-                adjunct.highlightTriggers("Running every "+minPeriod+" and on triggers: "+sensors);
+                adjunct.highlightTriggers("Running every "+minPeriod+" and on triggers: "+Strings.join(sensorSummaries, "; "));
             }
         }
     }

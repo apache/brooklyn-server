@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
@@ -389,6 +390,11 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
     @Override
     public String getDisplayName() {
         if (name!=null && name.length()>0) return name;
+        return getDefaultDisplayName();
+    }
+
+    @JsonIgnore
+    protected String getDefaultDisplayName() {
         return getClass().getCanonicalName();
     }
     

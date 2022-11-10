@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.location.MachineLocation;
@@ -36,7 +37,6 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.WorkflowSoftwareProcess;
+import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.localhost.LocalhostMachineProvisioningLocation;
@@ -737,5 +738,70 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(output.toString().trim(), message + " Entity:"+app.getChildren().iterator().next().getId()+":"+"world:Arg1:{\"x\":\"Arg1\"}");
     }
 
+    @Test
+    public void testEffectorArgDslInMap() {
+        BrooklynDslCommon.registerSerializationHooks();
+        BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class).configure("z", "Z"));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector3")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", MutableMap.of("type", "map")))
+                .configure(WorkflowEffector.STEPS, MutableList.of("return ${x}")));
+        eff.apply((EntityLocal)app);
+        eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector2")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", MutableMap.of()))
+                .configure(WorkflowEffector.STEPS, MutableList.of(MutableMap.of("step", "invoke-effector myWorkflowEffector3",
+                        "args", MutableMap.of("x", "${x}")))));
+        eff.apply((EntityLocal)app);
+        eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector1")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", MutableMap.of()))
+                .configure(WorkflowEffector.STEPS, MutableList.of(MutableMap.of("step", "invoke-effector myWorkflowEffector2",
+                        "args", MutableMap.of("x", MutableMap.of("y", "$brooklyn:config(\"z\")"))))));
+        eff.apply((EntityLocal)app);
+
+        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflowEffector1").get(),
+                MutableMap.of(
+//                        "x", MutableMap.of("y", DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:config(\"z\")"))
+                ));
+        Asserts.assertEquals(invocation.getUnchecked(), MutableMap.of("y","Z"));
+    }
+
+    @Test(groups="Live")
+    public void testEffectorSshEnvArgDslInMap() {
+        BrooklynDslCommon.registerSerializationHooks();
+        TestApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class).configure("z", "Z"));
+
+        EmptySoftwareProcess child = app.createAndManageChild(EntitySpec.create(EmptySoftwareProcess.class).location(LocationSpec.create(LocalhostMachineProvisioningLocation.class)));
+        app.start(ImmutableList.of());
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector3")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("script", MutableMap.of(), "env", MutableMap.of("defaultValue", MutableMap.of())))
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of("type", "ssh",
+                                "command", "bash -c \"${script}\"",
+                                "env", "${env}"),
+                        "return ${stdout}")));
+        eff.apply((EntityLocal)child);
+        eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector2")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("script", MutableMap.of(), "env", MutableMap.of("defaultValue", MutableMap.of())))
+                .configure(WorkflowEffector.STEPS, MutableList.of(MutableMap.of("step", "invoke-effector myWorkflowEffector3",
+                        "args", MutableMap.of("script", "${scriot}", "env", "${env}")))));
+        eff.apply((EntityLocal)child);
+        eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector1")
+                .configure(WorkflowEffector.STEPS, MutableList.of(MutableMap.of("step", "invoke-effector myWorkflowEffector2",
+                        "args", MutableMap.of("script", "echo Y is $Y", "env", MutableMap.of("Y", "$brooklyn:config(\"z\")"))))));
+        eff.apply((EntityLocal)child);
+
+        Task<?> invocation = child.invoke(child.getEntityType().getEffectorByName("myWorkflowEffector1").get(),
+                MutableMap.of(
+//                        "x", MutableMap.of("y", DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:config(\"z\")"))
+                ));
+        Asserts.assertEquals(invocation.getUnchecked().toString().trim(), "Y is Z");
+    }
 
 }

@@ -737,11 +737,13 @@ public class BasicTask<T> implements TaskInternal<T> {
                     msg += "("+ti.getThreadState()+") on "+lookup(lock);
                 }
             }
-            if (data.hasBlockingDetails) {
-                // if already has blocking details include this with lower priority
-                data.multiLineData.add(msg);
-            } else {
-                data.oneLineData.add(", "+Strings.toInitialLowerCase(msg));
+            if (msg!=null) {
+                if (data.hasBlockingDetails) {
+                    // if already has blocking details include this with lower priority
+                    data.multiLineData.add(msg);
+                } else {
+                    data.oneLineData.add(", " + Strings.toInitialLowerCase(msg));
+                }
             }
             data.hasBlockingDetails = true;
         }
