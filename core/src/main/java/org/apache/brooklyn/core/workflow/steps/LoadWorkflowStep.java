@@ -37,6 +37,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.text.ByteSizeStrings;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
@@ -96,11 +97,12 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
         } else {
             data = r.getResourceAsString("" + url);
         }
-        Object resolvedValue = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, data, type);
 
-        Object oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+        Object resolvedValue = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_OUTPUT, data, type);
 
-        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+        context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
+
+        context.noteOtherMetadata("Loaded", ByteSizeStrings.java().makeSizeString(data.getBytes().length)+" from "+url+" into "+variable);
         return context.getPreviousStepOutput();
     }
 }
