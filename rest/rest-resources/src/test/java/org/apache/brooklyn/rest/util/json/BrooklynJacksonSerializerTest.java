@@ -30,6 +30,7 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampPlatform;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.spi.PlatformRootSummary;
@@ -38,8 +39,11 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.*;
+import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.steps.ReturnWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -681,6 +685,29 @@ public class BrooklynJacksonSerializerTest {
             // (above test was to investigate a situation where ultimately a downstream "shorthand" serializer was using
             // findRootValueDeserializer rather than findContextualValueDeserializer, so not attending to our custom type info rules;
             // the test is useful however, so has been added
+        } finally {
+            Entities.destroyAll(mgmt);
+        }
+    }
+
+    @Test
+    public void testDslDeepConversionIntoMap() throws Exception {
+        LocalManagementContext mgmt = LocalManagementContextForTests.newInstance();
+        try {
+            BrooklynCampPlatform platform = new BrooklynCampPlatform(
+                    PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
+                    mgmt)
+                    .setConfigKeyAtManagmentContext();
+            BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "return", "1", ReturnWorkflowStep.class);
+
+            Object v = DslUtils.parseBrooklynDsl(mgmt, "$brooklyn:config(\"x\")");
+
+            Object obj = MutableMap.of("type", "return", "value", MutableMap.of("n", v));
+            WorkflowStepDefinition result = BeanWithTypeUtils.convert(mgmt, obj, TypeToken.of(WorkflowStepDefinition.class), true, null, true);
+            Asserts.assertInstanceOf(result, ReturnWorkflowStep.class);
+            Object n = ((Map) result.getInput().get("value")).get("n");
+            Asserts.assertInstanceOf(n, BrooklynDslDeferredSupplier.class);
+
         } finally {
             Entities.destroyAll(mgmt);
         }

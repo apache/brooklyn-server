@@ -39,6 +39,7 @@ import org.apache.brooklyn.util.core.task.ImmediateSupplier;
 import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -76,15 +77,26 @@ public abstract class BrooklynDslDeferredSupplier<T> implements DeferredSupplier
     /** The original DSL which generated the expression, if available.
      * Note the {@link #toString()} should create an equivalent expression.
      */
-    // not required in persistence; potentially interesting, but increases size significantly
-    // xstream deserialization should use the toString, and skips transients;
+    // now included in xstream persistence, so that jackson reconstruction (for steps) has access to it;
+    // but cleaned up so it is only applied to the outermost DSL object (last one created for given parse node);
     // jackson deserialization includes this, and relies on it if reading an Object,
     // but if reading to a Supplier it will correctly instantiate based on the type field.
-    protected transient Object dsl = null;
+    protected Object dsl = null;
+    protected static ThreadLocal<Pair<Integer,BrooklynDslDeferredSupplier>> lastSourceNode = new ThreadLocal<>();
 
     public BrooklynDslDeferredSupplier() {
         PlanInterpretationNode sourceNode = BrooklynDslInterpreter.currentNode();
-        dsl = sourceNode!=null ? sourceNode.getOriginalValue() : null;
+        if (sourceNode!=null && sourceNode.getOriginalValue()!=null) {
+            Pair<Integer, BrooklynDslDeferredSupplier> last = lastSourceNode.get();
+            if (last!=null && last.getLeft().equals(sourceNode.hashCode())) {
+                // set DSL on the last object created, and clear on previous ones;
+                // a bit of a hack, might be better to do on callers, ideally ensure all calls come from same CAMP parse caller
+                // (which i think they probably do)
+                last.getRight().dsl = null;
+            }
+            dsl = sourceNode.getOriginalValue();
+            lastSourceNode.set(Pair.of(sourceNode.hashCode(), this));
+        }
     }
     
     /** returns the current entity; for use in implementations of {@link #get()} */

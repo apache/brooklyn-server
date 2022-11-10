@@ -236,6 +236,12 @@ public class BrooklynJacksonSerializationUtils {
                         Object brooklynLiteral = rm.get("$brooklyn:literal");
                         if (brooklynLiteral != null) {
                             return BROOKLYN_PARSE_DSL_FUNCTION.apply(mgmt, brooklynLiteral);
+                        } else {
+                            Object type = rm.get("type");
+                            if (type instanceof String && ((String)type).startsWith("org.apache.brooklyn.camp.brooklyn.spi.dsl.")) {
+                                // should always have a brooklyn:literal on outermost type, so that even with json pass through (used for steps etc) dsl gets preserved across convertDeeply
+                                log.warn("Failed to deserialize "+result+" as DSL; will treat as map");
+                            }
                         }
                     }
                 }

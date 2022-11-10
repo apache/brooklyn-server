@@ -761,10 +761,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                         "args", MutableMap.of("x", MutableMap.of("y", "$brooklyn:config(\"z\")"))))));
         eff.apply((EntityLocal)app);
 
-        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflowEffector1").get(),
-                MutableMap.of(
-//                        "x", MutableMap.of("y", DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:config(\"z\")"))
-                ));
+        Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflowEffector1").get(), MutableMap.of());
         Asserts.assertEquals(invocation.getUnchecked(), MutableMap.of("y","Z"));
     }
 
@@ -789,7 +786,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector2")
                 .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("script", MutableMap.of(), "env", MutableMap.of("defaultValue", MutableMap.of())))
                 .configure(WorkflowEffector.STEPS, MutableList.of(MutableMap.of("step", "invoke-effector myWorkflowEffector3",
-                        "args", MutableMap.of("script", "${scriot}", "env", "${env}")))));
+                        "args", MutableMap.of("script", "${script}", "env", "${env}")))));
         eff.apply((EntityLocal)child);
         eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflowEffector1")
@@ -797,10 +794,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                         "args", MutableMap.of("script", "echo Y is $Y", "env", MutableMap.of("Y", "$brooklyn:config(\"z\")"))))));
         eff.apply((EntityLocal)child);
 
-        Task<?> invocation = child.invoke(child.getEntityType().getEffectorByName("myWorkflowEffector1").get(),
-                MutableMap.of(
-//                        "x", MutableMap.of("y", DslUtils.parseBrooklynDsl(mgmt(), "$brooklyn:config(\"z\")"))
-                ));
+        Task<?> invocation = child.invoke(child.getEntityType().getEffectorByName("myWorkflowEffector1").get(), MutableMap.of());
         Asserts.assertEquals(invocation.getUnchecked().toString().trim(), "Y is Z");
     }
 

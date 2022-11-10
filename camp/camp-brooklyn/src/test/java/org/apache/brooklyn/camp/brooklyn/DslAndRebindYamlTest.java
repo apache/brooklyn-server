@@ -220,6 +220,7 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
         //
         //      <test.confName>
         //        <org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent_-AttributeWhenReady>
+        //          <dsl class="string">$brooklyn:component(&quot;x&quot;).attributeWhenReady(&quot;foo&quot;)</dsl>
         //          <component>
         //            <componentId>x</componentId>
         //            <scope>GLOBAL</scope>
@@ -228,7 +229,7 @@ public class DslAndRebindYamlTest extends AbstractYamlRebindTest {
         //        </org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent_-AttributeWhenReady>
         //      </test.confName>
 
-        Assert.assertTrue(testConfNamePersistedState.length() < 400, "persisted state too long: " + testConfNamePersistedState);
+        Assert.assertTrue(testConfNamePersistedState.length() < 500, "persisted state too long: " + testConfNamePersistedState);
         
         Assert.assertFalse(testConfNamePersistedState.contains("bar"), "value 'bar' leaked in persisted state");
     }
