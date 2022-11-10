@@ -87,6 +87,6 @@ public class HighlightTuple {
     
     @Override
     public String toString() {
-        return "highlight["+description+"; time="+System.currentTimeMillis()+(taskId==null ? "" : "; task="+taskId)+"]";
+        return "highlight["+description+(time<=0 ? "" : "; time="+time)+(taskId==null ? "" : "; task="+taskId)+"]";
     }
 }

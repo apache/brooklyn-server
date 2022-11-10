@@ -493,6 +493,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
      * and {@link HighlightTuple}. 
      */
     protected void setHighlight(String name, HighlightTuple tuple) {
+        log.debug("Highlight on "+this+": "+name+": "+tuple);
         highlights.put(name, tuple);
     }
 
