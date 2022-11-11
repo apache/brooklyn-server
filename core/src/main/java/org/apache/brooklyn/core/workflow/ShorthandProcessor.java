@@ -51,6 +51,7 @@ public class ShorthandProcessor {
 
     private final String template;
     boolean finalMatchRaw = false;
+    boolean failOnMismatch = true;
 
     public ShorthandProcessor(String template) {
         this.template = template;
@@ -60,9 +61,15 @@ public class ShorthandProcessor {
         return new ShorthandProcessorAttempt(this, input).call();
     }
 
-    /** whether the last match should preserve quotes and spaces */
+    /** whether the last match should preserve quotes and spaces; default false */
     public ShorthandProcessor withFinalMatchRaw(boolean finalMatchRaw) {
         this.finalMatchRaw = finalMatchRaw;
+        return this;
+    }
+
+    /** whether to fail on mismatched quotes in the input, default true */
+    public ShorthandProcessor withFailOnMismatch(boolean failOnMismatch) {
+        this.failOnMismatch = failOnMismatch;
         return this;
     }
 
@@ -71,7 +78,7 @@ public class ShorthandProcessor {
         private final String inputOriginal;
         private final QuotedStringTokenizer qst;
         private final String template;
-        private final boolean finalMatchRaw;
+        private final ShorthandProcessor options;
         int optionalDepth = 0;
         int optionalSkippingInput = 0;
         private String inputRemaining;
@@ -80,14 +87,14 @@ public class ShorthandProcessor {
 
         ShorthandProcessorAttempt(ShorthandProcessor proc, String input) {
             this.template = proc.template;
-            this.finalMatchRaw = proc.finalMatchRaw;
+            this.options = proc;
             this.qst = qst(template);
             this.templateTokens = qst.remainderAsList();
             this.inputOriginal = input;
         }
 
         private QuotedStringTokenizer qst(String x) {
-            return QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).keepInternalQuotes(true).failOnOpenQuote(true).build(x);
+            return QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).expectQuotesDelimited(true).failOnOpenQuote(options.failOnMismatch).build(x);
         }
 
         public synchronized Maybe<Map<String,Object>> call() {
@@ -243,7 +250,7 @@ public class ShorthandProcessor {
                     if (!qstInput.hasMoreTokens()) return Maybe.absent("End of input when looking for variable "+t);
 
                     if (!templateTokens.stream().filter(x -> !x.equals("]")).findFirst().isPresent()) {
-                        // last word (whether optional or not) takes everything, but trimmed parsed and joined with spaces
+                        // last word (whether optional or not) takes everything
                         value = getRemainderPossiblyRaw(qstInput);
                         inputRemaining = "";
 
@@ -284,13 +291,9 @@ public class ShorthandProcessor {
 
         private String getRemainderPossiblyRaw(QuotedStringTokenizer qstInput) {
             String value;
-            if (finalMatchRaw) {
-                value = Strings.join(qstInput.remainderRaw(), "");
-            } else {
-                List<String> remainder = qstInput.remainderAsList();
-                value = remainder.stream()
-                        .map(qstInput::unwrapIfQuoted)
-                        .collect(Collectors.joining(" "));
+            value = Strings.join(qstInput.remainderRaw(), "");
+            if (!options.finalMatchRaw) {
+                return qstInput.unwrapIfQuoted(value);
             }
             return value;
         }

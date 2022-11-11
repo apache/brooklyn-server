@@ -45,7 +45,6 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -74,7 +73,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression, true);
+        populateFromShorthandTemplate(SHORTHAND, expression, true, true);
     }
 
     @Override
@@ -134,7 +133,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         private final LetMergeMode merge;
         private String specialCoercionMode;
         private final boolean typeSpecified;
-        private QuotedStringTokenizer qst;
+//        private QuotedStringTokenizer qst;
 
 
         public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue) {
@@ -282,8 +281,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         public void mergeInto(Object input, Function<String,TypeToken<?>> explicitType, BiConsumer<String,Object> holderAdd) {
             if (input instanceof String) {
-                qst = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).keepInternalQuotes(true).failOnOpenQuote(false).build((String) input);
-                List<String> wordsByQuote = qst.remainderRaw();
+                List<String> wordsByQuote = qst((String) input).remainderRaw();
                 wordsByQuote.forEach(word -> {
                     if (Strings.isBlank(word)) return;
                     Maybe<Object> wordResolved = processMaybe(MutableList.of(word), explicitType);
@@ -299,10 +297,20 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             if (Strings.isBlank(input)) return input;
 
             // first deal with internal quotes
-            qst = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).keepInternalQuotes(true).failOnOpenQuote(false).build(input);
-            List<String> wordsByQuote = qst.remainderAsList();
+            QuotedStringTokenizer qst = qst(input);
+            List<String> wordsByQuote;
+            if (qst.isQuoted(input)) {
+                // special treatment if whole line is quoted
+                wordsByQuote = MutableList.of(input);
+            } else {
+                wordsByQuote = qst.remainderAsList();
+            }
             // then look for operators etc
             return process(wordsByQuote, null);
+        }
+
+        QuotedStringTokenizer qst(String input) {
+            return QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(true).expectQuotesDelimited(true).failOnOpenQuote(true).build(input);
         }
 
         Object process(List<String> w, Function<String,TypeToken<?>> explicitType) {
@@ -324,6 +332,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
             // tokens include space delimiters and are still quotes, so unwrap then just stitch together. will preserve spaces.
             boolean resolveToString = w.size()>1;
+            QuotedStringTokenizer qst = qst("");
             List<Object> objs = w.stream().map(t -> {
                 if (qst.isQuoted(t)) return qst.unwrapIfQuoted(t);
                 TypeToken<?> target = resolveToString ? TypeToken.of(String.class) : TypeToken.of(Object.class);

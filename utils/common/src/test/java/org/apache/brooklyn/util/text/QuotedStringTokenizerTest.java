@@ -20,17 +20,12 @@ package org.apache.brooklyn.util.text;
 
 import static org.testng.Assert.assertEquals;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StreamTokenizer;
-import java.io.StringReader;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.text.QuotedStringTokenizer;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -68,17 +63,55 @@ public class QuotedStringTokenizerTest {
         // testResultingTokens("foo,,baz", "\"", false, ",", false, "foo", "", "baz");
     }
 
+    String testIsQuoted(String expression, boolean isQuotedExpected, boolean shouldFailInStrictMode, String ...expectedTokens) {
+        QuotedStringTokenizer.Builder qb = QuotedStringTokenizer.builder().expectQuotesDelimited(true);
+        QuotedStringTokenizer qbi = qb.build(expression);
+
+        Asserts.assertEquals(qbi.remainderAsList(), Arrays.asList(expectedTokens));
+        Asserts.assertEquals(qbi.isQuoted(expression), isQuotedExpected);
+        Object result = null;
+        try {
+            QuotedStringTokenizer qb2 = QuotedStringTokenizer.builder().expectQuotesDelimited(true).failOnOpenQuote(true).build(expression);
+            result = qb2.remainderAsList();
+        } catch (Exception e) {
+            if (!shouldFailInStrictMode) throw Exceptions.propagate(e);
+        }
+        if (shouldFailInStrictMode && result!=null) Asserts.fail("Should have failed on input: "+expression+" -- instead returned "+result);
+
+        return qbi.unwrapIfQuoted(expression);
+    }
+
+    void testUnquoted(String expression, boolean shouldFailInStrictMode, String expectedTokenWrapped, String expectedTokenUnwrapped) {
+        String unq = testIsQuoted(expression, true, shouldFailInStrictMode, expectedTokenWrapped);
+        Asserts.assertEquals(unq, expectedTokenUnwrapped);
+    }
+
     @Test
-    public void testTokenizingKeepingInternalQuotes() throws Exception {
+    public void testIsQuoted() {
+        QuotedStringTokenizer.Builder qb = QuotedStringTokenizer.builder().expectQuotesDelimited(true);
+        QuotedStringTokenizer qbi = qb.build("");
+        testIsQuoted("\"x \" ''y z \"1'", false, true, "\"x \"", "''y z \"1'");
+
+        testUnquoted("\"x \\\"y z \\\"1\"", false, "\"x \\\"y z \\\"1\"", "x \"y z \"1");
+        testUnquoted("\"x \"y z \"1\"", true, "\"x \"y z \"1\"", "x \"y z \"1");
+        testIsQuoted("\"x \" ''y z \"1'", false, true, "\"x \"", "''y z \"1'");
+        testIsQuoted("\"x \" 'y z \"1'", false, false, "\"x \"", "'y z \"1'");
+        testIsQuoted("\"x \"y\" z \"1\"", false, true, "\"x \"y\"", "z", "\"1\"");
+        testIsQuoted("\\\"x \"y\" z \"1\"", false, false, "\\\"x", "\"y\"", "z", "\"1\"");
+    }
+
+    @Test
+    public void testTokenizingWithQuotesDelimited() throws Exception {
         testResultingTokens("foo,bar,baz", "\"", false, ",", false, true, true, "foo", "bar", "baz");
         testResultingTokens("\"foo,bar\",baz", "\"", false, ",", false, true, true, "foo,bar", "baz");
         testResultingTokens("\"foo,,bar\",baz", "\"", false, ",", false, true, true, "foo,,bar", "baz");
         testResultingTokens("\"foo,',bar\",baz", "\"", false, ",", false, true, true, "foo,',bar", "baz");
         testResultingTokens("\"foo,\',bar\",baz", "\"", false, ",", false, true, true, "foo,',bar", "baz");
         testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ",", false, true, true, "foo \"\"bar\"\" baz");
-        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ", ", false, true, true, "foo", "\"bar\"", "baz");
-        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ",", false, true, true, "foo \"\"bar\"\" baz");
-        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ", ", false, true, true, "foo \"\"bar\"", "baz\"");
+        testResultingTokens("foo \"\"bar\"\" baz", "\"", false, ", ", false, true, false, "foo", "\"bar\"", "baz");
+
+        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ",", false, true, false, "foo \"\"bar\"\" baz");
+        testResultingTokens("\"foo \"\"bar\"\" baz\"", "\"", false, ", ", false, true, false, "foo \"\"bar\"", "baz\"");
     }
 
     @Test

@@ -64,7 +64,7 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression, true);
+        populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
     @Override

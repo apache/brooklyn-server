@@ -50,7 +50,9 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSupport {
 
@@ -343,12 +345,67 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetQuoteVar() throws Exception {
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
-                "let person = Anna",
-                "let note = \"${person}\" is ${person}",
-                "log NOTE: ${note}"));
-        Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ${person} is Anna");
+    public void testLetQuoteVar() {
+        Consumer<String> invoke = input -> { try {
+            invokeWorkflowStepsWithLogging(MutableList.of(
+                    "let person = Anna",
+                    "let note = "+input,
+                    "log NOTE: ${note}"));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } };
+        BiFunction<String,String,String> assertLetGives = (input,expected) -> {
+            invoke.accept(input);
+            String note = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ");
+            Asserts.assertEquals(note, expected);
+            return note;
+        };
+
+        assertLetGives.apply("\"${person}\"", "${person}");
+        assertLetGives.apply("\"${person}\" is ${person}", "${person} is Anna");
+        assertLetGives.apply("\"${person} is\" ${person}", "${person} is Anna");
+        assertLetGives.apply("\"${person}\" is  '${person}'", "${person} is  ${person}");
+        assertLetGives.apply("\"${person}\" is '\"${person}\"'", "${person} is \"${person}\"");
+        assertLetGives.apply("\"${person}\" is 'person'", "${person} is person");
+        Asserts.assertFails(() -> invoke.accept("\"${person}\" is  ''person '"));
+        assertLetGives.apply("\"${person} is  person \"", "${person} is  person ");
+        Asserts.assertFails(() -> invoke.accept("\"\"${person}\" is  person \""));
+        assertLetGives.apply("\"'${person}' is  person \"", "'${person}' is  person ");
+        assertLetGives.apply("\"\\\"${person}\\\" is  person \"", "\"${person}\" is  person ");
+        Asserts.assertFails(() -> invoke.accept("\"\\\"${person}\\\" is  \"person \""));
+        assertLetGives.apply("\"\\\"${person}\" is  \"person \"", "\"${person} is  person ");
+    }
+
+    @Test
+    public void testSetSensorQuoteVar() {
+        Consumer<String> invoke = input -> { try {
+            invokeWorkflowStepsWithLogging(MutableList.of(
+                    "let person = Anna",
+                    "set-sensor note = "+input,
+                    "let note = ${entity.sensor.note}",
+                    "log NOTE: ${note}"));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } };
+        BiFunction<String,String,String> assertSetSensorGives = (input,expected) -> {
+            invoke.accept(input);
+            String note = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ");
+            Asserts.assertEquals(note, expected);
+            return note;
+        };
+
+        assertSetSensorGives.apply("\"${person}\" is ${person}", "\"Anna\" is Anna");
+        assertSetSensorGives.apply("\"${person}\" is  '${person}'", "\"Anna\" is  'Anna'");
+        assertSetSensorGives.apply("\"${person} is\" ${person}", "\"Anna is\" Anna");
+        assertSetSensorGives.apply("\"${person}\" is ''${person}''", "\"Anna\" is ''Anna''");
+        assertSetSensorGives.apply("\"${person}\" is 'person'", "\"Anna\" is 'person'");
+        assertSetSensorGives.apply("\"${person}\" is  ''person '", "\"Anna\" is  ''person '");  // doesn't fail because quotes preserved
+        assertSetSensorGives.apply("\"${person} is  person \"", "Anna is  person ");
+        Asserts.assertFails(() -> invoke.accept("\"\"${person}\" is  person \""));
+        assertSetSensorGives.apply("\"'${person}' is  person \"", "'Anna' is  person ");
+        assertSetSensorGives.apply("\"\\\"${person}\\\" is  person \"", "\"Anna\" is  person ");
+        Asserts.assertFails(() -> invoke.accept("\"\\\"${person}\\\" is  \"person \""));
+        assertSetSensorGives.apply("\"\\\"${person}\" is  \"person \"", "\"\\\"Anna\" is  \"person \"");
     }
 
     @Test

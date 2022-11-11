@@ -39,7 +39,8 @@ public class QuotedStringTokenizer {
     final boolean includeQuotes;
     final String delimiters;
     final boolean includeDelimiters;
-    final boolean keepInternalQuotes;
+    /** see the static parseXxxx methods for explanation */
+    final boolean expectQuotesDelimited;
     final boolean failOnOpenQuote;
 
     public static String DEFAULT_QUOTE_CHARS = "\"\'";
@@ -69,13 +70,13 @@ public class QuotedStringTokenizer {
     public QuotedStringTokenizer(String stringToTokenize, String quoteChars, boolean includeQuotes, String delimiters, boolean includeDelimiters) {
         this(stringToTokenize, quoteChars, includeQuotes, delimiters, includeDelimiters, false, false);
     }
-    public QuotedStringTokenizer(String stringToTokenize, String quoteChars, boolean includeQuotes, String delimiters, boolean includeDelimiters, boolean keepInternalQuotes, boolean failOnOpenQuote) {
+    public QuotedStringTokenizer(String stringToTokenize, String quoteChars, boolean includeQuotes, String delimiters, boolean includeDelimiters, boolean expectQuotesDelimited, boolean failOnOpenQuote) {
         delegate = new StringTokenizer(stringToTokenize==null ? "" : stringToTokenize, (delimiters==null ? DEFAULT_DELIMITERS : delimiters), true);
         this.quoteChars = quoteChars==null ? DEFAULT_QUOTE_CHARS() : quoteChars;
         this.includeQuotes = includeQuotes;
         this.delimiters = delimiters==null ? DEFAULT_DELIMITERS : delimiters;
         this.includeDelimiters = includeDelimiters;
-        this.keepInternalQuotes = keepInternalQuotes;
+        this.expectQuotesDelimited = expectQuotesDelimited;
         this.failOnOpenQuote = failOnOpenQuote;
         updateNextToken();
     }
@@ -85,14 +86,14 @@ public class QuotedStringTokenizer {
         private boolean includeQuotes=true;
         private String delimiterChars=DEFAULT_DELIMITERS;
         private boolean includeDelimiters=false;
-        private boolean keepInternalQuotes=false;
+        private boolean expectQuotesDelimited=false;
         private boolean failOnOpenQuote=false;
 
         public QuotedStringTokenizer build(String stringToTokenize) {
-            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes, failOnOpenQuote);
+            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, expectQuotesDelimited, failOnOpenQuote);
         }
         public List<String> buildList(String stringToTokenize) {
-            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, keepInternalQuotes, failOnOpenQuote).remainderAsList();
+            return new QuotedStringTokenizer(stringToTokenize, quoteChars, includeQuotes, delimiterChars, includeDelimiters, expectQuotesDelimited, failOnOpenQuote).remainderAsList();
         }
         
         public Builder quoteChars(String quoteChars) { this.quoteChars = quoteChars; return this; }
@@ -100,23 +101,26 @@ public class QuotedStringTokenizer {
         public Builder includeQuotes(boolean includeQuotes) { this.includeQuotes = includeQuotes; return this; } 
         public Builder delimiterChars(String delimiterChars) { this.delimiterChars = delimiterChars; return this; }
         public Builder addDelimiterChars(String delimiterChars) { this.delimiterChars = this.delimiterChars + delimiterChars; return this; }
-        public Builder includeDelimiters(boolean includeDelimiters) { this.includeDelimiters = includeDelimiters; return this; } 
-        public Builder keepInternalQuotes(boolean keepInternalQuotes) { this.keepInternalQuotes = keepInternalQuotes; return this; }
+        public Builder includeDelimiters(boolean includeDelimiters) { this.includeDelimiters = includeDelimiters; return this; }
+        public Builder keepInternalQuotes(boolean expectQuotesDelimited) { this.expectQuotesDelimited = expectQuotesDelimited; return this; }
+        public Builder expectQuotesDelimited(boolean expectQuotesDelimited) { this.expectQuotesDelimited = expectQuotesDelimited; return this; }
         public Builder failOnOpenQuote(boolean failOnOpenQuote) { this.failOnOpenQuote = failOnOpenQuote; return this; }
     }
     public static Builder builder() {
         return new Builder();
     }
 
-    /** this is the historic default in Brooklyn, ensuring delimiters (whitespace) inside quotes aren't used as delimitiers, then stripping out those quotes;
-     *  good for more things but won't keep quoted quotes */
-    public static List<String> parseStrippingInternalQuotes(String s) {
-        return QuotedStringTokenizer.builder().keepInternalQuotes(false).buildList(s);
+    /** this is the historic default in Brooklyn, respecting quotes anywhere (processing them before delimiters),
+     *  good if quotes are not offset with whitespace (eg x="foo,bar",y="baz" with a , as a delimiter) */
+    public static List<String> parseWithQuotesAnywhere(String s) {
+        return QuotedStringTokenizer.builder().expectQuotesDelimited(false).buildList(s);
     }
 
-    /** revision to QST to look only at delimiters (whitespace), and unescape quotes inside. forgives malformed content, but at least it preserves quotes. */
-    public static List<String> parseKeepingInternalQuotes(String s) {
-        return QuotedStringTokenizer.builder().keepInternalQuotes(true).buildList(s);
+    /** revision to QST to acknowledging quotes only if offset by delimiters;
+     * good if delimiters are whitespace, (eg x = "foo bar" y = "baz"); in this mode, fail will cause it to fail if there are any unescaped quotes,
+     * but in non-fail mode it will avoid getting confused by an apostrophe as a quote! */
+    public static List<String> parseWithDelimitedQuotesOnly(String s) {
+        return QuotedStringTokenizer.builder().expectQuotesDelimited(true).buildList(s);
     }
 
     /** use java StreamTokenizer with most of the defaults, which does most of what we want -- unescaping internal quotes -- and following its usual style of distinguishing words from identifiers etc*/
@@ -185,13 +189,29 @@ public class QuotedStringTokenizer {
         if (peekedNextToken==null) throw new NoSuchElementException();
         String lastToken = peekedNextToken;
         updateNextToken();
-        return includeQuotes ? lastToken : keepInternalQuotes ? unwrapIfQuoted(lastToken) : unquoteToken(lastToken);
+        return includeQuotes ? lastToken : expectQuotesDelimited ? unwrapIfQuoted(lastToken) : unquoteToken(lastToken);
     }
 
+    /** returns true if the given string is one quoted string. if fail is specified, if it looks quoted but has unescaped internal quotes of the same type, it will fail. */
     public boolean isQuoted(String token) {
-        if (Strings.isEmpty(token)) return false;
+        if (Strings.isBlank(token)) return false;
+        token = token.trim();
         if (!isQuoteChar(token.charAt(0))) return false;
-        if (isOpenQuote(token)) return false;
+        if (isUnterminatedQuotedPhrase(token)) return false;
+        if (!token.endsWith(""+token.charAt(0))) return false;
+
+        String quoteFreeRequired = token.substring(1, token.length() - 1);
+        quoteFreeRequired = Strings.replaceAllRegex(quoteFreeRequired, "\\\\.", "");
+        while (true) {
+            int i = quoteFreeRequired.indexOf("" + token.charAt(0));
+            if (i==-1) break;
+            quoteFreeRequired = quoteFreeRequired.substring(i+1);
+            if (quoteFreeRequired.isEmpty()) break;
+            if (delimiters.contains(""+quoteFreeRequired.charAt(0))) return false;  // must not have " followed by delimeter
+            // if fail is specified, quoted strings must escape their contents
+            if (failOnOpenQuote) throw new IllegalArgumentException("Mismatched inner quotes");
+        }
+
         return true;
     }
 
@@ -276,17 +296,21 @@ public class QuotedStringTokenizer {
     }
 
     private void pullUntilValid(StringBuffer nextToken) {
-        while (isOpenQuote(nextToken.toString()) && delegate.hasMoreTokens()) {
+        while (isUnterminatedQuotedPhrase(nextToken.toString()) && delegate.hasMoreTokens()) {
             //keep appending until the quote is ended or there are no more quotes
             nextToken.append(delegate.nextToken());
         }
-        if (failOnOpenQuote && isOpenQuote(nextToken.toString())) {
-            throw new IllegalArgumentException("Mismatched quotation marks in expression");
+        if (failOnOpenQuote) {
+            if (isUnterminatedQuotedPhrase(nextToken.toString())) {
+                throw new IllegalArgumentException("Mismatched quotation marks in expression");
+            }
+            // do this for stricter error checks
+            isQuoted(nextToken.toString());
         }
     }
 
-    boolean isOpenQuote(String stringToCheck) {
-        if (!keepInternalQuotes) return hasOpenQuote(stringToCheck, quoteChars);
+    boolean isUnterminatedQuotedPhrase(String stringToCheck) {
+        if (!expectQuotesDelimited) return hasOpenQuote(stringToCheck, quoteChars);
 
         if (stringToCheck.isEmpty()) return false;
         char start = stringToCheck.charAt(0);
@@ -311,6 +335,7 @@ public class QuotedStringTokenizer {
         return hasOpenQuote(stringToCheck, DEFAULT_QUOTE_CHARS);
     }
 
+    /** detects whether there are mismatched quotes, ignoring delimeters, but attending to escapes, finding a quote char, then skipping everything up to its match, and repeating */
     public static boolean hasOpenQuote(String stringToCheck, String quoteChars) {        
         String x = stringToCheck;
         if (x==null) return false;

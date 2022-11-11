@@ -33,6 +33,11 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(new ShorthandProcessor(template).process(input).get(), expected);
     }
 
+    void assertShorthandOfGivesError(String template, String input, Map<String,Object> expected) {
+        Asserts.assertEquals(new ShorthandProcessor(template).withFailOnMismatch(false).process(input).get(), expected);
+        Asserts.assertFails(() -> new ShorthandProcessor(template).withFailOnMismatch(true).process(input).get());
+    }
+
     void assertShorthandFinalMatchRawOfGives(String template, String input, Map<String,Object> expected) {
         Asserts.assertEquals(new ShorthandProcessor(template).withFinalMatchRaw(true).process(input).get(), expected);
     }
@@ -51,7 +56,7 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         assertShorthandOfGives("${x}", "hello world", MutableMap.of("x", "hello world"));
 
         assertShorthandOfGives("${x} \" is \" ${y}", "a is b c", MutableMap.of("x", "a", "y", "b c"));
-        assertShorthandOfGives("${x} \" is \" ${y}", "a is b \"c\"", MutableMap.of("x", "a", "y", "b c"));
+        assertShorthandOfGives("${x} \" is \" ${y}", "a is b \"c\"", MutableMap.of("x", "a", "y", "b \"c\""));
 
         // don't allow intermediate multi-token matching; we could add but not needed yet
 //        assertShorthandOfGives("${x} \" is \" ${y}", "a b is b c", MutableMap.of("x", "a b", "y", "b c"));
@@ -62,16 +67,16 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is c", MutableMap.of("x", "this is b", "y", "c"));
 
         // quotes with spaces before/after removed
-        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is c is \"is quoted\"", MutableMap.of("x", "this is b", "y", "c is is quoted"));
+        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is c is \"is quoted\"", MutableMap.of("x", "this is b", "y", "c is \"is quoted\""));
         // if you want quotes, you have to wrap them in quotes
         assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is is quoted\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is is quoted\""));
         // and only quotes at word end are considered, per below
-        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted\"\""));
-        assertShorthandOfGives("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"  too", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted\"\" too"));
+        assertShorthandOfGivesError("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"", MutableMap.of("x", "this is b", "y", "\"c is \"is  quoted\"\""));
+        assertShorthandOfGivesError("${x} \" is \" ${y}", "\"this is b\" is \"\\\"c is \"is  quoted\"\\\"\"  too", MutableMap.of("x", "this is b", "y", "\"\\\"c is \"is  quoted\"\\\"\"  too"));
 
         // preserve spaces in a word
         assertShorthandOfGives("${x}", "\"  sp a  ces \"", MutableMap.of("x", "  sp a  ces "));
-        assertShorthandOfGives("${x}", "\"  sp a  ces \"  and  then  some", MutableMap.of("x", "  sp a  ces  and then some"));
+        assertShorthandOfGives("${x}", "\"  sp a  ces \"  and  then  some", MutableMap.of("x", "\"  sp a  ces \"  and  then  some"));
 
         // if you want quotes, you have to wrap them in quotes
         assertShorthandOfGives("${x}", "\"\\\"c is is quoted\\\"\"", MutableMap.of("x", "\"c is is quoted\""));
@@ -81,7 +86,7 @@ public class ShorthandProcessorTest extends BrooklynMgmtUnitTestSupport {
         // so this gives an error
         assertShorthandFailsWith("${x}", "\"c is  \"is", e -> Asserts.expectedFailureContainsIgnoreCase(e, "mismatched", "quot"));
         // and this is treated as one quoted string
-        assertShorthandOfGives("${x}", "\"\\\"c  is \"is  quoted\"\\\"\"", MutableMap.of("x", "\"c  is \"is  quoted\"\""));
+        assertShorthandOfGivesError("${x}", "\"\\\"c  is \"is  quoted\"\\\"\"", MutableMap.of("x", "\"c  is \"is  quoted\"\""));
     }
 
     @Test

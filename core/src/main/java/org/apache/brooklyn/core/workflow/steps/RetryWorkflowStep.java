@@ -123,7 +123,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             if (Strings.isBlank(initialS)) {
                 throw new IllegalArgumentException("initial duration required for backoff");
             }
-            result.initial = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).keepInternalQuotes(true).failOnOpenQuote(true).build(initialS).remainderAsList().stream()
+            result.initial = QuotedStringTokenizer.builder().includeQuotes(true).includeDelimiters(false).expectQuotesDelimited(true).failOnOpenQuote(true).build(initialS).remainderAsList().stream()
                     .map(Duration::of).collect(Collectors.toList());
 
             String factor = (String) resultM.get().get("factor");
