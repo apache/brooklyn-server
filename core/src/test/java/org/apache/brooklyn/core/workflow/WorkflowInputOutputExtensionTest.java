@@ -29,9 +29,8 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
@@ -46,7 +45,6 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -622,6 +620,70 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "load x = classpath://hello-world.txt",
                 "return ${x}"));
         Asserts.assertStringContains((String)output, "The file hello-world.war contains its source code.");
+    }
+
+    @Test
+    public void testSetSensorAtomicRequire() {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "init")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of(
+                                "step", "set-sensor integer x = 0",
+                                "require", MutableMap.of("when", "absent")
+                        )
+                )));
+        eff.apply((EntityLocal)app);
+
+        eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        "let x = ${entity.sensor.x} ?? 0",
+                        "let x2 = ${x} + 1",
+                        MutableMap.of(
+                                "step", "set-sensor x = ${x2}",
+                                "require", "${x}"
+                        )
+                )));
+        eff.apply((EntityLocal)app);
+
+        // fails with Absent exception if value required
+        Asserts.assertFailsWith(() -> app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked(),
+                e -> {
+                    Asserts.expectedFailureContains(e, "x", "non-absent requirement");
+                    SetSensorWorkflowStep.SensorRequirementFailedAbsent e0 = (SetSensorWorkflowStep.SensorRequirementFailedAbsent) Exceptions.getFirstThrowableOfType(e, SetSensorWorkflowStep.SensorRequirementFailed.class);
+                    Asserts.assertNull(e0.getSensorValue());
+                    return true;
+                });
+
+        // works if we require absent, and initializes it
+        app.invoke(app.getEntityType().getEffectorByName("init").get(), null).getUnchecked();
+
+        // fails with normal exception if we require absent when it isn't
+        Asserts.assertFailsWith(() -> app.invoke(app.getEntityType().getEffectorByName("init").get(), null).getUnchecked(),
+            e -> {
+                Asserts.expectedFailureContains(e, "x");
+                // value not in output, not any mention of absence
+                Asserts.expectedFailureDoesNotContain(e, "0", "absent");
+                // but value is in field
+                SetSensorWorkflowStep.SensorRequirementFailed e0 = Exceptions.getFirstThrowableOfType(e, SetSensorWorkflowStep.SensorRequirementFailed.class);
+                Asserts.assertEquals(e0.getSensorValue(), 0);
+                return true;
+            });
+
+        // subsequently works at least once, but probably gets some errors due to concurrency
+        List<Task<?>> tasks = MutableList.of();
+        int NUM = 100;
+        for (int i=0; i<100; i++) tasks.add(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null));
+        long numErrors = tasks.stream().filter(t -> {
+            t.blockUntilEnded();
+            return t.isError();
+        }).count();
+        Integer numSuccess = app.sensors().get(Sensors.newIntegerSensor("x"));
+        if (numSuccess==0) tasks.iterator().next().getUnchecked();  // show failure if they all failed
+        Asserts.assertEquals(numErrors + numSuccess, NUM, "Tally mismatch, had "+numErrors+" errors when sensor showed "+numSuccess);
     }
 
 }

@@ -1057,6 +1057,10 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
             });
         }
 
+        public boolean contains(String key) {
+            return attributesInternal.asMap().containsKey(key);
+        }
+
         @Override
         public void remove(AttributeSensor<?> attribute) {
             if (LOG.isTraceEnabled())

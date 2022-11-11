@@ -332,4 +332,5 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                     "Completed step "+workflowId+"-2-ii; no further steps: Workflow completed"));
         }
     }
+
 }
