@@ -26,6 +26,7 @@ import javax.annotation.Nullable;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Function;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Reflections;
+import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,6 +137,17 @@ public abstract class BrooklynYamlTypeInstantiator {
          * <li> a no-arg constructor, only if the inferred map is empty  
          **/
         public <T> T newInstance(@Nullable Class<T> supertype) {
+            T result = newInstanceWithConfig(supertype);
+            if (result instanceof AbstractBrooklynObjectSpec) {
+                Object name = data.getStringKey("name");
+                if (name!=null && Strings.isNonBlank(name.toString())) {
+                    ((AbstractBrooklynObjectSpec) result).displayName(name.toString());
+                }
+            }
+            return result;
+        }
+
+        protected <T> T newInstanceWithConfig(@Nullable Class<T> supertype) {
             Class<? extends T> type = getType(supertype);
             Map<String, ?> cfg = getConfigMap();
             Maybe<? extends T> result = Reflections.invokeConstructorFromArgs(type, cfg);
