@@ -558,6 +558,26 @@ public abstract class RebindIteration {
             logRebindingDebug("Not rebinding enrichers; feature disabled: {}", memento.getEnricherIds());
         }
 
+
+        // Instantiate feeds
+        if (rebindManager.persistFeedsEnabled) {
+            logRebindingDebug("RebindManager instantiating feeds: {}", memento.getFeedIds());
+            for (FeedMemento feedMemento : memento.getFeedMementos().values()) {
+                if (LOG.isDebugEnabled()) LOG.debug("RebindManager instantiating feed {}", feedMemento);
+
+                try {
+                    Feed feed = instantiator.newFeed(feedMemento);
+                    EntityAdjunctProxyImpl.resetDelegate( adjunctProxies.remove(feed.getId()) , feed);
+                    rebindContext.registerFeed(feedMemento.getId(), feed);
+                    // started during associateAdjunctsWithEntities by RebindAdjuncts
+                } catch (Exception e) {
+                    exceptionHandler.onCreateFailed(BrooklynObjectType.FEED, feedMemento.getId(), feedMemento.getType(), e);
+                }
+            }
+        } else {
+            logRebindingDebug("Not rebinding feeds; feature disabled: {}", memento.getFeedIds());
+        }
+
         if (!adjunctProxies.isEmpty()) {
             LOG.warn("Adjunct proxies not empty, likely indicating dangling references: "+adjunctProxies);
             adjunctProxies.entrySet().forEach(entry -> {
@@ -571,23 +591,6 @@ public abstract class RebindIteration {
             adjunctProxies.clear();
         }
 
-        // Instantiate feeds
-        if (rebindManager.persistFeedsEnabled) {
-            logRebindingDebug("RebindManager instantiating feeds: {}", memento.getFeedIds());
-            for (FeedMemento feedMemento : memento.getFeedMementos().values()) {
-                if (LOG.isDebugEnabled()) LOG.debug("RebindManager instantiating feed {}", feedMemento);
-
-                try {
-                    Feed feed = instantiator.newFeed(feedMemento);
-                    rebindContext.registerFeed(feedMemento.getId(), feed);
-                    // started during associateAdjunctsWithEntities by RebindAdjuncts
-                } catch (Exception e) {
-                    exceptionHandler.onCreateFailed(BrooklynObjectType.FEED, feedMemento.getId(), feedMemento.getType(), e);
-                }
-            }
-        } else {
-            logRebindingDebug("Not rebinding feeds; feature disabled: {}", memento.getFeedIds());
-        }
     }
 
     protected void reconstructEverything() {

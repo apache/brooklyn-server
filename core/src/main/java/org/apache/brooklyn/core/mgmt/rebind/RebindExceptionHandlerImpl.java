@@ -273,6 +273,8 @@ public class RebindExceptionHandlerImpl implements RebindExceptionHandler {
             throw new RuntimeInterruptedException("Interruption discovered when recording dangling feed "+id);
         }
 
+        if (createAdjunctProxy!=null) return (Feed) createAdjunctProxy.apply(Feed.class, id);
+
         missingFeeds.add(id);
         if (danglingRefFailureMode == RebindManager.RebindFailureMode.FAIL_FAST) {
             throw new IllegalStateException("No feed found with id "+id);

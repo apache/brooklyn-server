@@ -30,9 +30,8 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.Entities;
-import org.apache.brooklyn.core.entity.EntityAsserts;
-import org.apache.brooklyn.core.entity.StartableApplication;
+import org.apache.brooklyn.core.entity.*;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -57,6 +56,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 
 public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
@@ -187,10 +187,11 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
                 "      sensor: myWorkflowSensor",
                 "      triggers:",
                 "        - trig",
+                "        - trig2",  // to make sure doesn't public too much
                 "      steps:",
                 "        - type: return",
                 "          value:",
-                "            n: $brooklyn:attributeWhenReady(\"trig\")",
+                "            n: ${entity.sensor.trig}",
                 "");
 
         waitForApplicationTasks(app);
@@ -199,11 +200,69 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
         child.sensors().set(Sensors.newIntegerSensor("trig"), 1);
         EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "myWorkflowSensor"), MutableMap.of("n", 1));
 
+        Set<Task<?>> tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
+        Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
+
+        Dumper.dumpInfo(app);
         app = rebind();
         child = Iterables.getOnlyElement(app.getChildren());
 
         child.sensors().set(Sensors.newIntegerSensor("trig"), 2);
         EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "myWorkflowSensor"), MutableMap.of("n", 2));
+
+        tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
+        Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
+    }
+
+    @Test(groups="WIP")
+    void testWorkflowSensorWithMutexRebind() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-sensor",
+                "    brooklyn.config:",
+                "      sensor: myWorkflowSensor",
+                "      triggers:",
+                "        - trig",
+                "        - trig2",  // to make sure doesn't public too much
+                "      steps:",
+                "        - step: workflow lock count",
+                "          steps:",
+                "           - let count = ${entity.sensor.count} ?? 0",
+                "           - let count = ${count} + 1",
+                "           - log count now ${count}",
+                "           - step: set-sensor count = ${count}",
+                "             replayable: yes",  // not needed for this test, but for good measure
+                "        - type: return",
+                "          value:",
+                "            n: ${entity.sensor.trig}",
+                "");
+
+        waitForApplicationTasks(app);
+        Entity child = Iterables.getOnlyElement(app.getChildren());
+
+        child.sensors().set(Sensors.newIntegerSensor("trig"), 1);
+        EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "myWorkflowSensor"), MutableMap.of("n", 1));
+        // should run once initially and once on trigger
+        EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "count"), 2);
+
+        Set<Task<?>> tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
+        Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
+
+        Dumper.dumpInfo(app);
+        app = rebind();
+        child = Iterables.getOnlyElement(app.getChildren());
+
+        // is run again when feed restarts (but could weaken)
+        EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "count"), 3);
+
+        child.sensors().set(Sensors.newIntegerSensor("trig"), 2);
+        EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "myWorkflowSensor"), MutableMap.of("n", 2));
+        EntityAsserts.assertAttributeEquals(child, Sensors.newSensor(Object.class, "count"), 4);
+
+        tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
+        Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
     }
 
 }

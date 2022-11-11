@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.google.common.annotations.Beta;
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityInitializer;
@@ -41,6 +42,7 @@ import org.apache.brooklyn.feed.function.FunctionPollConfig;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
@@ -83,15 +85,15 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
     }
 
     private void apply(final EntityLocal entity, final ConfigBag params) {
-
         AttributeSensor<T> sensor = addSensor(entity);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("Adding workflow sensor {} to {}", sensor.getName(), entity);
         }
 
+        WorkflowPollCallable wc = new WorkflowPollCallable("Workflow for sensor " + sensor.getName(), params, null);
         FunctionPollConfig<Object,Object> pollConfig = new FunctionPollConfig<Object,T>(sensor)
-                .callable(new WorkflowPollCallable("Workflow for sensor " + sensor.getName(), entity, params))
+                .callable(wc)
                 .onSuccess(TypeCoercions.<T>function((Class)sensor.getTypeToken().getRawType()));
 
         standardPollConfig(entity, initParams(), pollConfig);
@@ -103,8 +105,8 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
                 .poll(pollConfig);
 
         FunctionFeed feed = feedBuilder.build();
+        wc.init(feed);
         entity.addFeed(feed);
-
     }
 
     @Override
@@ -145,18 +147,28 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
 
     static class WorkflowPollCallable implements Callable<Object> {
         private final String workflowCallableName;
-        private final BrooklynObject entityOrAdjunct;
-        private final ConfigBag params;
+        private BrooklynObject entityOrAdjunct;
+        private final Map<String,Object> params;
 
-        public WorkflowPollCallable(String workflowCallableName, BrooklynObject entityOrAdjunct, ConfigBag params) {
+        protected WorkflowPollCallable(String workflowCallableName, ConfigBag params, BrooklynObject entityOrAdjunct) {
             this.workflowCallableName = workflowCallableName;
+            this.params = params.getAllConfigRaw();
             this.entityOrAdjunct = entityOrAdjunct;
-            this.params = params;
+        }
+
+        /** used in some places where the entity/adjunct is set late */
+        public void init(BrooklynObject entityOrAdjunct) {
+            this.entityOrAdjunct = entityOrAdjunct;
         }
 
         @Override
         public Object call() throws Exception {
-            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, params, null, null, null);
+            BrooklynObject entityOrAdjunct = this.entityOrAdjunct;
+            if (entityOrAdjunct==null) entityOrAdjunct = BrooklynTaskTags.getContextEntityAdjunct(Tasks.current(), false);
+            if (entityOrAdjunct==null) entityOrAdjunct = BrooklynTaskTags.getContextEntity(Tasks.current());
+            if (entityOrAdjunct==null) throw new IllegalStateException("No entity adjunct or entity available for "+this);
+
+            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, ConfigBag.newInstance(params), null, null, null);
             Task<Object> wt = wc.getTask(false /* condition checked by poll config framework */).get();
             if (entityOrAdjunct instanceof EntityAdjunct) {
                 // add tag to each task so it shows up in list on mgmt context
@@ -184,7 +196,13 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
             }
         }
 
-        protected void onStart() {}
-        protected void onEnd() {}
+        @Override
+        public String toString() {
+            return "WorkflowPollCallable{" +
+                    "workflowCallableName='" + workflowCallableName + '\'' +
+                    ", context=" + entityOrAdjunct +
+                    ", params=" + params +
+                    '}';
+        }
     }
 }

@@ -21,13 +21,12 @@ package org.apache.brooklyn.core.feed;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.Callable;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import com.google.common.collect.Iterables;
-import com.google.common.collect.SetMultimap;
-import com.google.common.collect.Sets;
+import com.google.common.collect.*;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.SubscriptionHandle;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -36,13 +35,13 @@ import org.apache.brooklyn.core.entity.Attributes;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
-import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.AbstractAddTriggerableSensor;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicSequentialTask;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.ScheduledTask;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -71,7 +70,7 @@ public class Poller<V> {
     private final Set<Callable<?>> oneOffJobs = new LinkedHashSet<Callable<?>>();
     private final Set<PollJob<V>> pollJobs = new LinkedHashSet<PollJob<V>>();
     private final Set<Task<?>> oneOffTasks = new LinkedHashSet<Task<?>>();
-    private final Set<ScheduledTask> tasks = new LinkedHashSet<ScheduledTask>();
+    private final Set<ScheduledTask> scheduledTasks = new LinkedHashSet<>();
     private volatile boolean started = false;
 
     public <PI,PC extends PollConfig> void scheduleFeed(AbstractFeed feed, SetMultimap<PI,PC> polls, Function<PI,Callable<?>> jobFactory) {
@@ -132,6 +131,7 @@ public class Poller<V> {
     private static class PollJob<V> {
         final PollHandler<? super V> handler;
         final Duration pollPeriod;
+        final Callable<?> job;
         final Runnable wrappedJob;
         final Entity pollTriggerEntity;
         final Sensor<?> pollTriggerSensor;
@@ -149,6 +149,7 @@ public class Poller<V> {
             this.pollTriggerEntity = sensorSource;
             this.pollTriggerSensor = sensor;
             this.pollCondition = pollCondition;
+            this.job = job;
             wrappedJob = new Runnable() {
                 @Override
                 public void run() {
@@ -157,7 +158,8 @@ public class Poller<V> {
                             DslPredicates.DslPredicate pc = pollCondition.get();
                             if (pc!=null) {
                                 if (!pc.apply(BrooklynTaskTags.getContextEntity(Tasks.current()))) {
-                                    if (log.isTraceEnabled()) log.trace("PollJob for {} skipped because condition does not apply", job);
+                                    if (log.isTraceEnabled()) log.trace("Skipping execution for PollJob {} because condition does not apply", job);
+                                    log.debug("Skipping poll/feed execution because condition does not apply");  // log so we can see in log viewer
                                     return;
                                 }
                             }
@@ -231,33 +233,42 @@ public class Poller<V> {
         
         Duration minPeriod = null;
         Set<String> sensorSummaries = MutableSet.of();
+
+        final Function<PollJob,String> scheduleNameFn = pollJob -> MutableList.of(adjunct !=null ? adjunct.getDisplayName() : null, pollJob.handler.getDescription())
+                .stream().filter(Strings::isNonBlank).collect(Collectors.joining("; "));
+
+        BiFunction<Runnable,String,Task<?>> tf = (job, scheduleName) -> {
+            DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity),
+                    () -> {
+                        if (!Entities.isManagedActive(entity)) {
+                            return null;
+                        }
+                        if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
+                            return null;
+                        }
+                        job.run();
+                        return null;
+                    });
+            // explicitly make non-transient -- we want to see its execution, even if parent is transient
+            BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
+            return task;
+        };
+        Multimap<Callable,PollJob> nonScheduledJobs = Multimaps.newSetMultimap(MutableMap.of(), MutableSet::of);
+        pollJobs.forEach(pollJob -> nonScheduledJobs.put(pollJob.job, pollJob));
+
+        // 'runInitially' could be an option on the job; currently we always do
+        // if it's a scheduled task, that happens automatically; if it's a triggered task
+        // we collect the distinct runnables and run each of those
+        // (the poll job model doesn't work perfectly since usually all schedules/triggers are for the same job)
+
         for (final PollJob<V> pollJob : pollJobs) {
-            final String scheduleName = MutableList.of(adjunct !=null ? adjunct.getDisplayName() : null, pollJob.handler.getDescription())
-                    .stream().filter(Strings::isNonBlank).collect(Collectors.joining("; "));
+            String scheduleName = scheduleNameFn.apply(pollJob);
             boolean added = false;
 
-            Callable<Task<?>> tf = () -> {
-                DynamicSequentialTask<Void> task = new DynamicSequentialTask<Void>(MutableMap.of("displayName", scheduleName, "entity", entity),
-                        () -> {
-                            if (!Entities.isManagedActive(entity)) {
-                                return null;
-                            }
-                            if (onlyIfServiceUp && !Boolean.TRUE.equals(entity.getAttribute(Attributes.SERVICE_UP))) {
-                                return null;
-                            }
-                            pollJob.wrappedJob.run();
-                            return null;
-                        });
-                // explicitly make non-transient -- we want to see its execution, even if parent is transient
-                BrooklynTaskTags.addTagDynamically(task, BrooklynTaskTags.NON_TRANSIENT_TASK_TAG);
-                return task;
-            };
-
-            ScheduledTask.Builder tb = ScheduledTask.builder(tf)
-                    .cancelOnException(false)
-                    .tag(adjunct != null ? BrooklynTaskTags.tagForContextAdjunct(adjunct) : null);
-
             if (pollJob.pollPeriod!=null && pollJob.pollPeriod.compareTo(Duration.ZERO) > 0) {
+                ScheduledTask.Builder tb = ScheduledTask.builder(() -> tf.apply(pollJob.wrappedJob, scheduleName))
+                        .cancelOnException(false)
+                        .tag(adjunct != null ? BrooklynTaskTags.tagForContextAdjunct(adjunct) : null);
                 added = true;
                 tb.displayName("Periodic: " + scheduleName);
                 tb.period(pollJob.pollPeriod);
@@ -265,11 +276,12 @@ public class Poller<V> {
                 if (minPeriod==null || (pollJob.pollPeriod.isShorterThan(minPeriod))) {
                     minPeriod = pollJob.pollPeriod;
                 }
-            } else {
-                // if no period, we simply need to run it initially
-                tb.displayName("Initial: "+scheduleName);
+                ScheduledTask st = tb.build();
+                scheduledTasks.add(st);
+                log.debug("Submitting scheduled task "+st+" for poll/feed "+this+", job "+pollJob);
+                Entities.submit(entity, st);
+                nonScheduledJobs.removeAll(pollJob.job);
             }
-            tasks.add(Entities.submit(entity, tb.build()));
 
             if (pollJob.pollTriggerSensor !=null) {
                 added = true;
@@ -279,11 +291,12 @@ public class Poller<V> {
                 }
                 String summary = pollJob.pollTriggerSensor.getName();
                 if (pollJob.pollTriggerEntity!=null && !pollJob.pollTriggerEntity.equals(entity)) summary += " on "+pollJob.pollTriggerEntity;
+                log.debug("Adding subscription to "+summary+" for poll/feed "+this+", job "+pollJob);
                 sensorSummaries.add(summary);
                 pollJob.subscription = adjunct.subscriptions().subscribe(pollJob.pollTriggerEntity !=null ? pollJob.pollTriggerEntity : adjunct.getEntity(), pollJob.pollTriggerSensor, event -> {
                     // submit this on every event
                     try {
-                        adjunct.getExecutionContext().submit(tf.call());
+                        adjunct.getExecutionContext().submit(tf.apply(pollJob.wrappedJob, scheduleName));
                     } catch (Exception e) {
                         throw Exceptions.propagate(e);
                     }
@@ -291,9 +304,24 @@ public class Poller<V> {
             }
 
             if (!added) {
-                if (log.isDebugEnabled()) log.debug("Activating poll (as one-off, as no period and no subscriptions) for {} (using {})", new Object[] {entity, this});
+                if (log.isDebugEnabled()) log.debug("Empty poll job "+pollJob+" in "+this+" for "+entity+"; if all jobs are empty (or trigger only), will add a trivial one-time initial task");
             }
         }
+
+        // no period for these, but we do need to run them initially, but combine if the Callable is the same (e.g. multiple triggers)
+        // not the PollJob is one per trigger, and the wrappedJob is specific to the poll job, but doesn't depend on the trigger, so we can just take the first
+        nonScheduledJobs.asMap().forEach( (jobC,jobP) -> {
+            Runnable job = jobP.iterator().next().wrappedJob;
+            String jobSummaries = jobP.stream().map(j -> j.handler.getDescription()).filter(Strings::isNonBlank).collect(Collectors.joining(", "));
+            String name =  (adjunct !=null ? adjunct.getDisplayName() : "anonymous")+(Strings.isNonBlank(jobSummaries) ? "; "+jobSummaries : "");
+            Task<Object> t = Tasks.builder().dynamic(true).displayName("Initial: " +name)
+                    .body(
+                            () -> DynamicTasks.queue(tf.apply(job, name)).getUnchecked())
+                    .tag(adjunct != null ? BrooklynTaskTags.tagForContextAdjunct(adjunct) : null)
+                    .build();
+            log.debug("Submitting initial task "+t+" for poll/feed "+this+", job "+job+" (because otherwise is trigger-only)");
+            Entities.submit(entity, t);
+        });
         
         if (adjunct !=null) {
             if (sensorSummaries.isEmpty()) {
@@ -326,7 +354,7 @@ public class Poller<V> {
         for (Task<?> task : oneOffTasks) {
             if (task != null) task.cancel(true);
         }
-        for (ScheduledTask task : tasks) {
+        for (ScheduledTask task : scheduledTasks) {
             if (task != null) task.cancel();
         }
         for (PollJob<?> j: pollJobs) {
@@ -336,12 +364,12 @@ public class Poller<V> {
             }
         }
         oneOffTasks.clear();
-        tasks.clear();
+        scheduledTasks.clear();
     }
 
     public boolean isRunning() {
         boolean hasActiveTasks = false;
-        for (Task<?> task: tasks) {
+        for (Task<?> task: scheduledTasks) {
             if (task.isBegun() && !task.isDone()) {
                 hasActiveTasks = true;
                 break;
@@ -349,7 +377,7 @@ public class Poller<V> {
         }
         boolean hasSubscriptions = pollJobs.stream().anyMatch(j -> j.subscription!=null);
         if (!started && hasActiveTasks) {
-            log.warn("Poller should not be running, but has active tasks, tasks: "+tasks);
+            log.warn("Poller should not be running, but has active tasks, tasks: "+ scheduledTasks);
         }
         if (!started && hasSubscriptions) {
             log.warn("Poller should not be running, but has subscriptions on jobs: "+pollJobs);

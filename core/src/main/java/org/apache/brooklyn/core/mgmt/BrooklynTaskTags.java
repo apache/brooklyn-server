@@ -194,7 +194,7 @@ public class BrooklynTaskTags extends TaskTags {
      * Tasks with this tag will also have a {@link #tagForContextEntity(Entity)}.
      */
     public static WrappedObject<EntityAdjunct> tagForContextAdjunct(EntityAdjunct adjunct) {
-        return new WrappedObject<EntityAdjunct>(CONTEXT_ADJUNCT, adjunct);
+        return new WrappedObject<>(CONTEXT_ADJUNCT, adjunct);
     }
     
 
@@ -234,6 +234,16 @@ public class BrooklynTaskTags extends TaskTags {
 
     public static Entity getContextEntity(Task<?> task) {
         return getWrappedEntityOfType(task, CONTEXT_ENTITY);
+    }
+    public static EntityAdjunct getContextEntityAdjunct(Task<?> task, boolean recursively) {
+        WrappedObject<EntityAdjunct> result = getWrappedObjectTagOfType(getTagsFast(task), CONTEXT_ADJUNCT, EntityAdjunct.class);
+        if (result==null) {
+            if (recursively && task!=null) {
+                return getContextEntityAdjunct(task.getSubmittedByTask(), recursively);
+            }
+            return null;
+        }
+        return result.object;
     }
 
     public static Object getTargetOrContextEntityTag(Task<?> task) {

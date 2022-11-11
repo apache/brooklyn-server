@@ -62,7 +62,6 @@ public final class WorkflowPolicy<T> extends AbstractPolicy {
 
     // ? - do we need to have an option not to run when added?
 
-
     public WorkflowPolicy() {}
     public WorkflowPolicy(Map<?,?> params) {
         super(params);
@@ -123,7 +122,7 @@ public final class WorkflowPolicy<T> extends AbstractPolicy {
 
         Set<PollConfig> pollConfigs = MutableSet.of(pc);
         poller.schedulePoll(this, pollConfigs, new WorkflowSensor.WorkflowPollCallable(
-                getDisplayName() + " (workflow)", this, config().getBag()), new PolicyNoOpPollHandler());
+                getDisplayName() + " (workflow)", config().getBag(), this), new PolicyNoOpPollHandler());
 
         if (!isSuspended()) resume();
     }

@@ -68,6 +68,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -155,6 +156,13 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     }
 
     @Test(groups="Integration") // because delay
+    public void testWorkflowSensorTriggerDoesntRunTooMuch() throws Exception {
+        Entity entity = doTestWorkflowSensor("triggers: [ theTrigger, anotherTrigger ]", Duration.seconds(1)::isLongerThan);
+        Time.sleep(Duration.millis(500));
+        EntityAsserts.assertAttributeEqualsEventually(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 1));
+    }
+
+    @Test(groups="Integration") // because delay
     public void testWorkflowSensorPeriod() throws Exception {
         doTestWorkflowSensor("period: 2s", Duration.seconds(2)::isShorterThan);
     }
@@ -189,7 +197,9 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         doTestWorkflowPolicy("condition: { sensor: not_exist }\n" + "period: 200 ms", null);
     }
 
-    void doTestWorkflowSensor(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
+    static final AttributeSensor<Object> MY_WORKFLOW_SENSOR = Sensors.newSensor(Object.class, "myWorkflowSensor");
+
+    Entity doTestWorkflowSensor(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicEntity.class.getName(),
@@ -216,17 +226,16 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Duration d1 = Duration.of(sw);
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
-        AttributeSensor<Object> s = Sensors.newSensor(Object.class, "myWorkflowSensor");
 
         if (timeCheckOrNullIfShouldFail!=null) {
-            EntityAsserts.assertAttributeEventuallyNonNull(entity, s);
+            EntityAsserts.assertAttributeEventuallyNonNull(entity, MY_WORKFLOW_SENSOR);
             Duration d2 = Duration.of(sw).subtract(d1);
             // initial set should be soon after startup
             Asserts.assertThat(d2, Duration.millis(500)::isLongerThan);
-            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
+            EntityAsserts.assertAttributeEqualsEventually(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 0));
 
             entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
-            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
+            EntityAsserts.assertAttributeEqualsEventually(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 1));
             Duration d3 = Duration.of(sw).subtract(d2);
             // the next iteration should obey the time constraint specified above
             if (!timeCheckOrNullIfShouldFail.test(d3)) Asserts.fail("Timing error, took " + d3);
@@ -236,9 +245,10 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             // step definitions should not be resolved by jackson
             defs.forEach(def -> Asserts.assertThat(def, d -> !(d instanceof WorkflowStepDefinition)));
         } else {
-            EntityAsserts.assertAttributeEqualsContinually(entity, s, null);
+            EntityAsserts.assertAttributeEqualsContinually(entity, MY_WORKFLOW_SENSOR, null);
             Asserts.assertThat(new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).values(), Collection::isEmpty);
         }
+        return entity;
     }
 
     public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
@@ -274,24 +284,22 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         // should really ID be settable from flag?
         Asserts.assertEquals(policy.getId(), "set-my-workflow-sensor");
 
-        AttributeSensor<Object> s = Sensors.newSensor(Object.class, "myWorkflowSensor");
-
         if (timeCheckOrNullIfShouldFail!=null) {
 //            EntityAsserts.assertAttributeEventuallyNonNull(entity, s);
-            EntityAsserts.assertAttributeEquals(entity, s, null);
+            EntityAsserts.assertAttributeEquals(entity, MY_WORKFLOW_SENSOR, null);
             Duration d2 = Duration.of(sw).subtract(d1);
             // initial set should be soon after startup
             Asserts.assertThat(d2, Duration.millis(500)::isLongerThan);
 //            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
 
             entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
-            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
+            EntityAsserts.assertAttributeEqualsEventually(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 0));
 //            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
             Duration d3 = Duration.of(sw).subtract(d2);
             // the next iteration should obey the time constraint specified above
             if (!timeCheckOrNullIfShouldFail.test(d3)) Asserts.fail("Timing error, took " + d3);
         } else {
-            EntityAsserts.assertAttributeEqualsContinually(entity, s, null);
+            EntityAsserts.assertAttributeEqualsContinually(entity, MY_WORKFLOW_SENSOR, null);
         }
     }
 
