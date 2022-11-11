@@ -225,12 +225,18 @@ public class ScheduledTask extends BasicTask<Object> {
                 Duration start = Duration.sinceUtc(recentRun.getStartTimeUtc());
                 data.appendToSummary(", last run "+start+" ago");
             }
-            if (groovyTruth(getNextScheduled())) {
-                Duration untilNext = Duration.millis(getNextScheduled().getDelay(TimeUnit.MILLISECONDS));
+            ScheduledFuture<?> nextScheduled = getNextScheduled();
+            if (nextScheduled!=null) {
+                if (nextScheduled.isDone() || nextScheduled.isCancelled()) {
+                    data.appendToSummary(", not scheduled to run again");
+                }
+                Duration untilNext = Duration.millis(nextScheduled.getDelay(TimeUnit.MILLISECONDS));
                 if (untilNext.isPositive())
                     data.appendToSummary(", next in "+untilNext);
                 else
                     data.appendToSummary(", next imminent");
+            } else {
+                data.appendToSummary(", nothing scheduled");
             }
         }
     }
