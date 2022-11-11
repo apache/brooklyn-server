@@ -645,7 +645,7 @@ public class BasicTask<T> implements TaskInternal<T> {
             computeStatusStringActive(verbosity, data);
         }
 
-        if (Strings.isBlank(data.mainShortSummary)) data.mainShortSummary = "Unknown"; //shouldn't happen
+        if (Strings.isBlank(data.mainShortSummary)) data.setSummary("Unknown"); //shouldn't happen
         if (verbosity<=0) return data.mainShortSummary;
         String result = data.mainShortSummary + Strings.join(data.oneLineData, "");
         if (verbosity==1) return result;
@@ -673,12 +673,12 @@ public class BasicTask<T> implements TaskInternal<T> {
         // the intermediate checks returned started==true isDone()==false.
         if (t == null) {
             if (done) {
-                if (data.mainShortSummary ==null) {
+                if (data.mainShortSummary==null) {
                     data.setSummary("Finishing");
                     data.appendToSummary("; just went done, no thread available");
                 }
             } else {
-                if (data.mainShortSummary ==null) {
+                if (data.mainShortSummary==null) {
                     //should only happen for repeating task which is not active
                     data.setSummary("Sleeping");
                     data.appendToSummary("; no thread available");
@@ -702,7 +702,7 @@ public class BasicTask<T> implements TaskInternal<T> {
             computeStatusStringOptionalDetails(verbosity, data);
             if (Strings.isBlank(data.mainShortSummary)) data.setSummary("In progress");
             computeStatusStringError(verbosity, data);
-        } else if (data.mainShortSummary ==null) {
+        } else if (data.mainShortSummary==null) {
             data.setSummary("Finishing");
             data.appendToSummary("; just went done");
             computeStatusStringOptionalDetails(verbosity, data);
@@ -714,14 +714,16 @@ public class BasicTask<T> implements TaskInternal<T> {
     protected void computeStatusStringThreadInfo(int verbosity, StatusStringData data, ThreadInfo ti) {
         if (verbosity>=1) {
             LockInfo lock = ti.getLockInfo();
-            String msg = null;
+            String msg;
             if (lock==null && ti.getThreadState()==Thread.State.RUNNABLE) {
                 //not blocked
                 if (ti.isSuspended()) {
                     msg = "Thread suspended";
                 } else {
                     if (verbosity >= 2) {
-                        msg += " (" + ti.getThreadState() + ")";
+                        msg = " (" + ti.getThreadState() + ")";
+                    } else {
+                        msg = null;
                     }
                 }
             } else {
