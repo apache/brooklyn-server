@@ -721,7 +721,7 @@ public class BasicTask<T> implements TaskInternal<T> {
                     msg = "Thread suspended";
                 } else {
                     if (verbosity >= 2) {
-                        msg = " (" + ti.getThreadState() + ")";
+                        msg = "(" + ti.getThreadState() + ")";
                     } else {
                         msg = null;
                     }
@@ -744,7 +744,7 @@ public class BasicTask<T> implements TaskInternal<T> {
                     // if already has blocking details include this with lower priority
                     data.multiLineData.add(msg);
                 } else {
-                    data.oneLineData.add(", " + Strings.toInitialLowerCase(msg));
+                    data.oneLineData.add((msg.startsWith("(") ? "" : ",") + " " + Strings.toInitialLowerCase(msg));
                 }
             }
             data.hasBlockingDetails = true;
