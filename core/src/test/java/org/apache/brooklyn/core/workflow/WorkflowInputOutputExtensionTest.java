@@ -40,7 +40,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.Assert;
@@ -52,7 +51,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
-import java.util.function.Function;
 
 public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSupport {
 
@@ -427,12 +425,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
 
     private Object let(String prefix, Object expression) throws Exception {
         return invokeWorkflowStepsWithLogging(MutableList.of(
-                MutableMap.<String,Object>of("step", "let x1", "value",
-                        expression instanceof String
-                                ? StringEscapes.JavaStringEscapes.wrapJavaString((String)expression)
-                                : expression instanceof Maybe
-                                ? ((Maybe)expression).get()
-                                : expression),
+                MutableMap.<String,Object>of("step", "let x1", "value", expression),
                 "let "+prefix+" x2 = ${x1}", "return ${x2}"));
     }
 
@@ -450,26 +443,45 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Asserts.assertEquals(out, expectedResult, "YAML encoding (for whitespace) different to expected; interesting, but not a real fault");
     }
 
+    static String q(String s) {
+        return StringEscapes.JavaStringEscapes.wrapJavaString(s);
+    }
+
     @Test
     public void testLetYaml() throws Exception {
         // null not permitted as return type; would be nice to support but not vital
 //        checkLetBidi("yaml string", null, "null");
 
         checkLet("yaml", 2, 2);
-        checkLet("yaml", Maybe.of("2"), 2);
-        checkLet("yaml", "2", 2);  //wrapped by our test, unwrapped once by shorthand, again by step
-        checkLet("yaml", "\"2\"", "2");  //wrapped by our test, unwrapped once by shorthand, again by step
-        checkLetBidi("yaml string", 2, "2");
-        checkLetBidi("yaml string", "2", "\"2\"");
-        // for these especially the exact yaml is not significant, but included for interest
-        checkLetBidi("yaml string", "\"2\"", "'\"2\"'");
-        checkLetBidi("yaml string", " ", "' '");
-        checkLetBidi("yaml string", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
-        checkLetBidi("yaml string", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
+        checkLet("yaml", "2", "2");
+        checkLet("yaml", q("2"), "2");       //unwrapped once by shorthand, again by step
+        checkLet("yaml", q(q("2")), "\"2\"");  //finally we get the string
 
-        checkLet("trim yaml", "ignore \n---\n x: 1 \n", MutableMap.of("x", 1));
-        checkLetBidi("yaml string", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
-        checkLet("trim yaml string", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
+        checkLet("yaml parse", 2, 2);
+        checkLet("yaml parse", "2", 2);
+        checkLet("yaml parse", q("2"), 2);
+        checkLet("yaml parse", q(q("2")), "2");
+
+        checkLet("yaml string", 2, "2");
+        checkLet("yaml string", "2", "2");
+        checkLet("yaml string", q("2"), "2");
+        checkLet("yaml string", q(q("2")), "\"2\"");
+
+        checkLet("yaml encode", 2, "2");
+        checkLet("yaml encode", "2", "\"2\"");
+        checkLet("yaml encode", q("2"), "\"2\"");
+        // for these especially the exact yaml is not significant, but included for interest
+        checkLet("yaml encode", q(q("2")), "'\"2\"'");
+
+        checkLetBidi("yaml encode", " ", "' '");
+        checkLetBidi("yaml encode", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
+        checkLetBidi("yaml encode", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
+
+        checkLet("trim yaml", "ignore \n---\n x: 1 \n", "x: 1");
+        checkLet("trim yaml parse", "ignore \n---\n x: 1 \n y: 2", MutableMap.of("x", 1, "y", 2));
+        checkLet("yaml string", "ignore \n---\n x: 1 \n", " x: 1 \n");
+        checkLetBidi("yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
+        checkLet("trim yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
         checkLet("trim string", "ignore \n---\n x: 1 \n", "ignore \n---\n x: 1");
 
         checkLetBidi("yaml string", MutableMap.of("a", 1), "a: 1");
@@ -480,19 +492,51 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     @Test
     public void testLetJson() throws Exception {
         checkLet("json", 2, 2);
-        checkLet("json", Maybe.of("2"), 2);
-        checkLet("json", "2", 2);
-        checkLet("json", "\"2\"", "2");
-        checkLetBidi("json string", 2, "2");
-        checkLetBidi("json string", "2", "\"2\"");
-        checkLetBidi("json string", "\"2\"", "\"\\\"2\\\"\"");
-        checkLetBidi("json string", " ", "\" \"");
-        checkLetBidi("json string", "\n", "\"\\n\"");
-        checkLetBidi("json string", " \n ", "\" \\n \"");
+        checkLet("json", "2", "2");
+        checkLet("json", q("2"), "2");       //unwrapped once by shorthand, again by step
+        checkLet("json", q(q("2")), "\"2\"");  //finally we get the string
+
+        checkLet("json parse", 2, 2);
+        checkLet("json parse", "2", 2);
+        checkLet("json parse", q("2"), 2);
+        checkLet("json parse", q(q("2")), "2");
+
+        checkLet("json string", 2, "2");
+        checkLet("json string", "2", "2");
+        checkLet("json string", q("2"), "2");
+        checkLet("json string", q(q("2")), "\"2\"");
+
+        checkLet("json encode", 2, "2");
+        checkLet("json encode", "2", "\"2\"");
+        checkLet("json encode", q("2"), "\"2\"");
+        // for these especially the exact yaml is not significant, but included for interest
+        checkLet("json encode", q(q("2")), "\"\\\"2\\\"\"");
+
+        checkLet("json string", " ", " ");
+        checkLet("json string", "\n", "\n");
+        checkLet("json string", " \n ", " \n ");
+
+        checkLetBidi("json encode", " ", "\" \"");
+        checkLetBidi("json encode", "\n", "\"\\n\"");
+        checkLetBidi("json encode", " \n ", "\" \\n \"");
 
         checkLetBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
+        checkLet("json encode", MutableMap.of("a", 1), q("{\"a\":1}"));
         checkLetBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
         checkLet("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
+    }
+
+    @Test
+    public void testLetBash() throws Exception {
+        checkLet("bash", 2, q("2"));
+        checkLet("bash encode", 2, q("2"));
+        checkLet("bash", "2", q("2"));
+        checkLet("bash", q("2"), q("2"));       //unwrapped once by shorthand, again by step
+        checkLet("bash", q(q("2")), q("\"2\""));  //finally we get the string
+
+        checkLet("bash", "hello(n $o!)", "\"hello(n \\$o\"'!'\")\"");
+        checkLet("bash", "two\nlines", "\"two\nlines\"");
+        checkLet("bash", MutableMap.of("x", 1), q("{\"x\":1}"));
     }
 
     public static class MockObject {
@@ -522,9 +566,32 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "let map x = { i: [ 1, 'A' ] }",
                 "let map result = {}",
                 "let yaml string result.y = ${x}",
-                "let json string result.j = ${x}",
+                "let json string result.j = ${x}",           // will give the stringified map
+                "let json string result.j2 = ${result.j}",   // no change to the string
+                "let json encode result.e = ${x}",
+                "let json map result.m0 = ${x}",
+                "let json map result.m1 = ${result.j}",
                 "return ${result}"));
-        Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", "{\"i\":[1,\"A\"]}"));
+        String s = "{\"i\":[1,\"A\"]}";
+        Object m = MutableMap.of("i", MutableList.of(1, "A"));
+        Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", s,
+                "j2", s, "e", q(s),
+                "m0", m, "m1", m));
+
+        String s0 = "{ i: [ 1, 'A' ] }";
+        output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let string x = "+ q(s0),  // wrap to preserve the make the second thing in list be 'A' (including single quotes)
+                "let map result = {}",
+                "let yaml parse result.mp = ${x}",           // parsing a string gives a map
+                "let yaml parse result.mp2 = ${result.mp}",  // parsing a map has no effect
+                "let json result.mo = ${result.mp}",         // json referencing a map has no discernable effect (though it serializes and deserializes)
+                "let json result.so = ${x}",                 // json referencing a string has no effect
+                "let json encode result.ss0 = ${x}",         // encoding a string gives the double-stringified map, you can parse to get the string back
+                "let json encode result.ss2 = ${result.mp}", // encoding a map gives a double-stringified result, parse it to get the stringified version
+                "let json string result.ss1 = ${result.mp}", // specifying string on non-string gives single encoding (again)
+                "return ${result}"));
+        Asserts.assertEquals(output, MutableMap.of("mp", m, "mp2", m, "mo", m,
+                "so", s0, "ss0", q(s0), "ss2", q(s), "ss1", s));
     }
 
     // test complex object in an expression

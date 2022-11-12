@@ -28,15 +28,13 @@ import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.collections.CollectionMerger;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
@@ -57,6 +55,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             "[ ?${trim} \"trim \" ] " +
             "[ ?${yaml} \"yaml \" ] " +
             "[ ?${json} \"json \" ] " +
+            "[ ?${bash} \"bash \" ] " +
+            "[ ?${encode} \"encode \" ] " +
+            "[ ?${parse} \"parse \" ] " +
             "[ ?${wait} \"wait \" ] " +
             "[ [ ${variable.type} ] ${variable.name} [ \"=\" ${value...} ] ]";
 
@@ -69,6 +70,9 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<Boolean> TRIM = ConfigKeys.newConfigKey(Boolean.class, "trim");
     public static final ConfigKey<Boolean> YAML = ConfigKeys.newConfigKey(Boolean.class, "yaml");
     public static final ConfigKey<Boolean> JSON = ConfigKeys.newConfigKey(Boolean.class, "json");
+    public static final ConfigKey<Boolean> BASH = ConfigKeys.newConfigKey(Boolean.class, "bash");
+    public static final ConfigKey<Boolean> ENCODE = ConfigKeys.newConfigKey(Boolean.class, "encode");
+    public static final ConfigKey<Boolean> PARSE = ConfigKeys.newConfigKey(Boolean.class, "parse");
     public static final ConfigKey<Boolean> WAIT = ConfigKeys.newConfigKey(Boolean.class, "wait");
 
     @Override
@@ -132,6 +136,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         private final boolean wait;
         private final LetMergeMode merge;
         private String specialCoercionMode;
+        private boolean encode;
+        private final boolean parse;
         private final boolean typeSpecified;
 //        private QuotedStringTokenizer qst;
 
@@ -147,16 +153,34 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 if (this.specialCoercionMode!=null) throw new IllegalArgumentException("Cannot specify both JSON and YAML");
                 this.specialCoercionMode = "json";
             }
+
+            this.encode = Boolean.TRUE.equals(context.getInput(ENCODE));
+            this.parse = Boolean.TRUE.equals(context.getInput(PARSE));
+            if (encode && parse) throw new IllegalArgumentException("Cannot specify both encode and parse");
+
+            if (Boolean.TRUE.equals(context.getInput(BASH))) {
+                if ("yaml".equals(this.specialCoercionMode)) throw new IllegalArgumentException("Cannot specify YAML for bash encoding");
+                this.specialCoercionMode = "bash";
+                this.encode = true;
+                if (parse) throw new IllegalArgumentException("Cannot specify `bash parse`");
+            }
+            if (specialCoercionMode==null) {
+                if (encode || parse) throw new IllegalArgumentException("Cannot specify encode or parse unless JSON, YAML, or bash is specified");
+            }
             if (specialCoercionMode!=null) {
-                if (this.merge != LetMergeMode.NONE) throw new IllegalArgumentException("Cannot specify both JSON and YAML");
+                if (this.merge != LetMergeMode.NONE) throw new IllegalArgumentException("Cannot specify merge with JSON or YAML");
             }
 
-            if (type!=null) {
+            if (encode) {
+                typeSpecified = type!=null;
+                if (typeSpecified && !type.getRawType().isAssignableFrom(String.class)) throw new IllegalArgumentException("Cannot encode to anything other than a string");
+                this.type = (TypeToken) TypeToken.of(String.class);
+            } else if (type!=null) {
                 this.type = type;
-                this.typeSpecified = true;
+                typeSpecified = true;
             } else {
                 this.type = (TypeToken) TypeToken.of(Object.class);
-                this.typeSpecified = false;
+                typeSpecified = false;
             }
         }
 
@@ -237,46 +261,77 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             } else {
                 resultCoerced = wait ? context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate) : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
             }
-            if (trim && resultCoerced instanceof String) resultCoerced = ((String) resultCoerced).trim();
+
+            boolean doTrim = trim;
 
             if (Strings.isNonBlank(specialCoercionMode)) {
+                boolean bash = "bash".equals(specialCoercionMode);
                 try {
                     ObjectMapper mapper;
                     if ("yaml".equals(specialCoercionMode))
                         mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), true, null, true);
-                    else if ("json".equals(specialCoercionMode))
+                    else if (bash || "json".equals(specialCoercionMode))
                         mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), true, null, true);
                     else
                         throw new IllegalArgumentException("Unknown special coercion mode '" + specialCoercionMode + "'");
 
-                    if (typeSpecified || !Boxing.isPrimitiveOrBoxedObject(resultCoerced)) {
-                        boolean wantsStringifiedOutput = typeSpecified && String.class.equals(type.getRawType());
-                        if ("yaml".equals(specialCoercionMode) && resultCoerced instanceof String && !wantsStringifiedOutput) {
+                    boolean generated = false;
+                    if (resultCoerced==null) {
+                        // skip processing if value is null
+                    } else if (encode && resultCoerced instanceof String) {
+                        // skip processing when encoding a string (if it contains a yaml document separator)
+                    } else {
+                        if ("yaml".equals(specialCoercionMode) && resultCoerced instanceof String) {
                             resultCoerced = Yamls.lastDocumentFunction().apply((String) resultCoerced);
                         }
-                        if (!(resultCoerced instanceof String) || wantsStringifiedOutput) {
+                        if (parse || (typeSpecified && !type.getRawType().isAssignableFrom(resultCoerced.getClass())) ||
+                                (!Boxing.isPrimitiveOrBoxedObject(resultCoerced) && !(resultCoerced instanceof CharSequence))) {
+                            // in the above cases we might need to stringify it and then we should parse it
+                            // maps and lists are included because their contents might not be json-primitive
+                            if (!(resultCoerced instanceof String)) {
+                                resultCoerced = mapper.writeValueAsString(resultCoerced);
+                                generated = true;
+                            }
+                            if (parse || !String.class.equals(type.getRawType())) {
+                                resultCoerced = mapper.readValue((String) resultCoerced, BrooklynJacksonType.asTypeReference(type));
+                            }
+                        }
+                    }
+
+                    doTrim |= shouldTrim(resultCoerced, generated);
+
+                    if (encode) {
+                        if (doTrim && (resultCoerced instanceof String)) resultCoerced = ((String) resultCoerced).trim();
+                        if (bash) {
+                            // currently always wraps for bash; could make it conditional
+                            resultCoerced = StringEscapes.BashStringEscapes.wrapBash("" + resultCoerced);
+                        } else {
                             resultCoerced = mapper.writeValueAsString(resultCoerced);
                         }
-                        if (!wantsStringifiedOutput) {
-                            resultCoerced = mapper.readValue((String) resultCoerced, BrooklynJacksonType.asTypeReference(type));
-                        }
+                        generated = true;
                     }
-                    if (resultCoerced instanceof String) {
-                        boolean doTrim = trim;
-                        if (!doTrim) {
-                            String rst = ((String) resultCoerced).trim();
-                            if (rst.endsWith("\"") || rst.endsWith("'")) doTrim = true;
-                            else if (rst.endsWith("+") || rst.endsWith("|")) doTrim = false;  //yaml trailing whitespace signifier
-                            else doTrim = !Strings.isMultiLine(rst);     //lastly trim if not multiline
-                        }
-                        if (doTrim) resultCoerced = ((String) resultCoerced).trim();
-                    }
+
+                    doTrim = trim || shouldTrim(resultCoerced, generated);
+
                 } catch (JsonProcessingException e) {
                     throw Exceptions.propagate(e);
                 }
             }
 
+            if (doTrim && resultCoerced instanceof String) resultCoerced = ((String) resultCoerced).trim();
+
             return (T) resultCoerced;
+        }
+
+        private boolean shouldTrim(Object resultCoerced, boolean generated) {
+            if (generated && resultCoerced instanceof String) {
+                // automatically trim in some generated cases, to make output nicer to work with
+                String rst = ((String) resultCoerced).trim();
+                if (rst.endsWith("\"") || rst.endsWith("'")) return true;
+                else if ("yaml".equals(specialCoercionMode) && (rst.endsWith("+") || rst.endsWith("|"))) return false;  //yaml trailing whitespace signifier
+                else return !Strings.isMultiLine(rst);     //lastly trim if something was generated and is multiline
+            }
+            return false;
         }
 
         public void mergeInto(Object input, Function<String,TypeToken<?>> explicitType, BiConsumer<String,Object> holderAdd) {
