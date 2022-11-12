@@ -34,6 +34,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.RebindManager;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
@@ -56,6 +57,7 @@ public interface BrooklynMementoPersister {
         Policy lookupPolicy(String id);
         Enricher lookupEnricher(String id);
         Feed lookupFeed(String id);
+        EntityAdjunct lookupAnyEntityAdjunct(String id);
         CatalogItem<?, ?> lookupCatalogItem(String id);
         ManagedBundle lookupBundle(String id);
         

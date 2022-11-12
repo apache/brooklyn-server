@@ -18,18 +18,20 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableMap;
-import java.io.IOException;
-import java.io.Writer;
-import java.lang.reflect.Method;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.concurrent.ExecutionException;
-
-import java.util.function.Function;
+import com.thoughtworks.xstream.converters.Converter;
+import com.thoughtworks.xstream.converters.MarshallingContext;
+import com.thoughtworks.xstream.converters.SingleValueConverter;
+import com.thoughtworks.xstream.converters.UnmarshallingContext;
+import com.thoughtworks.xstream.converters.reflection.ReflectionConverter;
+import com.thoughtworks.xstream.core.ReferenceByXPathUnmarshaller;
+import com.thoughtworks.xstream.core.ReferencingMarshallingContext;
+import com.thoughtworks.xstream.io.HierarchicalStreamReader;
+import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
+import com.thoughtworks.xstream.io.path.PathTrackingReader;
+import com.thoughtworks.xstream.mapper.Mapper;
+import com.thoughtworks.xstream.mapper.MapperWrapper;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
@@ -39,6 +41,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.LookupContext;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.objs.Identifiable;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
@@ -54,17 +57,10 @@ import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorTaskFactory;
 import org.apache.brooklyn.core.mgmt.classloading.ClassLoaderFromStackOfBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicCatalogItemMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEnricherMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicEntityMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicFeedMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicLocationMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicManagedBundleMemento;
-import org.apache.brooklyn.core.mgmt.rebind.dto.BasicPolicyMemento;
+import org.apache.brooklyn.core.mgmt.rebind.dto.*;
 import org.apache.brooklyn.core.sensor.BasicAttributeSensor;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableSet.Builder;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper;
 import org.apache.brooklyn.util.core.xstream.XmlSerializer;
@@ -73,19 +69,16 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
-import com.thoughtworks.xstream.converters.Converter;
-import com.thoughtworks.xstream.converters.MarshallingContext;
-import com.thoughtworks.xstream.converters.SingleValueConverter;
-import com.thoughtworks.xstream.converters.UnmarshallingContext;
-import com.thoughtworks.xstream.converters.reflection.ReflectionConverter;
-import com.thoughtworks.xstream.core.ReferenceByXPathUnmarshaller;
-import com.thoughtworks.xstream.core.ReferencingMarshallingContext;
-import com.thoughtworks.xstream.io.HierarchicalStreamReader;
-import com.thoughtworks.xstream.io.HierarchicalStreamWriter;
-import com.thoughtworks.xstream.io.path.PathTrackingReader;
-import com.thoughtworks.xstream.mapper.Mapper;
-import com.thoughtworks.xstream.mapper.MapperWrapper;
+import java.io.IOException;
+import java.io.Writer;
+import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /* uses xml, cleaned up a bit
  * 
@@ -188,12 +181,14 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         xstream.alias("locationRef", Location.class);
         xstream.alias("policyRef", Policy.class);
         xstream.alias("enricherRef", Enricher.class);
+        xstream.alias("feedRef", Feed.class);
 
         xstream.registerConverter(new LocationConverter());
+        // xstream.registerConverter(new EntityAdjunctConverter());  // not needed, but kept for a bit in case it is, 2022-11
         xstream.registerConverter(new PolicyConverter());
         xstream.registerConverter(new EnricherConverter());
-        xstream.registerConverter(new EntityConverter());
         xstream.registerConverter(new FeedConverter());
+        xstream.registerConverter(new EntityConverter());
         xstream.registerConverter(new CatalogItemConverter());
         xstream.registerConverter(new SpecConverter());
 
@@ -221,6 +216,7 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
 
         mapper = new CustomMapper(mapper, Policy.class, "policyRef");
         mapper = new CustomMapper(mapper, Enricher.class, "enricherRef");
+        mapper = new CustomMapper(mapper, Feed.class, "feedRef");
 
         mapper = new UnwantedStateLoggingMapper(mapper);
         return mapper;
@@ -375,6 +371,16 @@ public class XmlMementoSerializer<T> extends XmlSerializer<T> implements Memento
         @Override
         protected Feed lookup(String id) {
             return lookupContext.lookupFeed(id);
+        }
+    }
+
+    public class EntityAdjunctConverter extends IdentifiableConverter<EntityAdjunct> {
+        EntityAdjunctConverter() {
+            super(EntityAdjunct.class);
+        }
+        @Override
+        protected EntityAdjunct lookup(String id) {
+            return lookupContext.lookupAnyEntityAdjunct(id);
         }
     }
     

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.mgmt.persist;
 
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.core.mgmt.persist.XmlMementoSerializer.XmlMementoSerializerBuilder;
 import static org.testng.Assert.assertEquals;
 
@@ -778,6 +779,23 @@ public class XmlMementoSerializerTest {
             }
             return null;
         }
+
+        @Override public EntityAdjunct lookupAnyEntityAdjunct(String id) {
+            if (policies.containsKey(id)) {
+                return policies.get(id);
+            }
+            if (enrichers.containsKey(id)) {
+                return enrichers.get(id);
+            }
+            if (feeds.containsKey(id)) {
+                return feeds.get(id);
+            }
+            if (failOnDangling) {
+                throw new NoSuchElementException("no feed with id "+id+"; contenders are "+feeds.keySet());
+            }
+            return null;
+        }
+
         @Override public CatalogItem<?, ?> lookupCatalogItem(String id) {
             if (catalogItems.containsKey(id)) {
                 return catalogItems.get(id);

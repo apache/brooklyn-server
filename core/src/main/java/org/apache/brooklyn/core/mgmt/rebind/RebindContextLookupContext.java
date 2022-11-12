@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindExceptionHandler;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister.LookupContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.sensor.Feed;
@@ -136,6 +137,25 @@ public class RebindContextLookupContext implements LookupContext {
             result = exceptionHandler.onDanglingFeedRef(id);
         }
         return result;
+    }
+
+    @Override public EntityAdjunct lookupAnyEntityAdjunct(String id) {
+        EntityAdjunct result;
+
+        result = rebindContext.getPolicy(id);
+        if (result != null) return result;
+        result = rebindContext.getEnricher(id);
+        if (result != null) return result;
+        result = rebindContext.getFeed(id);
+        if (result != null) return result;
+        result = managementContext.lookup(id, Policy.class);
+        if (result != null) return result;
+        result = managementContext.lookup(id, Enricher.class);
+        if (result != null) return result;
+        result = managementContext.lookup(id, Feed.class);
+        if (result != null) return result;
+
+        return exceptionHandler.onDanglingFeedRef(id);
     }
 
     @SuppressWarnings("deprecation")

@@ -27,7 +27,9 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.*;
@@ -176,6 +178,18 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
         Asserts.assertEquals(output.toString().trim(), message + " world");
     }
 
+    static class AdjunctHolder {
+        String name;
+        EntityAdjunct adjunct;
+
+        public static AdjunctHolder of(String name, EntityAdjunct x) {
+            AdjunctHolder result = new AdjunctHolder();
+            result.name = name;
+            result.adjunct = x;
+            return result;
+        }
+    }
+
     @Test
     void testWorkflowSensorRebind() throws Exception {
         Entity app = createAndStartApplication(
@@ -203,6 +217,9 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
         Set<Task<?>> tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
         Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
 
+        Feed f = ((EntityInternal) child).feeds().getFeeds().iterator().next();
+        app.tags().addTag(AdjunctHolder.of("1", f));
+
         Dumper.dumpInfo(app);
         app = rebind();
         child = Iterables.getOnlyElement(app.getChildren());
@@ -212,6 +229,13 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
 
         tt = BrooklynTaskTags.getTasksInAdjunctContext(mgmt().getExecutionManager(), Iterables.getOnlyElement(((EntityInternal) child).feeds().getFeeds()));
         Asserts.assertThat(tt, ts -> ts.stream().anyMatch(ti -> ti.getDisplayName().contains("Workflow for sensor")));
+
+        f = ((EntityInternal) child).feeds().getFeeds().iterator().next();
+        app.tags().addTag(AdjunctHolder.of("2", f));
+
+        // assert adjuncts rebind and rebind quite happily
+        switchOriginalToNewManagementContext();
+        app = rebind();
     }
 
     @Test(groups="WIP")
