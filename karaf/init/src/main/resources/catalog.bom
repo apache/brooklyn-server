@@ -124,6 +124,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.SetVariableWorkflowStep
+  - id: transform
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.TransformVariableWorkflowStep
   - id: wait
     format: java-type-name
     itemType: bean

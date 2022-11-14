@@ -51,29 +51,12 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(SetVariableWorkflowStep.class);
 
     public static final String SHORTHAND =
-            "[ ?${merge} \"merge \" [ ?${merge_deep} \"deep \" ] ] " +
-            "[ ?${trim} \"trim \" ] " +
-            "[ ?${yaml} \"yaml \" ] " +
-            "[ ?${json} \"json \" ] " +
-            "[ ?${bash} \"bash \" ] " +
-            "[ ?${encode} \"encode \" ] " +
-            "[ ?${parse} \"parse \" ] " +
-            "[ ?${wait} \"wait \" ] " +
+
             "[ [ ${variable.type} ] ${variable.name} [ \"=\" ${value...} ] ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
-    public static final ConfigKey<Boolean> MERGE = ConfigKeys.newConfigKey(Boolean.class, "merge");
-    public static final ConfigKey<Boolean> MERGE_DEEP = ConfigKeys.newConfigKey(Boolean.class, "merge_deep");
-
-    public static final ConfigKey<Boolean> TRIM = ConfigKeys.newConfigKey(Boolean.class, "trim");
-    public static final ConfigKey<Boolean> YAML = ConfigKeys.newConfigKey(Boolean.class, "yaml");
-    public static final ConfigKey<Boolean> JSON = ConfigKeys.newConfigKey(Boolean.class, "json");
-    public static final ConfigKey<Boolean> BASH = ConfigKeys.newConfigKey(Boolean.class, "bash");
-    public static final ConfigKey<Boolean> ENCODE = ConfigKeys.newConfigKey(Boolean.class, "encode");
-    public static final ConfigKey<Boolean> PARSE = ConfigKeys.newConfigKey(Boolean.class, "parse");
-    public static final ConfigKey<Boolean> WAIT = ConfigKeys.newConfigKey(Boolean.class, "wait");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -103,11 +86,19 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object resolvedValue = new SetVariableEvaluation(context, type, unresolvedValue).evaluate();
 
-        Object oldValue;
+        Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, resolvedValue);
+        context.noteOtherMetadata("Value set", resolvedValue);
+        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+        return context.getPreviousStepOutput();
+    }
 
+    static Object setWorkflowScratchVariableDotSeparated(WorkflowStepInstanceExecutionContext context, String name, Object resolvedValue) {
+        Object oldValue;
         if (name.contains(".")) {
             String[] names = name.split("\\.");
-            Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names[0]);
+            String names0 = names[0];
+            if ("output".equals(names0)) throw new IllegalArgumentException("Cannot set subfield in output");  // catch common error
+            Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names0);
             if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + name + " is " + (h == null ? "not set" : "not a map"));
             for (int i=1; i<names.length-1; i++) {
                 Object hi = ((Map<?, ?>) h).get(names[i]);
@@ -121,9 +112,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         } else {
             oldValue = context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
         }
-        context.noteOtherMetadata("Value set", resolvedValue);
-        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
-        return context.getPreviousStepOutput();
+        return oldValue;
     }
 
     private enum LetMergeMode { NONE, SHALLOW, DEEP }
@@ -132,56 +121,11 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         protected final WorkflowStepInstanceExecutionContext context;
         protected final TypeToken<T> type;
         protected final Object unresolvedValue;
-        private final boolean trim;
-        private final boolean wait;
-        private final LetMergeMode merge;
-        private String specialCoercionMode;
-        private boolean encode;
-        private final boolean parse;
-        private final boolean typeSpecified;
-//        private QuotedStringTokenizer qst;
-
 
         public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue) {
             this.context = context;
             this.unresolvedValue = unresolvedValue;
-            this.merge = Boolean.TRUE.equals(context.getInput(MERGE_DEEP)) ? LetMergeMode.DEEP : Boolean.TRUE.equals(context.getInput(MERGE)) ? LetMergeMode.SHALLOW : LetMergeMode.NONE;
-            this.trim = Boolean.TRUE.equals(context.getInput(TRIM));
-            this.wait = Boolean.TRUE.equals(context.getInput(WAIT));
-            if (Boolean.TRUE.equals(context.getInput(YAML))) this.specialCoercionMode = "yaml";
-            if (Boolean.TRUE.equals(context.getInput(JSON))) {
-                if (this.specialCoercionMode!=null) throw new IllegalArgumentException("Cannot specify both JSON and YAML");
-                this.specialCoercionMode = "json";
-            }
-
-            this.encode = Boolean.TRUE.equals(context.getInput(ENCODE));
-            this.parse = Boolean.TRUE.equals(context.getInput(PARSE));
-            if (encode && parse) throw new IllegalArgumentException("Cannot specify both encode and parse");
-
-            if (Boolean.TRUE.equals(context.getInput(BASH))) {
-                if ("yaml".equals(this.specialCoercionMode)) throw new IllegalArgumentException("Cannot specify YAML for bash encoding");
-                this.specialCoercionMode = "bash";
-                this.encode = true;
-                if (parse) throw new IllegalArgumentException("Cannot specify `bash parse`");
-            }
-            if (specialCoercionMode==null) {
-                if (encode || parse) throw new IllegalArgumentException("Cannot specify encode or parse unless JSON, YAML, or bash is specified");
-            }
-            if (specialCoercionMode!=null) {
-                if (this.merge != LetMergeMode.NONE) throw new IllegalArgumentException("Cannot specify merge with JSON or YAML");
-            }
-
-            if (encode) {
-                typeSpecified = type!=null;
-                if (typeSpecified && !type.getRawType().isAssignableFrom(String.class)) throw new IllegalArgumentException("Cannot encode to anything other than a string");
-                this.type = (TypeToken) TypeToken.of(String.class);
-            } else if (type!=null) {
-                this.type = type;
-                typeSpecified = true;
-            } else {
-                this.type = (TypeToken) TypeToken.of(Object.class);
-                typeSpecified = false;
-            }
+            this.type = type;
         }
 
         public boolean unquotedStartsWith(String s, char c) {
@@ -206,146 +150,16 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         public T evaluate() {
             Object result = unresolvedValue;
 
-            if (merge==LetMergeMode.DEEP || merge==LetMergeMode.SHALLOW) {
-                try {
-                    if (Map.class.isAssignableFrom(type.getRawType())) {
-                        Map holder = type.getRawType().isInterface() ? MutableMap.of() : (Map) type.getRawType().newInstance();
-                        mergeInto(result, ifUnquotedStartsWithThen('{', Map.class), (term,value) -> {
-                            Map xm;
-                            if (value instanceof Map) xm = (Map)value;
-                            else if (value==null) {
-                                if (trim) xm = Collections.emptyMap();
-                                else throw new IllegalArgumentException("Cannot merge "+term+" which is null when trim not specified");
-                            } else {
-                                throw new IllegalArgumentException("Cannot merge "+term+" which is not a map ("+term.getClass().getName()+")");
-                            }
-                            if (merge==LetMergeMode.DEEP) {
-                                xm = CollectionMerger.builder().build().merge(holder, xm);
-                            }
-                            xm.forEach((k,v) -> {
-                                if (trim && (k==null || v==null)) return;
-                                holder.put(k, v);
-                            });
-                        });
-                        return (T) holder;
-                    } else if (Collection.class.isAssignableFrom(type.getRawType())) {
-                        if (merge==LetMergeMode.DEEP) throw new IllegalArgumentException("Merge deep only supported for map");
-                        Collection holder = type.getRawType().isInterface() ? Set.class.isAssignableFrom(type.getRawType()) ? MutableSet.of() : MutableList.of() : (Collection) type.getRawType().newInstance();
-                        mergeInto(result, ifUnquotedStartsWithThen('[', List.class), (term,value) -> {
-                            Collection xm;
-                            if (value instanceof Collection) xm = (Collection)value;
-                            else if (value==null) {
-                                if (trim) xm = Collections.emptyList();
-                                else xm = MutableList.of(null);
-                            } else {
-                                xm = MutableList.of(value);
-                            }
-                            if (trim) xm = (List) xm.stream().filter(i -> i!=null).collect(Collectors.toList());
-                            holder.addAll(xm);
-                        });
-                        return (T) holder;
-                    } else {
-                        throw new IllegalArgumentException("Type 'map' or 'list' or 'set' must be specified for 'let merge'");
-                    }
-                } catch (Exception e) {
-                    throw Exceptions.propagate(e);
-                }
-            }
-
             Object resultCoerced;
-            TypeToken<? extends Object> typeIntermediate = Strings.isNonBlank(specialCoercionMode) ? TypeToken.of(Object.class) : type;
+            TypeToken<? extends Object> typeIntermediate = type==null ? TypeToken.of(Object.class) : type;
             if (result instanceof String) {
-                if (trim && result instanceof String) result = ((String) result).trim();
                 result = process((String) result);
                 resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
             } else {
-                resultCoerced = wait ? context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate) : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
+                resultCoerced = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
             }
-
-            boolean doTrim = trim;
-
-            if (Strings.isNonBlank(specialCoercionMode)) {
-                boolean bash = "bash".equals(specialCoercionMode);
-                try {
-                    ObjectMapper mapper;
-                    if ("yaml".equals(specialCoercionMode))
-                        mapper = BeanWithTypeUtils.newYamlMapper(context.getManagementContext(), true, null, true);
-                    else if (bash || "json".equals(specialCoercionMode))
-                        mapper = BeanWithTypeUtils.newMapper(context.getManagementContext(), true, null, true);
-                    else
-                        throw new IllegalArgumentException("Unknown special coercion mode '" + specialCoercionMode + "'");
-
-                    boolean generated = false;
-                    if (resultCoerced==null) {
-                        // skip processing if value is null
-                    } else if (encode && resultCoerced instanceof String) {
-                        // skip processing when encoding a string (if it contains a yaml document separator)
-                    } else {
-                        if ("yaml".equals(specialCoercionMode) && resultCoerced instanceof String) {
-                            resultCoerced = Yamls.lastDocumentFunction().apply((String) resultCoerced);
-                        }
-                        if (parse || (typeSpecified && !type.getRawType().isAssignableFrom(resultCoerced.getClass())) ||
-                                (!Boxing.isPrimitiveOrBoxedObject(resultCoerced) && !(resultCoerced instanceof CharSequence))) {
-                            // in the above cases we might need to stringify it and then we should parse it
-                            // maps and lists are included because their contents might not be json-primitive
-                            if (!(resultCoerced instanceof String)) {
-                                resultCoerced = mapper.writeValueAsString(resultCoerced);
-                                generated = true;
-                            }
-                            if (parse || !String.class.equals(type.getRawType())) {
-                                resultCoerced = mapper.readValue((String) resultCoerced, BrooklynJacksonType.asTypeReference(type));
-                            }
-                        }
-                    }
-
-                    doTrim |= shouldTrim(resultCoerced, generated);
-
-                    if (encode) {
-                        if (doTrim && (resultCoerced instanceof String)) resultCoerced = ((String) resultCoerced).trim();
-                        if (bash) {
-                            // currently always wraps for bash; could make it conditional
-                            resultCoerced = StringEscapes.BashStringEscapes.wrapBash("" + resultCoerced);
-                        } else {
-                            resultCoerced = mapper.writeValueAsString(resultCoerced);
-                        }
-                        generated = true;
-                    }
-
-                    doTrim = trim || shouldTrim(resultCoerced, generated);
-
-                } catch (JsonProcessingException e) {
-                    throw Exceptions.propagate(e);
-                }
-            }
-
-            if (doTrim && resultCoerced instanceof String) resultCoerced = ((String) resultCoerced).trim();
 
             return (T) resultCoerced;
-        }
-
-        private boolean shouldTrim(Object resultCoerced, boolean generated) {
-            if (generated && resultCoerced instanceof String) {
-                // automatically trim in some generated cases, to make output nicer to work with
-                String rst = ((String) resultCoerced).trim();
-                if (rst.endsWith("\"") || rst.endsWith("'")) return true;
-                else if ("yaml".equals(specialCoercionMode) && (rst.endsWith("+") || rst.endsWith("|"))) return false;  //yaml trailing whitespace signifier
-                else return !Strings.isMultiLine(rst);     //lastly trim if something was generated and is multiline
-            }
-            return false;
-        }
-
-        public void mergeInto(Object input, Function<String,TypeToken<?>> explicitType, BiConsumer<String,Object> holderAdd) {
-            if (input instanceof String) {
-                List<String> wordsByQuote = qst((String) input).remainderRaw();
-                wordsByQuote.forEach(word -> {
-                    if (Strings.isBlank(word)) return;
-                    Maybe<Object> wordResolved = processMaybe(MutableList.of(word), explicitType);
-                    if (trim && wordResolved.isAbsent()) return;
-                    holderAdd.accept(word, wordResolved.get());
-                });
-            } else {
-                holderAdd.accept("value", input);
-            }
         }
 
         Object process(String input) {
@@ -391,7 +205,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             List<Object> objs = w.stream().map(t -> {
                 if (qst.isQuoted(t)) return qst.unwrapIfQuoted(t);
                 TypeToken<?> target = resolveToString ? TypeToken.of(String.class) : TypeToken.of(Object.class);
-                return wait ? context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, t, target) : context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, t, target);
+                return context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, t, target);
             }).collect(Collectors.toList());
             if (!resolveToString) return objs.get(0);
             return ((List<String>)(List)objs).stream().collect(Collectors.joining());

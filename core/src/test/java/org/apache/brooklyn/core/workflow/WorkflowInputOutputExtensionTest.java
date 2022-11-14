@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSupport {
 
@@ -160,59 +161,86 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetMergeMaps() throws Exception {
+    public void testLetTransformMaps() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map a = { i: 1, z: { a: 1 } }",
                 "let map b = { ii: 2, z: { b: 2 } }",
-                "let merge map x = ${a} ${b}",
+                "transform map x = ${a} ${b} | merge",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2, "z", MutableMap.of("b", 2)));
     }
 
     @Test
-    public void testLetMergeMapsDeep() throws Exception {
+    public void testLetTransformMapsDeep() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map a = { i: 1, z: { a: 1 } }",
                 "let map b = { ii: 2, z: { b: 2 } }",
-                "let merge deep map x = ${a} ${b}",
+                "transform map x = ${a} ${b} | merge deep",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2, "z", MutableMap.of("a", 1, "b", 2)));
     }
 
     @Test
-    public void testLetMergeLists() throws Exception {
+    public void testTransformMergeLists() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1, 2 ]",
                 MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
-                "let merge list x = ${a} ${b}",
+                "transform list x = ${a} ${b} | merge",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(1, 2, 2, 3));
     }
 
     @Test
-    public void testLetMergeSets() throws Exception {
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+    public void testTransformMergeSets() throws Exception {
+        Object o1 = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1, 2 ]",
                 MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
-                "let merge set x = ${a} ${b}",
+                "transform x = ${a} ${b} | merge set",
                 "return ${x}"));
-        Asserts.assertEquals(output, MutableSet.of(1, 2, 3));
+        Asserts.assertEquals(o1, MutableSet.of(1, 2, 3));
+        o1 = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list a = [ 1, 2 ]",
+                MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
+                "transform set x = ${a} ${b} | merge",
+                "return ${x}"));
+        Asserts.assertEquals(o1, MutableSet.of(1, 2, 3));
     }
 
     @Test
-    public void testLetTrimMergeAllowsNull() throws Exception {
+    public void testTransformLaxMergeAllowsNull() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1 ]",
-                "let merge trim list x = ${a} ${b}",
+                "transform list x = ${a} ${b} | merge lax",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(1));
     }
 
     @Test
-    public void testLetMergeCleanRemovesNull() throws Exception {
+    public void testSimpleTransforms() throws Exception {
+        Function<String,Object> transform = filter -> {
+            try {
+                return invokeWorkflowStepsWithLogging(MutableList.of(
+                        "let list a = [ 1, 2 ]",
+                        "transform x = ${a} | "+filter,
+                        "return ${x}"));
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        };
+        Asserts.assertEquals(transform.apply("min"), 1);
+        Asserts.assertEquals(transform.apply("max"), 2);
+        Asserts.assertEquals(transform.apply("sum"), 3d);
+        Asserts.assertEquals(transform.apply("size"), 2);
+        Asserts.assertEquals(transform.apply("average"), 1.5d);
+        Asserts.assertEquals(transform.apply("first"), 1);
+        Asserts.assertEquals(transform.apply("last"), 2);
+    }
+
+    @Test
+    public void testTransformMergeLaxTrimRemovesNull() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 MutableMap.of("step", "let a", "value", MutableList.of(2, null)),
-                "let merge trim list x = ${a}",
+                "transform list x = ${a} ${a[1]} | merge lax | trim",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(2));
     }
@@ -308,11 +336,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetTrimString() throws Exception {
+    public void testTransformTrimString() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let person_spaces = \" Anna \"",
                 "let string person = ${person_spaces}",
-                "let trim person_tidied = ${person_spaces}",
+                "transform person_tidied = ${person_spaces} | trim",
                 "log PERSON: ${person}",
                 "log PERSON_TIDIED: ${person_tidied}"));
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON:")).findAny().get(), "PERSON:  Anna ");
@@ -330,13 +358,19 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "let "+prefix+" x2 = ${x1}", "return ${x2}"));
     }
 
-    private void checkLet(String prefix, Object expression, Object expectedResult) throws Exception {
-        Object out = let(prefix, expression);
+    private Object transform(String filter, Object expression) throws Exception {
+        return invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.<String,Object>of("step", "let x1", "value", expression),
+                "transform x2 = ${x1} | "+filter, "return ${x2}"));
+    }
+
+    private void checkTransform(String prefix, Object expression, Object expectedResult) throws Exception {
+        Object out = transform(prefix, expression);
         Asserts.assertEquals(out, expectedResult);
     }
 
-    private void checkLetBidi(String prefix, Object expression, String expectedResult) throws Exception {
-        Object out = let(prefix, expression);
+    private void checkTransformBidi(String prefix, Object expression, String expectedResult) throws Exception {
+        Object out = transform(prefix, expression);
 
         Object backIn = BeanWithTypeUtils.newYamlMapper(null, false, null, false).readValue((String) out, Object.class);
         Asserts.assertEquals(backIn, expression);
@@ -349,95 +383,97 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetYaml() throws Exception {
+    public void testTransformYaml() throws Exception {
         // null not permitted as return type; would be nice to support but not vital
 //        checkLetBidi("yaml string", null, "null");
 
-        checkLet("yaml", 2, 2);
-        checkLet("yaml", "2", "2");
-        checkLet("yaml", q("2"), "2");       //unwrapped once by shorthand, again by step
-        checkLet("yaml", q(q("2")), "\"2\"");  //finally we get the string
+        checkTransform("yaml", 2, 2);
+        checkTransform("yaml", "2", 2);
+        checkTransform("yaml", q("2"), 2);       //unwrapped once by shorthand, again by step
+        checkTransform("yaml", q(q("2")), "2");  //finally we get the string
 
-        checkLet("yaml parse", 2, 2);
-        checkLet("yaml parse", "2", 2);
-        checkLet("yaml parse", q("2"), 2);
-        checkLet("yaml parse", q(q("2")), "2");
+        checkTransform("yaml parse", 2, 2);
+        checkTransform("yaml parse", "2", 2);
+        checkTransform("yaml parse", q("2"), 2);
+        checkTransform("yaml parse", q(q("2")), "2");
 
-        checkLet("yaml string", 2, "2");
-        checkLet("yaml string", "2", "2");
-        checkLet("yaml string", q("2"), "2");
-        checkLet("yaml string", q(q("2")), "\"2\"");
+        checkTransform("yaml string", 2, "2");
+        checkTransform("yaml string", "2", "2");
+        checkTransform("yaml string", q("2"), "2");
+        checkTransform("yaml string", q(q("2")), "\"2\"");
 
-        checkLet("yaml encode", 2, "2");
-        checkLet("yaml encode", "2", "\"2\"");
-        checkLet("yaml encode", q("2"), "\"2\"");
+        checkTransform("yaml encode", 2, "2");
+        checkTransform("yaml encode", "2", "\"2\"");
+        checkTransform("yaml encode", q("2"), "\"2\"");
         // for these especially the exact yaml is not significant, but included for interest
-        checkLet("yaml encode", q(q("2")), "'\"2\"'");
+        checkTransform("yaml encode", q(q("2")), "'\"2\"'");
 
-        checkLetBidi("yaml encode", " ", "' '");
-        checkLetBidi("yaml encode", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
-        checkLetBidi("yaml encode", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
+        checkTransformBidi("yaml encode", " ", "' '");
+        checkTransformBidi("yaml encode", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
+        checkTransformBidi("yaml encode", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
 
-        checkLet("trim yaml", "ignore \n---\n x: 1 \n", "x: 1");
-        checkLet("trim yaml parse", "ignore \n---\n x: 1 \n y: 2", MutableMap.of("x", 1, "y", 2));
-        checkLet("yaml string", "ignore \n---\n x: 1 \n", " x: 1 \n");
-        checkLetBidi("yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
-        checkLet("trim yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
-        checkLet("trim string", "ignore \n---\n x: 1 \n", "ignore \n---\n x: 1");
+        checkTransform("yaml", "ignore \n---\n x: 1 \n", MutableMap.of("x", 1));
+        checkTransform("yaml parse", "ignore \n---\n x: 1 \n y: 2", MutableMap.of("x", 1, "y", 2));
+        checkTransform("yaml string", "ignore \n---\n x: 1 \n", " x: 1 \n");
+        checkTransformBidi("yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
+        checkTransform("trim | yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
+        checkTransform("yaml string | trim | yaml encode", "ignore \n---\n x: 1 \n", "\"x: 1\"");
+        checkTransform("json string | trim", "ignore \n---\n x: 1 \n", "ignore \n---\n x: 1");
 
-        checkLetBidi("yaml string", MutableMap.of("a", 1), "a: 1");
-        checkLetBidi("yaml string", MutableMap.of("a", MutableList.of(null), "x", "1"), "a:\n- null\nx: \"1\"");
-        checkLet("yaml", MutableMap.of("x", 1), MutableMap.of("x", 1));
+        checkTransformBidi("yaml string", MutableMap.of("a", 1), "a: 1");
+        checkTransformBidi("yaml string", MutableMap.of("a", MutableList.of(null), "x", "1"), "a:\n- null\nx: \"1\"");
+        checkTransform("yaml", MutableMap.of("x", 1), MutableMap.of("x", 1));
     }
 
     @Test
-    public void testLetJson() throws Exception {
-        checkLet("json", 2, 2);
-        checkLet("json", "2", "2");
-        checkLet("json", q("2"), "2");       //unwrapped once by shorthand, again by step
-        checkLet("json", q(q("2")), "\"2\"");  //finally we get the string
+    public void testTransformJson() throws Exception {
+        checkTransform("json", 2, 2);
+        checkTransform("json", "2", 2);
+        checkTransform("json", q("2"), 2);       //unwrapped once by shorthand, again by step
+        checkTransform("json", q(q("2")), "2");  //finally we get the string
 
-        checkLet("json parse", 2, 2);
-        checkLet("json parse", "2", 2);
-        checkLet("json parse", q("2"), 2);
-        checkLet("json parse", q(q("2")), "2");
+        checkTransform("json parse", 2, 2);
+        checkTransform("json parse", "2", 2);
+        checkTransform("json parse", q("2"), 2);
+        checkTransform("json parse", q(q("2")), "2");
 
-        checkLet("json string", 2, "2");
-        checkLet("json string", "2", "2");
-        checkLet("json string", q("2"), "2");
-        checkLet("json string", q(q("2")), "\"2\"");
+        checkTransform("json string", 2, "2");
+        checkTransform("json string", "2", "2");
+        checkTransform("json string", q("2"), "2");
+        checkTransform("json string", q(q("2")), "\"2\"");
 
-        checkLet("json encode", 2, "2");
-        checkLet("json encode", "2", "\"2\"");
-        checkLet("json encode", q("2"), "\"2\"");
+        checkTransform("json encode", 2, "2");
+        checkTransform("json encode", "2", "\"2\"");
+        checkTransform("json encode", q("2"), "\"2\"");
         // for these especially the exact yaml is not significant, but included for interest
-        checkLet("json encode", q(q("2")), "\"\\\"2\\\"\"");
+        checkTransform("json encode", q(q("2")), "\"\\\"2\\\"\"");
 
-        checkLet("json string", " ", " ");
-        checkLet("json string", "\n", "\n");
-        checkLet("json string", " \n ", " \n ");
+        checkTransform("json string", " ", " ");
+        checkTransform("json string", "\n", "\n");
+        checkTransform("json string", " \n ", " \n ");
 
-        checkLetBidi("json encode", " ", "\" \"");
-        checkLetBidi("json encode", "\n", "\"\\n\"");
-        checkLetBidi("json encode", " \n ", "\" \\n \"");
+        checkTransformBidi("json encode", " ", "\" \"");
+        checkTransformBidi("json encode", "\n", "\"\\n\"");
+        checkTransformBidi("json encode", " \n ", "\" \\n \"");
 
-        checkLetBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
-        checkLet("json encode", MutableMap.of("a", 1), q("{\"a\":1}"));
-        checkLetBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
-        checkLet("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
+        checkTransformBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
+        checkTransform("json encode", MutableMap.of("a", 1), "{\"a\":1}");
+        checkTransform("json string | json encode", MutableMap.of("a", 1), q("{\"a\":1}"));
+        checkTransformBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
+        checkTransform("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
     }
 
     @Test
-    public void testLetBash() throws Exception {
-        checkLet("bash", 2, q("2"));
-        checkLet("bash encode", 2, q("2"));
-        checkLet("bash", "2", q("2"));
-        checkLet("bash", q("2"), q("2"));       //unwrapped once by shorthand, again by step
-        checkLet("bash", q(q("2")), q("\"2\""));  //finally we get the string
+    public void testTransformBash() throws Exception {
+        checkTransform("bash", 2, q("2"));
+        checkTransform("bash encode", 2, q("2"));
+        checkTransform("bash", "2", q("2"));
+        checkTransform("bash", q("2"), q("2"));       //unwrapped once by shorthand, again by step
+        checkTransform("bash", q(q("2")), q("\"2\""));  //finally we get the string
 
-        checkLet("bash", "hello(n $o!)", "\"hello(n \\$o\"'!'\")\"");
-        checkLet("bash", "two\nlines", "\"two\nlines\"");
-        checkLet("bash", MutableMap.of("x", 1), q("{\"x\":1}"));
+        checkTransform("bash", "hello(n $o!)", "\"hello(n \\$o\"'!'\")\"");
+        checkTransform("bash", "two\nlines", "\"two\nlines\"");
+        checkTransform("bash", MutableMap.of("x", 1), q("{\"x\":1}"));
     }
 
     public static class MockObject {
@@ -446,7 +482,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetYamlCoercion() throws Exception {
+    public void testTransformYamlCoercion() throws Exception {
         addBeanWithType("mock-object", "1", "type: " + MockObject.class.getName());
         Object result = invokeWorkflowStepsWithLogging(MutableList.of(
                 MutableMap.<String, Object>of("step", "let x1", "value",
@@ -454,7 +490,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                         "---\n" +
                         "  id: x\n" +
                         "  name: foo"),
-                "let yaml mock-object result = ${x1}",
+                "transform mock-object result = ${x1} | yaml",
                 "return ${result}"));
         Asserts.assertThat(result, r -> r instanceof MockObject);
         Asserts.assertEquals(((MockObject)result).id, "x");
@@ -466,33 +502,34 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map x = { i: [ 1, 'A' ] }",
                 "let map result = {}",
-                "let yaml string result.y = ${x}",
-                "let json string result.j = ${x}",           // will give the stringified map
-                "let json string result.j2 = ${result.j}",   // no change to the string
-                "let json encode result.e = ${x}",
-                "let json map result.m0 = ${x}",
-                "let json map result.m1 = ${result.j}",
+                "transform result.y = ${x} | yaml string",
+                "transform result.j = ${x} | json string",           // will give the stringified map
+                "transform result.j2 = ${result.j} | json string",   // no change to the string
+                "transform result.e = ${x} | json encode",
+                "transform result.es = ${x} | json string | json encode",
+                "transform map result.m0 = ${x} | json",
+                "transform map result.m1 = ${result.j} | json",
                 "return ${result}"));
         String s = "{\"i\":[1,\"A\"]}";
         Object m = MutableMap.of("i", MutableList.of(1, "A"));
         Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", s,
-                "j2", s, "e", q(s),
+                "j2", s, "e", s, "es", q(s),
                 "m0", m, "m1", m));
 
         String s0 = "{ i: [ 1, 'A' ] }";
         output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let string x = "+ q(s0),  // wrap to preserve the make the second thing in list be 'A' (including single quotes)
                 "let map result = {}",
-                "let yaml parse result.mp = ${x}",           // parsing a string gives a map
-                "let yaml parse result.mp2 = ${result.mp}",  // parsing a map has no effect
-                "let json result.mo = ${result.mp}",         // json referencing a map has no discernable effect (though it serializes and deserializes)
-                "let json result.so = ${x}",                 // json referencing a string has no effect
-                "let json encode result.ss0 = ${x}",         // encoding a string gives the double-stringified map, you can parse to get the string back
-                "let json encode result.ss2 = ${result.mp}", // encoding a map gives a double-stringified result, parse it to get the stringified version
-                "let json string result.ss1 = ${result.mp}", // specifying string on non-string gives single encoding (again)
+                "transform result.mp = ${x} | yaml",           // parsing a string gives a map
+                "transform result.mp2 = ${result.mp} | yaml parse",  // parsing a map has no effect
+                "transform result.mo = ${result.mp} | json",         // json referencing a map has no discernable effect (though it serializes and deserializes)
+                "transform result.so = ${x} | json string",           // pass through
+                "transform result.ss0 = ${result.so} | json encode",  // encoding a string gives the double-stringified map, you can parse to get the string back
+                "transform result.ss1 = ${result.mp} | json encode", // stringifies
+                "transform result.ss2 = ${result.mp} | json string | json encode", // specifying string on non-string gives single encoding (again)
                 "return ${result}"));
-        Asserts.assertEquals(output, MutableMap.of("mp", m, "mp2", m, "mo", m,
-                "so", s0, "ss0", q(s0), "ss2", q(s), "ss1", s));
+        Asserts.assertEquals(output, MutableMap.<String,Object>of("mp", m, "mp2", m, "mo", m,
+                "so", s0, "ss0", q(s0), "ss1", s, "ss2", q(s)));
     }
 
     // test complex object in an expression

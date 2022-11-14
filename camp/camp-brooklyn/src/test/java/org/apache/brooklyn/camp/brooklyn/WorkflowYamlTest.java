@@ -217,7 +217,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let yaml map x = ${out}",
+                "        - transform x = ${out} | yaml",
                 "        - return ${x}",
                 "");
 
@@ -270,7 +270,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let yaml map x = ${out}",
+                "        - transform map x = ${out} | yaml",
                 "        - set-sensor myWorkflowSensor = ${x}",
                 "");
 
@@ -724,7 +724,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 WorkflowEffector.PARAMETER_DEFS, MutableMap.of("env", null),
                 WorkflowEffector.STEPS, MutableList.of(
                         MutableMap.of("step", "let map env_local", "value", MutableMap.of("VAR1", "$brooklyn:config(\"hello\")", "ENTITY_ID", "$brooklyn:entityId()")),
-                        "let merge map env = ${env} ${env_local}",
+                        "transform env = ${env} ${env_local} | merge map",
                         "set-deep",
                         "let env.VAR3 = ${workflow.previous_step.output}",
                         MutableMap.<String, Object>of("step", "ssh echo "+ message+" Entity:$ENTITY_ID:$VAR1:$VAR2:$VAR3",

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
@@ -30,13 +31,19 @@ import java.util.GregorianCalendar;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.units.ByteSize;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.JavaClassNames;
 import org.apache.brooklyn.util.text.StringEscapes.JavaStringEscapes;
 import org.apache.brooklyn.util.text.Strings;
@@ -209,6 +216,8 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
     public void testStringBean() throws Exception {
         Duration d = mapper().readValue("\"1m\"", Duration.class);
         Asserts.assertEquals(d, Duration.ONE_MINUTE);
+        Object d0 = mapper().readValue("{\"type\":\""+Duration.class.getName()+"\",\"value\":\"1s\"}", Object.class);
+        Asserts.assertEquals(d0, Duration.ONE_SECOND);
     }
 
     @Test
@@ -217,4 +226,24 @@ public class BrooklynMiscJacksonSerializationTest implements MapperTestFixture {
         Asserts.assertEquals(x, ByteSize.fromString("1b"));
     }
 
+    @Test
+    public void testJsonPassThrough() throws Exception {
+        BiConsumer<String,Object> check = (input, expected) -> {
+            try {
+                JsonPassThroughDeserializer.JsonObjectHolder x = mapper().readValue(input, JsonPassThroughDeserializer.JsonObjectHolder.class);
+                Asserts.assertEquals(x.value, expected);
+                Asserts.assertEquals(mapper().writeValueAsString(x), input);
+            } catch (JsonProcessingException e) {
+                throw Exceptions.propagate(e);
+            }
+        };
+
+        check.accept("\"v1\"", "v1");
+        check.accept("true", true);
+        check.accept("42", 42);
+        check.accept("{\"k\":\"v\"}", MutableMap.of("k", "v"));
+        check.accept("[\"a\",1]", MutableList.of("a", 1));
+        check.accept("[\"a\",{\"type\":\""+Duration.class.getName()+"\",\"value\":\"1s\"}]",
+                MutableList.of("a", MutableMap.of("type", Duration.class.getName(), "value", "1s")));
+    }
 }
