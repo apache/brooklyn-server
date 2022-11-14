@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -41,6 +42,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -174,6 +176,25 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
         output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"), "output", "I said ${message}")));
         assertLogStepMessages("hi bob");
         Asserts.assertEquals(output, "I said hi bob");
+    }
+
+    @Test
+    public void testTargetExplicit() throws Exception {
+        Object output;
+        output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "type: workflow",
+                "steps:",
+                "  - type: workflow",
+                "    target: 1..5",
+                "    steps:",
+                "    - let integer r = ${target} * 5 - ${target} * ${target}",
+                "    - return ${r}",
+                "    output: ${output}",
+                "  - transform max = ${output} | max",
+                "  - return ${max}",
+                ""
+        )))));
+        Asserts.assertEquals(output, 6);
     }
 
 }

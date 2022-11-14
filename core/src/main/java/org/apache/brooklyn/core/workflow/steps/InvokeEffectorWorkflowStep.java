@@ -116,7 +116,7 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
         Effector<Object> effector = (Effector) ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
         TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
             // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
-            context.getSubWorkflows().forEach(tag -> tag.setSupersededByWorkflow(workflowTag.getWorkflowId()));
+            context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(workflowTag.getWorkflowId()));
             context.getSubWorkflows().add(workflowTag);
             context.setStepState(workflowTag, true);
         });

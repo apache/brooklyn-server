@@ -24,11 +24,15 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
@@ -39,7 +43,9 @@ import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,10 +62,13 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     String shorthand;
     @Override
     public void populateFromShorthand(String value) {
-        if (shorthand==null) throw new IllegalStateException("Shorthand not (yet) supported for "+getNameOrDefault());
+        if (shorthand==null) throw new IllegalStateException("Shorthand not supported for "+getNameOrDefault());
         if (input==null) input = MutableMap.of();
         populateFromShorthandTemplate(shorthand, value);
     }
+
+    /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */
+    Object target;
 
     Map<String,Object> parameters;
 
@@ -81,6 +90,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override @JsonIgnore
     public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context) {
         if (context.getStepState()!=null) {
+            // replaying
+
             List<String> ids = (List<String>) context.getStepState();
             List<WorkflowExecutionContext> nestedWorkflowsToReplay = ids.stream().map(id ->
                     new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(context.getEntity()).get(id)).collect(Collectors.toList());
@@ -102,6 +113,86 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        Object targetR = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target, Object.class);
+
+        if (targetR instanceof String) {
+            targetR = getTargetFromString(context, (String) targetR);
+        }
+
+        List<WorkflowExecutionContext> nestedWorkflowContext = MutableList.of();
+
+        boolean wasList = targetR instanceof Iterable;
+        if (!wasList) {
+            if (targetR != null) {
+                throw new IllegalArgumentException("Target of workflow must be a list or an expression that resolves to a list");
+            } else {
+                targetR = MutableList.of(targetR);
+            }
+        }
+
+        ((Iterable<?>) targetR).forEach(t -> {
+            WorkflowExecutionContext nw = newWorkflow(context, t);
+            Maybe<Task<Object>> mt = nw.getTask(true);
+
+            String targetS = wasList || t !=null ? " for target '"+t+"'" : "";
+            if (mt.isAbsent()) {
+                LOG.debug("Step " + context.getWorkflowStepReference() + " skipping nested workflow " + nw.getWorkflowId() + targetS + "; condition not met");
+            } else {
+                LOG.debug("Step " + context.getWorkflowStepReference() + " launching nested workflow " + nw.getWorkflowId() + targetS + " in task " + nw.getTaskId());
+                nestedWorkflowContext.add(nw);
+            }
+        });
+
+        context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(Tasks.current().getId()));
+
+        nestedWorkflowContext.forEach(nw -> {
+            context.getSubWorkflows().add(BrooklynTaskTags.tagForWorkflow(nw));
+        });
+
+        // save the sub-workflow ID before submitting it, and before child knows about parent, per invoke effector step notes
+        context.setStepState(MutableList.copyOf(nestedWorkflowContext), true);
+        nestedWorkflowContext.forEach(n -> n.persist());
+
+        if (wasList) {
+            // TODO concurrency
+            List result = MutableList.of();
+            nestedWorkflowContext.forEach(nw ->
+                    result.add(DynamicTasks.queue(nw.getTask(false).get()).getUnchecked())
+            );
+            return result;
+        } else if (!nestedWorkflowContext.isEmpty()) {
+            return DynamicTasks.queue(Iterables.getOnlyElement(nestedWorkflowContext).getTask(false).get()).getUnchecked();
+        } else {
+            // no steps matched condition
+            return null;
+        }
+    }
+
+    protected Object getTargetFromString(WorkflowStepInstanceExecutionContext context, String target) {
+        if ("children".equals(target)) return context.getEntity().getChildren();
+
+        if ("members".equals(target)) {
+            if (!(context.getEntity() instanceof Group))
+                throw new IllegalArgumentException("Cannot specify target 'members' when not on a group");
+            return ((Group) context.getEntity()).getMembers();
+        }
+
+        if (target.matches("-?[0-9]+\\.\\.-?[0-9]+")) {
+            String[] numbers = target.split("\\.\\.");
+            if (numbers.length==2) {
+                int min = Integer.parseInt(numbers[0]);
+                int max = Integer.parseInt(numbers[1]);
+                if (min>max) throw new IllegalArgumentException("Invalid target range "+min+".."+max);
+                List<Integer> result = MutableList.of();
+                while (min<=max) result.add(min++);
+                return result;
+            }
+        }
+
+        throw new IllegalArgumentException("Invalid target '"+target+"'; if a string, it must match a known keyword ('children' or 'members') or pattern (a range, '1..10')");
+    }
+
+    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target) {
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(context.getEntity(), context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
@@ -109,18 +200,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                         .configure(WorkflowCommonConfig.OUTPUT, workflowOutput),
                 null,
                 ConfigBag.newInstance(getInput()), null);
-
-        nestedWorkflowContext.getTask(true);
-        context.getSubWorkflows().forEach(tag -> tag.setSupersededByWorkflow(nestedWorkflowContext.getWorkflowId()));
-        context.getSubWorkflows().add(BrooklynTaskTags.tagForWorkflow(nestedWorkflowContext));
-
-        // save the sub-workflow ID before submitting it, and before child knows about parent, per invoke effector step notes
-        context.setStepState(MutableList.of(nestedWorkflowContext.getWorkflowId()), true);
-        nestedWorkflowContext.persist();
-
-        LOG.debug("Step "+context.getWorkflowStepReference()+" launching nested workflow "+nestedWorkflowContext.getWorkflowId()+" in task "+nestedWorkflowContext.getTaskId());
-
-        return DynamicTasks.queue( nestedWorkflowContext.getTask(true).get() ).getUnchecked();
+        if (target!=null) {
+            nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
+        }
+        return nestedWorkflowContext;
     }
 
     public String getNameOrDefault() {

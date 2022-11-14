@@ -93,6 +93,13 @@ public class WorkflowExpressionResolution {
                 }
             }
 
+            if ("output".equals(key)) {
+                if (context.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.output);
+                if (context.currentStepInstance!=null && context.currentStepInstance.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.output);
+                if (context.getPreviousStepOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getPreviousStepOutput());
+                return new WorkflowStepModel();
+            }
+
             Object candidate;
 
             //workflow.current_step.input.somevar

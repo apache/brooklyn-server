@@ -481,7 +481,7 @@ public class BrooklynTaskTags extends TaskTags {
 
         protected Integer stepIndex;
         // TODO handle these in the UI:
-        protected String supersededByWorkflow;
+        protected String supersededByTaskId;
         protected String errorHandlerForTask;
         protected Integer errorHandlerIndex;
 
@@ -502,12 +502,13 @@ public class BrooklynTaskTags extends TaskTags {
             return stepIndex;
         }
 
-        /** if not null, this sub-workflow has been superseded, ie replayed in a different workflow */
-        public String getSupersededByWorkflow() {
-            return supersededByWorkflow;
+        /** if not null, this sub-workflow has been superseded, ie replayed in a different workflow;
+         * where possible, this refers to the sub-workflow that replaces it; in other cases it refers to the parent task who replaces it */
+        public String getSupersededByTaskId() {
+            return supersededByTaskId;
         }
-        public void setSupersededByWorkflow(String supersededByWorkflow) {
-            this.supersededByWorkflow = supersededByWorkflow;
+        public void setSupersededByTaskId(String supersededByTaskId) {
+            this.supersededByTaskId = supersededByTaskId;
         }
 
         public Integer getErrorHandlerIndex() {

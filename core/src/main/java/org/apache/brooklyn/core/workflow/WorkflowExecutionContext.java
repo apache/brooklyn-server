@@ -321,9 +321,20 @@ public class WorkflowExecutionContext {
     }
 
     @JsonIgnore
+    public Object getConditionTarget() {
+        if (getWorkflowScratchVariables()!=null) {
+            Object v = getWorkflowScratchVariables().get("target");
+            // should we also set the entity?  otherwise it will take from the task.  but that should only apply
+            // in a task where the context entity is set, so for now rely on that.
+            if (v!=null) return v;
+        }
+        return getEntityOrAdjunctWhereRunning();
+    }
+
+    @JsonIgnore
     public Maybe<Task<Object>> getTask(boolean checkCondition) {
         if (checkCondition && condition!=null) {
-            if (!condition.apply(getEntityOrAdjunctWhereRunning())) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
+            if (!condition.apply(getConditionTarget())) return Maybe.absent(new IllegalStateException("This workflow cannot be run at present: condition not satisfied"));
         }
 
         if (task==null) {
