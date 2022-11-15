@@ -31,6 +31,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -193,7 +194,9 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target) {
-        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(context.getEntity(), context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
+        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
+                target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(),
+                context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                         .configure(WorkflowCommonConfig.STEPS, steps)

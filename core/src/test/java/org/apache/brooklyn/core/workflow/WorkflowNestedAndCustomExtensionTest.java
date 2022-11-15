@@ -23,24 +23,19 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
-import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
+import org.apache.brooklyn.core.test.entity.TestApplication;
+import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.Assert;
@@ -48,9 +43,6 @@ import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.function.BiFunction;
-import java.util.function.Consumer;
 
 public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSupport {
 
@@ -65,13 +57,14 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
     }
 
     ClassLogWatcher lastLogWatcher;
+    TestApplication app;
 
     Object invokeWorkflowStepsWithLogging(List<Object> steps) throws Exception {
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
             lastLogWatcher = logWatcher;
 
             loadTypes();
-            BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+            app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
 
             WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                     .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
@@ -179,7 +172,7 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
     }
 
     @Test
-    public void testTargetExplicit() throws Exception {
+    public void testTargetExplicitList() throws Exception {
         Object output;
         output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
                 "type: workflow",
@@ -195,6 +188,27 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
                 ""
         )))));
         Asserts.assertEquals(output, 6);
+    }
+
+    @Test
+    public void testTargetChildren() throws Exception {
+        Object output;
+        output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+                "type: workflow",
+                "steps:",
+                "  - type: workflow",
+                "    target: children",
+                "    steps:",
+                "    - return ${entity.id}",
+                ""
+        )))));
+        Asserts.assertEquals(output, MutableList.of());
+
+        TestEntity child1 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        TestEntity child2 = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        output = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked();
+        Asserts.assertEquals(output, MutableList.of(child1.getId(), child2.getId()));
     }
 
 }
