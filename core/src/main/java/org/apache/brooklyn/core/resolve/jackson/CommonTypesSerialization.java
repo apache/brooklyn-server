@@ -119,6 +119,9 @@ public class CommonTypesSerialization {
     public static abstract class ObjectAsStringSerializerAndDeserializer<T> {
 
         public abstract Class<T> getType();
+        public Class<? extends T> getType(Object instance) {
+            return getType();
+        }
         public abstract String convertObjectToString(T value, JsonGenerator gen, SerializerProvider provider) throws IOException;
         public abstract T convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException;
 
@@ -177,7 +180,7 @@ public class CommonTypesSerialization {
 
                 // write as object with type and value if type is ambiguous
                 gen.writeStartObject();
-                gen.writeStringField(BrooklynJacksonSerializationUtils.TYPE, getType().getName());
+                gen.writeStringField(BrooklynJacksonSerializationUtils.TYPE, getType(value).getName());
                 gen.writeStringField(BrooklynJacksonSerializationUtils.VALUE, convertObjectToString(value, gen, serializers));
                 gen.writeEndObject();
             }
@@ -315,7 +318,12 @@ public class CommonTypesSerialization {
             return apply(module);
         }
 
-        @Override public Class<BrooklynObject> getType() { return BrooklynObject.class; }
+        @Override public Class<BrooklynObject> getType() {
+            return BrooklynObject.class;
+        }
+        @Override public Class<? extends BrooklynObject> getType(Object instance) {
+            return BrooklynObjectType.of((BrooklynObject) instance).getInterfaceType();
+        }
 
         @Override public String convertObjectToString(BrooklynObject value, JsonGenerator gen, SerializerProvider provider) throws IOException {
             return value.getId();

@@ -34,11 +34,13 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
+import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -54,6 +56,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization, WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
@@ -70,6 +73,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */
     Object target;
+
+    Object concurrency;
 
     Map<String,Object> parameters;
 
@@ -155,14 +160,56 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         nestedWorkflowContext.forEach(n -> n.persist());
 
         if (wasList) {
-            // TODO concurrency
+            if (!nestedWorkflowContext.isEmpty()) {
+                Object c = concurrency;
+                long ci = 1;
+                if (c != null) {
+                    c = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, c, Object.class);
+                    if (c instanceof Number) {
+                        // okay
+                    } else if (c instanceof String) {
+                        c = WorkflowConcurrency.parse((String) c).apply((double) nestedWorkflowContext.size());
+                    } else {
+                        throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
+                    }
+                    ci = (long) Math.floor(0.000001 + ((Number) c).doubleValue());
+                    if (ci <= 0) throw new IllegalArgumentException("Invalid concurrency value: " + ci+" (concurrency "+c+", target size "+nestedWorkflowContext.size()+")");
+                }
+
+                if (ci == 1) {
+                    nestedWorkflowContext.forEach(nw -> DynamicTasks.queue(nw.getTask(false).get()).getUnchecked());
+                } else {
+                    AtomicInteger availableThreads = new AtomicInteger((int) ci);
+                    for (int i = 0; i < nestedWorkflowContext.size(); i++) {
+                        while (availableThreads.get() <= 0) {
+                            try {
+                                Tasks.withBlockingDetails("Waiting before running remaining " + (nestedWorkflowContext.size() - i) + " instances because " + ci + " are currently running",
+                                        () -> {
+                                            synchronized (availableThreads) {
+                                                availableThreads.wait(500);
+                                            }
+                                            return null;
+                                        });
+                            } catch (Exception e) {
+                                throw Exceptions.propagate(e);
+                            }
+                        }
+                        availableThreads.decrementAndGet();
+                        ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
+                                    availableThreads.incrementAndGet();
+                                }),
+                                nestedWorkflowContext.get(i).getTask(false).get());
+                    }
+                }
+            }
+
             List result = MutableList.of();
-            nestedWorkflowContext.forEach(nw ->
-                    result.add(DynamicTasks.queue(nw.getTask(false).get()).getUnchecked())
-            );
+            nestedWorkflowContext.forEach(nw -> result.add(nw.getTask(false).get().getUnchecked()));
             return result;
+
         } else if (!nestedWorkflowContext.isEmpty()) {
             return DynamicTasks.queue(Iterables.getOnlyElement(nestedWorkflowContext).getTask(false).get()).getUnchecked();
+
         } else {
             // no steps matched condition
             return null;
