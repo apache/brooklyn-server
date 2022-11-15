@@ -327,7 +327,7 @@ public class BrooklynJacksonSerializerTest {
             String eYaml = mapper.writerFor(Entity.class).writeValueAsString(e1);
             Asserts.assertEquals(eYaml.trim(), e1.getId());
 
-            final String asMap = "type: "+BrooklynObject.class.getName()+"\n"+
+            final String asMap = "type: "+Entity.class.getName()+"\n"+
                     "value: "+ e1.getId();
             eYaml = mapper.writerFor(Object.class).writeValueAsString(e1);
             Asserts.assertEquals(eYaml.trim(), asMap);

@@ -71,6 +71,7 @@ import org.apache.brooklyn.core.entity.trait.StartableMethods;
 import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.core.objs.proxy.AbstractBrooklynObjectProxyImpl;
 import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -889,12 +890,17 @@ public class Entities {
      * For normal operations, callers should ensure the method is available on an interface and accessed via the proxy. */
     @Beta @VisibleForTesting
     public static AbstractEntity deproxy(Entity e) {
+        return (AbstractEntity) deproxy((BrooklynObject) e);
+    }
+
+    @Beta @VisibleForTesting
+    public static BrooklynObject deproxy(BrooklynObject e) {
         if (!(Proxy.isProxyClass(e.getClass()))) {
-        // there are a few valid cases where callers might want to deproxy, so don't warn
+            // there are a few valid cases where callers might want to deproxy, so don't warn
 //            log.warn("Attempt to deproxy non-proxy "+e, new Throwable("Location of attempt to deproxy non-proxy "+e));
-            return (AbstractEntity) e;
+            return e;
         }
-        return (AbstractEntity) ((EntityProxyImpl)Proxy.getInvocationHandler(e)).getDelegate();
+        return ((AbstractBrooklynObjectProxyImpl<BrooklynObject>)Proxy.getInvocationHandler(e)).getDelegate();
     }
     
     /** 

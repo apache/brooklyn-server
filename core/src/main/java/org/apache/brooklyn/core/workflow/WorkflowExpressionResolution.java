@@ -458,7 +458,7 @@ public class WorkflowExpressionResolution {
         TemplateHashModel model = new WorkflowFreemarkerModel();
         Object result;
 
-        if (!allowWaiting) Thread.currentThread().interrupt();
+        boolean ourWait = interruptSetIfNeededToPreventWaiting();
         try {
             result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false);
         } catch (Exception e) {
@@ -473,10 +473,7 @@ public class WorkflowExpressionResolution {
                 throw Exceptions.propagate(e2);
             }
         } finally {
-            if (!allowWaiting) {
-                // clear interrupt status
-                Thread.interrupted();
-            }
+            if (ourWait) interruptClear();
         }
 
         if (!expression.equals(result)) {
@@ -490,6 +487,24 @@ public class WorkflowExpressionResolution {
         }
 
         return result;
+    }
+
+    private static ThreadLocal<Boolean> interruptSetIfNeededToPreventWaiting = new ThreadLocal<>();
+    public static boolean isInterruptSetToPreventWaiting() {
+        return Boolean.TRUE.equals(interruptSetIfNeededToPreventWaiting.get());
+    }
+    private boolean interruptSetIfNeededToPreventWaiting() {
+        if (!allowWaiting && !Thread.currentThread().isInterrupted() && !isInterruptSetToPreventWaiting()) {
+            interruptSetIfNeededToPreventWaiting.set(true);
+            Thread.currentThread().interrupt();
+            return true;
+        }
+        return false;
+    }
+    private void interruptClear() {
+        // clear interrupt status
+        Thread.interrupted();
+        interruptSetIfNeededToPreventWaiting.remove();
     }
 
     public Map<?,?> processTemplateExpressionMap(Map<?,?> object) {

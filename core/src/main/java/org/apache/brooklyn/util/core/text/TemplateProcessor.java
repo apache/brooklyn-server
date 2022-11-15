@@ -30,12 +30,15 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.ThreadLocalStack;
@@ -156,8 +159,27 @@ public class TemplateProcessor {
             return super.handleUnknownType(o);
         }
 
-        public TemplateModel wrapAsBean(final Object o) throws TemplateModelException {
-            return super.handleUnknownType(o);
+        public TemplateModel wrapAsBean(Object o) throws TemplateModelException {
+            if (o instanceof BrooklynObject) {
+                // deproxy to reduce freemarker introspection interrupted errors
+                o = Entities.deproxy((BrooklynObject) o);
+            }
+            // can get "Class inrospection data lookup aborded" from freemarker ClassIntrospector:250
+            // if thread is interrupted because class lookup uses wait on a shared cache;
+            // if the "interruption" is because of us, retry in this instance
+            while (true) {
+                try {
+                    return super.handleUnknownType(o);
+                } catch (Exception e) {
+                    if (WorkflowExpressionResolution.isInterruptSetToPreventWaiting()) {
+                        if (Exceptions.isRootCauseIsInterruption(e) || e.toString().contains(InterruptedException.class.getSimpleName())) {
+                            Thread.yield();
+                            continue;
+                        }
+                    }
+                    throw e;
+                }
+            }
         }
 
     }
