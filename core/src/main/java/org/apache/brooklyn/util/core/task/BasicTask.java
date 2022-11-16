@@ -29,8 +29,11 @@ import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 import groovy.lang.Closure;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -924,9 +927,16 @@ public class BasicTask<T> implements TaskInternal<T> {
         @Override
         public void onTaskFinalization(Task<?> t) {
             if (!Tasks.isAncestorCancelled(t) && !t.isSubmitted()) {
-                log.warn(t+" was never submitted; did the code create it and forget to run it? ('cancel' the task to suppress this message)");
-                log.debug("Detail of unsubmitted task "+t+":\n"+t.getStatusDetail(true));
-                return;
+                boolean skipWarning = false;
+                skipWarning |= t instanceof ScheduledTask && ((ScheduledTask) t).getNextScheduled()!=null;  // scheduled tasks don't set submitted until run one
+                skipWarning |= t instanceof TaskInternal && ((TaskInternal) t).getQueuedTimeUtc() > 0;  // skip if queued
+                skipWarning |= BrooklynTaskTags.hasTag(t, BrooklynTaskTags.WORKFLOW_TAG);  // workflow tasks are managed by us, and skipped if workflow doesn't run
+                if (!skipWarning) {
+                    // this might be a sign of a leak; usually created tasks are very very soon queued or submitted
+                    log.warn(t + " was never submitted; did the code create it and forget to run it? ('cancel' the task to suppress this message)");
+                    log.debug("Detail of unsubmitted task " + t + ":\n" + t.getStatusDetail(true));
+                    return;
+                }
             }
             if (!t.isDone()) {
                 if (!BrooklynTaskTags.getExecutionContext(t).isShutdown()) {

@@ -42,6 +42,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.annotations.Beta;
 import com.google.common.base.Predicate;
+import org.apache.brooklyn.util.time.Duration;
 
 /**
  * This is the entry point for accessing and interacting with a realm of applications and their entities in Brooklyn.
@@ -244,6 +245,8 @@ public interface ManagementContext {
     @Beta  // see comment on isRunning() as items might move to a status handler
     public boolean isStartupComplete();
 
+    void waitForManagementStartupComplete(Duration timeout);
+
     /** Returns node state, always reporting {@link ManagementNodeState#INITIALIZING} if there is any transition
      * and {@link ManagementNodeState#FAILED} if there are any server errors.
      * If this returns {@link ManagementNodeState#MASTER} we can guarantee the node to be in master state,
@@ -282,7 +285,7 @@ public interface ManagementContext {
     /**
      * Listener for {@code brooklyn.properties} reload events.
      *
-     * @see {@link #raddPropertiesReloadListenerPropertiesReloadListener)}
+     * @see {@link #addPropertiesReloadListener)}
      * @see {@link #removePropertiesReloadListener(PropertiesReloadListener)}
      */
     interface PropertiesReloadListener extends Serializable {

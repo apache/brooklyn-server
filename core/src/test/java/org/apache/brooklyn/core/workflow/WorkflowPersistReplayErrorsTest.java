@@ -31,8 +31,10 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagementSupport;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -73,6 +75,10 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     @Override
     protected BasicApplication createApp() {
         return null;
+    }
+
+    @Override protected BasicApplication rebind() throws Exception {
+        return rebind(RebindOptions.create().terminateOrigManagementContext(true));
     }
 
     Task<?> runStep(Object step, Consumer<BasicApplication> appFunction) {

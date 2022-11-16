@@ -270,10 +270,10 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         if (replay!=RetryReplayOption.FALSE) {
             if (next==null) {
                 context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingLast(
-                        "Retry step after failure in step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                        "Retry replay per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
             } else {
                 context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
-                        "Retry step from '"+next+"' after failure in step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                        "Retry replay from '"+next+"' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
             }
             log.debug("Retrying with "+context.nextReplay);
         } else {

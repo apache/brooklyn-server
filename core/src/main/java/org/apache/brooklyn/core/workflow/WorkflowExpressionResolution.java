@@ -290,7 +290,7 @@ public class WorkflowExpressionResolution {
                 // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
                 // (might be better to always to TC.coerce)
                 return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
-                        RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
+                        RegisteredTypes.getClassLoadingContext(context.getEntity()), true /* needed for wrapped resolved holders */);
             } else {
                 return TypeCoercions.coerce(expression, type);
             }

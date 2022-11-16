@@ -23,6 +23,7 @@ import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -30,6 +31,8 @@ import org.apache.brooklyn.core.workflow.WorkflowErrorHandling;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -51,7 +54,14 @@ public class WorkflowStatePersistenceViaSensors {
         this.mgmt = mgmt;
     }
 
+    static int MAX_TO_KEEP_PER_KEY = 20;  // 3 would be fine, apart from tests; when it waits on parent being finished we can get rid of
+
     public void checkpoint(WorkflowExecutionContext context) {
+        if (DynamicTasks.getTaskQueuingContext()!=null) {
+            if (DynamicTasks.getTaskQueuingContext().getQueue().stream().filter(t -> !t.isDone()).findAny().isPresent()) {
+                log.warn("Persisting when there are still queued tasks");
+            }
+        }
         // clear interrupt status so we can persist e.g. if we are interrupted or shutdown
         boolean interrupted = Thread.interrupted();
         try {
@@ -59,22 +69,36 @@ public class WorkflowStatePersistenceViaSensors {
             entity.sensors().modify(INTERNAL_WORKFLOWS, v -> {
                 if (v == null) v = MutableMap.of();
                 v.put(context.getWorkflowId(), context);
-                String k = Strings.firstNonBlank(context.getExpiryKey(), "empty-expiry-key");  //should always be set
-                // TODO follow expiry instructions; for now, just keep 3 latest, apart from this one
-                List<WorkflowExecutionContext> finishedTwins = v.values().stream()
-                        .filter(c -> k.equals(c.getExpiryKey()))
-                        .filter(c -> c.getStatus()!=null && c.getStatus().ended)
-                        .filter(c -> !c.equals(context))
-                        .collect(Collectors.toList());
-                if (finishedTwins.size()>3) {
-                    finishedTwins = MutableList.copyOf(finishedTwins);
-                    Collections.sort(finishedTwins, (t1,t2) -> Long.compare(t2.getMostRecentActivityTime(), t1.getMostRecentActivityTime()));
-                    Iterator<WorkflowExecutionContext> ti = finishedTwins.iterator();
-                    for (int i=0; i<3; i++) ti.next();
-                    while (ti.hasNext()) {
-                        WorkflowExecutionContext w = ti.next();
-                        log.debug("Expiring old workflow "+w+" because it is finished and there are newer ones");
-                        v.remove(w.getWorkflowId());
+
+                boolean doExpiry = true;
+                if (doExpiry && Tasks.isAncestor(Tasks.current(), t -> BrooklynTaskTags.getTagsFast(t).contains(BrooklynTaskTags.ENTITY_INITIALIZATION))) {
+                    // skip expiry during initialization
+                    doExpiry = false;
+                }
+                if (doExpiry && Entities.isUnmanagingOrNoLongerManaged(entity)) {
+                    // skip expiry during shutdown
+                    doExpiry = false;
+                }
+
+                if (doExpiry) {
+                    String k = Strings.firstNonBlank(context.getExpiryKey(), "empty-expiry-key");  //should always be set
+                    // TODO follow expiry instructions; for now, just keep N latest, apart from this one
+                    List<WorkflowExecutionContext> finishedTwins = v.values().stream()
+                            .filter(c -> k.equals(c.getExpiryKey()))
+                            .filter(c -> c.getStatus() != null && c.getStatus().ended)
+                            // TODO don't expire if parentTag points to workflow which is known and active
+                            .filter(c -> !c.equals(context))
+                            .collect(Collectors.toList());
+                    if (finishedTwins.size() > MAX_TO_KEEP_PER_KEY) {
+                        finishedTwins = MutableList.copyOf(finishedTwins);
+                        Collections.sort(finishedTwins, (t1, t2) -> Long.compare(t2.getMostRecentActivityTime(), t1.getMostRecentActivityTime()));
+                        Iterator<WorkflowExecutionContext> ti = finishedTwins.iterator();
+                        for (int i = 0; i < MAX_TO_KEEP_PER_KEY; i++) ti.next();
+                        while (ti.hasNext()) {
+                            WorkflowExecutionContext w = ti.next();
+                            log.debug("Expiring old workflow " + w + " because it is finished and there are newer ones");
+                            v.remove(w.getWorkflowId());
+                        }
                     }
                 }
                 return Maybe.of(v);

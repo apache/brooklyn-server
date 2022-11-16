@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -69,13 +70,17 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
     }
 
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced) {
-        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced);
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly);
     }
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, Iterables.getOnlyElement(subworkflows), instructions, ()->doTaskBody(context));
+        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, Iterables.getOnlyElement(subworkflows), instructions,
+                (w, e)-> {
+                    LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
+                    return doTaskBody(context);
+                });
     }
 
     @Override

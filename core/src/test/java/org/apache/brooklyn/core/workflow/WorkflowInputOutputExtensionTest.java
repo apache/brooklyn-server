@@ -616,7 +616,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         // subsequently works at least once, but probably gets some errors due to concurrency
         List<Task<?>> tasks = MutableList.of();
         int NUM = 100;
-        for (int i=0; i<100; i++) tasks.add(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null));
+        for (int i=0; i<NUM; i++) tasks.add(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null));
         long numErrors = tasks.stream().filter(t -> {
             t.blockUntilEnded();
             return t.isError();

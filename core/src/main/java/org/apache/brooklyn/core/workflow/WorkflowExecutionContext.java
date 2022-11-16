@@ -29,6 +29,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.Entities;
@@ -36,6 +37,7 @@ import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -44,7 +46,10 @@ import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
-import org.apache.brooklyn.util.core.task.*;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.core.task.TaskBuilder;
+import org.apache.brooklyn.util.core.task.TaskTags;
+import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.exceptions.RuntimeInterruptedException;
@@ -62,6 +67,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -117,6 +123,8 @@ public class WorkflowExecutionContext {
 
     Object outputDefinition;
     Object output;
+
+    Object lock;
 
     Duration timeout;
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -220,6 +228,7 @@ public class WorkflowExecutionContext {
                 paramsDefiningWorkflow.get(WorkflowCommonConfig.REPLAYABLE),
                 optionalTaskFlags);
 
+        w.lock = paramsDefiningWorkflow.get(WorkflowCommonConfig.LOCK);
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
         w.onError = paramsDefiningWorkflow.get(WorkflowCommonConfig.ON_ERROR);
         // fail fast if error steps not resolveable
@@ -348,53 +357,13 @@ public class WorkflowExecutionContext {
         return Maybe.of(task);
     }
 
-    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStep(int stepIndex, String reason, boolean forced) {
+    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStep(int stepIndex0, String reason, boolean forced) {
+        int stepIndex = stepIndex0;
         if (!forced) {
-            Set<Integer> considered = MutableSet.of();
-            Set<Integer> possibleOthers = MutableSet.of();
-            while (true) {
-                if (WorkflowReplayUtils.isReplayableAtStep(this, stepIndex)) {
-                    break;
-                }
-                if (stepIndex == STEP_INDEX_FOR_START) {
-                    throw new IllegalStateException("Workflow is not replayable at any point, backtracking from "+stepIndex);
-                }
-
-                // look at the previous step
-                OldStepRecord osi = oldStepInfo.get(stepIndex);
-                if (osi == null) {
-                    log.warn("Unable to backtrack from step " + (stepIndex) + "; no step information. Replaying overall workflow.");
-                    stepIndex = STEP_INDEX_FOR_START;
-                    break;
-                }
-
-                Set<Integer> prev = osi.previous;
-                if (prev == null || prev.isEmpty()) {
-                    log.warn("Unable to backtrack from step " + (stepIndex) + "; no previous step recorded. Replaying overall workflow.");
-                    stepIndex = STEP_INDEX_FOR_START;
-                    break;
-                }
-
-                boolean repeating = !considered.add(stepIndex);
-                if (repeating) {
-                    if (possibleOthers.size() != 1) {
-                        log.warn("Unable to backtrack from step " + (stepIndex) + "; ambiguous precedents " + prev + " / " + possibleOthers + ". Replaying overall workflow.");
-                        stepIndex = STEP_INDEX_FOR_START;
-                        break;
-                    } else {
-                        stepIndex = possibleOthers.iterator().next();
-                        continue;
-                    }
-                }
-
-                Iterator<Integer> prevI = prev.iterator();
-                stepIndex = prevI.next();
-                while (prevI.hasNext()) {
-                    possibleOthers.add(prevI.next());
-                }
-            }
+            stepIndex = Maybe.ofDisallowingNull(WorkflowReplayUtils.findNearestReplayPoint(this, stepIndex0))
+                    .orThrow(() -> new IllegalStateException("Workflow is not replayable: no replay points found backtracking from "+stepIndex0));
+            log.debug("Request to replay from step "+stepIndex0+", nearest replay point is "+stepIndex);
         }
-
         return new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced);
     }
 
@@ -440,24 +409,40 @@ public class WorkflowExecutionContext {
     }
 
     public Task<Object> createTaskReplaying(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+        return createTaskReplaying(null, continuationInstructions);
+    }
+
+    public Task<Object> createTaskReplaying(Runnable intro, WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
         if (task != null && !task.isDone()) {
             if (!task.isSubmitted()) {
                 log.warn("Abandoning workflow task that was never submitted: " + task + " for " + this);
             } else {
-                throw new IllegalStateException("Cannot replay ongoing workflow, given "+continuationInstructions);
+                if (isSubmitterAncestor(Tasks.current(), task)) {
+                    // not sure we need this check
+                    log.debug("Replaying containing workflow "+this+" in task "+task+" which is an ancestor of "+Tasks.current());
+                } else {
+                    log.warn("Unable to replay workflow "+this+" from "+Tasks.current()+" because workflow task "+task+" is ongoing (rethrowing)");
+                    throw new IllegalStateException("Cannot replay ongoing workflow, given " + continuationInstructions);
+                }
             }
         }
 
-        String explanation = continuationInstructions.customBehaviourExplanation!=null ? continuationInstructions.customBehaviourExplanation : "no explanation";
+        String explanation = continuationInstructions.customBehaviorExplanation !=null ? continuationInstructions.customBehaviorExplanation : "no explanation";
         task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")")
                 .tag(BrooklynTaskTags.tagForWorkflow(this))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .body(new Body(continuationInstructions)).build();
-        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, continuationInstructions.customBehaviourExplanation, continuationInstructions.stepToReplayFrom!=null && continuationInstructions.stepToReplayFrom!=STEP_INDEX_FOR_START);
+                .body(new Body(continuationInstructions).withIntro(intro)).build();
+        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, continuationInstructions.customBehaviorExplanation, continuationInstructions.stepToReplayFrom!=null && continuationInstructions.stepToReplayFrom!=STEP_INDEX_FOR_START);
 
         taskId = task.getId();
 
         return task;
+    }
+
+    private boolean isSubmitterAncestor(Task current, Task<Object> possibleAncestor) {
+        if (current==null) return false;
+        if (current.equals(possibleAncestor)) return true;
+        return isSubmitterAncestor(current.getSubmittedByTask(), possibleAncestor);
     }
 
     public Entity getEntity() {
@@ -672,6 +657,7 @@ public class WorkflowExecutionContext {
 
     protected class Body implements Callable<Object> {
         private WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions;
+        private Runnable intro = null;
 
         public Body() {
         }
@@ -685,8 +671,92 @@ public class WorkflowExecutionContext {
             return "WorkflowExecutionContext.Body["+workflowId+"; " + continuationInstructions + "]";
         }
 
+        protected Object callWithLock(Callable<Callable<Object>> handler) throws Exception {
+            AttributeSensor<String> lockSensor = lock != null ? Sensors.newStringSensor("lock-for-"+lock) : null;
+            AtomicBoolean mustClearLock = new AtomicBoolean(false);
+            if (lockSensor!=null) {
+                // acquire lock
+//          - step: set-sensor lock-for-count = ${workflow.id}
+//            require:
+//            any:
+//            - when: absent
+//            - equals: ${workflow.id}
+//            on-error:
+//            - retry backoff 50ms increasing 2x up to 5s
+                String wid = getWorkflowId();
+                Duration delay = null;
+                String lastHolder = null;
+                while (true) {
+                    AtomicReference<String> holder = new AtomicReference<>();
+                    getEntity().sensors().modify(lockSensor, old -> {
+                        if (old == null || old.equals(wid)) {
+                            if (old != null) {
+                                if (continuationInstructions != null) {
+                                    log.debug(WorkflowExecutionContext.this+" reasserting lock on " + lockSensor.getName() + " during replay");
+                                } else {
+                                    // i don't think this should be possible
+                                    log.warn("Entering block with lock on " + lockSensor.getName() + " when this workflow already holds the lock");
+                                }
+                            } else {
+                                log.debug(WorkflowExecutionContext.this+" acquired lock on " + lockSensor.getName());
+                            }
+                            mustClearLock.set(true);
+                            return Maybe.of(wid);
+                        }
+                        log.debug("Blocked by lock on " + lockSensor.getName() + ", currently held by " + old);
+                        holder.set(old);
+                        return Maybe.absent();
+                    });
+                    if (mustClearLock.get()) break;
+                    // didn't get lock; probably do a retry
+                    try {
+                        if (delay==null || !Objects.equals(lastHolder, holder.get())) {
+                            // reset initially, and if we observe the lock holder to change (highly competitive environment)
+                            delay = Duration.millis(5);
+                        }
+                        Duration ddelay = delay;
+                        Tasks.withBlockingDetails("Waiting for lock on " + lockSensor.getName() +" (held by workflow "+holder.get()+")", () -> { Time.sleep(ddelay); return null; });
+                        // increment delay for next time
+                        delay = Duration.max(delay.multiply(1 + Math.random()), Duration.seconds(5));
+                    } catch (Exception e) {
+                        throw Exceptions.propagate(e);
+                    }
+                }
+            }
+
+            Callable<Object> endHandler;
+            try {
+                endHandler = handler.call(); //super.doTaskBodyPossiblyWithLock(context, handler, isReplaying, continuationInstructions);
+
+            } finally {
+                // clear if we set it, whether initially, on real replay, or on injected dangling failure
+                if (mustClearLock.get()) {
+                    try {
+                        DynamicTasks.waitForLast();
+                    } finally {
+                        if (Entities.isUnmanagingOrNoLongerManaged(getEntity())) {
+                            log.debug("Skipping clearance of lock on "+lockSensor.getName()+" in "+WorkflowExecutionContext.this+" because entity unmanaging here; expect auto-replay on resumption to pick up");
+                        } else {
+                            log.debug(WorkflowExecutionContext.this+" releasing lock on "+lockSensor.getName());
+                            ((EntityInternal.SensorSupportInternal) getEntity().sensors()).remove(lockSensor);
+                        }
+                    }
+                }
+            }
+            return endHandler.call();
+        }
+
         @Override
         public Object call() throws Exception {
+            if (intro!=null) {
+                // intro needed to make dangling resumption wait
+                intro.run();
+            }
+            return callWithLock(this::callSteps);
+        }
+
+        public Callable<Object> callSteps() throws Exception {
+            DynamicTasks.swallowChildrenFailures();
             boolean continueOnErrorHandledOrNextReplay;
 
             Task<?> timerTask = null;
@@ -730,7 +800,7 @@ public class WorkflowExecutionContext {
                         if (replaying) {
                             if (replayFromStep != null && replayFromStep == STEP_INDEX_FOR_START) {
                                 log.debug("Replaying workflow '" + name + "', from start " +
-                                        " (was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
+                                        "(was at " + (currentStepIndex == null ? "<UNSTARTED>" : workflowStepReference(currentStepIndex)) + ")");
                                 currentStepIndex = 0;
                                 workflowScratchVariables = MutableMap.of();
 
@@ -887,12 +957,12 @@ public class WorkflowExecutionContext {
                             } catch (Exception e2) {
                                 Throwable e0 = e;
                                 if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3==e0)) {
-                                    // wraps/rethrows original, don't need to log
+                                    // wraps/rethrows original, don't need to log, but do return the new one
                                 } else {
                                     log.warn("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + " error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
                                     log.debug("Full trace of original error was: " + e, e);
-                                    e = e2;
                                 }
+                                e = e2;
                             }
 
                         } else {
@@ -900,26 +970,9 @@ public class WorkflowExecutionContext {
                         }
 
                         if (!errorHandled) {
-                            status = provisionalStatus;
-                            WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
-
-                            try {
-                                if (status.persistable) {
-                                    log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
-                                    log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
-                                    persist();
-                                } else {
-                                    log.debug("Error running workflow " + this + ", unsurprising because " + status);
-                                }
-
-                            } catch (Throwable e2) {
-                                log.error("Error persisting workflow " + this + " after error in workflow; persistence error: " + e2);
-                                log.debug("Error persisting workflow " + this + " after error in workflow; persistence error (details): " + e2, e2);
-                                log.warn("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e);
-                                log.trace("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e, e);
-                            }
-
-                            throw Exceptions.propagate(e);
+                            Throwable e0 = e;
+                            WorkflowStatus ps = provisionalStatus;
+                            return () -> endWithError(e0, ps);
                         }
                     }
 
@@ -932,9 +985,40 @@ public class WorkflowExecutionContext {
                 }
             }
 
+            return this::endWithSuccess;
+        }
+
+        private Object endWithSuccess() {
             WorkflowReplayUtils.updateOnWorkflowSuccess(WorkflowExecutionContext.this, task, output);
             persist();
             return output;
+        }
+
+        private Object endWithError(Throwable e, WorkflowStatus provisionalStatus) {
+            status = provisionalStatus;
+            WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
+
+            try {
+                if (status.persistable) {
+                    log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
+                    log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
+                    persist();
+                } else {
+                    log.debug("Error running workflow " + this + ", unsurprising because " + status);
+                }
+
+            } catch (Throwable e2) {
+                if (Entities.isUnmanagingOrNoLongerManaged(getEntity())) {
+                    log.trace("Error persisting workflow (entity ending) " + this + " after error in workflow; persistence error (details): " + e2, e2);
+                } else {
+                    log.error("Error persisting workflow " + this + " after error in workflow; persistence error: " + e2);
+                    log.debug("Error persisting workflow " + this + " after error in workflow; persistence error (details): " + e2, e2);
+                    log.warn("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e);
+                }
+                log.trace("Error running workflow " + this + ", rethrowing without persisting because of persistence error (above): " + e, e);
+            }
+
+            throw Exceptions.propagate(e);
         }
 
         private WorkflowStepDefinition.ReplayContinuationInstructions getSpecialNextReplay() {
@@ -1041,17 +1125,17 @@ public class WorkflowExecutionContext {
                         if (Exceptions.getCausalChain(e2).stream().anyMatch(e3 -> e3==e)) {
                             // is, or wraps, original error, don't need to log
                         } else {
-                            log.warn("Error in step '" + t.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
+                            logWarnOnExceptionOrDebugIfKnown(e2, "Error in step '" + t.getDisplayName() + "' error handler for -- " + Exceptions.collapseText(e) + " -- threw another error (rethrowing): " + Exceptions.collapseText(e2));
                             log.debug("Full trace of original error was: " + e, e);
                         }
                         throw Exceptions.propagate(e2);
                     }
                     if (result==null) {
-                        log.warn("Error in step '" + t.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(e));
+                        logWarnOnExceptionOrDebugIfKnown(e, "Error in step '" + t.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(e));
                     }
 
                 } else {
-                    log.warn("Error in step '" + t.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
+                    logWarnOnExceptionOrDebugIfKnown(e, "Error in step '" + t.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(e));
                     throw Exceptions.propagate(e);
                 }
             }
@@ -1073,14 +1157,21 @@ public class WorkflowExecutionContext {
             next.run();
         }
 
+        private void logWarnOnExceptionOrDebugIfKnown(Exception e, String msg) {
+            if (Exceptions.getFirstThrowableOfType(e, DanglingWorkflowException.class)!=null) { log.debug(msg); return; }
+            if (Entities.isUnmanagingOrNoLongerManaged(getEntity())) { log.debug(msg); return; }
+            log.warn(msg); return;
+        }
+
         private void moveToNextStep(String optionalRequestedNextStep, String prefix) {
+            prefix = prefix + "; ";
+
             continuationInstructions = getSpecialNextReplay();
             if (continuationInstructions!=null) {
-                log.debug(prefix + "proceeding to custom replay: "+currentStepInstance.nextReplay);
+                log.debug(prefix + "proceeding to custom replay: "+(currentStepInstance.nextReplay==null ? "default" : currentStepInstance.nextReplay));
                 return;
             }
 
-            prefix = prefix + "; ";
             if (optionalRequestedNextStep==null) {
                 currentStepIndex++;
                 if (currentStepIndex < getStepsResolved().size()) {
@@ -1113,6 +1204,11 @@ public class WorkflowExecutionContext {
 
             if (index>=getStepsResolved().size()) return getWorkflowStepReference(index, "<END>", false);
             return getWorkflowStepReference(index, getStepsResolved().get(index));
+        }
+
+        public Body withIntro(Runnable intro) {
+            this.intro = intro;
+            return this;
         }
     }
 

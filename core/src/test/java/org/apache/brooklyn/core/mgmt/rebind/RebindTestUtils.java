@@ -26,6 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -288,6 +289,15 @@ public class RebindTestUtils {
         }
 
         public LocalManagementContext buildStarted() {
+            // semantics were this:
+            // return buildStarted(null, false);
+            return buildStarted(null, true);
+        }
+
+        public LocalManagementContext buildStarted(Consumer<LocalManagementContext> optionalFinalActions) {
+            return buildStarted(optionalFinalActions, true);
+        }
+        public LocalManagementContext buildStarted(Consumer<LocalManagementContext> optionalFinalActions, boolean noteStartupCompleted) {
             LocalManagementContext unstarted = buildUnstarted();
             
             // Follows BasicLauncher logic for initialising persistence.
@@ -303,6 +313,10 @@ public class RebindTestUtils {
             } else {
                 unstarted.getHighAvailabilityManager().start(haMode);
             }
+            if (optionalFinalActions!=null) {
+                optionalFinalActions.accept(unstarted);
+            }
+            if (noteStartupCompleted) unstarted.noteStartupComplete();
             return unstarted;
         }
 
@@ -418,6 +432,7 @@ public class RebindTestUtils {
                     exceptionHandler, 
                     (haMode == HighAvailabilityMode.DISABLED) ? ManagementNodeState.MASTER : ManagementNodeState.of(haMode).get());
             newManagementContext.getRebindManager().startPersistence();
+            ((LocalManagementContext)newManagementContext).noteStartupComplete();
 
             return newApps;
 
@@ -437,6 +452,7 @@ public class RebindTestUtils {
             }
             
             haManager.start(haMode);
+            ((LocalManagementContext)newManagementContext).noteStartupComplete();
             
             // TODO We'll be promoted to master asynchronously; will not yet have done our rebind.
             // Could block here for rebind to complete but do any callers really need us to do that?

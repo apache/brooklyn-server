@@ -20,30 +20,77 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.function.Supplier;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 public class WorkflowReplayUtils {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowReplayUtils.class);
+
+    public static Integer findNearestReplayPoint(WorkflowExecutionContext context, int stepIndex) {
+        int stepIndex0 = stepIndex;
+        Set<Integer> considered = MutableSet.of();
+        Set<Integer> possibleOthers = MutableSet.of();
+        while (true) {
+            if (WorkflowReplayUtils.isReplayableAtStep(context, stepIndex)) {
+                break;
+            }
+            if (stepIndex == WorkflowExecutionContext.STEP_INDEX_FOR_START) {
+                return null;
+            }
+
+            // look at the previous step
+            WorkflowExecutionContext.OldStepRecord osi = context.oldStepInfo.get(stepIndex);
+            if (osi == null) {
+                log.warn("Unable to backtrack from step " + stepIndex + "; no step information. Will try to replay from start.");
+                stepIndex = WorkflowExecutionContext.STEP_INDEX_FOR_START;
+                continue;
+            }
+
+            Set<Integer> prev = osi.previous;
+            if (prev == null || prev.isEmpty()) {
+                log.warn("Unable to backtrack from step " + stepIndex + "; no previous step recorded. Will try to replay from start.");
+                stepIndex = WorkflowExecutionContext.STEP_INDEX_FOR_START;
+                continue;
+            }
+
+            boolean repeating = !considered.add(stepIndex);
+            if (repeating) {
+                if (possibleOthers.size() != 1) {
+                    log.warn("Unable to backtrack from step " + stepIndex + "; ambiguous precedents " + prev + " / " + possibleOthers + ". Will try to replay from start.");
+                    stepIndex = WorkflowExecutionContext.STEP_INDEX_FOR_START;
+                    continue;
+                } else {
+                    stepIndex = possibleOthers.iterator().next();
+                    continue;
+                }
+            }
+
+            Iterator<Integer> prevI = prev.iterator();
+            stepIndex = prevI.next();
+            while (prevI.hasNext()) {
+                possibleOthers.add(prevI.next());
+            }
+        }
+        return stepIndex;
+    }
 
     public enum ReplayableOption {
         OFF, ON, YES, NO, TRUE, FALSE;
@@ -215,7 +262,7 @@ public class WorkflowReplayUtils {
         if (csi !=null) {
             WorkflowStepDefinition stepDefinition = workflowExecutionContext.getStepsResolved().get(csi.stepIndex);
             if (stepDefinition instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) {
-                List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false);
+                List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true);
                 if (subWorkflows==null) return false;
                 if (!requireDeeplyReplayable) return true;
                 return subWorkflows.stream().allMatch(sub -> isReplayableAtLast(sub, requireDeeplyReplayable));
@@ -239,7 +286,9 @@ public class WorkflowReplayUtils {
         if (osi!=null && osi.replayableCurrentSetting!=null) {
             return osi.replayableFromHere;
         }
-        return isReplayableAtStep(workflowExecutionContext, -1);
+
+        // if no step info so hasn't even started to play yet (will be updated before start)
+        return false;
     }
 
     public static boolean isReplayableAnywhere(WorkflowExecutionContext workflowExecutionContext) {
@@ -253,24 +302,32 @@ public class WorkflowReplayUtils {
         if (instructions.stepToReplayFrom!=null) {
             // shouldn't come here
             throw new IllegalStateException("Cannot replay a nested workflow where the parent started at a specific step");
-        } else if (instructions.customBehaviour!=null) {
+        } else if (instructions.forced && instructions.customBehavior !=null) {
             // forced, eg throwing exception
-            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLastForcedWithCustom(instructions.customBehaviourExplanation, instructions.customBehaviour));
+            log.debug("Creating task to replay subworkflow " + subWorkflow+" from last, forced with custom behaviour - "+instructions);
+            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLastForcedWithCustom(instructions.customBehaviorExplanation, instructions.customBehavior));
         } else {
-            if (Objects.equals(subWorkflow.replayableLastStep, WorkflowExecutionContext.STEP_INDEX_FOR_END)) return null;
+            if (Objects.equals(subWorkflow.replayableLastStep, WorkflowExecutionContext.STEP_INDEX_FOR_END)) {
+                log.debug("Creating task to replay subworkflow " + subWorkflow+" from last, but already at end - "+instructions);
+                return null;
+            }
             // may throw if not forced and not replayable
-            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLast(instructions.customBehaviourExplanation, instructions.forced));
+            log.debug("Creating task to replay subworkflow " + subWorkflow+" from last: "+instructions);
+            WorkflowStepDefinition.ReplayContinuationInstructions subInstr = subWorkflow.makeInstructionsForReplayingLast(instructions.customBehaviorExplanation, instructions.forced);
+            log.debug("Creating task to replay subworkflow " + subWorkflow+", will use: "+subInstr);
+
+            return subWorkflow.createTaskReplaying(subInstr);
         }
     }
 
     /** replays the workflow indicated by the set, returning the result, or if not possible creates a new task */
-    public static Object replayInSubWorkflow(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, Supplier<Object> ifNotReplayable) {
+    public static Object replayInSubWorkflow(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
         Pair<Boolean, Object> check = checkReplayInSubWorkflowAlsoReturningTaskOrResult(summary, context, w, instructions, ifNotReplayable);
         if (check.getLeft()) return DynamicTasks.queue((Task<?>) check.getRight()).getUnchecked();
         else return check.getRight();
     }
 
-    public static Pair<Boolean,Object> checkReplayInSubWorkflowAlsoReturningTaskOrResult(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, Supplier<Object> ifNotReplayable) {
+    public static Pair<Boolean,Object> checkReplayInSubWorkflowAlsoReturningTaskOrResult(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
         Task<Object> t;
         try {
             t = WorkflowReplayUtils.createReplaySubWorkflowTaskOrThrow(w, instructions);
@@ -280,9 +337,9 @@ public class WorkflowReplayUtils {
             }
         } catch (Exception e) {
             Exceptions.propagateIfFatal(e);
-            log.debug("Step " + context.getWorkflowStepReference() + " could not resume nested workflow " + w.getWorkflowId() + ", running again: "+e);
+            log.debug("Step " + context.getWorkflowStepReference() + " could not resume nested workflow " + w.getWorkflowId() + " (running anew): "+e);
 
-            return Pair.of(false, ifNotReplayable.get());
+            return Pair.of(false, ifNotReplayable.apply(w, e));
         }
 
         log.debug("Step " + context.getWorkflowStepReference() + " resuming nested workflow " + w.getWorkflowId() + " in task " + t.getId());
@@ -297,7 +354,7 @@ public class WorkflowReplayUtils {
         context.getWorkflowExectionContext().persist();
     }
 
-    public static List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced) {
+    public static List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
         Set<BrooklynTaskTags.WorkflowTaskTag> sws = context.getSubWorkflows();
         if (sws!=null && !sws.isEmpty()) {
             // replaying
@@ -305,25 +362,28 @@ public class WorkflowReplayUtils {
             List<WorkflowExecutionContext> nestedWorkflowsToReplay = sws.stream().filter(tag -> tag.getSupersededByTaskId()==null)
                     .map(tag -> {
                         Entity targetEntity = (Entity) context.getManagementContext().lookup(tag.getEntityId());
-                        if (targetEntity == null) return null;
+                        if (targetEntity == null) {
+                            log.warn("Unable to find entity for sub-workflow "+tag+" in "+context+"; assuming entity has gone, and may trigger recomputation of targets");
+                            return null;
+                        }
                         return new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(targetEntity).get(tag.getWorkflowId());
                     }).collect(Collectors.toList());
 
             if (nestedWorkflowsToReplay.isEmpty()) {
-                log.info("Step "+context.getWorkflowStepReference()+" has all sub workflows superseded; replaying from start");
-                log.debug("Step "+context.getWorkflowStepReference()+" superseded sub workflows detail: "+sws+" -> "+nestedWorkflowsToReplay);
+                if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has all sub workflows superseded; replaying from start");
+                if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" superseded sub workflows detail: "+sws+" -> "+nestedWorkflowsToReplay);
                 // fall through to below
             } else if (nestedWorkflowsToReplay.contains(null)) {
-                log.info("Step "+context.getWorkflowStepReference()+" has uninitialized sub workflows; replaying from start");
-                log.debug("Step "+context.getWorkflowStepReference()+" uninitialized/unpersisted sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
+                if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has uninitialized sub workflows; replaying from start");
+                if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" uninitialized/unpersisted sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
                 // fall through to below
             } else if (!forced && nestedWorkflowsToReplay.stream().anyMatch(nest -> !isReplayableAnywhere(nest))) {
-                log.info("Step "+context.getWorkflowStepReference()+" has non-replayable sub workflows; replaying from start");
-                log.debug("Step "+context.getWorkflowStepReference()+" non-replayable sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
+                if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has non-replayable sub workflows; replaying from start");
+                if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" non-replayable sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
                 // fall through to below
             } else {
 
-                log.debug("Step "+context.getWorkflowStepReference()+" replay sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
+                if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" replay sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
                 return nestedWorkflowsToReplay;
             }
         }

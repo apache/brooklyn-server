@@ -18,8 +18,6 @@
  */
 package org.apache.brooklyn.core.workflow.steps;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.sun.org.apache.bcel.internal.generic.RET;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;

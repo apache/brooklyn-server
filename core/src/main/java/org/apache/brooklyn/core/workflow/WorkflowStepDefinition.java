@@ -22,6 +22,7 @@ import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.base.Preconditions;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -43,6 +44,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public abstract class WorkflowStepDefinition {
@@ -86,9 +88,9 @@ public abstract class WorkflowStepDefinition {
     @JsonIgnore
     public DslPredicates.DslPredicate getConditionResolved(WorkflowStepInstanceExecutionContext context) {
         try {
-            return context.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, condition, TypeToken.of(DslPredicates.DslPredicate.class));
+            return context.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, getConditionRaw(), TypeToken.of(DslPredicates.DslPredicate.class));
         } catch (Exception e) {
-            throw Exceptions.propagateAnnotated("Unresolveable condition ("+condition+")", e);
+            throw Exceptions.propagateAnnotated("Unresolveable condition ("+getConditionRaw()+")", e);
         }
     }
 
@@ -148,20 +150,19 @@ public abstract class WorkflowStepDefinition {
     }
 
     final Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
-        return newTask(context, false, null, null, null);
+        return newTask(context, null, null, null);
     }
 
     final Task<?> newTaskForErrorHandler(WorkflowStepInstanceExecutionContext context, String specialName, BrooklynTaskTags.WorkflowTaskTag specialTag) {
-        return newTask(context, false, null, specialName, specialTag);
+        return newTask(context, null, specialName, specialTag);
     }
 
     final Task<?> newTaskContinuing(WorkflowStepInstanceExecutionContext context, ReplayContinuationInstructions continuationInstructions) {
-        return newTask(context, true, continuationInstructions, null, null);
+        return newTask(context, Preconditions.checkNotNull(continuationInstructions), null, null);
     }
 
-    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, boolean continuing, ReplayContinuationInstructions continuationInstructions,
+    protected Task<?> newTask(WorkflowStepInstanceExecutionContext context, ReplayContinuationInstructions continuationInstructions,
                               String specialName, BrooklynTaskTags.WorkflowTaskTag tagOverride) {
-//                              Integer errorHandlerIndex, Task<?> errorHandlerParentTask) {
         Task<?> t = Tasks.builder().displayName(specialName!=null ? specialName : computeName(context, true))
                 .tag(tagOverride != null ? tagOverride : BrooklynTaskTags.tagForWorkflow(context))
                 .tag(BrooklynTaskTags.WORKFLOW_TAG)
@@ -170,24 +171,32 @@ public abstract class WorkflowStepDefinition {
             log.debug("Starting " +
                     (specialName!=null ? specialName : "step "+context.getWorkflowExectionContext().getWorkflowStepReference(context.stepIndex, this))
                     + (Strings.isNonBlank(name) ? " '"+name+"'" : "")
-                    + (continuationInstructions!=null ? " with custom behaviour" +
-                        (continuationInstructions.customBehaviourExplanation!=null ? "("+continuationInstructions.customBehaviourExplanation+")" : "") : "")
-                    + (continuing ? " (continuation)" : "")
+                    + (continuationInstructions!=null ? " (continuation"
+                            + (continuationInstructions.customBehaviorExplanation !=null ? " - "+continuationInstructions.customBehaviorExplanation : "")
+                            + ")"
+                        : "")
                     + " in task "+Tasks.current().getId());
-            boolean handled = false;
-            Object result = null;
+            Callable<Object> handler = null;
 
-            if (continuing && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
-                List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context, continuationInstructions.forced);
+            if (continuationInstructions!=null && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
+                List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context, continuationInstructions.forced, false);
                 if (unfinished!=null) {
-                    handled = true;
-                    result = ((WorkflowStepDefinitionWithSubWorkflow) this).doTaskBodyWithSubWorkflowsForReplay(context, unfinished, continuationInstructions);
+                    handler = () ->
+                            ((WorkflowStepDefinitionWithSubWorkflow) this).doTaskBodyWithSubWorkflowsForReplay(context, unfinished, continuationInstructions);
+                } else {
+                    // fall through to below; the sub-workflows were not persisted so shouldn't have been started
                 }
             }
-            if (!handled) {
-                if (continuationInstructions!=null && continuationInstructions.customBehaviour!=null) continuationInstructions.customBehaviour.run();
-                result = doTaskBody(context);
-            }
+            if (handler==null) {
+                handler = () -> {
+                    if (continuationInstructions != null && continuationInstructions.customBehavior != null) {
+                        continuationInstructions.customBehavior.run();
+                    }
+                    return doTaskBody(context);
+                };
+            };
+
+            Object result = handler.call();
             if (log.isTraceEnabled()) log.trace("Completed task for "+computeName(context, true)+", output "+result);
             return result;
         }).build();
@@ -267,8 +276,8 @@ public abstract class WorkflowStepDefinition {
 
     public interface WorkflowStepDefinitionWithSubWorkflow {
         /** returns null if this task hasn't yet recorded its subworkflows; otherwise list of those which are replayable, empty if none need to be replayed (ended successfully) */
-        @JsonIgnore List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced);
-        /** called by framework if {@link #getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext, boolean)} returns non-null (empty is okay),
+        @JsonIgnore List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly);
+        /** called by framework if {@link #getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext, boolean, boolean)} returns non-null (empty is okay),
          * and the implementation pass the replay and optional custom behaviour to the subworkflows before doing any finalization;
          * if the subworkflow for replay is null,  the normal {@link #doTaskBody(WorkflowStepInstanceExecutionContext)} is called. */
         Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions);
@@ -278,22 +287,22 @@ public abstract class WorkflowStepDefinition {
         /** null means last, -1 means workflow start */
         public final Integer stepToReplayFrom;
 
-        public final String customBehaviourExplanation;
+        public final String customBehaviorExplanation;
         /** if supplied, custom behavior run before the primary doTaskBody; may throw exceptions or set things in stepState which are interpreted by the body */
-        public final Runnable customBehaviour;
+        public final Runnable customBehavior;
         public final boolean forced;
 
-        public ReplayContinuationInstructions(Integer stepToReplayFrom, String customBehaviourExplanation, Runnable customBehaviour, boolean forced) {
+        public ReplayContinuationInstructions(Integer stepToReplayFrom, String customBehaviourExplanation, Runnable customBehavior, boolean forced) {
             this.stepToReplayFrom = stepToReplayFrom;
-            this.customBehaviourExplanation = customBehaviourExplanation;
-            this.customBehaviour = customBehaviour;
+            this.customBehaviorExplanation = customBehaviourExplanation;
+            this.customBehavior = customBehavior;
             this.forced = forced;
         }
 
         @Override
         public String toString() {
-            return "Replay["+(Strings.isNonBlank(customBehaviourExplanation) ? customBehaviourExplanation : "(no explanation)")
-                    +(stepToReplayFrom!=null ? "; step "+stepToReplayFrom : "; continuing")
+            return "Replay["+(Strings.isNonBlank(customBehaviorExplanation) ? customBehaviorExplanation : "(no explanation)")
+                    +(stepToReplayFrom!=null ? "; step "+stepToReplayFrom : "; continuing from last")
                     +(forced ? "; FORCED" : "")
                     +"]";
         }

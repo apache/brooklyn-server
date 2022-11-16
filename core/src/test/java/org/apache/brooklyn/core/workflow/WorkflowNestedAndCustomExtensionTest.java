@@ -27,6 +27,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -41,17 +42,28 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<TestApplication> {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowNestedAndCustomExtensionTest.class);
 
     @Override
     protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
@@ -63,6 +75,10 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     @Override
     protected TestApplication createApp() {
         return null;
+    }
+
+    @Override protected TestApplication rebind() throws Exception {
+        return rebind(RebindOptions.create().terminateOrigManagementContext(true));
     }
 
     public RegisteredType addBeanWithType(String typeName, String version, String plan) {
@@ -303,8 +319,10 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "    - return ${entity.id}",
                 ""
         )).iterator().next(), ConfigBag.newInstance()
-                .configure(WorkflowCommonConfig.ON_ERROR, MutableList.of(MutableMap.of("condition", MutableMap.of("error-cause", MutableMap.of("glob", "*Dangling*")),
-                        "step", "retry replay")))
+                .configure(WorkflowCommonConfig.ON_ERROR, MutableList.of(
+                        MutableMap.of("condition", MutableMap.of("error-cause", MutableMap.of("glob", "*Dangling*")),
+                        "step", "retry replay",
+                        WorkflowCommonConfig.ON_ERROR.getName(), MutableList.of("retry from start"))))
                 .configure(WorkflowCommonConfig.REPLAYABLE, replayRoot ? WorkflowReplayUtils.ReplayableOption.YES : WorkflowReplayUtils.ReplayableOption.NO));
     }
 
@@ -380,6 +398,266 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         Asserts.assertEquals(result, app.getChildren().stream().map(Entity::getId).collect(Collectors.toList()));
         EntityAsserts.assertAttributeEquals(app, COUNT, 10);
         EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 1);
+    }
+
+    @Test(groups="Integration", invocationCount = 100)
+    public void testReplayInNestedOnlyManyTimes() throws Exception {
+        testReplayInNestedOnly();
+    }
+
+    @Test
+    public void testCustomWorkflowLock() {
+        // based on WorkflowInputOutputTest.testSetSensorAtomicRequire
+
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of(
+                                "type", "workflow",
+                                "lock", "incrementor",
+                                "steps", MutableList.of(
+                                        "let x = ${entity.sensor.x} ?? 0",
+                                        "let x = ${x} + 1",
+                                        "set-sensor x = ${x}",
+                                        "return ${x}"
+                                )
+                ))));
+        eff.apply((EntityLocal)app);
+
+        // 100 parallel runs all get a lock and increment nicely
+        List<Task<?>> tasks = MutableList.of();
+        int NUM = 10;
+        for (int i=0; i<NUM; i++) tasks.add(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null));
+        List<?> result = tasks.stream().map(t -> t.getUnchecked()).collect(Collectors.toList());
+        Asserts.assertSize(result, NUM);
+        Asserts.assertEquals(MutableSet.copyOf(result).size(), NUM, "Some entries duplicated: "+result);
+        EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("x"), NUM);
+        EntityAsserts.assertAttributeEquals(app, Sensors.newStringSensor("lock-for-incrementor"), null);
+    }
+
+    @Test // a bit slow, but a good test of many things
+    public void testCustomWorkflowLockInterrupted() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.run();
+    }
+
+    @Test(groups="Integration", invocationCount = 50)
+    public void testCustomWorkflowLockInterruptedGateOpenEarly() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.OPEN_GATE_EARLY = true;
+        fixture.run();
+    }
+
+    @Test(groups="Integration", invocationCount = 100)  // catch races
+    public void testCustomWorkflowLockInterruptedManyTimes() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.NUM = 4;
+        fixture.run();
+    }
+
+    @Test(groups="Integration") // very slow, but catches races at startup due to lots of tasks
+    public void testCustomWorkflowLockInterruptedBigger() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.MAX_ALLOWED_BEFORE_GATE = 20;
+        fixture.MIN_REQUIRED_BEFORE_REBIND = 10;
+        fixture.NUM = 100;
+        fixture.COMPLETION_TIMEOUT = Duration.seconds(60);
+        fixture.run();
+    }
+
+    @Test
+    public void testCustomWorkflowLockInterruptedNoAutoReplay() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.REPLAYABLE_INNER = false;
+        fixture.REPLAYABLE_OUTER = false;
+        fixture.run();
+    }
+
+    @Test(groups="Integration", invocationCount = 10)
+    public void testCustomWorkflowLockInterruptedNoAutoReplayGateOpenEarly() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.REPLAYABLE_INNER = false;
+        fixture.REPLAYABLE_OUTER = false;
+        fixture.OPEN_GATE_EARLY = true;
+        fixture.run();
+    }
+
+    class CustomWorkflowLockInterruptedFixture {
+
+        int NUM = 10;
+        int MAX_ALLOWED_BEFORE_GATE = 2;
+        int MIN_REQUIRED_BEFORE_REBIND = 1;
+        boolean REPLAYABLE_OUTER = true;
+        boolean REPLAYABLE_INNER = true;
+        boolean OPEN_GATE_EARLY = false;
+        Consumer<String> waitABit = (phase) -> Time.sleep((long) (10 * Math.random()));
+        Duration COMPLETION_TIMEOUT = Duration.seconds(15);
+
+        public void run() throws Exception {
+            // based on WorkflowInputOutputTest.testSetSensorAtomicRequire
+
+            app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+            app.sensors().set(Sensors.newIntegerSensor("x"), 0);
+
+            WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                    .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                    .configure(WorkflowCommonConfig.REPLAYABLE, WorkflowReplayUtils.ReplayableOption.YES)
+                    .configure(WorkflowCommonConfig.ON_ERROR, REPLAYABLE_OUTER ? MutableList.of("retry replay limit 10") : null)
+                    .configure(WorkflowEffector.STEPS, MutableList.of(
+                                    MutableMap.of(
+                                            "type", "workflow",
+                                            "lock", "incrementor",
+                                            "replayable", "true",
+                                            "steps", MutableList.of(
+                                                    "let x = ${entity.sensor.x}",
+                                                    MutableMap.of(
+                                                            "step", "log ${workflow.id} possibly replaying local ${x} actual ${entity.sensor.x}",
+                                                            "replayable", "yes"),
+                                                    MutableMap.of(
+                                                            "step", "goto already-run", // already run
+                                                            "condition", MutableMap.of("target", "${entity.sensor.x}", "not", MutableMap.of("equals", "${x}"))),
+                                                    "let x = ${x} + 1",
+                                                    MutableMap.of(
+                                                            "step", "wait ${entity.attributeWhenReady.gate}",
+                                                            // make it block after 1 run
+                                                            "condition", MutableMap.of("target", "${entity.sensor.x}", "greater-than-or-equal-to", MAX_ALLOWED_BEFORE_GATE)
+                                                    ),
+                                                    "set-sensor x = ${x}",
+                                                    "return ${x}",
+                                                    MutableMap.of("id", "already-run", "step", "log ${workflow.id} already set sensor, or error or other mismatch, not re-setting"),
+                                                    "return ${entity.sensor.x}"
+                                            ),
+                                            "on-error", REPLAYABLE_INNER ? MutableList.of("retry replay limit 10") : null)
+                            )
+                    ));
+            eff.apply((EntityLocal) app);
+
+            List<String> workflowIds = MutableList.of();
+            for (int i = 0; i < NUM; i++) {
+                Task<?> t = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+                workflowIds.add(t.getId());
+            }
+            EntityAsserts.assertAttributeEventually(app, Sensors.newIntegerSensor("x"), x -> x >= MIN_REQUIRED_BEFORE_REBIND);
+            waitABit.accept("after min complete reached");
+
+            if (OPEN_GATE_EARLY) {
+                app.sensors().set(Sensors.newStringSensor("gate"), "open");
+                waitABit.accept("after opening gate early");
+            }
+            //        Dumper.dumpInfo(app);
+
+            log.info("Rebind starting, from mgmt "+mgmt());
+            app = rebind();
+            log.info("Rebind completed, mgmt now "+mgmt());
+
+            Integer numCompleted = app.sensors().get(Sensors.newIntegerSensor("x"));
+            log.info("Rebinding of lock test had " + numCompleted + " completed, of " + NUM);
+
+            List<Task> autoRecoveredTasks = MutableList.of();
+            List<Integer> result = MutableList.of();
+            workflowIds.stream().forEach(wf -> {
+                // wait on this dangling to complete
+                WorkflowExecutionContext w = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(wf);
+                if (w == null) {
+                    Asserts.fail("Did not find workflow " + wf + " (from " + workflowIds + ")");
+                }
+                if (w.getOutput() != null) {
+                    // already finished
+                    result.add((Integer) w.getOutput());
+
+                } else {
+                    Maybe<Task<Object>> tm = w.getTask(false);
+                    if (tm.isAbsent()) {
+                        log.error("Workflow does not have task (yet?) - " + wf + " (from " + workflowIds + ")");
+                        Asserts.fail("Workflow does not have task (yet?) - " + wf + " (see log)");
+                    }
+                    autoRecoveredTasks.add(tm.get());
+                }
+            });
+
+            boolean expectAllComplete = false;
+            boolean expectRightAnswer = false;
+            if (REPLAYABLE_OUTER && REPLAYABLE_INNER) {
+                if (!OPEN_GATE_EARLY) {
+                    // should NOT finish until gate is set
+                    waitABit.accept("after rebind, waiting on gate");
+                    long stillRunningCount = autoRecoveredTasks.stream().filter(t -> !t.isDone()).count();
+                    //                autoRecoveredTasks.forEach(Task::blockUntilEnded);
+                    Asserts.assertTrue(stillRunningCount >= NUM - MAX_ALLOWED_BEFORE_GATE, "Only " + stillRunningCount + " waiting");
+
+                    // now open the gate to let them through
+                    app.sensors().set(Sensors.newStringSensor("gate"), "open");
+                } else {
+                    // can't say anything, except we expect the right answer
+                }
+
+                expectRightAnswer = true;
+                expectAllComplete = true;
+
+            } else if (!REPLAYABLE_OUTER && !REPLAYABLE_INNER) {
+                // if replayable not correclty set, there is no guarantee the answer will be right, but all should complete
+                expectAllComplete = true;
+            }
+
+            if (expectAllComplete) {
+                CountdownTimer timer = CountdownTimer.newInstanceStarted(COMPLETION_TIMEOUT);
+                for (Task t : autoRecoveredTasks) {
+                    t.blockUntilEnded(timer.getDurationRemaining());
+                    if (!t.isDone()) {
+                        Asserts.fail("Workflow task should have finished: " + t.getStatusDetail(true));
+                    }
+                    if (!t.isError() || expectRightAnswer) result.add((Integer) t.getUnchecked());
+                }
+            }
+
+            // lock should now be cleared
+            EntityAsserts.assertAttributeEquals(app, Sensors.newStringSensor("lock-for-incrementor"), null);
+
+            if (expectRightAnswer) {
+                Asserts.assertSize(result, NUM);
+                Asserts.assertEquals(MutableSet.copyOf(result).size(), NUM, "Some entries duplicated: " + result);
+                Asserts.assertEquals(result.stream().max(Integer::compare).orElse(null), (Integer) NUM, "Wrong max returned: " + result);
+                EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("x"), NUM);
+            }
+
+            if (!REPLAYABLE_OUTER && !REPLAYABLE_INNER) {
+                // do a manual replay
+
+                List<Task<Object>> newReplays = workflowIds.stream()
+                        .map(wf -> new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(wf))
+                        .filter(wf -> wf.getStatus().error)
+                        .map(wf -> DynamicTasks.submit(wf.createTaskReplaying(wf.makeInstructionsForReplayingLast("test", false)), app))
+                        .collect(Collectors.toList());
+
+                if (!OPEN_GATE_EARLY) {
+                    // should NOT finish until gate is set
+                    waitABit.accept("after rebind, waiting on gate");
+                    long stillRunningCount = newReplays.stream().filter(t -> !t.isDone()).count();
+                    //                autoRecoveredTasks.forEach(Task::blockUntilEnded);
+                    Asserts.assertTrue(stillRunningCount >= NUM - MAX_ALLOWED_BEFORE_GATE, "Only " + stillRunningCount + " waiting");
+
+                    // now open the gate to let them through
+                    app.sensors().set(Sensors.newStringSensor("gate"), "open");
+                }
+
+                CountdownTimer timer = CountdownTimer.newInstanceStarted(COMPLETION_TIMEOUT);
+                newReplays.forEach(t -> result.add((Integer) t.getUnchecked(timer.getDurationRemaining())));
+
+                log.info("Results: "+result);
+                // not guaranteed to get right answer because lock will be lost and cannot know if sensor was set or not, but at most 1 case
+                Asserts.assertSize(result, NUM);  // should run exactly the right number
+                // allowed to have 1 duplicate
+                Asserts.assertTrue(MutableSet.copyOf(result).size() >= NUM-1, "Too many duplicates: " + result);
+                // and/or for max to be 1 more or less (more if task with lock incremented sensor twice)
+                Asserts.assertTrue(result.stream().max(Integer::compare).orElse(null) <= NUM+1, "Wrong max returned, too high: " + result);
+                Asserts.assertTrue(result.stream().max(Integer::compare).orElse(null) >= NUM-1, "Wrong max returned, too low: " + result);
+                // sensor value should be one of the results
+                EntityAsserts.assertAttribute(app, Sensors.newIntegerSensor("x"), v -> result.contains(v));
+            }
+
+        }
     }
 
 }

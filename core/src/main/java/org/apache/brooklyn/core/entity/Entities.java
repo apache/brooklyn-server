@@ -22,7 +22,7 @@ import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.internal.*;
-import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+
 import static org.apache.brooklyn.util.guava.Functionals.isSatisfied;
 
 import java.io.Closeable;
@@ -40,7 +40,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Application;
@@ -72,7 +71,6 @@ import org.apache.brooklyn.core.internal.BrooklynProperties;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.objs.proxy.AbstractBrooklynObjectProxyImpl;
-import org.apache.brooklyn.core.objs.proxy.EntityProxyImpl;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -868,7 +866,7 @@ public class Entities {
     }
 
     public static boolean isNoLongerManaged(Entity e) {
-        return ((EntityInternal)e).getManagementSupport().isNoLongerManaged();
+        return isNoLongerRunning(((EntityInternal)e).getManagementContext()) || ((EntityInternal)e).getManagementSupport().isNoLongerManaged();
     }
 
     public static boolean isUnmanaging(Entity e) {
@@ -877,6 +875,10 @@ public class Entities {
 
     public static boolean isUnmanagingOrNoLongerManaged(Entity e) {
         return isNoLongerManaged(e) || isUnmanaging(e);
+    }
+
+    public static boolean isNoLongerRunning(ManagementContext mgmt) {
+        return !mgmt.isRunning(); // see notes at mgmt.isRunning(), it is misnamed, as it is always true until terminate is called
     }
 
     /** if entity is managed, but in a read-only state */

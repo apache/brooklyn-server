@@ -284,10 +284,11 @@ public class BrooklynTaskTags extends TaskTags {
     }
 
     public static ManagementContext getManagementContext(Task<?> task) {
+        if (task==null) return null;
         for (Object tag : getTagsFast(task))
             if ((tag instanceof ManagementContext))
                 return (ManagementContext) tag;
-        return null;
+        return getManagementContext(task.getSubmittedByTask());
     }
 
     // ------------- stream tags -------------------------
@@ -513,6 +514,19 @@ public class BrooklynTaskTags extends TaskTags {
 
         public Integer getErrorHandlerIndex() {
             return errorHandlerIndex;
+        }
+
+        @Override
+        public String toString() {
+            return "WorkflowTaskTag{" +
+                    "applicationId='" + applicationId + '\'' +
+                    ", entityId='" + entityId + '\'' +
+                    ", workflowId='" + workflowId + '\'' +
+                    ", stepIndex=" + stepIndex +
+                    ", supersededByTaskId='" + supersededByTaskId + '\'' +
+                    ", errorHandlerForTask='" + errorHandlerForTask + '\'' +
+                    ", errorHandlerIndex=" + errorHandlerIndex +
+                    '}';
         }
     }
 

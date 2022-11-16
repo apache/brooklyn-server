@@ -105,7 +105,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
     /** @return A started management context */
     protected LocalManagementContext createOrigManagementContext() {
-        return decorateOrigOrNewManagementContext(RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
+        return RebindTestUtils.managementContextBuilder(mementoDir, classLoader)
                 .persistPeriodMillis(getPersistPeriodMillis())
                 .haMode(getHaMode())
                 .forLive(useLiveManagementContext())
@@ -113,7 +113,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
                 .emptyCatalog(useEmptyCatalog())
                 .properties(createBrooklynProperties())
                 .setOsgiEnablementAndReuse(useOsgi(), !disallowOsgiReuse())
-                .buildStarted());
+                .buildStarted(this::decorateOrigOrNewManagementContext);
     }
 
     protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
@@ -245,7 +245,7 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
         origManagementContext = null;
     }
 
-    /** rebinds, and sets newApp */
+    /** rebinds, and sets newApp; by default does NOT terminate original management context */
     protected T rebind() throws Exception {
         return rebind(RebindOptions.create());
     }

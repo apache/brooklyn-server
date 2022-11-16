@@ -29,6 +29,8 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +39,8 @@ import java.util.function.Supplier;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowStepInstanceExecutionContext {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowStepInstanceExecutionContext.class);
 
     // see getInput, here and for workflow context; once resolved, use the resolved value, without re-resolving;
     // do not return the resolved value via REST/JSON as it might have secrets, but do persist it so replays
@@ -204,7 +208,7 @@ public class WorkflowStepInstanceExecutionContext {
 
     @JsonIgnore
     public String getWorkflowStepReference() {
-        return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, error!=null);
+        return context==null ? "unknown-"+stepDefinitionDeclaredId+"-"+stepIndex : context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, error!=null);
     }
 
     @JsonIgnore
@@ -214,7 +218,12 @@ public class WorkflowStepInstanceExecutionContext {
 
     /** sets other metadata, e.g. for the UI */
     public void noteOtherMetadata(String key, Object value) {
+        log.debug(getWorkflowStepReference()+" note metadata '"+key+"': "+value);
         this.otherMetadata.put(key, value);
     }
 
+    @Override
+    public String toString() {
+        return "WorkflowStepInstanceExecutionContext{"+getWorkflowStepReference()+" / "+getName()+"}";
+    }
 }

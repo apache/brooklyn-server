@@ -374,9 +374,13 @@ public class Tasks {
     }
     
     public static boolean isAncestorCancelled(Task<?> t) {
+        return isAncestor(t, Task::isCancelled);
+    }
+
+    public static boolean isAncestor(Task<?> t, Predicate<Task<?>> test) {
         if (t==null) return false;
-        if (t.isCancelled()) return true;
-        return isAncestorCancelled(t.getSubmittedByTask());
+        if (test.apply(t)) return true;
+        return isAncestor(t.getSubmittedByTask(), test);
     }
 
     public static boolean isQueued(TaskAdaptable<?> task) {

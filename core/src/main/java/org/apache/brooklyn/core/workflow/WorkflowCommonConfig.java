@@ -31,7 +31,9 @@ import java.util.Map;
 
 public interface WorkflowCommonConfig {
 
+    // TODO is this needed? probably just for effectors and possibly custom steps.
     ConfigKey<Map<String,Object>> PARAMETER_DEFS = AddEffectorInitializerAbstractProto.EFFECTOR_PARAMETER_DEFS;
+
     ConfigKey<Map<String,Object>> INPUT = new MapConfigKey<Object>(Object.class, "input");
     ConfigKey<Object> OUTPUT = ConfigKeys.newConfigKey(Object.class, "output");
 
@@ -49,5 +51,13 @@ public interface WorkflowCommonConfig {
 
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout",
             "Time after which a workflow should be automatically interrupted and failed");
+
+    // TODO only string supported so far, but could be more allowing more configurable lock behaviour
+    // - the entity where to read/write the sensor
+    // - full sensor name (default would be a suffix)
+    // - a `value` to set
+    // - a condition to `require` of the value
+    // - a `retry` specification
+    ConfigKey<Object> LOCK = ConfigKeys.newConfigKey(Object.class, "lock");
 
 }

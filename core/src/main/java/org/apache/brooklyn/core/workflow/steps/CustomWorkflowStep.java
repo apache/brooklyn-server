@@ -30,11 +30,14 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
+import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
@@ -46,6 +49,8 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +58,11 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nonnull;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization, WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
@@ -71,6 +80,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */
     Object target;
 
+    // see WorkflowCommonConfig.LOCK
+    Object lock;
+
+    // usually a string; see utils/WorkflowConcurrency
     Object concurrency;
 
     Map<String,Object> parameters;
@@ -79,6 +92,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
     List<Object> steps;
 
+    // output of a given run; may be different to aggregated output if task is wrapped
     Object workflowOutput;
 
     @Override
@@ -90,9 +104,21 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @Override
     protected boolean isOutputHandledByTask() { return true; }
 
+    // error handler applies to each run
+    @Override
+    public List<Object> getOnError() {
+        return null;
+    }
+
+    // condition applies to each run
+    @JsonIgnore
+    public Object getConditionRaw() {
+        return null;
+    }
+
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced) {
-        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced);
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly);
     }
 
     @Override
@@ -162,9 +188,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return runSubworkflowsWithConcurrency(context, nestedWorkflowContext, wasList, false, null);
     }
 
-    private Object runSubworkflowsWithConcurrency(WorkflowStepInstanceExecutionContext context, List<WorkflowExecutionContext> nestedWorkflowContext, boolean wasList, boolean isReplaying, WorkflowStepDefinition.ReplayContinuationInstructions instructionsIfReplaying) {
+    private Object runSubworkflowsWithConcurrency(WorkflowStepInstanceExecutionContext context, List<WorkflowExecutionContext> nestedWorkflowContexts, boolean wasList, boolean isReplaying, WorkflowStepDefinition.ReplayContinuationInstructions instructionsIfReplaying) {
         List result = MutableList.of();
-        if (nestedWorkflowContext.isEmpty()) return result;
+        LOG.debug("Running sub-workflows "+nestedWorkflowContexts);
+        if (nestedWorkflowContexts.isEmpty()) return result;
 
         long ci = 1;
         Object c = concurrency;
@@ -173,20 +200,22 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             if (c instanceof Number) {
                 // okay
             } else if (c instanceof String) {
-                c = WorkflowConcurrency.parse((String) c).apply((double) nestedWorkflowContext.size());
+                c = WorkflowConcurrency.parse((String) c).apply((double) nestedWorkflowContexts.size());
             } else {
                 throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
             }
             ci = (long) Math.floor(0.000001 + ((Number) c).doubleValue());
-            if (ci <= 0) throw new IllegalArgumentException("Invalid concurrency value: " + ci+" (concurrency "+c+", target size "+ nestedWorkflowContext.size()+")");
+            if (ci <= 0)
+                throw new IllegalArgumentException("Invalid concurrency value: " + ci + " (concurrency " + c + ", target size " + nestedWorkflowContexts.size() + ")");
         }
 
-        AtomicInteger availableThreads = ci==1 ? null : new AtomicInteger((int) ci);
+        AtomicInteger availableThreads = ci == 1 ? null : new AtomicInteger((int) ci);
         List<Task<?>> submitted = MutableList.of();
-        for (int i = 0; i < nestedWorkflowContext.size(); i++) {
-            if (availableThreads!=null) while (availableThreads.get() <= 0) {
+        List<Throwable> errors = MutableList.of();
+        for (int i = 0; i < nestedWorkflowContexts.size(); i++) {
+            if (availableThreads != null) while (availableThreads.get() <= 0) {
                 try {
-                    Tasks.withBlockingDetails("Waiting before running remaining " + (nestedWorkflowContext.size() - i) + " instances because " + ci + " are currently running",
+                    Tasks.withBlockingDetails("Waiting before running remaining " + (nestedWorkflowContexts.size() - i) + " instances because " + ci + " are currently running",
                             () -> {
                                 synchronized (availableThreads) {
                                     availableThreads.wait(500);
@@ -197,39 +226,67 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                     throw Exceptions.propagate(e);
                 }
             }
+
             Task<Object> task;
             if (!isReplaying) {
-                task = nestedWorkflowContext.get(i).getTask(false).get();
+                task = nestedWorkflowContexts.get(i).getTask(false).get();
             } else {
-                Pair<Boolean, Object> check = WorkflowReplayUtils.checkReplayInSubWorkflowAlsoReturningTaskOrResult("nested workflow "+(i+1), context, nestedWorkflowContext.get(i), instructionsIfReplaying,
-                        () -> { throw new IllegalStateException("Sub-workflow is not replayable"); });
-                if (check.getLeft()) {
-                    task = (Task<Object>) check.getRight();
-                } else {
-                    // skip run; workflow output will be set and used by caller (so can ignore check.getRight() here)
+                try {
+                    Pair<Boolean, Object> check = WorkflowReplayUtils.checkReplayInSubWorkflowAlsoReturningTaskOrResult("nested workflow " + (i + 1), context, nestedWorkflowContexts.get(i), instructionsIfReplaying,
+                            (w, e) -> {
+                                throw new IllegalStateException("Sub workflow " + w + " is not replayable", e);
+                            });
+                    if (check.getLeft()) {
+                        task = (Task<Object>) check.getRight();
+                    } else {
+                        // completed, skip run; workflow output will be set and used by caller (so can ignore check.getRight() here)
+                        task = null;
+                    }
+                } catch (Exception e) {
+                    errors.add(e);
                     task = null;
                 }
             }
-            if (task!=null) {
-                if (availableThreads!=null) {
-                    availableThreads.decrementAndGet();
-                    ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
-                                availableThreads.incrementAndGet();
-                                synchronized (availableThreads) { availableThreads.notifyAll(); }
-                            }),
-                            task);
+            if (task != null) {
+                if (Entities.isUnmanagingOrNoLongerManaged(context.getEntity())) {
+                    // on shutdown don't keep running tasks
+                    task.cancel(false);
                 } else {
-                    DynamicTasks.queue(task);
+                    if (availableThreads != null) {
+                        availableThreads.decrementAndGet();
+                        ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
+                                    availableThreads.incrementAndGet();
+                                    synchronized (availableThreads) {
+                                        availableThreads.notifyAll();
+                                    }
+                                }),
+                                task);
+                    } else {
+                        DynamicTasks.queue(task);
+                    }
+                    submitted.add(task);
                 }
-                submitted.add(task);
             }
         }
 
-        submitted.forEach(Task::getUnchecked);
-        nestedWorkflowContext.forEach(nw -> result.add(nw.getOutput()));
-        if (!wasList && result.size()!=1) {
-            throw new IllegalStateException("Result mismatch, non-list target "+target+" yielded output "+result);
+        submitted.forEach(t -> {
+            try {
+                t.get();
+            } catch (Throwable tt) {
+                errors.add(tt);
+            }
+        });
+        nestedWorkflowContexts.forEach(nw -> result.add(nw.getOutput()));
+
+        if (!wasList && result.size() != 1) {
+            throw new IllegalStateException("Result mismatch, non-list target " + target + " yielded output " + result);
         }
+        context.setOutput(result);
+
+        if (!errors.isEmpty()) {
+            throw Exceptions.propagate("Error running sub-workflows in "+context.getWorkflowStepReference(), errors);
+        }
+
         return !wasList ? Iterables.getOnlyElement(result) : result;
     }
 
@@ -255,22 +312,6 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         }
 
         throw new IllegalArgumentException("Invalid target '"+target+"'; if a string, it must match a known keyword ('children' or 'members') or pattern (a range, '1..10')");
-    }
-
-    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target) {
-        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
-                target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(),
-                context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
-                ConfigBag.newInstance()
-                        .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
-                        .configure(WorkflowCommonConfig.STEPS, steps)
-                        .configure(WorkflowCommonConfig.OUTPUT, workflowOutput),
-                null,
-                ConfigBag.newInstance(getInput()), null);
-        if (target!=null) {
-            nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
-        }
-        return nestedWorkflowContext;
     }
 
     public String getNameOrDefault() {
@@ -319,23 +360,57 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return result;
     }
 
+    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target) {
+        WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
+                target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(),
+                context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
+                ConfigBag.newInstance()
+                        .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
+                        .configure(WorkflowCommonConfig.STEPS, steps)
+//                        .configure(WorkflowCommonConfig.INPUT, input)  // input is resolved in outer workflow so it can reference outer workflow vars
+                        .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
+                        .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
+                        .configure(WorkflowCommonConfig.ON_ERROR, onError)
+                        .configure(WorkflowCommonConfig.TIMEOUT, timeout)
+                        .configure(WorkflowCommonConfig.LOCK, lock)
+                        .configure((ConfigKey) WorkflowCommonConfig.CONDITION, condition)
+                , null,
+                ConfigBag.newInstance(getInput()), null);
+        if (target!=null) {
+            nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
+        }
+        return nestedWorkflowContext;
+    }
+
     /** Returns a top-level workflow running the workflow defined here */
     public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig) {
         return newWorkflowExecution(entity, name, extraConfig, null);
     }
     public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig, Map extraTaskFlags) {
-        return WorkflowExecutionContext.newInstancePersisted(entity, name,
-                ConfigBag.newInstance()
-                        .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
-                        .configure(WorkflowCommonConfig.STEPS, steps)
-                        .configure(WorkflowCommonConfig.INPUT, input)
-                        .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
-                        .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
-                        .configure(WorkflowCommonConfig.ON_ERROR, onError)
-                        .configure(WorkflowCommonConfig.TIMEOUT, timeout)
-                        .configure((ConfigKey) WorkflowCommonConfig.CONDITION, condition),
-                null,
-                ConfigBag.newInstance(getInput()).putAll(extraConfig), extraTaskFlags);
+        if (target==null) {
+            // copy everything as we are going to run it "flat"
+            return WorkflowExecutionContext.newInstancePersisted(entity, name,
+                    ConfigBag.newInstance()
+                            .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
+                            .configure(WorkflowCommonConfig.STEPS, steps)
+                            .configure(WorkflowCommonConfig.INPUT, input)
+                            .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
+                            .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
+                            .configure(WorkflowCommonConfig.ON_ERROR, onError)
+                            .configure(WorkflowCommonConfig.TIMEOUT, timeout)
+                            .configure(WorkflowCommonConfig.LOCK, lock)
+                            .configure((ConfigKey) WorkflowCommonConfig.CONDITION, condition),
+                    null,
+                    ConfigBag.newInstance(getInput()).putAll(extraConfig), extraTaskFlags);
+        } else {
+            // if target specified, just reference the steps
+            return WorkflowExecutionContext.newInstancePersisted(entity, name,
+                    ConfigBag.newInstance()
+                            .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
+                            .configure(WorkflowCommonConfig.STEPS, MutableList.of(this)),
+                    null,
+                    ConfigBag.newInstance(getInput()).putAll(extraConfig), extraTaskFlags);
+        }
     }
 
     @VisibleForTesting
