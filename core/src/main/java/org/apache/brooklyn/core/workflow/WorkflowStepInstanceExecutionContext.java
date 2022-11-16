@@ -167,7 +167,7 @@ public class WorkflowStepInstanceExecutionContext {
         this.stepState = stepState;
         if (persist) getWorkflowExectionContext().persist();
     }
-    public Object getStepState() {
+    Object getStepState() {
         return stepState;
     }
 

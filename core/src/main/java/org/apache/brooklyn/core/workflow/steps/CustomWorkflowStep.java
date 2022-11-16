@@ -20,9 +20,7 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
@@ -33,7 +31,6 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
@@ -41,7 +38,6 @@ import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
-import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -50,6 +46,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -94,27 +91,29 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     protected boolean isOutputHandledByTask() { return true; }
 
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context) {
-        if (context.getStepState()!=null) {
-            // replaying
-
-            List<String> ids = (List<String>) context.getStepState();
-            List<WorkflowExecutionContext> nestedWorkflowsToReplay = ids.stream().map(id ->
-                    new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getWorkflows(context.getEntity()).get(id)).collect(Collectors.toList());
-
-            if (nestedWorkflowsToReplay.contains(null)) {
-                LOG.debug("Step "+context.getWorkflowStepReference()+" missing sub workflows ("+ids+"->"+nestedWorkflowsToReplay+"); replaying from start");
-                context.setStepState(null, false);
-            } else {
-                return nestedWorkflowsToReplay;
-            }
-        }
-        return null;
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced);
     }
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        return WorkflowReplayUtils.replayInSubWorkflow("nested workflow", context, subworkflows, instructions, ()->doTaskBody(context));
+        boolean wasList = Boolean.TRUE.equals(getStepState(context).wasList);
+        return runSubworkflowsWithConcurrency(context, subworkflows, wasList, true, instructions);
+    }
+
+    static class StepState {
+        Boolean wasList;
+    }
+    void setStepState(WorkflowStepInstanceExecutionContext context, StepState state, boolean persist) {
+        context.setStepState(state, persist);
+    }
+    @Override protected StepState getStepState(WorkflowStepInstanceExecutionContext context) {
+        StepState result = (StepState) super.getStepState(context);
+        if (result==null) {
+            result = new StepState();
+            setStepState(context, result, false);
+        }
+        return result;
     }
 
     @Override
@@ -128,12 +127,16 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         List<WorkflowExecutionContext> nestedWorkflowContext = MutableList.of();
 
         boolean wasList = targetR instanceof Iterable;
+
         if (!wasList) {
-            if (targetR != null) {
-                throw new IllegalArgumentException("Target of workflow must be a list or an expression that resolves to a list");
-            } else {
-                targetR = MutableList.of(targetR);
+            if (targetR == null) { /* fine if no target supplied */ }
+            else if (targetR instanceof Entity) { /* entity is also supported */ }
+
+            else {
+                throw new IllegalArgumentException("Target of workflow must be an entity, a list, or an expression that resolves to a list");
             }
+
+            targetR = MutableList.of(targetR);
         }
 
         ((Iterable<?>) targetR).forEach(t -> {
@@ -149,71 +152,85 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             }
         });
 
-        context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(Tasks.current().getId()));
-
-        nestedWorkflowContext.forEach(nw -> {
-            context.getSubWorkflows().add(BrooklynTaskTags.tagForWorkflow(nw));
-        });
-
-        // save the sub-workflow ID before submitting it, and before child knows about parent, per invoke effector step notes
-        context.setStepState(MutableList.copyOf(nestedWorkflowContext), true);
+        StepState state = getStepState(context);
+        state.wasList = wasList;
+        setStepState(context, state, false); // persist in next line
+        WorkflowReplayUtils.setNewSubWorkflows(context, nestedWorkflowContext.stream().map(BrooklynTaskTags::tagForWorkflow).collect(Collectors.toList()), Tasks.current().getId());
+        // persist children now in case they aren't run right away, so that they are known in case of replay, we can incrementally resume (but after parent list)
         nestedWorkflowContext.forEach(n -> n.persist());
 
-        if (wasList) {
-            if (!nestedWorkflowContext.isEmpty()) {
-                Object c = concurrency;
-                long ci = 1;
-                if (c != null) {
-                    c = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, c, Object.class);
-                    if (c instanceof Number) {
-                        // okay
-                    } else if (c instanceof String) {
-                        c = WorkflowConcurrency.parse((String) c).apply((double) nestedWorkflowContext.size());
-                    } else {
-                        throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
-                    }
-                    ci = (long) Math.floor(0.000001 + ((Number) c).doubleValue());
-                    if (ci <= 0) throw new IllegalArgumentException("Invalid concurrency value: " + ci+" (concurrency "+c+", target size "+nestedWorkflowContext.size()+")");
-                }
+        return runSubworkflowsWithConcurrency(context, nestedWorkflowContext, wasList, false, null);
+    }
 
-                if (ci == 1) {
-                    nestedWorkflowContext.forEach(nw -> DynamicTasks.queue(nw.getTask(false).get()).getUnchecked());
-                } else {
-                    AtomicInteger availableThreads = new AtomicInteger((int) ci);
-                    for (int i = 0; i < nestedWorkflowContext.size(); i++) {
-                        while (availableThreads.get() <= 0) {
-                            try {
-                                Tasks.withBlockingDetails("Waiting before running remaining " + (nestedWorkflowContext.size() - i) + " instances because " + ci + " are currently running",
-                                        () -> {
-                                            synchronized (availableThreads) {
-                                                availableThreads.wait(500);
-                                            }
-                                            return null;
-                                        });
-                            } catch (Exception e) {
-                                throw Exceptions.propagate(e);
-                            }
-                        }
-                        availableThreads.decrementAndGet();
-                        ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
-                                    availableThreads.incrementAndGet();
-                                }),
-                                nestedWorkflowContext.get(i).getTask(false).get());
-                    }
+    private Object runSubworkflowsWithConcurrency(WorkflowStepInstanceExecutionContext context, List<WorkflowExecutionContext> nestedWorkflowContext, boolean wasList, boolean isReplaying, WorkflowStepDefinition.ReplayContinuationInstructions instructionsIfReplaying) {
+        List result = MutableList.of();
+        if (nestedWorkflowContext.isEmpty()) return result;
+
+        long ci = 1;
+        Object c = concurrency;
+        if (c != null && wasList) {
+            c = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, c, Object.class);
+            if (c instanceof Number) {
+                // okay
+            } else if (c instanceof String) {
+                c = WorkflowConcurrency.parse((String) c).apply((double) nestedWorkflowContext.size());
+            } else {
+                throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
+            }
+            ci = (long) Math.floor(0.000001 + ((Number) c).doubleValue());
+            if (ci <= 0) throw new IllegalArgumentException("Invalid concurrency value: " + ci+" (concurrency "+c+", target size "+ nestedWorkflowContext.size()+")");
+        }
+
+        AtomicInteger availableThreads = ci==1 ? null : new AtomicInteger((int) ci);
+        List<Task<?>> submitted = MutableList.of();
+        for (int i = 0; i < nestedWorkflowContext.size(); i++) {
+            if (availableThreads!=null) while (availableThreads.get() <= 0) {
+                try {
+                    Tasks.withBlockingDetails("Waiting before running remaining " + (nestedWorkflowContext.size() - i) + " instances because " + ci + " are currently running",
+                            () -> {
+                                synchronized (availableThreads) {
+                                    availableThreads.wait(500);
+                                }
+                                return null;
+                            });
+                } catch (Exception e) {
+                    throw Exceptions.propagate(e);
                 }
             }
-
-            List result = MutableList.of();
-            nestedWorkflowContext.forEach(nw -> result.add(nw.getTask(false).get().getUnchecked()));
-            return result;
-
-        } else if (!nestedWorkflowContext.isEmpty()) {
-            return DynamicTasks.queue(Iterables.getOnlyElement(nestedWorkflowContext).getTask(false).get()).getUnchecked();
-
-        } else {
-            // no steps matched condition
-            return null;
+            Task<Object> task;
+            if (!isReplaying) {
+                task = nestedWorkflowContext.get(i).getTask(false).get();
+            } else {
+                Pair<Boolean, Object> check = WorkflowReplayUtils.checkReplayInSubWorkflowAlsoReturningTaskOrResult("nested workflow "+(i+1), context, nestedWorkflowContext.get(i), instructionsIfReplaying,
+                        () -> { throw new IllegalStateException("Sub-workflow is not replayable"); });
+                if (check.getLeft()) {
+                    task = (Task<Object>) check.getRight();
+                } else {
+                    // skip run; workflow output will be set and used by caller (so can ignore check.getRight() here)
+                    task = null;
+                }
+            }
+            if (task!=null) {
+                if (availableThreads!=null) {
+                    availableThreads.decrementAndGet();
+                    ((EntityInternal) context.getEntity()).getExecutionContext().submit(MutableMap.of("newTaskEndCallback", (Runnable) () -> {
+                                availableThreads.incrementAndGet();
+                                synchronized (availableThreads) { availableThreads.notifyAll(); }
+                            }),
+                            task);
+                } else {
+                    DynamicTasks.queue(task);
+                }
+                submitted.add(task);
+            }
         }
+
+        submitted.forEach(Task::getUnchecked);
+        nestedWorkflowContext.forEach(nw -> result.add(nw.getOutput()));
+        if (!wasList && result.size()!=1) {
+            throw new IllegalStateException("Result mismatch, non-list target "+target+" yielded output "+result);
+        }
+        return !wasList ? Iterables.getOnlyElement(result) : result;
     }
 
     protected Object getTargetFromString(WorkflowStepInstanceExecutionContext context, String target) {

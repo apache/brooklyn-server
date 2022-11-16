@@ -353,8 +353,11 @@ public class WorkflowExecutionContext {
             Set<Integer> considered = MutableSet.of();
             Set<Integer> possibleOthers = MutableSet.of();
             while (true) {
-                if (WorkflowReplayUtils.isReplayable(this, stepIndex) || stepIndex == STEP_INDEX_FOR_START) {
+                if (WorkflowReplayUtils.isReplayableAtStep(this, stepIndex)) {
                     break;
+                }
+                if (stepIndex == STEP_INDEX_FOR_START) {
+                    throw new IllegalStateException("Workflow is not replayable at any point, backtracking from "+stepIndex);
                 }
 
                 // look at the previous step
@@ -392,10 +395,6 @@ public class WorkflowExecutionContext {
             }
         }
 
-        if (!forced && !WorkflowReplayUtils.isReplayable(this, stepIndex)) {
-            throw new IllegalStateException("Workflow is not replayable");
-        }
-
         return new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced);
     }
 
@@ -423,10 +422,11 @@ public class WorkflowExecutionContext {
         }
 
         if (!forced) {
-            int replayFromStepActual = replayFromStep!=null ? replayFromStep : currentStepIndex;
-            if (!WorkflowReplayUtils.isReplayable(this, replayFromStepActual)) {
-                if (code!=null) throw new IllegalArgumentException("Cannot supply code without forcing");
-                return makeInstructionsForReplayingFromStep(replayFromStepActual, reason, forced);
+            boolean isReplayable = replayFromStep!=null ? WorkflowReplayUtils.isReplayableAtStep(this, replayFromStep) : WorkflowReplayUtils.isReplayableAtLast(this, code!=null);
+            if (!isReplayable) {
+                if (code!=null) throw new IllegalArgumentException("Cannot supply code to here without forcing as workflow is not replayable from last");
+                // setting a number if not forced will rollback
+                return makeInstructionsForReplayingFromStep(replayFromStep!=null ? replayFromStep : currentStepIndex, reason, forced);
             }
         }
 

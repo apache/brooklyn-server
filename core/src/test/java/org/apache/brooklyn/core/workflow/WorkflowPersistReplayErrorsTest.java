@@ -348,7 +348,6 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
     void doTestNestedWorkflowShutdownAndReplayed(boolean autoFailAndReplay, Object call, Consumer<BasicApplication> initializer) throws Exception {
         lastInvocation = runSteps(MutableList.<Object>of(
-//                MutableMap.of("s", "let y = ${entity.sensor.y} ?? 0", "replayable", "yes"),
                 "let y = ${entity.sensor.y} ?? 0",
                 "let y = ${y} + 1",
                 "set-sensor y = ${y}",

@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
@@ -67,28 +68,14 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
         super.validateStep();
     }
 
-
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context) {
-        if (context.getStepState()!=null) {
-            BrooklynTaskTags.WorkflowTaskTag nestedWorkflowTag = (BrooklynTaskTags.WorkflowTaskTag) context.getStepState();
-            Maybe<WorkflowExecutionContext> nestedWorkflow = new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getFromTag(nestedWorkflowTag);
-
-            if (nestedWorkflow.isPresent()) {
-                return MutableList.of(nestedWorkflow.get());
-            } else {
-                // entity or workflow no longer available
-                LOG.warn("Step " + context.getWorkflowStepReference() + " cannot access nested workflow " + context.getStepState() + " for effector, "+nestedWorkflowTag+": "+Maybe.Absent.getException(nestedWorkflow));
-                context.setStepState(null, false);
-                // fall through to below
-            }
-        }
-        return null;
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced);
     }
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, subworkflows, instructions, ()->doTaskBody(context));
+        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, Iterables.getOnlyElement(subworkflows), instructions, ()->doTaskBody(context));
     }
 
     @Override
@@ -115,10 +102,8 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
 
         Effector<Object> effector = (Effector) ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
         TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
-            // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
-            context.getSubWorkflows().forEach(tag -> tag.setSupersededByTaskId(workflowTag.getWorkflowId()));
-            context.getSubWorkflows().add(workflowTag);
-            context.setStepState(workflowTag, true);
+            WorkflowReplayUtils.setNewSubWorkflows(context, MutableList.of(workflowTag), workflowTag.getWorkflowId());
+            // unlike nested case, no need to persist as single child workflow will persist themselves imminently, and if not no great shakes to recompute
         });
 
         return DynamicTasks.queue(invocation).asTask().getUnchecked();

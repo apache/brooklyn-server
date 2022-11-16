@@ -26,24 +26,23 @@ import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
-import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
-import org.apache.brooklyn.entity.stock.BasicApplication;
+import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -52,15 +51,22 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSupport {
+public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<TestApplication> {
 
-    protected void loadTypes() {
+    @Override
+    protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        app = null; // clear this
+        return super.decorateOrigOrNewManagementContext(mgmt);
+    }
+
+    @Override
+    protected TestApplication createApp() {
+        return null;
     }
 
     public RegisteredType addBeanWithType(String typeName, String version, String plan) {
-        loadTypes();
-        return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, typeName, version,
+        return BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt(), typeName, version,
                 new BasicTypeImplementationPlan(BeanWithTypePlanTransformer.FORMAT, plan));
     }
 
@@ -68,15 +74,18 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
     TestApplication app;
 
     Object invokeWorkflowStepsWithLogging(List<Object> steps) throws Exception {
+        return invokeWorkflowStepsWithLogging(steps, null);
+    }
+    Object invokeWorkflowStepsWithLogging(List<Object> steps, ConfigBag extraEffectorConfig) throws Exception {
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(LogWorkflowStep.class)) {
             lastLogWatcher = logWatcher;
 
-            loadTypes();
-            app = mgmt.getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+            if (app==null) app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
 
             WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                     .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                    .configure(WorkflowEffector.STEPS, steps));
+                    .configure(WorkflowEffector.STEPS, steps)
+                    .putAll(extraEffectorConfig));
             eff.apply((EntityLocal)app);
 
             Task<?> invocation = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
@@ -233,32 +242,14 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
         Asserts.assertEquals(WorkflowConcurrency.parse("max(1,min(-10,30%-2))").apply(15d), 2.5d);
     }
 
+    static AttributeSensor<Integer> INVOCATIONS = Sensors.newSensor(Integer.class, "invocations");
+    static AttributeSensor<Integer> COUNT = Sensors.newSensor(Integer.class, "count");
+    static AttributeSensor<String> GO = Sensors.newSensor(String.class, "go");
+
     @Test
     public void testTargetManyChildrenConcurrently() throws Exception {
-        Object output;
-        output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
-                "type: workflow",
-                "steps:",
-                "  - type: workflow",
-                "    target: children",
-                "    concurrency: max(1,50%)",
-                "    steps:",
-                "    - let count = ${entity.parent.sensor.count}",
-                "    - let inc = ${count} + 1",
-                "    - step: set-sensor count = ${inc}",
-                "      require: ${count}",
-                "      sensor:",
-                "        entity: ${entity.parent}",
-                "      on-error:",
-                "        - retry from start limit 20 backoff 5ms",  // repeat until count is ours to increment
-                "    - transform go = ${entity.parent.attributeWhenReady.go} | wait",
-                "    - return ${entity.id}",
-                ""
-        )))));
+        Object output = addTargetManyChildrenWorkflow(false, false, false, "children", "max(1,50%)");
         Asserts.assertEquals(output, MutableList.of());
-
-        AttributeSensor<Integer> COUNT = Sensors.newSensor(Integer.class, "count");
-        AttributeSensor<String> GO = Sensors.newSensor(String.class, "go");
 
         app.sensors().set(COUNT, 0);
         List<Entity> children = MutableList.of();
@@ -285,6 +276,110 @@ public class WorkflowNestedAndCustomExtensionTest extends BrooklynMgmtUnitTestSu
         app.sensors().set(GO, "now!");
 
         Asserts.assertEquals(call.getUnchecked(), children.stream().map(Entity::getId).collect(Collectors.toList()));
+    }
+
+    private Object addTargetManyChildrenWorkflow(boolean replayRoot, boolean replayAtNested, boolean replayInNested, String target, String concurrency) throws Exception {
+        return invokeWorkflowStepsWithLogging((List<Object>) Yamls.parseAll(Strings.lines(
+                // count outermost invocations (to see where replay started replays)
+                "  - let invocations = ${entity.sensor.invocations} ?? 0",
+                "  - let invocations = ${invocations} + 1",
+                "  - set-sensor invocations = ${invocations}",
+                "  - type: workflow",
+                "    target: "+target,
+                "    " + (replayAtNested ? "replayable: yes" : ""),
+                "    concurrency: "+concurrency,
+                "    steps:",
+                // count subworkflow invocations for concurrency and for replays
+                "    - let count = ${entity.parent.sensor.count}",
+                "    - let inc = ${count} + 1",
+                "    - step: set-sensor count = ${inc}",
+                "      require: ${count}",
+                "      sensor:",
+                "        entity: ${entity.parent}",
+                "      on-error:",
+                "        - retry from start limit 20 backoff 1ms jitter -1",  // repeat until count is ours to increment
+                "    - step: transform go = ${entity.parent.attributeWhenReady.go} | wait",
+                "      " + (replayInNested ? "replayable: yes" : ""),
+                "    - return ${entity.id}",
+                ""
+        )).iterator().next(), ConfigBag.newInstance()
+                .configure(WorkflowCommonConfig.ON_ERROR, MutableList.of(MutableMap.of("condition", MutableMap.of("error-cause", MutableMap.of("glob", "*Dangling*")),
+                        "step", "retry replay")))
+                .configure(WorkflowCommonConfig.REPLAYABLE, replayRoot ? WorkflowReplayUtils.ReplayableOption.YES : WorkflowReplayUtils.ReplayableOption.NO));
+    }
+
+    protected Task<?> doTestTargetManyChildrenConcurrentlyWithReplay(boolean replayRoot, boolean replayAtNested, boolean replayInNested, String target, int numChildren, String concurrency, int numExpectedWhenWaiting) throws Exception {
+        Object output = addTargetManyChildrenWorkflow(replayRoot, replayAtNested, replayInNested, target, concurrency);
+        if ("children".equals(target)) Asserts.assertEquals(output, MutableList.of());
+
+        app.sensors().set(COUNT, 0);
+        app.sensors().set(INVOCATIONS, 0);
+        app.sensors().remove(GO);
+
+        for (int i=app.getChildren().size(); i<numChildren; i++) app.createAndManageChild(EntitySpec.create(TestEntity.class));
+
+        Task<?> call = app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        EntityAsserts.assertAttributeEqualsEventually(app, COUNT, numExpectedWhenWaiting);
+        Asserts.assertFalse(call.isDone());
+
+        app = rebind();
+
+        EntityAsserts.assertAttributeEquals(app, COUNT, numExpectedWhenWaiting);
+
+        app.sensors().set(GO, "now!");
+
+        WorkflowExecutionContext lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(call.getId());
+        return mgmt().getExecutionManager().getTask(Iterables.getLast(lastWorkflowContext.getReplays()).taskId);
+    }
+
+    @Test
+    void testReplayInNestedWithOuterReplayingToo() throws Exception {
+        Object result = doTestTargetManyChildrenConcurrentlyWithReplay(true, true, true, "children", 10, "max(1,50%)", 5).get();
+        Asserts.assertEquals(result, app.getChildren().stream().map(Entity::getId).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, COUNT, 10);
+        EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 1);
+    }
+
+    @Test
+    void testReplayInNestedWithOuterReplayingTooNonList() throws Exception {
+        // check if given a non-list target, it doesn't return a list
+
+        // need app with child for initial workflow run
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(TestApplication.class));
+        TestEntity child = app.createAndManageChild(EntitySpec.create(TestEntity.class));
+        // and need these initialized for initial workflow to work, since now it has a child
+        app.sensors().set(COUNT, 0);
+        app.sensors().set(INVOCATIONS, 0);
+        app.sensors().set(GO, "now!");
+
+        Object result = doTestTargetManyChildrenConcurrentlyWithReplay(true, true, true, "${entity.children[0]}", 1, "max(1,50%)", 1).get();
+        Asserts.assertEquals(result, child.getId());
+        EntityAsserts.assertAttributeEquals(app, COUNT, 1);
+        EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 1);
+    }
+
+    @Test
+    void testReplayAtNotInNested() throws Exception {
+        Object result = doTestTargetManyChildrenConcurrentlyWithReplay(false, true, false, "children", 10, "max(1,50%)", 5).get();
+        Asserts.assertEquals(result, app.getChildren().stream().map(Entity::getId).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, COUNT, 15);
+        EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 1);
+    }
+
+    @Test
+    void testReplayAtRoot() throws Exception {
+        Object result = doTestTargetManyChildrenConcurrentlyWithReplay(true, false, false, "children", 10, "max(1,50%)", 5).get();
+        Asserts.assertEquals(result, app.getChildren().stream().map(Entity::getId).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, COUNT, 15);
+        EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 2);
+    }
+
+    @Test
+    void testReplayInNestedOnly() throws Exception {
+        Object result = doTestTargetManyChildrenConcurrentlyWithReplay(false, false, true, "children", 10, "max(1,50%)", 5).get();
+        Asserts.assertEquals(result, app.getChildren().stream().map(Entity::getId).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, COUNT, 10);
+        EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 1);
     }
 
 }

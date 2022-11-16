@@ -114,7 +114,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
         /** accepts eg: "0 0 100ms increasing 100% up to 1m" */
         public static RetryBackoff fromString(String s) {
-            Maybe<Map<String, Object>> resultM = new ShorthandProcessor("${initial...} [ \" increasing \" ${factor} ] [ \" up to \" ${max}]").process(s);
+            Maybe<Map<String, Object>> resultM = new ShorthandProcessor("${initial...} [ \" increasing \" ${factor} ] [ \" up to \" ${max}] [ \" jitter \" ${jitter} ]").process(s);
             if (resultM.isAbsent()) throw new IllegalArgumentException("Invalid shorthand expression for backoff: '"+s+"'", Maybe.Absent.getException(resultM));
 
             RetryBackoff result = new RetryBackoff();
@@ -128,6 +128,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
             String factor = (String) resultM.get().get("factor");
             if (factor!=null) {
+                factor = factor.trim();
                 if (factor.endsWith("x")) {
                     result.factor = TypeCoercions.coerce(Strings.removeFromEnd(factor, "x"), Double.class);
                 } else if (factor.endsWith("%")) {
@@ -138,6 +139,15 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             }
 
             result.max = TypeCoercions.coerce(resultM.get().get("max"), Duration.class);
+
+            String j = (String) resultM.get().get("jitter");
+            if (j!=null) {
+                j = j.trim();
+                boolean percent = j.endsWith("%");
+                if (percent) j = Strings.removeFromEnd(j, "%").trim();
+                result.jitter = TypeCoercions.coerce(j, Double.class);
+                if (percent) result.jitter /= 100;
+            }
 
             return result;
         }

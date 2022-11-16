@@ -23,6 +23,8 @@ import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -491,6 +493,8 @@ public class WorkflowExpressionResolution {
 
     private static ThreadLocal<Boolean> interruptSetIfNeededToPreventWaiting = new ThreadLocal<>();
     public static boolean isInterruptSetToPreventWaiting() {
+        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        if (entity!=null && Entities.isUnmanagingOrNoLongerManaged(entity)) return false;
         return Boolean.TRUE.equals(interruptSetIfNeededToPreventWaiting.get());
     }
     private boolean interruptSetIfNeededToPreventWaiting() {

@@ -67,7 +67,7 @@ public class WorkflowStepResolution {
                 if (s == null) s = defM.remove("shorthand");
                 if (s == null) s = defM.remove("s");
                 if (s == null) {
-                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s`");
+                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` ("+def+")");
                 }
                 if (!(s instanceof String)) {
                     throw new IllegalArgumentException("step shorthand must be a string");

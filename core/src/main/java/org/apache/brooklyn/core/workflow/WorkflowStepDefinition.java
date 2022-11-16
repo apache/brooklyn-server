@@ -178,7 +178,7 @@ public abstract class WorkflowStepDefinition {
             Object result = null;
 
             if (continuing && this instanceof WorkflowStepDefinitionWithSubWorkflow) {
-                List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context);
+                List<WorkflowExecutionContext> unfinished = ((WorkflowStepDefinitionWithSubWorkflow) this).getSubWorkflowsForReplay(context, continuationInstructions.forced);
                 if (unfinished!=null) {
                     handled = true;
                     result = ((WorkflowStepDefinitionWithSubWorkflow) this).doTaskBodyWithSubWorkflowsForReplay(context, unfinished, continuationInstructions);
@@ -256,14 +256,19 @@ public abstract class WorkflowStepDefinition {
         //getOnError().forEach(errorStep -> ((WorkflowStepDefinition)errorStep).validateStep());
     }
 
+    @JsonIgnore
+    protected Object getStepState(WorkflowStepInstanceExecutionContext context) {
+        return context.getStepState();
+    }
+
     public interface WorkflowStepDefinitionWithSpecialDeserialization {
         WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse);
     }
 
     public interface WorkflowStepDefinitionWithSubWorkflow {
         /** returns null if this task hasn't yet recorded its subworkflows; otherwise list of those which are replayable, empty if none need to be replayed (ended successfully) */
-        @JsonIgnore List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context);
-        /** called by framework if {@link #getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext)} returns non-null (empty is okay),
+        @JsonIgnore List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced);
+        /** called by framework if {@link #getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext, boolean)} returns non-null (empty is okay),
          * and the implementation pass the replay and optional custom behaviour to the subworkflows before doing any finalization;
          * if the subworkflow for replay is null,  the normal {@link #doTaskBody(WorkflowStepInstanceExecutionContext)} is called. */
         Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions);
