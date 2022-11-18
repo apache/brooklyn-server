@@ -34,12 +34,15 @@ import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
@@ -53,15 +56,15 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<List<RetryLimit>> LIMIT = ConfigKeys.newConfigKey(new TypeToken<List<RetryLimit>>() {}, "limit");
     public static final ConfigKey<RetryBackoff> BACKOFF = ConfigKeys.newConfigKey(RetryBackoff.class, "backoff");
 
-    // if multiple retry steps declare the same key, their counts will be combined; used if the same error might be handled in different ways
+    // if multiple retry steps declare the same hash key, their counts will be combined; used if the same error might be handled in different ways
     // note that the limits and backoff _instructions_ apply only at the step where they are defing, so they may need to be defined at each step
-    public static final ConfigKey<String> KEY = ConfigKeys.newStringConfigKey("key");
+    public static final ConfigKey<String> HASH = ConfigKeys.newStringConfigKey("hash");
 
     public enum RetryReplayOption { TRUE, FALSE, FORCE }
 
     public static class RetryLimit {
-        int count;
-        Duration duration;
+        public Integer count;
+        public Duration duration;
 
         public static RetryLimit fromInteger(Integer i) {
             return fromString(""+i);
@@ -70,17 +73,48 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         public static RetryLimit fromString(String s) {
             RetryLimit result = new RetryLimit();
             String[] parts = s.trim().split(" +");
-            if (parts.length==1 || (parts.length==3 && "in".equals(parts[1]))) {
+            if (parts.length>=3 && "in".equals(parts[1])) {
                 result.count = Integer.parseInt(parts[0]);
-                if (parts.length==3) result.duration = Duration.of(parts[2]);
+                result.duration = Duration.of(Arrays.asList(parts).subList(2, parts.length).stream().collect(Collectors.joining(" ")));
             } else {
-                throw new IllegalStateException("Illegal expression for retry limit, should be '${count} in ${duration}': "+s);
+                Pair<Integer, Duration> parse = null;
+
+                Exception problem = null;
+                try {
+                    parse = parseCountOrDuration(s);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    problem = e;
+                }
+                if (parse==null) {
+                    throw new IllegalStateException("Illegal expression for retry limit, should be '${count}`, '${duration}', or '${count} in ${duration}': " + s, problem);
+                }
+                result.count = parse.getLeft();
+                result.duration = parse.getRight();
             }
             return result;
         }
 
+        /** returns count in LHS _or_ duration in RHS, _or_ null if not parseable */
+        public static Pair<Integer,Duration> parseCountOrDuration(String phrase) {
+            if (phrase==null) return null;
+            phrase = phrase.trim();
+            if (phrase.isEmpty()) return null;
+            if (Character.isLetter(phrase.charAt(phrase.length()-1))) return Pair.of(null, Duration.parse(phrase));
+            return Pair.of(Integer.parseInt(phrase), null);
+        }
+
         public Maybe<String> isReached(List<Instant> retries) {
             Instant now = Instant.now();
+            if (count==null) {
+                if (duration==null) return Maybe.absent("No limit");
+                Optional<Instant> oldest = retries.stream().min(Instant::compareTo);
+                if (oldest.isPresent() && duration.isShorterThan(Duration.between(oldest.get(), now))) {
+                    return Maybe.of(
+                            (retries.size()==1 ? "1 retry" : retries.size()+" retries") + " since "+Duration.between(oldest.get(), now)+" ago (limit "+this+")");
+                }
+            }
+
             List<Instant> filtered = retries.stream().filter(r -> duration == null || duration.isLongerThan(Duration.between(r, now))).collect(Collectors.toList());
             if (filtered.size() >= count) {
                 if (filtered.isEmpty()) return Maybe.of("Max count 0 reached");
@@ -94,7 +128,10 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
         @Override
         public String toString() {
-            return count + (duration!=null ? " in "+duration : "");
+            return count!=null && duration!=null ? count + " in "+ duration
+                    : count!=null ? ""+count
+                    : duration!=null ? ""+duration
+                    : "RetryLimit<unset>";
         }
     }
 
@@ -202,8 +239,8 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
 
-        String key = Strings.firstNonBlank(context.getInput(KEY), context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()));
-        List<Instant> retries = context.getWorkflowExectionContext().getRetryRecords().compute(key, (k, v) -> v != null ? v : MutableList.of());
+        String hash = Strings.firstNonBlank(context.getInput(HASH), context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()));
+        List<Instant> retries = context.getWorkflowExectionContext().getRetryRecords().compute(hash, (k, v) -> v != null ? v : MutableList.of());
 
         List<RetryLimit> limit = context.getInput(LIMIT);
         if (limit!=null) {
@@ -259,7 +296,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         }
 
         retries.add(Instant.now());
-        context.getWorkflowExectionContext().getRetryRecords().put(key, retries);
+        context.getWorkflowExectionContext().getRetryRecords().put(hash, retries);
 
         RetryReplayOption replay = context.getInput(REPLAY);
         if (replay==null) {

@@ -39,6 +39,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -89,20 +90,20 @@ public class WorkflowExecutionContext {
     Entity entity;
 
     public enum WorkflowStatus {
-        STAGED(false, false, false, true),
-        RUNNING(true, false, false, true),
+        STAGED(false, false, false, false),
+        RUNNING(true, false, false, false),
         SUCCESS(true, true, false, true),
         /** useful information, usually cannot persisted by the time we've set this the first time, but could set on rebind */ ERROR_SHUTDOWN(true, true, true, false),
-        /** task failed because entity destroyed */ ERROR_ENTITY_DESTROYED(true, true, true, false),
+        /** task failed because entity destroyed */ ERROR_ENTITY_DESTROYED(true, true, true, true),
         /** task cancelled, timeout, or other interrupt, usually recursively (but not entity destroyed or server shutdown) */ ERROR_CANCELLED(true, true, true, true),
         /** any other error, e.g. workflow step failed or data not immediately available (the interrupt used internally is not relevant) */ ERROR(true, true, true, true);
 
         public final boolean started;
         public final boolean ended;
         public final boolean error;
-        public final boolean persistable;
+        public final boolean expirable;
 
-        WorkflowStatus(boolean started, boolean ended, boolean error, boolean persistable) { this.started = started; this.ended = ended; this.error = error; this.persistable = persistable; }
+        WorkflowStatus(boolean started, boolean ended, boolean error, boolean expirable) { this.started = started; this.ended = ended; this.error = error; this.expirable = expirable; }
     }
 
     WorkflowStatus status;
@@ -135,8 +136,8 @@ public class WorkflowExecutionContext {
     String taskId;
     transient Task<Object> task;
 
-    @JsonProperty("expiryKey")
-    String expiryKey;
+    @JsonProperty("retention")
+    WorkflowRetentionAndExpiration.RetentionInstruction retention;
 
     /** all tasks created for this workflow */
     Set<WorkflowReplayUtils.WorkflowReplayRecord> replays = MutableSet.of();
@@ -592,8 +593,8 @@ public class WorkflowExecutionContext {
     }
 
     @JsonIgnore
-    public String getExpiryKey() {
-        if (Strings.isNonBlank(expiryKey)) return expiryKey;
+    public String getRetentionHash() {
+        if (retention!=null && Strings.isNonBlank(retention.hash)) return retention.hash;
         if (Strings.isNonBlank(getName())) return getName();
         return "anonymous-workflow";
     }
@@ -933,7 +934,7 @@ public class WorkflowExecutionContext {
                             // don't run error handler
                             log.debug("Timeout in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", throwing: " + Exceptions.collapseText(e));
 
-                        } else if (onError != null && !onError.isEmpty() && provisionalStatus.persistable) {
+                        } else if (onError != null && !onError.isEmpty()) {
                             WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
                             try {
                                 log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler");
@@ -999,13 +1000,8 @@ public class WorkflowExecutionContext {
             WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
 
             try {
-                if (status.persistable) {
-                    log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
-                    log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
-                    persist();
-                } else {
-                    log.debug("Error running workflow " + this + ", unsurprising because " + status);
-                }
+                log.debug("Error running workflow " + this + "; will persist then rethrow: " + e);
+                log.trace("Error running workflow " + this + "; will persist then rethrow (details): " + e, e);
 
             } catch (Throwable e2) {
                 if (Entities.isUnmanagingOrNoLongerManaged(getEntity())) {

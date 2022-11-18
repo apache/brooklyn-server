@@ -457,16 +457,22 @@ public class LocalManagementContext extends AbstractManagementContext {
     @Override public void waitForManagementStartupComplete(Duration timeout) {
         if (timeout==null) timeout = Duration.minutes(5);
         CountdownTimer timer = CountdownTimer.newInstanceStarted(timeout);
-        while (true) {
-            synchronized (startupSynchObject) {
-                if (isStartupComplete()) return;
-                if (!isRunning()) {
-                    throw new IllegalStateException("Management context transitioned to not running before startup detected as completed");
+        try {
+            Tasks.withBlockingDetails("Waiting on management plane to completely start", () -> {
+                while (true) {
+                    synchronized (startupSynchObject) {
+                        if (isStartupComplete()) return null;
+                        if (!isRunning()) {
+                            throw new IllegalStateException("Management context transitioned to not running before startup detected as completed");
+                        }
+                        if (!timer.waitOnForExpiryUnchecked(startupSynchObject)) {
+                            throw Exceptions.propagate(new TimeoutException("Timeout waiting for management context to start"));
+                        }
+                    }
                 }
-                if (!timer.waitOnForExpiryUnchecked(startupSynchObject)) {
-                    throw Exceptions.propagate(new TimeoutException("Timeout waiting for management context to start"));
-                }
-            }
+            });
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
 
