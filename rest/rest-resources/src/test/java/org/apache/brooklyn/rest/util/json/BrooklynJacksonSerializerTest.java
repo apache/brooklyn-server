@@ -205,16 +205,24 @@ public class BrooklynJacksonSerializerTest {
     public void testInstantReadWrite() throws JsonProcessingException {
         ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
 
-        Instant now = Instant.now();
+        Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
+
+        // previously used
+        // Instant now = Instant.now();
+
+        // but I've seen this fail under maven with:
+        // BrooklynJacksonSerializerTest.testInstantReadWrite:208 expected [2022-09-29T13:46:32.632Z] but found [2022-09-29T13:46:32.631Z]
+        // It has passed in IDE w 1000 invocations, and with delays introduced on every line below, so not sure what is up;
+        // probably a weird rounding inconsistency with milliseconds v nanosecond precision on the underlying Instant.
+
+        // simply worth remembering that an Instant with sub-millisecond precision will not survive serialization
+
         String nowYaml = mapper.writerFor(Instant.class).writeValueAsString(now);
         Asserts.assertEquals(nowYaml.trim(), Time.makeIso8601DateStringZ(now));
 
         String nowS = Time.makeIso8601DateStringZ(now);
         Object now2 = mapper.readerFor(Instant.class).readValue(nowS);
-        // seen this fail under maven with:
-        // BrooklynJacksonSerializerTest.testInstantReadWrite:208 expected [2022-09-29T13:46:32.632Z] but found [2022-09-29T13:46:32.631Z]
-        // but this test has passed in IDE w 1000 invocations, and with delays introduced on every line above, so not sure what is up; maybe a weird rounding error
-        Asserts.assertEquals(now2, now, "Now deserialized off by one milli, from '"+nowS+"' (from "+now+") to "+now2);
+        Asserts.assertEquals(now2, now, "Now deserialized differently, from '"+nowS+"' (from "+now+") to "+now2);
 
         final String asMap = "type: "+Instant.class.getName()+"\n"+
                 "value: "+Time.makeIso8601DateStringZ(now);
