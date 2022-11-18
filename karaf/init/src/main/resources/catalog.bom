@@ -149,6 +149,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.GotoWorkflowStep
+  - id: switch
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.SwitchWorkflowStep
   - id: fail
     format: java-type-name
     itemType: bean

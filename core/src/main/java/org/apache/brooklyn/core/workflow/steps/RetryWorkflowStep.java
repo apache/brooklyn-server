@@ -20,11 +20,10 @@ package org.apache.brooklyn.core.workflow.steps;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.ShorthandProcessor;
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -38,6 +37,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -211,8 +211,9 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep() {
-        super.validateStep();
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        super.validateStep(mgmt, workflow);
+
         TypeCoercions.coerce(input.get(REPLAY.getName()), REPLAY.getTypeToken());
         TypeCoercions.coerce(input.get(LIMIT.getName()), LIMIT.getTypeToken());
         TypeCoercions.coerce(input.get(BACKOFF.getName()), BACKOFF.getTypeToken());
@@ -306,19 +307,20 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
         if (replay!=RetryReplayOption.FALSE) {
             if (next==null) {
-                context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingLast(
+                context.next = context.getWorkflowExectionContext().makeInstructionsForReplayingLast(
                         "Retry replay per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
             } else {
-                context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
+                context.next = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
                         "Retry replay from '"+next+"' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
             }
-            log.debug("Retrying with "+context.nextReplay);
+            log.debug("Retrying with "+context.next);
         } else {
             if (next==null) {
                 throw new IllegalStateException("Cannot retry with replay disabled and no specified next");
             } else {
-                log.debug("Retrying from explicit next step '"+next+"'");
-                // will go to next
+                // will go to next by id
+                context.next = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, next);
+                log.debug("Retrying from explicit next step '"+context.next+"'");
             }
         }
         return context.getPreviousStepOutput();

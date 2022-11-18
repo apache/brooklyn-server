@@ -389,4 +389,19 @@ public class WorkflowReplayUtils {
         }
         return null;
     }
+
+    public static Object getNext(Object ...sources) {
+        Object result = null;
+
+        for (Object o: sources) {
+            if (o==null) continue;
+            if (o instanceof WorkflowStepInstanceExecutionContext) result = ((WorkflowStepInstanceExecutionContext)o).next;
+            else if (o instanceof WorkflowStepDefinition) result = ((WorkflowStepDefinition)o).next;
+            else if (o instanceof String || o instanceof WorkflowStepDefinition.ReplayContinuationInstructions) result = o;
+            else throw new IllegalArgumentException("Next not supported for "+o+" (type "+o.getClass()+")");
+
+            if (result!=null) break;
+        }
+        return result;
+    }
 }

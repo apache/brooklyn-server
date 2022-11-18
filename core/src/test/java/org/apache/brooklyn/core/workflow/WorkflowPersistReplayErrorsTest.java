@@ -570,7 +570,8 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName())) {
             lastInvocation = runSteps(MutableList.of(
                             MutableMap.of("s", "invoke-effector does-not-exist",
-                                    "output", "should have failed")),
+                                    "output", "should have failed"),
+                            "log should not run"),
                     null,
                     ConfigBag.newInstance().configure(
                             WorkflowEffector.ON_ERROR, MutableList.of(

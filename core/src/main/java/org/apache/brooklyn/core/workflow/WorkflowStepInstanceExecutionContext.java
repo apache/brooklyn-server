@@ -66,7 +66,8 @@ public class WorkflowStepInstanceExecutionContext {
     Map<String,Object> inputResolved = MutableMap.of();
 
     transient WorkflowExecutionContext context;
-    public WorkflowStepDefinition.ReplayContinuationInstructions nextReplay;
+    // replay instructions or a string explicit next step identifier
+    public Object next;
 
     /** set if the step is in an error handler context, containing the error being handled */
     Throwable error;
@@ -91,7 +92,7 @@ public class WorkflowStepInstanceExecutionContext {
 
     Object output;
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    Map<String,Object> otherMetadata = MutableMap.of();
+    public Map<String,Object> otherMetadata = MutableMap.of();
 
     public void injectContext(WorkflowExecutionContext context) {
         if (this.context!=null && this.context!=context) throw new IllegalStateException("Cannot change context, from "+this.context+" to "+context);
@@ -219,7 +220,7 @@ public class WorkflowStepInstanceExecutionContext {
     /** sets other metadata, e.g. for the UI */
     public void noteOtherMetadata(String key, Object value) {
         log.debug(getWorkflowStepReference()+" note metadata '"+key+"': "+value);
-        this.otherMetadata.put(key, value);
+        otherMetadata.put(key, value);
     }
 
     @Override

@@ -399,6 +399,9 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
 
     /** lazy conversion if a value is present, otherwise preserves the absence;
      * see {@link #transformNow(Function)} for immediate conversion */
+    public <V> Maybe<V> map(final java.util.function.Function<? super T, V> f) {
+        return new MaybeTransforming(this, f);
+    }
     public <V> Maybe<V> map(final Function<? super T, V> f) {
         return new MaybeTransforming(this, f);
     }
@@ -421,9 +424,9 @@ public abstract class Maybe<T> implements Serializable, Supplier<T> {
     public static class MaybeTransforming<T,V> extends Maybe<V> {
         private static final long serialVersionUID = 325089324325L;
         private final Maybe<T> input;
-        private final Function<? super T, V> f;
+        private final java.util.function.Function<? super T, V> f;
 
-        public MaybeTransforming(Maybe<T> input, Function<? super T,V> f) {
+        public MaybeTransforming(Maybe<T> input, java.util.function.Function<? super T,V> f) {
             this.input = input;
             this.f = f;
         }

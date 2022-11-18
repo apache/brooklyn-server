@@ -35,15 +35,9 @@ public class ReturnWorkflowStep extends WorkflowStepDefinition {
         populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
-    @JsonIgnore
-    @Override
-    public String getNext() {
-        if (next==null) return "end";
-        return next;
-    }
-
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        if (next==null) context.next = "end";
         return context.getInput(VALUE);
     }
 

@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
@@ -624,6 +625,48 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Integer numSuccess = app.sensors().get(Sensors.newIntegerSensor("x"));
         if (numSuccess==0) tasks.iterator().next().getUnchecked();  // show failure if they all failed
         Asserts.assertEquals(numErrors + numSuccess, NUM, "Tally mismatch, had "+numErrors+" errors when sensor showed "+numSuccess);
+    }
+
+    @Test
+    public void testSwitch() throws JsonProcessingException {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", null))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append(MutableMap.of("step", "switch ${x}", "cases",
+                                MutableList.of(
+                                        MutableMap.of("condition", "A", "step", "return Aaa"),
+                                        MutableMap.of("condition", "B", "step", "return Bbb"),
+                                        "return Zzz")))
+                )
+        );
+        eff.apply((EntityLocal) app);
+
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "A")).getUnchecked(), "Aaa");
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "B")).getUnchecked(), "Bbb");
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "C")).getUnchecked(), "Zzz");
+    }
+
+    @Test
+    public void testSwitchNoValueSingleDefaultCase() throws JsonProcessingException {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", null))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append(MutableMap.of("step", "switch", "cases",
+                                MutableList.of(
+                                        "return Zzz")))
+                )
+        );
+        eff.apply((EntityLocal) app);
+
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "A")).getUnchecked(), "Zzz");
     }
 
 }

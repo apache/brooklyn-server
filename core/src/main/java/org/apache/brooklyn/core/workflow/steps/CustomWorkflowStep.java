@@ -30,14 +30,12 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
-import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
@@ -49,20 +47,15 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.time.Time;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.Callable;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class CustomWorkflowStep extends WorkflowStepDefinition implements WorkflowStepDefinition.WorkflowStepDefinitionWithSpecialDeserialization, WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow {
@@ -96,9 +89,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     Object workflowOutput;
 
     @Override
-    public void validateStep() {
-        if (steps==null) throw new IllegalStateException("No steps defined for "+getName());
-        super.validateStep();
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        super.validateStep(mgmt, workflow);
+
+        if (steps instanceof List) WorkflowStepResolution.resolveSteps(mgmt, (List<Object>) steps);
+        else if (steps!=null) throw new IllegalArgumentException("Workflow `steps` must be a list");
+        else if (target!=null) throw new IllegalArgumentException("Workflow cannot take a `target` without `steps`");
     }
 
     @Override
@@ -144,6 +140,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        // TODO workflow settings
+
+        if (steps==null) {
+            return context.getPreviousStepOutput();
+        }
+
         Object targetR = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, target, Object.class);
 
         if (targetR instanceof String) {
@@ -361,6 +363,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target) {
+        if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
+
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
                 target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(),
                 context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
@@ -387,6 +391,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return newWorkflowExecution(entity, name, extraConfig, null);
     }
     public WorkflowExecutionContext newWorkflowExecution(Entity entity, String name, ConfigBag extraConfig, Map extraTaskFlags) {
+        if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
+
         if (target==null) {
             // copy everything as we are going to run it "flat"
             return WorkflowExecutionContext.newInstancePersisted(entity, name,

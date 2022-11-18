@@ -484,7 +484,8 @@ public class BrooklynTaskTags extends TaskTags {
         // TODO handle these in the UI:
         protected String supersededByTaskId;
         protected String errorHandlerForTask;
-        protected Integer errorHandlerIndex;
+        protected Integer errorHandlerIndex;  //same as below if set; we don't need it
+        protected Integer subStepIndex;
 
         public String getApplicationId() {
             return applicationId;
@@ -542,10 +543,17 @@ public class BrooklynTaskTags extends TaskTags {
         t.stepIndex = workflowStep.getStepIndex();
         return t;
     }
+    public static WorkflowTaskTag tagForWorkflowSubStep(WorkflowStepInstanceExecutionContext parentStep, int subStepIndex) {
+        WorkflowTaskTag t = tagForWorkflow(parentStep.getWorkflowExectionContext());
+        t.stepIndex = parentStep.getStepIndex();
+        t.subStepIndex = subStepIndex;
+        return t;
+    }
 
     public static WorkflowTaskTag tagForWorkflowStepErrorHandler(WorkflowStepInstanceExecutionContext workflowStep, Integer errorHandlerIndex, String errorHandlerForTask) {
         WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
         t.stepIndex = workflowStep!=null ? workflowStep.getStepIndex() : null;
+        t.subStepIndex = errorHandlerIndex;
         t.errorHandlerIndex = errorHandlerIndex;
         t.errorHandlerForTask = errorHandlerForTask;
         if (Strings.isBlank(t.errorHandlerForTask)) t.errorHandlerForTask = "task-unavailable";  // ensure not null

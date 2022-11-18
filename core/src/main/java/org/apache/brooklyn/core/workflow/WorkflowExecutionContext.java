@@ -71,6 +71,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -233,7 +234,7 @@ public class WorkflowExecutionContext {
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
         w.onError = paramsDefiningWorkflow.get(WorkflowCommonConfig.ON_ERROR);
         // fail fast if error steps not resolveable
-        WorkflowStepResolution.resolveOnErrorSteps(w.getManagementContext(), w.onError);
+        WorkflowStepResolution.resolveSubSteps(w.getManagementContext(), "error handling", w.onError);
 
         // some fields need to be resolved at setting time, in the context of the workflow
         w.setCondition(w.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_STARTING_POST_INPUT, paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
@@ -282,7 +283,7 @@ public class WorkflowExecutionContext {
 
     public static void validateSteps(ManagementContext mgmt, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
         if (!alreadyValidatedIndividualSteps) {
-            steps.forEach(WorkflowStepDefinition::validateStep);
+            steps.forEach(w -> w.validateStep(mgmt, null));
         }
 
         computeStepsWithExplicitIdById(steps);
@@ -935,25 +936,24 @@ public class WorkflowExecutionContext {
                             log.debug("Timeout in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", throwing: " + Exceptions.collapseText(e));
 
                         } else if (onError != null && !onError.isEmpty()) {
-                            WorkflowErrorHandling.WorkflowErrorHandlingResult result = null;
                             try {
                                 log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler");
                                 Task<WorkflowErrorHandling.WorkflowErrorHandlingResult> workflowErrorHandlerTask = WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e);
                                 errorHandlerTaskId = workflowErrorHandlerTask.getId();
-                                result = DynamicTasks.queue(workflowErrorHandlerTask).getUnchecked();
+                                WorkflowErrorHandling.WorkflowErrorHandlingResult result = DynamicTasks.queue(workflowErrorHandlerTask).getUnchecked();
                                 if (result != null) {
                                     errorHandled = true;
 
+                                    currentStepInstance.next = WorkflowReplayUtils.getNext(result.next, "end");
                                     if (result.output != null) output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, result.output, Object.class);
 
-                                    String next = Strings.isNonBlank(result.next) ? result.next : "end";
-                                    moveToNextStep(next, "Handled error in workflow around step " + workflowStepReference(currentStepIndex));
+                                    moveToNextStep("Handled error in workflow around step " + workflowStepReference(currentStepIndex));
 
                                     if (continuationInstructions!=null || currentStepIndex < getStepsResolved().size()) {
                                         continueOnErrorHandledOrNextReplay = true;
                                         continue RecoveryAndReplay;
                                     }
-                                }
+                                } // else errorHandled remains false and will fail below
 
                             } catch (Exception e2) {
                                 Throwable e0 = e;
@@ -1017,12 +1017,6 @@ public class WorkflowExecutionContext {
             throw Exceptions.propagate(e);
         }
 
-        private WorkflowStepDefinition.ReplayContinuationInstructions getSpecialNextReplay() {
-            if (errorHandlerContext!=null && errorHandlerContext.nextReplay!=null) return errorHandlerContext.nextReplay;
-            if (currentStepInstance!=null && currentStepInstance.nextReplay!=null) return currentStepInstance.nextReplay;
-            return null;
-        }
-
         protected void runCurrentStepIfPreconditions() {
             WorkflowStepDefinition step = getStepsResolved().get(currentStepIndex);
             if (step!=null) {
@@ -1032,7 +1026,7 @@ public class WorkflowExecutionContext {
                     boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), WorkflowExecutionContext.this, getEntityOrAdjunctWhereRunning());
                     if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
-                        moveToNextStep(null, "Skipping step "+ workflowStepReference(currentStepIndex));
+                        moveToNextStep("Skipping step "+ workflowStepReference(currentStepIndex));
                         return;
                     }
                 }
@@ -1079,15 +1073,17 @@ public class WorkflowExecutionContext {
             WorkflowReplayUtils.updateOnWorkflowStepChange(currentStepRecord, currentStepInstance, step);
             errorHandlerContext = null;
             errorHandlerTaskId = null;
+            currentStepInstance.next = null;  // clear, eg if was set from a previous run; will be reset from step definition
+            // but don't clear output, in case a step is returning to itself and wants to reference previous_step.output
 
             persist();
 
-            AtomicReference<String> customNext = new AtomicReference<>();
-            Runnable next = () -> moveToNextStep(Strings.isNonBlank(customNext.get()) ? customNext.get() : step.getNext(), "Completed step "+ workflowStepReference(currentStepIndex));
-            Consumer<Object> saveOutput = output -> {
+            BiConsumer<Object,Object> onFinish = (output,overrideNext) -> {
+                currentStepInstance.next = WorkflowReplayUtils.getNext(overrideNext, currentStepInstance, step);
                 if (output!=null) currentStepInstance.output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, output, Object.class);
             };
 
+            // now run the step
             try {
                 Duration duration = step.getTimeout();
                 if (duration!=null) {
@@ -1103,7 +1099,7 @@ public class WorkflowExecutionContext {
                 }
 
                 // allow output to be customized / overridden
-                saveOutput.accept(step.output);
+                onFinish.accept(step.output, null);
 
             } catch (Exception e) {
                 if (!step.onError.isEmpty()) {
@@ -1113,8 +1109,10 @@ public class WorkflowExecutionContext {
                         currentStepInstance.errorHandlerTaskId = stepErrorHandlerTask.getId();
                         result = DynamicTasks.queue(stepErrorHandlerTask).getUnchecked();
                         if (result!=null) {
-                            if (Strings.isNonBlank(result.next)) customNext.set(result.next);
-                            saveOutput.accept(result.output);
+                            onFinish.accept(result.output, result.next);
+                        } else {
+                            logWarnOnExceptionOrDebugIfKnown(e, "Error in step '" + t.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(e));
+                            throw Exceptions.propagate(e);
                         }
 
                     } catch (Exception e2) {
@@ -1125,9 +1123,6 @@ public class WorkflowExecutionContext {
                             log.debug("Full trace of original error was: " + e, e);
                         }
                         throw Exceptions.propagate(e2);
-                    }
-                    if (result==null) {
-                        logWarnOnExceptionOrDebugIfKnown(e, "Error in step '" + t.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(e));
                     }
 
                 } else {
@@ -1150,7 +1145,7 @@ public class WorkflowExecutionContext {
 
             previousStepTaskId = currentStepInstance.taskId;
             previousStepIndex = currentStepIndex;
-            next.run();
+            moveToNextStep("Completed step "+ workflowStepReference(currentStepIndex));
         }
 
         private void logWarnOnExceptionOrDebugIfKnown(Exception e, String msg) {
@@ -1159,39 +1154,44 @@ public class WorkflowExecutionContext {
             log.warn(msg); return;
         }
 
-        private void moveToNextStep(String optionalRequestedNextStep, String prefix) {
+        private void moveToNextStep(String prefix) {
             prefix = prefix + "; ";
 
-            continuationInstructions = getSpecialNextReplay();
+            Object specialNext = WorkflowReplayUtils.getNext(currentStepInstance);
+
+            continuationInstructions = specialNext instanceof WorkflowStepDefinition.ReplayContinuationInstructions ? (WorkflowStepDefinition.ReplayContinuationInstructions) specialNext : null;
             if (continuationInstructions!=null) {
-                log.debug(prefix + "proceeding to custom replay: "+(currentStepInstance.nextReplay==null ? "default" : currentStepInstance.nextReplay));
+                log.debug(prefix + "proceeding to custom replay: "+continuationInstructions);
                 return;
             }
 
-            if (optionalRequestedNextStep==null) {
+            if (specialNext==null) {
                 currentStepIndex++;
                 if (currentStepIndex < getStepsResolved().size()) {
                     log.debug(prefix + "moving to sequential next step " + workflowStepReference(currentStepIndex));
                 } else {
                     log.debug(prefix + "no further steps: Workflow completed");
                 }
-            } else {
-                Maybe<Pair<Integer, Boolean>> nextResolved = getIndexOfStepId(optionalRequestedNextStep);
+            } else if (specialNext instanceof String) {
+                String explicitNext = (String)specialNext;
+                Maybe<Pair<Integer, Boolean>> nextResolved = getIndexOfStepId(explicitNext);
                 if (nextResolved.isAbsent()) {
-                    log.warn(prefix + "explicit next step '"+optionalRequestedNextStep+"' not found (failing)");
+                    log.warn(prefix + "explicit next step '"+explicitNext+"' not found (failing)");
                     nextResolved.get();
                 }
 
                 currentStepIndex = nextResolved.get().getLeft();
                 if (nextResolved.get().getRight()) {
                     if (currentStepIndex < getStepsResolved().size()) {
-                        log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for token '" + optionalRequestedNextStep + "'");
+                        log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for token '" + explicitNext + "'");
                     } else {
-                        log.debug(prefix + "explicit next '"+optionalRequestedNextStep+"': Workflow completed");
+                        log.debug(prefix + "explicit next '"+explicitNext+"': Workflow completed");
                     }
                 } else {
-                    log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for id '" + optionalRequestedNextStep + "'");
+                    log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for id '" + explicitNext + "'");
                 }
+            } else {
+                throw new IllegalStateException("Illegal next definition: "+specialNext+" (type "+specialNext.getClass()+")");
             }
         }
 

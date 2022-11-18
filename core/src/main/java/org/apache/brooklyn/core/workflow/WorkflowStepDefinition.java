@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Callable;
@@ -74,10 +75,6 @@ public abstract class WorkflowStepDefinition {
     //    next:  the next step to go to, assuming the step runs and succeeds; if omitted, or if the condition does not apply, it goes to the next step per the ordering (described below)
     @JsonProperty("next")  //use this field for access, not the getter/setter
     protected String next;
-    @JsonIgnore  // because overwritten
-    public String getNext() {
-        return next;
-    }
 
     //    condition:  a condition to require for the step to run; if false, the step is skipped
     protected Object condition;
@@ -153,7 +150,7 @@ public abstract class WorkflowStepDefinition {
         return newTask(context, null, null, null);
     }
 
-    final Task<?> newTaskForErrorHandler(WorkflowStepInstanceExecutionContext context, String specialName, BrooklynTaskTags.WorkflowTaskTag specialTag) {
+    public final Task<?> newTaskAsSubTask(WorkflowStepInstanceExecutionContext context, String specialName, BrooklynTaskTags.WorkflowTaskTag specialTag) {
         return newTask(context, null, specialName, specialTag);
     }
 
@@ -206,7 +203,7 @@ public abstract class WorkflowStepDefinition {
 
     protected abstract Object doTaskBody(WorkflowStepInstanceExecutionContext context);
 
-    protected String computeName(WorkflowStepInstanceExecutionContext context, boolean includeStepNumber) {
+    public String computeName(WorkflowStepInstanceExecutionContext context, boolean includeStepNumber) {
         //if (Strings.isNonBlank(context.name)) return context.name;
 
         List<String> parts = MutableList.of();
@@ -260,9 +257,7 @@ public abstract class WorkflowStepDefinition {
     }
 
     /** allows subclasses to throw exception early if required fields not set */
-    public void validateStep() {
-        // not needed here, done at parse time because error step validation is slightly stricter
-        //getOnError().forEach(errorStep -> ((WorkflowStepDefinition)errorStep).validateStep());
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
     }
 
     @JsonIgnore

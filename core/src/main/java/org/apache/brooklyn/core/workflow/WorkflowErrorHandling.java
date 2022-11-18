@@ -81,7 +81,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     final Throwable error;
 
     public WorkflowErrorHandling(List<Object> errorOptions, WorkflowExecutionContext context, Integer stepIndexIfStepErrorHandler, Task<?> failedTask, Throwable error) {
-        this.errorOptions = WorkflowStepResolution.resolveOnErrorSteps(context.getManagementContext(), errorOptions);
+        this.errorOptions = WorkflowStepResolution.resolveSubSteps(context.getManagementContext(), "error handling", errorOptions);
         this.context = context;
         this.stepIndexIfStepErrorHandler = stepIndexIfStepErrorHandler;
         this.failedTask = failedTask;
@@ -113,7 +113,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
             }
 
 
-            Task<?> handlerI = errorStep.newTaskForErrorHandler(handlerContext,
+            Task<?> handlerI = errorStep.newTaskAsSubTask(handlerContext,
                     potentialTaskName, BrooklynTaskTags.tagForWorkflowStepErrorHandler(handlerContext, i, handlerParent.getId()));
             TaskTags.addTagDynamically(handlerParent, BrooklynTaskTags.tagForErrorHandledBy(handlerI));
 
@@ -128,7 +128,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
             if (errorStep.output!=null) {
                 result.output = handlerContext.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, errorStep.output, Object.class);
             }
-            result.next = errorStep.getNext();
+            result.next = WorkflowReplayUtils.getNext(handlerContext, errorStep);
             log.debug("Completed handler " + potentialTaskName + "; proceeding to " + (result.next!=null ? result.next : "default next step"));
             return result;
         }
@@ -140,7 +140,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class WorkflowErrorHandlingResult {
-        String next;
+        Object next;
         Object output;
     }
 }
