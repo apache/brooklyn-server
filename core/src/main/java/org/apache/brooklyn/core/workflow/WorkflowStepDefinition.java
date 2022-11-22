@@ -38,6 +38,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,9 +96,10 @@ public abstract class WorkflowStepDefinition {
     protected Object output;
     protected boolean isOutputHandledByTask() { return false; }
 
-    protected WorkflowReplayUtils.ReplayableOption replayable;
-    public WorkflowReplayUtils.ReplayableOption getReplayable() {
-        return replayable;
+    protected String replayable;
+    protected String idempotent;
+    protected Pair<WorkflowReplayUtils.ReplayableAtStepOption, Boolean> validateReplayableAndIdempotent() {
+        return WorkflowReplayUtils.validateReplayableAndIdempotentAtStep(replayable, idempotent, false);
     }
 
     @JsonProperty("timeout")
@@ -258,12 +260,28 @@ public abstract class WorkflowStepDefinition {
 
     /** allows subclasses to throw exception early if required fields not set */
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        validateReplayableAndIdempotent();
     }
 
     @JsonIgnore
     protected Object getStepState(WorkflowStepInstanceExecutionContext context) {
         return context.getStepState();
     }
+
+    Boolean isIdempotent(WorkflowStepInstanceExecutionContext csi) {
+        Boolean idempotence = validateReplayableAndIdempotent().getRight();
+
+        if (idempotence==null) {
+            if (csi!=null && csi.getWorkflowExectionContext()!=null) idempotence = csi.getWorkflowExectionContext().idempotentAll;
+        }
+        if (idempotence==null) {
+            idempotence = isDefaultIdempotent();
+        }
+
+        return idempotence;
+    }
+
+    protected abstract Boolean isDefaultIdempotent();
 
     public interface WorkflowStepDefinitionWithSpecialDeserialization {
         WorkflowStepDefinition applySpecialDefinition(ManagementContext mgmt, Object definition, String typeBestGuess, WorkflowStepDefinitionWithSpecialDeserialization firstParse);

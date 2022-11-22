@@ -62,10 +62,18 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     private static final Logger LOG = LoggerFactory.getLogger(CustomWorkflowStep.class);
 
+    private static final String WORKFLOW_SETTING_SHORTHAND = "[ \"replayable\" ${replayable...} ] [ \"retention\" ${retention...} ] ";
+
     String shorthand;
     @Override
     public void populateFromShorthand(String value) {
-        if (shorthand==null) throw new IllegalStateException("Shorthand not supported for "+getNameOrDefault());
+        if (shorthand==null) {
+            if ("workflow".equals(shorthandTypeName)) {
+                shorthand = WORKFLOW_SETTING_SHORTHAND;
+            } else {
+                throw new IllegalStateException("Shorthand not supported for " + getNameOrDefault());
+            }
+        }
         if (input==null) input = MutableMap.of();
         populateFromShorthandTemplate(shorthand, value);
     }
@@ -110,6 +118,10 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     @JsonIgnore
     public Object getConditionRaw() {
         return null;
+    }
+
+    protected Pair<WorkflowReplayUtils.ReplayableAtStepOption, Boolean> validateReplayableAndIdempotent() {
+        return WorkflowReplayUtils.validateReplayableAndIdempotentAtStep(replayable, idempotent, true);
     }
 
     @Override @JsonIgnore
@@ -234,7 +246,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 task = nestedWorkflowContexts.get(i).getTask(false).get();
             } else {
                 try {
-                    Pair<Boolean, Object> check = WorkflowReplayUtils.checkReplayInSubWorkflowAlsoReturningTaskOrResult("nested workflow " + (i + 1), context, nestedWorkflowContexts.get(i), instructionsIfReplaying,
+                    Pair<Boolean, Object> check = WorkflowReplayUtils.checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult("nested workflow " + (i + 1), context, nestedWorkflowContexts.get(i), instructionsIfReplaying,
                             (w, e) -> {
                                 throw new IllegalStateException("Sub workflow " + w + " is not replayable", e);
                             });
@@ -317,7 +329,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     public String getNameOrDefault() {
-        return (Strings.isNonBlank(getName()) ? getName() : "custom step");
+        return (Strings.isNonBlank(getName()) ? getName() : Strings.isNonBlank(shorthandTypeName) ? shorthandTypeName : "custom step");
     }
 
     @Override
@@ -366,14 +378,15 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
 
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
-                target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(),
-                context.getWorkflowExectionContext(), "Workflow for " + getNameOrDefault(),
+                target instanceof BrooklynObject ? (BrooklynObject) target : context.getEntity(), context.getWorkflowExectionContext(),
+                WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW, "Workflow for " + getNameOrDefault(),
                 ConfigBag.newInstance()
                         .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                         .configure(WorkflowCommonConfig.STEPS, steps)
 //                        .configure(WorkflowCommonConfig.INPUT, input)  // input is resolved in outer workflow so it can reference outer workflow vars
                         .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
                         .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
+                        .configure(WorkflowCommonConfig.IDEMPOTENT, idempotent)
                         .configure(WorkflowCommonConfig.ON_ERROR, onError)
                         .configure(WorkflowCommonConfig.TIMEOUT, timeout)
                         .configure(WorkflowCommonConfig.LOCK, lock)
@@ -395,13 +408,14 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         if (target==null) {
             // copy everything as we are going to run it "flat"
-            return WorkflowExecutionContext.newInstancePersisted(entity, name,
+            return WorkflowExecutionContext.newInstancePersisted(entity, WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW, name,
                     ConfigBag.newInstance()
                             .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                             .configure(WorkflowCommonConfig.STEPS, steps)
                             .configure(WorkflowCommonConfig.INPUT, input)
                             .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
                             .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
+                            .configure(WorkflowCommonConfig.IDEMPOTENT, idempotent)
                             .configure(WorkflowCommonConfig.ON_ERROR, onError)
                             .configure(WorkflowCommonConfig.TIMEOUT, timeout)
                             .configure(WorkflowCommonConfig.LOCK, lock)
@@ -409,8 +423,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                     null,
                     ConfigBag.newInstance(getInput()).putAll(extraConfig), extraTaskFlags);
         } else {
-            // if target specified, just reference the steps
-            return WorkflowExecutionContext.newInstancePersisted(entity, name,
+            // if target specified, just reference the steps, the task below will trigger the block above, passing config through
+            return WorkflowExecutionContext.newInstancePersisted(entity, WorkflowExecutionContext.WorkflowContextType.NESTED_WORKFLOW, name,
                     ConfigBag.newInstance()
                             .configure(WorkflowCommonConfig.PARAMETER_DEFS, parameters)
                             .configure(WorkflowCommonConfig.STEPS, MutableList.of(this)),
@@ -423,4 +437,6 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     public List<Object> peekSteps() {
         return steps;
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return null; }
 }

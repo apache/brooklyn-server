@@ -125,4 +125,5 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
         return "... " + input.substring(input.length()-maxLength+4);
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

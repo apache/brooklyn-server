@@ -43,8 +43,11 @@ public interface WorkflowCommonConfig {
     ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
             "Condition required for this workflow to run");
 
-    ConfigKey<WorkflowReplayUtils.ReplayableOption> REPLAYABLE = ConfigKeys.newConfigKey(WorkflowReplayUtils.ReplayableOption.class, "replayable",
+    ConfigKey<String> REPLAYABLE = ConfigKeys.newStringConfigKey("replayable",
             "Indication of from what points the workflow is replayable");
+
+    ConfigKey<String> IDEMPOTENT = ConfigKeys.newStringConfigKey("idempotent",
+            "Indication of which steps in the workflow are idempotent");
 
     ConfigKey<List<Object>> ON_ERROR = ConfigKeys.newConfigKey(new TypeToken<List<Object>>() {}, "on-error",
             "List of potential error handlers");

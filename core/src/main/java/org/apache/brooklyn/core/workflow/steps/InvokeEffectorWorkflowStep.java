@@ -79,7 +79,7 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, Iterables.getOnlyElement(subworkflows), instructions,
+        return WorkflowReplayUtils.replayResumingInSubWorkflow("workflow effector", context, Iterables.getOnlyElement(subworkflows), instructions,
                 (w, e)-> {
                     LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
                     return doTaskBody(context);
@@ -117,4 +117,5 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
         return DynamicTasks.queue(invocation).asTask().getUnchecked();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return null; }
 }

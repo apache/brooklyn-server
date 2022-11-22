@@ -80,6 +80,11 @@ public class WinrmWorkflowStep extends WorkflowStepDefinition {
         return DynamicTasks.queue(tf.newTask()).asTask().getUnchecked();
     }
 
+    @Override
+    protected Boolean isDefaultIdempotent() {
+        return false;
+    }
+
     protected void checkExitCode(ProcessTaskWrapper<?> ptw, DslPredicates.DslPredicate<Integer> exitcode) {
         if (exitcode==null) return;
         if (exitcode instanceof DslPredicates.DslPredicateBase) {

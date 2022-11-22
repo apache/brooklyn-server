@@ -72,4 +72,6 @@ public class FailWorkflowStep extends WorkflowStepDefinition {
             super(cause);
         }
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

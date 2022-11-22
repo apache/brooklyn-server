@@ -56,4 +56,5 @@ public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

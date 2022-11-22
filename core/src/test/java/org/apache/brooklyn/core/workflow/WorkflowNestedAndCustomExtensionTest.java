@@ -295,6 +295,9 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     }
 
     private Object addTargetManyChildrenWorkflow(boolean replayRoot, boolean replayAtNested, boolean replayInNested, String target, String concurrency) throws Exception {
+        return addTargetManyChildrenWorkflow(replayRoot ? "from start" : null, replayAtNested, replayInNested, target, concurrency);
+    }
+    private Object addTargetManyChildrenWorkflow(String replayRoot, boolean replayAtNested, boolean replayInNested, String target, String concurrency) throws Exception {
         return invokeWorkflowStepsWithLogging((List<Object>) Yamls.parseAll(Strings.lines(
                 // count outermost invocations (to see where replay started replays)
                 "  - let invocations = ${entity.sensor.invocations} ?? 0",
@@ -302,7 +305,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "  - set-sensor invocations = ${invocations}",
                 "  - type: workflow",
                 "    target: "+target,
-                "    " + (replayAtNested ? "replayable: yes" : ""),
+                "    " + (replayAtNested ? "replayable: from here" : ""),
                 "    concurrency: "+concurrency,
                 "    steps:",
                 // count subworkflow invocations for concurrency and for replays
@@ -314,16 +317,20 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "        entity: ${entity.parent}",
                 "      on-error:",
                 "        - retry from start limit 20 backoff 1ms jitter -1",  // repeat until count is ours to increment
+                "    - workflow replayable from here",
                 "    - step: transform go = ${entity.parent.attributeWhenReady.go} | wait",
-                "      " + (replayInNested ? "replayable: yes" : ""),
+                "      idempotent: false",
+                "      " + (replayInNested ? "replayable: from here" : ""),
                 "    - return ${entity.id}",
                 ""
         )).iterator().next(), ConfigBag.newInstance()
-                .configure(WorkflowCommonConfig.ON_ERROR, MutableList.of(
-                        MutableMap.of("condition", MutableMap.of("error-cause", MutableMap.of("glob", "*Dangling*")),
-                        "step", "retry replay",
-                        WorkflowCommonConfig.ON_ERROR.getName(), MutableList.of("retry from start"))))
-                .configure(WorkflowCommonConfig.REPLAYABLE, replayRoot ? WorkflowReplayUtils.ReplayableOption.YES : WorkflowReplayUtils.ReplayableOption.NO));
+                .configure(WorkflowCommonConfig.ON_ERROR,
+                        "automatically".equals(replayRoot) ? null
+                            : MutableList.of(
+                            MutableMap.of("condition", MutableMap.of("error-cause", MutableMap.of("glob", "*Dangling*")),
+                            "step", "retry",
+                            WorkflowCommonConfig.ON_ERROR.getName(), MutableList.of("log non-replay retry for ${workflow.id} due to ${workflow.error}", "retry from start"))))
+                .configure(WorkflowCommonConfig.REPLAYABLE, replayRoot));
     }
 
     protected Task<?> doTestTargetManyChildrenConcurrentlyWithReplay(boolean replayRoot, boolean replayAtNested, boolean replayInNested, String target, int numChildren, String concurrency, int numExpectedWhenWaiting) throws Exception {
@@ -403,6 +410,14 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     @Test(groups="Integration", invocationCount = 100)
     public void testReplayInNestedOnlyManyTimes() throws Exception {
         testReplayInNestedOnly();
+    }
+
+    @Test
+    void testReplayWithAutomaticRecovery() throws Exception {
+        Object result = doTestTargetManyChildrenConcurrentlyWithReplay(false, false, true, "children", 10, "max(1,50%)", 5).get();
+        Asserts.assertEquals(result, app.getChildren().stream().map(Entity::getId).collect(Collectors.toList()));
+        EntityAsserts.assertAttributeEquals(app, COUNT, 10);
+        EntityAsserts.assertAttributeEquals(app, INVOCATIONS, 1);
     }
 
     @Test
@@ -503,18 +518,18 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
             WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                     .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                    .configure(WorkflowCommonConfig.REPLAYABLE, WorkflowReplayUtils.ReplayableOption.YES)
+                    .configure(WorkflowCommonConfig.REPLAYABLE, "from start")
                     .configure(WorkflowCommonConfig.ON_ERROR, REPLAYABLE_OUTER ? MutableList.of("retry replay limit 10") : null)
                     .configure(WorkflowEffector.STEPS, MutableList.of(
                                     MutableMap.of(
                                             "type", "workflow",
                                             "lock", "incrementor",
-                                            "replayable", "true",
+                                            "replayable", "from start",
                                             "steps", MutableList.of(
                                                     "let x = ${entity.sensor.x}",
                                                     MutableMap.of(
                                                             "step", "log ${workflow.id} possibly replaying local ${x} actual ${entity.sensor.x}",
-                                                            "replayable", "yes"),
+                                                            "replayable", "from here"),
                                                     MutableMap.of(
                                                             "step", "goto already-run", // already run
                                                             "condition", MutableMap.of("target", "${entity.sensor.x}", "not", MutableMap.of("equals", "${x}"))),
@@ -628,7 +643,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 List<Task<Object>> newReplays = workflowIds.stream()
                         .map(wf -> new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(wf))
                         .filter(wf -> wf.getStatus().error)
-                        .map(wf -> DynamicTasks.submit(wf.createTaskReplaying(wf.makeInstructionsForReplayingLast("test", false)), app))
+                        .map(wf -> DynamicTasks.submit(wf.createTaskReplaying(wf.makeInstructionsForReplayingFromLastReplayable("test", false)), app))
                         .collect(Collectors.toList());
 
                 if (!OPEN_GATE_EARLY) {

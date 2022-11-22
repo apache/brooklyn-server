@@ -39,12 +39,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_LAST;
 
 public class RetryWorkflowStep extends WorkflowStepDefinition {
 
@@ -299,19 +299,45 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         retries.add(Instant.now());
         context.getWorkflowExectionContext().getRetryRecords().put(hash, retries);
 
+        boolean inErrorHandler = !context.equals(context.getWorkflowExectionContext().getCurrentStepInstance());
         RetryReplayOption replay = context.getInput(REPLAY);
+        String next = this.next;
         if (replay==null) {
-            // default is to replay if next not specified
             replay = next==null ? RetryReplayOption.TRUE : RetryReplayOption.FALSE;
+            if (next==null) next = inErrorHandler ? STEP_TARGET_NAME_FOR_END : STEP_TARGET_NAME_FOR_LAST;
+        } else if (next==null) {
+            next = STEP_TARGET_NAME_FOR_LAST;
         }
 
         if (replay!=RetryReplayOption.FALSE) {
-            if (next==null) {
-                context.next = context.getWorkflowExectionContext().makeInstructionsForReplayingLast(
-                        "Retry replay per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
-            } else {
-                context.next = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
-                        "Retry replay from '"+next+"' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+            context.next = null;
+            if (STEP_TARGET_NAME_FOR_END.equals(next)) {
+                if (!inErrorHandler) {
+                    log.warn("Retry target `"+STEP_TARGET_NAME_FOR_END+"` is only permitted inside an error handler; using `"+STEP_TARGET_NAME_FOR_LAST+"` instead");
+                    next = STEP_TARGET_NAME_FOR_LAST;
+                } else {
+                    context.next = context.getWorkflowExectionContext().makeInstructionsForReplayResuming(
+                            "Retry replay from '" + next + "' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                }
+            }
+            if (context.next==null) {
+                if (STEP_TARGET_NAME_FOR_LAST.equals(next)) {
+                    context.next = null;
+                    int lastReplayStep = context.getWorkflowExectionContext().getReplayableLastStep() != null ? context.getWorkflowExectionContext().getReplayableLastStep() : WorkflowExecutionContext.STEP_INDEX_FOR_START;
+                    if (!inErrorHandler) {
+                        if (context.getStepIndex() == lastReplayStep) {
+                            // can't replay from retry step
+                            lastReplayStep = WorkflowReplayUtils.findNearestReplayPoint(context.getWorkflowExectionContext(), lastReplayStep, false);
+                        }
+                    }
+                    context.next = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(lastReplayStep,
+                            "Retry replay per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                    // could offer retry resuming but that is often not wanted; instead do that if `next` is `end`
+
+                } else {
+                    context.next = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
+                            "Retry replay from '" + next + "' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                }
             }
             log.debug("Retrying with "+context.next);
         } else {
@@ -326,4 +352,5 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

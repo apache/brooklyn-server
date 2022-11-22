@@ -184,4 +184,5 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
         }
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

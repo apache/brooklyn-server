@@ -264,7 +264,7 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
                 "           - let count = ${count} + 1",
                 "           - log count now ${count}",
                 "           - step: set-sensor count = ${count}",
-                "             replayable: yes",  // not needed for this test, but for good measure
+                "             replayable: from here",  // not needed for this test, but for good measure
                 "        - type: return",
                 "          value:",
                 "            n: ${trig}",

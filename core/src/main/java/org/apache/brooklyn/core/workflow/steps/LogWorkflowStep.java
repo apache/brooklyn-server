@@ -51,4 +51,6 @@ public class LogWorkflowStep extends WorkflowStepDefinition {
         LOG.info("{}", message);
         return context.getPreviousStepOutput();
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

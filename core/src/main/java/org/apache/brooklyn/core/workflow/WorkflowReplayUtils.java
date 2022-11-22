@@ -18,16 +18,19 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,20 +41,215 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class WorkflowReplayUtils {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowReplayUtils.class);
 
-    public static Integer findNearestReplayPoint(WorkflowExecutionContext context, int stepIndex) {
-        int stepIndex0 = stepIndex;
+
+    public static boolean isReplayResumable(WorkflowExecutionContext workflowExecutionContext, boolean requireDeeplyReplayable) {
+        WorkflowStepInstanceExecutionContext csi = workflowExecutionContext.currentStepInstance;
+        if (csi!=null) {
+            if (csi.getStepIndex()!=workflowExecutionContext.currentStepIndex) {
+                // always resumable between steps
+                return true;
+            }
+
+            WorkflowStepDefinition stepDefinition = workflowExecutionContext.getStepsResolved().get(csi.stepIndex);
+            if (stepDefinition!=null) {
+                Boolean idempotence = stepDefinition.isIdempotent(csi);
+
+                // 'no' is (currently) not overridable by auto-detection, but `yes` is.
+                if (Boolean.FALSE.equals(idempotence)) return false;
+
+                // if 'yes' or null, we check.
+                if (stepDefinition instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) {
+                    List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true);
+                    if (subWorkflows == null) return false;
+                    if (!requireDeeplyReplayable) return true;
+                    return subWorkflows.stream().allMatch(sub -> isReplayResumable(sub, requireDeeplyReplayable));
+                }
+
+                if (idempotence!=null) return idempotence;
+
+                // shouldn't come here
+                return false;
+
+            } else {
+                return isReplayableFromStep(workflowExecutionContext, csi.stepIndex);
+            }
+        } else {
+            // if between steps or at start or end, can use replayable from step
+            return isReplayableFromStep(workflowExecutionContext, workflowExecutionContext.currentStepIndex);
+        }
+    }
+
+    static boolean isReplayableFromStep(WorkflowExecutionContext workflowExecutionContext, Integer stepIndex) {
+        if (stepIndex==null || stepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_START) {
+            return (Boolean.TRUE.equals(workflowExecutionContext.replayableFromStart) || Objects.equals(workflowExecutionContext.replayableLastStep, WorkflowExecutionContext.STEP_INDEX_FOR_START));
+        }
+        if (stepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_END) {
+            // always "resumable" at end
+            return true;
+        }
+        if (Objects.equals(stepIndex, workflowExecutionContext.currentStepIndex) && Objects.equals(workflowExecutionContext.replayableLastStep, stepIndex)) {
+            return true;
+        }
+
+        WorkflowExecutionContext.OldStepRecord osi = workflowExecutionContext.oldStepInfo.get(stepIndex);
+        if (osi!=null) {
+            return Boolean.TRUE.equals(osi.replayableFromHere);
+        }
+
+        // no step info so hasn't even been registered yet (will be updated before start, but shouldn't come here)
+        return false;
+    }
+
+    public static boolean isReplayableAnywhere(WorkflowExecutionContext workflowExecutionContext) {
+        return workflowExecutionContext.currentStepIndex==null
+                || workflowExecutionContext.replayableLastStep !=null
+                || Boolean.TRUE.equals(workflowExecutionContext.replayableFromStart)
+                || (workflowExecutionContext.currentStepInstance!=null && workflowExecutionContext.currentStepInstance.getStepIndex()!=workflowExecutionContext.currentStepIndex)
+                || workflowExecutionContext.currentStepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_START
+                || workflowExecutionContext.currentStepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_END
+                || isReplayResumable(workflowExecutionContext, true);
+    }
+
+    /** throws error if any argument non-blank invalid; null if nothing to do; otherwise a consumer which will initialize the WEC */
+    public static Consumer<WorkflowExecutionContext> updaterForReplayableAtWorkflow(String replayable, String idempotent, boolean isNestedWorkflowStep) {
+        if (replayable==null) replayable = "";
+        replayable = replayable.toLowerCase().replaceAll("[^a-z]+", " ").trim();
+
+        if (idempotent==null) idempotent = "";
+        idempotent = idempotent.toLowerCase().replaceAll("[^a-z]+", " ").trim();
+        boolean idempotentAll = "all".equals(idempotent);
+        if (idempotentAll) idempotent = "";
+
+        if (!Strings.isBlank(idempotent)) throw new IllegalArgumentException("Invalid value for `idemopotent` on workflow step");
+
+        // replayable:
+        //
+        //`enabled` (the default):  is is permitted to replay resuming wherever the workflow fails on idempotent steps or where there are explicit replay points
+        //`disabled`:  it is not permitted for callers to replay the workflow, whether operator-driven or automatic; resumable steps and replay points in the workflow are not externally visible (but may still be used by replays triggered within the workflow)
+        //`from start`:  the workflow start is a replay point
+        //`automatically`: indicates that on an unhandled Brooklyn failover (DanglingWorkflowException), the workflow should attempt to replay resuming; implies `enabled`,
+        // can be combined with `from start`
+
+        boolean replayableAutomatically = (replayable.contains("automatically"));
+        if (replayableAutomatically) replayable = replayable.replace("automatically", "").trim();
+
+        if (!replayableAutomatically && replayable.equals("enabled")) { replayable = ""; }
+
+        boolean replayableDisabled = !replayableAutomatically && replayable.equals("disabled");
+        if (replayableDisabled) replayable = "";
+
+        boolean replayableFromStart = replayable.equals("from start");
+        if (replayableFromStart) replayable = "";
+
+        if (!Strings.isBlank(replayable)) {
+            if (!replayableAutomatically && isNestedWorkflowStep)
+                validateReplayableAndIdempotentAtStep(replayable, idempotent, false);
+            else if (replayableAutomatically)
+                throw new IllegalArgumentException("Invalid 'replayable' value: 'automatically' cannot be used with '"+replayable+"'");
+            else
+                throw new IllegalArgumentException("Invalid 'replayable' value: '"+replayable+"'");
+        }
+
+        return ctx -> {
+            if (replayableFromStart) {
+                ctx.replayableFromStart = replayableFromStart;
+                ctx.replayableLastStep = WorkflowExecutionContext.STEP_INDEX_FOR_START;
+            }
+            ctx.replayableAutomatically = replayableAutomatically ? true : null;
+            ctx.replayableDisabled = replayableDisabled ? true : null;
+            ctx.idempotentAll = idempotentAll ? true : null;
+        };
+    }
+
+    public static Consumer<WorkflowExecutionContext> updaterForReplayableAtWorkflow(ConfigBag paramsDefiningWorkflow, boolean isNestedWorkflowStep) {
+        return updaterForReplayableAtWorkflow(paramsDefiningWorkflow.get(WorkflowCommonConfig.REPLAYABLE), paramsDefiningWorkflow.get(WorkflowCommonConfig.IDEMPOTENT), isNestedWorkflowStep);
+    }
+
+    public static void updateReplayableFromStep(WorkflowExecutionContext context, WorkflowStepDefinition step) {
+        Pair<ReplayableAtStepOption, Boolean> opt = step.validateReplayableAndIdempotent();
+
+        // idempotence on RHS ignored here, considered when we find the last
+
+        if (opt.getLeft()!=null && opt.getLeft().isReplayPoint) {
+            context.oldStepInfo.get(context.currentStepIndex).replayableFromHere = true;
+            context.replayableLastStep = context.currentStepIndex;
+        }
+        if (opt.getLeft()!=null && opt.getLeft().forcesReset) {
+            context.replayableLastStep = null;
+            context.oldStepInfo.forEach( (k,v) -> {
+                v.replayableFromHere = (opt.getLeft().isReplayPoint && Objects.equals(k, context.currentStepIndex)) ? true : null;
+            });
+        }
+    }
+
+    public enum ReplayableAtStepOption {
+        RESET(false, true), FROM_HERE(true, false), FROM_HERE_ONLY(true, true);
+
+        private final boolean isReplayPoint;
+        private final boolean forcesReset;
+
+        ReplayableAtStepOption(boolean isReplayPoint, boolean forcesReset) {
+            this.isReplayPoint = isReplayPoint;
+            this.forcesReset = forcesReset;
+        }
+
+        public static Maybe<ReplayableAtStepOption> ofMaybe(String replayable) {
+            if (Strings.isBlank(replayable)) return Maybe.absentNull();
+            if ("reset".equalsIgnoreCase(replayable)) return Maybe.of(RESET);
+            if ("from here".equalsIgnoreCase(replayable)) return Maybe.of(FROM_HERE);
+            if ("from here only".equalsIgnoreCase(replayable)) return Maybe.of(FROM_HERE_ONLY);
+            return Maybe.absent("Invalid 'replayable' value: "+replayable);
+        }
+    }
+
+    public static Pair<ReplayableAtStepOption,Boolean> validateReplayableAndIdempotentAtStep(String replayable, String idempotent, boolean asWorkflowDefinition) {
+        if (replayable==null) replayable = "";
+        if (idempotent==null) idempotent = "";
+        replayable = replayable.toLowerCase().replaceAll("[^a-z]+", " ").trim();
+        idempotent = idempotent.toLowerCase().replaceAll("[^a-z]+", " ").trim();
+
+        Maybe<ReplayableAtStepOption> rv = Strings.isBlank(replayable) ? Maybe.ofAllowingNull(null) : ReplayableAtStepOption.ofMaybe(replayable);
+
+        Maybe<Boolean> id = validateIdempotentAtStep(idempotent);
+
+        if (asWorkflowDefinition) {
+            // this will through exception if unacceptable
+            updaterForReplayableAtWorkflow(rv.isPresent() ? null : replayable, id.isPresent() ? null : idempotent, false);
+        } else {
+            rv.get();
+            id.get();
+        }
+
+        return Pair.of(rv.orNull(), id.orNull());
+    }
+
+    private static Maybe<Boolean> validateIdempotentAtStep(String idempotent) {
+        if (Strings.isBlank(idempotent) || idempotent.equals("default")) return Maybe.ofAllowingNull(null);
+        if (idempotent.equals("yes") || idempotent.equals("true")) return Maybe.of(true);
+        if (idempotent.equals("no") || idempotent.equals("false")) return Maybe.of(false);
+        return Maybe.absent("Invalid value for idempotent: '"+idempotent+"'");
+    }
+
+    public static Integer findNearestReplayPoint(final WorkflowExecutionContext context, final int stepIndex0) {
+        return findNearestReplayPoint(context, stepIndex0, true);
+    }
+    public static Integer findNearestReplayPoint(final WorkflowExecutionContext context, final int stepIndex0, boolean allowInclusive) {
+        int stepIndex = stepIndex0;
         Set<Integer> considered = MutableSet.of();
         Set<Integer> possibleOthers = MutableSet.of();
         while (true) {
-            if (WorkflowReplayUtils.isReplayableAtStep(context, stepIndex)) {
+            if (allowInclusive && WorkflowReplayUtils.isReplayableFromStep(context, stepIndex)) {
                 break;
             }
+            allowInclusive = true;
+
             if (stepIndex == WorkflowExecutionContext.STEP_INDEX_FOR_START) {
                 return null;
             }
@@ -92,38 +290,6 @@ public class WorkflowReplayUtils {
         return stepIndex;
     }
 
-    public enum ReplayableOption {
-        OFF, ON, YES, NO, TRUE, FALSE;
-        // where a step has nested workflow,
-        // if it is replaying from an explicit step
-        // - all previous children workflows are marked as old
-        // - new workflows are started
-        // if it is replaying from latest
-        // - if all children are replayable, it simply replays the children, then collects output
-        // - if some children not replayable, it recomputes set of children and
-        //   - skips those which are pre-existing and completed
-        //   - replays from latest those which are pre-existing and replayable
-        //   - marks others as old
-        //   - replays others
-
-        // supporting 'true' as a boolean and string "on" is tedious
-        @JsonCreator
-        public static ReplayableOption fromObject(Object b) {
-            if (b instanceof ReplayableOption) return (ReplayableOption) b;
-            if (b==null) return null;
-            return fromString(b.toString());
-        }
-
-        public static ReplayableOption fromBoolean(boolean b) {
-            if (b) return YES; else return NO;
-        }
-        public static ReplayableOption fromString(String s) {
-            for (ReplayableOption opt: ReplayableOption.values()) {
-                if (opt.name().equalsIgnoreCase(s)) return opt;
-            }
-            throw new IllegalArgumentException("Invalid replayabout option '"+s+"'");
-        }
-    }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class WorkflowReplayRecord {
@@ -191,14 +357,12 @@ public class WorkflowReplayUtils {
     }
 
     /** called when the task is being created */
-    public static void updateOnWorkflowStartOrReplay(WorkflowExecutionContext ctx, Task<?> task, String reasonForReplay, boolean fixedStepReplay) {
+    public static void updateOnWorkflowStartOrReplay(WorkflowExecutionContext ctx, Task<?> task, String reasonForReplay, Integer fixedStepToReplayFrom) {
         WorkflowReplayRecord.add(ctx, task, reasonForReplay);
 
-        if (ctx.replayableCurrentSetting == null) ctx.replayableCurrentSetting = ReplayableOption.OFF;
-
-        if (fixedStepReplay) {
-            // if an explicit step replays, this needs to be reset; otherwise leave it unset (if new) or unchanged (if replay from last)
-            ctx.replayableLastStep = ctx.replayableFromStart ? -1 : null;
+        if (fixedStepToReplayFrom!=null) {
+            // if an explicit step for replay given, that becomes the last step to replay from
+            ctx.replayableLastStep = fixedStepToReplayFrom;
         }
     }
 
@@ -215,97 +379,17 @@ public class WorkflowReplayUtils {
     /** called when the workflow task is starting to run, after WorkflowStartOrReplay */
     public static void updateOnWorkflowTaskStartupOrReplay(WorkflowExecutionContext ctx, Task<?> task, List<WorkflowStepDefinition> stepsResolved, boolean firstRun, Integer optionalReplayStep) {
         WorkflowReplayRecord.updateInternal(ctx, task, null, null);
-
-        if (firstRun) {
-            // set the workflow replayable status, overriding on the basis of the first step (in case they didn't set it on the workflow but did on the first step)
-            ctx.replayableFromStart = isReplayable(ctx.replayableCurrentSetting);
-            if (!ctx.replayableFromStart && !stepsResolved.isEmpty()) {
-                ctx.replayableFromStart = isReplayable(stepsResolved.get(0).replayable);
-                ctx.replayableLastStep = ctx.replayableFromStart ? -1 : null;
-            }
-        }
-
-        // set workflow replayable default value state, in step context
-        if (!firstRun && optionalReplayStep!=null) {
-            // user has requested to replay from a given step, or effectively that
-            WorkflowExecutionContext.OldStepRecord oldStep = ctx.oldStepInfo.get(optionalReplayStep);
-            if (oldStep==null) {
-                // shouldn't happen; possibly an init error
-            } else {
-                ctx.replayableCurrentSetting = oldStep.replayableCurrentSetting;
-            }
-        }
-    }
-
-    public static void updateOnWorkflowStepChange(WorkflowExecutionContext.OldStepRecord currentStepRecord, WorkflowStepInstanceExecutionContext ctx, WorkflowStepDefinition step) {
-        // if new step is replayable, mark it as last
-        ReplayableOption r = step.getReplayable();
-        boolean isReplayableHere;
-        if (r!=null) {
-            isReplayableHere = isReplayable(r);
-            ctx.context.replayableCurrentSetting = r;
-        } else {
-            r = ctx.context.replayableCurrentSetting;
-            isReplayableHere = r==ReplayableOption.ON;
-        }
-        currentStepRecord.replayableCurrentSetting = r;
-        currentStepRecord.replayableFromHere = isReplayableHere;
-        if (isReplayableHere) ctx.context.replayableLastStep = ctx.context.currentStepIndex;
-    }
-
-    public static boolean isReplayable(ReplayableOption setting) {
-        return setting==ReplayableOption.ON || setting==ReplayableOption.YES || setting==ReplayableOption.TRUE;
-    }
-
-    public static boolean isReplayableAtLast(WorkflowExecutionContext workflowExecutionContext, boolean requireDeeplyReplayable) {
-        WorkflowStepInstanceExecutionContext csi = workflowExecutionContext.currentStepInstance;
-        if (csi !=null) {
-            WorkflowStepDefinition stepDefinition = workflowExecutionContext.getStepsResolved().get(csi.stepIndex);
-            if (stepDefinition instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) {
-                List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true);
-                if (subWorkflows==null) return false;
-                if (!requireDeeplyReplayable) return true;
-                return subWorkflows.stream().allMatch(sub -> isReplayableAtLast(sub, requireDeeplyReplayable));
-            } else {
-                return isReplayableAtStep(workflowExecutionContext, csi.stepIndex);
-            }
-        }
-        if (workflowExecutionContext.currentStepIndex!=null) {
-            return isReplayableAtStep(workflowExecutionContext, workflowExecutionContext.currentStepIndex);
-        }
-
-        return isReplayableAtStep(workflowExecutionContext, WorkflowExecutionContext.STEP_INDEX_FOR_START);
-    }
-
-    public static boolean isReplayableAtStep(WorkflowExecutionContext workflowExecutionContext, int stepIndex) {
-        if (stepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_START) {
-            return workflowExecutionContext.replayableFromStart;
-        }
-
-        WorkflowExecutionContext.OldStepRecord osi = workflowExecutionContext.oldStepInfo.get(stepIndex);
-        if (osi!=null && osi.replayableCurrentSetting!=null) {
-            return osi.replayableFromHere;
-        }
-
-        // if no step info so hasn't even started to play yet (will be updated before start)
-        return false;
-    }
-
-    public static boolean isReplayableAnywhere(WorkflowExecutionContext workflowExecutionContext) {
-        return isReplayableAtLast(workflowExecutionContext, true)
-                || workflowExecutionContext.replayableLastStep!=null
-                || isReplayableAtStep(workflowExecutionContext, WorkflowExecutionContext.STEP_INDEX_FOR_START);
     }
 
     /** creates a task to replay the subworkflow, returning it, or null if the workflow completed successfully, or throwing if the workflow cannot be replayed */
-    private static Task<Object> createReplaySubWorkflowTaskOrThrow(WorkflowExecutionContext subWorkflow, WorkflowStepDefinition.ReplayContinuationInstructions instructions) {
+    private static Task<Object> createReplayResumingSubWorkflowTaskOrThrow(WorkflowExecutionContext subWorkflow, WorkflowStepDefinition.ReplayContinuationInstructions instructions) {
         if (instructions.stepToReplayFrom!=null) {
             // shouldn't come here
             throw new IllegalStateException("Cannot replay a nested workflow where the parent started at a specific step");
         } else if (instructions.forced && instructions.customBehavior !=null) {
             // forced, eg throwing exception
             log.debug("Creating task to replay subworkflow " + subWorkflow+" from last, forced with custom behaviour - "+instructions);
-            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayingLastForcedWithCustom(instructions.customBehaviorExplanation, instructions.customBehavior));
+            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayResumingForcedWithCustom(instructions.customBehaviorExplanation, instructions.customBehavior));
         } else {
             if (Objects.equals(subWorkflow.replayableLastStep, WorkflowExecutionContext.STEP_INDEX_FOR_END)) {
                 log.debug("Creating task to replay subworkflow " + subWorkflow+" from last, but already at end - "+instructions);
@@ -313,7 +397,7 @@ public class WorkflowReplayUtils {
             }
             // may throw if not forced and not replayable
             log.debug("Creating task to replay subworkflow " + subWorkflow+" from last: "+instructions);
-            WorkflowStepDefinition.ReplayContinuationInstructions subInstr = subWorkflow.makeInstructionsForReplayingLast(instructions.customBehaviorExplanation, instructions.forced);
+            WorkflowStepDefinition.ReplayContinuationInstructions subInstr = subWorkflow.makeInstructionsForReplayResuming(instructions.customBehaviorExplanation, instructions.forced);
             log.debug("Creating task to replay subworkflow " + subWorkflow+", will use: "+subInstr);
 
             return subWorkflow.createTaskReplaying(subInstr);
@@ -321,16 +405,16 @@ public class WorkflowReplayUtils {
     }
 
     /** replays the workflow indicated by the set, returning the result, or if not possible creates a new task */
-    public static Object replayInSubWorkflow(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
-        Pair<Boolean, Object> check = checkReplayInSubWorkflowAlsoReturningTaskOrResult(summary, context, w, instructions, ifNotReplayable);
+    public static Object replayResumingInSubWorkflow(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
+        Pair<Boolean, Object> check = checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult(summary, context, w, instructions, ifNotReplayable);
         if (check.getLeft()) return DynamicTasks.queue((Task<?>) check.getRight()).getUnchecked();
         else return check.getRight();
     }
 
-    public static Pair<Boolean,Object> checkReplayInSubWorkflowAlsoReturningTaskOrResult(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
+    public static Pair<Boolean,Object> checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
         Task<Object> t;
         try {
-            t = WorkflowReplayUtils.createReplaySubWorkflowTaskOrThrow(w, instructions);
+            t = WorkflowReplayUtils.createReplayResumingSubWorkflowTaskOrThrow(w, instructions);
             if (t == null) {
                 // subworkflow completed
                 return Pair.of(false, w.getOutput());

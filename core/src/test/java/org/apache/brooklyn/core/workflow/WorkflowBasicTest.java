@@ -256,6 +256,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
             return task.apply(context);
         }
+
+        @Override
+        protected Boolean isDefaultIdempotent() {
+            return true;
+        }
     }
 
     @Test
@@ -324,6 +329,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Object workflowId = ids.get("workflow");
             List tasksIds = (List) ids.get("tasks");
 
+            System.out.println(logWatcher.getMessages());
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
                     "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
@@ -331,7 +337,8 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                     "Completed step "+workflowId+"-1; moving to sequential next step "+workflowId+"-2-ii",
                     "Starting step "+workflowId+"-2-ii 'Two' in task "+tasksIds.get(1),
                     "two",
-                    "Completed step "+workflowId+"-2-ii; no further steps: Workflow completed"));
+                    "Completed step "+workflowId+"-2-ii; no further steps: Workflow completed",
+                    "Completed workflow "+workflowId+" successfully; step count: 2 considered, 2 executed"));
         }
     }
 

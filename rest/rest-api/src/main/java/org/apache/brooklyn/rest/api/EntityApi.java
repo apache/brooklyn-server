@@ -480,7 +480,7 @@ public interface EntityApi {
 
     @POST
     @Path("/{entity}/workflows/{workflowId}/replay/from/{step}")
-    @ApiOperation(value = "Replays a workflow from the given step, or 'start' to restart or 'end' to resume from last replayable point; the workflow will rollback to the previous replay point unless forced; returns the task of the replay")
+    @ApiOperation(value = "Replays a workflow from the given step, or 'start' to restart, 'last' to use the last replay point, or 'end' to replay resuming; returns the task of the replay")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),

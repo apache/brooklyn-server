@@ -122,14 +122,14 @@ public class WorkflowStepResolution {
         if (def instanceof WorkflowStepDefinition) {
             WorkflowStepDefinition defW = (WorkflowStepDefinition) def;
 
-            if (shorthand!=null) {
-                defW.populateFromShorthand(shorthand);
-            }
             if (userSuppliedShorthand!=null) {
                 defW.userSuppliedShorthand = userSuppliedShorthand;
             }
             if (typeBestGuess!=null) {
                 defW.shorthandTypeName = typeBestGuess;
+            }
+            if (shorthand!=null) {
+                defW.populateFromShorthand(shorthand);
             }
 
             List<Object> onError = defW.getOnError();

@@ -19,7 +19,6 @@
 package org.apache.brooklyn.core.workflow;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Throwables;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -34,7 +33,6 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -180,7 +178,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Integer index = lastWorkflowContext.getCurrentStepIndex();
         Asserts.assertTrue(index >= 2 && index <= 3, "Index is "+index);
 
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", true)), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayResuming("test", true)), app);
         // the gate is set so this will finish soon
         Asserts.assertEquals(invocation2.getUnchecked(), 11);
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 11);
@@ -256,7 +254,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             Asserts.assertThat(app.sensors().get(Sensors.newSensor(Integer.class, "x")), x -> x == null || x == 1);
 
             // now we can tell it to resume from where it crashed
-            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", true)));
+            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayResuming("test", true)));
 
             // will wait on gate, ie not finish
             Time.sleep((long) (Math.random() * Math.random() * 200));
@@ -392,7 +390,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 Asserts.assertEquals(lastWorkflowContext.status.ended, false);
             }
 
-            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", true)));
+            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayResuming("test", true)));
             if (lastInvocation.blockUntilEnded(Duration.millis(20))) {
                 Asserts.fail("Invocation ended when it shouldn't have, with "+lastInvocation.get());
             }
@@ -407,24 +405,24 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         });
     }
 
-    public static List<Object> INCREMENTING_X_STEPS_SETTING_REPLAYABLE(String replayable) {
+    public static List<Object> INCREMENTING_X_STEPS_SETTING_REPLAYABLE(boolean replayableOnBuggyStep1, boolean replayableOnGoodStep2) {
         return MutableList.<Object>of(
-            MutableMap.of("s", "let integer x = ${entity.sensor.x} ?? 0", "replayable", replayable),
-            "let x = ${x} + 1",
+            MutableMap.of("s", "let integer x = ${entity.sensor.x} ?? 0", "replayable", replayableOnBuggyStep1 ? "from here" : null),
+            MutableMap.of("s", "let x = ${x} + 1", "replayable", replayableOnGoodStep2 ? "from here" : null),
             "set-sensor x = ${x}",
             "wait ${entity.attributeWhenReady.gate}",
             "return ${x}").asUnmodifiable();
     }
 
-    private void runIncrementingXSettingReplayable(boolean isBuggy) {
-        lastInvocation = runSteps(INCREMENTING_X_STEPS_SETTING_REPLAYABLE(isBuggy ? "yes" : "on"), null);
+    private void runIncrementingXSettingReplayable(boolean replayableOnBuggyStep1, boolean replayableOnGoodStep2) {
+        lastInvocation = runSteps(INCREMENTING_X_STEPS_SETTING_REPLAYABLE(replayableOnBuggyStep1, replayableOnGoodStep2), null);
 
         // ensure workflow sensor set immediately (this is done synchronously when effector invocation task is created, to ensure it can be resumed)
         findSingleLastWorkflow();
     }
 
-    private void runIncrementingXAwaitingGateSettingReplayable(boolean isBuggy) {
-        runIncrementingXSettingReplayable(isBuggy);
+    private void runIncrementingXAwaitingGateSettingReplayable(boolean replayableOnBuggyStep1, boolean replayableOnGoodStep2) {
+        runIncrementingXSettingReplayable(replayableOnBuggyStep1, replayableOnGoodStep2);
 
         EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
         // refresh this for good measure (it won't have changed but feels like bad practice to rely on that)
@@ -433,16 +431,26 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
     @Test(groups="Integration")  //because slow
     public void testWorkflowInterruptedAndCanReplaySettingReplayableBuggy() throws IOException {
-        doTestWorkflowInterruptedAndCanReplaySettingReplayable(true);
+        doTestWorkflowInterruptedAndCanReplaySettingReplayable(true, false, false, true);
     }
 
     @Test(groups="Integration")  //because slow
-    public void testWorkflowInterruptedAndCanReplaySettingReplayableSensible() throws IOException {
-        doTestWorkflowInterruptedAndCanReplaySettingReplayable(false);
+    public void testWorkflowInterruptedAndCanReplaySettingReplayableSensibleReplayPoint() throws IOException {
+        doTestWorkflowInterruptedAndCanReplaySettingReplayable(false, true, false, false);
     }
 
-    void doTestWorkflowInterruptedAndCanReplaySettingReplayable(boolean isBuggy) throws IOException {
-        runIncrementingXAwaitingGateSettingReplayable(isBuggy);
+    @Test(groups="Integration")  //because slow
+    public void testWorkflowInterruptedAndCanReplaySettingReplayableSensibleResuming() throws IOException {
+        doTestWorkflowInterruptedAndCanReplaySettingReplayable(false, false, true, false);
+    }
+
+    @Test(groups="Integration")  //because slow
+    public void testWorkflowInterruptedAndCanReplaySettingReplayableSensibleResumingEvenIfBuggyReplayPoint() throws IOException {
+        doTestWorkflowInterruptedAndCanReplaySettingReplayable(true, false, true, false);
+    }
+
+    void doTestWorkflowInterruptedAndCanReplaySettingReplayable(boolean replayableOnBuggyStep1, boolean replayableOnGoodStep2, boolean isResuming, boolean expectBuggy) throws IOException {
+        runIncrementingXAwaitingGateSettingReplayable(replayableOnBuggyStep1, replayableOnGoodStep2);
 
         // cancel the workflow
         lastWorkflowContext.getTask(true).get().cancel(true);
@@ -450,16 +458,22 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         // in buggy mode, should want to continue from 0
         int expected = -1;
-        if (isBuggy) {
+        if (expectBuggy) {
             Asserts.assertThat(lastWorkflowContext.replayableLastStep, step -> step == 0);
             expected = 2;
         } else {
-            Asserts.assertThat(lastWorkflowContext.replayableLastStep, step -> step == 2 || step == 3);
+            if (!isResuming) {
+                Asserts.assertThat(lastWorkflowContext.replayableLastStep, step -> step == 1);
+            }
             expected = 1;
         }
 
         // replay
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", false)), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(
+                isResuming
+                    ? lastWorkflowContext.makeInstructionsForReplayResuming("test", false)
+                    : lastWorkflowContext.makeInstructionsForReplayingFromLastReplayable("test", false)
+                ), app);
 
         // should get 2 because it replays from 0
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);
@@ -468,35 +482,48 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test(groups="Integration")  //because slow
-    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayableBuggyNestedReplay() throws IOException {
-        doTestNestedWorkflowInterruptedAndCanReplaySettingReplayable("yes", 0, true);
+    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayable_BuggyNestedReplay() throws IOException {
+        doTestNestedEffectorWorkflowInterruptedAndCanReplaySettingReplayable(true, true, true, false, false,
+                1, 0, true);
     }
 
     @Test(groups="Integration")  //because slow
-    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayableBuggyTopLevelReplay() throws IOException {
-        doTestNestedWorkflowInterruptedAndCanReplaySettingReplayable("off", null, true);
+    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayable_BuggyTopLevelReplay() throws IOException {
+        doTestNestedEffectorWorkflowInterruptedAndCanReplaySettingReplayable(true, false,false, false, false,
+                -1, null, true);
     }
 
     @Test(groups="Integration")  //because slow
-    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayableSensible() throws IOException {
-        doTestNestedWorkflowInterruptedAndCanReplaySettingReplayable("on", 3, false);
+    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayable_AllPointsAreBuggy() throws IOException {
+        doTestNestedEffectorWorkflowInterruptedAndCanReplaySettingReplayable(true, true, true, true, false,
+                1, 1, true);
     }
 
-    void doTestNestedWorkflowInterruptedAndCanReplaySettingReplayable(String replayable, Integer expectedNestedStep, boolean isBuggy) throws IOException {
+    @Test(groups="Integration")  //because slow
+    public void testNestedWorkflowInterruptedAndCanReplaySettingReplayable_SensibleResuming() throws IOException {
+        doTestNestedEffectorWorkflowInterruptedAndCanReplaySettingReplayable(true, true, true, false, true,
+                1, 0, false);
+    }
+
+    void doTestNestedEffectorWorkflowInterruptedAndCanReplaySettingReplayable(boolean replayableFromStartOuter, boolean replayableOnEffector,
+                                                                              boolean replayableOnBuggyStep1, boolean replayableOnGoodStep2, boolean isResuming,
+                                                                              Integer expectedOuterStep, Integer expectedNestedStep, boolean expectBuggy) throws IOException {
         // replay is only "good" if we set a replay point _after_ the sensor was read;
         // otherwise it increments x twice
         lastInvocation = runSteps(
                 MutableList.of(
-                    MutableMap.of("s", "sleep 20ms", "replayable", "on"), "invoke-effector nestedWorkflow"),
+                    "sleep 20ms",
+                    MutableMap.of("s", "invoke-effector nestedWorkflow", "replayable", replayableOnEffector ? "from here" : null)),
                 app -> {
-                    List<Object> steps = INCREMENTING_X_STEPS_SETTING_REPLAYABLE(replayable);
+                    List<Object> steps = INCREMENTING_X_STEPS_SETTING_REPLAYABLE(replayableOnBuggyStep1, replayableOnGoodStep2);
 
                     WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                             .configure(WorkflowEffector.EFFECTOR_NAME, "nestedWorkflow")
                             .configure(WorkflowEffector.STEPS, steps)
                     );
                     eff.apply((EntityLocal)app);
-                });
+                },
+                ConfigBag.newInstance().configure(WorkflowEffector.REPLAYABLE, replayableFromStartOuter ? "from start" : null));
 
         // ensure workflow sensor set immediately (this is done synchronously when effector invocation task is created, to ensure it can be resumed)
         findSingleLastWorkflow();
@@ -512,7 +539,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         // in buggy mode, should want to continue from 0
         int expected = -1;
-        Asserts.assertThat(lastWorkflowContext.replayableLastStep, step -> step == 1);
+        Asserts.assertThat(lastWorkflowContext.replayableLastStep, step -> Objects.equals(step, expectedOuterStep));
 
         Map<String, WorkflowExecutionContext> workflows = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app);
         Asserts.assertSize(workflows, 2);
@@ -520,14 +547,18 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         Asserts.assertThat(nestedWorkflow.replayableLastStep, step -> Objects.equals(step, expectedNestedStep));
 
-        if (isBuggy) {
+        if (expectBuggy) {
             expected = 2;
         } else {
             expected = 1;
         }
 
         // replay
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingLast("test", false)), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(
+                isResuming
+                        ? lastWorkflowContext.makeInstructionsForReplayResuming("test", false)
+                        : lastWorkflowContext.makeInstructionsForReplayingFromLastReplayable("test", false)
+        ), app);
 
         // should get 2 because it replays from 0
         app.sensors().set(Sensors.newBooleanSensor("gate"), true);
@@ -557,8 +588,9 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 m -> m.matches("Starting .*-1-error-handler with 1 handler in task .*"),
                 m -> m.matches("Creating handler .*-1-error-handler-1 'NoOp' in task .*"),
                 m -> m.matches("Starting .*-1-error-handler-1 in task .*"),
-                m -> m.matches("Completed handler .*-1-error-handler-1; proceeding to default next step"),
-                m -> m.matches("Completed step .*-1; no further steps: Workflow completed")));
+                m -> m.matches("Completed handler .*-1-error-handler; no next step indicated so proceeding to default next step"),
+                m -> m.matches("Completed step .*-1; no further steps: Workflow completed"),
+                m -> m.matches("Completed workflow .* successfully; step count: 1 considered, 1 executed") ));
 
             lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).values().iterator().next();
             Asserts.assertEquals(lastWorkflowContext.currentStepIndex, (Integer) 1);
@@ -591,7 +623,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                     m -> m.matches("Starting .*-error-handler with 1 handler in task .*"),
                     m -> m.matches("Creating handler .*-error-handler-1 'no-op' in task .*"),
                     m -> m.matches("Starting .*-error-handler-1 in task .*"),
-                    m -> m.matches("Completed handler .*-error-handler-1; proceeding to default next step"),
+                    m -> m.matches("Completed handler .*-error-handler; no next step indicated so proceeding to default next step"),
                     m -> m.matches("Handled error in workflow around step .*-1; explicit next 'end': Workflow completed")));
         }
     }

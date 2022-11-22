@@ -93,4 +93,5 @@ public class WaitWorkflowStep extends WorkflowStepDefinition {
         }
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

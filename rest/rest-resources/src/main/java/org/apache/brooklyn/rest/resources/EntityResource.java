@@ -421,7 +421,9 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         if (forced) log.warn(msg); else log.debug(msg);
         if (reason==null) reason = "API replay" + (forced ? " forced" : "");
         Task<Object> t;
-        if ("end".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingLast(reason, forced));
+
+        if ("end".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayResuming(reason, forced));
+        else if ("last".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromLastReplayable(reason, forced));
         else if ("start".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStart(reason, forced));
         else {
             Maybe<Integer> stepNumberRequested = TypeCoercions.tryCoerce(step, Integer.class);

@@ -320,8 +320,8 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
         Object handleModulo(List<String> lhs, List<String> rhs) {
             return applyMathOperator("%", lhs, rhs, (a,b)->a%b, null);
         }
-
-
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 
 }

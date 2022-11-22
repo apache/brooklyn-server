@@ -96,7 +96,8 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
         }
 
         public Task<Object> newSubWorkflowTask(Entity entity, Effector<?> effector, ConfigBag invocationParams, WorkflowExecutionContext parentWorkflow, Consumer<BrooklynTaskTags.WorkflowTaskTag> parentInitializer) {
-            WorkflowExecutionContext w = WorkflowExecutionContext.newInstanceUnpersistedWithParent(entity, parentWorkflow, effector.getName() + " (workflow effector)", ConfigBag.newInstance(this.definitionParams),
+            WorkflowExecutionContext w = WorkflowExecutionContext.newInstanceUnpersistedWithParent(entity, parentWorkflow,
+                    WorkflowExecutionContext.WorkflowContextType.EFFECTOR, effector.getName() + " (workflow effector)", ConfigBag.newInstance(this.definitionParams),
                     effector.getParameters().stream().map(Effectors::asConfigKey).collect(Collectors.toSet()),
                     invocationParams,
                     getFlagsForTaskInvocationAt(entity, effector, invocationParams));

@@ -88,7 +88,7 @@ public class WorkflowRetryTest extends RebindTestFixture<BasicApplication> {
                 MutableMap.of(
                         "s", "let integer x = ${x} + 1 ?? 0",
                         "id", "one",
-                        "replayable", "yes"),
+                        "replayable", "from here"),
 
                 MutableMap.of(
                         "s", "retry",
@@ -147,11 +147,15 @@ public class WorkflowRetryTest extends RebindTestFixture<BasicApplication> {
         }
     }
 
+    private void makeNonReplayableNonIdempotent(Map x) {
+        x.remove("replayable");
+        x.put("idempotent", "no");
+    }
 
     @Test
     public void testNonreplayableRetryFails() {
         try {
-            Task<?> lastInvocation = runSteps(basicSteps(l -> l.get(0).remove("replayable")), null);
+            Task<?> lastInvocation = runSteps(basicSteps(l -> makeNonReplayableNonIdempotent(l.get(0))), null);
             Asserts.shouldHaveFailedPreviously("Instead got "+lastInvocation.getUnchecked());
         } catch (Exception e) {
             Asserts.expectedFailureContainsIgnoreCase(e, "not replayable");
@@ -162,8 +166,8 @@ public class WorkflowRetryTest extends RebindTestFixture<BasicApplication> {
     public void testRetryWithReplayExplicitNextForcedReachesMax() {
         try {
             Task<?> lastInvocation = runSteps(basicSteps(l -> {
-                        l.get(0).remove("replayable");
-                        l.get(1).putAll(MutableMap.of("replay", "force", "next", "one"));
+                        makeNonReplayableNonIdempotent(l.get(0));
+                        l.get(1).putAll(/* force retry replay from step 1 */ MutableMap.of("replay", "force", "next", "one"));
                     }), null);
             Asserts.shouldHaveFailedPreviously("Instead got "+lastInvocation.getUnchecked());
         } catch (Exception e) {
@@ -292,11 +296,11 @@ public class WorkflowRetryTest extends RebindTestFixture<BasicApplication> {
         // replay resets the workflow vars so it keeps setting x = 0
         // will keep
         Thread t = new Thread(() -> {
-            ConfigBag effectorConfig = ConfigBag.newInstance().configureStringKey("replayable", "yes");
+            ConfigBag effectorConfig = ConfigBag.newInstance().configureStringKey("replayable", "from start");
             Object failingStep = "let no_count = ${entity.sensor.no_count} + 1";
 
-            if (onWorkflow) effectorConfig.configureStringKey("on-error", MutableList.of("retry backoff 10ms"));
-            else failingStep = MutableMap.of("s", failingStep, "on-error", MutableList.of("retry backoff 10ms"));
+            if (onWorkflow) effectorConfig.configureStringKey("on-error", MutableList.of("retry replay backoff 10ms"));
+            else failingStep = MutableMap.of("s", failingStep, "on-error", MutableList.of("retry replay backoff 10ms"));
 
             lastInvocation = runSteps(MutableList.of(
                             "let count = ${entity.sensor.count} ?? 0",

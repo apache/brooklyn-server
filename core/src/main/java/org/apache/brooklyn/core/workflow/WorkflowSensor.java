@@ -168,7 +168,8 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
             if (entityOrAdjunct==null) entityOrAdjunct = BrooklynTaskTags.getContextEntity(Tasks.current());
             if (entityOrAdjunct==null) throw new IllegalStateException("No entity adjunct or entity available for "+this);
 
-            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, workflowCallableName, ConfigBag.newInstance(params), null, null, null);
+            WorkflowExecutionContext wc = WorkflowExecutionContext.newInstancePersisted(entityOrAdjunct, WorkflowExecutionContext.WorkflowContextType.SENSOR,
+                    workflowCallableName, ConfigBag.newInstance(params), null, null, null);
             Task<Object> wt = wc.getTask(false /* condition checked by poll config framework */).get();
             if (entityOrAdjunct instanceof EntityAdjunct) {
                 // add tag to each task so it shows up in list on mgmt context

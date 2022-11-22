@@ -109,4 +109,6 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
         context.noteOtherMetadata("Loaded", ByteSizeStrings.java().makeSizeString(data.getBytes().length)+" from "+url+" into "+variable);
         return context.getPreviousStepOutput();
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

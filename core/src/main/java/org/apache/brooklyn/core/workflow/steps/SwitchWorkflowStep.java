@@ -149,4 +149,6 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
         return runOnStepStateIfHasSubWorkflows(context, s -> s.doTaskBodyWithSubWorkflowsForReplay(context, subworkflows, instructions)).get();
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return null; }
 }

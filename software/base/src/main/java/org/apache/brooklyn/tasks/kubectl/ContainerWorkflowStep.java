@@ -124,4 +124,5 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
         }
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

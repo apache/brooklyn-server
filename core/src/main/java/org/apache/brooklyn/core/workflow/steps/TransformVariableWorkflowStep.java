@@ -210,4 +210,5 @@ public class TransformVariableWorkflowStep extends WorkflowStepDefinition {
         return sum(v, "average") / count;
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

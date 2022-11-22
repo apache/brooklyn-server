@@ -24,6 +24,8 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
+
 public class ReturnWorkflowStep extends WorkflowStepDefinition {
 
     public static final String SHORTHAND = "${value...}";
@@ -37,8 +39,9 @@ public class ReturnWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        if (next==null) context.next = "end";
+        if (next==null) context.next = STEP_TARGET_NAME_FOR_END;
         return context.getInput(VALUE);
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
@@ -52,10 +51,8 @@ import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext.Non
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.workflow.DanglingWorkflowException;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.time.Duration;
@@ -303,7 +300,7 @@ public class EntityManagementSupport {
                                         // we also have to wait until mgmt is complete
                                         Entities.submit(entity, w.createTaskReplaying(
                                                 () -> entity.getManagementContext().waitForManagementStartupComplete(Duration.minutes(15)),
-                                                w.makeInstructionsForReplayingLastForcedWithCustom("Resumed dangling on server restart", () -> {
+                                                w.makeInstructionsForReplayResumingForcedWithCustom("Resumed dangling on server restart", () -> {
                                                     throw new DanglingWorkflowException();
                                                 })));
 

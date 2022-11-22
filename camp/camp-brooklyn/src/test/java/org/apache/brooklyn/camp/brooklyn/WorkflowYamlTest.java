@@ -707,6 +707,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
             return MutableMap.of("x", DslUtils.parseBrooklynDsl(context.getManagementContext(), "$brooklyn:config(\"arg1\")"));
         }
+
+        @Override
+        protected Boolean isDefaultIdempotent() {
+            return true;
+        }
     }
 
     @Test(groups="Live")
