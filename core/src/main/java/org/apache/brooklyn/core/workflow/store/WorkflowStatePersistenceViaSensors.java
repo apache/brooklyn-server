@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.core.workflow.store;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -34,6 +33,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -45,23 +45,34 @@ public class WorkflowStatePersistenceViaSensors {
 
     public static final AttributeSensor<Map<String,WorkflowExecutionContext>> INTERNAL_WORKFLOWS = Sensors.newSensor(new TypeToken<Map<String, WorkflowExecutionContext>>() {}, "internals.brooklyn.workflow");
 
-
     private final ManagementContext mgmt;
 
     public WorkflowStatePersistenceViaSensors(ManagementContext mgmt) {
         this.mgmt = mgmt;
     }
 
-   enum PersistenceWithQueuedTasks { ALLOW, WARN, FAIL }
+    enum PersistenceWithQueuedTasks { ALLOW, WARN, FAIL }
+
+    static long lastInMemClear = System.currentTimeMillis();
 
     public void checkpoint(WorkflowExecutionContext context) {
         checkpoint(context, PersistenceWithQueuedTasks.WARN);
     }
     public void checkpoint(WorkflowExecutionContext context, PersistenceWithQueuedTasks expectQueuedTasks) {
+        // keep active workflows in memory, even if disabled
+        WorkflowStateActiveInMemory.get(context.getManagementContext()).checkpoint(context);
 
         Entity entity = context.getEntity();
         if (Entities.isUnmanagingOrNoLongerManaged(entity)) {
             log.debug("Skipping persistence of "+context+" as entity is no longer active here");
+            return;
+        }
+
+        if (Boolean.TRUE.equals(context.getRetentionSettings().disabled)) {
+            if (getFromTag(BrooklynTaskTags.tagForWorkflow(context), false)!=null) {
+                // need to clear
+                updateMap(entity, false, true, v -> v.remove(context.getWorkflowId(), context));
+            }
             return;
         }
 
@@ -74,11 +85,15 @@ public class WorkflowStatePersistenceViaSensors {
             }
         }
 
+        expireOldWorkflows(entity, context);
+    }
+
+    public void expireOldWorkflows(Entity entity, @Nullable WorkflowExecutionContext context) {
         // clear interrupt status so we can persist e.g. if we are interrupted or shutdown
         boolean interrupted = Thread.interrupted();
         boolean doExpiry = WorkflowRetentionAndExpiration.isExpirationCheckNeeded(entity);
         try {
-            updateMap(entity, doExpiry, true, v -> v.put(context.getWorkflowId(), context));
+            updateMap(entity, doExpiry, true, context==null ? null : v -> v.put(context.getWorkflowId(), context));
 
         } finally {
             if (interrupted) Thread.currentThread().interrupt();
@@ -96,9 +111,9 @@ public class WorkflowStatePersistenceViaSensors {
     }
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
-        Map<String, WorkflowExecutionContext> result = entity.sensors().get(INTERNAL_WORKFLOWS);
-        if (result==null) result = ImmutableMap.of();
-        return ImmutableMap.copyOf(result);
+        MutableMap<String, WorkflowExecutionContext> result = MutableMap.copyOf(WorkflowStateActiveInMemory.get(mgmt).getWorkflows(entity));
+        result.add(entity.sensors().get(INTERNAL_WORKFLOWS));
+        return result;
     }
 
     public void updateWithoutPersist(Entity entity, List<WorkflowExecutionContext> workflows) {
@@ -111,17 +126,27 @@ public class WorkflowStatePersistenceViaSensors {
         });
     }
 
-    public Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag nestedWorkflowTag) {
-        Entity targetEntity = mgmt.lookup(nestedWorkflowTag.getEntityId(), Entity.class);
+    public Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag tag) {
+        return getFromTag(tag, true);
+    }
+
+    private Maybe<WorkflowExecutionContext> getFromTag(BrooklynTaskTags.WorkflowTaskTag tag, boolean allowInMemory) {
+        Entity targetEntity = mgmt.lookup(tag.getEntityId(), Entity.class);
         if (targetEntity==null) {
-            return Maybe.absent("Entity "+nestedWorkflowTag.getWorkflowId()+" not found");
+            return Maybe.absent("Entity "+tag.getWorkflowId()+" not found");
         } else {
-            WorkflowExecutionContext nestedWorkflowToReplay = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(targetEntity).get(nestedWorkflowTag.getWorkflowId());
-            if (nestedWorkflowToReplay == null) {
+            WorkflowExecutionContext w = null;
+
+            if (allowInMemory) w = WorkflowStateActiveInMemory.get(mgmt).getFromTag(tag);
+
+            if (w==null) {
+                w = new WorkflowStatePersistenceViaSensors(mgmt).getWorkflows(targetEntity).get(tag.getWorkflowId());
+            }
+            if (w == null) {
                 // shouldn't happen unless workflow was expired, as workflow will be saved before resumption
-                return Maybe.absent("Workflow "+nestedWorkflowTag.getWorkflowId()+" not found on entity "+targetEntity+"; possibly expired?");
+                return Maybe.absent("Workflow "+tag.getWorkflowId()+" not found on entity "+targetEntity+"; possibly expired?");
             } else {
-                return Maybe.of(nestedWorkflowToReplay);
+                return Maybe.of(w);
             }
         }
     }

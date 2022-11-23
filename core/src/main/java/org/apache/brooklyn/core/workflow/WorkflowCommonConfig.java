@@ -43,6 +43,9 @@ public interface WorkflowCommonConfig {
     ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
             "Condition required for this workflow to run");
 
+    ConfigKey<String> RETENTION = ConfigKeys.newStringConfigKey("retention",
+            "Specification for how long workflow should be retained");
+
     ConfigKey<String> REPLAYABLE = ConfigKeys.newStringConfigKey("replayable",
             "Indication of from what points the workflow is replayable");
 

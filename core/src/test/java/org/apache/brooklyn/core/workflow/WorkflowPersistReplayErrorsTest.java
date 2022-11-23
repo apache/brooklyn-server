@@ -23,6 +23,8 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -39,9 +41,11 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -56,6 +60,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicApplication> {
@@ -88,15 +93,18 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     Task<?> runSteps(List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag initialEffectorConfig) {
         BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
         this.app = app;
+        return runStepsOnExistingApp("myWorkflow", steps, appFunction, initialEffectorConfig);
+    }
+    Task<?> runStepsOnExistingApp(String effectorName, List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag initialEffectorConfig) {
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
-                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_NAME, effectorName)
                 .configure(WorkflowEffector.STEPS, steps)
                 .copy(initialEffectorConfig)
         );
         if (appFunction!=null) appFunction.accept(app);
         eff.apply((EntityLocal)app);
 
-        return app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null);
+        return app.invoke(app.getEntityType().getEffectorByName(effectorName).get(), null);
     }
 
     Task<?> lastInvocation;
@@ -543,7 +551,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         Map<String, WorkflowExecutionContext> workflows = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app);
         Asserts.assertSize(workflows, 2);
-        WorkflowExecutionContext nestedWorkflow = workflows.values().stream().filter(w -> w.parentId != null).findAny().get();
+        WorkflowExecutionContext nestedWorkflow = workflows.values().stream().filter(w -> w.getParentTag() != null).findAny().get();
 
         Asserts.assertThat(nestedWorkflow.replayableLastStep, step -> Objects.equals(step, expectedNestedStep));
 
@@ -704,12 +712,12 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
-    public void testTimeoutNotApplyingOnStep() throws Exception {
+    public void testTimeoutNotExceededOnStep() throws Exception {
         doTestTimeout(true, true);
     }
 
     @Test
-    public void testTimeoutNotApplyingOnWorkflow() throws Exception {
+    public void testTimeoutNotExceededOnWorkflow() throws Exception {
         doTestTimeout(true, false);
     }
 
@@ -781,7 +789,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
-    public void testDisabled() {
+    public void testReplayableDisabled() {
         Task<?> out = runSteps(
                 MutableList.of("workflow replayable from here", "let x = ${entity.sensor.count} + 1 ?? 1", "set-sensor count = ${x}", "fail message wtf"),
                 null,
@@ -805,6 +813,138 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         DynamicTasks.submit(wfd.createTaskReplaying(wfd.makeInstructionsForReplayingFromLastReplayable("testing", true)), app).blockUntilEnded();
         EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("count"), 3);
+    }
+
+    @Test
+    public void testRetentionQuickly() throws Exception {
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        // always use the latest mgmt context!
+        Supplier<WorkflowStatePersistenceViaSensors> wp = () -> new WorkflowStatePersistenceViaSensors(mgmt());
+        BrooklynTaskTags.WorkflowTaskTag w1, w2;
+
+        w1 = doTestRetentionDisabled("context", "min(1,2) hash my-fixed-hash", false, false, false);
+        Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "min(1,2)");
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
+
+        w2 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
+        Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "min(1,2)");
+
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w2.getWorkflowId()));
+    }
+
+    @Test(groups="Integration")
+    public void testRetentionManyWaysIncludingDisabled() throws Exception {
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        // always use the latest mgmt context!
+        Supplier<WorkflowStatePersistenceViaSensors> wp = () -> new WorkflowStatePersistenceViaSensors(mgmt());
+        BrooklynTaskTags.WorkflowTaskTag w1, w2, w3;
+
+        doTestRetentionDisabled("disabled", "ignored", true, false, true);
+        doTestRetentionDisabled("1", "disabled", true, false, false);
+        doTestRetentionDisabled("1", "disabled", false, true, true);
+        w1 = doTestRetentionDisabled("1", "min(1,5s)", true, false, false);
+
+        // only w1 should be persisted
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
+
+        // run something else within 5s, should now be persisting 2
+
+        w2 = doTestRetentionDisabled("1", "min(1,5s)", true, false, false);
+
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+
+        // wait 5s and run something, it should cause everything else to expire
+        Time.sleep(Duration.FIVE_SECONDS);
+        wp.get().expireOldWorkflows(app, null);
+        // should now be empty
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of());
+
+        String longWait = "10s";
+
+        w1 = doTestRetentionDisabled("1", "hash my-fixed-hash max(context,"+longWait+")", false, true, false);
+        Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "max(1,"+Duration.of(longWait)+")");
+
+        w2 = doTestRetentionDisabled("disabled", "max(1,"+longWait+") hash my-fixed-hash", false, true, false);
+        Time.sleep(Duration.seconds(5));
+        w3 = doTestRetentionDisabled("hash my-fixed-hash max(1,"+longWait+")", "context", false, true, false);
+        // should now have all 3
+        wp.get().expireOldWorkflows(app, null);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId()));
+
+        Time.sleep(Duration.seconds(5));
+        // now just the last 1 (only 1 in 10s)
+        wp.get().expireOldWorkflows(app, null);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w3.getWorkflowId()));
+
+        Time.sleep(Duration.seconds(5));
+        // still have last 1 (even after 10s)
+        wp.get().expireOldWorkflows(app, null);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w3.getWorkflowId()));
+
+        // run two more, that's all we should have
+        w1 = doTestRetentionDisabled("1", "hash my-fixed-hash", false, true, false);
+        w2 = doTestRetentionDisabled("1", "context", false, true, false);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+    }
+
+    int effNameCount = 0;
+    BrooklynTaskTags.WorkflowTaskTag doTestRetentionDisabled(Object retentionOnWorkflow, String retentionOnStep, boolean rebindBeforeRetentionChangedOnStep, boolean rebindAfterRetentionChangedOnStep, boolean shouldBeDisabled) throws Exception {
+        effNameCount++;
+        AttributeSensor<Integer> a = Sensors.newIntegerSensor("a");
+        AttributeSensor<Integer> b = Sensors.newIntegerSensor("b");
+        ((EntityInternal.SensorSupportInternal)app.sensors()).remove(a);
+        ((EntityInternal.SensorSupportInternal)app.sensors()).remove(b);
+
+        Task<?> out = runStepsOnExistingApp("myWorkflow"+effNameCount,
+                MutableList.of(
+                        "log wait for a in ${workflow.id} ${workflow.name}",
+                        "wait ${entity.attributeWhenReady.a}",
+                        "log got a",
+                        "let result = ${entity.sensor.a}",
+                        "workflow retention "+retentionOnStep,
+                        "log retention step",
+                        "wait ${entity.attributeWhenReady.b}",
+                        "let result = ${result} + ${entity.sensor.b}",
+                        "return ${result}"),
+                null,
+                ConfigBag.newInstance().configure((ConfigKey)WorkflowCommonConfig.RETENTION, retentionOnWorkflow));
+
+        BrooklynTaskTags.WorkflowTaskTag wt = BrooklynTaskTags.getWorkflowTaskTag(out, false);
+
+        if (rebindBeforeRetentionChangedOnStep) {
+            Time.sleep(Duration.millis(500));
+            app = rebind();
+            switchOriginalToNewManagementContext();
+        }
+        app.sensors().set(a, 10);
+        if (rebindAfterRetentionChangedOnStep) {
+            Time.sleep(Duration.millis(500));
+            app = rebind();
+            switchOriginalToNewManagementContext();
+        }
+        app.sensors().set(b, 1);
+
+        Maybe<WorkflowExecutionContext> wf = new WorkflowStatePersistenceViaSensors(mgmt()).getFromTag(wt);
+
+        if (shouldBeDisabled) {
+            Time.sleep(Duration.millis(500));
+            if (wf.isPresent()) Asserts.fail("Workflow persistence should be disabled, instead found: "+wf.get());
+
+        } else {
+            if (wf.isAbsent()) Asserts.fail("Workflow persistence should be enabled, instead did not find it");
+            lastWorkflowContext = wf.get();
+            lastInvocation = lastWorkflowContext.getTask(false).get();
+            if (rebindAfterRetentionChangedOnStep || rebindBeforeRetentionChangedOnStep) {
+                // was interrupted, make sure the dangling handler finishes then replay
+                lastInvocation.blockUntilEnded(Duration.FIVE_SECONDS);
+                lastInvocation = Entities.submit(app, lastWorkflowContext.factory(false).createTaskReplaying(lastWorkflowContext.factory(false).makeInstructionsForReplayResuming("test", true)));
+            }
+
+            Asserts.assertEquals(lastInvocation.getUnchecked(Duration.seconds(5)), 11);
+        }
+        return wt;
     }
 
 }

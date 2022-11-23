@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
+import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
@@ -124,9 +125,10 @@ public class WorkflowExecutionContext {
     }
 
     WorkflowStatus status;
+    Instant lastStatusChangeTime;
 
-    transient WorkflowExecutionContext parent;
-    String parentId;
+    @JsonIgnore private transient WorkflowExecutionContext parent;
+    private BrooklynTaskTags.WorkflowTaskTag parentTag;
 
     // should be treated as raw json
     @JsonDeserialize(contentUsing = JsonPassThroughDeserializer.class)
@@ -154,7 +156,7 @@ public class WorkflowExecutionContext {
     transient Task<Object> task;
 
     @JsonProperty("retention")
-    WorkflowRetentionAndExpiration.RetentionInstruction retention;
+    WorkflowRetentionAndExpiration.WorkflowRetentionSettings retention;
 
     /** all tasks created for this workflow */
     Set<WorkflowReplayUtils.WorkflowReplayRecord> replays = MutableSet.of();
@@ -252,6 +254,7 @@ public class WorkflowExecutionContext {
                 WorkflowReplayUtils.updaterForReplayableAtWorkflow(paramsDefiningWorkflow, wcType == WorkflowContextType.NESTED_WORKFLOW),
                 optionalTaskFlags);
 
+        w.retention = WorkflowRetentionParser.parse(paramsDefiningWorkflow.get(WorkflowCommonConfig.RETENTION)).init(w);
         w.lock = paramsDefiningWorkflow.get(WorkflowCommonConfig.LOCK);
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
         w.onError = paramsDefiningWorkflow.get(WorkflowCommonConfig.ON_ERROR);
@@ -262,7 +265,7 @@ public class WorkflowExecutionContext {
         w.setCondition(w.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_STARTING_POST_INPUT, paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
 
         // finished -- checkpoint noting this has been created but not yet started
-        w.status = WorkflowStatus.STAGED;
+        w.updateStatus(WorkflowStatus.STAGED);
         return w;
     }
 
@@ -295,7 +298,25 @@ public class WorkflowExecutionContext {
 
     public void initParent(WorkflowExecutionContext parent) {
         this.parent = parent;
-        this.parentId = parent ==null ? null : parent.workflowId;
+        this.parentTag = parent==null ? null : BrooklynTaskTags.tagForWorkflow(parent);
+    }
+
+    @JsonIgnore
+    public WorkflowExecutionContext getParent() {
+        if (parent==null && parentTag!=null) {
+            Entity entity = getManagementContext().getEntityManager().getEntity(parentTag.getEntityId());
+            if (entity==null) {
+                log.warn("Parent workflow "+parentTag+" for "+this+" is on an entity no longer known; unparenting this workflow");
+                parentTag = null;
+            } else {
+                parent = new WorkflowStatePersistenceViaSensors(getManagementContext()).getWorkflows(entity).get(parentTag.getWorkflowId());
+                if (parent==null) {
+                    log.warn("Parent workflow "+parentTag+" for "+this+" is no longer known; unparenting this workflow");
+                    parentTag = null;
+                }
+            }
+        }
+        return parent;
     }
 
     public static void validateSteps(ManagementContext mgmt, List<WorkflowStepDefinition> steps, boolean alreadyValidatedIndividualSteps) {
@@ -336,8 +357,8 @@ public class WorkflowExecutionContext {
         return entity;
     }
 
-    public String getParentId() {
-        return parentId;
+    public BrooklynTaskTags.WorkflowTaskTag getParentTag() {
+        return parentTag;
     }
 
     public Map<String, Object> getWorkflowScratchVariables() {
@@ -579,6 +600,20 @@ public class WorkflowExecutionContext {
         return resolve(stage, v, key.getTypeToken());
     }
 
+    public WorkflowStatus getStatus() {
+        return status;
+    }
+
+    void updateStatus(WorkflowStatus newStatus) {
+        status = newStatus;
+        lastStatusChangeTime = Instant.now();
+    }
+
+    @JsonIgnore
+    public Instant getLastStatusChangeTime() {
+        return lastStatusChangeTime;
+    }
+
     public Integer getCurrentStepIndex() {
         return currentStepIndex;
     }
@@ -627,10 +662,6 @@ public class WorkflowExecutionContext {
         return replayableLastStep;
     }
 
-    public WorkflowStatus getStatus() {
-        return status;
-    }
-
     public WorkflowStepInstanceExecutionContext getErrorHandlerContext() {
         return errorHandlerContext;
     }
@@ -642,21 +673,39 @@ public class WorkflowExecutionContext {
         return "anonymous-workflow";
     }
 
+    public void updateRetentionFrom(WorkflowRetentionAndExpiration.WorkflowRetentionSettings other) {
+        WorkflowRetentionAndExpiration.WorkflowRetentionSettings r = getRetentionSettings();
+        r.updateFrom(other);
+        retention = r;
+        retentionDefault = null;
+    }
+
+    @JsonIgnore private transient WorkflowRetentionAndExpiration.WorkflowRetentionSettings retentionDefault;
+    @JsonIgnore
+    public WorkflowRetentionAndExpiration.WorkflowRetentionSettings getRetentionSettings() {
+        if (retention==null) {
+            if (retentionDefault==null) {
+                retentionDefault = new WorkflowRetentionAndExpiration.WorkflowRetentionSettings().init(this);
+            }
+            return retentionDefault;
+        }
+        return retention;
+    }
 
     public void markShutdown() {
         log.debug(this+" was "+this.status+" but now marking as "+WorkflowStatus.ERROR_SHUTDOWN+"; compensating workflow should be triggered shortly");
-        this.status = WorkflowStatus.ERROR_SHUTDOWN;
+        this.updateStatus(WorkflowStatus.ERROR_SHUTDOWN);
         // don't persist; that will happen when workflows are kicked off
     }
 
     @JsonIgnore
     /** Error handlers _could_ launch sub-workflow, but they typically don't */
     protected boolean isInErrorHandlerSubWorkflow() {
-        if (parent!=null) {
-            if (parent.getErrorHandlerContext()!=null) {
+        if (getParent()!=null) {
+            if (getParent().getErrorHandlerContext()!=null) {
                 return true;
             }
-            return parent.isInErrorHandlerSubWorkflow();
+            return getParent().isInErrorHandlerSubWorkflow();
         }
         return false;
     }
@@ -844,7 +893,7 @@ public class WorkflowExecutionContext {
                         WorkflowReplayUtils.updateOnWorkflowTaskStartupOrReplay(WorkflowExecutionContext.this, task, getStepsResolved(), !replaying, replayFromStep);
 
                         // show task running
-                        status = WorkflowStatus.RUNNING;
+                        updateStatus(WorkflowStatus.RUNNING);
 
                         if (replaying) initializeFromContinuationInstructions(replayFromStep);
 
@@ -1029,7 +1078,7 @@ public class WorkflowExecutionContext {
 
         private void updateOnSuccessfulCompletion() {
             // finished -- checkpoint noting previous step and null for current because finished
-            status = WorkflowStatus.SUCCESS;
+            updateStatus(WorkflowStatus.SUCCESS);
             replayableLastStep = STEP_INDEX_FOR_END;
             // record how it ended
             oldStepInfo.compute(previousStepIndex == null ? STEP_INDEX_FOR_START : previousStepIndex, (index, old) -> {
@@ -1131,7 +1180,7 @@ public class WorkflowExecutionContext {
         }
 
         private Object endWithError(Throwable e, WorkflowStatus provisionalStatus) {
-            status = provisionalStatus;
+            updateStatus(provisionalStatus);
             WorkflowReplayUtils.updateOnWorkflowError(WorkflowExecutionContext.this, task, e);
 
             try {

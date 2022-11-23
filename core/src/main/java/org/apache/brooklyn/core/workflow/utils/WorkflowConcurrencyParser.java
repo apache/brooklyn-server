@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps.utils;
+package org.apache.brooklyn.core.workflow.utils;
 
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -28,7 +28,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public class WorkflowConcurrency {
+public class WorkflowConcurrencyParser {
 
     /*
 a number to indicate the maximum number of simultaneous executions (with "1" being the default, for no concurrency)
@@ -39,13 +39,13 @@ the string "min(...)" or "max(...)", where "..." is a comma separated list of va
      */
 
     public static Function<Double,Double> parse(String concurrencyExpression) {
-        return new WorkflowConcurrency(concurrencyExpression).parse();
+        return new WorkflowConcurrencyParser(concurrencyExpression).parse();
     }
 
     String concurrencyExpression;
     String rest;
 
-    protected WorkflowConcurrency(String concurrencyExpression) {
+    protected WorkflowConcurrencyParser(String concurrencyExpression) {
         this.concurrencyExpression = concurrencyExpression;
     }
 
@@ -221,10 +221,10 @@ the string "min(...)" or "max(...)", where "..." is a comma separated list of va
         }
         negated = false;
 
-        term = eatFn("min", WorkflowConcurrency::min);
+        term = eatFn("min", WorkflowConcurrencyParser::min);
         if (term.isPresent()) return term.get();
 
-        term = eatFn("max", WorkflowConcurrency::max);
+        term = eatFn("max", WorkflowConcurrencyParser::max);
         if (term.isPresent()) return term.get();
 
         if (eat("(")) return parseGroupedTerm(true);

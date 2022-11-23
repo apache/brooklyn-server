@@ -289,8 +289,7 @@ public class EntityManagementSupport {
                             WorkflowStatePersistenceViaSensors persister = new WorkflowStatePersistenceViaSensors(info.getManagementContext());
                             Map<String, WorkflowExecutionContext> workflows = persister.getWorkflows(entity);
                             List<WorkflowExecutionContext> shutdownInterruptedWorkflows = workflows.values().stream().filter(w ->
-                                            w.getStatus() == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN &&
-                                                    w.getParentId() == null)
+                                            w.getStatus() == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN && w.getParentTag() == null)
                                     .collect(Collectors.toList());
                             if (!shutdownInterruptedWorkflows.isEmpty()) {
                                 log.debug("Discovered workflows noted as 'interrupted' on startup at "+entity+", will resume as dangling: "+shutdownInterruptedWorkflows);

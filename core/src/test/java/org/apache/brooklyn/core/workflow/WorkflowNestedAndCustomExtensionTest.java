@@ -36,7 +36,8 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
-import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
+import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
+import org.apache.brooklyn.core.workflow.utils.WorkflowConcurrencyParser;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
@@ -69,6 +70,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
         app = null; // clear this
+        mgmt.getBrooklynProperties().put(WorkflowRetentionAndExpiration.WORKFLOW_RETENTION_DEFAULT, "forever");
         return super.decorateOrigOrNewManagementContext(mgmt);
     }
 
@@ -206,12 +208,21 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
     @Test
     public void testTargetExplicitList() throws Exception {
-        Object output;
-        output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
+        doTestTargetExplicitList(Strings.lines("- 1", "- 2", "- 3", "- 4", "- 5"));
+    }
+
+    @Test
+    public void testTargetRangeSyntax() throws Exception {
+        doTestTargetExplicitList("1..5");
+    }
+
+    public void doTestTargetExplicitList(String body) throws Exception {
+        Object output = invokeWorkflowStepsWithLogging(MutableList.of(Iterables.getOnlyElement(Yamls.parseAll(Strings.lines(
                 "type: workflow",
                 "steps:",
                 "  - type: workflow",
-                "    target: 1..5",
+                "    target:",
+                Strings.indent(6, body),
                 "    steps:",
                 "    - let integer r = ${target} * 5 - ${target} * ${target}",
                 "    - return ${r}",
@@ -246,16 +257,16 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
     @Test
     public void testWorkflowConcurrencyComputation() throws Exception {
-        Asserts.assertEquals(WorkflowConcurrency.parse("3").apply(2d), 3d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("all").apply(2d), 2d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("max(1,all)").apply(2d), 2d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("50%").apply(10d), 5d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("max(50%,30%+1)").apply(10d), 5d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("min(50%,30%+1)").apply(10d), 4d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("max(1,min(-10,30%+1))").apply(10d), 1d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("max(1,min(-10,30%+1))").apply(20d), 7d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("max(1,min(-10,30%+1))").apply(15d), 5d);
-        Asserts.assertEquals(WorkflowConcurrency.parse("max(1,min(-10,30%-2))").apply(15d), 2.5d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("3").apply(2d), 3d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("all").apply(2d), 2d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("max(1,all)").apply(2d), 2d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("50%").apply(10d), 5d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("max(50%,30%+1)").apply(10d), 5d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("min(50%,30%+1)").apply(10d), 4d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("max(1,min(-10,30%+1))").apply(10d), 1d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("max(1,min(-10,30%+1))").apply(20d), 7d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("max(1,min(-10,30%+1))").apply(15d), 5d);
+        Asserts.assertEquals(WorkflowConcurrencyParser.parse("max(1,min(-10,30%-2))").apply(15d), 2.5d);
     }
 
     static AttributeSensor<Integer> INVOCATIONS = Sensors.newSensor(Integer.class, "invocations");

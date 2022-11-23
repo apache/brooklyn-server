@@ -38,7 +38,8 @@ import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
-import org.apache.brooklyn.core.workflow.steps.utils.WorkflowConcurrency;
+import org.apache.brooklyn.core.workflow.utils.WorkflowConcurrencyParser;
+import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -82,7 +83,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         retention = (String) input.remove("retention");
     }
 
-    Object retention;
+    String retention;
 
     /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */
     Object target;
@@ -162,7 +163,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        // TODO workflow settings
+        // 'replayable from here' configured elsewhere
+
+        // 'retention xxx'
+        if (retention!=null) {
+            context.getWorkflowExectionContext().updateRetentionFrom(WorkflowRetentionParser.parse(retention).init(context.getWorkflowExectionContext()));
+        }
 
         if (steps==null) {
             return context.getPreviousStepOutput();
@@ -224,7 +230,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             if (c instanceof Number) {
                 // okay
             } else if (c instanceof String) {
-                c = WorkflowConcurrency.parse((String) c).apply((double) nestedWorkflowContexts.size());
+                c = WorkflowConcurrencyParser.parse((String) c).apply((double) nestedWorkflowContexts.size());
             } else {
                 throw new IllegalArgumentException("Unsupported concurrency object: '" + c + "'");
             }
@@ -428,6 +434,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 .configure(WorkflowCommonConfig.STEPS, steps)
                 .configure(WorkflowCommonConfig.INPUT, includeInput ? input : null)  // input is resolved in outer workflow so it can reference outer workflow vars
                 .configure(WorkflowCommonConfig.OUTPUT, workflowOutput)
+                .configure(WorkflowCommonConfig.RETENTION, retention)
                 .configure(WorkflowCommonConfig.REPLAYABLE, replayable)
                 .configure(WorkflowCommonConfig.IDEMPOTENT, idempotent)
                 .configure(WorkflowCommonConfig.ON_ERROR, onError)
