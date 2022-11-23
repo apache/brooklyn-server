@@ -298,9 +298,9 @@ public class EntityManagementSupport {
                                     shutdownInterruptedWorkflows.forEach(w -> {
                                         // these are backgrounded because they are expected to fail
                                         // we also have to wait until mgmt is complete
-                                        Entities.submit(entity, w.createTaskReplaying(
+                                        Entities.submit(entity, w.factory(true).createTaskReplaying(
                                                 () -> entity.getManagementContext().waitForManagementStartupComplete(Duration.minutes(15)),
-                                                w.makeInstructionsForReplayResumingForcedWithCustom("Resumed dangling on server restart", () -> {
+                                                w.factory(true).makeInstructionsForReplayResumingForcedWithCustom("Resumed dangling on server restart", () -> {
                                                     throw new DanglingWorkflowException();
                                                 })));
 

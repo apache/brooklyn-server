@@ -73,8 +73,8 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
     }
 
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
-        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly);
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled);
     }
 
     @Override
@@ -83,7 +83,7 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
                 (w, e)-> {
                     LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
                     return doTaskBody(context);
-                });
+                }, true);
     }
 
     @Override

@@ -144,7 +144,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Asserts.assertEquals(lastWorkflowContext.status, WorkflowExecutionContext.WorkflowStatus.SUCCESS);
 
         app.sensors().set(Sensors.newBooleanSensor("gate"), false);
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayingFromStep(1, "Test", true)), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.factory(false).createTaskReplaying(lastWorkflowContext.factory(false).makeInstructionsForReplayingFromStep(1, "Test", true)), app);
         // sensor should go back to 1 because workflow vars are stored per-state
         EntityAsserts.assertAttributeEqualsEventually(app, Sensors.newSensor(Object.class, "x"), 1);
         Time.sleep(10);
@@ -178,7 +178,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         Integer index = lastWorkflowContext.getCurrentStepIndex();
         Asserts.assertTrue(index >= 2 && index <= 3, "Index is "+index);
 
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayResuming("test", true)), app);
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.factory(false).createTaskReplaying(lastWorkflowContext.factory(false).makeInstructionsForReplayResuming("test", true)), app);
         // the gate is set so this will finish soon
         Asserts.assertEquals(invocation2.getUnchecked(), 11);
         EntityAsserts.assertAttributeEquals(app, Sensors.newSensor(Object.class, "x"), 11);
@@ -254,7 +254,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             Asserts.assertThat(app.sensors().get(Sensors.newSensor(Integer.class, "x")), x -> x == null || x == 1);
 
             // now we can tell it to resume from where it crashed
-            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayResuming("test", true)));
+            lastInvocation = Entities.submit(app, lastWorkflowContext.factory(false).createTaskReplaying(lastWorkflowContext.factory(false).makeInstructionsForReplayResuming("test", true)));
 
             // will wait on gate, ie not finish
             Time.sleep((long) (Math.random() * Math.random() * 200));
@@ -390,7 +390,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 Asserts.assertEquals(lastWorkflowContext.status.ended, false);
             }
 
-            lastInvocation = Entities.submit(app, lastWorkflowContext.createTaskReplaying(lastWorkflowContext.makeInstructionsForReplayResuming("test", true)));
+            lastInvocation = Entities.submit(app, lastWorkflowContext.factory(false).createTaskReplaying(lastWorkflowContext.factory(false).makeInstructionsForReplayResuming("test", true)));
             if (lastInvocation.blockUntilEnded(Duration.millis(20))) {
                 Asserts.fail("Invocation ended when it shouldn't have, with "+lastInvocation.get());
             }
@@ -469,10 +469,10 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         }
 
         // replay
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.factory(false).createTaskReplaying(
                 isResuming
-                    ? lastWorkflowContext.makeInstructionsForReplayResuming("test", false)
-                    : lastWorkflowContext.makeInstructionsForReplayingFromLastReplayable("test", false)
+                    ? lastWorkflowContext.factory(false).makeInstructionsForReplayResuming("test", false)
+                    : lastWorkflowContext.factory(false).makeInstructionsForReplayingFromLastReplayable("test", false)
                 ), app);
 
         // should get 2 because it replays from 0
@@ -554,10 +554,10 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         }
 
         // replay
-        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.createTaskReplaying(
+        Task<Object> invocation2 = DynamicTasks.submit(lastWorkflowContext.factory(false).createTaskReplaying(
                 isResuming
-                        ? lastWorkflowContext.makeInstructionsForReplayResuming("test", false)
-                        : lastWorkflowContext.makeInstructionsForReplayingFromLastReplayable("test", false)
+                        ? lastWorkflowContext.factory(false).makeInstructionsForReplayResuming("test", false)
+                        : lastWorkflowContext.factory(false).makeInstructionsForReplayingFromLastReplayable("test", false)
         ), app);
 
         // should get 2 because it replays from 0
@@ -584,9 +584,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                 m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),
                 m -> m.matches("Starting step .*-1 in task .*"),
                 m -> m.matches("Encountered error in step .*-1 '1 - invoke-effector does-not-exist' .handler present.: No effector matching 'does-not-exist'"),
-                m -> m.matches("Creating step .*-1 error handler .*-1-error-handler in task .*"),
-                m -> m.matches("Starting .*-1-error-handler with 1 handler in task .*"),
-                m -> m.matches("Creating handler .*-1-error-handler-1 'NoOp' in task .*"),
+                m -> m.matches("Starting .*-1-error-handler with 1 step in task .*"),
                 m -> m.matches("Starting .*-1-error-handler-1 in task .*"),
                 m -> m.matches("Completed handler .*-1-error-handler; no next step indicated so proceeding to default next step"),
                 m -> m.matches("Completed step .*-1; no further steps: Workflow completed"),
@@ -616,15 +614,55 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             Asserts.assertEntriesSatisfy(msgs, MutableList.of(
                     m -> m.matches("Starting workflow 'myWorkflow .workflow effector.', moving to first step .*-1"),
                     m -> m.matches("Starting step .*-1 in task .*"),
-                    m -> m.matches("Error in step '1 - invoke-effector does-not-exist', no error handler so rethrowing: No effector matching 'does-not-exist'"),
+                    m -> m.matches("Error in step '1 - invoke-effector does-not-exist'; rethrowing: No effector matching 'does-not-exist'"),
                     m -> m.matches("Error in workflow 'myWorkflow .workflow effector.' around step .*-1, running error handler"),
                     m -> m.matches("Encountered error in workflow .*/.* 'myWorkflow .workflow effector.' .handler present.: No effector matching 'does-not-exist'"),
-                    m -> m.matches("Creating workflow .* error handler .*-error-handler in task .*"),
-                    m -> m.matches("Starting .*-error-handler with 1 handler in task .*"),
-                    m -> m.matches("Creating handler .*-error-handler-1 'no-op' in task .*"),
+                    m -> m.matches("Starting .*-error-handler with 1 step in task .*"),
                     m -> m.matches("Starting .*-error-handler-1 in task .*"),
                     m -> m.matches("Completed handler .*-error-handler; no next step indicated so proceeding to default next step"),
-                    m -> m.matches("Handled error in workflow around step .*-1; explicit next 'end': Workflow completed")));
+                    m -> m.matches("Handled error in workflow around step .*-1; inferred next step 'end': Workflow completed")));
+        }
+    }
+
+    @Test
+    public void testErrorHandlerListWithGotoExit() throws IOException {
+        try (ClassLogWatcher logWatcher = new ClassLogWatcher(getClass().getPackage().getName())) {
+            lastInvocation = runSteps(MutableList.of(
+                            MutableMap.of("s", "invoke-effector does-not-exist",
+                                    "output", "NOT returned",
+                                    "on-error", MutableList.of(
+                                            "log Error handler 1-1",
+                                            MutableMap.of("step", "log Error handler 1-2",
+                                                    "output", "from 1-2"),
+                                            MutableMap.of("step", "log NOT shown because of condition",
+                                                    "condition", MutableMap.of("target", "${output}", "equals", "NOT matched")),
+                                            MutableMap.of("step", "log Error handler 1-4 has output ${output}",
+                                                    "condition", MutableMap.of("target", "${output}", "glob", "from *")),
+                                            MutableMap.of("step", "log Step created-but-not-logged because of bad variable ${not_available}",
+                                                    "on-error", MutableList.of(
+                                                            MutableMap.of("step", "log Error handler 1-5-1", "output", "from 1-5-1"),
+                                                            "goto exit",
+                                                            "log NOT shown after inner exit")
+                                                    ),
+                                            "log Error handler 1-6",
+                                            "goto exit",
+                                            "log NOT shown because of earlier exit")
+                                    ),
+                            "log Step 2 has output ${output}"
+                            ),
+                    null);
+            Asserts.assertEquals(lastInvocation.getUnchecked(), "from 1-5-1");
+
+            List<String> msgs = logWatcher.getMessages();
+            log.info("Error handler output:\n"+msgs.stream().collect(Collectors.joining("\n")));
+            Asserts.assertEquals(msgs.stream().filter(s -> s.contains("NOT")).findAny().orElse(null), null);
+            Asserts.assertEquals(msgs.stream().filter(s -> s.contains("created-but-not-logged") && !s.contains("Creating handler")).findAny().orElse(null), null);
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-1")).findAny().orElse(null));
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-2")).findAny().orElse(null));
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-4")).findAny().orElse(null));
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-5-1")).findAny().orElse(null));
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("1-6")).findAny().orElse(null));
+            Asserts.assertNotNull(msgs.stream().filter(s -> s.contains("Step 2 has output from 1-5-1")).findAny().orElse(null));
         }
     }
 
@@ -740,6 +778,33 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
                                 "condition", MutableMap.of("error-cause", MutableMap.of("regex", ".*Fail.*wtf.*")))))
         );
         Asserts.assertEquals(out.getUnchecked(), "Yay WTF");
+    }
+
+    @Test
+    public void testDisabled() {
+        Task<?> out = runSteps(
+                MutableList.of("workflow replayable from here", "let x = ${entity.sensor.count} + 1 ?? 1", "set-sensor count = ${x}", "fail message wtf"),
+                null,
+                ConfigBag.newInstance().configure(WorkflowCommonConfig.REPLAYABLE, "disabled"));
+        out.blockUntilEnded();
+        EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("count"), 1);
+
+        lastWorkflowContext = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).values().iterator().next();
+
+        WorkflowExecutionContext.Factory wff = lastWorkflowContext.factory(true);
+        DynamicTasks.submit(wff.createTaskReplaying(wff.makeInstructionsForReplayingFromLastReplayable("testing", false)), app).blockUntilEnded();
+        EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("count"), 2);
+
+        WorkflowExecutionContext.Factory wfd = lastWorkflowContext.factory(false);
+        Asserts.assertFailsWith(() -> wfd.createTaskReplaying(wfd.makeInstructionsForReplayingFromLastReplayable("testing", false)),
+                e -> {
+                    Asserts.expectedFailureContainsIgnoreCase(e, "disabled");
+                    return true;
+                });
+        EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("count"), 2);
+
+        DynamicTasks.submit(wfd.createTaskReplaying(wfd.makeInstructionsForReplayingFromLastReplayable("testing", true)), app).blockUntilEnded();
+        EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("count"), 3);
     }
 
 }

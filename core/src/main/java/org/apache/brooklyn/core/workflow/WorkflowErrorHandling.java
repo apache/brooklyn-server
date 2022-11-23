@@ -59,9 +59,12 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
         if (errorStepIfNested!=null) {
             // already has error-handler reference, either from here or from computed name
-            taskName = context.getWorkflowStepReference()+"-"+errorStepIfNested;
+            taskName = context.getWorkflowStepReference()+"-"+(errorStepIfNested+1);
         } else {
-            taskName += "-"+LABEL_FOR_ERROR_HANDLER;
+            if (!taskName.contains(LABEL_FOR_ERROR_HANDLER)) {
+                // think this may happen but only for workflow errors?
+                taskName += "-" + LABEL_FOR_ERROR_HANDLER;
+            }
         }
 
         Task<WorkflowErrorHandlingResult> task = Tasks.<WorkflowErrorHandlingResult>builder().dynamic(true).displayName(taskName)
@@ -70,7 +73,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
                 .body(new WorkflowErrorHandling(step.getOnError(), context.getWorkflowExectionContext(), context.getWorkflowExectionContext().currentStepIndex, stepTask, error))
                 .build();
         TaskTags.addTagDynamically(stepTask, BrooklynTaskTags.tagForErrorHandledBy(task));
-        log.debug("Creating step "+context.getWorkflowStepReference()+" error handler "+task.getDisplayName()+" in task " + task.getId());
+        log.trace("Creating error handler for step  "+context.getWorkflowStepReference()+" - "+task.getDisplayName()+" in task " + task.getId());
         return task;
     }
 
@@ -83,7 +86,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
                 .body(new WorkflowErrorHandling(context.onError, context, null, workflowTask, error))
                 .build();
         TaskTags.addTagDynamically(workflowTask, BrooklynTaskTags.tagForErrorHandledBy(task));
-        log.debug("Creating workflow "+context.getWorkflowId()+"/"+context.getTaskId()+" error handler "+task.getDisplayName()+" in task " + task.getId());
+        log.trace("Creating error handler for workflow "+context.getWorkflowId()+"/"+context.getTaskId()+" - "+task.getDisplayName()+" in task " + task.getId());
         return task;
     }
 
@@ -106,7 +109,10 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     public WorkflowErrorHandlingResult call() throws Exception {
         WorkflowErrorHandlingResult result = new WorkflowErrorHandlingResult();
         Task handlerParent = Tasks.current();
-        log.debug("Starting "+handlerParent.getDisplayName()+" with "+ errorOptions.size()+" handler"+(errorOptions.size()!=1 ? " options" : "")+" in task "+handlerParent.getId());
+        log.debug("Starting "+
+                // handler parent is of form task-error-handler if first level, or task-error-handler-N if nested error in outer handler step N
+                (handlerParent.getDisplayName().endsWith(LABEL_FOR_ERROR_HANDLER) ? "" : "nested error handler for ")+
+                handlerParent.getDisplayName()+" with "+ errorOptions.size()+" step"+(errorOptions.size()!=1 ? "s" : "")+" in task "+handlerParent.getId());
 
         int errorStepsMatching = 0;
         WorkflowStepDefinition errorStep = null;
@@ -138,7 +144,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
                     potentialTaskName, BrooklynTaskTags.tagForWorkflowStepErrorHandler(handlerContext, i, handlerParent.getId()));
             TaskTags.addTagDynamically(handlerParent, BrooklynTaskTags.tagForErrorHandledBy(handlerI));
 
-            log.debug("Creating handler " + potentialTaskName + " '" + errorStep.computeName(handlerContext, false)+"' in task "+handlerI.getId());
+            log.trace("Creating error handler step " + potentialTaskName + " '" + errorStep.computeName(handlerContext, false)+"' in task "+handlerI.getId());
             if (!potentialTaskName.equals(context.getWorkflowStepReference(handlerI))) {
                 // shouldn't happen, but double check
                 log.warn("Mismatch in step name: "+potentialTaskName+" / "+context.getWorkflowStepReference(handlerI));
@@ -150,6 +156,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
                 if (errorStep.output!=null) {
                     result.output = handlerContext.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, errorStep.output, Object.class);
                 }
+                context.lastErrorHandlerOutput = result.output;
                 result.next = WorkflowReplayUtils.getNext(handlerContext, errorStep);
 
             } catch (Exception errorInErrorHandlerStep) {
@@ -161,7 +168,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
             }
 
             if (result.next!=null) {
-                log.debug("Completed handler " + potentialTaskName +
+                log.debug("Completed handler " + Tasks.current().getDisplayName() +
                         (errorStepsMatching > 1 ? " with "+errorStepsMatching+" steps matching" : "") +
                         "; proceeding to explicit next step '" + result.next + "'");
                 break;
@@ -171,16 +178,17 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
         if (result.next==null) {
             // no 'next' defined; check we properly handled it
             if (errorStepsMatching==0 || errorStep==null) {
-                log.debug("Error handler options were present but did not apply at "+handlerParent.getId()+"; will rethrow error: "+Exceptions.collapseText(error));
-                throw Exceptions.propagate(error);
+                log.debug("Error handler options were present but did not apply at "+handlerParent.getId());
+                return null;
             }
             if (!lastStepConditionMatched) {
-                log.warn("Error handler ran but did not branch and final step had a condition which did not match; " +
-                        "for clarity, error handlers should either indicate a next step or ensure the final step is not conditional. " +
-                        "Continuing with next step of workflow assuming that the error was handled." +
+                log.warn("Error handler ran but did not return a next execution point and final step had a condition which did not match; " +
+                        "this may be an error. " +
+                        "For clarity, error handlers should either indicate a next step or have a non-conditional final step. " +
+                        "Continuing with next step of outer workflow assuming that the error was handled." +
                         "The target `next: exit` can be used to exit a handler.");
             }
-            log.debug("Completed handler " + handlerParent.getDisplayName() +
+            log.debug("Completed handler " + Tasks.current().getDisplayName() +
                             (errorStepsMatching > 1 ? " with "+errorStepsMatching+" steps matching" : "") +
                     "; no next step indicated so proceeding to default next step");
         }
@@ -195,7 +203,9 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     }
 
     public static void handleErrorAtStep(Entity entity, WorkflowStepDefinition step, WorkflowStepInstanceExecutionContext currentStepInstance, Task<?> stepTaskThrowingError, BiConsumer<Object, Object> onFinish, Exception error, Integer errorStepIfNested) {
+        String problemHere = null;
         if (!step.onError.isEmpty()) {
+
             if (errorStepIfNested!=null) {
                 log.debug("Nested error handler running on "+stepTaskThrowingError+" to handle "+error);
             }
@@ -205,14 +215,17 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
                 WorkflowErrorHandling.WorkflowErrorHandlingResult result = DynamicTasks.queue(stepErrorHandlerTask).getUnchecked();
                 if (result!=null) {
-                    if (errorStepIfNested==null && STEP_TARGET_NAME_FOR_EXIT.equals(result.next)) {
+                    //if (errorStepIfNested==null && STEP_TARGET_NAME_FOR_EXIT.equals(result.next)) {
+                    // above would make exit leave all handlers
+                    if (STEP_TARGET_NAME_FOR_EXIT.equals(result.next)) {
                         result.next = null;
                     }
                     onFinish.accept(result.output, result.next);
+                    return;
+
                 } else {
-                    // should never be null
-                    logWarnOnExceptionOrDebugIfKnown(entity, error, "Error in step '" + stepTaskThrowingError.getDisplayName() + "', error handler did not apply so rethrowing: " + Exceptions.collapseText(error));
-                    throw Exceptions.propagate(error);
+                    // no steps applied
+                    problemHere = "error handler present but no steps applicable, ";
                 }
 
             } catch (Exception e2) {
@@ -228,9 +241,13 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
             }
 
         } else {
-            logWarnOnExceptionOrDebugIfKnown(entity, error, "Error in step '" + stepTaskThrowingError.getDisplayName() + "', no error handler so rethrowing: " + Exceptions.collapseText(error));
-            throw Exceptions.propagate(error);
+            problemHere = "";
         }
+
+        // don't consider replaying automatically here; only done at workflow level
+
+        logWarnOnExceptionOrDebugIfKnown(entity, error, "Error in step '" + stepTaskThrowingError.getDisplayName() + "'; " + problemHere + "rethrowing: " + Exceptions.collapseText(error));
+        throw Exceptions.propagate(error);
     }
 
     public static void logWarnOnExceptionOrDebugIfKnown(Entity entity, Exception e, String msg) {
@@ -238,4 +255,5 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
         if (Entities.isUnmanagingOrNoLongerManaged(entity)) { log.debug(msg); return; }
         log.warn(msg);
     }
+
 }

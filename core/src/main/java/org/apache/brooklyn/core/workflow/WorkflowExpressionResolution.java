@@ -99,7 +99,7 @@ public class WorkflowExpressionResolution {
                 if (context.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.output);
                 if (context.currentStepInstance!=null && context.currentStepInstance.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.output);
                 if (context.getPreviousStepOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getPreviousStepOutput());
-                return new WorkflowStepModel();
+                return ifNoMatches();
             }
 
             Object candidate;
@@ -267,7 +267,9 @@ public class WorkflowExpressionResolution {
             //error (if there is an error in scope)
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.input);
-            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.output!=null ? step.output : MutableMap.of());
+            if ("output".equals(key)) {
+                return TemplateProcessor.wrapAsTemplateModel(step.output != null ? step.output : MutableMap.of());
+            }
 
             return ifNoMatches();
         }

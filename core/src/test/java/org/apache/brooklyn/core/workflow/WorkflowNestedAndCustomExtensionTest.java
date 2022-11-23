@@ -317,7 +317,6 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "        entity: ${entity.parent}",
                 "      on-error:",
                 "        - retry from start limit 20 backoff 1ms jitter -1",  // repeat until count is ours to increment
-                "    - workflow replayable from here",
                 "    - step: transform go = ${entity.parent.attributeWhenReady.go} | wait",
                 "      idempotent: false",
                 "      " + (replayInNested ? "replayable: from here" : ""),
@@ -485,17 +484,24 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
     @Test
     public void testCustomWorkflowLockInterruptedNoAutoReplay() throws Exception {
         CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
-        fixture.REPLAYABLE_INNER = false;
-        fixture.REPLAYABLE_OUTER = false;
+        fixture.INNER_ON_ERROR_REPLAY = false;
+        fixture.OUTER_ON_ERROR_REPLAY = false;
         fixture.run();
     }
 
     @Test(groups="Integration", invocationCount = 10)
     public void testCustomWorkflowLockInterruptedNoAutoReplayGateOpenEarly() throws Exception {
         CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
-        fixture.REPLAYABLE_INNER = false;
-        fixture.REPLAYABLE_OUTER = false;
+        fixture.INNER_ON_ERROR_REPLAY = false;
+        fixture.OUTER_ON_ERROR_REPLAY = false;
         fixture.OPEN_GATE_EARLY = true;
+        fixture.run();
+    }
+
+    @Test(groups="Integration")
+    public void testCustomWorkflowLockInterruptedAutomatically() throws Exception {
+        CustomWorkflowLockInterruptedFixture fixture = new CustomWorkflowLockInterruptedFixture();
+        fixture.REPLAYABLE_AUTOMATICALLY = true;
         fixture.run();
     }
 
@@ -504,8 +510,9 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         int NUM = 10;
         int MAX_ALLOWED_BEFORE_GATE = 2;
         int MIN_REQUIRED_BEFORE_REBIND = 1;
-        boolean REPLAYABLE_OUTER = true;
-        boolean REPLAYABLE_INNER = true;
+        boolean REPLAYABLE_AUTOMATICALLY = false;
+        boolean OUTER_ON_ERROR_REPLAY = true;
+        boolean INNER_ON_ERROR_REPLAY = true;
         boolean OPEN_GATE_EARLY = false;
         Consumer<String> waitABit = (phase) -> Time.sleep((long) (10 * Math.random()));
         Duration COMPLETION_TIMEOUT = Duration.seconds(15);
@@ -518,13 +525,14 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
             WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                     .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
-                    .configure(WorkflowCommonConfig.REPLAYABLE, "from start")
-                    .configure(WorkflowCommonConfig.ON_ERROR, REPLAYABLE_OUTER ? MutableList.of("retry replay limit 10") : null)
+                    .configure(WorkflowCommonConfig.REPLAYABLE, "from start" + (REPLAYABLE_AUTOMATICALLY && OUTER_ON_ERROR_REPLAY ? " automatically" : ""))
+                    .configure(WorkflowCommonConfig.ON_ERROR, !REPLAYABLE_AUTOMATICALLY && OUTER_ON_ERROR_REPLAY ? MutableList.of("retry replay limit 10") : null)
                     .configure(WorkflowEffector.STEPS, MutableList.of(
                                     MutableMap.of(
                                             "type", "workflow",
                                             "lock", "incrementor",
-                                            "replayable", "from start",
+                                            "replayable", "from start" + (REPLAYABLE_AUTOMATICALLY && INNER_ON_ERROR_REPLAY ? " automatically" : ""),
+                                            "on-error", !REPLAYABLE_AUTOMATICALLY && INNER_ON_ERROR_REPLAY ? MutableList.of("retry replay limit 10") : null,
                                             "steps", MutableList.of(
                                                     "let x = ${entity.sensor.x}",
                                                     MutableMap.of(
@@ -543,8 +551,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                                                     "return ${x}",
                                                     MutableMap.of("id", "already-run", "step", "log ${workflow.id} already set sensor, or error or other mismatch, not re-setting"),
                                                     "return ${entity.sensor.x}"
-                                            ),
-                                            "on-error", REPLAYABLE_INNER ? MutableList.of("retry replay limit 10") : null)
+                                            ))
                             )
                     ));
             eff.apply((EntityLocal) app);
@@ -594,7 +601,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
 
             boolean expectAllComplete = false;
             boolean expectRightAnswer = false;
-            if (REPLAYABLE_OUTER && REPLAYABLE_INNER) {
+            if (OUTER_ON_ERROR_REPLAY && INNER_ON_ERROR_REPLAY) {
                 if (!OPEN_GATE_EARLY) {
                     // should NOT finish until gate is set
                     waitABit.accept("after rebind, waiting on gate");
@@ -611,7 +618,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 expectRightAnswer = true;
                 expectAllComplete = true;
 
-            } else if (!REPLAYABLE_OUTER && !REPLAYABLE_INNER) {
+            } else if (!OUTER_ON_ERROR_REPLAY && !INNER_ON_ERROR_REPLAY) {
                 // if replayable not correclty set, there is no guarantee the answer will be right, but all should complete
                 expectAllComplete = true;
             }
@@ -637,13 +644,13 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 EntityAsserts.assertAttributeEquals(app, Sensors.newIntegerSensor("x"), NUM);
             }
 
-            if (!REPLAYABLE_OUTER && !REPLAYABLE_INNER) {
+            if (!OUTER_ON_ERROR_REPLAY && !INNER_ON_ERROR_REPLAY) {
                 // do a manual replay
 
                 List<Task<Object>> newReplays = workflowIds.stream()
                         .map(wf -> new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(app).get(wf))
                         .filter(wf -> wf.getStatus().error)
-                        .map(wf -> DynamicTasks.submit(wf.createTaskReplaying(wf.makeInstructionsForReplayingFromLastReplayable("test", false)), app))
+                        .map(wf -> DynamicTasks.submit(wf.factory(false).createTaskReplaying(wf.factory(false).makeInstructionsForReplayingFromLastReplayable("test", false)), app))
                         .collect(Collectors.toList());
 
                 if (!OPEN_GATE_EARLY) {

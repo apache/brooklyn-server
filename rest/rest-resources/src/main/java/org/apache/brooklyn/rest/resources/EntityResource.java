@@ -422,13 +422,14 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         if (reason==null) reason = "API replay" + (forced ? " forced" : "");
         Task<Object> t;
 
-        if ("end".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayResuming(reason, forced));
-        else if ("last".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromLastReplayable(reason, forced));
-        else if ("start".equalsIgnoreCase(step)) t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStart(reason, forced));
+        WorkflowExecutionContext.Factory wf = w.factory(false);
+        if ("end".equalsIgnoreCase(step)) t = wf.createTaskReplaying(wf.makeInstructionsForReplayResuming(reason, forced));
+        else if ("last".equalsIgnoreCase(step)) t = wf.createTaskReplaying(wf.makeInstructionsForReplayingFromLastReplayable(reason, forced));
+        else if ("start".equalsIgnoreCase(step)) t = wf.createTaskReplaying(wf.makeInstructionsForReplayingFromStart(reason, forced));
         else {
             Maybe<Integer> stepNumberRequested = TypeCoercions.tryCoerce(step, Integer.class);
             if (stepNumberRequested.isPresent()) {
-                t = w.createTaskReplaying(w.makeInstructionsForReplayingFromStep(stepNumberRequested.get(), reason, forced));
+                t = wf.createTaskReplaying(wf.makeInstructionsForReplayingFromStep(stepNumberRequested.get(), reason, forced));
             } else {
                 // could support resuming from a step ID, but not so important; UI can find that
                 throw new IllegalStateException("Unsupported to resume from '"+step+"'");

@@ -162,8 +162,8 @@ public class WorkflowExecutionContext {
     /** null if no replay point, otherwise step number of the last completed replay point, or -1 if should replay from start and -2 if completed successfully */
     Integer replayableLastStep;
     Boolean replayableFromStart;
-    Boolean replayableAutomatically;  // XXX
-    Boolean replayableDisabled;  // XXX
+    Boolean replayableAutomatically;
+    Boolean replayableDisabled;
     Boolean idempotentAll;
 
     Integer currentStepIndex;
@@ -376,89 +376,114 @@ public class WorkflowExecutionContext {
         return Maybe.of(task);
     }
 
-    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStep(int stepIndex0, String reason, boolean forced) {
-        int stepIndex = stepIndex0;
-        if (!forced) {
-            stepIndex = Maybe.ofDisallowingNull(WorkflowReplayUtils.findNearestReplayPoint(this, stepIndex0))
-                    .orThrow(() -> new IllegalStateException("Workflow is not replayable: no replay points found backtracking from "+stepIndex0));
-            log.debug("Request to replay from step "+stepIndex0+", nearest replay point is "+stepIndex);
-        }
-        return new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced);
+    public Factory factory(boolean allowInternallyEvenIfDisabled) {
+        return new Factory(allowInternallyEvenIfDisabled);
     }
 
-    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromLastReplayable(String reason, boolean forced) {
-        return makeInstructionsForReplayingFromStep(replayableLastStep !=null ? replayableLastStep : STEP_INDEX_FOR_START, reason, forced);
-    }
+    public class Factory {
+        private final boolean allowInternallyEvenIfDisabled;
 
-    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStart(String reason, boolean forced) {
-        return makeInstructionsForReplayingFromStep(STEP_INDEX_FOR_START, reason, forced);
-    }
-
-    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayResuming(String reason, boolean forced) {
-        return makeInstructionsForReplayResuming(reason, forced, null);
-    }
-
-    public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayResumingForcedWithCustom(String reason, Runnable code) {
-        return makeInstructionsForReplayResuming(reason, true, code);
-    }
-
-    protected WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayResuming(String reason, boolean forced, Runnable code) {
-        Integer replayFromStep = null;
-        if (currentStepIndex == null) {
-            // not yet started
-            replayFromStep = STEP_INDEX_FOR_START;
-        } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
-            // replaying from a different step, or current step which has either not run or completed but didn't save
-            log.debug("Replaying workflow '" + name + "', cannot replay within step " + currentStepIndex + " because step instance not known; will reinitialize then replay that step");
-            replayFromStep = currentStepIndex;
+        protected Factory(boolean allowInternallyEvenIfDisabled) {
+            this.allowInternallyEvenIfDisabled = allowInternallyEvenIfDisabled;
         }
 
-        if (!forced && replayFromStep==null) {
-            if (!WorkflowReplayUtils.isReplayResumable(this, false)) {
-                if (code!=null) {
-                    // we could allow this, but we don't need it
-                    throw new IllegalArgumentException("Cannot supply code to here without forcing as workflow does not support replay resuming at this point");
-                }
-                log.debug("Request to replay resuming "+this+" at non-idempotent step; rolling back to "+ replayableLastStep);
-                if (replayableLastStep==null) {
-                    throw new IllegalArgumentException("Cannot replay resuming as there are no replay points and last step "+currentStepIndex+" is not idempotent");
-                }
-                return makeInstructionsForReplayingFromStep(replayableLastStep, reason, false);
+        public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStep(int stepIndex0, String reason, boolean forced) {
+            if (!forced) checkNotDisabled();
+            int stepIndex = stepIndex0;
+            if (!forced) {
+                stepIndex = Maybe.ofDisallowingNull(WorkflowReplayUtils.findNearestReplayPoint(WorkflowExecutionContext.this, stepIndex0))
+                        .orThrow(() -> new IllegalStateException("Workflow is not replayable: no replay points found backtracking from " + stepIndex0));
+                log.debug("Request to replay from step " + stepIndex0 + ", nearest replay point is " + stepIndex);
             }
+            return new WorkflowStepDefinition.ReplayContinuationInstructions(stepIndex, reason, null, forced);
         }
 
-        return new WorkflowStepDefinition.ReplayContinuationInstructions(replayFromStep, reason, code, forced);
-    }
+        public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromLastReplayable(String reason, boolean forced) {
+            return makeInstructionsForReplayingFromStep(replayableLastStep != null ? replayableLastStep : STEP_INDEX_FOR_START, reason, forced);
+        }
 
-    public Task<Object> createTaskReplaying(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
-        return createTaskReplaying(null, continuationInstructions);
-    }
+        public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayingFromStart(String reason, boolean forced) {
+            return makeInstructionsForReplayingFromStep(STEP_INDEX_FOR_START, reason, forced);
+        }
 
-    public Task<Object> createTaskReplaying(Runnable intro, WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
-        if (task != null && !task.isDone()) {
-            if (!task.isSubmitted()) {
-                log.warn("Abandoning workflow task that was never submitted: " + task + " for " + this);
-            } else {
-                if (isSubmitterAncestor(Tasks.current(), task)) {
-                    // not sure we need this check
-                    log.debug("Replaying containing workflow "+this+" in task "+task+" which is an ancestor of "+Tasks.current());
+        public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayResuming(String reason, boolean forced) {
+            return makeInstructionsForReplayResuming(reason, forced, null);
+        }
+
+        public WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayResumingForcedWithCustom(String reason, Runnable code) {
+            return makeInstructionsForReplayResuming(reason, true, code);
+        }
+
+        protected WorkflowStepDefinition.ReplayContinuationInstructions makeInstructionsForReplayResuming(String reason, boolean forced, Runnable code) {
+            if (!forced) checkNotDisabled();
+            Integer replayFromStep = null;
+            if (currentStepIndex == null) {
+                // not yet started
+                replayFromStep = STEP_INDEX_FOR_START;
+            } else if (currentStepInstance == null || currentStepInstance.stepIndex != currentStepIndex) {
+                // replaying from a different step, or current step which has either not run or completed but didn't save
+                log.debug("Replaying workflow '" + name + "', cannot replay within step " + currentStepIndex + " because step instance not known; will reinitialize then replay that step");
+                replayFromStep = currentStepIndex;
+            }
+
+            if (!forced && replayFromStep == null) {
+                if (!WorkflowReplayUtils.isReplayResumable(WorkflowExecutionContext.this, false, allowInternallyEvenIfDisabled)) {
+                    if (code != null) {
+                        // we could allow this, but we don't need it
+                        throw new IllegalArgumentException("Cannot supply code to here without forcing as workflow does not support replay resuming at this point");
+                    }
+                    log.debug("Request to replay resuming " + WorkflowExecutionContext.this + " at non-idempotent step; rolling back to " + replayableLastStep);
+                    if (replayableLastStep == null) {
+                        throw new IllegalArgumentException("Cannot replay resuming as there are no replay points and last step " + currentStepIndex + " is not idempotent");
+                    }
+                    return makeInstructionsForReplayingFromStep(replayableLastStep, reason, false);
+                }
+            }
+
+            return new WorkflowStepDefinition.ReplayContinuationInstructions(replayFromStep, reason, code, forced);
+        }
+
+        public Task<Object> createTaskReplaying(WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+            return createTaskReplaying(null, continuationInstructions);
+        }
+
+        public Task<Object> createTaskReplaying(Runnable intro, WorkflowStepDefinition.ReplayContinuationInstructions continuationInstructions) {
+            if (continuationInstructions==null || !continuationInstructions.forced) checkNotDisabled();
+            if (task != null && !task.isDone()) {
+                if (!task.isSubmitted()) {
+                    log.warn("Abandoning workflow task that was never submitted: " + task + " for " + WorkflowExecutionContext.this);
                 } else {
-                    log.warn("Unable to replay workflow "+this+" from "+Tasks.current()+" because workflow task "+task+" is ongoing (rethrowing)");
-                    throw new IllegalStateException("Cannot replay ongoing workflow, given " + continuationInstructions);
+                    if (isSubmitterAncestor(Tasks.current(), task)) {
+                        // not sure we need this check
+                        log.debug("Replaying containing workflow " + WorkflowExecutionContext.this + " in task " + task + " which is an ancestor of " + Tasks.current());
+                    } else {
+                        log.warn("Unable to replay workflow " + WorkflowExecutionContext.this + " from " + Tasks.current() + " because workflow task " + task + " is ongoing (rethrowing)");
+                        throw new IllegalStateException("Cannot replay ongoing workflow, given " + continuationInstructions);
+                    }
                 }
             }
+
+            String explanation = continuationInstructions.customBehaviorExplanation != null ? continuationInstructions.customBehaviorExplanation : "no explanation";
+            task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")")
+                    .tag(BrooklynTaskTags.tagForWorkflow(WorkflowExecutionContext.this))
+                    .tag(BrooklynTaskTags.WORKFLOW_TAG)
+                    .body(new Body(continuationInstructions).withIntro(intro)).build();
+            WorkflowReplayUtils.updateOnWorkflowStartOrReplay(WorkflowExecutionContext.this, task, continuationInstructions.customBehaviorExplanation, continuationInstructions.stepToReplayFrom);
+
+            taskId = task.getId();
+
+            return task;
         }
 
-        String explanation = continuationInstructions.customBehaviorExplanation !=null ? continuationInstructions.customBehaviorExplanation : "no explanation";
-        task = Tasks.builder().dynamic(true).displayName(name + " (" + explanation + ")")
-                .tag(BrooklynTaskTags.tagForWorkflow(this))
-                .tag(BrooklynTaskTags.WORKFLOW_TAG)
-                .body(new Body(continuationInstructions).withIntro(intro)).build();
-        WorkflowReplayUtils.updateOnWorkflowStartOrReplay(this, task, continuationInstructions.customBehaviorExplanation, continuationInstructions.stepToReplayFrom);
+        public boolean isDisabled() {
+            if (allowInternallyEvenIfDisabled) return false;
+            if (Boolean.TRUE.equals(replayableDisabled)) return true;
+            return false;
+        }
 
-        taskId = task.getId();
-
-        return task;
+        public void checkNotDisabled() {
+            if (isDisabled()) throw new IllegalStateException("Replays disabled on "+WorkflowExecutionContext.this);
+        }
     }
 
     private boolean isSubmitterAncestor(Task current, Task<Object> possibleAncestor) {
@@ -954,7 +979,7 @@ public class WorkflowExecutionContext {
                         currentStepInstance.next = WorkflowReplayUtils.getNext(result.next, STEP_TARGET_NAME_FOR_END);
                         if (result.output != null) output = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_FINISHING_POST_OUTPUT, result.output, Object.class);
 
-                        moveToNextStep("Handled error in workflow around step " + workflowStepReference(currentStepIndex));
+                        moveToNextStep("Handled error in workflow around step " + workflowStepReference(currentStepIndex), result.next==null);
 
                         if (continuationInstructions!=null || currentStepIndex < getStepsResolved().size()) {
                             continueOnErrorHandledOrNextReplay = true;
@@ -984,7 +1009,22 @@ public class WorkflowExecutionContext {
             }
 
             if (errorHandled) return null;
+
+            if (replayAutomaticallyIfAppropriate(e)) return null;
+
             return Pair.of(e, provisionalStatus);
+        }
+
+        private boolean replayAutomaticallyIfAppropriate(Throwable e) {
+            if (Boolean.TRUE.equals(replayableAutomatically) && Exceptions.getFirstThrowableOfType(e, DanglingWorkflowException.class)!=null) {
+                log.info("Automatic replay indicated for "+WorkflowExecutionContext.this+" when detected as dangling on server startup");
+
+                currentStepInstance.next = factory(true).makeInstructionsForReplayResuming("Replay resuming on dangling", false);
+                continueOnErrorHandledOrNextReplay = true;
+                return true;
+            }
+
+            return false;
         }
 
         private void updateOnSuccessfulCompletion() {
@@ -1121,7 +1161,7 @@ public class WorkflowExecutionContext {
                     boolean conditionMet = DslPredicates.evaluateDslPredicateWithBrooklynObjectContext(step.getConditionResolved(currentStepInstance), WorkflowExecutionContext.this, getEntityOrAdjunctWhereRunning());
                     if (log.isTraceEnabled()) log.trace("Considered condition "+step.condition+" for "+ workflowStepReference(currentStepIndex)+": "+conditionMet);
                     if (!conditionMet) {
-                        moveToNextStep("Skipping step "+ workflowStepReference(currentStepIndex));
+                        moveToNextStep("Skipping step "+ workflowStepReference(currentStepIndex), false);
                         return;
                     }
                 }
@@ -1215,7 +1255,7 @@ public class WorkflowExecutionContext {
 
             previousStepTaskId = currentStepInstance.taskId;
             previousStepIndex = currentStepIndex;
-            moveToNextStep("Completed step "+ workflowStepReference(currentStepIndex));
+            moveToNextStep("Completed step "+ workflowStepReference(currentStepIndex), false);
         }
 
         private void handleErrorAtStep(WorkflowStepDefinition step, Task<?> stepTaskThrowingError, BiConsumer<Object, Object> onFinish, Exception error) {
@@ -1226,7 +1266,7 @@ public class WorkflowExecutionContext {
             WorkflowErrorHandling.logWarnOnExceptionOrDebugIfKnown(getEntity(), e, msg);
         }
 
-        private void moveToNextStep(String prefix) {
+        private void moveToNextStep(String prefix, boolean inferredNext) {
             prefix = prefix + "; ";
 
             Object specialNext = WorkflowReplayUtils.getNext(currentStepInstance);
@@ -1248,7 +1288,7 @@ public class WorkflowExecutionContext {
                 String explicitNext = (String)specialNext;
                 Maybe<Pair<Integer, Boolean>> nextResolved = getIndexOfStepId(explicitNext);
                 if (nextResolved.isAbsent()) {
-                    log.warn(prefix + "explicit next step '"+explicitNext+"' not found (failing)");
+                    log.warn(prefix +  (inferredNext ? "inferred" : "explicit") + " next step '"+explicitNext+"' not found (failing)");
                     // throw
                     nextResolved.get();
                 }
@@ -1259,12 +1299,12 @@ public class WorkflowExecutionContext {
                 currentStepIndex = nextResolved.get().getLeft();
                 if (nextResolved.get().getRight()) {
                     if (currentStepIndex < getStepsResolved().size()) {
-                        log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for token '" + explicitNext + "'");
+                        log.debug(prefix + "moving to "+(inferredNext ? "inferred" : "explicit")+" next step " + workflowStepReference(currentStepIndex) + " for token '" + explicitNext + "'");
                     } else {
-                        log.debug(prefix + "explicit next '"+explicitNext+"': Workflow completed");
+                        log.debug(prefix + (inferredNext ? "inferred" : "explicit") + " next step '"+explicitNext+"': Workflow completed");
                     }
                 } else {
-                    log.debug(prefix + "moving to explicit next step " + workflowStepReference(currentStepIndex) + " for id '" + explicitNext + "'");
+                    log.debug(prefix + "moving to "+(inferredNext ? "inferred" : "explicit")+" next step " + workflowStepReference(currentStepIndex) + " for id '" + explicitNext + "'");
                 }
             } else {
                 throw new IllegalStateException("Illegal next definition: "+specialNext+" (type "+specialNext.getClass()+")");

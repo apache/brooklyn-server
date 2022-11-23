@@ -75,8 +75,14 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             }
         }
         if (input==null) input = MutableMap.of();
+
         populateFromShorthandTemplate(shorthand, value);
+
+        replayable = (String) input.remove("replayable");
+        retention = (String) input.remove("retention");
     }
+
+    Object retention;
 
     /** What to run this set of steps against, either an entity to run in that context, 'children' or 'members' to run over those, a range eg 1..10,  or a list (often in a variable) to run over elements of the list */
     Object target;
@@ -125,8 +131,8 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
-        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly);
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled);
     }
 
     @Override
@@ -249,7 +255,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                     Pair<Boolean, Object> check = WorkflowReplayUtils.checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult("nested workflow " + (i + 1), context, nestedWorkflowContexts.get(i), instructionsIfReplaying,
                             (w, e) -> {
                                 throw new IllegalStateException("Sub workflow " + w + " is not replayable", e);
-                            });
+                            }, false);
                     if (check.getLeft()) {
                         task = (Task<Object>) check.getRight();
                     } else {

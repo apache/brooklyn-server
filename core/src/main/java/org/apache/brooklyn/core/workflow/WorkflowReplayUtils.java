@@ -49,7 +49,7 @@ public class WorkflowReplayUtils {
     private static final Logger log = LoggerFactory.getLogger(WorkflowReplayUtils.class);
 
 
-    public static boolean isReplayResumable(WorkflowExecutionContext workflowExecutionContext, boolean requireDeeplyReplayable) {
+    public static boolean isReplayResumable(WorkflowExecutionContext workflowExecutionContext, boolean requireDeeplyReplayable, boolean allowInternallyEvenIfDisabled) {
         WorkflowStepInstanceExecutionContext csi = workflowExecutionContext.currentStepInstance;
         if (csi!=null) {
             if (csi.getStepIndex()!=workflowExecutionContext.currentStepIndex) {
@@ -66,10 +66,10 @@ public class WorkflowReplayUtils {
 
                 // if 'yes' or null, we check.
                 if (stepDefinition instanceof WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) {
-                    List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true);
+                    List<WorkflowExecutionContext> subWorkflows = ((WorkflowStepDefinition.WorkflowStepDefinitionWithSubWorkflow) stepDefinition).getSubWorkflowsForReplay(csi, false, true, allowInternallyEvenIfDisabled);
                     if (subWorkflows == null) return false;
                     if (!requireDeeplyReplayable) return true;
-                    return subWorkflows.stream().allMatch(sub -> isReplayResumable(sub, requireDeeplyReplayable));
+                    return subWorkflows.stream().allMatch(sub -> isReplayResumable(sub, requireDeeplyReplayable, allowInternallyEvenIfDisabled));
                 }
 
                 if (idempotence!=null) return idempotence;
@@ -107,14 +107,15 @@ public class WorkflowReplayUtils {
         return false;
     }
 
-    public static boolean isReplayableAnywhere(WorkflowExecutionContext workflowExecutionContext) {
+    public static boolean isReplayableAnywhere(WorkflowExecutionContext workflowExecutionContext, boolean allowInternallyEvenIfDisabled) {
+        if (workflowExecutionContext.factory(allowInternallyEvenIfDisabled).isDisabled()) return false;
         return workflowExecutionContext.currentStepIndex==null
                 || workflowExecutionContext.replayableLastStep !=null
                 || Boolean.TRUE.equals(workflowExecutionContext.replayableFromStart)
                 || (workflowExecutionContext.currentStepInstance!=null && workflowExecutionContext.currentStepInstance.getStepIndex()!=workflowExecutionContext.currentStepIndex)
                 || workflowExecutionContext.currentStepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_START
                 || workflowExecutionContext.currentStepIndex==WorkflowExecutionContext.STEP_INDEX_FOR_END
-                || isReplayResumable(workflowExecutionContext, true);
+                || isReplayResumable(workflowExecutionContext, true, allowInternallyEvenIfDisabled);
     }
 
     /** throws error if any argument non-blank invalid; null if nothing to do; otherwise a consumer which will initialize the WEC */
@@ -382,14 +383,14 @@ public class WorkflowReplayUtils {
     }
 
     /** creates a task to replay the subworkflow, returning it, or null if the workflow completed successfully, or throwing if the workflow cannot be replayed */
-    private static Task<Object> createReplayResumingSubWorkflowTaskOrThrow(WorkflowExecutionContext subWorkflow, WorkflowStepDefinition.ReplayContinuationInstructions instructions) {
+    private static Task<Object> createReplayResumingSubWorkflowTaskOrThrow(WorkflowExecutionContext subWorkflow, WorkflowStepDefinition.ReplayContinuationInstructions instructions, boolean allowInternallyEvenIfDisabled) {
         if (instructions.stepToReplayFrom!=null) {
             // shouldn't come here
             throw new IllegalStateException("Cannot replay a nested workflow where the parent started at a specific step");
         } else if (instructions.forced && instructions.customBehavior !=null) {
             // forced, eg throwing exception
             log.debug("Creating task to replay subworkflow " + subWorkflow+" from last, forced with custom behaviour - "+instructions);
-            return subWorkflow.createTaskReplaying(subWorkflow.makeInstructionsForReplayResumingForcedWithCustom(instructions.customBehaviorExplanation, instructions.customBehavior));
+            return subWorkflow.factory(allowInternallyEvenIfDisabled).createTaskReplaying(subWorkflow.factory(allowInternallyEvenIfDisabled).makeInstructionsForReplayResumingForcedWithCustom(instructions.customBehaviorExplanation, instructions.customBehavior));
         } else {
             if (Objects.equals(subWorkflow.replayableLastStep, WorkflowExecutionContext.STEP_INDEX_FOR_END)) {
                 log.debug("Creating task to replay subworkflow " + subWorkflow+" from last, but already at end - "+instructions);
@@ -397,24 +398,24 @@ public class WorkflowReplayUtils {
             }
             // may throw if not forced and not replayable
             log.debug("Creating task to replay subworkflow " + subWorkflow+" from last: "+instructions);
-            WorkflowStepDefinition.ReplayContinuationInstructions subInstr = subWorkflow.makeInstructionsForReplayResuming(instructions.customBehaviorExplanation, instructions.forced);
+            WorkflowStepDefinition.ReplayContinuationInstructions subInstr = subWorkflow.factory(allowInternallyEvenIfDisabled).makeInstructionsForReplayResuming(instructions.customBehaviorExplanation, instructions.forced);
             log.debug("Creating task to replay subworkflow " + subWorkflow+", will use: "+subInstr);
 
-            return subWorkflow.createTaskReplaying(subInstr);
+            return subWorkflow.factory(allowInternallyEvenIfDisabled).createTaskReplaying(subInstr);
         }
     }
 
     /** replays the workflow indicated by the set, returning the result, or if not possible creates a new task */
-    public static Object replayResumingInSubWorkflow(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
-        Pair<Boolean, Object> check = checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult(summary, context, w, instructions, ifNotReplayable);
+    public static Object replayResumingInSubWorkflow(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable, boolean allowInternallyEvenIfDisabled) {
+        Pair<Boolean, Object> check = checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult(summary, context, w, instructions, ifNotReplayable, allowInternallyEvenIfDisabled);
         if (check.getLeft()) return DynamicTasks.queue((Task<?>) check.getRight()).getUnchecked();
         else return check.getRight();
     }
 
-    public static Pair<Boolean,Object> checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable) {
+    public static Pair<Boolean,Object> checkReplayResumingInSubWorkflowAlsoReturningTaskOrResult(String summary, WorkflowStepInstanceExecutionContext context, WorkflowExecutionContext w, WorkflowStepDefinition.ReplayContinuationInstructions instructions, BiFunction<WorkflowExecutionContext,Exception,Object> ifNotReplayable, boolean allowInternallyEvenIfDisabled) {
         Task<Object> t;
         try {
-            t = WorkflowReplayUtils.createReplayResumingSubWorkflowTaskOrThrow(w, instructions);
+            t = WorkflowReplayUtils.createReplayResumingSubWorkflowTaskOrThrow(w, instructions, allowInternallyEvenIfDisabled);
             if (t == null) {
                 // subworkflow completed
                 return Pair.of(false, w.getOutput());
@@ -438,7 +439,7 @@ public class WorkflowReplayUtils {
         context.getWorkflowExectionContext().persist();
     }
 
-    public static List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
+    public static List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
         Set<BrooklynTaskTags.WorkflowTaskTag> sws = context.getSubWorkflows();
         if (sws!=null && !sws.isEmpty()) {
             // replaying
@@ -461,7 +462,7 @@ public class WorkflowReplayUtils {
                 if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has uninitialized sub workflows; replaying from start");
                 if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" uninitialized/unpersisted sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
                 // fall through to below
-            } else if (!forced && nestedWorkflowsToReplay.stream().anyMatch(nest -> !isReplayableAnywhere(nest))) {
+            } else if (!forced && nestedWorkflowsToReplay.stream().anyMatch(nest -> !isReplayableAnywhere(nest, allowInternallyEvenIfDisabled))) {
                 if (!peekingOnly) log.info("Step "+context.getWorkflowStepReference()+" has non-replayable sub workflows; replaying from start");
                 if (!peekingOnly) log.debug("Step "+context.getWorkflowStepReference()+" non-replayable sub workflow detail: "+sws+" -> "+nestedWorkflowsToReplay);
                 // fall through to below

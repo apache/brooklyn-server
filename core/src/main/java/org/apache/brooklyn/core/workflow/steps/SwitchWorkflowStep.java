@@ -141,8 +141,8 @@ public class SwitchWorkflowStep extends WorkflowStepDefinition implements Workfl
     }
 
     @Override
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly) {
-        return runOnStepStateIfHasSubWorkflows(context, s -> s.getSubWorkflowsForReplay(context, forced, peekingOnly)).get();
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+        return runOnStepStateIfHasSubWorkflows(context, s -> s.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled)).get();
     }
 
     @Override
