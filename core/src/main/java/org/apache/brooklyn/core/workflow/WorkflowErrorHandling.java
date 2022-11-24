@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskTags;
@@ -31,6 +32,7 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.function.BiConsumer;
@@ -97,7 +99,15 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
     final Task<?> failedTask;
     final Throwable error;
 
-    public WorkflowErrorHandling(List<Object> errorOptions, WorkflowExecutionContext context, Integer stepIndexIfStepErrorHandler, Task<?> failedTask, Throwable error) {
+    public static List<Object> wrappedInListIfNecessaryOrNullIfEmpty(Object onError) {
+        if (onError==null) return null;
+        MutableList errorList = onError instanceof Collection ? MutableList.copyOf((Collection) onError) : MutableList.of(onError);
+        if (errorList.isEmpty()) return null;
+        return errorList;
+    }
+
+    public WorkflowErrorHandling(Object errorOptionsO, WorkflowExecutionContext context, Integer stepIndexIfStepErrorHandler, Task<?> failedTask, Throwable error) {
+        List<Object> errorOptions = wrappedInListIfNecessaryOrNullIfEmpty(errorOptionsO);
         this.errorOptions = WorkflowStepResolution.resolveSubSteps(context.getManagementContext(), "error handling", errorOptions);
         this.context = context;
         this.stepIndexIfStepErrorHandler = stepIndexIfStepErrorHandler;

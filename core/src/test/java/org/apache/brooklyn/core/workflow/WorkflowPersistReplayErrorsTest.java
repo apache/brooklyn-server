@@ -53,6 +53,7 @@ import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -777,13 +778,19 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
     }
 
     @Test
-    public void testFail() {
+    public void testFailAndErrorHandlerAsListOrMapOrString() {
+        MutableList<MutableMap<String, Serializable>> errorHandler = MutableList.of(MutableMap.of("step", "return Yay WTF",
+                "condition", MutableMap.of("error-cause", MutableMap.of("regex", ".*Fail.*wtf.*"))));
+        doTestFail(errorHandler);
+        doTestFail(errorHandler.get(0));
+        doTestFail(errorHandler.get(0).get("step"));
+    }
+
+    void doTestFail(Object errorHandler) {
         Task<?> out = runSteps(
                 MutableList.of("fail message wtf"),
                 null,
-                ConfigBag.newInstance().configure(WorkflowCommonConfig.ON_ERROR,
-                        MutableList.of(MutableMap.of("step", "return Yay WTF",
-                                "condition", MutableMap.of("error-cause", MutableMap.of("regex", ".*Fail.*wtf.*")))))
+                ConfigBag.newInstance().configure(WorkflowCommonConfig.ON_ERROR, errorHandler)
         );
         Asserts.assertEquals(out.getUnchecked(), "Yay WTF");
     }

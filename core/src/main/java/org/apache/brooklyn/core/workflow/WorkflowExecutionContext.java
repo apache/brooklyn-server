@@ -147,8 +147,7 @@ public class WorkflowExecutionContext {
     Object lock;
 
     Duration timeout;
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    List<Object> onError;
+    Object onError;
 
     String workflowId;
     /** current or most recent executing task created for this workflow, corresponding to task */
@@ -259,7 +258,7 @@ public class WorkflowExecutionContext {
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
         w.onError = paramsDefiningWorkflow.get(WorkflowCommonConfig.ON_ERROR);
         // fail fast if error steps not resolveable
-        WorkflowStepResolution.resolveSubSteps(w.getManagementContext(), "error handling", w.onError);
+        WorkflowStepResolution.resolveSubSteps(w.getManagementContext(), "error handling", WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(w.onError));
 
         // some fields need to be resolved at setting time, in the context of the workflow
         w.setCondition(w.resolveWrapped(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_STARTING_POST_INPUT, paramsDefiningWorkflow.getStringKey(WorkflowCommonConfig.CONDITION.getName()), WorkflowCommonConfig.CONDITION.getTypeToken()));
@@ -1016,7 +1015,7 @@ public class WorkflowExecutionContext {
                 // don't run error handler
                 log.debug("Interrupt in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", throwing: " + Exceptions.collapseText(e));
 
-            } else if (onError != null && !onError.isEmpty()) {
+            } else if (onError != null && (!(onError instanceof Collection) || !((Collection)onError).isEmpty())) {
                 try {
                     log.debug("Error in workflow '" + getName() + "' around step " + workflowStepReference(currentStepIndex) + ", running error handler");
                     Task<WorkflowErrorHandling.WorkflowErrorHandlingResult> workflowErrorHandlerTask = WorkflowErrorHandling.createWorkflowErrorHandlerTask(WorkflowExecutionContext.this, task, e);

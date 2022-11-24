@@ -52,8 +52,8 @@ public interface WorkflowCommonConfig {
     ConfigKey<String> IDEMPOTENT = ConfigKeys.newStringConfigKey("idempotent",
             "Indication of which steps in the workflow are idempotent");
 
-    ConfigKey<List<Object>> ON_ERROR = ConfigKeys.newConfigKey(new TypeToken<List<Object>>() {}, "on-error",
-            "List of potential error handlers");
+    ConfigKey<Object> ON_ERROR = ConfigKeys.newConfigKey(Object.class, "on-error",
+            "Error handler step or sequence of steps");
 
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout",
             "Time after which a workflow should be automatically interrupted and failed");
