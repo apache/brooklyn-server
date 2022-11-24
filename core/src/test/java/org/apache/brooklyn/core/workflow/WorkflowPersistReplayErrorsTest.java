@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
@@ -828,16 +829,42 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         // always use the latest mgmt context!
         Supplier<WorkflowStatePersistenceViaSensors> wp = () -> new WorkflowStatePersistenceViaSensors(mgmt());
-        BrooklynTaskTags.WorkflowTaskTag w1, w2;
+        BrooklynTaskTags.WorkflowTaskTag w1, w2, w3, w4;
 
         w1 = doTestRetentionDisabled("context", "min(1,2) hash my-fixed-hash", false, false, false);
         Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "min(1,2)");
         Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
 
-        w2 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
+        w1 = doTestRetentionDisabled(2, "hash my-fixed-hash min(1,context)", false, false, false);
         Asserts.assertEquals(lastWorkflowContext.getRetentionSettings().expiryResolved, "min(1,2)");
 
-        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w2.getWorkflowId()));
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId()));
+
+        // invoking our test gives a new workflow hash because the effector name is different
+        w2 = doTestRetentionDisabled(2, "1", false, false, false);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+
+        // reinvoking that effector still gives 2
+        Task<?> t = app.invoke(app.getEntityType().getEffectorByName("myWorkflow" + effNameCount).get(), null);
+        t.blockUntilEnded();
+        w2 = BrooklynTaskTags.getWorkflowTaskTag(t, false);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));
+
+        // hash accepts variables
+        app.config().set(ConfigKeys.newStringConfigKey("hash"), "my-fixed-hash");
+
+        // this hash replaces old w1
+        w1 = doTestRetentionDisabled("context", "min(1,2) hash ${entity.config.hash}", false, false, false);
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId()));  // should replace the one above
+
+        // workflow.id as the hash variable means each invocations has its own retention
+        w3 = doTestRetentionDisabled("context", "1 hash ${workflow.id}", false, false, false);
+
+        t = app.invoke(app.getEntityType().getEffectorByName("myWorkflow" + effNameCount).get(), null);
+        t.blockUntilEnded();
+        w4 = BrooklynTaskTags.getWorkflowTaskTag(t, false);
+
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of(w1.getWorkflowId(), w2.getWorkflowId(), w3.getWorkflowId(), w4.getWorkflowId()));  // should replace the one above
     }
 
     @Test(groups="Integration")

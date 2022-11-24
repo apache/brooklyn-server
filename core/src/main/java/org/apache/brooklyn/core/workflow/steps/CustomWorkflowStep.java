@@ -167,7 +167,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
         // 'retention xxx'
         if (retention!=null) {
-            context.getWorkflowExectionContext().updateRetentionFrom(WorkflowRetentionParser.parse(retention).init(context.getWorkflowExectionContext()));
+            context.getWorkflowExectionContext().updateRetentionFrom(WorkflowRetentionParser.parse(retention, context.getWorkflowExectionContext()).init(context.getWorkflowExectionContext()));
         }
 
         if (steps==null) {

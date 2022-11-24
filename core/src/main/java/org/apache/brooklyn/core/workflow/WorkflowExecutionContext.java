@@ -253,7 +253,7 @@ public class WorkflowExecutionContext {
                 WorkflowReplayUtils.updaterForReplayableAtWorkflow(paramsDefiningWorkflow, wcType == WorkflowContextType.NESTED_WORKFLOW),
                 optionalTaskFlags);
 
-        w.retention = WorkflowRetentionParser.parse(paramsDefiningWorkflow.get(WorkflowCommonConfig.RETENTION)).init(w);
+        w.retention = WorkflowRetentionParser.parse(paramsDefiningWorkflow.get(WorkflowCommonConfig.RETENTION), w).init(w);
         w.lock = paramsDefiningWorkflow.get(WorkflowCommonConfig.LOCK);
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
         w.onError = paramsDefiningWorkflow.get(WorkflowCommonConfig.ON_ERROR);

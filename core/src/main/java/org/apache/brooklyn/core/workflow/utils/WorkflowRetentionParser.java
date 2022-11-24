@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow.utils;
 
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration;
 import org.apache.brooklyn.core.workflow.store.WorkflowRetentionAndExpiration.WorkflowRetentionSettings;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
+import javax.annotation.Nullable;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -55,7 +57,7 @@ the semantics of `min` and `max` are
 also allows a `hash <value>` to be set at the start or the end
      */
 
-    public static WorkflowRetentionSettings parse(String retentionExpression) {
+    public static WorkflowRetentionSettings parse(String retentionExpression, @Nullable WorkflowExecutionContext context) {
 
         WorkflowRetentionSettings result = new WorkflowRetentionSettings();
         if (Strings.isBlank(retentionExpression)) return result;
@@ -74,6 +76,9 @@ also allows a `hash <value>` to be set at the start or the end
                 int i = retentionExpression.indexOf(" hash ");
                 result.hash = Strings.removeFromStart(retentionExpression.substring(i).trim(), "hash").trim();
                 retentionExpression = retentionExpression.substring(0, i).trim();
+            }
+            if (Strings.isNonBlank(result.hash) && context!=null) {
+                result.hash = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result.hash, String.class);
             }
             if (Strings.isBlank(retentionExpression)) return result;
 
