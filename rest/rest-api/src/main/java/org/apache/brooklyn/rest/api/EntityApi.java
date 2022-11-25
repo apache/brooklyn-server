@@ -447,6 +447,27 @@ public interface EntityApi {
             @ApiParam(value = "Whether to suppress secrets", required = false)
             @QueryParam("suppressSecrets") final Boolean suppressSecrets);
 
+    @DELETE
+    @Path("/{entity}/workflows/{workflowId}")
+    @ApiOperation(value = "Delete a workflow on this entity, causing it not to be retained. Not supported for ongoing workflows (cancel first).", response = WorkflowExecutionContext.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Application or entity missing"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response deleteWorkflow(
+            @ApiParam(value = "Application ID or name", required = true)
+            @PathParam("application") String application,
+            @ApiParam(value = "Entity ID or name", required = true)
+            @PathParam("entity") String entity,
+            @ApiParam(value = "Workflow ID", required = true)
+            @PathParam("workflowId") String workflowId,
+            @ApiParam(value = "Whether to suppress secrets", required = false)
+            @QueryParam("suppressSecrets") final Boolean suppressSecrets);
+
+
     @POST
     @ApiOperation(value = "Run a workflow on this entity from a YAML workflow spec",
             response = org.apache.brooklyn.rest.domain.TaskSummary.class)

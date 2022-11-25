@@ -75,90 +75,90 @@ brooklyn.catalog:
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.LogWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep
   - id: sleep
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SleepWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.SleepWorkflowStep
   - id: no-op
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.NoOpWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.NoOpWorkflowStep
 
   - id: set-config
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SetConfigWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.SetConfigWorkflowStep
   - id: clear-config
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.ClearConfigWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.ClearConfigWorkflowStep
 
   - id: set-sensor
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SetSensorWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.SetSensorWorkflowStep
   - id: clear-sensor
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.ClearSensorWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.ClearSensorWorkflowStep
 
   - id: set-workflow-variable
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SetVariableWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep
   - id: clear-workflow-variable
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.ClearVariableWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.variables.ClearVariableWorkflowStep
   - id: let
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SetVariableWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep
   - id: transform
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.TransformVariableWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.variables.TransformVariableWorkflowStep
   - id: wait
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.WaitWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.variables.WaitWorkflowStep
   - id: load
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.LoadWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.variables.LoadWorkflowStep
   - id: return
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.ReturnWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.ReturnWorkflowStep
   - id: goto
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.GotoWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.GotoWorkflowStep
   - id: switch
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SwitchWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.SwitchWorkflowStep
   - id: fail
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.FailWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.FailWorkflowStep
 
   - id: workflow
     format: java-type-name
@@ -169,24 +169,24 @@ brooklyn.catalog:
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.RetryWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep
 
   - id: invoke-effector
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.InvokeEffectorWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.InvokeEffectorWorkflowStep
 
   - id: ssh
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.SshWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.external.SshWorkflowStep
   - id: http
     format: java-type-name
     itemType: bean
     item:
-      type: org.apache.brooklyn.core.workflow.steps.HttpWorkflowStep
+      type: org.apache.brooklyn.core.workflow.steps.external.HttpWorkflowStep
   - id: container
     format: java-type-name
     itemType: bean

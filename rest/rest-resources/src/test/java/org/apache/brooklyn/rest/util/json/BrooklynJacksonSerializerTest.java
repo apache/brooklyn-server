@@ -43,7 +43,7 @@ import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.core.workflow.steps.ReturnWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.ReturnWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;

@@ -36,6 +36,8 @@ public class WorkflowStateActiveInMemory {
 
     public static final ConfigKey<WorkflowStateActiveInMemory> IN_MEMORY_WORKFLOWS = ConfigKeys.newConfigKey(WorkflowStateActiveInMemory.class, "internals.brooklyn.workflow.in_memory");
 
+    private static final long GLOBAL_UPDATE_FREQUENCY = 5*60*1000;  // every 5m wipe out workflows from old entities
+
     public static WorkflowStateActiveInMemory get(ManagementContext mgmt) {
         WorkflowStateActiveInMemory localActiveWorkflows = mgmt.getScratchpad().get(IN_MEMORY_WORKFLOWS);
         if (localActiveWorkflows==null) {
@@ -53,7 +55,8 @@ public class WorkflowStateActiveInMemory {
     private final ManagementContext mgmt;
     final Map<String,Map<String,WorkflowExecutionContext>> data = MutableMap.of();
 
-    public WorkflowStateActiveInMemory(ManagementContext mgmt) {
+    // created and managed by mgmt context scratchpad
+    protected WorkflowStateActiveInMemory(ManagementContext mgmt) {
         this.mgmt = mgmt;
     }
 
@@ -84,7 +87,7 @@ public class WorkflowStateActiveInMemory {
             entityActiveWorkflows.put(context.getWorkflowId(), context);
         }
 
-        if (lastInMemClear + 60*1000 < System.currentTimeMillis()) {
+        if (lastInMemClear + GLOBAL_UPDATE_FREQUENCY < System.currentTimeMillis()) {
             // poor man's cleanup, every minute, but good enough
             expireAbsentEntities();
         }
@@ -92,6 +95,14 @@ public class WorkflowStateActiveInMemory {
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {
         return MutableMap.copyOf(data.get(entity.getId()));
+    }
+
+    boolean deleteWorkflow(WorkflowExecutionContext context) {
+        Map<String, WorkflowExecutionContext> entityActiveWorkflows = data.get(context.getEntity().getId());
+        if (entityActiveWorkflows!=null) {
+            return entityActiveWorkflows.remove(context.getWorkflowId()) != null;
+        }
+        return false;
     }
 
     public WorkflowExecutionContext getFromTag(BrooklynTaskTags.WorkflowTaskTag tag) {

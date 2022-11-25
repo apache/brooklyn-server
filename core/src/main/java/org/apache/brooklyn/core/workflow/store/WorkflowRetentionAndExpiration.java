@@ -19,7 +19,9 @@
 package org.apache.brooklyn.core.workflow.store;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
@@ -28,6 +30,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.utils.WorkflowRetentionParser;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.task.BasicExecutionManager;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -43,6 +46,7 @@ public class WorkflowRetentionAndExpiration {
     public static final ConfigKey<String> WORKFLOW_RETENTION_DEFAULT = ConfigKeys.newStringConfigKey("workflow.retention.default",
             "Default retention for workflows", "3");
 
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     public static class WorkflowRetentionSettings {
         public Boolean disabled;
         public String hash;
@@ -135,12 +139,25 @@ public class WorkflowRetentionAndExpiration {
                 toRemove.removeAll(retainedFinishedTwins);
                 toRemove.forEach(w -> {
                     log.debug("Expiring old workflow " + w + " as there are "+retainedFinishedTwins.size()+" more recent ones also completed");
-                    v.remove(w.getWorkflowId());
+                    deleteWorkflowFromMap(v, w, true);
                 });
             }
         });
 
         return v;
+    }
+
+    static boolean deleteWorkflowFromMap(Map<String, WorkflowExecutionContext> v, WorkflowExecutionContext w, boolean andAllReplayTasks) {
+        boolean removed = v.remove(w.getWorkflowId()) != null;
+        removed |= WorkflowStateActiveInMemory.get(w.getManagementContext()).deleteWorkflow(w);
+        if (andAllReplayTasks) {
+            BasicExecutionManager em = ((BasicExecutionManager) w.getManagementContext().getExecutionManager());
+            w.getReplays().forEach(wr -> {
+                Task<?> wrt = em.getTask(wr.getTaskId());
+                if (wrt != null) em.deleteTask(wrt, false);
+            });
+        }
+        return removed;
     }
 
     private static boolean isExpirable(WorkflowExecutionContext c) {

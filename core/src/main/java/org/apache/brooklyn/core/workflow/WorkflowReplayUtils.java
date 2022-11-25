@@ -355,6 +355,10 @@ public class WorkflowReplayUtils {
         private static void update(WorkflowExecutionContext ctx, Task<?> task) {
             updateInternal(ctx, task, null, null);
         }
+
+        public String getTaskId() {
+            return taskId;
+        }
     }
 
     /** called when the task is being created */

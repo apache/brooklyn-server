@@ -16,26 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow;
+package org.apache.brooklyn.core.workflow.steps.variables;
 
-import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep.RetryLimit;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.Test;
+import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 
-public class SpecificShorthandTest {
-
-    protected void assertRetry(String input, Integer count, Duration duration) {
-        RetryLimit x = RetryLimit.fromString(input);
-        Asserts.assertEquals(x.count, count);
-        Asserts.assertEquals(x.duration, duration);
+public class TransformWait extends WorkflowTransformDefault {
+    @Override
+    public Object apply(Object v) {
+        return context.resolveWaiting(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, v, TypeToken.of(Object.class));
     }
 
-    @Test
-    public void testRetryLimit() {
-        assertRetry("5", 5, null);
-        assertRetry("5m", null, Duration.minutes(5));
-        assertRetry("2 in 5m", 2, Duration.minutes(5));
+    @Override
+    public boolean isResolver() {
+        return true;
     }
-
 }

@@ -23,6 +23,8 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -34,8 +36,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -43,7 +48,25 @@ public class WorkflowStatePersistenceViaSensors {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowStatePersistenceViaSensors.class);
 
+    public static final ConfigKey<WorkflowStatePersistenceViaSensors> SENSOR_WORKFLOW_PERSISTER = ConfigKeys.newConfigKey(WorkflowStatePersistenceViaSensors.class, "internals.brooklyn.workflow.sensor_persister");
+
     public static final AttributeSensor<Map<String,WorkflowExecutionContext>> INTERNAL_WORKFLOWS = Sensors.newSensor(new TypeToken<Map<String, WorkflowExecutionContext>>() {}, "internals.brooklyn.workflow");
+
+    private static final long GLOBAL_UPDATE_FREQUENCY = 5*60*1000;  // every 5m wipe out old workflows
+
+    public static WorkflowStatePersistenceViaSensors get(ManagementContext mgmt) {
+        WorkflowStatePersistenceViaSensors sharedInstance = mgmt.getScratchpad().get(SENSOR_WORKFLOW_PERSISTER);
+        if (sharedInstance==null) {
+            synchronized (SENSOR_WORKFLOW_PERSISTER) {
+                sharedInstance = mgmt.getScratchpad().get(SENSOR_WORKFLOW_PERSISTER);
+                if (sharedInstance==null) {
+                    sharedInstance = new WorkflowStatePersistenceViaSensors(mgmt);
+                    mgmt.getScratchpad().put(SENSOR_WORKFLOW_PERSISTER, sharedInstance);
+                }
+            }
+        }
+        return sharedInstance;
+    }
 
     private final ManagementContext mgmt;
 
@@ -53,12 +76,14 @@ public class WorkflowStatePersistenceViaSensors {
 
     enum PersistenceWithQueuedTasks { ALLOW, WARN, FAIL }
 
-    static long lastInMemClear = System.currentTimeMillis();
+    long lastInMemClear = System.currentTimeMillis();
 
     public void checkpoint(WorkflowExecutionContext context) {
         checkpoint(context, PersistenceWithQueuedTasks.WARN);
     }
     public void checkpoint(WorkflowExecutionContext context, PersistenceWithQueuedTasks expectQueuedTasks) {
+        doGlobalUpdateIfNeeded();
+
         // keep active workflows in memory, even if disabled
         WorkflowStateActiveInMemory.get(context.getManagementContext()).checkpoint(context);
 
@@ -88,26 +113,58 @@ public class WorkflowStatePersistenceViaSensors {
         expireOldWorkflows(entity, context);
     }
 
-    public void expireOldWorkflows(Entity entity, @Nullable WorkflowExecutionContext context) {
+    private void doGlobalUpdateIfNeeded() {
+        if (lastInMemClear + GLOBAL_UPDATE_FREQUENCY > System.currentTimeMillis()) return;
+        lastInMemClear = System.currentTimeMillis();
+        AtomicInteger total = new AtomicInteger(0);
+        Collection<Entity> entities = mgmt.getEntityManager().getEntities();
+        entities.forEach(entity -> {
+            int change = expireOldWorkflows(entity, null);
+            if (change!=0) log.debug("Global entity workflow persistence update, removed "+(-change)+" workflows from "+entity);
+            total.addAndGet(change);
+        });
+        if (total.get()!=0) log.debug("Global entity workflow persistence update, removed "+(-total.get())+" workflows across all "+entities.size()+" entities");
+    }
+
+    public int expireOldWorkflows(Entity entity, @Nullable WorkflowExecutionContext context) {
         // clear interrupt status so we can persist e.g. if we are interrupted or shutdown
         boolean interrupted = Thread.interrupted();
         boolean doExpiry = WorkflowRetentionAndExpiration.isExpirationCheckNeeded(entity);
         try {
-            updateMap(entity, doExpiry, true, context==null ? null : v -> v.put(context.getWorkflowId(), context));
+            return updateMap(entity, doExpiry, true, context==null ? null : v -> v.put(context.getWorkflowId(), context));
 
         } finally {
             if (interrupted) Thread.currentThread().interrupt();
         }
     }
 
-    void updateMap(Entity entity, boolean doExpiry, boolean persist, Consumer<Map<String,WorkflowExecutionContext>> action) {
+    public boolean deleteWorkflow(WorkflowExecutionContext w) {
+        if (w.getStatus()==null || w.getStatus().expirable || w.getStatus()== WorkflowExecutionContext.WorkflowStatus.STAGED) {
+            log.debug("Explicit request to delete workflow "+w);
+            AtomicBoolean result = new AtomicBoolean(false);
+            updateMap(w.getEntity(), false, true, map -> {
+                boolean removed = WorkflowRetentionAndExpiration.deleteWorkflowFromMap(map, w, true);
+                if (removed) result.set(true);
+            });
+            return result.get();
+        } else {
+            log.warn("Explicit request to delete non-expirable workflow "+w+"; ignoring");
+            return false;
+        }
+    }
+
+    int updateMap(Entity entity, boolean doExpiry, boolean persist, Consumer<Map<String,WorkflowExecutionContext>> action) {
+        AtomicInteger delta = new AtomicInteger(0);
         entity.sensors().modify(INTERNAL_WORKFLOWS, v -> {
             if (v == null) v = MutableMap.of();
+            delta.set(-v.size());
             if (action!=null) action.accept(v);
             if (doExpiry) v = WorkflowRetentionAndExpiration.recomputeExpiration(v, null);
+            delta.getAndAdd(v.size());
             return Maybe.of(v);
         });
         if (persist) mgmt.getRebindManager().forcePersistNow(false, null);
+        return delta.get();
     }
 
     public Map<String,WorkflowExecutionContext> getWorkflows(Entity entity) {

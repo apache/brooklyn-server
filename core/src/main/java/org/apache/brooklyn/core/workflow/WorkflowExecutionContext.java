@@ -253,6 +253,8 @@ public class WorkflowExecutionContext {
                 WorkflowReplayUtils.updaterForReplayableAtWorkflow(paramsDefiningWorkflow, wcType == WorkflowContextType.NESTED_WORKFLOW),
                 optionalTaskFlags);
 
+        w.getStepsResolved();  // ensure steps resolve at this point; should be true even if condition doesn't apply (though input might not be valid without condition)
+
         w.retention = WorkflowRetentionParser.parse(paramsDefiningWorkflow.get(WorkflowCommonConfig.RETENTION), w).init(w);
         w.lock = paramsDefiningWorkflow.get(WorkflowCommonConfig.LOCK);
         w.timeout = paramsDefiningWorkflow.get(WorkflowCommonConfig.TIMEOUT);
@@ -941,11 +943,16 @@ public class WorkflowExecutionContext {
                         updateOnSuccessfulCompletion();
 
                     } catch (Throwable e) {
-                        // do not propagateIfFatal, we need to handle most throwables
-                        Pair<Throwable,WorkflowStatus> unhandledError = handleErrorAtWorkflow(e);
+                        try {
+                            Pair<Throwable, WorkflowStatus> unhandledError = handleErrorAtWorkflow(e);
 
-                        if (unhandledError!=null) {
-                            return () -> endWithError(unhandledError.getLeft(), unhandledError.getRight());
+                            if (unhandledError != null) {
+                                return () -> endWithError(unhandledError.getLeft(), unhandledError.getRight());
+                            }
+                        } catch (Throwable e2) {
+                            // do not propagateIfFatal, we need to handle most throwables
+                            log.debug("Uncaught error in workflow exception handler: "+ e2, e2);
+                            return () -> endWithError(e2, WorkflowStatus.ERROR);
                         }
                     }
 

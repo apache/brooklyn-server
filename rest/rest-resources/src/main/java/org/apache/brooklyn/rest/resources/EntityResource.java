@@ -393,6 +393,14 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         return Response.ok(resolving(null).getValueForDisplay(findWorkflow(applicationId, entityId, workflowId), true, true, suppressSecrets)).build();
     }
 
+    @Override
+    public Response deleteWorkflow(String applicationId, String entityId, String workflowId, Boolean suppressSecrets) {
+        WorkflowExecutionContext w = findWorkflow(applicationId, entityId, workflowId);
+        boolean deleted = WorkflowStatePersistenceViaSensors.get(mgmt()).deleteWorkflow(w);
+        if (!deleted) throw WebResourceUtils.badRequest("Workflow '%s' could not be deleted. If running it may need cancelled first.", workflowId);
+        return Response.ok(resolving(null).getValueForDisplay(w, true, true, suppressSecrets)).build();
+    }
+
     WorkflowExecutionContext findWorkflow(String applicationId, String entityId, String workflowId) {
         Entity entity = brooklyn().getEntity(applicationId, entityId);
         WorkflowExecutionContext w = new WorkflowStatePersistenceViaSensors(mgmt()).getWorkflows(entity).get(workflowId);

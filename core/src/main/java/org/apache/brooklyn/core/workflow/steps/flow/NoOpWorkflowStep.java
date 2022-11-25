@@ -16,26 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow;
+package org.apache.brooklyn.core.workflow.steps.flow;
 
-import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep.RetryLimit;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.Test;
+import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
+import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.util.text.Strings;
 
-public class SpecificShorthandTest {
+public class NoOpWorkflowStep extends WorkflowStepDefinition {
 
-    protected void assertRetry(String input, Integer count, Duration duration) {
-        RetryLimit x = RetryLimit.fromString(input);
-        Asserts.assertEquals(x.count, count);
-        Asserts.assertEquals(x.duration, duration);
+    @Override
+    public void populateFromShorthand(String value) {
+        if (Strings.isBlank(value)) return;
+        // no arguments supported
+        throw new IllegalStateException("Value for shorthand syntax not supported for no-op");
     }
 
-    @Test
-    public void testRetryLimit() {
-        assertRetry("5", 5, null);
-        assertRetry("5m", null, Duration.minutes(5));
-        assertRetry("2 in 5m", 2, Duration.minutes(5));
+    @Override
+    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

@@ -18,7 +18,9 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Stopwatch;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -35,7 +37,10 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -47,6 +52,7 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
@@ -98,15 +104,20 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         return runStepsOnExistingApp("myWorkflow", steps, appFunction, initialEffectorConfig);
     }
     Task<?> runStepsOnExistingApp(String effectorName, List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag initialEffectorConfig) {
+        addEffector(effectorName, steps, appFunction, initialEffectorConfig);
+
+        return app.invoke(app.getEntityType().getEffectorByName(effectorName).get(), null);
+    }
+
+    private WorkflowEffector addEffector(String effectorName, List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag initialEffectorConfig) {
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, effectorName)
                 .configure(WorkflowEffector.STEPS, steps)
                 .copy(initialEffectorConfig)
         );
-        if (appFunction!=null) appFunction.accept(app);
+        if (appFunction !=null) appFunction.accept(app);
         eff.apply((EntityLocal)app);
-
-        return app.invoke(app.getEntityType().getEffectorByName(effectorName).get(), null);
+        return eff;
     }
 
     Task<?> lastInvocation;
@@ -979,6 +990,79 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
             Asserts.assertEquals(lastInvocation.getUnchecked(Duration.seconds(5)), 11);
         }
         return wt;
+    }
+
+    public static WorkflowExecutionContext runWorkflow(Entity target, String workflowYaml, String defaultName) {
+        // mimic what EntityResource.runWorkflow does
+        CustomWorkflowStep workflow;
+        try {
+            workflow = BeanWithTypeUtils.newYamlMapper(((EntityInternal)target).getManagementContext(), true, RegisteredTypes.getClassLoadingContext(target), true)
+                    .readerFor(CustomWorkflowStep.class).readValue(workflowYaml);
+        } catch (JsonProcessingException e) {
+            throw Exceptions.propagate(e);
+        }
+
+        WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
+                Strings.firstNonBlank(workflow.getName(), workflow.getId(), defaultName),
+                null,
+                MutableMap.of("tags", MutableList.of(MutableMap.of("workflow_yaml", workflowYaml))));
+
+        Entities.submit(target, execution.getTask(true).get());
+        return execution;
+    }
+
+    @Test
+    public void testParseErrorStatusAndRetention() throws Exception {
+        app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        Supplier<WorkflowStatePersistenceViaSensors> wp = () -> new WorkflowStatePersistenceViaSensors(mgmt());
+
+        // non-parseable step fails at add time, and is not persisted
+        try {
+            WorkflowEffector eff = addEffector("e1", MutableList.of(
+                            "non-parseable-step"),
+                    null,
+                    ConfigBag.newInstance().configure((ConfigKey) WorkflowCommonConfig.RETENTION, 1));
+            Asserts.shouldHaveFailedPreviously("Instead had: "+eff);
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "non-parseable-step");
+        }
+        // nothing persisted
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of());
+
+        // with condition, it does not parse until actual call
+        addEffector("e1", MutableList.of(
+                        "non-parseable-step"),
+                null,
+                ConfigBag.newInstance()
+                        .configure((ConfigKey) WorkflowCommonConfig.CONDITION, "any: []")
+                        .configure((ConfigKey) WorkflowCommonConfig.RETENTION, 1)
+                );
+        // but fails on invocation, before task created
+        try {
+            Task<?> task = app.invoke(app.getEntityType().getEffectorByName("e1").get(), null);
+            Asserts.shouldHaveFailedPreviously("Instead had: " + task.getStatusDetail(true));
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "non-parseable-step");
+        }
+        // nothing persisted
+        Asserts.assertEquals(wp.get().getWorkflows(app).keySet(), MutableSet.of());
+
+        // invalid replayable step also fails before persisted
+        try {
+            runWorkflow(app,
+                    Strings.lines(
+                            "steps:",
+                            "- workflow replayable unknown-replayable-mode"),
+                    "e2");
+        } catch (Exception e) {
+            Asserts.expectedFailureContains(e, "unknown-replayable-mode");
+        }
+        Asserts.assertSize(wp.get().getWorkflows(app).keySet(), 0);
+
+        // (above is the result after fixing bug where some parses happened in the task, and again in the error handler,
+        // and didn't properly handle errors; now all parse errors should prevent workflow creation;
+        // there might be other edge cases where workflows remain in "staged" state, but they should be few if any,
+        // and worst case they can be manually deleted)
     }
 
 }

@@ -16,26 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow;
+package org.apache.brooklyn.core.workflow.steps.variables;
 
-import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep.RetryLimit;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.Test;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 
-public class SpecificShorthandTest {
+import java.util.List;
 
-    protected void assertRetry(String input, Integer count, Duration duration) {
-        RetryLimit x = RetryLimit.fromString(input);
-        Asserts.assertEquals(x.count, count);
-        Asserts.assertEquals(x.duration, duration);
+public abstract class WorkflowTransformDefault implements WorkflowTransformWithContext {
+    protected WorkflowExecutionContext context;
+
+    @Override
+    public void init(WorkflowExecutionContext context, List<String> definition) {
+        this.context = context;
+        if (definition != null) checkDefinitionSize1(definition);
     }
 
-    @Test
-    public void testRetryLimit() {
-        assertRetry("5", 5, null);
-        assertRetry("5m", null, Duration.minutes(5));
-        assertRetry("2 in 5m", 2, Duration.minutes(5));
+    @Override
+    public boolean isResolver() {
+        return false;
     }
 
+    static void checkDefinitionSize1(List<String> definition) {
+        if (definition.size()>1) throw new IllegalArgumentException("Transform '"+ definition.get(0)+"' does not accept args: " + definition.subList(1, definition.size()));
+    }
 }

@@ -16,26 +16,29 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow;
+package org.apache.brooklyn.core.workflow.steps.appmodel;
 
-import org.apache.brooklyn.core.workflow.steps.flow.RetryWorkflowStep.RetryLimit;
-import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.time.Duration;
-import org.testng.annotations.Test;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.workflow.steps.variables.TypedValueToSet;
 
-public class SpecificShorthandTest {
+/** Deserialization bean allowing to specify a sensor or config on an entity */
+public class EntityValueToSet extends TypedValueToSet {
 
-    protected void assertRetry(String input, Integer count, Duration duration) {
-        RetryLimit x = RetryLimit.fromString(input);
-        Asserts.assertEquals(x.count, count);
-        Asserts.assertEquals(x.duration, duration);
+    public EntityValueToSet() {}
+    public EntityValueToSet(String name) {
+        super(name);
+    }
+    public EntityValueToSet(TypedValueToSet other) {
+        super(other);
+        if (other instanceof EntityValueToSet) this.entity = ((EntityValueToSet)other).entity;
     }
 
-    @Test
-    public void testRetryLimit() {
-        assertRetry("5", 5, null);
-        assertRetry("5m", null, Duration.minutes(5));
-        assertRetry("2 in 5m", 2, Duration.minutes(5));
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public Entity entity;
+
+    public static EntityValueToSet fromString(String name) {
+        return new EntityValueToSet(name);
     }
 
 }
