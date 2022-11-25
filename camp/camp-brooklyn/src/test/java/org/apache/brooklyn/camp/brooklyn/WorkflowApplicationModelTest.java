@@ -127,9 +127,8 @@ public class WorkflowApplicationModelTest extends AbstractYamlTest {
         Task<Object> wt = w1.getTask(false).get();
         Asserts.assertFalse(wt.blockUntilEnded(Duration.millis(500)));
         wt.cancel(true);
-        Asserts.assertTrue(wt.blockUntilEnded(Duration.millis(2000)));
+        Asserts.assertTrue(wt.blockUntilEnded(Duration.millis(2000), true));
 
-        String s = wt.getStatusDetail(true);
         Asserts.assertEquals(w1.getStatus(), WorkflowExecutionContext.WorkflowStatus.ERROR_CANCELLED);
 
         Task<Object> resume = Entities.submit(app, w1.factory(false).createTaskReplaying(w1.factory(false).makeInstructionsForReplayResuming("test", false)));

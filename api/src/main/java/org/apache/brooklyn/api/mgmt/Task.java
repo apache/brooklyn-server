@@ -133,6 +133,11 @@ public interface Task<T> extends ListenableFuture<T>, TaskAdaptable<T> {
      */
     public boolean blockUntilEnded(Duration timeout);
 
+    /**
+     * As {@link #blockUntilEnded(Duration)} and {@link #isDone(boolean)}
+     */
+    public boolean blockUntilEnded(Duration timeout, boolean andTaskNotRunning);
+
     public String getStatusSummary();
 
     /**

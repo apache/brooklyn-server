@@ -436,23 +436,49 @@ public class BasicTask<T> implements TaskInternal<T> {
     
     @Override
     public boolean blockUntilEnded(Duration timeout) {
+        return blockUntilEnded(timeout, false);
+    }
+
+    @Override
+    public boolean blockUntilEnded(Duration timeout, boolean andTaskNotRunning) {
         Long endTime = timeout==null ? null : System.currentTimeMillis() + timeout.toMillisecondsRoundingUp();
-        try { 
-            boolean started = blockUntilStarted(timeout);
-            if (!started) return false;
-            if (timeout==null) {
-                internalFuture.get();
-            } else {
-                long remaining = endTime - System.currentTimeMillis();
-                if (remaining>0)
-                    internalFuture.get(remaining, TimeUnit.MILLISECONDS);
+        try {
+            while (true) {
+                try {
+                    boolean started = blockUntilStarted(timeout);
+                    if (!started) return false;
+                } catch (CancellationException cancelled) {
+                    // above can fail if started
+                    if (isDone(andTaskNotRunning)) return true;
+                }
+                if (timeout == null) {
+                    internalFuture.get();
+                } else {
+                    long remaining = endTime - System.currentTimeMillis();
+                    try {
+                        if (remaining > 0)
+                            internalFuture.get(remaining, TimeUnit.MILLISECONDS);
+                    } catch (TimeoutException|CancellationException e) {
+                        // timeout normal, cancellation should be handled as per below
+                    }
+                    remaining = endTime - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        return isDone(andTaskNotRunning);
+                    }
+                }
+                if (isDone(andTaskNotRunning)) return true;
+
+                // should only come here if timeout not exceeded, internalFuture is ready, but tasks not done. wait with a short delay.
+                Thread.yield();
+                if (isDone(andTaskNotRunning)) return true;
+                Time.sleep(20);
             }
-            return isDone();
+
         } catch (Throwable t) {
             Exceptions.propagateIfFatal(t);
             if (!(t instanceof TimeoutException) && log.isDebugEnabled())
                 log.debug("call from "+Thread.currentThread()+", blocking until '"+this+"' finishes, ended with error: "+t);
-            return isDone(); 
+            return isDone(andTaskNotRunning);
         }
     }
 
