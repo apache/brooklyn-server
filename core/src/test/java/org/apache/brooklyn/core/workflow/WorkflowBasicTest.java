@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -31,7 +32,9 @@ import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
@@ -54,6 +57,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
@@ -97,11 +101,31 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "switch", SwitchWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "fail", FailWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "invoke-effector", InvokeEffectorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "deploy-application", DeployApplicationWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "retry", RetryWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "http", HttpWorkflowStep.class);
+    }
+
+    public static WorkflowExecutionContext runWorkflow(Entity target, String workflowYaml, String defaultName) {
+        // mimic what EntityResource.runWorkflow does
+        CustomWorkflowStep workflow;
+        try {
+            workflow = BeanWithTypeUtils.newYamlMapper(((EntityInternal)target).getManagementContext(), true, RegisteredTypes.getClassLoadingContext(target), true)
+                    .readerFor(CustomWorkflowStep.class).readValue(workflowYaml);
+        } catch (JsonProcessingException e) {
+            throw Exceptions.propagate(e);
+        }
+
+        WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
+                Strings.firstNonBlank(workflow.getName(), workflow.getId(), defaultName),
+                null,
+                MutableMap.of("tags", MutableList.of(MutableMap.of("workflow_yaml", workflowYaml))));
+
+        Entities.submit(target, execution.getTask(true).get());
+        return execution;
     }
 
     <T> T convert(Object input, Class<T> type) {

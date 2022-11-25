@@ -18,9 +18,7 @@
  */
 package org.apache.brooklyn.core.workflow;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Stopwatch;
-import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -37,10 +35,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixture;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -992,25 +987,6 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
         return wt;
     }
 
-    public static WorkflowExecutionContext runWorkflow(Entity target, String workflowYaml, String defaultName) {
-        // mimic what EntityResource.runWorkflow does
-        CustomWorkflowStep workflow;
-        try {
-            workflow = BeanWithTypeUtils.newYamlMapper(((EntityInternal)target).getManagementContext(), true, RegisteredTypes.getClassLoadingContext(target), true)
-                    .readerFor(CustomWorkflowStep.class).readValue(workflowYaml);
-        } catch (JsonProcessingException e) {
-            throw Exceptions.propagate(e);
-        }
-
-        WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
-                Strings.firstNonBlank(workflow.getName(), workflow.getId(), defaultName),
-                null,
-                MutableMap.of("tags", MutableList.of(MutableMap.of("workflow_yaml", workflowYaml))));
-
-        Entities.submit(target, execution.getTask(true).get());
-        return execution;
-    }
-
     @Test
     public void testParseErrorStatusAndRetention() throws Exception {
         app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
@@ -1049,7 +1025,7 @@ public class WorkflowPersistReplayErrorsTest extends RebindTestFixture<BasicAppl
 
         // invalid replayable step also fails before persisted
         try {
-            runWorkflow(app,
+            WorkflowBasicTest.runWorkflow(app,
                     Strings.lines(
                             "steps:",
                             "- workflow replayable unknown-replayable-mode"),

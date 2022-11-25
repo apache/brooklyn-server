@@ -176,6 +176,11 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.appmodel.InvokeEffectorWorkflowStep
+  - id: deploy-application
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.DeployApplicationWorkflowStep
 
   - id: ssh
     format: java-type-name
