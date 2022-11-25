@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -92,6 +93,50 @@ public class WorkflowApplicationModelTest extends AbstractYamlTest {
         Asserts.assertEquals( ((Map)result).get("app"), appMade);
     }
 
+    @Test
+    public void testAddEntity() {
+        Object result = runSteps(MutableList.of(
+                MutableMap.of(
+                        "step", "add-entity",
+                        "blueprint", MutableMap.of(
+                                "name", "Add Entity Test",
+                                "services", MutableList.of(
+                                        MutableMap.of("type", BasicEntity.class.getName(), "name", "Test")
+                                )))
+        ), null);
+
+        Entity childMade = Iterables.getOnlyElement(lastApp.getChildren());
+        Asserts.assertEquals( ((Map)result).get("entity"), childMade);
+        Asserts.assertEquals( ((Map)result).get("entities"), MutableList.of(childMade));
+    }
+
+    @Test
+    public void testDeleteEntity() {
+        Object result = runSteps(MutableList.of(
+                MutableMap.of(
+                        "step", "add-entity",
+                        "blueprint", MutableMap.of("type", BasicEntity.class.getName())),
+                "delete-entity ${entity}"
+
+        ), null);
+
+        Asserts.assertSize(lastApp.getChildren(), 0);
+        Asserts.assertThat( (Entity) ((Map)result).get("entity"), Entities::isUnmanagingOrNoLongerManaged );
+
+        // and using an id
+
+        result = runSteps(MutableList.of(
+                MutableMap.of(
+                        "step", "add-entity",
+                        "blueprint", MutableMap.of("type", BasicEntity.class.getName(), "id", "child_to_kill")),
+                "delete-entity child_to_kill"
+
+        ), null);
+
+        Asserts.assertSize(lastApp.getChildren(), 0);
+        Asserts.assertThat( (Entity) ((Map)result).get("entity"), Entities::isUnmanagingOrNoLongerManaged );
+    }
+
     final static AtomicBoolean GATE = new AtomicBoolean();
 
     public static class BlockingStartApp extends BasicApplicationImpl {
@@ -139,6 +184,37 @@ public class WorkflowApplicationModelTest extends AbstractYamlTest {
         List<Entity> apps = mgmt().getEntityManager().getEntities().stream().filter(e -> "Deploy Idempotent".equals(e.getDisplayName())).collect(Collectors.toList());
         Asserts.assertSize(apps, 1);
         Asserts.assertEquals(apps.iterator().next(), ((Map)resume.getUnchecked()).get("app"));
+    }
+
+    @Test(groups="Integration")
+    public void testAddEntitySeveralIdempotent() {
+        loadTypes();
+        GATE.set(false);
+
+        BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        WorkflowExecutionContext w1 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
+                "steps:",
+                " - step: add-entity "+BlockingStartApp.class.getName(),
+                "   start: sync"
+        ), null);
+
+        Task<Object> wt = w1.getTask(false).get();
+        Asserts.assertFalse(wt.blockUntilEnded(Duration.millis(500)));
+        wt.cancel(true);
+        Asserts.assertTrue(wt.blockUntilEnded(Duration.millis(2000), true));
+
+        Asserts.assertEquals(w1.getStatus(), WorkflowExecutionContext.WorkflowStatus.ERROR_CANCELLED);
+
+        Task<Object> resume = Entities.submit(app, w1.factory(false).createTaskReplaying(w1.factory(false).makeInstructionsForReplayResuming("test", false)));
+        Asserts.assertTrue(resume.blockUntilEnded(Duration.millis(1000), true)); // doesn't wait on gate because start method not called again
+
+        Asserts.assertEquals(w1.getStatus(), WorkflowExecutionContext.WorkflowStatus.SUCCESS);
+
+        Object result = resume.getUnchecked();
+
+        Entity childMade = Iterables.getOnlyElement(app.getChildren());
+        Asserts.assertEquals( ((Map)result).get("entity"), childMade);
+        Asserts.assertEquals( ((Map)result).get("entities"), MutableList.of(childMade));
     }
 
 }

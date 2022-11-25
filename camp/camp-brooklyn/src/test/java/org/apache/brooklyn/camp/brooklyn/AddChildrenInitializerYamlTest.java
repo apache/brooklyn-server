@@ -84,18 +84,12 @@ public class AddChildrenInitializerYamlTest extends AbstractYamlTest {
 
     @Test
     public void testAddChildrenFailsWithoutServicesBlock() throws Exception {
-        try {
-            Entity child = makeAppAndAddChild(
-                    "blueprint_yaml: |",
-                    "  type: " + BasicEntity.class.getName()
-            );
-
-            // fine if implementation is improved to accept this format;
-            // just change semantics of this test (and ensure comments on blueprint_yaml are changed!)
-            Asserts.shouldHaveFailedPreviously("Didn't think we supported calls without 'services', but instantiation gave " + child);
-        } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, "Invalid plan");
-        }
+        Entity child = makeAppAndAddChild(
+                "blueprint_yaml: |",
+                "  type: " + BasicEntity.class.getName()
+        );
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.child")), "parent");
+        Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.parent")), "parent");
     }
 
     @Test

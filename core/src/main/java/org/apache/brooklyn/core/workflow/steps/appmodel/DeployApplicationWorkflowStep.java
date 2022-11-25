@@ -19,6 +19,7 @@
 package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.base.Optional;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -27,6 +28,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
+import org.apache.brooklyn.core.resolve.jackson.JsonPassThroughDeserializer;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
@@ -63,6 +65,12 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition {
         populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
+    // don't try to instantiate 'type' here
+    @JsonDeserialize(using = JsonPassThroughDeserializer.class)
+    void setBlueprint(Object blueprint) {
+        setInput(BLUEPRINT, blueprint);
+    }
+
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
@@ -87,17 +95,17 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition {
         if (blueprint == null)
             blueprint = "services: [ { type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE)) + " } ]";
 
-        String id = getStepState(context);
+        String createdAppId = getStepState(context);
         Application app = null;
 
-        if (Strings.isNonBlank(id)) {
-            app = (Application) context.getManagementContext().getEntityManager().getEntity(id);
+        if (Strings.isNonBlank(createdAppId)) {
+            app = (Application) context.getManagementContext().getEntityManager().getEntity(createdAppId);
             if (app!=null) {
                 context.setOutput(MutableMap.of("app", app));
             }
         } else {
-            id = Identifiers.makeRandomLowercaseId(10);
-            setStepState(context, id);
+            createdAppId = Identifiers.makeRandomLowercaseId(10);
+            setStepState(context, createdAppId);
         }
 
         if (app==null) {
@@ -111,7 +119,7 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition {
                 throw Exceptions.propagate(e);
             }
 
-            app = EntityManagementUtils.createUnstarted(context.getManagementContext(), spec, Optional.of(id));
+            app = EntityManagementUtils.createUnstarted(context.getManagementContext(), spec, Optional.of(createdAppId));
 
             context.setOutput(MutableMap.of("app", app));
 

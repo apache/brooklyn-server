@@ -18,7 +18,6 @@
  */
 package org.apache.brooklyn.util.core.flags;
 
-import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -26,26 +25,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import groovy.lang.Closure;
 import groovy.time.TimeDuration;
-import java.lang.reflect.Constructor;
-import java.util.Collection;
-import java.util.Map;
-import java.util.function.BiFunction;
-import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
-import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.internal.BrooklynInitialization;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
-import org.apache.brooklyn.core.resolve.jackson.CommonTypesSerialization;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
-import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -57,6 +45,11 @@ import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.javalang.coerce.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.lang.reflect.Constructor;
+import java.util.Collection;
+import java.util.Map;
 
 /** Static class providing a shared {@link TypeCoercer} for all of Brooklyn */
 public class TypeCoercions {

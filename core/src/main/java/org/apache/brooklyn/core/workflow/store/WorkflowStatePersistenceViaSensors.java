@@ -84,14 +84,14 @@ public class WorkflowStatePersistenceViaSensors {
     public void checkpoint(WorkflowExecutionContext context, PersistenceWithQueuedTasks expectQueuedTasks) {
         doGlobalUpdateIfNeeded();
 
-        // keep active workflows in memory, even if disabled
-        WorkflowStateActiveInMemory.get(context.getManagementContext()).checkpoint(context);
-
         Entity entity = context.getEntity();
         if (Entities.isUnmanagingOrNoLongerManaged(entity)) {
             log.debug("Skipping persistence of "+context+" as entity is no longer active here");
             return;
         }
+
+        // keep active workflows in memory, even if disabled
+        WorkflowStateActiveInMemory.get(context.getManagementContext()).checkpoint(context);
 
         if (Boolean.TRUE.equals(context.getRetentionSettings().disabled)) {
             if (getFromTag(BrooklynTaskTags.tagForWorkflow(context), false)!=null) {

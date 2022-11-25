@@ -40,15 +40,19 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityFunctions;
 import org.apache.brooklyn.core.entity.trait.Startable;
 import org.apache.brooklyn.core.mgmt.internal.EntityManagerInternal;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,24 +164,11 @@ public class EntityManagementUtils {
     
     /** adds entities from the given yaml, under the given parent; but does not start them */
     public static List<Entity> addChildrenUnstarted(final Entity parent, String yaml) {
-        log.debug("Creating child of "+parent+" from yaml:\n{}", yaml);
+        log.debug("Creating under "+parent+" from yaml:\n{}", yaml);
 
         ManagementContext mgmt = parent.getApplication().getManagementContext();
 
-        EntitySpec<? extends Application> specA = createEntitySpecForApplication(mgmt, yaml);
-
-        // see whether we can promote children
-        List<EntitySpec<?>> specs = MutableList.of();
-        if (!canUnwrapEntity(specA)) {
-            // if not promoting, set a nice name if needed
-            if (Strings.isEmpty(specA.getDisplayName())) {
-                int size = specA.getChildren().size();
-                String childrenCountString = size+" "+(size!=1 ? "children" : "child");
-                specA.displayName("Dynamically added "+childrenCountString);
-            }
-        }
-        
-        specs.add(unwrapEntity(specA));
+        List<EntitySpec<?>> specs = getAddChildrenSpecs(mgmt, yaml);
 
         final List<Entity> children = MutableList.of();
         for (EntitySpec<?> spec: specs) {
@@ -186,6 +177,53 @@ public class EntityManagementUtils {
         }
 
         return children;
+    }
+
+    public static List<EntitySpec<?>> getAddChildrenSpecs(ManagementContext mgmt, String yamlMaybeList) {
+        // see whether there are multiple children, and can they be promoted
+
+        List<String> yamls = MutableList.of();
+        Object parse = Iterables.getOnlyElement(Yamls.parseAll(yamlMaybeList));
+        if (parse instanceof List) {
+            ((List) parse).forEach(li -> {
+                try {
+                    yamls.add(BeanWithTypeUtils.newYamlMapper(null, false, null, false).writeValueAsString(li));
+                } catch (Exception e) {
+                    throw Exceptions.propagateAnnotated("Invalid YAML for adding child", e);
+                }
+            });
+        } else {
+            yamls.add(yamlMaybeList); // not a list
+        }
+
+        List<EntitySpec<?>> result = MutableList.of();
+
+        yamls.forEach(yaml -> {
+            EntitySpec spec = null;
+            try {
+                spec = mgmt.getTypeRegistry().createSpecFromPlan(null, yaml, null, EntitySpec.class);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                try {
+                    Object yo = Iterables.getOnlyElement(Yamls.parseAll(yaml));
+                    spec = TypeCoercions.tryCoerce(yo, EntitySpec.class).orNull();
+                } catch (Exception e2) {
+                    log.debug("Failed converting entity spec YAML as YAML, transformer error will throw, but also encountered: "+e2);
+                }
+                if (spec==null) throw Exceptions.propagate(e);
+            }
+            if (!canUnwrapEntity(spec)) {
+                // if not promoting, set a nice name if needed
+                if (Strings.isEmpty(spec.getDisplayName())) {
+                    int size = spec.getChildren().size();
+                    String childrenCountString = size + " " + (size != 1 ? "children" : "child");
+                    spec.displayName("Dynamically added " + childrenCountString);
+                }
+            }
+            result.add(spec);
+        });
+
+        return result;
     }
 
     public static CreationResult<List<Entity>,List<String>> addChildrenStarting(final Entity parent, String yaml) {

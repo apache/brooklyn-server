@@ -35,6 +35,7 @@ import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -80,7 +81,12 @@ public class WorkflowExpressionResolution {
         return null;
     }
 
-    class WorkflowFreemarkerModel implements TemplateHashModel {
+    class WorkflowFreemarkerModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(context);
+        }
+
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             List<Throwable> errors = MutableList.of();
@@ -192,7 +198,12 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    class WorkflowExplicitModel implements TemplateHashModel {
+    class WorkflowExplicitModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(context);
+        }
+
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             //id (a token representing an item uniquely within its root instance)
