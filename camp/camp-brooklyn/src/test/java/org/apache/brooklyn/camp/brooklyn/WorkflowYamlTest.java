@@ -104,10 +104,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         addRegisteredTypeBean(mgmt, "container", ContainerWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "winrm", WinrmWorkflowStep.class);
-
-        addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
-        addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
-        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class, Policy.class);
     }
 
     @BeforeMethod(alwaysRun = true)

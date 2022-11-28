@@ -19,31 +19,29 @@
 package org.apache.brooklyn.core.resolve.jackson;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.cfg.MapperConfig;
-import com.fasterxml.jackson.databind.introspect.Annotated;
-import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import com.fasterxml.jackson.databind.deser.ContextualDeserializer;
 import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.module.SimpleDeserializers;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
-import com.fasterxml.jackson.databind.util.ByteBufferBackedOutputStream;
 import com.google.common.base.Predicate;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -54,11 +52,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.*;
 import java.util.function.Function;
@@ -126,8 +122,11 @@ public class CommonTypesSerialization {
         public abstract T convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException;
 
         public T newEmptyInstance() {
+            return newEmptyInstance(getType());
+        }
+
+        public T newEmptyInstance(Class<T> t) {
             try {
-                Class<T> t = getType();
                 Constructor<T> tc = t.getDeclaredConstructor();
                 tc.setAccessible(true);
                 return tc.newInstance();
@@ -155,7 +154,7 @@ public class CommonTypesSerialization {
 
         public <T extends SimpleModule> T apply(T module) {
             module.addSerializer(getType(), new Serializer());
-            module.addDeserializer(getType(), new Deserializer());
+            module.addDeserializer(getType(), newDeserializer());
             return module;
         }
 
@@ -186,7 +185,12 @@ public class CommonTypesSerialization {
             }
         }
 
+        protected JsonDeserializer<T> newDeserializer() {
+            return new Deserializer();
+        }
+
         protected class Deserializer extends JsonDeserializer<T> {
+
             @Override
             public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
                 try {
@@ -220,6 +224,14 @@ public class CommonTypesSerialization {
             @Override
             public T deserialize(JsonParser p, DeserializationContext ctxt, T intoValue) throws IOException, JsonProcessingException {
                 return copyInto(deserialize(p, ctxt), intoValue);
+            }
+
+            protected T newEmptyInstance() {
+                return ObjectAsStringSerializerAndDeserializer.this.newEmptyInstance();
+            }
+
+            public T convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+                return ObjectAsStringSerializerAndDeserializer.this.convertSpecialMapToObject(value, p, ctxt);
             }
         }
     }
@@ -313,7 +325,7 @@ public class CommonTypesSerialization {
 
         public <T extends SimpleModule> T apply(T module, InterceptibleDeserializers interceptable) {
             // apply to all subtypes of BO
-            interceptable.addSubtypeInterceptor(getType(), new Deserializer());
+            interceptable.addSubtypeInterceptor(getType(), newDeserializer());
 
             return apply(module);
         }
@@ -338,32 +350,84 @@ public class CommonTypesSerialization {
             throw new IllegalStateException("Entity or other BrooklynObject '"+value+"' is not known here");
         }
 
-        @Override public BrooklynObject convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
-            BrooklynObject result = null;
-            if (value.size()<=2) {
-                Object id = value.get("id");
-                if (id instanceof String) {
-                    // looks like a type+id map, so we should be able to look it up
+        @Override
+        protected JsonDeserializer<BrooklynObject> newDeserializer() {
+            return new BODeserializer();
+        }
+
+        class BODeserializer extends Deserializer implements ContextualDeserializer, BrooklynJacksonSerializationUtils.RecontextualDeserializer {
+            private DeserializationContext context;
+            private JavaType knownConcreteType;
+
+            BODeserializer() {}
+            BODeserializer(DeserializationContext context, JavaType knownConcreteType) {
+                this.context = context;
+                this.knownConcreteType = knownConcreteType;
+            }
+            @Override
+            public JsonDeserializer<?> createContextual(DeserializationContext ctxt, BeanProperty property) throws JsonMappingException {
+                return new BODeserializer(ctxt, null);
+            }
+            @Override
+            public JsonDeserializer<?> recreateContextual() {
+                if (context!=null && context.getContextualType()!=null && context.getContextualType().isConcrete()) {
+                    return new BODeserializer(context, context.getContextualType());
+                }
+                return this;
+            }
+
+            @Override
+            protected BrooklynObject newEmptyInstance() {
+                /* context buries the contextual types when called via createContextual, because we are a delegate; and has cleared it by the time it gets here */
+                if (knownConcreteType !=null) {
+                    return BrooklynObjectSerialization.this.newEmptyInstance((Class<BrooklynObject>) knownConcreteType.getRawClass());
+                }
+                return super.newEmptyInstance();
+            }
+
+            @Override public BrooklynObject convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
+                BrooklynObject result = null;
+                if (value.size()<=2) {
+                    Object id = value.get("id");
                     Object type = value.get("type");
-                    if (type instanceof String) {
-                        Optional<BrooklynObjectType> typeO = Arrays.stream(BrooklynObjectType.values()).filter(t -> type.equals(t.getInterfaceType().getName())).findAny();
-                        if (typeO.isPresent()) {
-                            result = mgmt.lookup((String) id, typeO.get().getInterfaceType());
+                    boolean isExistingInstance = false;
+                    if (id instanceof String) {
+                        // looks like a type+id map, so we should be able to look it up
+                        if (type instanceof String) {
+                            Optional<BrooklynObjectType> typeO = Arrays.stream(BrooklynObjectType.values()).filter(t -> type.equals(t.getInterfaceType().getName())).findAny();
+                            if (typeO.isPresent()) {
+                                isExistingInstance = true;
+                                result = mgmt.lookup((String) id, typeO.get().getInterfaceType());
+                            } else {
+                                // fall through to below
+                            }
                         } else {
-                            // fall through to below
+                            isExistingInstance = true;
+                            result = mgmt.lookup((String) id, null);
                         }
-                    } else {
-                        result = mgmt.lookup((String) id, null);
                     }
 
                     if (result==null) {
-                        throw new IllegalStateException("Cannot find serialized shorthand reference to entity "+value);
+                        if (isExistingInstance) {
+                            throw new IllegalStateException("Cannot find serialized shorthand reference to entity " + value);
+                        }
+                        // attempt to instantiate it - to support add-policy workflow step
+                        // TODO we should prefer a spec, and coerce to a spec (separate coercer),
+                        // moving some of the code from BrooklynYamlTypeInstantiator into here / near.
+                        // if using this, we should take care to keep it JsonPassThroughDeserializer until we want it
+
+                        if (type==null && knownConcreteType!=null) {
+                            // type should have come from outer deserialier
+                            result = newEmptyInstance();
+
+                            FlagUtils.setFieldsFromFlags(value, result);
+                        }
                     }
                 }
-            }
-            if (result!=null) return result;
+                if (result!=null) return result;
 
-            throw new IllegalStateException("Entity instances and other Brooklyn objects should be supplied as unique IDs; they cannot be instantiated from YAML. If a spec is desired, the type should be known or use $brooklyn:entitySpec.");
+                throw new IllegalStateException("Entity instances and other Brooklyn objects should be supplied as unique IDs; they cannot be instantiated from YAML. If a spec is desired, the type should be known or use $brooklyn:entitySpec.");
+            }
         }
     }
 

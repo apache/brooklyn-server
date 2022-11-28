@@ -181,6 +181,36 @@ brooklyn.catalog:
     itemType: bean
     item:
       type: org.apache.brooklyn.core.workflow.steps.appmodel.DeployApplicationWorkflowStep
+  - id: add-entity
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.AddEntityWorkflowStep
+  - id: delete-entity
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.DeleteEntityWorkflowStep
+  - id: reparent-entity
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.ReparentEntityWorkflowStep
+  - id: add-policy
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.AddPolicyWorkflowStep
+  - id: delete-policy
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.DeletePolicyWorkflowStep
+  - id: apply-initializer
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.steps.appmodel.ApplyInitializerWorkflowStep
 
   - id: ssh
     format: java-type-name

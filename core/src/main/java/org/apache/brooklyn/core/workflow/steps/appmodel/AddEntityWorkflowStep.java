@@ -102,7 +102,7 @@ public class AddEntityWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        Object blueprint = context.getInput(BLUEPRINT);
+        Object blueprint = input.get(BLUEPRINT.getName());
         if (blueprint == null) {
             blueprint = "type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE));
         }
@@ -113,8 +113,9 @@ public class AddEntityWorkflowStep extends WorkflowStepDefinition {
         List<EntitySpec<?>> specs;
         ManagementContext mgmt = context.getManagementContext();
         try {
-            specs = EntityManagementUtils.getAddChildrenSpecs(mgmt,
-                    blueprint instanceof String ? (String) blueprint :
+            specs = blueprint instanceof EntitySpec ? MutableList.of((EntitySpec) blueprint)
+                    : EntityManagementUtils.getAddChildrenSpecs(mgmt,
+                      blueprint instanceof String ? (String) blueprint :
                             BeanWithTypeUtils.newYamlMapper(mgmt, false, null, false).writeValueAsString(blueprint));
         } catch (JsonProcessingException e) {
             throw Exceptions.propagate(e);

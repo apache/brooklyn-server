@@ -26,6 +26,8 @@ import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -78,6 +80,14 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
     }
 
+    public static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz, Class<? extends BrooklynObject> superClazz) {
+        RegisteredType rt = RegisteredTypes.spec(symName, VERSION,
+                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
+        RegisteredTypes.addSuperType(rt, superClazz);
+        mgmt.getCatalog().validateType(rt, null, false);
+        return mgmt.getTypeRegistry().get(rt.getSymbolicName(), rt.getVersion());
+    }
+
     protected void loadTypes() {
         addWorkflowStepTypes(mgmt);
     }
@@ -104,11 +114,19 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "deploy-application", DeployApplicationWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "add-entity", AddEntityWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "delete-entity", DeleteEntityWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "reparent-entity", ReparentEntityWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "add-policy", AddPolicyWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "delete-policy", DeletePolicyWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "apply-initializer", ApplyInitializerWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "retry", RetryWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "http", HttpWorkflowStep.class);
+
+        addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
+        addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
+        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class, Policy.class);
     }
 
     public static WorkflowExecutionContext runWorkflow(Entity target, String workflowYaml, String defaultName) {

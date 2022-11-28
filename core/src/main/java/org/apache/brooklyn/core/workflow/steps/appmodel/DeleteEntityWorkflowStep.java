@@ -30,6 +30,7 @@ import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,25 +72,7 @@ public class DeleteEntityWorkflowStep extends WorkflowStepDefinition {
         Entity entity = null;
 
         if (entityId==null) {
-            Object entityO = context.getInput(ENTITY);
-            if (entityO instanceof Entity) {
-                entity = (Entity) entityO;
-            } else if (entityO instanceof String || Boxing.isPrimitiveOrBoxedObject(entityO)) {
-                entityId = entityO.toString();
-
-                List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
-                        Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, entityId), x->true)::apply);
-                if (firstGroupOfMatches.isEmpty()) {
-                    firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
-                            Predicates.and(EntityPredicates.idEqualTo(entityId), x->true)::apply);
-                }
-                if (!firstGroupOfMatches.isEmpty()) {
-                    entity = firstGroupOfMatches.get(0);
-                }
-
-                if (entity==null) throw new IllegalStateException("Cannot find entity with id '"+entityId+"'");
-
-            } else throw new IllegalArgumentException("Invalid value for "+ENTITY.getName()+"; must be a string or entity, not '"+entityO+"'");
+            entity = findEntity(context, context.getInput(ENTITY)).get();
 
             entityId = entity.getId();
             setStepState(context, entityId);
@@ -107,6 +90,30 @@ public class DeleteEntityWorkflowStep extends WorkflowStepDefinition {
         }
 
         return context.getPreviousStepOutput();
+    }
+
+    static Maybe<Entity> findEntity(WorkflowStepInstanceExecutionContext context, Object entityO) {
+        Entity entity=null;
+        String entityId;
+        if (entityO instanceof Entity) {
+            entity = (Entity) entityO;
+        } else if (entityO instanceof String || Boxing.isPrimitiveOrBoxedObject(entityO)) {
+            entityId = entityO.toString();
+
+            List<Entity> firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
+                    Predicates.and(EntityPredicates.configEqualTo(BrooklynConfigKeys.PLAN_ID, entityId), x->true)::apply);
+            if (firstGroupOfMatches.isEmpty()) {
+                firstGroupOfMatches = AppGroupTraverser.findFirstGroupOfMatches(context.getEntity(), true,
+                        Predicates.and(EntityPredicates.idEqualTo(entityId), x->true)::apply);
+            }
+            if (!firstGroupOfMatches.isEmpty()) {
+                entity = firstGroupOfMatches.get(0);
+            }
+
+            if (entity==null) return Maybe.absent("Cannot find entity with id '"+entityId+"'");
+
+        } else return Maybe.absent("Invalid expression for entity; must be a string or entity, not '"+entityO+"'");
+        return Maybe.of(entity);
     }
 
     @Override protected Boolean isDefaultIdempotent() { return true; }

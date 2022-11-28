@@ -196,6 +196,10 @@ public class BrooklynJacksonSerializationUtils {
         }
     }
 
+    interface RecontextualDeserializer {
+        JsonDeserializer<?> recreateContextual();
+    }
+
     public static class JsonDeserializerForCommonBrooklynThings extends JacksonBetterDelegatingDeserializer {
         // injected from CAMP platform; inelegant, but effective
         public static BiFunction<ManagementContext,Object,Object> BROOKLYN_PARSE_DSL_FUNCTION = null;
@@ -204,6 +208,14 @@ public class BrooklynJacksonSerializationUtils {
         public JsonDeserializerForCommonBrooklynThings(ManagementContext mgmt, JsonDeserializer<?> delagatee) {
             super(delagatee, d -> new JsonDeserializerForCommonBrooklynThings(mgmt, d));
             this.mgmt = mgmt;
+        }
+
+        @Override
+        protected JsonDeserializer<?> newDelegatingInstance(JsonDeserializer<?> newDelegatee) {
+            if (newDelegatee instanceof RecontextualDeserializer) {
+                newDelegatee = ((RecontextualDeserializer)newDelegatee).recreateContextual();
+            }
+            return super.newDelegatingInstance(newDelegatee);
         }
 
         @Override
