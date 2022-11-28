@@ -127,6 +127,8 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
             throw WebResourceUtils.notFound("Bundle with id '%s:%s' doesn't have a ZIP archive found", symbolicName, version);
         }
 
+        log.debug("Download of bundle "+managedBundle+" by user "+Entitlements.getEntitlementContext().user());
+
         try {
             return Response
                     .ok(FileUtils.readFileToByteArray(bundleFile), "application/zip")
