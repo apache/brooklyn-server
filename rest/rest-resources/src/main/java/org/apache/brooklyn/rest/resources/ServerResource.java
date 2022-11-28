@@ -584,6 +584,9 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
 
     @Override
     public Response importPersistenceData(byte[] persistenceData) {
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.ROOT, null))
+            throw WebResourceUtils.forbidden(USER_OPERATION_NOT_AUTHORIZED_MSG, Entitlements.getEntitlementContext().user());
+
         File tempZipFile = null;
         String unzippedPath = null;
         try {

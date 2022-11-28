@@ -282,8 +282,8 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY},{@link #SEE_ALL_SERVER_INFO}
-     * and {@link #EXECUTE_GROOVY_SCRIPT}.
+     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY}, {@link #SEE_ALL_SERVER_INFO},
+     * {@link #EXECUTE_GROOVY_SCRIPT}, and {@link #HA_ADMIN}.
      */
     public static EntitlementManager user() {
         return new EntitlementManager() {
@@ -304,20 +304,13 @@ public class Entitlements {
     }
 
     /**
-     * @return An entitlement manager allowing everything but {@link #ROOT}, {@link #LOGBOOK_LOG_STORE_QUERY}, {@link #SEE_ALL_SERVER_INFO},
-     * {@link #EXECUTE_GROOVY_SCRIPT} and {@link #ADD_JAVA}
+     * @return An entitlement manager per {@link #user()} but also disallowing {@link #ADD_JAVA}
      */
     public static EntitlementManager blueprintAuthor() {
         return new EntitlementManager() {
             @Override
             public <T> boolean isEntitled(EntitlementContext context, EntitlementClass<T> permission, T entitlementClassArgument) {
-                return
-                        !SEE_ALL_SERVER_INFO.equals(permission) &&
-                        !ROOT.equals(permission) &&
-                        !LOGBOOK_LOG_STORE_QUERY.equals(permission) &&
-                        !EXECUTE_GROOVY_SCRIPT.equals(permission) &&
-                        !ADD_JAVA.equals(permission) &&
-                        !HA_ADMIN.equals(permission);
+                return user().isEntitled(context, permission, entitlementClassArgument) && !ADD_JAVA.equals(permission);
             }
             @Override
             public String toString() {
