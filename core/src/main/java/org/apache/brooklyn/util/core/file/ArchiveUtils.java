@@ -363,21 +363,38 @@ public class ArchiveUtils {
     }
 
     public static void extractZip(final ZipFile zip, final String targetFolder) {
-        new File(targetFolder).mkdir();
+        File targetPath = new File(targetFolder);
+        targetPath.mkdir();
         Enumeration<? extends ZipEntry> zipFileEntries = zip.entries();
         while (zipFileEntries.hasMoreElements()) {
-            ZipEntry entry = (ZipEntry) zipFileEntries.nextElement();
-            File destFile = new File(targetFolder, entry.getName());
+            ZipEntry entry = zipFileEntries.nextElement();
+            String originalName = entry.getName();
+            File destFile = new File(targetPath, originalName);
+            // validate input path
+            try {
+                String canonicalDestinationDirPath = null;
+                // enforce the file uses the appropriate file separator for the controller SO
+                String sanitizedName = originalName
+                        .replace("\\", File.separator)
+                        .replace("/", File.separator);
+                File sanitizedDestFile = new File(targetPath, sanitizedName);
+                canonicalDestinationDirPath = targetPath.getCanonicalPath();
+                String canonicalDestinationFile = sanitizedDestFile.getCanonicalPath();
+                if (!canonicalDestinationFile.startsWith(canonicalDestinationDirPath + File.separator)) {
+                    throw new IllegalStateException("Entry is outside of the target dir: " + entry.getName());
+                }
+            } catch (IOException e) {
+                throw Exceptions.propagate(e);
+            }
             destFile.getParentFile().mkdirs();
-
             if (!entry.isDirectory()) {
-                try (InputStream in=zip.getInputStream(entry); OutputStream out=new FileOutputStream(destFile)) {
+                try (InputStream in = zip.getInputStream(entry); OutputStream out = new FileOutputStream(destFile)) {
                     Streams.copy(in, out);
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     throw Exceptions.propagate(e);
                 }
             }
         }
     }
-    
 }
