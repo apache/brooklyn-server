@@ -130,7 +130,7 @@
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <jakarta.mail.version>1.6.5</jakarta.mail.version> <!-- used by karaf -->
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.13.3</fasterxml.jackson.version>
+        <fasterxml.jackson.version>2.13.4</fasterxml.jackson.version>
         <cxf.version>3.4.1</cxf.version>
         <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
         <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version> <!-- To match cxf -->
@@ -138,7 +138,7 @@
         <httpclient.version>4.5.13</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.12.0</commons-lang3.version>
         <groovy.version>2.4.15</groovy.version> <!-- Version 2.4.7 supported by https://github.com/groovy/groovy-eclipse/wiki/Groovy-Eclipse-2.9.1-Release-Notes; not sure what more recent will be -->
-        <snakeyaml.version>1.30</snakeyaml.version> <!-- 1.30 matches jackson 2.13; 1.27 matches cxf-jackson 3.3.9 -->
+        <snakeyaml.version>1.31</snakeyaml.version> <!-- 1.30 matches jackson 2.13.4; 1.27 matches cxf-jackson 3.3.9 -->
         <snakeyaml.jclouds.version>1.26</snakeyaml.jclouds.version> <!-- jclouds 2.4 imports this -->
         <!-- Next version of swagger requires changes to how path mapping and scanner injection are done. -->
         <swagger.version>1.6.2</swagger.version>

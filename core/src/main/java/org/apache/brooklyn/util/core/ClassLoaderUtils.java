@@ -337,6 +337,7 @@ public class ClassLoaderUtils {
     protected <T> Maybe<T> tryLoadFromBundle(LoaderDispatcher<T> dispatcher, String originalSymbolicName, String version,
                                              String name) {
         Framework framework = getFramework();
+        originalSymbolicName = Strings.removeAllFromStart(originalSymbolicName, "/", "\\");
         String symbolicName = originalSymbolicName;
         if(isSymbolicNameChanged(symbolicName)){
             log.debug("Using {} as symbolicName instead of {} as it is in UPDATED_SYMBOLICS_NAMES list", symbolicName, originalSymbolicName);
