@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.zip.ZipFile;
 
 import com.google.common.io.ByteStreams;
+import org.apache.brooklyn.test.Asserts;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -112,29 +113,18 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
         ArchiveUtils.deploy(origJar.getAbsolutePath(), machine, destDir.getAbsolutePath(), destFile);
         assertFilesEqual(new File(destDir, destFile), origJar);
     }
-    @Test(groups="Integration", expectedExceptions = IllegalStateException.class)
+    @Test(groups="Integration")
     public void testUnzipFileAccessingPathOutsideTargetFolderEvilWinFormat() throws Exception{
         InputStream evilZip = ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/file.core/evilWin.zip");
-        File tempZipFile = File.createTempFile("test-zip",null);
-        tempZipFile.deleteOnExit();
-        java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(evilZip), StandardOpenOption.TRUNCATE_EXISTING);
-        ArchiveUtils.extractZip(new ZipFile(tempZipFile),destDir.getAbsolutePath());
+        Asserts.assertFailsWith(() -> doTestUnzip("classpath://brooklyn/util/file.core/evilWin.zip"), e -> { Asserts.expectedFailureContainsIgnoreCase(e, "Entry is outside of the target dir"); return true; });
     }
-    @Test(groups="Integration", expectedExceptions = IllegalStateException.class)
+    @Test(groups="Integration")
     public void testUnzipFileAccessingPathOutsideTargetFolderEvilLinuxFormat() throws Exception{
-        InputStream evilZip = ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/file.core/evilLinux.zip");
-        File tempZipFile = File.createTempFile("test-zip",null);
-        tempZipFile.deleteOnExit();
-        java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(evilZip), StandardOpenOption.TRUNCATE_EXISTING);
-        ArchiveUtils.extractZip(new ZipFile(tempZipFile),destDir.getAbsolutePath());
+        Asserts.assertFailsWith(() -> doTestUnzip("classpath://brooklyn/util/file.core/evilLinux.zip"), e -> { Asserts.expectedFailureContainsIgnoreCase(e, "Entry is outside of the target dir"); return true; });
     }
     @Test(groups="Integration")
     public void testUnzipFileAccessingPathOutsideTargetFolderNoEvil() throws Exception{
-        InputStream noEvilZip = ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/file.core/noEvil.zip");
-        File tempZipFile = File.createTempFile("test-zip",null);
-        tempZipFile.deleteOnExit();
-        java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(noEvilZip), StandardOpenOption.TRUNCATE_EXISTING);
-        ArchiveUtils.extractZip(new ZipFile(tempZipFile),destDir.getAbsolutePath());
+        doTestUnzip("classpath://brooklyn/util/file.core/noEvil.zip");
     }
 
     private File newZip(Map<String, String> files) throws Exception {
@@ -157,6 +147,21 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
         for (Map.Entry<String, String> entry : archiveContents.entrySet()) {
             File subFile = new File(Os.mergePaths(parentDir.getAbsolutePath(), entry.getKey()));
             assertEquals(Joiner.on("\n").join(Files.readLines(subFile, Charsets.UTF_8)), entry.getValue());
+        }
+    }
+
+    private void doTestUnzip(String url)  {
+        File tempZipFile = null;
+        InputStream evilZip = ResourceUtils.create(this).getResourceFromUrl(url);
+        try {
+            tempZipFile = File.createTempFile("test-zip", null);
+            tempZipFile.deleteOnExit();
+            java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(evilZip), StandardOpenOption.TRUNCATE_EXISTING);
+            ArchiveUtils.extractZip(new ZipFile(tempZipFile), destDir.getAbsolutePath());
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            tempZipFile.delete();
         }
     }
 }
