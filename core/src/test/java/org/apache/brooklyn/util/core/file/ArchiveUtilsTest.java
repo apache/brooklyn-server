@@ -154,7 +154,7 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
         File tempZipFile = null;
         InputStream evilZip = ResourceUtils.create(this).getResourceFromUrl(url);
         try {
-            tempZipFile = File.createTempFile("test-zip", null);
+            tempZipFile = File.createTempFile("test", "zip");
             tempZipFile.deleteOnExit();
             java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(evilZip), StandardOpenOption.TRUNCATE_EXISTING);
             ArchiveUtils.extractZip(new ZipFile(tempZipFile), destDir.getAbsolutePath());
