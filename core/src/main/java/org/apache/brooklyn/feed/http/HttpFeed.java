@@ -259,14 +259,16 @@ public class HttpFeed extends AbstractFeed {
             }
         }
         public HttpFeed build() {
-            return build(null);
+            return build(false, null);
         }
-        /** normally no arg is required, but if feed is not attached to entity, it will need starting here */
-        public HttpFeed build(Boolean feedStart) {
+
+        /** normally no arg needed, but can pass true for first to register, and null for latter to auto-start at the right time, or true to force start */
+        public HttpFeed build(boolean registerOnEntity, Boolean feedStart) {
             built = true;
             HttpFeed result = new HttpFeed(this);
             result.setEntity(checkNotNull((EntityLocal)entity, "entity"));
             if (suspended) result.suspend();
+            if (registerOnEntity) entity.addFeed(result);
             if ((feedStart==null && Entities.isManagedActive(entity)) || Boolean.TRUE.equals(feedStart)) {
                 // this feed is used a lot without being attached to an entity, not ideal, but let's support it
                 result.start();

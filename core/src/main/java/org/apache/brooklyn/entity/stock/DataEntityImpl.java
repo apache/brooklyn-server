@@ -71,7 +71,7 @@ public class DataEntityImpl extends AbstractEntity implements DataEntity {
             }
         }
 
-        feed = builder.build();
+        feed = builder.build(true);  // register because connect not called on rebing
     }
 
     protected void disconnectSensors() {

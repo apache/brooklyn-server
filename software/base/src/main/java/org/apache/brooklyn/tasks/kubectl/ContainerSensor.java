@@ -68,12 +68,12 @@ public class ContainerSensor<T> extends AbstractAddTriggerableSensor<T> implemen
                 .callable(new ContainerSensorCallable(entity, configBag, sensor));
         standardPollConfig(entity, configBag, poll);
 
-        ((EntityInternal) entity).feeds().add(FunctionFeed.builder()
+        FunctionFeed.builder()
                 .name("Container Sensor Feed: "+initParam(SENSOR_NAME))
                 .entity(entity)
                 .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(initParams(), ONLY_IF_SERVICE_UP)).or(false))
                 .poll(poll)
-                .build());
+                .build(true);
     }
 
     public static class ContainerSensorCallable implements Callable<Object> {

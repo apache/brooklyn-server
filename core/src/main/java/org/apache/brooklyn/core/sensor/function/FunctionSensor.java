@@ -83,10 +83,8 @@ public final class FunctionSensor<T> extends AbstractAddSensorFeed<T> {
                 .logWarningGraceTime(logWarningGraceTime)
                 .period(initParam(SENSOR_PERIOD));
 
-        FunctionFeed feed = FunctionFeed.builder().entity(entity)
+        FunctionFeed.builder().entity(entity)
                 .poll(pollConfig)
-                .build();
-
-        entity.addFeed(feed);
+                .build(true);
     }
 }

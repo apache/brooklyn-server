@@ -282,7 +282,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
                 .poll(new FunctionPollConfig<Boolean, Boolean>(CLUSTER_ONE_AND_ALL_MEMBERS_UP)
                         .onException(Functions.constant(Boolean.FALSE))
                         .callable(new ClusterOneAndAllMembersUpCallable(this)))
-                .build();
+                .build(true);
     }
 
     private static class ClusterOneAndAllMembersUpCallable implements Callable<Boolean> {

@@ -56,12 +56,12 @@ public class BrooklynClusterImpl extends DynamicClusterImpl implements BrooklynC
         getMutableEntityType().addEffector(BrooklynClusterUpgradeEffectorBody.UPGRADE_CLUSTER);
 
         ServiceProblemsLogic.updateProblemsIndicator(this, MASTER_NODE, MSG_NO_MASTER);
-        addFeed(FunctionFeed.builder()
+        FunctionFeed.builder()
                 .entity(this)
                 .poll(new FunctionPollConfig<Object, BrooklynNode>(MASTER_NODE)
                         .period(Duration.ONE_SECOND)
                         .callable(new MasterChildFinder()))
-                .build());
+                .build(true);
         
         enrichers().add( Enrichers.builder().transforming(MASTER_NODE)
             .uniqueTag("master-node-web-uri")

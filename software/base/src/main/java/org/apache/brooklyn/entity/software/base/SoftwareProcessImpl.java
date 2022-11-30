@@ -303,7 +303,7 @@ public abstract class SoftwareProcessImpl extends AbstractEntity implements Soft
                                 return getDriver().isRunning();
                             }
                         }))
-                .build();
+                .build(false);
     }
 
     /**

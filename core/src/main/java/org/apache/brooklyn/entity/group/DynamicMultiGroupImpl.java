@@ -138,7 +138,7 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
                                         return null;
                                     }
                                 }))
-                    .build();
+                    .build(true);
         }
     }
 

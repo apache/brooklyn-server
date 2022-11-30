@@ -134,8 +134,13 @@ public class FunctionFeed extends AbstractFeed {
             return this;
         }
         public FunctionFeed build() {
+            return build(false);
+        }
+        /** builds the feed, optionally registering it on entity. that should be done unless either the caller does it with addFeed (but no hard in adding twice),
+         * or if it should not be persisted and it is guaranteed to be re-added on rebind, as is done with SoftwareProcess connectSensors */
+        public FunctionFeed build(boolean registerOnEntity) {
             built = true;
-            return AbstractFeed.initAndMaybeStart(new FunctionFeed(this), entity);
+            return AbstractFeed.initAndMaybeStart(new FunctionFeed(this), entity, registerOnEntity);
         }
         @Override
         protected void finalize() {

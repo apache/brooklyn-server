@@ -95,7 +95,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .callable(new IncrementingCallable())
                         //.onSuccess((Function<Object,Integer>)(Function)Functions.identity()))
                         )
-                .build();
+                .build(false);  // deliberately don't support rebind
         
         Asserts.succeedsEventually(new Runnable() {
             @Override
@@ -145,7 +145,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .period(1)
                         .callable(Callables.returning(123))
                         .onSuccess(new AddOneFunction()))
-                .build();
+                .build(true);  // recommended
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, 124);
     }
@@ -160,7 +160,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .period(1)
                         .callable(new ExceptionCallable(errMsg))
                         .onException(new ToStringFunction()))
-                .build();
+                .build(true);  // recommended
 
         Asserts.succeedsEventually(new Runnable() {
             @Override
@@ -181,7 +181,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .checkSuccess(Predicates.alwaysFalse())
                         .onSuccess(new AddOneFunction())
                         .onFailure(Functions.constant(-1)))
-                .build();
+                .build(true);  // recommended
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, -1);
     }
@@ -196,7 +196,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .checkSuccess(Predicates.alwaysFalse())
                         .onSuccess(new AddOneFunction())
                         .onException(Functions.constant(-1)))
-                .build();
+                .build(true);  // recommended
 
         EntityAsserts.assertAttributeEqualsEventually(entity, SENSOR_INT, -1);
     }
@@ -225,7 +225,7 @@ public class FunctionFeedTest extends BrooklynAppUnitTestSupport {
                         .period(10)
                         .callable(incrementingCallable)
                         .onSuccess(new ToStringFunction()))
-                .build();
+                .build(true);  // recommended
 
         Asserts.succeedsEventually(new Runnable() {
             @Override
