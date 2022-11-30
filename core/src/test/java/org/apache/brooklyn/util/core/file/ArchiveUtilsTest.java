@@ -30,6 +30,7 @@ import java.util.zip.ZipFile;
 
 import com.google.common.io.ByteStreams;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -114,16 +115,15 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
         assertFilesEqual(new File(destDir, destFile), origJar);
     }
     @Test(groups="Integration")
-    public void testUnzipFileAccessingPathOutsideTargetFolderEvilWinFormat() throws Exception{
-        InputStream evilZip = ResourceUtils.create(this).getResourceFromUrl("classpath://brooklyn/util/file.core/evilWin.zip");
+    public void testUnzipFileAccessingPathOutsideTargetFolderEvilWinFormat() {
         Asserts.assertFailsWith(() -> doTestUnzip("classpath://brooklyn/util/file.core/evilWin.zip"), e -> { Asserts.expectedFailureContainsIgnoreCase(e, "Entry is outside of the target dir"); return true; });
     }
     @Test(groups="Integration")
-    public void testUnzipFileAccessingPathOutsideTargetFolderEvilLinuxFormat() throws Exception{
+    public void testUnzipFileAccessingPathOutsideTargetFolderEvilLinuxFormat() {
         Asserts.assertFailsWith(() -> doTestUnzip("classpath://brooklyn/util/file.core/evilLinux.zip"), e -> { Asserts.expectedFailureContainsIgnoreCase(e, "Entry is outside of the target dir"); return true; });
     }
     @Test(groups="Integration")
-    public void testUnzipFileAccessingPathOutsideTargetFolderNoEvil() throws Exception{
+    public void testUnzipFileAccessingPathOutsideTargetFolderNoEvil() {
         doTestUnzip("classpath://brooklyn/util/file.core/noEvil.zip");
     }
 
@@ -152,14 +152,14 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
 
     private void doTestUnzip(String url)  {
         File tempZipFile = null;
-        InputStream evilZip = ResourceUtils.create(this).getResourceFromUrl(url);
+        InputStream zip = ResourceUtils.create(this).getResourceFromUrl(url);
         try {
             tempZipFile = File.createTempFile("test", "zip");
             tempZipFile.deleteOnExit();
-            java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(evilZip), StandardOpenOption.TRUNCATE_EXISTING);
+            java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(zip), StandardOpenOption.TRUNCATE_EXISTING);
             ArchiveUtils.extractZip(new ZipFile(tempZipFile), destDir.getAbsolutePath());
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            throw Exceptions.propagate(e);
         } finally {
             tempZipFile.delete();
         }
