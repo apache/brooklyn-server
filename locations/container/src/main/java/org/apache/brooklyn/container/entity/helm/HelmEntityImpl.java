@@ -124,17 +124,17 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 .configure(FunctionSensor.FUNCTION, status));
         initializer.apply(this);
 
-        addFeed(FunctionFeed.builder()
+        FunctionFeed.builder()
                 .entity(this)
                 .poll(new FunctionPollConfig<String, List<String>>(DEPLOYMENTS).callable(getKubeDeploymentsCallable()))
                 .period(Duration.TEN_SECONDS)
-                .build());
+                .build(true);
 
-        addFeed(FunctionFeed.builder()
+        FunctionFeed.builder()
                 .entity(this)
                 .poll(new FunctionPollConfig<String, List<String>>(SERVICES).callable(getKubeServicesCallable()))
                 .period(Duration.TEN_SECONDS)
-                .build());
+                .build(true);
     }
 
 
@@ -144,11 +144,11 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                 .callable(status)
                 ;
 
-        addFeed(FunctionFeed.builder()
+        FunctionFeed.builder()
                 .entity(this)
                 .poll(pollConfig)
                 .period(Duration.FIVE_SECONDS)
-                .build());
+                .build(true);
     }
 
     private void connectServiceUpIsRunning() {
@@ -160,7 +160,7 @@ public class HelmEntityImpl extends AbstractEntity implements HelmEntity {
                         .suppressDuplicates(true)
                         .onException(Functions.constant(Boolean.FALSE))
                         .callable(() -> isRunning()))
-                .build();
+                .build(true);  // only called at start so needs to be registered
     }
 
 

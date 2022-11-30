@@ -140,7 +140,7 @@ public class BrooklynEntityMirrorImpl extends AbstractEntity implements Brooklyn
                     }
                 }))
             .poll(HttpPollConfig.forSensor(MIRROR_SUMMARY).onSuccess(new MirrorSummary()))
-            .build(true);
+            .build(false, true);  //connectSensors will re-run so don't add as feed (we probably could, but preserving old behavior)
 
         populateEffectors();
     }

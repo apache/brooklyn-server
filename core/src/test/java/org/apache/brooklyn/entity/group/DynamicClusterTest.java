@@ -382,6 +382,7 @@ public class DynamicClusterTest extends AbstractDynamicClusterOrFabricTest {
         assertEquals(cluster.getCurrentSize(), (Integer)2);
         assertEquals(cluster.getMembers().size(), 2);
         assertEquals(cluster.getAttribute(Changeable.GROUP_SIZE), (Integer)2);
+        EntityAsserts.assertAttributeEqualsEventually(cluster, DynamicCluster.CLUSTER_ONE_AND_ALL_MEMBERS_UP, true);
     }
 
     @Test

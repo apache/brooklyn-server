@@ -115,7 +115,7 @@ public class ScriptHelperTest extends BrooklynAppUnitTestSupport {
                             return getDriver().isRunning();
                         }
                     }))
-                .build();
+                .build(false);
         }
     }
     

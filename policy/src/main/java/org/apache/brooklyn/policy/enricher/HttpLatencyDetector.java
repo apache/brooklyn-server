@@ -148,17 +148,28 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
                 .period(getConfig(PERIOD))
                 .baseUri(Suppliers.compose(Urls.stringToUriFunction(), AtomicReferences.supplier(url)))
                 .poll(new HttpPollConfig<Double>(REQUEST_LATENCY_IN_SECONDS_MOST_RECENT)
-                        .onResult(new ComputeLatencyAndRecordError())
+                        .onResult(new ComputeLatencyAndRecordError(entity))
                         .setOnException(null))
                 .suspended()
-                .build(true);
+
+                // don't need to register on entity because we are created whenever we restart; do force start though, because during rebind it needs to start when enricher starts
+//                .build(false, true);
+
+                // alternatively we can register on entity and use its default start logic
+                .build(true, null);
 
         if (getUniqueTag()==null) 
             uniqueTag = JavaClassNames.simpleClassName(getClass())+":"+
                 (getConfig(URL)!=null ? getConfig(URL) : getConfig(URL_SENSOR));
     }
 
-    class ComputeLatencyAndRecordError implements Function<HttpToolResponse, Double> {
+    static class ComputeLatencyAndRecordError implements Function<HttpToolResponse, Double> {
+        final Entity entity;
+
+        ComputeLatencyAndRecordError(Entity entity) {
+            this.entity = entity;
+        }
+
         @Override
         public @Nullable Double apply(@Nullable HttpToolResponse input) {
             entity.sensors().set(Sensors.newSensor(Integer.class, "web.request.latencyDetector.lastCode"), input.getResponseCode());

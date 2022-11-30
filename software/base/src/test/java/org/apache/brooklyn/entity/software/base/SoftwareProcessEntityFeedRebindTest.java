@@ -111,6 +111,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
             // It could happen that driver.isRunning() returns true, but the feed for SERVICE_PROCESS_IS_RUNNING
             // still didn't have the chance to execute so the sensor is still null.
             EntityAsserts.assertAttributeEqualsEventually(child, SoftwareProcess.SERVICE_PROCESS_IS_RUNNING, Boolean.TRUE);
+            EntityAsserts.assertAttributeChangesEventually(child, MyServiceWithFeeds.COUNTER);
         }
 
         LOG.info("Rebinding "+numEntities+" entities");
@@ -160,7 +161,6 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         protected RecordingSensorEventListener<Lifecycle> stateListener;
         protected RecordingSensorEventListener<Boolean> upListener;
         protected RecordingSensorEventListener<Boolean> processRunningListener;
-        protected FunctionFeed functionFeed;
         protected boolean feedCalledWhenNotManaged;
         
         @Override
@@ -195,8 +195,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
         public void init() {
             super.init();
             
-            // By calling feeds().add(...), it will persist the feed, and rebind it
-            functionFeed = feeds().add(FunctionFeed.builder()
+            FunctionFeed.builder()
                     .entity(this)
                     .period(Duration.millis(10))
                     .uniqueTag("MyserviceWithFeeds-functionFeed")
@@ -214,7 +213,7 @@ public class SoftwareProcessEntityFeedRebindTest extends RebindTestFixtureWithAp
                                     return (oldVal == null ? 0 : oldVal) + 1;
                                 }
                             }))
-                    .build());
+                    .build(true); // persist the feed so it can be rebinded
             
             subscribeToServiceState();
         }

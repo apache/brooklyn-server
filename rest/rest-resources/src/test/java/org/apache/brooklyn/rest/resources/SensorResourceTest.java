@@ -355,7 +355,7 @@ public class SensorResourceTest extends BrooklynRestResourceTest {
     
     @Test
     public void testGetSensorValueOfTypeFeed() throws Exception {
-        Feed feed = entity.feeds().add(FunctionFeed.builder().entity(entity).build());
+        Feed feed = entity.feeds().add(FunctionFeed.builder().entity(entity).build(true));
         entity.sensors().set(Sensors.newSensor(Feed.class, "myFeed"), feed);
         doGetSensorTest("myFeed", Map.class, ImmutableMap.of("type", Feed.class.getName(), "id", feed.getId(), "entityId", entity.getId()));
     }

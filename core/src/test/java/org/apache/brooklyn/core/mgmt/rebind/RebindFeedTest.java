@@ -295,18 +295,18 @@ public class RebindFeedTest extends RebindTestFixtureWithApp {
         @Override
         public void init() {
             super.init();
-            addFeed(FunctionFeed.builder()
+            FunctionFeed.builder()
                     .entity(this)
                     .poll(FunctionPollConfig.forSensor(SENSOR_INT)
                             .period(POLL_PERIOD)
                             .callable(Callables.returning(1)))
-                    .build());
+                    .build(true);
             addFeed(FunctionFeed.builder()
                     .entity(this)
                     .poll(FunctionPollConfig.forSensor(SENSOR_STRING)
                             .period(POLL_PERIOD)
                             .callable(Callables.returning("OK")))
-                    .build());
+                    .build());  // should be identical to above build(true)
         }
     }
     

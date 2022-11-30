@@ -74,13 +74,11 @@ public class DurationSinceSensor extends AddSensorInitializer<Duration> {
             entity.sensors().set(epochSensor, epoch);
         }
 
-        FunctionFeed feed = FunctionFeed.builder()
+        FunctionFeed.builder()
                 .entity(entity)
                 .poll(new FunctionPollConfig<>(sensor).callable(new UpdateTimeSince(entity, epochSensor, initParam(TIME_SUPPLIER))))
                 .period(initParam(SENSOR_PERIOD))
-                .build();
-
-        ((EntityInternal)entity).feeds().add(feed);
+                .build(true);
     }
 
     private static class CurrentTimeSupplier implements Supplier<Long> {

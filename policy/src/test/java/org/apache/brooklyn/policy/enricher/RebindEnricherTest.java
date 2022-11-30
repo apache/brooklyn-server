@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.core.entity.Attributes;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.mgmt.rebind.RebindTestFixtureWithApp;
 import org.apache.brooklyn.core.sensor.Sensors;
@@ -85,11 +86,19 @@ public class RebindEnricherTest extends RebindTestFixtureWithApp {
                 .url(baseUrl)
                 .buildSpec());
         origApp.sensors().set(Attributes.SERVICE_UP, true);
-        
+
+        Time.sleep(2000);
+        Dumper.dumpInfo(origApp);
+        EntityAsserts.assertAttribute(origApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, x -> x!=null);
+
         TestApplication newApp = rebind();
 
         newApp.sensors().set(HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, null);
         newApp.sensors().set(HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW, null);
+
+        Time.sleep(2000);
+        Dumper.dumpInfo(newApp);
+        EntityAsserts.assertAttribute(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, x -> x!=null);
 
         EntityAsserts.assertAttributeEventuallyNonNull(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT);
         EntityAsserts.assertAttributeEventuallyNonNull(newApp, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_IN_WINDOW);

@@ -64,7 +64,12 @@ public abstract class AbstractFeed extends AbstractEntityAdjunct implements Feed
 
     @Beta
     public static <T extends AbstractFeed> T initAndMaybeStart(T feed, Entity entity) {
+        return initAndMaybeStart(feed, entity, false);
+    }
+    @Beta
+    public static <T extends AbstractFeed> T initAndMaybeStart(T feed, Entity entity, boolean registerOnEntity) {
         feed.setEntity(checkNotNull((EntityInternal)entity, "entity"));
+        if (registerOnEntity) ((EntityInternal) entity).feeds().add(feed);
         if (Entities.isManagedActive(entity)) {
             // start it is entity is already managed (dynamic addition); otherwise rely on EntityManagementSupport to start us (initializer-based addition and after rebind)
             feed.start();

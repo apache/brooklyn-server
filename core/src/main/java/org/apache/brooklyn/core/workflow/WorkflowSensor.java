@@ -103,9 +103,7 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
                 .onlyIfServiceUp(Maybe.ofDisallowingNull(EntityInitializers.resolve(params, ONLY_IF_SERVICE_UP)).or(false))
                 .poll(pollConfig);
 
-        FunctionFeed feed = feedBuilder.build();
-        wc.init(feed);
-        entity.addFeed(feed);
+        wc.init(feedBuilder.build(true));
     }
 
     @Override
