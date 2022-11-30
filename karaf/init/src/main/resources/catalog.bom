@@ -40,6 +40,13 @@ brooklyn.catalog:
       type: org.apache.brooklyn.entity.group.DynamicCluster
       iconUrl: classpath://brooklyn/icons/cluster.svg
 
+  - id:                      group
+    itemType:                entity
+    name:                    Group
+    iconUrl:                 classpath://brooklyn/icons/group.png
+    item:
+      type:                  org.apache.brooklyn.entity.group.BasicGroup
+
   - id:                      dynamic-group
     itemType:                entity
     name:                    Dynamic Group
