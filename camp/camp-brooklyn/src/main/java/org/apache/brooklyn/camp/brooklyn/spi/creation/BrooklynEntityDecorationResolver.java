@@ -44,6 +44,7 @@ import org.apache.brooklyn.camp.brooklyn.spi.creation.BrooklynYamlTypeInstantiat
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -208,7 +209,8 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 // fall back to the old way, eg if caller specifies initializerType, or for some other reason bean-with-type fails
-                Object type = decorationJson.get("type");
+                Object type = decorationJson.get(CampInternalUtils.TYPE_UNAMBIGUOUS_KEY);
+                if (type==null) type = decorationJson.get(CampInternalUtils.TYPE_SIMPLE_KEY);
                 try {
                     result = instantiator.from(decorationJson).prefix(typeKeyPrefix).newInstance(EntityInitializer.class);
                     if (type!=null) {

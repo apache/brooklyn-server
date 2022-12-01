@@ -38,19 +38,28 @@ import java.util.Map;
 public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
 
     public static final String FORMAT = BeanWithTypeUtils.FORMAT;
+    public static final String TYPE_SIMPLE_KEY = "type";
+    public static final String TYPE_UNAMBIGUOUS_KEY = AsPropertyIfAmbiguous.CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply("type");
 
     public BeanWithTypePlanTransformer() {
         super(FORMAT, "Brooklyn YAML serialized with type",
-                "Bean serialization format read/written as YAML or JSON as per Jackson with one trick that the 'type' field specifies the type or supertype");
+                "Bean serialization format read/written as YAML or JSON as per Jackson with one trick that the '"+TYPE_SIMPLE_KEY+"' field specifies the type or supertype");
     }
 
     @Override
     protected double scoreForNullFormat(Object o, RegisteredType registeredType, RegisteredTypeLoadingContext registeredTypeLoadingContext) {
-        if (registeredType.getKind()!= RegisteredTypeKind.SPEC && Strings.toString(o).contains("type:")) {
-            return 0.2;
-        } else {
-            return 0;
+        if (registeredType.getKind()!= RegisteredTypeKind.SPEC) {
+            if (Strings.toString(o).contains(TYPE_UNAMBIGUOUS_KEY+":")) {
+                return 0.8;
+            }
+            if (Strings.toString(o).contains(TYPE_SIMPLE_KEY+":")) {
+                return 0.5;
+            }
+            if (Strings.toString(o).contains(AsPropertyIfAmbiguous.CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM_ALT.apply(TYPE_SIMPLE_KEY))) {
+                return 0.4;
+            }
         }
+        return 0;
     }
 
     @Override

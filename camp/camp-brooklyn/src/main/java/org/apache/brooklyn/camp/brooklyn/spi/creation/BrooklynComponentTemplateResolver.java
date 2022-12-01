@@ -64,6 +64,7 @@ import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
 import org.apache.brooklyn.core.mgmt.ManagementContextInjectable;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.resolve.entity.EntitySpecResolver;
+import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -604,7 +605,7 @@ public class BrooklynComponentTemplateResolver {
                         
                         Exception exceptionToInclude;
                         // heuristic
-                        if (resolvedConfig.containsKey("type")) {
+                        if (resolvedConfig.containsKey(CampInternalUtils.TYPE_SIMPLE_KEY) || resolvedConfig.containsKey(CampInternalUtils.TYPE_UNAMBIGUOUS_KEY)) {
                             // if it has a key 'type' then it is likely a CAMP entity, abbreviated syntax (giving a type), so just give e1
                             exceptionToInclude = e1;
                         } else if (resolvedConfig.containsKey("brooklyn.services")) {

@@ -40,6 +40,7 @@ public class PerverseSerializationTest implements MapperTestFixture {
     }
 
     private static class BeanWithFieldCalledType {
+        // also see tests of SampleBeanWithType
         String type;
     }
 
@@ -48,7 +49,7 @@ public class PerverseSerializationTest implements MapperTestFixture {
         BeanWithFieldCalledType a = new BeanWithFieldCalledType();
         a.type = "not my type";
         Assert.assertEquals(ser(a),
-                "{\"@type\":\""+ BeanWithFieldCalledType.class.getName()+"\",\"type\":\"not my type\"}");
+                "{\"(type)\":\""+ BeanWithFieldCalledType.class.getName()+"\",\"type\":\"not my type\"}");
     }
 
     private final static class BeanWithFieldCalledTypeHolder {

@@ -26,6 +26,7 @@ import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Identifiers;
 import org.apache.brooklyn.util.text.Strings;
@@ -93,9 +94,14 @@ public class JavaClassNameTypePlanTransformer extends AbstractTypePlanTransforme
             if (Iterables.size(yaml) == 1) {
                 Object ym = yaml.iterator().next();
                 if (ym instanceof Map) {
-                    Object yt = ((Map) ym).get("type");
+                    Object yt = ((Map) ym).get(BeanWithTypePlanTransformer.TYPE_UNAMBIGUOUS_KEY);
                     if (yt instanceof String) {
                         planData = (String) yt;
+                    } else {
+                        yt = ((Map) ym).get(BeanWithTypePlanTransformer.TYPE_SIMPLE_KEY);
+                        if (yt instanceof String) {
+                            planData = (String) yt;
+                        }
                     }
                 }
             }

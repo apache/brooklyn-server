@@ -52,6 +52,8 @@ import org.apache.brooklyn.camp.spi.pdp.DeploymentPlan;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog.BrooklynLoaderTracker;
 import org.apache.brooklyn.core.objs.BasicSpecParameter;
+import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
 import org.apache.brooklyn.entity.stock.BasicApplicationImpl;
@@ -68,6 +70,9 @@ import com.google.common.collect.Iterables;
 
 /** package-private; as {@link RegisteredType} becomes standard hopefully we can remove this */
 class CampInternalUtils {
+
+    final static String TYPE_SIMPLE_KEY = BeanWithTypePlanTransformer.TYPE_SIMPLE_KEY;
+    final static String TYPE_UNAMBIGUOUS_KEY = BeanWithTypePlanTransformer.TYPE_UNAMBIGUOUS_KEY;
 
     static EntitySpec<? extends Application> createWrapperApp(AssemblyTemplate template, BrooklynClassLoadingContext loader) {
         BrooklynComponentTemplateResolver resolver = BrooklynComponentTemplateResolver.Factory.newInstance(loader, buildWrapperAppTemplate(template));
@@ -134,14 +139,14 @@ class CampInternalUtils {
     static PolicySpec<?> createPolicySpec(BrooklynClassLoadingContext loader, Object policy, Set<String> encounteredCatalogTypes) {
         Map<String, Object> itemMap;
         if (policy instanceof String) {
-            itemMap = ImmutableMap.<String, Object>of("type", policy);
+            itemMap = ImmutableMap.<String, Object>of(TYPE_SIMPLE_KEY, policy);
         } else if (policy instanceof Map) {
             itemMap = (Map<String, Object>) policy;
         } else {
             throw new IllegalStateException("Policy expected to be string or map. Unsupported object type " + policy.getClass().getName() + " (" + policy.toString() + ")");
         }
 
-        String versionedId = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "policy_type", "policyType", "type"), "policy type");
+        String versionedId = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "policy_type", "policyType", TYPE_UNAMBIGUOUS_KEY, TYPE_SIMPLE_KEY), "policy type");
         PolicySpec<? extends Policy> spec = resolvePolicySpec(versionedId, loader, encounteredCatalogTypes);
         initConfigAndParameters(spec, itemMap, loader);
         return spec;
@@ -166,14 +171,14 @@ class CampInternalUtils {
     static EnricherSpec<?> createEnricherSpec(BrooklynClassLoadingContext loader, Object enricher, Set<String> encounteredCatalogTypes) {
         Map<String, Object> itemMap;
         if (enricher instanceof String) {
-            itemMap = ImmutableMap.<String, Object>of("type", enricher);
+            itemMap = ImmutableMap.<String, Object>of(TYPE_SIMPLE_KEY, enricher);
         } else if (enricher instanceof Map) {
             itemMap = (Map<String, Object>) enricher;
         } else {
             throw new IllegalStateException("Enricher expected to be string or map. Unsupported object type " + enricher.getClass().getName() + " (" + enricher.toString() + ")");
         }
 
-        String versionedId = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "enricher_type", "enricherType", "type"), "enricher type");
+        String versionedId = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "enricher_type", "enricherType", TYPE_UNAMBIGUOUS_KEY, TYPE_SIMPLE_KEY), "enricher type");
         EnricherSpec<? extends Enricher> spec = resolveEnricherSpec(versionedId, loader, encounteredCatalogTypes);
         initConfigAndParameters(spec, itemMap, loader);
         return spec;
@@ -194,14 +199,14 @@ class CampInternalUtils {
     private static LocationSpec<?> createLocationSpec(BrooklynClassLoadingContext loader, Object location) {
         Map<String, Object> itemMap;
         if (location instanceof String) {
-            itemMap = ImmutableMap.<String, Object>of("type", location);
+            itemMap = ImmutableMap.<String, Object>of(TYPE_SIMPLE_KEY, location);
         } else if (location instanceof Map) {
             itemMap = (Map<String, Object>) location;
         } else {
             throw new IllegalStateException("Location expected to be string or map. Unsupported object type " + location.getClass().getName() + " (" + location.toString() + ")");
         }
 
-        String type = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "location_type", "locationType", "type"), "location type");
+        String type = (String) checkNotNull(Yamls.getMultinameAttribute(itemMap, "location_type", "locationType", TYPE_UNAMBIGUOUS_KEY, TYPE_SIMPLE_KEY), "location type");
         Map<String, Object> brooklynConfig = (Map<String, Object>) itemMap.get(BrooklynCampReservedKeys.BROOKLYN_CONFIG);
         LocationSpec<?> locationSpec = resolveLocationSpec(type, brooklynConfig, loader);
         // config loaded twice, but used twice
