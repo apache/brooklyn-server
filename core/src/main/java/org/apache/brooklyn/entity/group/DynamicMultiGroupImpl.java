@@ -29,16 +29,23 @@ import javax.annotation.Nullable;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.entity.Group;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceProblemsLogic;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.feed.function.FunctionFeed;
 import org.apache.brooklyn.feed.function.FunctionPollConfig;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -226,17 +233,50 @@ public class DynamicMultiGroupImpl extends DynamicGroupImpl implements DynamicMu
         synchronized (memberChangeMutex) {
             if (Entities.isNoLongerManaged(this)) return;
 
-            Function<Entity, String> bucketFunction = getConfig(BUCKET_FUNCTION);
+            Function<Entity, String> bucketFunctionF = getConfig(BUCKET_FUNCTION);
+            CustomWorkflowStep bucketFunctionW = getConfig(BUCKET_WORKFLOW);
+            String bucketFunctionE = getConfig(BUCKET_EXPRESSION);
+            if (bucketFunctionF == null && bucketFunctionW == null && bucketFunctionE == null) return;
+
+            if (bucketFunctionE != null) {
+                if (bucketFunctionW != null) LOG.warn("Ignoring bucket workflow because expression supplied");
+                bucketFunctionW = TypeCoercions.coerce(MutableMap.of("steps", MutableList.of("return "+bucketFunctionE)), CustomWorkflowStep.class);
+            }
+            if (bucketFunctionW != null) {
+                if (bucketFunctionF != null) LOG.warn("Ignoring bucket function because workflow or expression supplied");
+                CustomWorkflowStep bucketFunctionW2 = bucketFunctionW;
+                bucketFunctionF = entity -> {
+                    Maybe<Task<Object>> t = bucketFunctionW2.newWorkflowExecution(entity, "Workflow to find bucket name for " + entity, null).getTask(true);
+                    if (t.isAbsent()) {
+                        LOG.debug("Entity " + entity + " does not match condition to placed in the dynamic multigroup");
+                        return null;
+                    }
+                    try {
+                        return TypeCoercions.coerce(DynamicTasks.submit(t.get(), entity).getUnchecked(), String.class);
+                    } catch (Exception e) {
+                        Exceptions.propagateIfFatal(e);
+                        LOG.warn("Entity " + entity + " failed when trying to evaluate the bucket it goes in; not putting into a bucket");
+                        return null;
+                    }
+                };
+            }
+            if (bucketFunctionF == null) {
+                LOG.warn(this+" should have exactly one of: a bucket expression, workflow, or function");
+                return;
+            }
+
             Function<Entity, String> bucketIdFunction = getConfig(BUCKET_ID_FUNCTION);
 
             EntitySpec<? extends BasicGroup> bucketSpec = getConfig(BUCKET_SPEC);
-            if (bucketFunction == null || bucketSpec == null) return;
+            if (bucketSpec == null) return;
 
             Map<String, BasicGroup> buckets = MutableMap.copyOf(getAttribute(BUCKETS));
 
             // Bucketize the members where the function gives a non-null bucket
-            Multimap<String, Entity> entityMapping = Multimaps.index(
-                    Iterables.filter(getMembers(), Predicates.compose(Predicates.notNull(), bucketFunction)), bucketFunction);
+            Function<Entity, String> bucketFunctionF2 = bucketFunctionF;
+            Multimap<String, Entity> entityMapping = getMembers().stream().collect(() -> Multimaps.newSetMultimap(MutableMap.of(), MutableSet::new),
+                    (map,entity) -> { String name = bucketFunctionF2.apply(entity); if (Strings.isNonBlank(name)) map.put(name, entity); },
+                    (m1,m2) -> m1.putAll(m2));
 
             // Now fill the buckets
             Collection<Entity> oldChildren = getChildren();

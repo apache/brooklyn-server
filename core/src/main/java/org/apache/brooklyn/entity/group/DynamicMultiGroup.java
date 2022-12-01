@@ -28,6 +28,7 @@ import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 
 import com.google.common.annotations.Beta;
@@ -49,7 +50,21 @@ public interface DynamicMultiGroup extends DynamicGroup {
     ConfigKey<Function<Entity, String>> BUCKET_FUNCTION = ConfigKeys.newConfigKey(
             new TypeToken<Function<Entity, String>>(){},
             "brooklyn.multigroup.bucketFunction",
-            "Implements the mapping from entity to bucket (name)"
+            "Function to return the bucket (name) an entity should be placed in"
+    );
+
+    @SetFromFlag("bucketWorkflow")
+    ConfigKey<CustomWorkflowStep> BUCKET_WORKFLOW = ConfigKeys.newConfigKey(
+            CustomWorkflowStep.class,
+            "brooklyn.multigroup.bucketWorkflow",
+            "Workflow to return the bucket (name) an entity should be placed in"
+    );
+
+    @SetFromFlag("bucketExpression")
+    ConfigKey<String> BUCKET_EXPRESSION = ConfigKeys.newConfigKey(
+            String.class,
+            "brooklyn.multigroup.bucketExpression",
+            "Freemarker template expression to return the bucket (name) an entity should be placed in"
     );
 
     @SetFromFlag("bucketIdFunction")
@@ -104,7 +119,6 @@ public interface DynamicMultiGroup extends DynamicGroup {
      *
      * @see #ENTITY_FILTER
      * @see #BUCKET_FUNCTION
-     * @see #GROUP_SPEC
      */
     void distributeEntities();
 

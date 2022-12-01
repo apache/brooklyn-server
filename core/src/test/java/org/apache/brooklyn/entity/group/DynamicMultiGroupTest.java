@@ -22,8 +22,7 @@ import static com.google.common.base.Predicates.instanceOf;
 import static com.google.common.collect.Iterables.find;
 import static org.apache.brooklyn.core.entity.EntityPredicates.displayNameEqualTo;
 import static org.apache.brooklyn.entity.group.DynamicGroup.ENTITY_FILTER;
-import static org.apache.brooklyn.entity.group.DynamicMultiGroup.BUCKET_FUNCTION;
-import static org.apache.brooklyn.entity.group.DynamicMultiGroup.RESCAN_INTERVAL;
+import static org.apache.brooklyn.entity.group.DynamicMultiGroup.*;
 import static org.apache.brooklyn.entity.group.DynamicMultiGroupImpl.bucketFromAttribute;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -38,7 +37,13 @@ import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.testng.annotations.Test;
 
 import com.google.common.collect.ImmutableSet;
@@ -49,12 +54,29 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testBucketDistributionFromSubscription() {
+        doTestBucketDistributionFromSubscription(ConfigBag.newInstance().configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR)));
+    }
+
+    @Test
+    public void testBucketDistributionFromSubscriptionWithWorkflow() {
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        doTestBucketDistributionFromSubscription(ConfigBag.newInstance().configure(BUCKET_WORKFLOW,
+                TypeCoercions.coerce(MutableMap.of("steps", MutableList.of("let x = ${entity.sensor['"+SENSOR.getName()+"']} ?? \"\"", "return ${x}")), CustomWorkflowStep.class) ));
+    }
+
+    @Test
+    public void testBucketDistributionFromSubscriptionWithWorkflowExpression() {
+        WorkflowBasicTest.addWorkflowStepTypes(mgmt);
+        doTestBucketDistributionFromSubscription(ConfigBag.newInstance().configure(BUCKET_EXPRESSION, "${entity.sensor['"+SENSOR.getName()+"']}"));
+    }
+
+    void doTestBucketDistributionFromSubscription(ConfigBag config) {
         Group group = app.createAndManageChild(EntitySpec.create(BasicGroup.class));
         final DynamicMultiGroup dmg = app.createAndManageChild(
                 EntitySpec.create(DynamicMultiGroup.class)
                         .configure(ENTITY_FILTER, instanceOf(TestEntity.class))
-                        .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
                         .configure(DynamicMultiGroup.BUCKET_ID_FUNCTION, bucketFromAttribute(SENSOR))
+                        .configure(config.getAllConfig())
         );
         app.subscriptions().subscribeToChildren(group, SENSOR, new SensorEventListener<String>() {
             @Override
