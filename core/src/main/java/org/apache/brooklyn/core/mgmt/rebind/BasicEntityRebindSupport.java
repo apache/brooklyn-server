@@ -42,6 +42,7 @@ import org.apache.brooklyn.core.entity.trait.AsyncStartable;
 import org.apache.brooklyn.core.feed.AbstractFeed;
 import org.apache.brooklyn.core.location.Machines;
 import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.entity.group.AbstractGroupImpl;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -100,10 +101,18 @@ public class BasicEntityRebindSupport extends AbstractBrooklynObjectRebindSuppor
             try {
                 key = entry.getKey();
                 Object value = entry.getValue();
-                @SuppressWarnings("unused") // just to ensure we can load the declared type? or maybe not needed
-                        // In what cases key.getType() will be null?
-                Class<?> type = (key.getType() != null) ? key.getType() : rebindContext.loadClass(key.getTypeName());
-                entity.config().set((ConfigKey<Object>)key, value);
+
+                Class<?> type = null;
+                try {
+                    // just to warn if we cannot find the type; probably type is never null so not a problem here, rebind would have thrown earlier
+                    type = (key.getType() != null) ? key.getType() : rebindContext.loadClass(key.getTypeName());
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    LOG.warn("Unable to find type of key "+key.getName()+" in "+memento+"; proceeding, but errors may occur when using");
+                }
+
+                entity.config().setRaw(key, type==null || type.equals(Object.class) ? true : false, value);
+
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 rebindContext.getExceptionHandler().onAddConfigFailed(memento, key, e);

@@ -216,6 +216,11 @@ public abstract class AbstractConfigurationSupportInternal implements BrooklynOb
     }
 
     @Override
+    public void setRaw(ConfigKey<?> key, boolean preferContainerKey, Object value) {
+        getConfigsInternal().setRaw(key, preferContainerKey, value);
+    }
+
+    @Override
     public void putAll(Map<?, ?> vals) {
         getConfigsInternal().putAll(vals);
     }

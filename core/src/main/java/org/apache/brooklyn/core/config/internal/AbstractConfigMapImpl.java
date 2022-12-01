@@ -199,6 +199,14 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         }
     }
 
+    public void setRaw(ConfigKey<?> key, boolean preferContainerKey, Object value) {
+        synchronized (ownConfig) {
+            ConfigKey<?> ownKey = preferContainerKey ? getKeyAtContainer(getContainer(), key) : null;
+            if (ownKey==null) ownKey = key;
+            ownConfig.put(key, value);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public void putAll(Map<?,?> vals) {
         for (Map.Entry<?, ?> entry : vals.entrySet()) {

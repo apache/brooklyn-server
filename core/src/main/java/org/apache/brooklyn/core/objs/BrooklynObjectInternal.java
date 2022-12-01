@@ -121,6 +121,10 @@ public interface BrooklynObjectInternal extends BrooklynObject, Rebindable {
         @Beta
         Maybe<Object> getLocalRaw(ConfigKey<?> key);
 
+        /** Sets a value, with no coercion or chedcking and no notifications */
+        @Beta
+        void setRaw(ConfigKey<?> key, boolean preferContainerKey, Object value);
+
         /**
          * @see {@link #getLocalRaw(ConfigKey)}
          */
