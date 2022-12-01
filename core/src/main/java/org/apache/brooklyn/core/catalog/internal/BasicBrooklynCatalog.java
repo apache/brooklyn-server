@@ -1624,7 +1624,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // then try parsing plan - this will use loader
             // first use transformer approach
             try {
-                Object itemToAttemptO = null;
                 Object itemSpecInstantiated = null;
                 
                 if (ATTEMPT_INSTANTIATION_WITH_LEGACY_PLAN_TO_SPEC_CONVERTERS) {
@@ -1634,18 +1633,17 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         .plan(candidateYaml)
                         .libraries(libraryBundles)
                         .build();
-                    itemToAttemptO = itemToAttempt;
 
                     itemSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
+                }
 
+                if (itemSpecInstantiated!=null) {
                     if (!candidateYaml.contains("services:")) {
                         // 'services:' blueprints still need legacy plan-to-spec converter, don't even debug on that.
                         // for others
                         log.debug("Instantiation of this blueprint was only possible with legacy plan-to-spec converter, may not be supported in future versions:\n" + candidateYaml);
                     }
-                }
 
-                if (itemSpecInstantiated!=null) {
                     catalogItemType = candidateCiType;
                     planYaml = candidateYaml;
                     resolved = true;

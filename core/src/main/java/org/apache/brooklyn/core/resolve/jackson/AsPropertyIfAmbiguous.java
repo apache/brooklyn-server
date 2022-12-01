@@ -50,12 +50,16 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 
 public class AsPropertyIfAmbiguous {
 
     private static final Logger LOG = LoggerFactory.getLogger(AsPropertyIfAmbiguous.class);
     private static Set<String> warnedAmbiguousTypeProperty = MutableSet.of();
 
+    public static final Function<String,String> CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM = t -> "("+t+")";  // prefer this as YAML allows it unquoted
+    public static final Function<String,String> CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM_ALT = t -> "@" + t;  // allow this old form too
+    /** @deprecated since 1.1 now use transform fn, and prefer wrapped in parens */
     public static final String CONFLICTING_TYPE_NAME_PROPERTY_PREFIX = "@";
 
     public interface HasBaseType {
@@ -111,8 +115,8 @@ public class AsPropertyIfAmbiguous {
             String tpn = idMetadata.asProperty;
             if (tpn==null) tpn = _typePropertyName;
             if (currentClass!=null && Reflections.findFieldMaybe(currentClass, tpn).isPresent()) {
-                // the class has a field called 'type'; prefix with an '@'
-                tpn = CONFLICTING_TYPE_NAME_PROPERTY_PREFIX+tpn;
+                // the class has a field called 'type'; prefix with a '!'
+                tpn = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply(tpn);
                 idMetadata.asProperty = tpn;
             }
             return super.writeTypePrefix(g, idMetadata);
@@ -184,7 +188,7 @@ public class AsPropertyIfAmbiguous {
                 if (baseType != null ) {
                     if (hasTypePropertyNameAsField(baseType)) {
                         // look for an '@' type
-//                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName).deserializeTypedFromObject(p, ctxt);
+//                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply(_typePropertyName)).deserializeTypedFromObject(p, ctxt);
                         // now we always look for @ first, in case the type is not known but that field is present; but if we know 'type' is a bean field, don't allow it to be used
                         mustUseConflictingTypePrefix = true;
 
@@ -254,7 +258,8 @@ public class AsPropertyIfAmbiguous {
         }
 
         private Pair<String,TokenBuffer> findTypeIdOrUnambiguous(JsonParser p, DeserializationContext ctxt, JsonToken t, TokenBuffer tb, boolean ignoreCase, boolean mustUseConflictingTypePrefix) throws IOException {
-            String typeUnambiguous = CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName;
+            String typeUnambiguous1 = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply(_typePropertyName);
+            String typeUnambiguous2 = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM_ALT.apply(_typePropertyName);
 
             JsonLocation loc = p.currentTokenLocation(); //p.getCurrentLocation();
             for (; t == JsonToken.FIELD_NAME; t = p.nextToken()) {
@@ -263,7 +268,7 @@ public class AsPropertyIfAmbiguous {
 
                 // unambiguous property should precede ambiguous property name in cases where property name is required
                 // maintaining the parser and token buffer in the desired states to allow either anywhere is too hard
-                boolean unambiguousName = name.equals(typeUnambiguous);
+                boolean unambiguousName = name.equals(typeUnambiguous1) || name.equals(typeUnambiguous2);
                 boolean ambiguousName = !unambiguousName && (!mustUseConflictingTypePrefix && (name.equals(_typePropertyName)
                         || (ignoreCase && name.equalsIgnoreCase(_typePropertyName))));
                 if (ambiguousName || unambiguousName) { // gotcha!
@@ -285,8 +290,8 @@ public class AsPropertyIfAmbiguous {
                                             // except if it is the first key in the definition, to facilitate messy places where we say 'type: xxx' as the definition
                                             if (warnedAmbiguousTypeProperty.add(typeId)) {
                                                 LOG.warn("Ambiguous type property '" + _typePropertyName + "' used for '" + typeId + "' as first entry in definition; this looks like a type specification but this could also refer to the property; " +
-                                                        "using for the former, but specification should have used '" + CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName + "' as key earlier in the map, " +
-                                                        "or if setting the field is intended put an explicit '" + CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName + "' before it");
+                                                        "using for the former, but specification should have used '" + typeUnambiguous1 + "' as key earlier in the map, " +
+                                                        "or if setting the field is intended put an explicit '" + typeUnambiguous1 + "' before it");
                                             }
                                             disallowed = false;
                                         } else {
@@ -297,7 +302,7 @@ public class AsPropertyIfAmbiguous {
                                     } else {
                                         if (warnedAmbiguousTypeProperty.add(typeId)) {
                                             LOG.warn("Ambiguous type property '" + _typePropertyName + "' used for '" + typeId + "'; a type specification is needed to comply with expectations, but this could also refer to the property; " +
-                                                    "using for the former, but specification should have used " + CONFLICTING_TYPE_NAME_PROPERTY_PREFIX + _typePropertyName + " as key earlier in the map");
+                                                    "using for the former, but specification should have used " + typeUnambiguous1 + " as key earlier in the map");
                                         }
                                         disallowed = false;
                                     }

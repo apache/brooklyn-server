@@ -32,6 +32,7 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.camp.brooklyn.BrooklynCampReservedKeys;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal.ConfigurationSupportInternal;
+import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -105,11 +106,12 @@ public abstract class BrooklynYamlTypeInstantiator {
             if (result.isAbsent() && typeKeyPrefix!=null) {
                 // try alternatives if a prefix was specified
                 result = data.getStringKeyMaybe(typeKeyPrefix+"Type");
-                if (result.isAbsent()) result = data.getStringKeyMaybe("type");
+                if (result.isAbsent()) result = data.getStringKeyMaybe(CampInternalUtils.TYPE_UNAMBIGUOUS_KEY);
+                if (result.isAbsent()) result = data.getStringKeyMaybe(CampInternalUtils.TYPE_SIMPLE_KEY);
             }
             
             if (result.isAbsent() || result.get()==null) 
-                return Maybe.absent("Missing key 'type'"+(typeKeyPrefix!=null ? " (or '"+getTypedKeyName()+"')" : ""));
+                return Maybe.absent("Missing key '"+CampInternalUtils.TYPE_SIMPLE_KEY+"'"+(typeKeyPrefix!=null ? " (or '"+getTypedKeyName()+"')" : ""));
             
             if (result.get() instanceof String) return Maybe.of((String)result.get());
             
@@ -119,7 +121,7 @@ public abstract class BrooklynYamlTypeInstantiator {
         
         protected String getTypedKeyName() {
             if (typeKeyPrefix!=null) return typeKeyPrefix+"_type";
-            return "type";
+            return CampInternalUtils.TYPE_SIMPLE_KEY;
         }
         
         /** as {@link #newInstance(Class)} but inferring the type */

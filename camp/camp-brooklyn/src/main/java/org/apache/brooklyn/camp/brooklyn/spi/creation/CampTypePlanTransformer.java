@@ -84,7 +84,8 @@ public class CampTypePlanTransformer extends AbstractTypePlanTransformer {
     
     protected <T> double scoreObject(T plan, BiFunction<T, String, Boolean> contains) {
         if (contains.apply(plan, "services")) return 0.8;
-        if (contains.apply(plan, "type")) return 0.4;
+        if (contains.apply(plan, CampInternalUtils.TYPE_SIMPLE_KEY)) return 0.4;
+        if (contains.apply(plan, CampInternalUtils.TYPE_UNAMBIGUOUS_KEY)) return 0.3;
         if (contains.apply(plan, "brooklyn.locations")) return 0.7;
         if (contains.apply(plan, "brooklyn.policies")) return 0.7;
         if (contains.apply(plan, "brooklyn.enrichers")) return 0.7;

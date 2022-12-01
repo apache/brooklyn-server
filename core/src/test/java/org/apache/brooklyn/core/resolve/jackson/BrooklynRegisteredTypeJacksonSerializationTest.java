@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.brooklyn.api.entity.EntityInitializer;
@@ -34,6 +35,7 @@ import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -141,7 +143,56 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
     }
 
     public static class SampleBeanWithType extends SampleBean {
+        @JsonInclude(JsonInclude.Include.NON_NULL)
         public String type;
+    }
+
+    @Test
+    public void testSerializeAndDesSampleBeanWithType() throws Exception {
+        // complications when the class has a field type -- how should the key 'type' be interpreted?
+        // prefer (type) also accept @type need this first
+
+        SampleBeanWithType a = new SampleBeanWithType();
+        a.x = "hello";
+        a.type = "T";
+        String deser = "{\"(type)\":\"" + SampleBeanWithType.class.getName() + "\",\"x\":\"hello\",\"type\":\"T\"}";
+        Assert.assertEquals(ser(a), deser);
+
+        Object a2 = deser(deser);
+        Asserts.assertInstanceOf(a2, SampleBeanWithType.class);
+        Asserts.assertEquals(((SampleBeanWithType) a2).x, "hello");
+        Asserts.assertEquals(((SampleBeanWithType) a2).type, "T");
+
+        deser = Strings.replaceAllNonRegex(deser, "!", "@");  // @type accepted
+        a2 = deser(deser);
+        Asserts.assertInstanceOf(a2, SampleBeanWithType.class);
+        Asserts.assertEquals(((SampleBeanWithType) a2).x, "hello");
+        Asserts.assertEquals(((SampleBeanWithType) a2).type, "T");
+
+        a.type = null;
+        deser = "{\"(type)\":\"" + SampleBeanWithType.class.getName() + "\",\"x\":\"hello\"}";
+        Assert.assertEquals(ser(a), deser);
+        Asserts.assertEquals(((SampleBeanWithType) deser(deser)).x, "hello");
+        Asserts.assertNull(((SampleBeanWithType) deser(deser)).type);
+
+        // if type (not (type)) is first it treats it as the type, but warning about ambiguity
+        deser = Strings.replaceAllNonRegex(deser, "!", "");
+        Asserts.assertEquals(((SampleBeanWithType) deser(deser)).x, "hello");
+        Asserts.assertNull(((SampleBeanWithType) deser(deser)).type);
+
+        // if type is not first and refers to a class with a field 'type`, it treats it as a plain vanilla object (map)
+        deser = "{\"x\":\"hello\",\"type\":\"" + SampleBeanWithType.class.getName() + "\"}";
+        Asserts.assertInstanceOf(deser(deser), Map.class);
+        // but for a bean without a field 'type', that is _not_ the case (but might change that in future)
+        deser = "{\"x\":\"hello\",\"type\":\"" + SampleBean.class.getName() + "\"}";
+        Asserts.assertInstanceOf(deser(deser), SampleBean.class);
+    }
+
+    @Test
+    public void testDeserializeSampleBeanWithTooMuch() throws Exception {
+        String deser = "{\"(type)\":\"" + SampleBeanWithType.class.getName() + "\",\"x\":\"hello\",\"xx\":\"not_supported\"}";
+        Asserts.assertFailsWith(() -> deser(deser),
+                e -> Asserts.expectedFailureContainsIgnoreCase(e, "unrecognized field", "xx"));
     }
 
     @Test
@@ -206,7 +257,7 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
     @Test
     public void testDeserializeEntityInitializerWithUnambiguousTypeFieldUsedForDeserialization() throws Exception {
         RegisteredType rt = BrooklynAppUnitTestSupport.addRegisteredTypeBean(mgmt, "samplebean-with-type", "1", SampleBeanWithType.class);
-        Object impl = deser("{\"x\":\"mytestsensor\",\"@type\":\"samplebean-with-type\",\"type\":\"other\"}", Object.class);
+        Object impl = deser("{\"x\":\"mytestsensor\",\"(type)\":\"samplebean-with-type\",\"type\":\"other\"}", Object.class);
         // above cases don't apply, we get a map with both set as fields
         Asserts.assertInstanceOf(impl, SampleBeanWithType.class);
         Asserts.assertEquals( ((SampleBean)impl).x, "mytestsensor");

@@ -363,4 +363,26 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
         lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(true, true, false, "custom-type", CONF1_ANONYMOUS, false);
         assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_ANONYMOUS, "foo2", "bar");
     }
+
+    @Test
+    public void testRegisteredType_UsingSpecialFieldInheritedTwoStep() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: custom-type-0",
+                "    item:",
+                "      (type): " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
+                "      x: foo2");
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  version: " + TEST_VERSION,
+                "  items:",
+                "  - id: custom-type",
+                "    item:",
+                "      (type): custom-type-0",
+                "      y: bar");
+        lastDeployedEntity = deployWithTestingCustomTypeObjectConfig(true, true, false, "custom-type", CONF1_ANONYMOUS, false);
+        assertLastDeployedKeysValueIsOurCustomTypeWithFieldValues(CONF1_ANONYMOUS, "foo2", "bar");
+    }
 }
