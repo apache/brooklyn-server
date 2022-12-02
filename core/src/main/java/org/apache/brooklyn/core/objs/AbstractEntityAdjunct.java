@@ -83,6 +83,7 @@ public abstract class AbstractEntityAdjunct extends AbstractBrooklynObject imple
 
     /**
      * @deprecated since 0.7.0; leftover properties are put into config, since when coming from yaml this is normal.
+     * since 1.1.0 this will likely always be empty.
      */
     @Deprecated
     protected Map<String,Object> leftoverProperties = Maps.newLinkedHashMap();

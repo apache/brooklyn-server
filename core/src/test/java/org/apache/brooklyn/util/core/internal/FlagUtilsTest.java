@@ -210,7 +210,8 @@ public class FlagUtilsTest {
     @Test
     public void testSetAllConfigKeys() {
         FooCK f = new FooCK();
-        Map<?,?> unused = FlagUtils.setAllConfigKeys(ImmutableMap.of("f1", 9, "ck1", "do-set", "ck2", "do-set-2", "c3", "do-set"), f, true);
+        Map<?,?> unused = FlagUtils.setAllConfigKeys(
+                ImmutableMap.of("f1", 9, "ck1", "do-set", "ck2", "do-set-2", "c3", "do-set"), f, true, false);
         assertEquals(f.bag.get(FooCK.CK1), "do-set");
         assertEquals(f.bag.get(FooCK.CK3), "do-set");
         assertEquals(f.bag.containsKey(FooCK.CK2), true);

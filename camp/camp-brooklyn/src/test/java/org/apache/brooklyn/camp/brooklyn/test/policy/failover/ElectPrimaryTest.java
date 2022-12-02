@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
@@ -41,6 +42,8 @@ import org.apache.brooklyn.core.entity.EntityPredicates;
 import org.apache.brooklyn.core.entity.StartableApplication;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.mgmt.rebind.RebindTestUtils;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.policy.failover.ElectPrimaryConfig;
@@ -106,11 +109,16 @@ public class ElectPrimaryTest extends AbstractYamlRebindTest {
     
     @Test
     public void testSimpleRebind() throws Exception {
-        runSetPreferredViaWeightConfigOnB();
-        
+        origApp = (StartableApplication) runSetPreferredViaWeightConfigOnB();
+        Asserts.assertEquals(Iterables.getOnlyElement(app().policies()).config().get(ElectPrimaryConfig.BEST_WAIT_TIMEOUT), Duration.ZERO);
+        ((BrooklynObjectInternal.ConfigurationSupportInternal)Iterables.getOnlyElement(app().policies()).config()).setRaw(TestEntity.CONF_MAP_THING.subKey("x"), true, "X");
+        mgmt().getRebindManager().getChangeListener().onChanged(Iterables.getOnlyElement(app().policies()));
+
         StartableApplication app = rebind();
         Assert.assertEquals(app.sensors().get(PRIMARY).getDisplayName(), "b");
-        
+        Asserts.assertEquals(Iterables.getOnlyElement(app().policies()).config().get(ElectPrimaryConfig.BEST_WAIT_TIMEOUT), Duration.ZERO);
+        Asserts.assertEquals(Iterables.getOnlyElement(app().policies()).config().get(TestEntity.CONF_MAP_THING.subKey("x")), "X");
+
         Entity a = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("a"));
         Entity b = (Entity)mgmt().<Entity>lookup(EntityPredicates.displayNameEqualTo("b"));
         a.sensors().set(WEIGHT_SENSOR, 2.0d);

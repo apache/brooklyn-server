@@ -36,6 +36,7 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.api.objs.SpecParameter;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.groovy.GroovyJavaMethods;
@@ -147,15 +148,22 @@ public class FlagUtils {
     
     /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
      * using the indicated flags/config-bag */
-    public static Map<String, ?> setAllConfigKeys(Map<String, ?> flagsOrConfig, Configurable instance, boolean includeFlags) {
+    public static void setAllConfigKeys(Map<String, ?> flagsOrConfig, Configurable instance, boolean includeFlags) {
+        setAllConfigKeys(flagsOrConfig, instance, includeFlags, true);
+    }
+    public static Map<String, ?> setAllConfigKeys(Map<String, ?> flagsOrConfig, Configurable instance, boolean includeFlags, boolean writeExtraAsAnonymousConfig) {
         ConfigBag bag = new ConfigBag().putAll(flagsOrConfig);
-        setAllConfigKeys(instance, bag, includeFlags);
+        setAllConfigKeys(instance, bag, includeFlags, writeExtraAsAnonymousConfig);
         return bag.getUnusedConfigMutable();
     }
-    
-    /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
-     * using the indicated flags/config-bag */
+
     public static void setAllConfigKeys(Configurable o, ConfigBag bag, boolean includeFlags) {
+        setAllConfigKeys(o, bag, includeFlags, true);
+    }
+
+    /** sets _all_ accessible _{@link ConfigKey}_ and {@link HasConfigKey} fields on the given object, 
+     * using the indicated flags/config-bag, and then the rest as general purpose config */
+    public static void setAllConfigKeys(Configurable o, ConfigBag bag, boolean includeFlags, boolean writeExtrasAsAnonymousConfig) {
         for (Field f: getAllFields(o.getClass())) {
             ConfigKey<?> key = getFieldAsConfigKey(o, f);
             if (key!=null) {
@@ -164,6 +172,9 @@ public class FlagUtils {
                     setField(o, f, record.getValueOrNullPreferringConfigKey(), null);
                 }
             }
+        }
+        if (writeExtrasAsAnonymousConfig) {
+            bag.getUnusedConfig().keySet().forEach(k -> o.config().set(ConfigKeys.newConfigKey(Object.class, k), bag.getStringKey(k)));
         }
     }
     

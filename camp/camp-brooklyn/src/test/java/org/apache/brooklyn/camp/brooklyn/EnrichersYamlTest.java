@@ -31,6 +31,7 @@ import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.test.policy.TestEnricher;
@@ -83,10 +84,14 @@ public class EnrichersYamlTest extends AbstractYamlTest {
                 return enricher.getConfig(TestEnricher.TARGET_ENTITY_FROM_FLAG);
             }}).get();
         Assert.assertEquals(targetFromFlag, target);
+
         Map<?, ?> leftoverProperties = ((TestEnricher) enricher).getLeftoverProperties();
+//        Assert.assertEquals(leftoverProperties.size(), 2);  // 2022-12 there are never any leftover properties
+        Assert.assertEquals(leftoverProperties.size(), 0);
+
+        leftoverProperties = ((BrooklynObjectInternal.ConfigurationSupportInternal)enricher.config()).getBag().getAllConfigMutable();
         Assert.assertEquals(leftoverProperties.get("enricherLiteralValue1"), "Hello");
         Assert.assertEquals(leftoverProperties.get("enricherLiteralValue2"), "World");
-        Assert.assertEquals(leftoverProperties.size(), 2);
     }
     
     @Test
@@ -112,9 +117,14 @@ public class EnrichersYamlTest extends AbstractYamlTest {
         Assert.assertTrue(enricher instanceof TestEnricher, "enricher=" + enricher + "; type=" + enricher.getClass());
         Assert.assertEquals(enricher.getConfig(TestEnricher.CONF_NAME), "Name from YAML");
         Assert.assertEquals(enricher.getConfig(TestEnricher.CONF_FROM_FUNCTION), "$brooklyn: is a fun place");
-        
-        Assert.assertEquals(((TestEnricher) enricher).getLeftoverProperties(),
-                ImmutableMap.of("enricherLiteralValue1", "Hello", "enricherLiteralValue2", "World"));
+
+        Map<?, ?> leftoverProperties = ((TestEnricher) enricher).getLeftoverProperties();
+        //        Assert.assertEquals(leftoverProperties.size(), 2);  // 2022-12 there are never any leftover properties
+        Assert.assertEquals(leftoverProperties.size(), 0);
+
+        leftoverProperties = ((BrooklynObjectInternal.ConfigurationSupportInternal)enricher.config()).getBag().getAllConfigMutable();
+        Assert.assertEquals(leftoverProperties.get("enricherLiteralValue1"), "Hello");
+        Assert.assertEquals(leftoverProperties.get("enricherLiteralValue2"), "World");
     }
     
     @Test

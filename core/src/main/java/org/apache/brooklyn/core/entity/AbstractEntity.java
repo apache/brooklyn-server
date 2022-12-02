@@ -408,7 +408,7 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         // TODO the default values on flags are not used? (we should remove that support, since ConfigKeys gives a better way)
         if (flags.size() > 0) {
             FlagUtils.setFieldsFromFlags(flags, this);
-            flags = FlagUtils.setAllConfigKeys(flags, this, false);
+            flags = FlagUtils.setAllConfigKeys(flags, this, false, false);
         }
         
         // finally all config keys specified in map should be set as config

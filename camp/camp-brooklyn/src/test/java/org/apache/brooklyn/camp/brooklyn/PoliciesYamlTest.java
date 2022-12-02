@@ -26,7 +26,9 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityInternal;
+import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.test.entity.TestEntity;
+import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
@@ -58,10 +60,14 @@ public class PoliciesYamlTest extends AbstractYamlTest {
         Assert.assertTrue(policy instanceof TestPolicy);
         Assert.assertEquals(policy.getConfig(TestPolicy.CONF_NAME), "Name from YAML");
         Assert.assertEquals(policy.getConfig(TestPolicy.CONF_FROM_FUNCTION), "$brooklyn: is a fun place");
+
         Map<?, ?> leftoverProperties = ((TestPolicy) policy).getLeftoverProperties();
+        //        Assert.assertEquals(leftoverProperties.size(), 2);  // 2022-12 there are never any leftover properties
+        Assert.assertEquals(leftoverProperties.size(), 0);
+
+        leftoverProperties = ((BrooklynObjectInternal.ConfigurationSupportInternal)policy.config()).getBag().getAllConfigMutable();
         Assert.assertEquals(leftoverProperties.get("policyLiteralValue1"), "Hello");
         Assert.assertEquals(leftoverProperties.get("policyLiteralValue2"), "World");
-        Assert.assertEquals(leftoverProperties.size(), 2);
     }
     
     @Test
@@ -82,8 +88,15 @@ public class PoliciesYamlTest extends AbstractYamlTest {
         Assert.assertTrue(policy instanceof TestPolicy, "policy=" + policy + "; type=" + policy.getClass());
         Assert.assertEquals(policy.getConfig(TestPolicy.CONF_NAME), "Name from YAML");
         Assert.assertEquals(policy.getConfig(TestPolicy.CONF_FROM_FUNCTION), "$brooklyn: is a fun place");
-        Assert.assertEquals(((TestPolicy) policy).getLeftoverProperties(),
-                ImmutableMap.of("policyLiteralValue1", "Hello", "policyLiteralValue2", "World"));
+
+        Map<?, ?> leftoverProperties = ((TestPolicy) policy).getLeftoverProperties();
+        //        Assert.assertEquals(leftoverProperties.size(), 2);  // 2022-12 there are never any leftover properties
+        Assert.assertEquals(leftoverProperties.size(), 0);
+
+        leftoverProperties = ((BrooklynObjectInternal.ConfigurationSupportInternal)policy.config()).getBag().getAllConfigMutable();
+        Assert.assertEquals(leftoverProperties.get("policyLiteralValue1"), "Hello");
+        Assert.assertEquals(leftoverProperties.get("policyLiteralValue2"), "World");
+
         Assert.assertEquals(policy.getConfig(TestPolicy.TEST_ATTRIBUTE_SENSOR), TestEntity.NAME);
     }
     
