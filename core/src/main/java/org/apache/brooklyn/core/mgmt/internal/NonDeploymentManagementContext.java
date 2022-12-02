@@ -181,7 +181,8 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
     }
 
     @Override public void waitForManagementStartupComplete(Duration timeout) {
-        throw new IllegalStateException("Cannot wait for startup on a non-deployment context");
+        checkInitialManagementContextReal();
+        initialManagementContext.waitForManagementStartupComplete(timeout);
     }
 
     @Override

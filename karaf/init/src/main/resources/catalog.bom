@@ -241,6 +241,11 @@ brooklyn.catalog:
       type: org.apache.brooklyn.location.winrm.WinrmWorkflowStep
 
   # workflow initializers
+  - id: workflow-initializer
+    format: java-type-name
+    itemType: bean
+    item:
+      type: org.apache.brooklyn.core.workflow.WorkflowInitializer
   - id: workflow-effector
     format: java-type-name
     itemType: bean

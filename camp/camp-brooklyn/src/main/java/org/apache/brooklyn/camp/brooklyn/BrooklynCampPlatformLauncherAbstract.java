@@ -51,8 +51,13 @@ public abstract class BrooklynCampPlatformLauncherAbstract {
                 PlatformRootSummary.builder().name("Brooklyn CAMP Platform").build(),
                 getBrooklynMgmt())
             .setConfigKeyAtManagmentContext();
-        
+
+        markStartupComplete();
         return this;
+    }
+
+    protected void markStartupComplete() {
+        ((LocalManagementContext)mgmt).noteStartupComplete();
     }
 
     protected LocalManagementContext newMgmtContext() {

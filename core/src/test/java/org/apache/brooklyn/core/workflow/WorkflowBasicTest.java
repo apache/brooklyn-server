@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.workflow;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
@@ -127,6 +128,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
         addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
         addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class, Policy.class);
+        addRegisteredTypeBean(mgmt, "workflow-initializer", WorkflowInitializer.class);
     }
 
     public static WorkflowExecutionContext runWorkflow(Entity target, String workflowYaml, String defaultName) {

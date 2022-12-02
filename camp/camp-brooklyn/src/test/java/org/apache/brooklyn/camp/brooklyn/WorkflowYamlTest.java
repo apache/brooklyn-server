@@ -807,4 +807,78 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(invocation.getUnchecked().toString().trim(), "Y is Z");
     }
 
+    @Test
+    public void testInitializer() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        - set-sensor boolean initializer_ran = true");
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "initializer_ran"), true);
+    }
+
+    @Test
+    public void testInitializerDelay() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      delay: async",
+                "      steps:",
+                "        - let x = ${entity.sensor.x} * 2",
+                "        - set-sensor x = ${x}",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: pre-init",
+                "      steps:",
+                "        - set-sensor integer x = 3");
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newIntegerSensor("x"), 6);
+    }
+
+    @Test(groups="Integration") //because of 500ms delay
+    public void testInitializerDelayDuration() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init-2",
+                "      delay: 500ms",
+                "      steps:",
+                "        - let x = ${entity.sensor.x} + 1",  // will cause 7 if runs after the other post-init (desired); problems: 8 if before, and 4 or 6 if they race
+                "        - set-sensor x = ${x}",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      delay: async",
+                "      steps:",
+                "        - let x = ${entity.sensor.x} * 2",
+                "        - set-sensor x = ${x}",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: pre-init",
+                "      steps:",
+                "        - set-sensor integer x = 3");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 7);
+    }
+
 }
