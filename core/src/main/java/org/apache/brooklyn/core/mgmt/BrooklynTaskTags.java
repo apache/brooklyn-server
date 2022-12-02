@@ -284,10 +284,11 @@ public class BrooklynTaskTags extends TaskTags {
     }
 
     public static ManagementContext getManagementContext(Task<?> task) {
+        if (task==null) return null;
         for (Object tag : getTagsFast(task))
             if ((tag instanceof ManagementContext))
                 return (ManagementContext) tag;
-        return null;
+        return getManagementContext(task.getSubmittedByTask());
     }
 
     // ------------- stream tags -------------------------
@@ -481,9 +482,10 @@ public class BrooklynTaskTags extends TaskTags {
 
         protected Integer stepIndex;
         // TODO handle these in the UI:
-        protected String supersededByWorkflow;
+        protected String supersededByTaskId;
         protected String errorHandlerForTask;
-        protected Integer errorHandlerIndex;
+        protected Integer errorHandlerIndex;  //same as below if set; we don't need it
+        protected Integer subStepIndex;
 
         public String getApplicationId() {
             return applicationId;
@@ -502,16 +504,30 @@ public class BrooklynTaskTags extends TaskTags {
             return stepIndex;
         }
 
-        /** if not null, this sub-workflow has been superseded, ie replayed in a different workflow */
-        public String getSupersededByWorkflow() {
-            return supersededByWorkflow;
+        /** if not null, this sub-workflow has been superseded, ie replayed in a different workflow;
+         * where possible, this refers to the sub-workflow that replaces it; in other cases it refers to the parent task who replaces it */
+        public String getSupersededByTaskId() {
+            return supersededByTaskId;
         }
-        public void setSupersededByWorkflow(String supersededByWorkflow) {
-            this.supersededByWorkflow = supersededByWorkflow;
+        public void setSupersededByTaskId(String supersededByTaskId) {
+            this.supersededByTaskId = supersededByTaskId;
         }
 
         public Integer getErrorHandlerIndex() {
             return errorHandlerIndex;
+        }
+
+        @Override
+        public String toString() {
+            return "WorkflowTaskTag{" +
+                    "applicationId='" + applicationId + '\'' +
+                    ", entityId='" + entityId + '\'' +
+                    ", workflowId='" + workflowId + '\'' +
+                    ", stepIndex=" + stepIndex +
+                    ", supersededByTaskId='" + supersededByTaskId + '\'' +
+                    ", errorHandlerForTask='" + errorHandlerForTask + '\'' +
+                    ", errorHandlerIndex=" + errorHandlerIndex +
+                    '}';
         }
     }
 
@@ -527,10 +543,17 @@ public class BrooklynTaskTags extends TaskTags {
         t.stepIndex = workflowStep.getStepIndex();
         return t;
     }
+    public static WorkflowTaskTag tagForWorkflowSubStep(WorkflowStepInstanceExecutionContext parentStep, int subStepIndex) {
+        WorkflowTaskTag t = tagForWorkflow(parentStep.getWorkflowExectionContext());
+        t.stepIndex = parentStep.getStepIndex();
+        t.subStepIndex = subStepIndex;
+        return t;
+    }
 
     public static WorkflowTaskTag tagForWorkflowStepErrorHandler(WorkflowStepInstanceExecutionContext workflowStep, Integer errorHandlerIndex, String errorHandlerForTask) {
         WorkflowTaskTag t = tagForWorkflow(workflowStep.getWorkflowExectionContext());
         t.stepIndex = workflowStep!=null ? workflowStep.getStepIndex() : null;
+        t.subStepIndex = errorHandlerIndex;
         t.errorHandlerIndex = errorHandlerIndex;
         t.errorHandlerForTask = errorHandlerForTask;
         if (Strings.isBlank(t.errorHandlerForTask)) t.errorHandlerForTask = "task-unavailable";  // ensure not null

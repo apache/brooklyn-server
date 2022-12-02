@@ -16,12 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Predicates;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
@@ -29,20 +31,19 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.entity.BrooklynConfigKeys;
 import org.apache.brooklyn.core.entity.EntityPredicates;
-import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.internal.AppGroupTraverser;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowReplayUtils;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
@@ -62,33 +63,24 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
     }
 
     @Override
-    public void validateStep() {
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        super.validateStep(mgmt, workflow);
+
         if (!getInput().containsKey(EFFECTOR.getName())) throw new IllegalArgumentException("Missing required input: "+EFFECTOR.getName());
-        super.validateStep();
     }
 
-
     @Override @JsonIgnore
-    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context) {
-        if (context.getStepState()!=null) {
-            BrooklynTaskTags.WorkflowTaskTag nestedWorkflowTag = (BrooklynTaskTags.WorkflowTaskTag) context.getStepState();
-            Maybe<WorkflowExecutionContext> nestedWorkflow = new WorkflowStatePersistenceViaSensors(context.getManagementContext()).getFromTag(nestedWorkflowTag);
-
-            if (nestedWorkflow.isPresent()) {
-                return MutableList.of(nestedWorkflow.get());
-            } else {
-                // entity or workflow no longer available
-                LOG.warn("Step " + context.getWorkflowStepReference() + " cannot access nested workflow " + context.getStepState() + " for effector, "+nestedWorkflowTag+": "+Maybe.Absent.getException(nestedWorkflow));
-                context.setStepState(null, false);
-                // fall through to below
-            }
-        }
-        return null;
+    public List<WorkflowExecutionContext> getSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, boolean forced, boolean peekingOnly, boolean allowInternallyEvenIfDisabled) {
+        return WorkflowReplayUtils.getSubWorkflowsForReplay(context, forced, peekingOnly, allowInternallyEvenIfDisabled);
     }
 
     @Override
     public Object doTaskBodyWithSubWorkflowsForReplay(WorkflowStepInstanceExecutionContext context, @Nonnull List<WorkflowExecutionContext> subworkflows, ReplayContinuationInstructions instructions) {
-        return WorkflowReplayUtils.replayInSubWorkflow("workflow effector", context, subworkflows, instructions, ()->doTaskBody(context));
+        return WorkflowReplayUtils.replayResumingInSubWorkflow("workflow effector", context, Iterables.getOnlyElement(subworkflows), instructions,
+                (w, e)-> {
+                    LOG.debug("Sub workflow "+w+" is not replayable; running anew ("+ Exceptions.collapseText(e)+")");
+                    return doTaskBody(context);
+                }, true);
     }
 
     @Override
@@ -115,13 +107,12 @@ public class InvokeEffectorWorkflowStep extends WorkflowStepDefinition implement
 
         Effector<Object> effector = (Effector) ((Entity) te).getEntityType().getEffectorByName(context.getInput(EFFECTOR)).get();
         TaskAdaptable<Object> invocation = Effectors.invocationPossiblySubWorkflow((Entity) te, effector, context.getInput(ARGS), context.getWorkflowExectionContext(), workflowTag -> {
-            // make sure parent knows about child before child workflow is persisted, otherwise there is a chance the child workflow gets orphaned (if interrupted before parent persists)
-            context.getSubWorkflows().forEach(tag -> tag.setSupersededByWorkflow(workflowTag.getWorkflowId()));
-            context.getSubWorkflows().add(workflowTag);
-            context.setStepState(workflowTag, true);
+            WorkflowReplayUtils.setNewSubWorkflows(context, MutableList.of(workflowTag), workflowTag.getWorkflowId());
+            // unlike nested case, no need to persist as single child workflow will persist themselves imminently, and if not no great shakes to recompute
         });
 
         return DynamicTasks.queue(invocation).asTask().getUnchecked();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return null; }
 }

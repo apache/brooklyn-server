@@ -16,15 +16,14 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.flow;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.ShorthandProcessor;
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.*;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.task.Tasks;
@@ -34,14 +33,18 @@ import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.time.Instant;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
+
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_END;
+import static org.apache.brooklyn.core.workflow.WorkflowExecutionContext.STEP_TARGET_NAME_FOR_LAST;
 
 public class RetryWorkflowStep extends WorkflowStepDefinition {
 
@@ -53,15 +56,15 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<List<RetryLimit>> LIMIT = ConfigKeys.newConfigKey(new TypeToken<List<RetryLimit>>() {}, "limit");
     public static final ConfigKey<RetryBackoff> BACKOFF = ConfigKeys.newConfigKey(RetryBackoff.class, "backoff");
 
-    // if multiple retry steps declare the same key, their counts will be combined; used if the same error might be handled in different ways
+    // if multiple retry steps declare the same hash key, their counts will be combined; used if the same error might be handled in different ways
     // note that the limits and backoff _instructions_ apply only at the step where they are defing, so they may need to be defined at each step
-    public static final ConfigKey<String> KEY = ConfigKeys.newStringConfigKey("key");
+    public static final ConfigKey<String> HASH = ConfigKeys.newStringConfigKey("hash");
 
     public enum RetryReplayOption { TRUE, FALSE, FORCE }
 
     public static class RetryLimit {
-        int count;
-        Duration duration;
+        public Integer count;
+        public Duration duration;
 
         public static RetryLimit fromInteger(Integer i) {
             return fromString(""+i);
@@ -70,17 +73,48 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         public static RetryLimit fromString(String s) {
             RetryLimit result = new RetryLimit();
             String[] parts = s.trim().split(" +");
-            if (parts.length==1 || (parts.length==3 && "in".equals(parts[1]))) {
+            if (parts.length>=3 && "in".equals(parts[1])) {
                 result.count = Integer.parseInt(parts[0]);
-                if (parts.length==3) result.duration = Duration.of(parts[2]);
+                result.duration = Duration.of(Arrays.asList(parts).subList(2, parts.length).stream().collect(Collectors.joining(" ")));
             } else {
-                throw new IllegalStateException("Illegal expression for retry limit, should be '${count} in ${duration}': "+s);
+                Pair<Integer, Duration> parse = null;
+
+                Exception problem = null;
+                try {
+                    parse = parseCountOrDuration(s);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    problem = e;
+                }
+                if (parse==null) {
+                    throw new IllegalStateException("Illegal expression for retry limit, should be '${count}`, '${duration}', or '${count} in ${duration}': " + s, problem);
+                }
+                result.count = parse.getLeft();
+                result.duration = parse.getRight();
             }
             return result;
         }
 
+        /** returns count in LHS _or_ duration in RHS, _or_ null if not parseable */
+        public static Pair<Integer,Duration> parseCountOrDuration(String phrase) {
+            if (phrase==null) return null;
+            phrase = phrase.trim();
+            if (phrase.isEmpty()) return null;
+            if (Character.isLetter(phrase.charAt(phrase.length()-1))) return Pair.of(null, Duration.parse(phrase));
+            return Pair.of(Integer.parseInt(phrase), null);
+        }
+
         public Maybe<String> isReached(List<Instant> retries) {
             Instant now = Instant.now();
+            if (count==null) {
+                if (duration==null) return Maybe.absent("No limit");
+                Optional<Instant> oldest = retries.stream().min(Instant::compareTo);
+                if (oldest.isPresent() && duration.isShorterThan(Duration.between(oldest.get(), now))) {
+                    return Maybe.of(
+                            (retries.size()==1 ? "1 retry" : retries.size()+" retries") + " since "+Duration.between(oldest.get(), now)+" ago (limit "+this+")");
+                }
+            }
+
             List<Instant> filtered = retries.stream().filter(r -> duration == null || duration.isLongerThan(Duration.between(r, now))).collect(Collectors.toList());
             if (filtered.size() >= count) {
                 if (filtered.isEmpty()) return Maybe.of("Max count 0 reached");
@@ -94,7 +128,10 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
         @Override
         public String toString() {
-            return count + (duration!=null ? " in "+duration : "");
+            return count!=null && duration!=null ? count + " in "+ duration
+                    : count!=null ? ""+count
+                    : duration!=null ? ""+duration
+                    : "RetryLimit<unset>";
         }
     }
 
@@ -114,7 +151,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
         /** accepts eg: "0 0 100ms increasing 100% up to 1m" */
         public static RetryBackoff fromString(String s) {
-            Maybe<Map<String, Object>> resultM = new ShorthandProcessor("${initial...} [ \" increasing \" ${factor} ] [ \" up to \" ${max}]").process(s);
+            Maybe<Map<String, Object>> resultM = new ShorthandProcessor("${initial...} [ \" increasing \" ${factor} ] [ \" up to \" ${max}] [ \" jitter \" ${jitter} ]").process(s);
             if (resultM.isAbsent()) throw new IllegalArgumentException("Invalid shorthand expression for backoff: '"+s+"'", Maybe.Absent.getException(resultM));
 
             RetryBackoff result = new RetryBackoff();
@@ -128,6 +165,7 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
 
             String factor = (String) resultM.get().get("factor");
             if (factor!=null) {
+                factor = factor.trim();
                 if (factor.endsWith("x")) {
                     result.factor = TypeCoercions.coerce(Strings.removeFromEnd(factor, "x"), Double.class);
                 } else if (factor.endsWith("%")) {
@@ -138,6 +176,15 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             }
 
             result.max = TypeCoercions.coerce(resultM.get().get("max"), Duration.class);
+
+            String j = (String) resultM.get().get("jitter");
+            if (j!=null) {
+                j = j.trim();
+                boolean percent = j.endsWith("%");
+                if (percent) j = Strings.removeFromEnd(j, "%").trim();
+                result.jitter = TypeCoercions.coerce(j, Double.class);
+                if (percent) result.jitter /= 100;
+            }
 
             return result;
         }
@@ -164,8 +211,9 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep() {
-        super.validateStep();
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        super.validateStep(mgmt, workflow);
+
         TypeCoercions.coerce(input.get(REPLAY.getName()), REPLAY.getTypeToken());
         TypeCoercions.coerce(input.get(LIMIT.getName()), LIMIT.getTypeToken());
         TypeCoercions.coerce(input.get(BACKOFF.getName()), BACKOFF.getTypeToken());
@@ -192,8 +240,8 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
 
-        String key = Strings.firstNonBlank(context.getInput(KEY), context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()));
-        List<Instant> retries = context.getWorkflowExectionContext().getRetryRecords().compute(key, (k, v) -> v != null ? v : MutableList.of());
+        String hash = Strings.firstNonBlank(context.getInput(HASH), context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()));
+        List<Instant> retries = context.getWorkflowExectionContext().getRetryRecords().compute(hash, (k, v) -> v != null ? v : MutableList.of());
 
         List<RetryLimit> limit = context.getInput(LIMIT);
         if (limit!=null) {
@@ -249,32 +297,60 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
         }
 
         retries.add(Instant.now());
-        context.getWorkflowExectionContext().getRetryRecords().put(key, retries);
+        context.getWorkflowExectionContext().getRetryRecords().put(hash, retries);
 
+        boolean inErrorHandler = !context.equals(context.getWorkflowExectionContext().getCurrentStepInstance());
         RetryReplayOption replay = context.getInput(REPLAY);
+        String next = this.next;
         if (replay==null) {
-            // default is to replay if next not specified
             replay = next==null ? RetryReplayOption.TRUE : RetryReplayOption.FALSE;
+            if (next==null) next = inErrorHandler ? STEP_TARGET_NAME_FOR_END : STEP_TARGET_NAME_FOR_LAST;
+        } else if (next==null) {
+            next = STEP_TARGET_NAME_FOR_LAST;
         }
 
         if (replay!=RetryReplayOption.FALSE) {
-            if (next==null) {
-                context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingLast(
-                        "Retry step after failure in step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
-            } else {
-                context.nextReplay = context.getWorkflowExectionContext().makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
-                        "Retry step from '"+next+"' after failure in step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+            context.next = null;
+            if (STEP_TARGET_NAME_FOR_END.equals(next)) {
+                if (!inErrorHandler) {
+                    log.warn("Retry target `"+STEP_TARGET_NAME_FOR_END+"` is only permitted inside an error handler; using `"+STEP_TARGET_NAME_FOR_LAST+"` instead");
+                    next = STEP_TARGET_NAME_FOR_LAST;
+                } else {
+                    context.next = context.getWorkflowExectionContext().factory(true).makeInstructionsForReplayResuming(
+                            "Retry replay from '" + next + "' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                }
             }
-            log.debug("Retrying with "+context.nextReplay);
+            if (context.next==null) {
+                if (STEP_TARGET_NAME_FOR_LAST.equals(next)) {
+                    context.next = null;
+                    int lastReplayStep = context.getWorkflowExectionContext().getReplayableLastStep() != null ? context.getWorkflowExectionContext().getReplayableLastStep() : WorkflowExecutionContext.STEP_INDEX_FOR_START;
+                    if (!inErrorHandler) {
+                        if (context.getStepIndex() == lastReplayStep) {
+                            // can't replay from retry step
+                            lastReplayStep = WorkflowReplayUtils.findNearestReplayPoint(context.getWorkflowExectionContext(), lastReplayStep, false);
+                        }
+                    }
+                    context.next = context.getWorkflowExectionContext().factory(true).makeInstructionsForReplayingFromStep(lastReplayStep,
+                            "Retry replay per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                    // could offer retry resuming but that is often not wanted; instead do that if `next` is `end`
+
+                } else {
+                    context.next = context.getWorkflowExectionContext().factory(true).makeInstructionsForReplayingFromStep(context.getWorkflowExectionContext().getIndexOfStepId(next).get().getLeft(),
+                            "Retry replay from '" + next + "' per step " + context.getWorkflowExectionContext().getWorkflowStepReference(Tasks.current()), replay == RetryReplayOption.FORCE);
+                }
+            }
+            log.debug("Retrying with "+context.next);
         } else {
             if (next==null) {
                 throw new IllegalStateException("Cannot retry with replay disabled and no specified next");
             } else {
-                log.debug("Retrying from explicit next step '"+next+"'");
-                // will go to next
+                // will go to next by id
+                context.next = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, next);
+                log.debug("Retrying from explicit next step '"+context.next+"'");
             }
         }
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

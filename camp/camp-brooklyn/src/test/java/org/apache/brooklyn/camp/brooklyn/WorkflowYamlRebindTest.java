@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -53,6 +54,8 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -62,6 +65,8 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowYamlRebindTest.class);
 
     @BeforeMethod(alwaysRun = true)
     @Override
@@ -238,7 +243,7 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
         app = rebind();
     }
 
-    @Test(groups="WIP")
+    @Test
     void testWorkflowSensorWithMutexRebind() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
@@ -251,16 +256,18 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
                 "        - trig",
                 "        - trig2",  // to make sure doesn't public too much
                 "      steps:",
-                "        - step: workflow lock count",
+                "        - let trig = ${entity.sensor.trig} ?? 0",
+                "        - step: workflow",
+                "          lock: count",
                 "          steps:",
                 "           - let count = ${entity.sensor.count} ?? 0",
                 "           - let count = ${count} + 1",
                 "           - log count now ${count}",
                 "           - step: set-sensor count = ${count}",
-                "             replayable: yes",  // not needed for this test, but for good measure
+                "             replayable: from here",  // not needed for this test, but for good measure
                 "        - type: return",
                 "          value:",
-                "            n: ${entity.sensor.trig}",
+                "            n: ${trig}",
                 "");
 
         waitForApplicationTasks(app);
@@ -281,6 +288,7 @@ public class WorkflowYamlRebindTest extends AbstractYamlRebindTest {
         // is run again when feed restarts (but could weaken)
         EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "count"), 3);
 
+        log.info("About to emit trig 2");
         child.sensors().set(Sensors.newIntegerSensor("trig"), 2);
         EntityAsserts.assertAttributeEqualsEventually(child, Sensors.newSensor(Object.class, "myWorkflowSensor"), MutableMap.of("n", 2));
         EntityAsserts.assertAttributeEquals(child, Sensors.newSensor(Object.class, "count"), 4);

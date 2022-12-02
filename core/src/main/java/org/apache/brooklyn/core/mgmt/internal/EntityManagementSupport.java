@@ -32,7 +32,6 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.ExecutionContext;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.SubscriptionContext;
-import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.entitlement.EntitlementManager;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
@@ -52,12 +51,11 @@ import org.apache.brooklyn.core.mgmt.internal.NonDeploymentManagementContext.Non
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.workflow.DanglingWorkflowException;
 import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
-import org.apache.brooklyn.util.core.task.TaskTags;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -291,21 +289,24 @@ public class EntityManagementSupport {
                             WorkflowStatePersistenceViaSensors persister = new WorkflowStatePersistenceViaSensors(info.getManagementContext());
                             Map<String, WorkflowExecutionContext> workflows = persister.getWorkflows(entity);
                             List<WorkflowExecutionContext> shutdownInterruptedWorkflows = workflows.values().stream().filter(w ->
-                                            w.getStatus() == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN &&
-                                                    w.getParentId() == null)
+                                            w.getStatus() == WorkflowExecutionContext.WorkflowStatus.ERROR_SHUTDOWN && w.getParentTag() == null)
                                     .collect(Collectors.toList());
                             if (!shutdownInterruptedWorkflows.isEmpty()) {
                                 log.debug("Discovered workflows noted as 'interrupted' on startup at "+entity+", will resume as dangling: "+shutdownInterruptedWorkflows);
                                 entity.getExecutionContext().submit(DynamicTasks.of("Resuming with failure " + shutdownInterruptedWorkflows.size() + " interrupted workflow" + (shutdownInterruptedWorkflows.size() != 1 ? "s" : ""), () -> {
                                     shutdownInterruptedWorkflows.forEach(w -> {
-                                        Task<Object> task = Entities.submit(entity, w.createTaskReplaying(w.makeInstructionsForReplayingLastForcedWithCustom("Resumed dangling on server restart", () -> {
+                                        // these are backgrounded because they are expected to fail
+                                        // we also have to wait until mgmt is complete
+                                        Entities.submit(entity, w.factory(true).createTaskReplaying(
+                                                () -> entity.getManagementContext().waitForManagementStartupComplete(Duration.minutes(15)),
+                                                w.factory(true).makeInstructionsForReplayResumingForcedWithCustom("Resumed dangling on server restart", () -> {
                                                     throw new DanglingWorkflowException();
                                                 })));
 
                                         // could do this, but instead it is handled specially in the UI
                                         //TaskTags.addTagDynamically(task, BrooklynTaskTags.TOP_LEVEL_TASK);
                                     });
-                                }));  // backgrounded
+                                })).get();  // not backgrounded because we want the new task to be recorded against all the workflows
                             }
                         }
                     }

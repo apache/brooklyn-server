@@ -49,7 +49,7 @@ public class ClassLogWatcher extends ListAppender<ILoggingEvent> implements Auto
     }
 
     @Override
-    public void close() throws IOException {
+    public void close() {
         ((Logger) LoggerFactory.getLogger(className)).detachAppender(this);
         stop();
     }

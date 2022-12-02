@@ -24,15 +24,21 @@ import java.util.List;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.policy.Policy;
+import org.apache.brooklyn.api.policy.PolicySpec;
 import org.apache.brooklyn.api.sensor.Enricher;
+import org.apache.brooklyn.api.sensor.EnricherSpec;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceIndicatorsFromChildrenAndMembers;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ComputeServiceState;
 import org.apache.brooklyn.core.entity.lifecycle.ServiceStateLogic.ServiceNotUpLogic;
+import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.objs.AbstractEntityAdjunct;
 import org.apache.brooklyn.core.objs.proxy.EntityAdjunctProxyImpl;
 import org.apache.brooklyn.util.collections.MutableList;
@@ -57,7 +63,36 @@ public class EntityAdjuncts {
                 return Maybe.of(adjunct);
         return Maybe.absent("Not found with tag "+tag);
     }
-    
+
+    public static boolean matchesTagOrIdOrAdjunctItself(EntityAdjunct adjunct, Object tagOrIdOrAdjunctItself) {
+        if (adjunct==null || tagOrIdOrAdjunctItself==null) return false;
+        if (tagOrIdOrAdjunctItself.equals(adjunct)) return true;
+        if (tagOrIdOrAdjunctItself instanceof EntityAdjunct) return false;
+        if (tagOrIdOrAdjunctItself.equals(adjunct.getUniqueTag())) return true;
+        if (tagOrIdOrAdjunctItself.equals(adjunct.config().get(BrooklynConfigKeys.PLAN_ID))) return true;
+        return false;
+    }
+
+    public static <T extends EntityAdjunct> Maybe<T> tryFind(Iterable<T> adjuncts, Object tagOrIdOrAdjunctItself) {
+        if (tagOrIdOrAdjunctItself==null) return Maybe.absent("Asked to find null");
+        for (T adjunct: adjuncts)
+            if (matchesTagOrIdOrAdjunctItself(adjunct, tagOrIdOrAdjunctItself)) return Maybe.of(adjunct);
+        return Maybe.absent("Not found");
+    }
+
+    public static Maybe<EntityAdjunct> tryFindOnEntity(Entity entity, Object tagOrIdOrAdjunctItself) {
+        if (tagOrIdOrAdjunctItself==null) return Maybe.absent("Asked to find null");
+        Maybe<? extends EntityAdjunct> result;
+        result = tryFind(entity.policies(), tagOrIdOrAdjunctItself);
+        if (result.isPresent()) return (Maybe<EntityAdjunct>) result;
+        result = tryFind(entity.enrichers(), tagOrIdOrAdjunctItself);
+        if (result.isPresent()) return (Maybe<EntityAdjunct>) result;
+        result = tryFind(((EntityInternal)entity).feeds(), tagOrIdOrAdjunctItself);
+        if (result.isPresent()) return (Maybe<EntityAdjunct>) result;
+
+        return Maybe.absent("Adjunct/policy not found: "+tagOrIdOrAdjunctItself);
+    }
+
     public static final List<String> SYSTEM_ENRICHER_UNIQUE_TAGS = ImmutableList.of(
         ServiceNotUpLogic.DEFAULT_ENRICHER_UNIQUE_TAG,
         ComputeServiceState.DEFAULT_ENRICHER_UNIQUE_TAG,
@@ -139,6 +174,37 @@ public class EntityAdjuncts {
         }
 
         return Maybe.absent("brooklyn object "+value+" not supported for entity retrieval");
+    }
+
+    public static boolean removeAdjunct(Entity entity, EntityAdjunct policy) {
+        if (policy instanceof Policy) return entity.policies().remove((Policy) policy);
+        if (policy instanceof Enricher) return entity.enrichers().remove((Enricher) policy);
+        if (policy instanceof Feed) return ((EntityInternal)entity).feeds().remove((Feed) policy);
+        if (policy==null) return false;
+        throw new IllegalArgumentException("Unexpected adjunct type "+policy.getClass()+" "+policy);
+    }
+
+    public static BrooklynObject addAdjunct(Entity entity, AbstractBrooklynObjectSpec spec) {
+        if (spec instanceof PolicySpec) return entity.policies().add((PolicySpec) spec);
+        if (spec instanceof EnricherSpec) return entity.enrichers().add((EnricherSpec) spec);
+        // feed specs not supported
+        if (spec==null) return null;
+        throw new IllegalArgumentException("Unexpected adjunct type "+spec.getClass()+" "+spec);
+    }
+
+    @Beta //experimental; typically we want to use specs, but might not always be so easy
+    public static BrooklynObject addAdjunct(Entity entity, EntityAdjunct spec) {
+        if (spec instanceof Policy) { entity.policies().add(init(((EntityInternal)entity).getManagementContext(), (Policy) spec)); return (Policy) spec; }
+        if (spec instanceof Enricher) { entity.enrichers().add(init(((EntityInternal)entity).getManagementContext(), (Enricher) spec)); return (Enricher) spec; }
+        if (spec instanceof Feed) { ((EntityInternal)entity).feeds().add(init(((EntityInternal)entity).getManagementContext(), (Feed) spec)); return (Feed) spec; }
+        if (spec==null) return null;
+        throw new IllegalArgumentException("Unexpected adjunct type "+spec.getClass()+" "+spec);
+    }
+
+    private static <T extends BrooklynObject> T init(ManagementContext mgmt, T adjunct) {
+        ((AbstractBrooklynObject)adjunct).setManagementContext((ManagementContextInternal) mgmt);
+        ((AbstractBrooklynObject)adjunct).init();
+        return adjunct;
     }
 
     /** supported by nearly all EntityAdjuncts, but a few in the wild might that don't extend the standard AbstractEntityAdjunct might not implement this; see {@link #getEntity()} */

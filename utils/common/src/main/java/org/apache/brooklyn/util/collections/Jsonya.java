@@ -114,6 +114,13 @@ public class Jsonya {
         if (x==null) return true;
         return x instanceof Map || x instanceof Collection || x instanceof String || Boxing.isPrimitiveOrBoxedObject(x);
     }
+    public static boolean isJsonPrimitiveDeep(Object x) {
+        if (x==null) return true;
+        if (x instanceof String || Boxing.isPrimitiveOrBoxedObject(x)) return true;
+        if (x instanceof Map) return ((Map<?,?>)x).entrySet().stream().anyMatch(ent -> !isJsonPrimitiveDeep(ent.getKey()) || !isJsonPrimitiveDeep(ent.getValue()));
+        if (x instanceof Collection) return ((Collection)x).stream().anyMatch(ent -> !isJsonPrimitiveDeep(ent));
+        return false;
+    }
 
     @SuppressWarnings({"rawtypes","unchecked"})
     public static class Navigator<T extends Map<?,?>> {

@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -108,10 +109,20 @@ public final class WorkflowPolicy<T> extends AbstractPolicy {
     }
 
     @Override
-    public void setEntity(EntityLocal entity) {
-        super.setEntity(entity);
+    public void init() {
+        initUniqueTag();
+        super.init();
+    }
 
-        Duration frequency = getConfig(POLICY_PERIOD);
+    public String initUniqueTag() {
+        if (uniqueTag==null) uniqueTag = "workflow-policy-hash-"+ Objects.hash(getDisplayName(), config().getBag());
+        return super.getUniqueTag();
+    }
+
+    @Override
+    public void setEntity(EntityLocal entity) {
+        initUniqueTag();
+        super.setEntity(entity);
 
         poller = new Poller<>(getEntity(), this, false);
 

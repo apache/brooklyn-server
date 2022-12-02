@@ -16,30 +16,27 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.variables;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 
-import java.util.function.Consumer;
+import java.util.List;
 
-/** Deserialization bean allowing to specify a sensor or config on an entity */
-public class EntityValueToSet extends TypedValueToSet {
+public abstract class WorkflowTransformDefault implements WorkflowTransformWithContext {
+    protected WorkflowExecutionContext context;
 
-    public EntityValueToSet() {}
-    public EntityValueToSet(String name) {
-        super(name);
-    }
-    public EntityValueToSet(TypedValueToSet other) {
-        super(other);
-        if (other instanceof EntityValueToSet) this.entity = ((EntityValueToSet)other).entity;
+    @Override
+    public void init(WorkflowExecutionContext context, List<String> definition) {
+        this.context = context;
+        if (definition != null) checkDefinitionSize1(definition);
     }
 
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public Entity entity;
-
-    public static EntityValueToSet fromString(String name) {
-        return new EntityValueToSet(name);
+    @Override
+    public boolean isResolver() {
+        return false;
     }
 
+    static void checkDefinitionSize1(List<String> definition) {
+        if (definition.size()>1) throw new IllegalArgumentException("Transform '"+ definition.get(0)+"' does not accept args: " + definition.subList(1, definition.size()));
+    }
 }

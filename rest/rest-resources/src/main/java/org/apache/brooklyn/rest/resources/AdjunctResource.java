@@ -277,9 +277,9 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
     @Override
     public Response setConfig(String application, String entityToken, String adjunctToken, String configKeyName, Object value) {
         Entity entity = brooklyn().getEntity(application, entityToken);
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
-                    Entitlements.getEntitlementContext().user(), entity);
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, Entitlements.EntityAndItem.of(entity, Entitlements.StringAndArgument.of("set-config", configKeyName)))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to set config '%s' on adjunct '%s' of '%s'",
+                    Entitlements.getEntitlementContext().user(), configKeyName, adjunctToken, entity);
         }
 
         EntityAdjunct adjunct = brooklyn().getAdjunct(entity, adjunctToken);
@@ -287,7 +287,13 @@ public class AdjunctResource extends AbstractBrooklynRestResource implements Adj
         // TODO try deprecated names?
         if (cki.isEmpty()) throw WebResourceUtils.notFound("Cannot find config key '%s' in adjunct '%s' of entity '%s'", configKeyName, adjunctToken, entityToken);
         ConfigKey<?> ck = cki.iterator().next();
-        
+
+        if (!ck.isReconfigurable() && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+
+        log.debug("REST setting config " + configKeyName + " on adjunct "+adjunct+" of " + entity + " to " + value);
         adjunct.config().set((ConfigKey) ck, TypeCoercions.coerce(value, ck.getTypeToken()));
 
         return Response.status(Response.Status.OK).build();

@@ -136,7 +136,9 @@ public class ShorthandProcessor {
                 }
 
                 if (templateTokens.isEmpty()) {
-                    if (Strings.isNonBlank(inputRemaining) && valueUpdater==null) return Maybe.absent("Input has trailing characters after template is matched: '" + inputRemaining + "'");
+                    if (Strings.isNonBlank(inputRemaining) && valueUpdater==null) {
+                        return Maybe.absent("Input has trailing characters after template is matched: '" + inputRemaining + "'");
+                    }
                     if (optionalDepth>0)
                         return Maybe.absent("Mismatched optional marker in template");
                     return Maybe.of(true);

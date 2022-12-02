@@ -45,6 +45,7 @@ import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
@@ -1730,7 +1731,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private static boolean isDubiousBeanType(Object t) {
-        return t instanceof Map || t instanceof Collection;
+        return t instanceof Map || t instanceof Collection || (t instanceof BrooklynObject && !(t instanceof Feed));
     }
 
     /** records the type this catalog is currently trying to resolve items being added to the catalog, if it is trying to resolve.

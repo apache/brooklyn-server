@@ -23,9 +23,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.AddChildrenEffector;
 import org.apache.brooklyn.core.effector.Effectors;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -97,7 +95,7 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
         return result;
     }
 
-    void testAddChildrenWithServicesBlock(Supplier<Entity> childS) throws Exception {
+    void assertAddsChild(Supplier<Entity> childS) throws Exception {
         Entity child = childS.get();
 
         Assert.assertEquals(child.getConfig(ConfigKeys.newStringConfigKey("p.parent")), "parent");
@@ -107,8 +105,8 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
     }
 
     @Test
-    public void testAddChildrenWithServicesBlock() throws Exception {
-        testAddChildrenWithServicesBlock(() ->
+    public void assertAddsChild() throws Exception {
+        assertAddsChild(() ->
                 makeAppAndAddChild(true, MutableMap.of("p.param1", "effector_param"),
                     "blueprint_yaml: |",
                     "  services:",
@@ -118,21 +116,13 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
     
     @Test
     public void testAddChildrenFailsWithoutServicesBlock() throws Exception {
-        try {
-            Entity child = makeAppAndAddChild(true, MutableMap.of("p.param1", "effector_param"),
+        assertAddsChild(() ->
+                makeAppAndAddChild(true, MutableMap.of("p.param1", "effector_param"),
                 "blueprint_yaml: |",
                 "  type: "+BasicEntity.class.getName()
-                );
-            
-            // fine if implementation is improved to accept this format;
-            // just change semantics of this test (and ensure comments on blueprint_yaml are changed!)
-            Asserts.shouldHaveFailedPreviously("Didn't think we supported calls without 'services', but instantiation gave "+child);
-        } catch (Exception e) {
-            Asserts.expectedFailureContainsIgnoreCase(e, "basic", "error", "invalid");
-        }
+                ));
     }
-    
-    
+
     @Test
     public void testAddChildrenAcceptsJson() throws Exception {
         Entity child = makeAppAndAddChild(false, MutableMap.<String,String>of(),
@@ -221,7 +211,7 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
                         "brooklyn.config:\n" +
                         "  name: add\n"+
                         "  blueprint_yaml: OVERRIDE"));
-        testAddChildrenWithServicesBlock(() ->
+        assertAddsChild(() ->
                 makeAppAndAddChild(Strings.lines(
                         "  - type: add-child",
                         "    brooklyn.config:",
@@ -240,7 +230,7 @@ public class AddChildrenEffectorYamlTest extends AbstractYamlTest {
 
     @Test
     public void testAddChildrenWithServicesBlock_Fields() throws Exception {
-        testAddChildrenWithServicesBlock(() ->
+        assertAddsChild(() ->
                 makeAppAndAddChild(Strings.lines(
                         "    - type: "+AddChildrenEffector.class.getName(),
                         "      name: add",

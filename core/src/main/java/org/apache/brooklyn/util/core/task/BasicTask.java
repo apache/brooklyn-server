@@ -29,8 +29,11 @@ import com.google.common.util.concurrent.Callables;
 import com.google.common.util.concurrent.ExecutionList;
 import com.google.common.util.concurrent.ListenableFuture;
 import groovy.lang.Closure;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.HasTaskChildren;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
@@ -433,23 +436,49 @@ public class BasicTask<T> implements TaskInternal<T> {
     
     @Override
     public boolean blockUntilEnded(Duration timeout) {
+        return blockUntilEnded(timeout, false);
+    }
+
+    @Override
+    public boolean blockUntilEnded(Duration timeout, boolean andTaskNotRunning) {
         Long endTime = timeout==null ? null : System.currentTimeMillis() + timeout.toMillisecondsRoundingUp();
-        try { 
-            boolean started = blockUntilStarted(timeout);
-            if (!started) return false;
-            if (timeout==null) {
-                internalFuture.get();
-            } else {
-                long remaining = endTime - System.currentTimeMillis();
-                if (remaining>0)
-                    internalFuture.get(remaining, TimeUnit.MILLISECONDS);
+        try {
+            while (true) {
+                try {
+                    boolean started = blockUntilStarted(timeout);
+                    if (!started) return false;
+                } catch (CancellationException cancelled) {
+                    // above can fail if started
+                    if (isDone(andTaskNotRunning)) return true;
+                }
+                if (timeout == null) {
+                    internalFuture.get();
+                } else {
+                    long remaining = endTime - System.currentTimeMillis();
+                    try {
+                        if (remaining > 0)
+                            internalFuture.get(remaining, TimeUnit.MILLISECONDS);
+                    } catch (TimeoutException|CancellationException e) {
+                        // timeout normal, cancellation should be handled as per below
+                    }
+                    remaining = endTime - System.currentTimeMillis();
+                    if (remaining <= 0) {
+                        return isDone(andTaskNotRunning);
+                    }
+                }
+                if (isDone(andTaskNotRunning)) return true;
+
+                // should only come here if timeout not exceeded, internalFuture is ready, but tasks not done. wait with a short delay.
+                Thread.yield();
+                if (isDone(andTaskNotRunning)) return true;
+                Time.sleep(20);
             }
-            return isDone();
+
         } catch (Throwable t) {
             Exceptions.propagateIfFatal(t);
             if (!(t instanceof TimeoutException) && log.isDebugEnabled())
                 log.debug("call from "+Thread.currentThread()+", blocking until '"+this+"' finishes, ended with error: "+t);
-            return isDone(); 
+            return isDone(andTaskNotRunning);
         }
     }
 
@@ -924,9 +953,16 @@ public class BasicTask<T> implements TaskInternal<T> {
         @Override
         public void onTaskFinalization(Task<?> t) {
             if (!Tasks.isAncestorCancelled(t) && !t.isSubmitted()) {
-                log.warn(t+" was never submitted; did the code create it and forget to run it? ('cancel' the task to suppress this message)");
-                log.debug("Detail of unsubmitted task "+t+":\n"+t.getStatusDetail(true));
-                return;
+                boolean skipWarning = false;
+                skipWarning |= t instanceof ScheduledTask && ((ScheduledTask) t).getNextScheduled()!=null;  // scheduled tasks don't set submitted until run one
+                skipWarning |= t instanceof TaskInternal && ((TaskInternal) t).getQueuedTimeUtc() > 0;  // skip if queued
+                skipWarning |= BrooklynTaskTags.hasTag(t, BrooklynTaskTags.WORKFLOW_TAG);  // workflow tasks are managed by us, and skipped if workflow doesn't run
+                if (!skipWarning) {
+                    // this might be a sign of a leak; usually created tasks are very very soon queued or submitted
+                    log.warn(t + " was never submitted; did the code create it and forget to run it? ('cancel' the task to suppress this message)");
+                    log.debug("Detail of unsubmitted task " + t + ":\n" + t.getStatusDetail(true));
+                    return;
+                }
             }
             if (!t.isDone()) {
                 if (!BrooklynTaskTags.getExecutionContext(t).isShutdown()) {

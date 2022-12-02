@@ -18,14 +18,13 @@
  */
 package org.apache.brooklyn.tasks.kubectl;
 
-import com.google.common.base.Objects;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.core.workflow.steps.SshWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.external.SshWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
@@ -124,4 +123,5 @@ public class ContainerWorkflowStep extends WorkflowStepDefinition {
         }
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

@@ -20,27 +20,37 @@ package org.apache.brooklyn.core.workflow;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.Dumper;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.steps.*;
+import org.apache.brooklyn.core.workflow.steps.appmodel.*;
+import org.apache.brooklyn.core.workflow.steps.external.HttpWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.external.SshWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.*;
+import org.apache.brooklyn.core.workflow.steps.variables.*;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
@@ -50,11 +60,10 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -72,6 +81,14 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                 new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
     }
 
+    public static RegisteredType addRegisteredTypeSpec(ManagementContext mgmt, String symName, Class<?> clazz, Class<? extends BrooklynObject> superClazz) {
+        RegisteredType rt = RegisteredTypes.spec(symName, VERSION,
+                new BasicTypeImplementationPlan(JavaClassNameTypePlanTransformer.FORMAT, clazz.getName()));
+        RegisteredTypes.addSuperType(rt, superClazz);
+        mgmt.getCatalog().validateType(rt, null, false);
+        return mgmt.getTypeRegistry().get(rt.getSymbolicName(), rt.getVersion());
+    }
+
     protected void loadTypes() {
         addWorkflowStepTypes(mgmt);
     }
@@ -85,19 +102,52 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         addRegisteredTypeBean(mgmt, "set-sensor", SetSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "clear-sensor", ClearSensorWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "let", SetVariableWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "transform", TransformVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "load", LoadWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "set-workflow-variable", SetVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "clear-workflow-variable", ClearVariableWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "wait", WaitWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "return", ReturnWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "goto", GotoWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "switch", SwitchWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "fail", FailWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "invoke-effector", InvokeEffectorWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "deploy-application", DeployApplicationWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "add-entity", AddEntityWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "delete-entity", DeleteEntityWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "reparent-entity", ReparentEntityWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "add-policy", AddPolicyWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "delete-policy", DeletePolicyWorkflowStep.class);
+        addRegisteredTypeBean(mgmt, "apply-initializer", ApplyInitializerWorkflowStep.class);
 
         addRegisteredTypeBean(mgmt, "retry", RetryWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "workflow", CustomWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "ssh", SshWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "http", HttpWorkflowStep.class);
+
+        addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
+        addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
+        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class, Policy.class);
+        addRegisteredTypeBean(mgmt, "workflow-initializer", WorkflowInitializer.class);
+    }
+
+    public static WorkflowExecutionContext runWorkflow(Entity target, String workflowYaml, String defaultName) {
+        // mimic what EntityResource.runWorkflow does
+        CustomWorkflowStep workflow;
+        try {
+            workflow = BeanWithTypeUtils.newYamlMapper(((EntityInternal)target).getManagementContext(), true, RegisteredTypes.getClassLoadingContext(target), true)
+                    .readerFor(CustomWorkflowStep.class).readValue(workflowYaml);
+        } catch (JsonProcessingException e) {
+            throw Exceptions.propagate(e);
+        }
+
+        WorkflowExecutionContext execution = workflow.newWorkflowExecution(target,
+                Strings.firstNonBlank(workflow.getName(), workflow.getId(), defaultName),
+                null,
+                MutableMap.of("tags", MutableList.of(MutableMap.of("workflow_yaml", workflowYaml))));
+
+        Entities.submit(target, execution.getTask(true).get());
+        return execution;
     }
 
     <T> T convert(Object input, Class<T> type) {
@@ -254,6 +304,11 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
         protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
             return task.apply(context);
         }
+
+        @Override
+        protected Boolean isDefaultIdempotent() {
+            return true;
+        }
     }
 
     @Test
@@ -322,6 +377,7 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
             Object workflowId = ids.get("workflow");
             List tasksIds = (List) ids.get("tasks");
 
+            System.out.println(logWatcher.getMessages());
             Asserts.assertEquals(logWatcher.getMessages(), MutableList.of(
                     "Starting workflow 'myWorkflow (workflow effector)', moving to first step "+workflowId+"-1",
                     "Starting step "+workflowId+"-1 in task "+tasksIds.get(0),
@@ -329,7 +385,9 @@ public class WorkflowBasicTest extends BrooklynMgmtUnitTestSupport {
                     "Completed step "+workflowId+"-1; moving to sequential next step "+workflowId+"-2-ii",
                     "Starting step "+workflowId+"-2-ii 'Two' in task "+tasksIds.get(1),
                     "two",
-                    "Completed step "+workflowId+"-2-ii; no further steps: Workflow completed"));
+                    "Completed step "+workflowId+"-2-ii; no further steps: Workflow completed",
+                    "Completed workflow "+workflowId+" successfully; step count: 2 considered, 2 executed"));
         }
     }
+
 }

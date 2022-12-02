@@ -63,12 +63,12 @@ public class BeanWithTypeUtils {
     /** also see {@link org.apache.brooklyn.util.core.json.BrooklynObjectsJsonMapper#newMapper(ManagementContext)}
      * which isn't as powerful in most ways, but has a few extra things it supports
      * TODO ideally that and this would be combined */
-    public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
-        return applyCommonMapperConfig(newSimpleMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+    public static ObjectMapper newMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
+        return applyCommonMapperConfig(newSimpleMapper(), mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
     }
 
-    public static ObjectMapper newYamlMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowBasicJavaTypes) {
-        ObjectMapper mapper = applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowBasicJavaTypes);
+    public static ObjectMapper newYamlMapper(ManagementContext mgmt, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowPojoJavaTypes) {
+        ObjectMapper mapper = applyCommonMapperConfig(newSimpleYamlMapper(), mgmt, allowRegisteredTypes, loader, allowPojoJavaTypes);
         mapper = mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }

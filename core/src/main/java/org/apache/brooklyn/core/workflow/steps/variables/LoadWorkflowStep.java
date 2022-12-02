@@ -16,40 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.variables;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.collections.CollectionMerger;
-import org.apache.brooklyn.util.collections.MutableList;
-import org.apache.brooklyn.util.collections.MutableMap;
-import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.flags.TypeCoercions;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.guava.Maybe;
-import org.apache.brooklyn.util.javalang.Boxing;
 import org.apache.brooklyn.util.text.ByteSizeStrings;
-import org.apache.brooklyn.util.text.QuotedStringTokenizer;
 import org.apache.brooklyn.util.text.Strings;
-import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.nio.charset.Charset;
-import java.util.*;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class LoadWorkflowStep extends WorkflowStepDefinition {
 
@@ -68,8 +52,9 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void validateStep() {
-        super.validateStep();
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        super.validateStep(mgmt, workflow);
+
         if (!input.containsKey(VARIABLE.getName())) {
             throw new IllegalArgumentException("Variable name is required");
         }
@@ -105,4 +90,6 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
         context.noteOtherMetadata("Loaded", ByteSizeStrings.java().makeSizeString(data.getBytes().length)+" from "+url+" into "+variable);
         return context.getPreviousStepOutput();
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

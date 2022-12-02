@@ -16,10 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.variables;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import org.apache.brooklyn.api.entity.Entity;
 
 import java.util.Arrays;
 import java.util.function.Consumer;

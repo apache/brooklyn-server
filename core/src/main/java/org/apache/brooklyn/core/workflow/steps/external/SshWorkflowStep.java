@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.external;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.config.ConfigKey;
@@ -125,4 +125,5 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
         return "... " + input.substring(input.length()-maxLength+4);
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

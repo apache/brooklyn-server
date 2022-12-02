@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
@@ -182,9 +183,10 @@ public class FunctionSensorYamlTest extends AbstractYamlRebindTest {
             ((BasicApplication)app).stop();
             
             // Ensure we log.warn only once
-            Iterable<ILoggingEvent> warnEvents = Iterables.filter(watcher.getEvents(), EventPredicates.levelGeaterOrEqual(Level.WARN));
-            assertTrue(Iterables.tryFind(warnEvents, EventPredicates.containsMessages("Read of", "gave exception", "Cannot coerce ")).isPresent(), "warnEvents="+warnEvents);
-            assertEquals(Iterables.size(warnEvents), 1, "warnEvents="+warnEvents);
+            List<ILoggingEvent> warnReadEvents = watcher.getEvents().stream().filter(EventPredicates.levelGeaterOrEqual(Level.WARN))
+                            .filter(EventPredicates.containsMessages("Read of", "gave exception", "Cannot coerce "))
+                            .collect(Collectors.toList());
+            if (warnReadEvents.size()!=1) Asserts.fail("Wrong warn events: "+warnReadEvents);
 
             // Ensure exception logging is acceptable
             Iterable<ILoggingEvent> exceptionEvents = Iterables.filter(watcher.getEvents(), EventPredicates.containsException());

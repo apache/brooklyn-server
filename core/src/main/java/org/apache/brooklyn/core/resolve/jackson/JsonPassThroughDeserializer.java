@@ -18,10 +18,13 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.core.JacksonException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.jsontype.TypeDeserializer;
 import com.google.common.annotations.Beta;
 
@@ -54,6 +57,19 @@ public class JsonPassThroughDeserializer extends JsonDeserializer {
     @Override
     public Object deserializeWithType(JsonParser p, DeserializationContext ctxt, TypeDeserializer typeDeserializer, Object intoValue) throws IOException {
         return deserialize(p, ctxt, intoValue);
+    }
+
+    public static class JsonObjectHolder {
+        @JsonCreator
+        public JsonObjectHolder(@JsonDeserialize(using=JsonPassThroughDeserializer.class) Object value) {
+            this.value = value;
+        }
+//        public JsonObjectHolder(String value) {
+//            this.value = value;
+//        }
+
+        @JsonValue
+        public Object value;
     }
 
 }

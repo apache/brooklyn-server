@@ -236,17 +236,23 @@ public class EntityConfigResource extends AbstractBrooklynRestResource implement
     @Override
     public void set(String application, String entityToken, String configName, Boolean recurse, Object newValue) {
         final Entity entity = brooklyn().getEntity(application, entityToken);
-        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
-            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s'",
-                    Entitlements.getEntitlementContext().user(), entity);
+        if (!Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.INVOKE_EFFECTOR, EntityAndItem.of(entity, Entitlements.StringAndArgument.of("set-config", configName)))) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to set config '%s' on '%s'",
+                    Entitlements.getEntitlementContext().user(), configName, entity);
         }
 
         ConfigKey ck = findConfig(entity, configName);
+        if (!ck.isReconfigurable() && !Entitlements.isEntitled(mgmt().getEntitlementManager(), Entitlements.MODIFY_ENTITY, entity)) {
+            throw WebResourceUtils.forbidden("User '%s' is not authorized to modify entity '%s', required to set non-reconfigurable config",
+                    Entitlements.getEntitlementContext().user(), entity);
+        }
+
         LOG.debug("REST setting config " + configName + " on " + entity + " to " + newValue);
+
         ((EntityInternal) entity).config().set(ck, TypeCoercions.coerce(newValue, ck.getTypeToken()));
         if (Boolean.TRUE.equals(recurse)) {
             for (Entity e2 : Entities.descendantsWithoutSelf(entity)) {
-                ((EntityInternal) e2).config().set(ck, newValue);
+                set(application, e2.getId(), configName, false, newValue);
             }
         }
     }

@@ -117,6 +117,9 @@ public class DslPredicates {
         // if either believes they're equal, it's fine
         if (a.equals(b) || b.equals(a)) return true;
 
+        if (a instanceof DeferredSupplier || b instanceof DeferredSupplier)
+            return coercedEqual(a instanceof DeferredSupplier ? ((DeferredSupplier)a).get() : a, b instanceof DeferredSupplier ? ((DeferredSupplier)b).get() : b);
+
         // if classes are equal or one is a subclass of the other, and the above check was false, that is decisive
         if (a.getClass().isAssignableFrom(b.getClass())) return false;
         if (b.getClass().isAssignableFrom(a.getClass())) return false;
@@ -153,6 +156,9 @@ public class DslPredicates {
         if (isStringOrPrimitive(a) && isStringOrPrimitive(b)) {
             return NaturalOrderComparator.INSTANCE.compare(a.toString(), b.toString());
         }
+
+        if (a instanceof DeferredSupplier || b instanceof DeferredSupplier)
+            return coercedCompare(a instanceof DeferredSupplier ? ((DeferredSupplier)a).get() : a, b instanceof DeferredSupplier ? ((DeferredSupplier)b).get() : b);
 
         // if classes are equal or one is a subclass of the other, and the above check was false, that is decisive
         if (a.getClass().isAssignableFrom(b.getClass()) && b instanceof Comparable) return ((Comparable) b).compareTo(a);

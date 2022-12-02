@@ -23,6 +23,8 @@ import freemarker.template.TemplateHashModel;
 import freemarker.template.TemplateModel;
 import freemarker.template.TemplateModelException;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
@@ -33,10 +35,13 @@ import org.apache.brooklyn.util.core.task.DeferredSupplier;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -78,7 +83,12 @@ public class WorkflowExpressionResolution {
         return null;
     }
 
-    class WorkflowFreemarkerModel implements TemplateHashModel {
+    class WorkflowFreemarkerModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(context);
+        }
+
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             List<Throwable> errors = MutableList.of();
@@ -91,6 +101,13 @@ public class WorkflowExpressionResolution {
                 if (entity!=null) {
                     return TemplateProcessor.EntityAndMapTemplateModel.forEntity(entity, null);
                 }
+            }
+
+            if ("output".equals(key)) {
+                if (context.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.output);
+                if (context.currentStepInstance!=null && context.currentStepInstance.output!=null) return TemplateProcessor.wrapAsTemplateModel(context.currentStepInstance.output);
+                if (context.getPreviousStepOutput()!=null) return TemplateProcessor.wrapAsTemplateModel(context.getPreviousStepOutput());
+                return ifNoMatches();
             }
 
             Object candidate;
@@ -183,7 +200,12 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    class WorkflowExplicitModel implements TemplateHashModel {
+    class WorkflowExplicitModel implements TemplateHashModel, TemplateProcessor.UnwrappableTemplateModel {
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(context);
+        }
+
         @Override
         public TemplateModel get(String key) throws TemplateModelException {
             //id (a token representing an item uniquely within its root instance)
@@ -208,6 +230,7 @@ public class WorkflowExpressionResolution {
             if ("current_step".equals(key)) return new WorkflowStepModel(currentStepInstance);
             if ("previous_step".equals(key)) return newWorkflowStepModelForStepIndex(context.previousStepIndex);
             if ("step".equals(key)) return new WorkflowStepModel();
+            if ("util".equals(key)) return new WorkflowUtilModel();
 
             if ("var".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.workflowScratchVariables);
 
@@ -258,7 +281,33 @@ public class WorkflowExpressionResolution {
             //error (if there is an error in scope)
 
             if ("input".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.input);
-            if ("output".equals(key)) return TemplateProcessor.wrapAsTemplateModel(step.output!=null ? step.output : MutableMap.of());
+            if ("output".equals(key)) {
+                return TemplateProcessor.wrapAsTemplateModel(step.output != null ? step.output : MutableMap.of());
+            }
+
+            return ifNoMatches();
+        }
+
+        @Override
+        public boolean isEmpty() throws TemplateModelException {
+            return false;
+        }
+    }
+
+    class WorkflowUtilModel implements TemplateHashModel {
+
+        WorkflowUtilModel() {}
+        @Override
+        public TemplateModel get(String key) throws TemplateModelException {
+
+            //id (a token representing an item uniquely within its root instance)
+            if ("now".equals(key)) return TemplateProcessor.wrapAsTemplateModel(System.currentTimeMillis());
+            if ("now_utc".equals(key)) return TemplateProcessor.wrapAsTemplateModel(System.currentTimeMillis());
+            if ("now_instant".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Instant.now());
+            if ("now_iso".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeIso8601DateStringZ(Instant.now()));
+            if ("now_stamp".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeDateStampString());
+            if ("now_nice".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeDateString(Instant.now()));
+            if ("random".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Math.random());
 
             return ifNoMatches();
         }
@@ -281,7 +330,7 @@ public class WorkflowExpressionResolution {
                 // only try yaml coercion, as values are normally set from yaml and will be raw at this stage (but not if they are from a DSL)
                 // (might be better to always to TC.coerce)
                 return BeanWithTypeUtils.convert(context.getManagementContext(), expression, type, true,
-                        RegisteredTypes.getClassLoadingContext(context.getEntity()), false);
+                        RegisteredTypes.getClassLoadingContext(context.getEntity()), true /* needed for wrapped resolved holders */);
             } else {
                 return TypeCoercions.coerce(expression, type);
             }
@@ -451,7 +500,7 @@ public class WorkflowExpressionResolution {
         TemplateHashModel model = new WorkflowFreemarkerModel();
         Object result;
 
-        if (!allowWaiting) Thread.currentThread().interrupt();
+        boolean ourWait = interruptSetIfNeededToPreventWaiting();
         try {
             result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false);
         } catch (Exception e) {
@@ -466,10 +515,7 @@ public class WorkflowExpressionResolution {
                 throw Exceptions.propagate(e2);
             }
         } finally {
-            if (!allowWaiting) {
-                // clear interrupt status
-                Thread.interrupted();
-            }
+            if (ourWait) interruptClear();
         }
 
         if (!expression.equals(result)) {
@@ -483,6 +529,26 @@ public class WorkflowExpressionResolution {
         }
 
         return result;
+    }
+
+    private static ThreadLocal<Boolean> interruptSetIfNeededToPreventWaiting = new ThreadLocal<>();
+    public static boolean isInterruptSetToPreventWaiting() {
+        Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
+        if (entity!=null && Entities.isUnmanagingOrNoLongerManaged(entity)) return false;
+        return Boolean.TRUE.equals(interruptSetIfNeededToPreventWaiting.get());
+    }
+    private boolean interruptSetIfNeededToPreventWaiting() {
+        if (!allowWaiting && !Thread.currentThread().isInterrupted() && !isInterruptSetToPreventWaiting()) {
+            interruptSetIfNeededToPreventWaiting.set(true);
+            Thread.currentThread().interrupt();
+            return true;
+        }
+        return false;
+    }
+    private void interruptClear() {
+        // clear interrupt status
+        Thread.interrupted();
+        interruptSetIfNeededToPreventWaiting.remove();
     }
 
     public Map<?,?> processTemplateExpressionMap(Map<?,?> object) {

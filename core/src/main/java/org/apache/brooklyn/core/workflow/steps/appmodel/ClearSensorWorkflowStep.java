@@ -16,30 +16,24 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
-import org.apache.brooklyn.api.sensor.AttributeSensor;
-import org.apache.brooklyn.api.sensor.Sensor;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class SetSensorWorkflowStep extends WorkflowStepDefinition {
+public class ClearSensorWorkflowStep extends WorkflowStepDefinition {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SetSensorWorkflowStep.class);
-
-    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name} [ \"=\" ${value...} ]";
+    public static final String SHORTHAND = "[ ${sensor.type} ] ${sensor.name}";
 
     public static final ConfigKey<EntityValueToSet> SENSOR = ConfigKeys.newConfigKey(EntityValueToSet.class, "sensor");
-    public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -54,22 +48,10 @@ public class SetSensorWorkflowStep extends WorkflowStepDefinition {
         if (Strings.isBlank(sensorName)) throw new IllegalArgumentException("Sensor name is required");
         TypeToken<?> type = context.lookupType(sensor.type, () -> TypeToken.of(Object.class));
         Entity entity = sensor.entity;
-        Object resolvedValue = context.getInput(VALUE.getName(), type);
         if (entity==null) entity = context.getEntity();
-        AttributeSensor<Object> s = (AttributeSensor<Object>) Sensors.newSensor(type, sensorName);
-        Object oldValue = entity.sensors().set( s, resolvedValue);
-
-//        // might need to be careful if defined type is different or more generic than type specified here;
-//        // but that should be fine as XML persistence preserves types
-//        Sensor<?> sd = entity.getEntityType().getSensor(sensorName);
-//        if (!type.isSupertypeOf(sd.getTypeToken())) {
-//            ...
-//        }
-
-        context.noteOtherMetadata("Value set", resolvedValue);
-        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
-
+        ((EntityInternal)entity).sensors().remove(Sensors.newSensor(Object.class, sensorName));
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

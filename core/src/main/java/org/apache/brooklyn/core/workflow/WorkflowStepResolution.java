@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
+import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
@@ -35,7 +36,7 @@ import java.util.Map;
 
 public class WorkflowStepResolution {
 
-    static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps) {
+    public static List<WorkflowStepDefinition> resolveSteps(ManagementContext mgmt, List<Object> steps) {
         List<WorkflowStepDefinition> result = MutableList.of();
         if (steps==null || steps.isEmpty()) throw new IllegalStateException("No steps defined in workflow");
         for (int i=0; i<steps.size(); i++) {
@@ -46,6 +47,21 @@ public class WorkflowStepResolution {
             }
         }
         WorkflowExecutionContext.validateSteps(mgmt, result, true);
+        return result;
+    }
+
+    public static List<WorkflowStepDefinition> resolveSubSteps(ManagementContext mgmt, String scope, List<Object> subSteps) {
+        List<WorkflowStepDefinition> result = MutableList.of();
+        if (subSteps!=null) {
+            subSteps.forEach(subStep -> {
+                WorkflowStepDefinition subStepResolved = resolveStep(mgmt, subStep);
+                if (subStepResolved.getId() != null)
+                    throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to have IDs: " + subStep);
+                if (subStepResolved instanceof CustomWorkflowStep && ((CustomWorkflowStep)subStepResolved).peekSteps()!=null)
+                    throw new IllegalArgumentException("Sub steps for "+scope+" are not permitted to run sub-workflows: " + subStep);
+                result.add(subStepResolved);
+            });
+        }
         return result;
     }
 
@@ -67,7 +83,7 @@ public class WorkflowStepResolution {
                 if (s == null) s = defM.remove("shorthand");
                 if (s == null) s = defM.remove("s");
                 if (s == null) {
-                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s`");
+                    throw new IllegalArgumentException("Step definition must indicate a `type` or a `step` / `shorthand` / `s` ("+def+")");
                 }
                 if (!(s instanceof String)) {
                     throw new IllegalArgumentException("step shorthand must be a string");
@@ -106,41 +122,27 @@ public class WorkflowStepResolution {
         if (def instanceof WorkflowStepDefinition) {
             WorkflowStepDefinition defW = (WorkflowStepDefinition) def;
 
-            if (shorthand!=null) {
-                defW.populateFromShorthand(shorthand);
-            }
             if (userSuppliedShorthand!=null) {
                 defW.userSuppliedShorthand = userSuppliedShorthand;
             }
             if (typeBestGuess!=null) {
                 defW.shorthandTypeName = typeBestGuess;
             }
-
-            List<Object> onError = defW.getOnError();
-            if (onError!=null && !onError.isEmpty()) {
-                defW.onError = (List) resolveOnErrorSteps(mgmt, onError);
+            if (shorthand!=null) {
+                defW.populateFromShorthand(shorthand);
             }
 
-            defW.validateStep();
+            List<Object> onError = WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(defW.getOnError());
+            if (onError!=null && !onError.isEmpty()) {
+                defW.onError = resolveSubSteps(mgmt, "error handling", onError);
+            }
+
+            defW.validateStep(mgmt, null);
 
             return defW;
         } else {
             throw new IllegalArgumentException("Unable to resolve step; unexpected object "+ def);
         }
-    }
-
-    public static List<WorkflowStepDefinition> resolveOnErrorSteps(ManagementContext mgmt, List<Object> onError) {
-        List<WorkflowStepDefinition> result = MutableList.of();
-        if (onError!=null) {
-            onError.forEach(errorStep -> {
-                WorkflowStepDefinition errorStepResolved = resolveStep(mgmt, errorStep);
-                errorStepResolved.validateStep();
-                if (errorStepResolved.getId() != null)
-                    throw new IllegalArgumentException("Error handler steps are not permitted to have IDs: " + errorStep);
-                result.add(errorStepResolved);
-            });
-        }
-        return result;
     }
 
     public static void validateWorkflowParameters(BrooklynObject entityOrAdjunctWhereRunningIfKnown, ConfigBag params) {

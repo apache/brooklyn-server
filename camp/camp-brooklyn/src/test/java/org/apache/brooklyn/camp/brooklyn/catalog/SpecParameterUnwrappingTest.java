@@ -223,7 +223,6 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         List<SpecParameter<?>> params = spec.getParameters();
         // should have another locally, simple in parent yaml type, and sample from parent java type
         assertEquals(params.size(), getNumDefaultConfigKeysFor(type.getSimpleName()) + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT,
-            // XXX 3
             "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, nameEqualTo("another")).isPresent());
@@ -253,7 +252,6 @@ public class SpecParameterUnwrappingTest extends AbstractYamlTest {
         List<SpecParameter<?>> params = spec.getParameters();
         // should have simple locally (and in parent yaml type) and sample from parent java type
         assertEquals(params.size(), getNumDefaultConfigKeysFor(type.getSimpleName()) + NUM_CONFIG_KEYS_FROM_TEST_BLUEPRINT,
-            // XXX 2
             "params="+params);
         assertTrue(Iterables.tryFind(params, nameEqualTo("simple")).isPresent());
         assertTrue(Iterables.tryFind(params, labelEqualTo("override")).isPresent());

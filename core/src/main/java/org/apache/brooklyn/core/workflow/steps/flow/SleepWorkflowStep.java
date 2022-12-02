@@ -16,36 +16,36 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.flow;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.time.Duration;
+import org.apache.brooklyn.util.time.Time;
 
-public class GotoWorkflowStep extends WorkflowStepDefinition {
+public class SleepWorkflowStep extends WorkflowStepDefinition {
 
-    public static final String SHORTHAND = "${next}";
+    public static final String SHORTHAND = "${duration}";
+
+    public static final ConfigKey<Duration> DURATION = ConfigKeys.newConfigKey(Duration.class, "duration");
 
     @Override
-    public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression);
-        Object next = input.remove("next");
-        if (next instanceof String) { this.next = (String)next; }
-        else throw new IllegalArgumentException("Shorthand should point to the next step");
-    }
-
-    @JsonIgnore
-    @Override
-    public String getNext() {
-        if (next==null) throw new IllegalStateException("next is required for goto step");
-        return next;
+    public void populateFromShorthand(String value) {
+        populateFromShorthandTemplate(SHORTHAND, value);
     }
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
+        Duration duration = context.getInput(DURATION);
+        if (duration==null) throw new IllegalStateException("Duration for sleep not specified");
+        Time.sleep(duration);
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

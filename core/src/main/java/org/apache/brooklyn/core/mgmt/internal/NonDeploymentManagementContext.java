@@ -180,6 +180,11 @@ public class NonDeploymentManagementContext implements ManagementContextInternal
         return false;
     }
 
+    @Override public void waitForManagementStartupComplete(Duration timeout) {
+        checkInitialManagementContextReal();
+        initialManagementContext.waitForManagementStartupComplete(timeout);
+    }
+
     @Override
     public ManagementNodeState getNodeState() {
         return ManagementNodeState.INITIALIZING;

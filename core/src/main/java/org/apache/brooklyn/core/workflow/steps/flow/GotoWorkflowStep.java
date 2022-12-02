@@ -16,34 +16,42 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.flow;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.text.Strings;
 
-public class ClearVariableWorkflowStep extends WorkflowStepDefinition {
+import javax.annotation.Nullable;
 
-    public static final String SHORTHAND = "[ ${variable.type} ] ${variable.name}";
+public class GotoWorkflowStep extends WorkflowStepDefinition {
 
-    public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
+    public static final String SHORTHAND = "${next}";
 
     @Override
     public void populateFromShorthand(String expression) {
         populateFromShorthandTemplate(SHORTHAND, expression);
+        Object next = input.remove("next");
+        if (next instanceof String) { this.next = (String)next; }
+        else throw new IllegalArgumentException("Shorthand should point to the next step");
+    }
+
+    @Override
+    public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
+        super.validateStep(mgmt, workflow);
+        if (next==null) throw new IllegalStateException("next is required for goto step");
     }
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        TypedValueToSet variable = context.getInput(VARIABLE);
-        if (variable ==null) throw new IllegalArgumentException("Variable name is required");
-        String name = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, variable.name, String.class);
-        if (Strings.isBlank(name)) throw new IllegalArgumentException("Variable name is required");
-        context.getWorkflowExectionContext().getWorkflowScratchVariables().remove(name);
+        context.next = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, next);
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

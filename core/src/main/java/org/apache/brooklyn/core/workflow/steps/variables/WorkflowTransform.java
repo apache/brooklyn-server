@@ -16,24 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.variables;
 
-import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
-import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.text.Strings;
+import java.util.function.Function;
 
-public class NoOpWorkflowStep extends WorkflowStepDefinition {
-
-    @Override
-    public void populateFromShorthand(String value) {
-        if (Strings.isBlank(value)) return;
-        // no arguments supported
-        throw new IllegalStateException("Value for shorthand syntax not supported for no-op");
-    }
-
-    @Override
-    protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        return context.getPreviousStepOutput();
-    }
-
+public interface WorkflowTransform extends Function {
+    //Object apply(Object input);
 }

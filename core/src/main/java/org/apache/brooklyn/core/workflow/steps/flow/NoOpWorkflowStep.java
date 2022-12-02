@@ -16,39 +16,25 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.flow;
 
-import org.apache.brooklyn.api.mgmt.Task;
-import org.apache.brooklyn.config.ConfigKey;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
-import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.text.Strings;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-public class LogWorkflowStep extends WorkflowStepDefinition {
-
-    private static final Logger LOG = LoggerFactory.getLogger(LogWorkflowStep.class);
-
-    public static final String SHORTHAND = "${message...}";
-    public static final ConfigKey<String> MESSAGE = ConfigKeys.newStringConfigKey("message");
+public class NoOpWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     public void populateFromShorthand(String value) {
-        populateFromShorthandTemplate(SHORTHAND, value);
+        if (Strings.isBlank(value)) return;
+        // no arguments supported
+        throw new IllegalStateException("Value for shorthand syntax not supported for no-op");
     }
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        String message = context.getInput(MESSAGE);
-        if (Strings.isBlank(message))  {
-            throw new IllegalArgumentException("Log message is required");
-        }
-        // TODO all workflow log messages should include step id as logging MDC, or message to start/end each workflow/task
-        LOG.info("{}", message);
         return context.getPreviousStepOutput();
     }
+
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

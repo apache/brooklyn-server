@@ -16,24 +16,23 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.appmodel;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.entity.EntityInternal;
-import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.text.Strings;
 
-public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
+public class SetConfigWorkflowStep extends WorkflowStepDefinition {
+
+    public static final String SHORTHAND = "[ ${config.type} ] ${config.name} [ \"=\" ${value...} ]";
 
     public static final ConfigKey<EntityValueToSet> CONFIG = ConfigKeys.newConfigKey(EntityValueToSet.class, "config");
-
-    public static final String SHORTHAND = "[ ${config.type} ] ${config.name}";
+    public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -43,14 +42,21 @@ public class ClearConfigWorkflowStep extends WorkflowStepDefinition {
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
         EntityValueToSet config = context.getInput(CONFIG);
-        if (config==null) throw new IllegalArgumentException("Config key name is required");
+        if (config ==null) throw new IllegalArgumentException("Config key name is required");
         String configName = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_INPUT, config.name, String.class);
         if (Strings.isBlank(configName)) throw new IllegalArgumentException("Config key name is required");
         TypeToken<?> type = context.lookupType(config.type, () -> TypeToken.of(Object.class));
+        Object resolvedValue = context.getInput(VALUE.getName(), type);
         Entity entity = config.entity;
         if (entity==null) entity = context.getEntity();
-        ((EntityInternal)entity).config().removeKey(ConfigKeys.newConfigKey(Object.class, configName));
+        Object oldValue = entity.config().set((ConfigKey<Object>) ConfigKeys.newConfigKey(type, configName), resolvedValue);
+
+        // see note on type in SetSensorWorkflowStep
+        context.noteOtherMetadata("Value set", resolvedValue);
+        if (oldValue!=null) context.noteOtherMetadata("Previous value", oldValue);
+
         return context.getPreviousStepOutput();
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return true; }
 }

@@ -164,6 +164,11 @@ public abstract class ForwardingTask<T> extends ForwardingObject implements Task
     }
 
     @Override
+    public boolean blockUntilEnded(Duration timeout, boolean andTaskNotRunning) {
+        return delegate().blockUntilEnded(timeout, andTaskNotRunning);
+    }
+
+    @Override
     public String getStatusSummary() {
         return delegate().getStatusSummary();
     }

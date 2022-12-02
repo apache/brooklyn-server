@@ -29,6 +29,8 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Objects;
@@ -37,6 +39,8 @@ import java.util.function.Supplier;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WorkflowStepInstanceExecutionContext {
+
+    private static final Logger log = LoggerFactory.getLogger(WorkflowStepInstanceExecutionContext.class);
 
     // see getInput, here and for workflow context; once resolved, use the resolved value, without re-resolving;
     // do not return the resolved value via REST/JSON as it might have secrets, but do persist it so replays
@@ -62,7 +66,8 @@ public class WorkflowStepInstanceExecutionContext {
     Map<String,Object> inputResolved = MutableMap.of();
 
     transient WorkflowExecutionContext context;
-    public WorkflowStepDefinition.ReplayContinuationInstructions nextReplay;
+    // replay instructions or a string explicit next step identifier
+    public Object next;
 
     /** set if the step is in an error handler context, containing the error being handled */
     Throwable error;
@@ -87,7 +92,7 @@ public class WorkflowStepInstanceExecutionContext {
 
     Object output;
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    Map<String,Object> otherMetadata = MutableMap.of();
+    public Map<String,Object> otherMetadata = MutableMap.of();
 
     public void injectContext(WorkflowExecutionContext context) {
         if (this.context!=null && this.context!=context) throw new IllegalStateException("Cannot change context, from "+this.context+" to "+context);
@@ -167,7 +172,7 @@ public class WorkflowStepInstanceExecutionContext {
         this.stepState = stepState;
         if (persist) getWorkflowExectionContext().persist();
     }
-    public Object getStepState() {
+    Object getStepState() {
         return stepState;
     }
 
@@ -204,7 +209,7 @@ public class WorkflowStepInstanceExecutionContext {
 
     @JsonIgnore
     public String getWorkflowStepReference() {
-        return context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, error!=null);
+        return context==null ? "unknown-"+stepDefinitionDeclaredId+"-"+stepIndex : context.getWorkflowStepReference(stepIndex, stepDefinitionDeclaredId, error!=null);
     }
 
     @JsonIgnore
@@ -214,7 +219,12 @@ public class WorkflowStepInstanceExecutionContext {
 
     /** sets other metadata, e.g. for the UI */
     public void noteOtherMetadata(String key, Object value) {
-        this.otherMetadata.put(key, value);
+        log.debug(getWorkflowStepReference()+" note metadata '"+key+"': "+value);
+        otherMetadata.put(key, value);
     }
 
+    @Override
+    public String toString() {
+        return "WorkflowStepInstanceExecutionContext{"+getWorkflowStepReference()+" / "+getName()+"}";
+    }
 }

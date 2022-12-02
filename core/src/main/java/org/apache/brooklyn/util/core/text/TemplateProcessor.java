@@ -30,12 +30,15 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.drivers.EntityDriver;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.location.internal.LocationInternal;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.ThreadLocalStack;
@@ -79,9 +82,18 @@ public class TemplateProcessor {
     static ThreadLocalStack<Map<TemplateModel,Object>> TEMPLATE_MODEL_UNWRAP_CACHE = new ThreadLocalStack<>(true);
     static ThreadLocalStack<String> TEMPLATE_FILE_WANTING_LEGACY_SYNTAX = new ThreadLocalStack<>(true);
 
+    public interface UnwrappableTemplateModel {
+        Maybe<Object> unwrap();
+    }
+
     static class BrooklynFreemarkerUnwrappableObjectWrapper extends BrooklynFreemarkerObjectWrapper {
 
         public Maybe<Object> unwrapMaybe(TemplateModel model) {
+            Maybe<Object> result;
+            if (model instanceof UnwrappableTemplateModel) {
+                result = ((UnwrappableTemplateModel) model).unwrap();
+                if (result.isPresent()) return result;
+            }
             Maybe<Map<TemplateModel, Object>> unwrappingMapM = TEMPLATE_MODEL_UNWRAP_CACHE.peek();
             if (unwrappingMapM.isAbsent()) {
                 return Maybe.absent("This thread does not support unwrapping");
@@ -156,8 +168,27 @@ public class TemplateProcessor {
             return super.handleUnknownType(o);
         }
 
-        public TemplateModel wrapAsBean(final Object o) throws TemplateModelException {
-            return super.handleUnknownType(o);
+        public TemplateModel wrapAsBean(Object o) throws TemplateModelException {
+            if (o instanceof BrooklynObject) {
+                // deproxy to reduce freemarker introspection interrupted errors
+                o = Entities.deproxy((BrooklynObject) o);
+            }
+            // can get "Class inrospection data lookup aborded" from freemarker ClassIntrospector:250
+            // if thread is interrupted because class lookup uses wait on a shared cache;
+            // if the "interruption" is because of us, retry in this instance
+            while (true) {
+                try {
+                    return super.handleUnknownType(o);
+                } catch (Exception e) {
+                    if (WorkflowExpressionResolution.isInterruptSetToPreventWaiting()) {
+                        if (Exceptions.isRootCauseIsInterruption(e) || e.toString().contains(InterruptedException.class.getSimpleName())) {
+                            Thread.yield();
+                            continue;
+                        }
+                    }
+                    throw e;
+                }
+            }
         }
 
     }
@@ -217,7 +248,7 @@ public class TemplateProcessor {
         return processTemplateContents(context, templateContents, LocationAndMapTemplateModel.forLocation((LocationInternal)location, extraSubstitutions));
     }
 
-    public static final class FirstAvailableTemplateModel implements TemplateHashModel {
+    public static final class FirstAvailableTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
         MutableList<TemplateHashModel> models = MutableList.of();
         public FirstAvailableTemplateModel(Iterable<TemplateHashModel> modelsO) {
             for (TemplateHashModel m : modelsO) {
@@ -226,6 +257,11 @@ public class TemplateProcessor {
         }
         public FirstAvailableTemplateModel(TemplateHashModel ...modelsO) {
             this(Arrays.asList(modelsO));
+        }
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(models.stream().filter(m -> m instanceof UnwrappableTemplateModel).findAny()).mapMaybe(m -> ((UnwrappableTemplateModel)m).unwrap());
         }
 
         @Override
@@ -255,11 +291,16 @@ public class TemplateProcessor {
      * <p>
      * However if "a" <b>and</b> "a.b" are in the map, this will <b>not</b> currently do the deep mapping.
      * (It does not have enough contextual information from Freemarker to handle this case.) */
-    public static final class DotSplittingTemplateModel implements TemplateHashModelEx2 {
+    public static final class DotSplittingTemplateModel implements TemplateHashModelEx2, UnwrappableTemplateModel {
         protected final Map<?,?> map;
 
         protected DotSplittingTemplateModel(Map<?,?> map) {
             this.map = map;
+        }
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(map);
         }
 
         @Override
@@ -331,13 +372,18 @@ public class TemplateProcessor {
      * Freemarker will only do this when in inside bracket notation in an outer map, as in <code>${outer['a.b.']}</code>;
      * as a result this is intended only for use by {@link EntityAndMapTemplateModel} where
      * a caller has used bracked notation, as in <code>${mgmt['key.subkey']}</code>. */
-    protected static final class EntityConfigTemplateModel implements TemplateHashModel {
+    protected static final class EntityConfigTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
         protected final EntityInternal entity;
         protected final ManagementContext mgmt;
 
         protected EntityConfigTemplateModel(EntityInternal entity) {
             this.entity = checkNotNull(entity, "entity");
             this.mgmt = entity.getManagementContext();
+        }
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(entity);
         }
 
         @Override
@@ -409,13 +455,18 @@ public class TemplateProcessor {
      * Freemarker will only do this when in inside bracket notation in an outer map, as in <code>${outer['a.b.']}</code>;
      * as a result this is intended only for use by {@link LocationAndMapTemplateModel} where
      * a caller has used bracked notation, as in <code>${mgmt['key.subkey']}</code>. */
-    protected static final class LocationConfigTemplateModel implements TemplateHashModel {
+    protected static final class LocationConfigTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
         protected final LocationInternal location;
         protected final ManagementContext mgmt;
 
         protected LocationConfigTemplateModel(LocationInternal location) {
             this.location = checkNotNull(location, "location");
             this.mgmt = location.getManagementContext();
+        }
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(location);
         }
 
         @Override
@@ -477,9 +528,14 @@ public class TemplateProcessor {
         throw new TemplateModelException(msg+": "+Exceptions.collapseText(cause), cause);
     }
 
-    protected final static class EntityAttributeTemplateModel implements TemplateHashModel {
+    protected final static class EntityAttributeTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
         protected final EntityInternal entity;
         private final SensorResolutionMode mode;
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(entity);
+        }
 
         enum SensorResolutionMode { SENSOR_DEFINITION, ATTRIBUTE_VALUE, ATTRIBUTE_WHEN_READY }
 
@@ -555,7 +611,7 @@ public class TemplateProcessor {
      * using <code>${entity.x}</code> or <code><${driver.x}</code>.
      * Optional extra properties can be supplied, treated as per {@link DotSplittingTemplateModel}.
      */
-    public static final class EntityAndMapTemplateModel implements TemplateHashModel {
+    public static final class EntityAndMapTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
         protected final EntityInternal entity;
         protected final EntityDriver driver;
         protected final ManagementContext mgmt;
@@ -569,6 +625,11 @@ public class TemplateProcessor {
             this.entity = entity !=null ? entity : driver!=null ? (EntityInternal) driver.getEntity() : null;
             this.mgmt = mgmt != null ? mgmt : this.entity!=null ? this.entity.getManagementContext() : null;
             extraSubstitutionsModel = new DotSplittingTemplateModel(null);
+        }
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.ofDisallowingNull(entity!=null ? entity : mgmt!=null ? mgmt : extraSubstitutionsModel.unwrap().orNull());
         }
 
         public static TemplateHashModel forDriver(EntityDriver driver, Map<String,? extends Object> extraSubstitutions) {
@@ -672,7 +733,7 @@ public class TemplateProcessor {
      * using <code>${entity.x}</code> or <code><${driver.x}</code>.
      * Optional extra properties can be supplied, treated as per {@link DotSplittingTemplateModel}.
      */
-    protected static final class LocationAndMapTemplateModel implements TemplateHashModel {
+    protected static final class LocationAndMapTemplateModel implements TemplateHashModel, UnwrappableTemplateModel {
         protected final LocationInternal location;
         protected final ManagementContext mgmt;
         protected final DotSplittingTemplateModel extraSubstitutionsModel;
@@ -682,6 +743,11 @@ public class TemplateProcessor {
             this.location = checkNotNull(location, "location");
             this.mgmt = location.getManagementContext();
             this.extraSubstitutionsModel = new DotSplittingTemplateModel(extraSubstitutions);
+        }
+
+        @Override
+        public Maybe<Object> unwrap() {
+            return Maybe.of(location);
         }
 
         static TemplateHashModel forLocation(LocationInternal location, Map<String,? extends Object> extraSubstitutions) {

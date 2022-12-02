@@ -48,7 +48,7 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.*;
-import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.store.WorkflowStatePersistenceViaSensors;
 import org.apache.brooklyn.entity.software.base.EmptySoftwareProcess;
 import org.apache.brooklyn.entity.software.base.WorkflowSoftwareProcess;
@@ -104,10 +104,6 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         addRegisteredTypeBean(mgmt, "container", ContainerWorkflowStep.class);
         addRegisteredTypeBean(mgmt, "winrm", WinrmWorkflowStep.class);
-
-        addRegisteredTypeBean(mgmt, "workflow-effector", WorkflowEffector.class);
-        addRegisteredTypeBean(mgmt, "workflow-sensor", WorkflowSensor.class);
-        addRegisteredTypeSpec(mgmt, "workflow-policy", WorkflowPolicy.class, Policy.class);
     }
 
     @BeforeMethod(alwaysRun = true)
@@ -217,7 +213,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let yaml map x = ${out}",
+                "        - transform x = ${out} | yaml",
                 "        - return ${x}",
                 "");
 
@@ -270,7 +266,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "            ---",
                 "            foo: bar",
                 "            v: ${v}",
-                "        - let yaml map x = ${out}",
+                "        - transform map x = ${out} | yaml",
                 "        - set-sensor myWorkflowSensor = ${x}",
                 "");
 
@@ -707,6 +703,11 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
             return MutableMap.of("x", DslUtils.parseBrooklynDsl(context.getManagementContext(), "$brooklyn:config(\"arg1\")"));
         }
+
+        @Override
+        protected Boolean isDefaultIdempotent() {
+            return true;
+        }
     }
 
     @Test(groups="Live")
@@ -724,7 +725,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 WorkflowEffector.PARAMETER_DEFS, MutableMap.of("env", null),
                 WorkflowEffector.STEPS, MutableList.of(
                         MutableMap.of("step", "let map env_local", "value", MutableMap.of("VAR1", "$brooklyn:config(\"hello\")", "ENTITY_ID", "$brooklyn:entityId()")),
-                        "let merge map env = ${env} ${env_local}",
+                        "transform env = ${env} ${env_local} | merge map",
                         "set-deep",
                         "let env.VAR3 = ${workflow.previous_step.output}",
                         MutableMap.<String, Object>of("step", "ssh echo "+ message+" Entity:$ENTITY_ID:$VAR1:$VAR2:$VAR3",
@@ -804,6 +805,80 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         Task<?> invocation = child.invoke(child.getEntityType().getEffectorByName("myWorkflowEffector1").get(), MutableMap.of());
         Asserts.assertEquals(invocation.getUnchecked().toString().trim(), "Y is Z");
+    }
+
+    @Test
+    public void testInitializer() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: myWorkflow",
+                "      steps:",
+                "        - set-sensor boolean initializer_ran = true");
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newSensor(Object.class, "initializer_ran"), true);
+    }
+
+    @Test
+    public void testInitializerDelay() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      delay: async",
+                "      steps:",
+                "        - let x = ${entity.sensor.x} * 2",
+                "        - set-sensor x = ${x}",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: pre-init",
+                "      steps:",
+                "        - set-sensor integer x = 3");
+        waitForApplicationTasks(app);
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEquals(entity, Sensors.newIntegerSensor("x"), 6);
+    }
+
+    @Test(groups="Integration") //because of 500ms delay
+    public void testInitializerDelayDuration() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init-2",
+                "      delay: 500ms",
+                "      steps:",
+                "        - let x = ${entity.sensor.x} + 1",  // will cause 7 if runs after the other post-init (desired); problems: 8 if before, and 4 or 6 if they race
+                "        - set-sensor x = ${x}",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: post-init",
+                "      delay: async",
+                "      steps:",
+                "        - let x = ${entity.sensor.x} * 2",
+                "        - set-sensor x = ${x}",
+
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      name: pre-init",
+                "      steps:",
+                "        - set-sensor integer x = 3");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 7);
     }
 
 }

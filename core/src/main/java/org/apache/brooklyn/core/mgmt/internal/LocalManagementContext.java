@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.brooklyn.api.effector.Effector;
@@ -63,6 +64,8 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Strings;
+import org.apache.brooklyn.util.time.CountdownTimer;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -436,18 +439,42 @@ public class LocalManagementContext extends AbstractManagementContext {
     public void noteStartupComplete() {
         synchronized (startupSynchObject) {
             startupComplete = true;
+            startupSynchObject.notifyAll();
         }
     }
     /** Exposed for services to advertise that startup tasks are again occurring */
     public void noteStartupTransitioning() {
         synchronized (startupSynchObject) {
             startupComplete = false;
+            startupSynchObject.notifyAll();
         }
     }
     @Override
     public boolean isStartupComplete() {
         synchronized (startupSynchObject) {
             return startupComplete;
+        }
+    }
+
+    @Override public void waitForManagementStartupComplete(Duration timeout) {
+        if (timeout==null) timeout = Duration.minutes(5);
+        CountdownTimer timer = CountdownTimer.newInstanceStarted(timeout);
+        try {
+            Tasks.withBlockingDetails("Waiting on management plane to completely start", () -> {
+                while (true) {
+                    synchronized (startupSynchObject) {
+                        if (isStartupComplete()) return null;
+                        if (!isRunning()) {
+                            throw new IllegalStateException("Management context transitioned to not running before startup detected as completed");
+                        }
+                        if (!timer.waitOnForExpiryUnchecked(startupSynchObject)) {
+                            throw Exceptions.propagate(new TimeoutException("Timeout waiting for management context to start"));
+                        }
+                    }
+                }
+            });
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
         }
     }
 

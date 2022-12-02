@@ -31,7 +31,9 @@ import java.util.Map;
 
 public interface WorkflowCommonConfig {
 
+    // TODO is this needed? probably just for effectors and possibly custom steps.
     ConfigKey<Map<String,Object>> PARAMETER_DEFS = AddEffectorInitializerAbstractProto.EFFECTOR_PARAMETER_DEFS;
+
     ConfigKey<Map<String,Object>> INPUT = new MapConfigKey<Object>(Object.class, "input");
     ConfigKey<Object> OUTPUT = ConfigKeys.newConfigKey(Object.class, "output");
 
@@ -41,13 +43,27 @@ public interface WorkflowCommonConfig {
     ConfigKey<DslPredicates.DslPredicate> CONDITION = ConfigKeys.newConfigKey(DslPredicates.DslPredicate.class, "condition",
             "Condition required for this workflow to run");
 
-    ConfigKey<WorkflowReplayUtils.ReplayableOption> REPLAYABLE = ConfigKeys.newConfigKey(WorkflowReplayUtils.ReplayableOption.class, "replayable",
+    ConfigKey<String> RETENTION = ConfigKeys.newStringConfigKey("retention",
+            "Specification for how long workflow should be retained");
+
+    ConfigKey<String> REPLAYABLE = ConfigKeys.newStringConfigKey("replayable",
             "Indication of from what points the workflow is replayable");
 
-    ConfigKey<List<Object>> ON_ERROR = ConfigKeys.newConfigKey(new TypeToken<List<Object>>() {}, "on-error",
-            "List of potential error handlers");
+    ConfigKey<String> IDEMPOTENT = ConfigKeys.newStringConfigKey("idempotent",
+            "Indication of which steps in the workflow are idempotent");
+
+    ConfigKey<Object> ON_ERROR = ConfigKeys.newConfigKey(Object.class, "on-error",
+            "Error handler step or sequence of steps");
 
     ConfigKey<Duration> TIMEOUT = ConfigKeys.newConfigKey(Duration.class, "timeout",
             "Time after which a workflow should be automatically interrupted and failed");
+
+    // TODO only string supported so far, but could be more allowing more configurable lock behaviour
+    // - the entity where to read/write the sensor
+    // - full sensor name (default would be a suffix)
+    // - a `value` to set
+    // - a condition to `require` of the value
+    // - a `retry` specification
+    ConfigKey<Object> LOCK = ConfigKeys.newConfigKey(Object.class, "lock");
 
 }

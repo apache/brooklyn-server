@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.brooklyn.core.workflow.steps;
+package org.apache.brooklyn.core.workflow.steps.external;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.reflect.TypeToken;
@@ -184,4 +184,5 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
         }
     }
 
+    @Override protected Boolean isDefaultIdempotent() { return false; }
 }

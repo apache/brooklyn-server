@@ -18,10 +18,12 @@
  */
 package org.apache.brooklyn.core.workflow;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
@@ -29,9 +31,8 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.core.workflow.steps.LogWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.appmodel.SetSensorWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
@@ -42,15 +43,14 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
-import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.Arrays;
-import java.util.Collection;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSupport {
 
@@ -146,101 +146,6 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         }
     }
 
-    void assertLogStepMessages(String ...lines) {
-        Assert.assertEquals(lastLogWatcher.getMessages(),
-                Arrays.asList(lines));
-    }
-
-    @Test
-    public void testNestedWorkflowBasic() throws Exception {
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
-                MutableMap.of("type", "workflow",
-                        "steps", MutableList.of("return done"))));
-        Asserts.assertEquals(output, "done");
-    }
-
-    @Test
-    public void testNestedWorkflowParametersForbiddenWhenUsedDirectly() throws Exception {
-        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
-                MutableMap.of("type", "workflow",
-                        "parameters", MutableMap.of(),
-                        "steps", MutableList.of("return done")))),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "parameters"));
-    }
-
-    @Test
-    public void testExtendingAStepWhichWorksButIsMessyAroundParameters() throws Exception {
-        /*
-         * extending any step type is supported, but discouraged because of confusion and no parameter definitions;
-         * the preferred way is to use the method in the following test
-         */
-        addBeanWithType("log-hi", "1", Strings.lines(
-                "type: log",
-                "message: hi ${name}",
-                "input:",
-                "  name: you"
-        ));
-
-        invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
-        assertLogStepMessages("hi bob");
-
-        invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi")));
-        assertLogStepMessages("hi you");
-    }
-
-    @Test
-    public void testDefiningCustomWorkflowStep() throws Exception {
-        addBeanWithType("log-hi", "1", Strings.lines(
-                "type: workflow",
-                "parameters:",
-                "  name: {}",
-                "steps:",
-                "  - log hi ${name}"
-        ));
-        invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
-        assertLogStepMessages("hi bob");
-
-        Asserts.assertFailsWith(() -> invokeWorkflowStepsWithLogging(MutableList.of(
-                        MutableMap.of("type", "log-hi",
-                                "steps", MutableList.of("return not allowed to override")))),
-                e -> Asserts.expectedFailureContainsIgnoreCase(e, "steps"));
-    }
-
-    @Test
-    public void testDefiningCustomWorkflowStepWithShorthand() throws Exception {
-        addBeanWithType("log-hi", "1", Strings.lines(
-                "type: workflow",
-                "shorthand: ${name}",
-                "parameters:",
-                "  name: {}",
-                "steps:",
-                "  - log hi ${name}"
-        ));
-        invokeWorkflowStepsWithLogging(MutableList.of("log-hi bob"));
-        assertLogStepMessages("hi bob");
-    }
-
-    @Test
-    public void testDefiningCustomWorkflowStepWithOutput() throws Exception {
-        addBeanWithType("log-hi", "1", Strings.lines(
-                "type: workflow",
-                "parameters:",
-                "  name: {}",
-                "steps:",
-                "  - log hi ${name}",
-                "output:",
-                "  message: hi ${name}"
-        ));
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
-        assertLogStepMessages("hi bob");
-        Asserts.assertEquals(output, MutableMap.of("message", "hi bob"));
-
-        // output can be overridden
-        output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"), "output", "I said ${message}")));
-        assertLogStepMessages("hi bob");
-        Asserts.assertEquals(output, "I said hi bob");
-    }
-
     // test complex object in an expression
     @Test
     public void testMapOutputAsComplexFreemarkerVar() throws Exception {
@@ -259,59 +164,86 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetMergeMaps() throws Exception {
+    public void testLetTransformMaps() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map a = { i: 1, z: { a: 1 } }",
                 "let map b = { ii: 2, z: { b: 2 } }",
-                "let merge map x = ${a} ${b}",
+                "transform map x = ${a} ${b} | merge",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2, "z", MutableMap.of("b", 2)));
     }
 
     @Test
-    public void testLetMergeMapsDeep() throws Exception {
+    public void testLetTransformMapsDeep() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map a = { i: 1, z: { a: 1 } }",
                 "let map b = { ii: 2, z: { b: 2 } }",
-                "let merge deep map x = ${a} ${b}",
+                "transform map x = ${a} ${b} | merge deep",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableMap.of("i", 1, "ii", 2, "z", MutableMap.of("a", 1, "b", 2)));
     }
 
     @Test
-    public void testLetMergeLists() throws Exception {
+    public void testTransformMergeLists() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1, 2 ]",
                 MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
-                "let merge list x = ${a} ${b}",
+                "transform list x = ${a} ${b} | merge",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(1, 2, 2, 3));
     }
 
     @Test
-    public void testLetMergeSets() throws Exception {
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(
+    public void testTransformMergeSets() throws Exception {
+        Object o1 = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1, 2 ]",
                 MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
-                "let merge set x = ${a} ${b}",
+                "transform x = ${a} ${b} | merge set",
                 "return ${x}"));
-        Asserts.assertEquals(output, MutableSet.of(1, 2, 3));
+        Asserts.assertEquals(o1, MutableSet.of(1, 2, 3));
+        o1 = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let list a = [ 1, 2 ]",
+                MutableMap.of("step", "let b", "value", MutableList.of(2, 3)),
+                "transform set x = ${a} ${b} | merge",
+                "return ${x}"));
+        Asserts.assertEquals(o1, MutableSet.of(1, 2, 3));
     }
 
     @Test
-    public void testLetTrimMergeAllowsNull() throws Exception {
+    public void testTransformLaxMergeAllowsNull() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let list a = [ 1 ]",
-                "let merge trim list x = ${a} ${b}",
+                "transform list x = ${a} ${b} | merge lax",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(1));
     }
 
     @Test
-    public void testLetMergeCleanRemovesNull() throws Exception {
+    public void testSimpleTransforms() throws Exception {
+        Function<String,Object> transform = filter -> {
+            try {
+                return invokeWorkflowStepsWithLogging(MutableList.of(
+                        "let list a = [ 1, 2 ]",
+                        "transform x = ${a} | "+filter,
+                        "return ${x}"));
+            } catch (Exception e) {
+                throw Exceptions.propagate(e);
+            }
+        };
+        Asserts.assertEquals(transform.apply("min"), 1);
+        Asserts.assertEquals(transform.apply("max"), 2);
+        Asserts.assertEquals(transform.apply("sum"), 3d);
+        Asserts.assertEquals(transform.apply("size"), 2);
+        Asserts.assertEquals(transform.apply("average"), 1.5d);
+        Asserts.assertEquals(transform.apply("first"), 1);
+        Asserts.assertEquals(transform.apply("last"), 2);
+    }
+
+    @Test
+    public void testTransformMergeLaxTrimRemovesNull() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 MutableMap.of("step", "let a", "value", MutableList.of(2, null)),
-                "let merge trim list x = ${a}",
+                "transform list x = ${a} ${a[1]} | merge lax | trim",
                 "return ${x}"));
         Asserts.assertEquals(output, MutableList.of(2));
     }
@@ -407,11 +339,11 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetTrimString() throws Exception {
+    public void testTransformTrimString() throws Exception {
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let person_spaces = \" Anna \"",
                 "let string person = ${person_spaces}",
-                "let trim person_tidied = ${person_spaces}",
+                "transform person_tidied = ${person_spaces} | trim",
                 "log PERSON: ${person}",
                 "log PERSON_TIDIED: ${person_tidied}"));
         Asserts.assertEquals(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("PERSON:")).findAny().get(), "PERSON:  Anna ");
@@ -429,13 +361,19 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "let "+prefix+" x2 = ${x1}", "return ${x2}"));
     }
 
-    private void checkLet(String prefix, Object expression, Object expectedResult) throws Exception {
-        Object out = let(prefix, expression);
+    private Object transform(String filter, Object expression) throws Exception {
+        return invokeWorkflowStepsWithLogging(MutableList.of(
+                MutableMap.<String,Object>of("step", "let x1", "value", expression),
+                "transform x2 = ${x1} | "+filter, "return ${x2}"));
+    }
+
+    private void checkTransform(String prefix, Object expression, Object expectedResult) throws Exception {
+        Object out = transform(prefix, expression);
         Asserts.assertEquals(out, expectedResult);
     }
 
-    private void checkLetBidi(String prefix, Object expression, String expectedResult) throws Exception {
-        Object out = let(prefix, expression);
+    private void checkTransformBidi(String prefix, Object expression, String expectedResult) throws Exception {
+        Object out = transform(prefix, expression);
 
         Object backIn = BeanWithTypeUtils.newYamlMapper(null, false, null, false).readValue((String) out, Object.class);
         Asserts.assertEquals(backIn, expression);
@@ -448,95 +386,97 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetYaml() throws Exception {
+    public void testTransformYaml() throws Exception {
         // null not permitted as return type; would be nice to support but not vital
 //        checkLetBidi("yaml string", null, "null");
 
-        checkLet("yaml", 2, 2);
-        checkLet("yaml", "2", "2");
-        checkLet("yaml", q("2"), "2");       //unwrapped once by shorthand, again by step
-        checkLet("yaml", q(q("2")), "\"2\"");  //finally we get the string
+        checkTransform("yaml", 2, 2);
+        checkTransform("yaml", "2", 2);
+        checkTransform("yaml", q("2"), 2);       //unwrapped once by shorthand, again by step
+        checkTransform("yaml", q(q("2")), "2");  //finally we get the string
 
-        checkLet("yaml parse", 2, 2);
-        checkLet("yaml parse", "2", 2);
-        checkLet("yaml parse", q("2"), 2);
-        checkLet("yaml parse", q(q("2")), "2");
+        checkTransform("yaml parse", 2, 2);
+        checkTransform("yaml parse", "2", 2);
+        checkTransform("yaml parse", q("2"), 2);
+        checkTransform("yaml parse", q(q("2")), "2");
 
-        checkLet("yaml string", 2, "2");
-        checkLet("yaml string", "2", "2");
-        checkLet("yaml string", q("2"), "2");
-        checkLet("yaml string", q(q("2")), "\"2\"");
+        checkTransform("yaml string", 2, "2");
+        checkTransform("yaml string", "2", "2");
+        checkTransform("yaml string", q("2"), "2");
+        checkTransform("yaml string", q(q("2")), "\"2\"");
 
-        checkLet("yaml encode", 2, "2");
-        checkLet("yaml encode", "2", "\"2\"");
-        checkLet("yaml encode", q("2"), "\"2\"");
+        checkTransform("yaml encode", 2, "2");
+        checkTransform("yaml encode", "2", "\"2\"");
+        checkTransform("yaml encode", q("2"), "\"2\"");
         // for these especially the exact yaml is not significant, but included for interest
-        checkLet("yaml encode", q(q("2")), "'\"2\"'");
+        checkTransform("yaml encode", q(q("2")), "'\"2\"'");
 
-        checkLetBidi("yaml encode", " ", "' '");
-        checkLetBidi("yaml encode", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
-        checkLetBidi("yaml encode", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
+        checkTransformBidi("yaml encode", " ", "' '");
+        checkTransformBidi("yaml encode", "\n", "|2+\n\n");  // 2 is totally unnecessary but returned
+        checkTransformBidi("yaml encode", " \n ", "\" \\n \"");   // double quotes used if spaces and newlines significant
 
-        checkLet("trim yaml", "ignore \n---\n x: 1 \n", "x: 1");
-        checkLet("trim yaml parse", "ignore \n---\n x: 1 \n y: 2", MutableMap.of("x", 1, "y", 2));
-        checkLet("yaml string", "ignore \n---\n x: 1 \n", " x: 1 \n");
-        checkLetBidi("yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
-        checkLet("trim yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
-        checkLet("trim string", "ignore \n---\n x: 1 \n", "ignore \n---\n x: 1");
+        checkTransform("yaml", "ignore \n---\n x: 1 \n", MutableMap.of("x", 1));
+        checkTransform("yaml parse", "ignore \n---\n x: 1 \n y: 2", MutableMap.of("x", 1, "y", 2));
+        checkTransform("yaml string", "ignore \n---\n x: 1 \n", " x: 1 \n");
+        checkTransformBidi("yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1 \\n\"");
+        checkTransform("trim | yaml encode", "ignore \n---\n x: 1 \n", "\"ignore \\n---\\n x: 1\"");
+        checkTransform("yaml string | trim | yaml encode", "ignore \n---\n x: 1 \n", "\"x: 1\"");
+        checkTransform("json string | trim", "ignore \n---\n x: 1 \n", "ignore \n---\n x: 1");
 
-        checkLetBidi("yaml string", MutableMap.of("a", 1), "a: 1");
-        checkLetBidi("yaml string", MutableMap.of("a", MutableList.of(null), "x", "1"), "a:\n- null\nx: \"1\"");
-        checkLet("yaml", MutableMap.of("x", 1), MutableMap.of("x", 1));
+        checkTransformBidi("yaml string", MutableMap.of("a", 1), "a: 1");
+        checkTransformBidi("yaml string", MutableMap.of("a", MutableList.of(null), "x", "1"), "a:\n- null\nx: \"1\"");
+        checkTransform("yaml", MutableMap.of("x", 1), MutableMap.of("x", 1));
     }
 
     @Test
-    public void testLetJson() throws Exception {
-        checkLet("json", 2, 2);
-        checkLet("json", "2", "2");
-        checkLet("json", q("2"), "2");       //unwrapped once by shorthand, again by step
-        checkLet("json", q(q("2")), "\"2\"");  //finally we get the string
+    public void testTransformJson() throws Exception {
+        checkTransform("json", 2, 2);
+        checkTransform("json", "2", 2);
+        checkTransform("json", q("2"), 2);       //unwrapped once by shorthand, again by step
+        checkTransform("json", q(q("2")), "2");  //finally we get the string
 
-        checkLet("json parse", 2, 2);
-        checkLet("json parse", "2", 2);
-        checkLet("json parse", q("2"), 2);
-        checkLet("json parse", q(q("2")), "2");
+        checkTransform("json parse", 2, 2);
+        checkTransform("json parse", "2", 2);
+        checkTransform("json parse", q("2"), 2);
+        checkTransform("json parse", q(q("2")), "2");
 
-        checkLet("json string", 2, "2");
-        checkLet("json string", "2", "2");
-        checkLet("json string", q("2"), "2");
-        checkLet("json string", q(q("2")), "\"2\"");
+        checkTransform("json string", 2, "2");
+        checkTransform("json string", "2", "2");
+        checkTransform("json string", q("2"), "2");
+        checkTransform("json string", q(q("2")), "\"2\"");
 
-        checkLet("json encode", 2, "2");
-        checkLet("json encode", "2", "\"2\"");
-        checkLet("json encode", q("2"), "\"2\"");
+        checkTransform("json encode", 2, "2");
+        checkTransform("json encode", "2", "\"2\"");
+        checkTransform("json encode", q("2"), "\"2\"");
         // for these especially the exact yaml is not significant, but included for interest
-        checkLet("json encode", q(q("2")), "\"\\\"2\\\"\"");
+        checkTransform("json encode", q(q("2")), "\"\\\"2\\\"\"");
 
-        checkLet("json string", " ", " ");
-        checkLet("json string", "\n", "\n");
-        checkLet("json string", " \n ", " \n ");
+        checkTransform("json string", " ", " ");
+        checkTransform("json string", "\n", "\n");
+        checkTransform("json string", " \n ", " \n ");
 
-        checkLetBidi("json encode", " ", "\" \"");
-        checkLetBidi("json encode", "\n", "\"\\n\"");
-        checkLetBidi("json encode", " \n ", "\" \\n \"");
+        checkTransformBidi("json encode", " ", "\" \"");
+        checkTransformBidi("json encode", "\n", "\"\\n\"");
+        checkTransformBidi("json encode", " \n ", "\" \\n \"");
 
-        checkLetBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
-        checkLet("json encode", MutableMap.of("a", 1), q("{\"a\":1}"));
-        checkLetBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
-        checkLet("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
+        checkTransformBidi("json string", MutableMap.of("a", 1), "{\"a\":1}");
+        checkTransform("json encode", MutableMap.of("a", 1), "{\"a\":1}");
+        checkTransform("json string | json encode", MutableMap.of("a", 1), q("{\"a\":1}"));
+        checkTransformBidi("json string", MutableMap.of("a", MutableList.of(null), "x", "1"), "{\"a\":[null],\"x\":\"1\"}");
+        checkTransform("json", MutableMap.of("x", 1), MutableMap.of("x", 1));
     }
 
     @Test
-    public void testLetBash() throws Exception {
-        checkLet("bash", 2, q("2"));
-        checkLet("bash encode", 2, q("2"));
-        checkLet("bash", "2", q("2"));
-        checkLet("bash", q("2"), q("2"));       //unwrapped once by shorthand, again by step
-        checkLet("bash", q(q("2")), q("\"2\""));  //finally we get the string
+    public void testTransformBash() throws Exception {
+        checkTransform("bash", 2, q("2"));
+        checkTransform("bash encode", 2, q("2"));
+        checkTransform("bash", "2", q("2"));
+        checkTransform("bash", q("2"), q("2"));       //unwrapped once by shorthand, again by step
+        checkTransform("bash", q(q("2")), q("\"2\""));  //finally we get the string
 
-        checkLet("bash", "hello(n $o!)", "\"hello(n \\$o\"'!'\")\"");
-        checkLet("bash", "two\nlines", "\"two\nlines\"");
-        checkLet("bash", MutableMap.of("x", 1), q("{\"x\":1}"));
+        checkTransform("bash", "hello(n $o!)", "\"hello(n \\$o\"'!'\")\"");
+        checkTransform("bash", "two\nlines", "\"two\nlines\"");
+        checkTransform("bash", MutableMap.of("x", 1), q("{\"x\":1}"));
     }
 
     public static class MockObject {
@@ -545,7 +485,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
-    public void testLetYamlCoercion() throws Exception {
+    public void testTransformYamlCoercion() throws Exception {
         addBeanWithType("mock-object", "1", "type: " + MockObject.class.getName());
         Object result = invokeWorkflowStepsWithLogging(MutableList.of(
                 MutableMap.<String, Object>of("step", "let x1", "value",
@@ -553,7 +493,7 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                         "---\n" +
                         "  id: x\n" +
                         "  name: foo"),
-                "let yaml mock-object result = ${x1}",
+                "transform mock-object result = ${x1} | yaml",
                 "return ${result}"));
         Asserts.assertThat(result, r -> r instanceof MockObject);
         Asserts.assertEquals(((MockObject)result).id, "x");
@@ -565,33 +505,34 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         Object output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let map x = { i: [ 1, 'A' ] }",
                 "let map result = {}",
-                "let yaml string result.y = ${x}",
-                "let json string result.j = ${x}",           // will give the stringified map
-                "let json string result.j2 = ${result.j}",   // no change to the string
-                "let json encode result.e = ${x}",
-                "let json map result.m0 = ${x}",
-                "let json map result.m1 = ${result.j}",
+                "transform result.y = ${x} | yaml string",
+                "transform result.j = ${x} | json string",           // will give the stringified map
+                "transform result.j2 = ${result.j} | json string",   // no change to the string
+                "transform result.e = ${x} | json encode",
+                "transform result.es = ${x} | json string | json encode",
+                "transform map result.m0 = ${x} | json",
+                "transform map result.m1 = ${result.j} | json",
                 "return ${result}"));
         String s = "{\"i\":[1,\"A\"]}";
         Object m = MutableMap.of("i", MutableList.of(1, "A"));
         Asserts.assertEquals(output, MutableMap.of("y", "i:\n- 1\n- A\n", "j", s,
-                "j2", s, "e", q(s),
+                "j2", s, "e", s, "es", q(s),
                 "m0", m, "m1", m));
 
         String s0 = "{ i: [ 1, 'A' ] }";
         output = invokeWorkflowStepsWithLogging(MutableList.of(
                 "let string x = "+ q(s0),  // wrap to preserve the make the second thing in list be 'A' (including single quotes)
                 "let map result = {}",
-                "let yaml parse result.mp = ${x}",           // parsing a string gives a map
-                "let yaml parse result.mp2 = ${result.mp}",  // parsing a map has no effect
-                "let json result.mo = ${result.mp}",         // json referencing a map has no discernable effect (though it serializes and deserializes)
-                "let json result.so = ${x}",                 // json referencing a string has no effect
-                "let json encode result.ss0 = ${x}",         // encoding a string gives the double-stringified map, you can parse to get the string back
-                "let json encode result.ss2 = ${result.mp}", // encoding a map gives a double-stringified result, parse it to get the stringified version
-                "let json string result.ss1 = ${result.mp}", // specifying string on non-string gives single encoding (again)
+                "transform result.mp = ${x} | yaml",           // parsing a string gives a map
+                "transform result.mp2 = ${result.mp} | yaml parse",  // parsing a map has no effect
+                "transform result.mo = ${result.mp} | json",         // json referencing a map has no discernable effect (though it serializes and deserializes)
+                "transform result.so = ${x} | json string",           // pass through
+                "transform result.ss0 = ${result.so} | json encode",  // encoding a string gives the double-stringified map, you can parse to get the string back
+                "transform result.ss1 = ${result.mp} | json encode", // stringifies
+                "transform result.ss2 = ${result.mp} | json string | json encode", // specifying string on non-string gives single encoding (again)
                 "return ${result}"));
-        Asserts.assertEquals(output, MutableMap.of("mp", m, "mp2", m, "mo", m,
-                "so", s0, "ss0", q(s0), "ss2", q(s), "ss1", s));
+        Asserts.assertEquals(output, MutableMap.<String,Object>of("mp", m, "mp2", m, "mo", m,
+                "so", s0, "ss0", q(s0), "ss1", s, "ss2", q(s)));
     }
 
     // test complex object in an expression
@@ -622,6 +563,150 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
                 "load x = classpath://hello-world.txt",
                 "return ${x}"));
         Asserts.assertStringContains((String)output, "The file hello-world.war contains its source code.");
+    }
+
+    @Test
+    public void testSetSensorAtomicRequire() {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "init")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        MutableMap.of(
+                                "step", "set-sensor integer x = 0",
+                                "require", MutableMap.of("when", "absent")
+                        )
+                )));
+        eff.apply((EntityLocal)app);
+
+        eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.STEPS, MutableList.of(
+                        "let x = ${entity.sensor.x} ?? 0",
+                        "let x2 = ${x} + 1",
+                        MutableMap.of(
+                                "step", "set-sensor x = ${x2}",
+                                "require", "${x}"
+                        )
+                )));
+        eff.apply((EntityLocal)app);
+
+        // fails with Absent exception if value required
+        Asserts.assertFailsWith(() -> app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked(),
+                e -> {
+                    Asserts.expectedFailureContains(e, "x", "non-absent requirement");
+                    SetSensorWorkflowStep.SensorRequirementFailedAbsent e0 = (SetSensorWorkflowStep.SensorRequirementFailedAbsent) Exceptions.getFirstThrowableOfType(e, SetSensorWorkflowStep.SensorRequirementFailed.class);
+                    Asserts.assertNull(e0.getSensorValue());
+                    return true;
+                });
+
+        // works if we require absent, and initializes it
+        app.invoke(app.getEntityType().getEffectorByName("init").get(), null).getUnchecked();
+
+        // fails with normal exception if we require absent when it isn't
+        Asserts.assertFailsWith(() -> app.invoke(app.getEntityType().getEffectorByName("init").get(), null).getUnchecked(),
+            e -> {
+                Asserts.expectedFailureContains(e, "x");
+                // value not in output, not any mention of absence
+                Asserts.expectedFailureDoesNotContain(e, "0", "absent");
+                // but value is in field
+                SetSensorWorkflowStep.SensorRequirementFailed e0 = Exceptions.getFirstThrowableOfType(e, SetSensorWorkflowStep.SensorRequirementFailed.class);
+                Asserts.assertEquals(e0.getSensorValue(), 0);
+                return true;
+            });
+
+        // subsequently works at least once, but probably gets some errors due to concurrency
+        List<Task<?>> tasks = MutableList.of();
+        int NUM = 100;
+        for (int i=0; i<NUM; i++) tasks.add(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null));
+        long numErrors = tasks.stream().filter(t -> {
+            t.blockUntilEnded();
+            return t.isError();
+        }).count();
+        Integer numSuccess = app.sensors().get(Sensors.newIntegerSensor("x"));
+        if (numSuccess==0) tasks.iterator().next().getUnchecked();  // show failure if they all failed
+        Asserts.assertEquals(numErrors + numSuccess, NUM, "Tally mismatch, had "+numErrors+" errors when sensor showed "+numSuccess);
+    }
+
+    @Test
+    public void testSwitch() throws JsonProcessingException {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", null))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append(MutableMap.of("step", "switch ${x}", "cases",
+                                MutableList.of(
+                                        MutableMap.of("condition", "A", "step", "return Aaa"),
+                                        MutableMap.of("condition", "B", "step", "return Bbb"),
+                                        "return Zzz")))
+                )
+        );
+        eff.apply((EntityLocal) app);
+
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "A")).getUnchecked(), "Aaa");
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "B")).getUnchecked(), "Bbb");
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "C")).getUnchecked(), "Zzz");
+    }
+
+    @Test
+    public void testSwitchNoValueSingleDefaultCase() throws JsonProcessingException {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", null))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of()
+                        .append(MutableMap.of("step", "switch", "cases",
+                                MutableList.of(
+                                        "return Zzz")))
+                )
+        );
+        eff.apply((EntityLocal) app);
+
+        Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "A")).getUnchecked(), "Zzz");
+    }
+
+    @Test
+    public void testUtil() throws JsonProcessingException {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", null))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of(
+                        "set-sensor random = ${workflow.util.random}",
+                        "set-sensor random2 = ${workflow.util.random}",
+                        "set-sensor now = ${workflow.util.now}",
+                        "set-sensor now_utc = ${workflow.util.now_utc}",
+                        "set-sensor now_instant = ${workflow.util.now_instant}",
+                        "set-sensor now_stamp = ${workflow.util.now_stamp}",
+                        "set-sensor now_iso = ${workflow.util.now_iso}",
+                        "set-sensor now_nice = ${workflow.util.now_nice}"
+                ))
+        );
+        eff.apply((EntityLocal) app);
+
+        app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked();
+        Dumper.dumpInfo(app);
+
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Double.class, "random"), x -> x>0);
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Double.class, "random2"), x -> x>0);
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Double.class, "random"), x -> !app.sensors().get(Sensors.newSensor(Double.class, "random2")).equals(x));
+
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Long.class, "now"), l -> l > System.currentTimeMillis() - 5*1000 && l <= System.currentTimeMillis());
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Long.class, "now_utc"), l -> l > System.currentTimeMillis() - 5*1000 && l <= System.currentTimeMillis());
+
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Instant.class, "now_instant"), l -> l.toEpochMilli() > System.currentTimeMillis() - 5*1000 && l.toEpochMilli() <= System.currentTimeMillis());
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(String.class, "now_iso"), l -> l.startsWith("202") && l.endsWith("Z"));
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(String.class, "now_nice"), l -> l.startsWith("202"));
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(String.class, "now_stamp"), l -> l.startsWith("202"));
+
     }
 
 }
