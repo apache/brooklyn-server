@@ -23,8 +23,14 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import java.io.File;
+import java.io.InputStream;
+import java.nio.file.StandardOpenOption;
 import java.util.Map;
+import java.util.zip.ZipFile;
 
+import com.google.common.io.ByteStreams;
+import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -33,8 +39,6 @@ import org.testng.annotations.Test;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.core.ResourceUtils;
-import org.apache.brooklyn.util.core.file.ArchiveBuilder;
-import org.apache.brooklyn.util.core.file.ArchiveUtils;
 import org.apache.brooklyn.util.os.Os;
 
 import com.google.common.base.Joiner;
@@ -110,7 +114,19 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
         ArchiveUtils.deploy(origJar.getAbsolutePath(), machine, destDir.getAbsolutePath(), destFile);
         assertFilesEqual(new File(destDir, destFile), origJar);
     }
-    
+    @Test(groups="Integration")
+    public void testUnzipFileAccessingPathOutsideTargetFolderEvilWinFormat() {
+        Asserts.assertFailsWith(() -> doTestUnzip("classpath://brooklyn/util/file.core/evilWin.zip"), e -> { Asserts.expectedFailureContainsIgnoreCase(e, "Entry is outside of the target dir"); return true; });
+    }
+    @Test(groups="Integration")
+    public void testUnzipFileAccessingPathOutsideTargetFolderEvilLinuxFormat() {
+        Asserts.assertFailsWith(() -> doTestUnzip("classpath://brooklyn/util/file.core/evilLinux.zip"), e -> { Asserts.expectedFailureContainsIgnoreCase(e, "Entry is outside of the target dir"); return true; });
+    }
+    @Test(groups="Integration")
+    public void testUnzipFileAccessingPathOutsideTargetFolderNoEvil() {
+        doTestUnzip("classpath://brooklyn/util/file.core/noEvil.zip");
+    }
+
     private File newZip(Map<String, String> files) throws Exception {
         File parentDir = Os.newTempDir(getClass().getSimpleName()+"-archive");
         for (Map.Entry<String, String> entry : files.entrySet()) {
@@ -131,6 +147,21 @@ public class ArchiveUtilsTest extends BrooklynAppUnitTestSupport {
         for (Map.Entry<String, String> entry : archiveContents.entrySet()) {
             File subFile = new File(Os.mergePaths(parentDir.getAbsolutePath(), entry.getKey()));
             assertEquals(Joiner.on("\n").join(Files.readLines(subFile, Charsets.UTF_8)), entry.getValue());
+        }
+    }
+
+    private void doTestUnzip(String url)  {
+        File tempZipFile = null;
+        InputStream zip = ResourceUtils.create(this).getResourceFromUrl(url);
+        try {
+            tempZipFile = File.createTempFile("test", "zip");
+            tempZipFile.deleteOnExit();
+            java.nio.file.Files.write(tempZipFile.toPath(), ByteStreams.toByteArray(zip), StandardOpenOption.TRUNCATE_EXISTING);
+            ArchiveUtils.extractZip(new ZipFile(tempZipFile), destDir.getAbsolutePath());
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } finally {
+            tempZipFile.delete();
         }
     }
 }
