@@ -111,9 +111,9 @@ public abstract class WorkflowStepDefinition {
 
     // might be nice to support a shorthand for on-error; but not yet
     @JsonProperty("on-error")
-    protected List<Object> onError = MutableList.of();
+    protected Object onError = MutableList.of();
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    public List<Object> getOnError() {
+    public Object getOnError() {
         return onError;
     }
 

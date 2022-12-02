@@ -132,9 +132,9 @@ public class WorkflowStepResolution {
                 defW.populateFromShorthand(shorthand);
             }
 
-            List<Object> onError = defW.getOnError();
+            List<Object> onError = WorkflowErrorHandling.wrappedInListIfNecessaryOrNullIfEmpty(defW.getOnError());
             if (onError!=null && !onError.isEmpty()) {
-                defW.onError = (List) resolveSubSteps(mgmt, "error handling", onError);
+                defW.onError = resolveSubSteps(mgmt, "error handling", onError);
             }
 
             defW.validateStep(mgmt, null);

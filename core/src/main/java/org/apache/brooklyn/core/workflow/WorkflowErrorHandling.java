@@ -214,7 +214,7 @@ public class WorkflowErrorHandling implements Callable<WorkflowErrorHandling.Wor
 
     public static void handleErrorAtStep(Entity entity, WorkflowStepDefinition step, WorkflowStepInstanceExecutionContext currentStepInstance, Task<?> stepTaskThrowingError, BiConsumer<Object, Object> onFinish, Exception error, Integer errorStepIfNested) {
         String problemHere = null;
-        if (!step.onError.isEmpty()) {
+        if (wrappedInListIfNecessaryOrNullIfEmpty(step.onError)!=null) {
 
             if (errorStepIfNested!=null) {
                 log.debug("Nested error handler running on "+stepTaskThrowingError+" to handle "+error);
