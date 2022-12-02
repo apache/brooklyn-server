@@ -21,6 +21,7 @@ package org.apache.brooklyn.enricher.stock;
 import com.google.common.base.Predicates;
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.catalog.Catalog;
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.Group;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
@@ -31,6 +32,7 @@ import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.enricher.AbstractEnricher;
 import org.apache.brooklyn.core.entity.trait.Changeable;
+import org.apache.brooklyn.util.collections.CollectionFunctionals;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,7 +53,7 @@ public class PropagateToMembers extends AbstractEnricher implements SensorEventL
     public static final ConfigKey<Collection<? extends Sensor<?>>> PROPAGATING = ConfigKeys.builder(new TypeToken<Collection<? extends Sensor<?>>>() {})
             .name("enricher.propagating.inclusions")
             .description("Collection of sensors to propagate to members")
-            .constraint(Predicates.and(Objects::nonNull, sensors -> !sensors.isEmpty()))
+            .constraint(Predicates.and(Predicates.notNull(), CollectionFunctionals.notEmpty()))
             .build();
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -63,19 +65,30 @@ public class PropagateToMembers extends AbstractEnricher implements SensorEventL
             throw new IllegalStateException("Only valid for groups");
         }
 
-        subscriptions().subscribe(entity, Changeable.MEMBER_ADDED, event -> {
-            LOG.debug("Propagating '{}' to a new member '{}' ", getConfig(PROPAGATING), event.getValue());
-            getConfig(PROPAGATING).forEach(sensor -> {
+        subscriptions().subscribe(entity, Changeable.MEMBER_ADDED, new PropagationSubscriber(this));
+
+        getConfig(PROPAGATING).forEach(sensor ->  subscriptions().subscribe(entity, sensor, this));
+    }
+
+    static class PropagationSubscriber implements SensorEventListener<Entity> {
+        private final PropagateToMembers adjunct;
+
+        public PropagationSubscriber(PropagateToMembers adjunct) {
+            this.adjunct = adjunct;
+        }
+
+        @Override
+        public void onEvent(SensorEvent<Entity> event) {
+            LOG.debug("Propagating '{}' to a new member '{}' ", adjunct.getConfig(PROPAGATING), event.getValue());
+            adjunct.getConfig(PROPAGATING).forEach(sensor -> {
                 AttributeSensor attributeSensor = (AttributeSensor<?>)sensor;
-                Object value = entity.getAttribute(attributeSensor);
+                Object value = adjunct.entity.getAttribute(attributeSensor);
                 if (!Objects.isNull(value)) {
                     LOG.debug("Propagating initial {}: {}", attributeSensor, value);
                     event.getValue().sensors().set(attributeSensor, value);
                 }
             });
-        });
-
-        getConfig(PROPAGATING).forEach(sensor ->  subscriptions().subscribe(entity, sensor, this));
+        }
     }
 
     @Override

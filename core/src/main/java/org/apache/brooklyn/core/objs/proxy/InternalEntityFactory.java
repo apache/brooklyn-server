@@ -201,7 +201,8 @@ public class InternalEntityFactory extends InternalFactory {
                 Exceptions.propagateIfFatal(e);
                 log.info("Failed to initialise entity " + entity + " and its descendants - unmanaging and propagating original exception: " + Exceptions.collapseText(e));
                 try {
-                    ((EntityManagerInternal) managementContext.getEntityManager()).discardPremanaged(entity);
+                    if (managementContext.isRunning())
+                        ((EntityManagerInternal) managementContext.getEntityManager()).discardPremanaged(entity);
                 } catch (Exception e2) {
                     Exceptions.propagateIfFatal(e2);
                     log.info("Failed to unmanage entity " + entity + " and its descendants, after failure to initialise (rethrowing original exception)", e2);

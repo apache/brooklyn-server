@@ -95,7 +95,7 @@ public class PropagateToMembersTest extends BrooklynAppUnitTestSupport {
         // Create group entity, configure enricher and set member to test propagation at.
         final BasicGroup groupEntity = app.createAndManageChild(EntitySpec.create(BasicGroup.class)
                 .addInitializer(new StaticSensor<String>(ConfigBag.newInstance(ImmutableMap.of(
-                        StaticSensor.SENSOR_NAME, "sensor-being-modified",
+                        StaticSensor.SENSOR_NAME, sensorToPropagate.getName(),
                         StaticSensor.STATIC_VALUE, sensorInitialValue))))
                 .enricher(EnricherSpec.create(PropagateToMembers.class)
                         .configure(PropagateToMembers.PROPAGATING, ImmutableList.of(sensorToPropagate))));
