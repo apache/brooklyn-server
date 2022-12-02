@@ -249,7 +249,9 @@ public class LocalManagementContext extends AbstractManagementContext {
 
     @Override
     public synchronized LocalEntityManager getEntityManager() {
-        if (!isRunning()) throw new IllegalStateException("Management context no longer running");
+        if (!isRunning()) {
+            throw new IllegalStateException("Management context no longer running");
+        }
 
         if (entityManager == null) {
             entityManager = new LocalEntityManager(this);

@@ -24,11 +24,18 @@ import com.google.common.io.Files;
 import org.apache.brooklyn.api.mgmt.ha.MementoCopyMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import static org.apache.brooklyn.core.entity.EntityPredicates.displayNameEqualTo;
+
+import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.mgmt.persist.BrooklynPersistenceUtils;
 import org.apache.brooklyn.core.test.entity.TestApplication;
+
+import static org.apache.brooklyn.entity.group.DynamicMultiGroup.BUCKET_EXPRESSION;
 import static org.apache.brooklyn.entity.group.DynamicMultiGroup.BUCKET_FUNCTION;
 import static org.apache.brooklyn.entity.group.DynamicMultiGroupImpl.bucketFromAttribute;
+
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.testng.Assert;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -55,7 +62,14 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
 
     private static final AttributeSensor<String> SENSOR = Sensors.newSensor(String.class, "multigroup.test");
 
-    // Previously there was a bug on rebind. The entity's rebind would immediately connec the 
+    @Override
+    protected LocalManagementContext decorateOrigOrNewManagementContext(LocalManagementContext mgmt) {
+        LocalManagementContext result = super.decorateOrigOrNewManagementContext(mgmt);
+        WorkflowBasicTest.addWorkflowStepTypes(result);
+        return result;
+    }
+
+    // Previously there was a bug on rebind. The entity's rebind would immediately connec the
     // rescan, which would start executing in another thread. If there were any empty buckets
     // (i.e. groups) that child would be removed. But the rebind-manager would still be executing
     // concurrently. The empty group that was being removed might not have been reconstituted yet.
@@ -66,6 +80,15 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
     // of the entities will be interleaved.
     @Test(groups="Integration", invocationCount=10)
     public void testRebindWhenGroupDisappeared() throws Exception {
+        doTestRebindWhenGroupDisappeared( ConfigBag.newInstance().configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR)) );
+    }
+
+    @Test(groups="WIP", invocationCount=10)  // TODO workflows don't run when shutting down so if entities removed while shutting down, this can still leak
+    public void testRebindWhenGroupDisappearedUsingExpression() throws Exception {
+        doTestRebindWhenGroupDisappeared( ConfigBag.newInstance().configure(BUCKET_EXPRESSION, "${entity.sensor['"+SENSOR.getName()+"']}") );
+    }
+
+    public void doTestRebindWhenGroupDisappeared(ConfigBag config) throws Exception {
         int NUM_ITERATIONS = 10;
         List<DynamicMultiGroup> dmgs = Lists.newArrayList();
         List<TestEntity> childs = Lists.newArrayList();
@@ -73,12 +96,13 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
         // Create lots of DynamicMultiGroups - one entity for each
         for (int i = 0; i < NUM_ITERATIONS; i++) {
             Group group = origApp.createAndManageChild(EntitySpec.create(BasicGroup.class));
-            DynamicMultiGroup dmg = origApp.createAndManageChild(EntitySpec.create(DynamicMultiGroup.class)
-                    .displayName("dmg"+i)
-                    .configure(DynamicMultiGroup.ENTITY_FILTER, Predicates.and(EntityPredicates.displayNameEqualTo("child"+i), instanceOf(TestEntity.class)))
+            EntitySpec<DynamicMultiGroup> spec = EntitySpec.create(DynamicMultiGroup.class)
+                    .displayName("dmg" + i)
+                    .configure(DynamicMultiGroup.ENTITY_FILTER, Predicates.and(displayNameEqualTo("child" + i), instanceOf(TestEntity.class)))
                     .configure(DynamicMultiGroup.RESCAN_INTERVAL, 5L)
-                    .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
-                    .configure(DynamicMultiGroup.BUCKET_SPEC, EntitySpec.create(BasicGroup.class)));
+                    .configure(DynamicMultiGroup.BUCKET_SPEC, EntitySpec.create(BasicGroup.class));
+            spec.configure(config.getAllConfig());
+            DynamicMultiGroup dmg = origApp.createAndManageChild(spec);
             dmgs.add(dmg);
             
             TestEntity child = group.addChild(EntitySpec.create(TestEntity.class).displayName("child"+i));
@@ -129,7 +153,10 @@ public class DynamicMultiGroupRebindTest extends RebindTestFixtureWithApp {
     public void testSimplestMultiGroupRebindAndDelete() throws Exception {
         DynamicMultiGroup dmg = origApp.createAndManageChild(EntitySpec.create(DynamicMultiGroup.class)
                 .configure(DynamicMultiGroup.ENTITY_FILTER, Predicates.alwaysFalse())
-                .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
+
+//                .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
+                .configure(BUCKET_EXPRESSION, "${entity.sensor['"+SENSOR.getName()+"']}")
+
                 .configure(DynamicMultiGroup.BUCKET_SPEC, EntitySpec.create(BasicGroup.class)));
 
         BrooklynMementoRawData state;

@@ -54,20 +54,24 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
 
     @Test
     public void testBucketDistributionFromSubscription() {
-        doTestBucketDistributionFromSubscription(ConfigBag.newInstance().configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR)));
+        doTestBucketDistributionFromSubscription(ConfigBag.newInstance()
+                .configure(BUCKET_FUNCTION, bucketFromAttribute(SENSOR))
+                .configure(DynamicMultiGroup.BUCKET_ID_FUNCTION, bucketFromAttribute(SENSOR)));
     }
 
     @Test
     public void testBucketDistributionFromSubscriptionWithWorkflow() {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
-        doTestBucketDistributionFromSubscription(ConfigBag.newInstance().configure(BUCKET_WORKFLOW,
-                TypeCoercions.coerce(MutableMap.of("steps", MutableList.of("let x = ${entity.sensor['"+SENSOR.getName()+"']} ?? \"\"", "return ${x}")), CustomWorkflowStep.class) ));
+        doTestBucketDistributionFromSubscription(ConfigBag.newInstance()
+                .configure(BUCKET_ID_WORKFLOW,
+                    TypeCoercions.coerce(MutableMap.of("steps", MutableList.of("let x = ${entity.sensor['"+SENSOR.getName()+"']} ?? \"\"", "return ${x}")), CustomWorkflowStep.class) ));
     }
 
     @Test
     public void testBucketDistributionFromSubscriptionWithWorkflowExpression() {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt);
-        doTestBucketDistributionFromSubscription(ConfigBag.newInstance().configure(BUCKET_EXPRESSION, "${entity.sensor['"+SENSOR.getName()+"']}"));
+        doTestBucketDistributionFromSubscription(ConfigBag.newInstance()
+                .configure(BUCKET_ID_EXPRESSION, "${entity.sensor['"+SENSOR.getName()+"']}"));
     }
 
     void doTestBucketDistributionFromSubscription(ConfigBag config) {
@@ -75,7 +79,6 @@ public class DynamicMultiGroupTest extends BrooklynAppUnitTestSupport {
         final DynamicMultiGroup dmg = app.createAndManageChild(
                 EntitySpec.create(DynamicMultiGroup.class)
                         .configure(ENTITY_FILTER, instanceOf(TestEntity.class))
-                        .configure(DynamicMultiGroup.BUCKET_ID_FUNCTION, bucketFromAttribute(SENSOR))
                         .configure(config.getAllConfig())
         );
         app.subscriptions().subscribeToChildren(group, SENSOR, new SensorEventListener<String>() {

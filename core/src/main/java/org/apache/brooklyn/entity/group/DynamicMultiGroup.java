@@ -52,14 +52,12 @@ public interface DynamicMultiGroup extends DynamicGroup {
             "brooklyn.multigroup.bucketFunction",
             "Function to return the bucket (name) an entity should be placed in"
     );
-
     @SetFromFlag("bucketWorkflow")
     ConfigKey<CustomWorkflowStep> BUCKET_WORKFLOW = ConfigKeys.newConfigKey(
             CustomWorkflowStep.class,
             "brooklyn.multigroup.bucketWorkflow",
             "Workflow to return the bucket (name) an entity should be placed in"
     );
-
     @SetFromFlag("bucketExpression")
     ConfigKey<String> BUCKET_EXPRESSION = ConfigKeys.newConfigKey(
             String.class,
@@ -71,9 +69,17 @@ public interface DynamicMultiGroup extends DynamicGroup {
     ConfigKey<Function<Entity, String>> BUCKET_ID_FUNCTION = ConfigKeys.newConfigKey(
             new TypeToken<Function<Entity, String>>(){},
             "brooklyn.multigroup.bucketIdFunction",
-            "Implements the mapping from entity to bucket ID; if supplied, the ids of entities E1 and E2 should be the same if and only if the name returned by bucketFunction are the same; " +
-                    "if not supplied, no ID is set"
+            "Used at bucket creation time to generate an ID for the bucket. Should be unique if and only if the bucket (name) function is unique for two entities. " +
+                    "If not supplied, no ID is set."
     );
+
+    ConfigKey<CustomWorkflowStep> BUCKET_ID_WORKFLOW = ConfigKeys.newConfigKey(
+            CustomWorkflowStep.class,
+            "brooklyn.multigroup.bucketIdWorkflow");
+
+    ConfigKey<String> BUCKET_ID_EXPRESSION = ConfigKeys.newConfigKey(
+            String.class,
+            "brooklyn.multigroup.bucketIdExpression");
 
     /**
      * Determines the type of {@link Group} used for the buckets.
