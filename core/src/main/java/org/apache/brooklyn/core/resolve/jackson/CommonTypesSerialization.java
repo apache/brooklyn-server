@@ -233,6 +233,10 @@ public class CommonTypesSerialization {
             public T convertSpecialMapToObject(Map value, JsonParser p, DeserializationContext ctxt) throws IOException {
                 return ObjectAsStringSerializerAndDeserializer.this.convertSpecialMapToObject(value, p, ctxt);
             }
+
+            public T convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+                return ObjectAsStringSerializerAndDeserializer.this.convertStringToObject(value, p, ctxt);
+            }
         }
     }
 
@@ -379,7 +383,7 @@ public class CommonTypesSerialization {
             @Override
             protected BrooklynObject newEmptyInstance() {
                 /* context buries the contextual types when called via createContextual, because we are a delegate; and has cleared it by the time it gets here */
-                if (knownConcreteType !=null) {
+                if (knownConcreteType != null) {
                     return BrooklynObjectSerialization.this.newEmptyInstance((Class<BrooklynObject>) knownConcreteType.getRawClass());
                 }
                 return super.newEmptyInstance();
@@ -427,6 +431,16 @@ public class CommonTypesSerialization {
                 if (result!=null) return result;
 
                 throw new IllegalStateException("Entity instances and other Brooklyn objects should be supplied as unique IDs; they cannot be instantiated from YAML. If a spec is desired, the type should be known or use $brooklyn:entitySpec.");
+            }
+
+            @Override public BrooklynObject convertStringToObject(String value, JsonParser p, DeserializationContext ctxt) throws IOException {
+                try {
+                    return super.convertStringToObject(value, p, ctxt);
+                } catch (Exception e) {
+                    Exceptions.propagateIfFatal(e);
+                    LOG.warn("Reference to BrooklynObject "+value+" which is no longer available; replacing with 'null'");
+                    return null;
+                }
             }
         }
     }
