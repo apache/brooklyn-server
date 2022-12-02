@@ -23,6 +23,7 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.entity.Dumper;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
@@ -44,6 +45,7 @@ import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -667,6 +669,44 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
         eff.apply((EntityLocal) app);
 
         Asserts.assertEquals(app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), MutableMap.of("x", "A")).getUnchecked(), "Zzz");
+    }
+
+    @Test
+    public void testUtil() throws JsonProcessingException {
+        loadTypes();
+        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+
+        WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
+                .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
+                .configure(WorkflowEffector.EFFECTOR_PARAMETER_DEFS, MutableMap.of("x", null))
+                .configure(WorkflowEffector.STEPS, MutableList.<Object>of(
+                        "set-sensor random = ${workflow.util.random}",
+                        "set-sensor random2 = ${workflow.util.random}",
+                        "set-sensor now = ${workflow.util.now}",
+                        "set-sensor now_utc = ${workflow.util.now_utc}",
+                        "set-sensor now_instant = ${workflow.util.now_instant}",
+                        "set-sensor now_stamp = ${workflow.util.now_stamp}",
+                        "set-sensor now_iso = ${workflow.util.now_iso}",
+                        "set-sensor now_nice = ${workflow.util.now_nice}"
+                ))
+        );
+        eff.apply((EntityLocal) app);
+
+        app.invoke(app.getEntityType().getEffectorByName("myWorkflow").get(), null).getUnchecked();
+        Dumper.dumpInfo(app);
+
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Double.class, "random"), x -> x>0);
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Double.class, "random2"), x -> x>0);
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Double.class, "random"), x -> !app.sensors().get(Sensors.newSensor(Double.class, "random2")).equals(x));
+
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Long.class, "now"), l -> l > System.currentTimeMillis() - 5*1000 && l <= System.currentTimeMillis());
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Long.class, "now_utc"), l -> l > System.currentTimeMillis() - 5*1000 && l <= System.currentTimeMillis());
+
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(Instant.class, "now_instant"), l -> l.toEpochMilli() > System.currentTimeMillis() - 5*1000 && l.toEpochMilli() <= System.currentTimeMillis());
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(String.class, "now_iso"), l -> l.startsWith("202") && l.endsWith("Z"));
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(String.class, "now_nice"), l -> l.startsWith("202"));
+        EntityAsserts.assertAttribute(app, Sensors.newSensor(String.class, "now_stamp"), l -> l.startsWith("202"));
+
     }
 
 }

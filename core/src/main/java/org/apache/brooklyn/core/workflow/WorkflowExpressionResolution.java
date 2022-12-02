@@ -37,9 +37,11 @@ import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.javalang.Boxing;
+import org.apache.brooklyn.util.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
@@ -228,6 +230,7 @@ public class WorkflowExpressionResolution {
             if ("current_step".equals(key)) return new WorkflowStepModel(currentStepInstance);
             if ("previous_step".equals(key)) return newWorkflowStepModelForStepIndex(context.previousStepIndex);
             if ("step".equals(key)) return new WorkflowStepModel();
+            if ("util".equals(key)) return new WorkflowUtilModel();
 
             if ("var".equals(key)) return TemplateProcessor.wrapAsTemplateModel(context.workflowScratchVariables);
 
@@ -281,6 +284,30 @@ public class WorkflowExpressionResolution {
             if ("output".equals(key)) {
                 return TemplateProcessor.wrapAsTemplateModel(step.output != null ? step.output : MutableMap.of());
             }
+
+            return ifNoMatches();
+        }
+
+        @Override
+        public boolean isEmpty() throws TemplateModelException {
+            return false;
+        }
+    }
+
+    class WorkflowUtilModel implements TemplateHashModel {
+
+        WorkflowUtilModel() {}
+        @Override
+        public TemplateModel get(String key) throws TemplateModelException {
+
+            //id (a token representing an item uniquely within its root instance)
+            if ("now".equals(key)) return TemplateProcessor.wrapAsTemplateModel(System.currentTimeMillis());
+            if ("now_utc".equals(key)) return TemplateProcessor.wrapAsTemplateModel(System.currentTimeMillis());
+            if ("now_instant".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Instant.now());
+            if ("now_iso".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeIso8601DateStringZ(Instant.now()));
+            if ("now_stamp".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeDateStampString());
+            if ("now_nice".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Time.makeDateString(Instant.now()));
+            if ("random".equals(key)) return TemplateProcessor.wrapAsTemplateModel(Math.random());
 
             return ifNoMatches();
         }
