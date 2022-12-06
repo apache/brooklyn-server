@@ -18,6 +18,7 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -58,7 +59,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
     
     // use type registry approach
     @Override
-    protected void addCatalogItems(String catalogYaml) {
+    protected Collection<RegisteredType> addCatalogItems(String catalogYaml) {
         boolean skipStart = false;
 
         switch (itemsInstallMode!=null ? itemsInstallMode : 
@@ -87,6 +88,7 @@ public class CatalogYamlEntityOsgiTypeRegistryTest extends CatalogYamlEntityTest
             addCatalogItemsAsOsgiInUsualWay(mgmt(), catalogYaml, null, isForceUpdate());
             break;
         }
+        return null;
     }
 
     protected String bundleName() { return "sample-bundle"; }

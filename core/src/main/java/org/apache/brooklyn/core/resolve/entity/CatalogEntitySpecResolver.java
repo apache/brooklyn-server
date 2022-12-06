@@ -20,6 +20,7 @@ package org.apache.brooklyn.core.resolve.entity;
 
 import java.util.Set;
 
+import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -77,7 +78,7 @@ public class CatalogEntitySpecResolver extends AbstractEntitySpecResolver {
     @Override
     public EntitySpec<?> resolve(String type, BrooklynClassLoadingContext loader, Set<String> parentEncounteredTypes) {
         String localType = getLocalType(type);
-        RegisteredType item = mgmt.getTypeRegistry().get(localType);
+        RegisteredType item = mgmt.getTypeRegistry().get(localType, RegisteredTypeLoadingContexts.spec(Entity.class));
         boolean upgradeRequired = item==null;
         
         if (upgradeRequired) {

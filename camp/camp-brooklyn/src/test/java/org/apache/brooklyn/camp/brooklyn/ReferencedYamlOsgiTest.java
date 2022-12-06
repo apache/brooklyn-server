@@ -18,8 +18,11 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
+import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.testng.annotations.Test;
+
+import java.util.Collection;
 
 /** like superclass, but with OSGi enabled, complex references now work */
 public class ReferencedYamlOsgiTest extends ReferencedYamlTest {
@@ -30,8 +33,9 @@ public class ReferencedYamlOsgiTest extends ReferencedYamlTest {
     }
     
     @Override
-    protected void addCatalogItems(String catalogYaml) {
+    protected Collection<RegisteredType> addCatalogItems(String catalogYaml) {
         addCatalogItemsAsOsgiWithoutStartingBundles(mgmt(), catalogYaml, VersionedName.fromString("sample-bundle:0-SNAPSHOT"), isForceUpdate());
+        return null;
     }
     
     // these are not broken with OSGi
