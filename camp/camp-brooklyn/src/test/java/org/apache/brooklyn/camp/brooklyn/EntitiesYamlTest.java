@@ -20,6 +20,8 @@ package org.apache.brooklyn.camp.brooklyn;
 
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.camp.brooklyn.TestSensorAndEffectorInitializerBase.*;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
+import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -1271,4 +1273,39 @@ public class EntitiesYamlTest extends AbstractYamlTest {
         Assert.assertEquals(camp.platformComponentTemplates().links().size(), 0);
         Assert.assertEquals(camp.platformComponents().links().size(), 0);
     }
+
+    public void testIconUrlInheritance() throws Exception {
+        addCatalogItems(
+                "brooklyn.catalog:",
+                "  itemType: entity",
+                "  items:",
+
+                "  - id: parent",
+                "    item:",
+                "      type: " + TestEntity.class.getName(),
+                "      name: Parent",
+                "      iconUrl: http://parent/",
+
+                "  - id: child",
+                "    item:",
+                "      type: parent",
+                "      name: Child",
+                "      iconUrl: http://child/",
+
+                "  - id: grandchild",
+                "    item:",
+                "      type: child",
+                "      name: Grandchild");
+
+
+
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: grandchild");
+
+        Entity child = Iterables.getOnlyElement(app.getChildren());
+        Asserts.assertEquals(RegisteredTypes.getIconUrl(child), "http://child/");
+        Asserts.assertEquals(child.getDisplayName(), "Grandchild");
+    }
+
 }

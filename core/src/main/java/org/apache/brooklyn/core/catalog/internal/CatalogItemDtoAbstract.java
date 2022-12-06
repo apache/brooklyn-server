@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.objs.AbstractBrooklynObject;
 import org.apache.brooklyn.core.relations.EmptyRelationSupport;
 import org.apache.brooklyn.core.typereg.RegisteredTypeNaming;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
 import org.apache.brooklyn.util.core.flags.SetFromFlag;
 import org.apache.brooklyn.util.http.auth.Credentials;
@@ -309,6 +310,19 @@ public abstract class CatalogItemDtoAbstract<T, SpecT> extends AbstractBrooklynO
             synchronized (CatalogItemDtoAbstract.this) {
                 setTagsIfNull();
                 result = Iterables.addAll(tags, newTags);
+            }
+            onTagsChanged();
+            return result;
+        }
+
+        @Override
+        public boolean addTagsAtStart(Iterable<?> newTags) {
+            boolean result;
+            synchronized (tags) {
+                MutableSet<Object> oldTags = MutableSet.copyOf(tags);
+                tags.clear();
+                Iterables.addAll(tags, newTags);
+                result = Iterables.addAll(tags, oldTags);
             }
             onTagsChanged();
             return result;

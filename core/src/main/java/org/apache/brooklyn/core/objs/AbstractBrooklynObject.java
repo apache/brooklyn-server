@@ -296,6 +296,19 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
         }
 
         @Override
+        public boolean addTagsAtStart(Iterable<?> newTags) {
+            boolean result;
+            synchronized (tags) {
+                MutableSet<Object> oldTags = MutableSet.copyOf(tags);
+                tags.clear();
+                Iterables.addAll(tags, newTags);
+                result = Iterables.addAll(tags, oldTags);
+            }
+            onTagsChanged();
+            return result;
+        }
+
+        @Override
         public boolean removeTag(Object tag) {
             boolean result;
             synchronized (tags) {

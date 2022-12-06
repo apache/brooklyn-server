@@ -276,13 +276,20 @@ public abstract class BrooklynEntityDecorationResolver<DT> {
 
         @Override
         public void decorate(EntitySpec<?> entitySpec, ConfigBag attrs, Set<String> encounteredRegisteredTypeIds) {
+            /* 2022-12 we now add tags at the start, so children tags get found before parent tags;
+             * this causes eg icons to resolve correctly (not take parent icons), and in general a cleaner tags list
+             * (might be nice eventually to have a dedicated field for iconUrl, like we do on registered types,
+             * but this seems worth doing as well, and is sufficient to solve the problem of parent icons)
+             */
+
             Iterable<Object> decorationAttributeJsonValue = getDecorationAttributeJsonValue(attrs);
             if (decorationAttributeJsonValue != null) {
-                entitySpec.tagsAdd(decorationAttributeJsonValue);
+                entitySpec.tagsAddAtStart(decorationAttributeJsonValue);
             }
+
             String iconUrl = attrs.get(BrooklynConfigKeys.ICON_URL);
             if (iconUrl!=null) {
-                entitySpec.tagsAdd(MutableList.of(BrooklynTags.newIconUrlTag(iconUrl)));
+                entitySpec.tagsAddAtStart(MutableList.of(BrooklynTags.newIconUrlTag(iconUrl)));
             }
         }
 

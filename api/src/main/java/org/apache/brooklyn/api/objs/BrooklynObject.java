@@ -120,7 +120,8 @@ public interface BrooklynObject extends Identifiable, Configurable {
         boolean addTag(@Nonnull Object tag);
         
         boolean addTags(@Nonnull Iterable<?> tags);
-        
+        boolean addTagsAtStart(@Nonnull Iterable<?> tags);
+
         boolean removeTag(@Nonnull Object tag);
     }
     

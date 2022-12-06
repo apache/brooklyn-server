@@ -218,6 +218,14 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
         return self();
     }
 
+    public SpecT tagsAddAtStart(Iterable<? extends Object> tagsToAdd) {
+        MutableSet<Object> oldTags = MutableSet.copyOf(this.tags);
+        tags.clear();
+        Iterables.addAll(this.tags, tagsToAdd);
+        Iterables.addAll(this.tags, oldTags);
+        return self();
+    }
+
     /**
      * replaces tags with the given
      */
