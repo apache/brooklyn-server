@@ -44,59 +44,36 @@ import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.util.collections.QuorumCheck;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
-public class BasicStartableImpl extends AbstractEntity implements BasicStartable {
+public class BasicStartableImpl extends AbstractStartableImpl implements BasicStartable {
 
     private static final Logger log = LoggerFactory.getLogger(BasicStartableImpl.class);
 
     @Override
-    public void start(Collection<? extends Location> locations) {
-        try {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STARTING);
+    protected void doStart(Collection<? extends Location> locations) {
+        // essentially does StartableMethods.start(this, locations),
+        // but optionally filters locations for each child
 
-            // Opportunity to block startup until other dependent components are available
-            Object val = config().get(START_LATCH);
-            if (val != null) log.debug("{} finished waiting for start-latch; continuing...", this);
-
-            addLocations(locations);
-            locations = Locations.getLocationsCheckingAncestors(locations, this);
-            log.info("Starting entity "+this+" at "+locations);
-
-            // essentially does StartableMethods.start(this, locations),
-            // but optionally filters locations for each child
-
-            Locations.LocationsFilter filter = getConfig(LOCATIONS_FILTER);
-            Iterable<Entity> startables = filterStartableManagedEntities(getChildren());
-            if (!Iterables.isEmpty(startables)) {
-                List<Task<?>> tasks = Lists.newArrayListWithCapacity(Iterables.size(startables));
-                for (final Entity entity : startables) {
-                    Collection<? extends Location> l2 = locations;
-                    if (filter != null) {
-                        l2 = filter.filterForContext(new ArrayList<Location>(locations), entity);
-                        log.debug("Child " + entity + " of " + this + " being started in filtered location list: " + l2);
-                    }
-                    tasks.add(Entities.invokeEffectorWithArgs(this, entity, Startable.START, l2));
+        Locations.LocationsFilter filter = getConfig(LOCATIONS_FILTER);
+        Iterable<Entity> startables = StartableMethods.filterStartableManagedEntities(getChildren());
+        if (!Iterables.isEmpty(startables)) {
+            List<Task<?>> tasks = Lists.newArrayListWithCapacity(Iterables.size(startables));
+            for (final Entity entity : startables) {
+                Collection<? extends Location> l2 = locations;
+                if (filter != null) {
+                    l2 = filter.filterForContext(new ArrayList<Location>(locations), entity);
+                    log.debug("Child " + entity + " of " + this + " being started in filtered location list: " + l2);
                 }
-                for (Task<?> t : tasks) {
-                    t.getUnchecked();
-                }
+                tasks.add(Entities.invokeEffectorWithArgs(this, entity, Startable.START, l2));
             }
-            sensors().set(Attributes.SERVICE_UP, true);
-        } finally {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.RUNNING);
+            for (Task<?> t : tasks) {
+                t.getUnchecked();
+            }
         }
     }
 
     @Override
-    public void stop() {
-        ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPING);
-        sensors().set(SERVICE_UP, false);
-        try {
-            StartableMethods.stop(this);
-            ServiceStateLogic.setExpectedState(this, Lifecycle.STOPPED);
-        } catch (Exception e) {
-            ServiceStateLogic.setExpectedState(this, Lifecycle.ON_FIRE);
-            throw Exceptions.propagate(e);
-        }
+    protected void doStop() {
+        StartableMethods.stop(this);
     }
 
     @Override
@@ -104,17 +81,4 @@ public class BasicStartableImpl extends AbstractEntity implements BasicStartable
         StartableMethods.restart(this);
     }
 
-    @Override
-    protected void initEnrichers() {
-        super.initEnrichers();
-        enrichers().add(ServiceStateLogic.newEnricherFromChildrenUp()
-                .checkChildrenOnly()
-                .requireUpChildren(QuorumCheck.QuorumChecks.all())
-                .suppressDuplicates(true));
-    }
-
-    // TODO make public in StartableMethods
-    private static Iterable<Entity> filterStartableManagedEntities(Iterable<Entity> contenders) {
-        return Iterables.filter(contenders, Predicates.and(Predicates.instanceOf(Startable.class), EntityPredicates.isManaged()));
-    }
 }

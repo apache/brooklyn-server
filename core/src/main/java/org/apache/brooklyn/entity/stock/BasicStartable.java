@@ -46,20 +46,4 @@ public interface BasicStartable extends Entity, Startable {
             "brooklyn.locationsFilter", 
             "Provides a hook for customizing locations to be used for a given context");
 
-    /** @deprecated since 0.7.0; use {@link Locations#LocationFilter} */
-    @Deprecated
-    public interface LocationsFilter extends Locations.LocationsFilter {
-        /** @deprecated since 0.7.0; use {@link Locations#USE_FIRST_LOCATION} */
-        @Deprecated
-        public static final LocationsFilter USE_FIRST_LOCATION = new LocationsFilter() {
-            private static final long serialVersionUID = 3100091615409115890L;
-
-            @Override
-            public List<Location> filterForContext(List<Location> locations, Object context) {
-                if (locations.size()<=1) return locations;
-                return ImmutableList.of(locations.get(0));
-            }
-        };
-    }
-
 }
