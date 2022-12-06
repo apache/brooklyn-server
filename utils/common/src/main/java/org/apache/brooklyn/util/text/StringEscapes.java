@@ -194,7 +194,7 @@ public class StringEscapes {
 
         /** given a string in bash notation, e.g. with quoted portions needing unescaped, returns the unescaped and unquoted version */
         public static String unwrapBashQuotesAndEscapes(String s) {
-            return applyUnquoteAndUnescape(s, "Bash", true);
+            return applyUnquoteAndUnescape(s, "Bash", true, true);
         }
     }
     
@@ -270,7 +270,7 @@ public class StringEscapes {
         /** given a string in java syntax, e.g. wrapped in quotes and with backslash escapes, returns the literal value,
          * without the surrounding quotes and unescaped; throws IllegalArgumentException if not a valid java string */
         public static String unwrapJavaString(String s) {
-            return applyUnquoteAndUnescape(s, "Java", false);
+            return applyUnquoteAndUnescape(s, "Java", false, false);
         }
         
         /**
@@ -501,18 +501,19 @@ public class StringEscapes {
         out.append('\\');
         out.append(c);
     }
-    private static String applyUnquoteAndUnescape(String s, String mode, boolean allowMultipleQuotes) {
+    private static String applyUnquoteAndUnescape(String s, String mode, boolean allowMultipleQuotes, boolean allowSingleQuotes) {
         StringBuilder result = new StringBuilder();
         boolean escaped = false;
-        boolean quoted = false;
+        Character quote = null;
         for (int i=0; i<s.length(); i++) {
             char c = s.charAt(i);
-            if (!quoted) {
+            if (quote==null) {
                 assert (i==0 || allowMultipleQuotes);
                 assert !escaped;
-                if (c=='"') quoted = true;
+                if (c=='"') quote = c;
+                else if (c=='\'' && allowSingleQuotes) quote = c;
                 else if (!allowMultipleQuotes)
-                    throw new IllegalArgumentException("String '"+s+"' is not a valid "+mode+" string (must start with double quote)");
+                    throw new IllegalArgumentException("String '"+s+"' is not a valid "+mode+" string (must start with quote)");
                 else result.append(c);
             } else {
                 if (escaped) {
@@ -522,17 +523,16 @@ public class StringEscapes {
                     else if (c=='r') result.append('\r');
                     else throw new IllegalArgumentException("String '"+s+"' is not a valid "+mode+" string (unsupported escape char '"+c+"' at position "+i+")");
                     escaped = false;
-                } else {
-                    if (c=='\\') escaped = true;
-                    else if (c=='\"') {
-                        quoted = false;
-                        if (!allowMultipleQuotes && i<s.length()-1)
-                            throw new IllegalArgumentException("String '"+s+"' is not a valid "+mode+" string (unescaped interior double quote at position "+i+")");
-                    } else result.append(c); 
-                }
+                } else if (c=='\\') {
+                    escaped = true;
+                } else if (c == quote && (c=='\'' || c=='"')) {
+                    quote = null;
+                    if (!allowMultipleQuotes && i < s.length() - 1)
+                        throw new IllegalArgumentException("String '" + s + "' is not a valid " + mode + " string (unescaped interior double quote at position " + i + ")");
+                } else result.append(c);
             }
         }
-        if (quoted)
+        if (quote!=null)
             throw new IllegalArgumentException("String '"+s+"' is not a valid "+mode+" string (unterminated string)");
         assert !escaped;
         return result.toString();

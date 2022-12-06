@@ -260,3 +260,12 @@ brooklyn.catalog:
     itemType: policy
     item:
       type: org.apache.brooklyn.core.workflow.WorkflowPolicy
+
+  - id: workflow-entity
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.stock.WorkflowStartable
+  - id: workflow-software-process
+    itemType: entity
+    item:
+      type: org.apache.brooklyn.entity.software.base.WorkflowSoftwareProcess

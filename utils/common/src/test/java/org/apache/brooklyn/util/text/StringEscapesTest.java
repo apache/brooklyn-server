@@ -228,4 +228,9 @@ public class StringEscapesTest {
                 MutableList.of(MutableMap.of("a", MutableList.<Object>of("b", 2)), "world"));
     }
 
+    @Test
+    public void testBashUnwrap() {
+        Assert.assertEquals(StringEscapes.BashStringEscapes.unwrapBashQuotesAndEscapes("\"back\\\\slash\""), "back\\slash");
+        Assert.assertEquals(StringEscapes.BashStringEscapes.unwrapBashQuotesAndEscapes("\'back\\\\slash\'"), "back\\slash");
+    }
 }

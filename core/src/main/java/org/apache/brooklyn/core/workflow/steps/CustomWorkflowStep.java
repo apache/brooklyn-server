@@ -65,6 +65,12 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
 
     private static final String WORKFLOW_SETTING_SHORTHAND = "[ \"replayable\" ${replayable...} ] [ \"retention\" ${retention...} ] ";
 
+    public CustomWorkflowStep() {}
+    public CustomWorkflowStep(String name, List<Object> steps) {
+        this.name = name;
+        this.steps = steps;
+    }
+
     String shorthand;
     @Override
     public void populateFromShorthand(String value) {

@@ -33,33 +33,33 @@ import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 @ImplementedBy(WorkflowSoftwareProcessImpl.class)
 public interface WorkflowSoftwareProcess extends SoftwareProcess {
 
-    @CatalogConfig(label = "Install Command", priority=5)
+    @CatalogConfig(label = "Install Workflow", priority=5)
     ConfigKey<CustomWorkflowStep> INSTALL_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "install.workflow")
-            .description("command to run during the install phase")
+            .description("workflow to run during the software install phase")
             .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
-    @CatalogConfig(label = "Customize command", priority=4)
+    @CatalogConfig(label = "Customize Workflow", priority=4)
     ConfigKey<CustomWorkflowStep> CUSTOMIZE_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "customize.workflow")
-            .description("command to run during the customization phase")
+            .description("workflow to run during the software customization phase")
             .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
-    @CatalogConfig(label = "Launch Command", priority=3)
+    @CatalogConfig(label = "Launch Workflow", priority=3)
     ConfigKey<CustomWorkflowStep> LAUNCH_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "launch.workflow")
-            .description("command to run to launch the process")
+            .description("workflow to run to launch the software process")
             .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
-    @CatalogConfig(label = "Check-running Command", priority=2)
+    @CatalogConfig(label = "Check-running Workflow", priority=2)
     ConfigKey<CustomWorkflowStep> CHECK_RUNNING_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "checkRunning.workflow")
-            .description("command to determine whether the process is running")
+            .description("workflow to determine whether the software process is running")
             .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 
-    @CatalogConfig(label = "Stop Command", priority=1)
+    @CatalogConfig(label = "Stop Workflow", priority=1)
     ConfigKey<CustomWorkflowStep> STOP_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "stop.workflow")
-            .description("command to run to stop the process")
+            .description("workflow to run to stop the software process")
             .runtimeInheritance(ConfigInheritance.NONE)
             .build();
 

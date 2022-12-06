@@ -38,14 +38,17 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.executor.HttpConfig;
 import org.apache.brooklyn.util.net.Networking;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -63,8 +66,14 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         return runSteps(steps, appFunction, null);
     }
     Object runSteps(List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag defaultConfig) {
+        return runSteps(true, steps, appFunction, defaultConfig);
+    }
+    Object runMoreSteps(List<Object> steps) {
+        return runSteps(false, steps, null, null);
+    }
+    Object runSteps(boolean reset, List<Object> steps, Consumer<BasicApplication> appFunction, ConfigBag defaultConfig) {
         loadTypes();
-        BasicApplication app = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
+        BasicApplication app = reset || lastApp==null ? mgmt.getEntityManager().createEntity(EntitySpec.create(BasicApplication.class)) : lastApp;
         this.lastApp = app;
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "myWorkflow")
@@ -95,6 +104,31 @@ public class WorkflowBeefyStepTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertEquals(result, 2);
         EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "x"), 2);
         EntityAsserts.assertAttributeEquals(lastApp, Sensors.newSensor(Object.class, "last-param"), "from-invocation");
+    }
+
+    @Test
+    public void testSensorMap() throws Exception {
+        Object r;
+        r = runSteps(MutableList.of("set-sensor some.map['key'] = x", "return ${entity.sensor['some.map']}"), null);
+        Asserts.assertEquals(r, MutableMap.of("key", "x"));
+
+        r = runMoreSteps(MutableList.of("set-sensor some.map[key2] = y", "return ${entity.sensor['some.map']}"));
+        Asserts.assertEquals(r, MutableMap.of("key", "x", "key2", "y"));
+
+        r = runMoreSteps(MutableList.of("set-sensor some.new['a'][\"b\"][-1] = ab0", "return ${entity.sensor['some.new']}"));
+        Asserts.assertEquals(r, MutableMap.of("a", MutableMap.of("b", MutableList.of("ab0"))));
+
+        r = runMoreSteps(MutableList.of("set-sensor some.new[\"a\"][\"b\"][1] = ab1", "return ${entity.sensor['some.new']}"));
+        Asserts.assertEquals(r, MutableMap.of("a", MutableMap.of("b", MutableList.of("ab0", "ab1"))));
+
+        r = runMoreSteps(MutableList.of("clear-sensor some.new[\"a\"][\"b\"][0]", "return ${entity.sensor['some.new']}"));
+        Asserts.assertEquals(r, MutableMap.of("a", MutableMap.of("b", MutableList.of("ab1"))));
+
+        r = runMoreSteps(MutableList.of("clear-sensor some.new[\"a\"][\"b\"][999]", "return ${entity.sensor['some.new']}"));
+        Asserts.assertEquals(r, MutableMap.of("a", MutableMap.of("b", MutableList.of("ab1"))));
+
+        r = runMoreSteps(MutableList.of("clear-sensor some.new[\"a\"]", "return ${entity.sensor['some.new']}"));
+        Asserts.assertEquals(r, MutableMap.of());
     }
 
     @Test

@@ -67,7 +67,7 @@ public class StartableMethods {
         log.debug("Restarted children of entity "+e);
     }
     
-    private static <T extends Entity> Iterable<T> filterStartableManagedEntities(Iterable<T> contenders) {
+    public static <T extends Entity> Iterable<T> filterStartableManagedEntities(Iterable<T> contenders) {
         return Iterables.filter(contenders, Predicates.and(Predicates.instanceOf(Startable.class), EntityPredicates.isManaged()));
     }
 
