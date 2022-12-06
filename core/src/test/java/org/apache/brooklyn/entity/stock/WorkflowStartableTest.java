@@ -90,8 +90,7 @@ public class WorkflowStartableTest extends BrooklynAppUnitTestSupport {
 
         WorkflowEffector eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "make-problem")
-                .configure(WorkflowEffector.STEPS, MutableList.of("set-sensor service.problems = { some_problem: Testing }")) );
-//                .configure(WorkflowEffector.STEPS, MutableList.of("set-sensor service.problems['some_problem'] = Testing a problem")) );
+                .configure(WorkflowEffector.STEPS, MutableList.of("set-sensor service.problems['some_problem'] = Testing a problem")) );
         eff.apply((EntityLocal)entity);
         entity.invoke(entity.getEntityType().getEffectorByName("make-problem").get(), null).getUnchecked();
 
@@ -101,8 +100,7 @@ public class WorkflowStartableTest extends BrooklynAppUnitTestSupport {
 
         eff = new WorkflowEffector(ConfigBag.newInstance()
                 .configure(WorkflowEffector.EFFECTOR_NAME, "fix-problem")
-                .configure(WorkflowEffector.STEPS, MutableList.of("set-sensor service.problems = {}")) );
-//                .configure(WorkflowEffector.STEPS, MutableList.of("clear-sensor service.problems['some_problem']")) );
+                .configure(WorkflowEffector.STEPS, MutableList.of("clear-sensor service.problems['some_problem']")) );
         eff.apply((EntityLocal)entity);
         entity.invoke(entity.getEntityType().getEffectorByName("fix-problem").get(), null).getUnchecked();
 
