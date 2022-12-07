@@ -128,14 +128,9 @@ public class NestedRefsCatalogYamlTest extends AbstractYamlTest {
 
     /* test that invoke-effector doesn't cause confusion */
     void doTestAddAfterWorkflow(String url) {
-
         // add invoke-effector bean via a bundle
 //        WorkflowBasicTest.addWorkflowStepTypes(mgmt());
         Collection<RegisteredType> typesW = addCatalogItems(ResourceUtils.create(this).getResourceAsString("classpath://nested-refs-catalog-yaml-workflow-test.bom.yaml"));
-        Map<RegisteredType, Collection<Throwable>> resultW = mgmt().getCatalog().validateTypes(typesW);
-        if (!resultW.isEmpty()) {
-            Asserts.fail("Should be empty: " + resultW);
-        }
 
         // now add it as a type, in various ways
         Collection<RegisteredType> types = addCatalogItems(ResourceUtils.create(this).getResourceAsString(url));
@@ -144,7 +139,7 @@ public class NestedRefsCatalogYamlTest extends AbstractYamlTest {
         Asserts.assertEquals(mgmt().getTypeRegistry().get("invoke-effector", RegisteredTypeLoadingContexts.loader(
                 new OsgiBrooklynClassLoadingContext(mgmt(), types.iterator().next().getId(), null))).getContainingBundle(), "test-bundle:0.1.0-SNAPSHOT");
 
-        // which should allow it to validate
+        // re-do the validation to be sure
         Map<RegisteredType, Collection<Throwable>> result = mgmt().getCatalog().validateTypes(types);
         if (!result.isEmpty()) {
             Asserts.fail("Failed validation should be empty: " + result);
@@ -161,7 +156,7 @@ public class NestedRefsCatalogYamlTest extends AbstractYamlTest {
         doTestAddAfterWorkflow("classpath://nested-refs-catalog-yaml-test-2.bom.yaml");
     }
 
-    @Test(groups = "Broken")  // need to defer loading until all items pre-parsed, or correct loading later
+    @Test  // allow validation to change the kind once all peers are loaded
     public void testAddAmbiguousCatalogItemsPreferFromSameBundleEvenIfDefinedLater() throws Exception {
         doTestAddAfterWorkflow("classpath://nested-refs-catalog-yaml-test-3.bom.yaml");
     }

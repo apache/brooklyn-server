@@ -237,7 +237,10 @@ public class RegisteredTypes {
     }
     @Beta
     public static RegisteredType copyResolved(RegisteredTypeKind kind, RegisteredType t) {
-        if (t.getKind()!=null && t.getKind()!=RegisteredTypeKind.UNRESOLVED && t.getKind()!=kind) {
+        return copyResolved(kind, t, false);
+    }
+    public static RegisteredType copyResolved(RegisteredTypeKind kind, RegisteredType t, boolean allowChangingKind) {
+        if (!allowChangingKind && t.getKind()!=null && t.getKind()!=RegisteredTypeKind.UNRESOLVED && t.getKind()!=kind) {
             throw new IllegalStateException("Cannot copy resolve "+t+" ("+t.getKind()+") as "+kind);
         }
         return newInstance(kind, t.getSymbolicName(), t.getVersion(), t.getPlan(), 
@@ -528,14 +531,17 @@ public class RegisteredTypes {
         RegisteredType first = ti.next();
         if (!ti.hasNext()) return first;  //only
 
-        Collection<? extends OsgiBundleWithUrl> preferredBundles = context.getLoader().getBundles();
-        for (OsgiBundleWithUrl b: preferredBundles) {
-            Iterable<RegisteredType> typesInBundle = Iterables.filter(types, t -> Objects.equal(
-                    VersionedName.fromString(t.getContainingBundle()), b.getVersionedName()));
-            if (typesInBundle.iterator().hasNext()) {
-                if (log.isTraceEnabled()) log.trace("Preferring "+typesInBundle+" from "+types+" because its bundle is in the explicit loader list");
-                types = typesInBundle;
-                break;
+        if (context!=null && context.getLoader()!=null) {
+            Collection<? extends OsgiBundleWithUrl> preferredBundles = context.getLoader().getBundles();
+            for (OsgiBundleWithUrl b : preferredBundles) {
+                Iterable<RegisteredType> typesInBundle = Iterables.filter(types, t -> t.getContainingBundle() != null && Objects.equal(
+                        VersionedName.fromString(t.getContainingBundle()).toOsgiString(), b.getVersionedName().toOsgiString()));
+                if (typesInBundle.iterator().hasNext()) {
+                    if (log.isTraceEnabled())
+                        log.trace("Preferring " + typesInBundle + " from " + types + " because its bundle is in the explicit loader list");
+                    types = typesInBundle;
+                    break;
+                }
             }
         }
 

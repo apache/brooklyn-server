@@ -65,6 +65,7 @@ import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution.BrooklynTypeNameResolver;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
@@ -911,6 +912,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
         final Boolean catalogDeprecated = Boolean.valueOf(setFromItemIfUnset(deprecated, itemAsMap, "deprecated"));
 
+        // provisional resolution - will be done again during validation, and even the kind might change, eg if there is a local bundle item
+        // indicating a different preferred supertype as compared with something else stored in type registry
         planInterpreter.resolve();
         if (!planInterpreter.isResolved()) {
             // don't throw yet, we may be able to add it in an unresolved state
@@ -1908,7 +1911,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
                 Collection<Throwable> tr = validateType(t, null, true);
                 if (!tr.isEmpty()) {
-                    result.put(t, tr);
+                    // reload it in case it changed
+                    result.put(mgmt.getTypeRegistry().get(t.getId(), RegisteredTypeLoadingContexts.loader(CatalogUtils.newClassLoadingContext(mgmt, t))),
+                            tr);
                 }
             }
             String msg = (typesRemainingToValidate.size()-result.size())+" validated, "+result.size()+" unvalidated";
@@ -1928,7 +1933,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     public Collection<Throwable> validateType(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint, boolean allowUnresolved) {
         try {
             currentlyValidatingType.set(typeToValidate);
-            ReferenceWithError<RegisteredType> result = validateResolve(typeToValidate, constraint);
+            ReferenceWithError<RegisteredType> result = validateResolve(typeToValidate, constraint, true);
             if (result.hasError()) {
                 if (allowUnresolved && RegisteredTypes.isTemplate(typeToValidate)) {
                     // ignore for templates
@@ -1952,7 +1957,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
      * The argument may be changed (e.g. its kind set, supertypes set), and normal usage is to add 
      * a type in an "unresolved" state if things may need to reference it, then call resolve here,
      * then replace what was added with the argument given here. */
-    ReferenceWithError<RegisteredType> validateResolve(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint) {
+    ReferenceWithError<RegisteredType> validateResolve(RegisteredType typeToValidate, RegisteredTypeLoadingContext constraint, boolean allowChangingKind) {
         Throwable inconsistentSuperTypesError=null, specError=null, beanError=null;
         List<Throwable> guesserErrors = MutableList.of();
         
@@ -1988,7 +1993,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         Object resultO = null;
         if (resultO==null && boType!=null) try {
             // try spec instantiation if we know the BO Type (no point otherwise)
-            resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate);
+            resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate, allowChangingKind);
             try {
                 resultO = mgmt.getTypeRegistry().createSpec(resultT, constraint, boType.getSpecType());
             } catch (Exception e) {
@@ -2003,7 +2008,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         
         if (resultO==null) try {
             // try it as a bean
-            resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate);
+            resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate, allowChangingKind);
             try {
                 resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, constraint, superJ);
                 if (typeToValidate.getKind()!=RegisteredTypeKind.BEAN && isDubiousBeanType(resultO)) {
@@ -2031,10 +2036,15 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             log.trace("Validating {}: \n{}", typeToValidate, yaml);
             
             CatalogBundle bundle = typeToValidate.getContainingBundle() != null ? CatalogItemDtoAbstract.parseLibraries(Arrays.asList(typeToValidate.getContainingBundle())).iterator().next() : null;
-            CatalogItemType itemType = boType!=null ? CatalogItemType.ofTargetClass(boType.getInterfaceType()) : null;
-            if (itemType==null && typeToValidate.getKind() == RegisteredTypeKind.BEAN) {
-                itemType = CatalogItemType.BEAN;
+            CatalogItemType itemType = null;
+
+            if (!allowChangingKind) {
+                itemType = boType!=null ? CatalogItemType.ofTargetClass(boType.getInterfaceType()) : null;
+                if (itemType==null && typeToValidate.getKind() == RegisteredTypeKind.BEAN) {
+                    itemType = CatalogItemType.BEAN;
+                }
             }
+
             String format = typeToValidate.getPlan().getPlanFormat();
             PlanInterpreterInferringType guesser = new PlanInterpreterInferringType(typeToValidate.getSymbolicName(), Iterables.getOnlyElement( Yamls.parseAll(yaml) ),
                 yaml, itemType, format, bundle, CatalogItemDtoAbstract.parseLibraries( typeToValidate.getLibraries() ), constraint, null);
@@ -2059,7 +2069,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         supers = MutableSet.copyOf(supers);
                         supers.add(boType.getInterfaceType());
                         // didn't know type before, retry now that we know the type
-                        resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, resultT);
+                        resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, resultT, allowChangingKind);
                         RegisteredTypes.addSuperTypes(resultT, supers);
                         changedSomething = true;
                     }
@@ -2074,7 +2084,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 if (changedSomething) {
                     log.debug("Re-resolving "+resultT+" following detection of change");
                     // try again with new plan or supertype info
-                    return validateResolve(resultT, constraint);
+                    return validateResolve(resultT, constraint, false);
                     
                 } else if (Objects.equal(boType, BrooklynObjectType.of(ciType))) {
                     if (specError==null) {
@@ -2099,7 +2109,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             if (resultO instanceof BrooklynObject) {
                 // if it was a bean that points at a BO then switch it to a spec and try to re-validate
                 log.debug("Re-resolving "+resultT+" following detection of bean where spec was expected");
-                return validateResolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate), constraint);
+                return validateResolve(RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate), constraint, false);
             }
             Class<?> resultS;
             if (resultT.getKind() == RegisteredTypeKind.SPEC) {
