@@ -21,8 +21,8 @@ package org.apache.brooklyn.util.core.internal.ssh.sshj;
 import static com.google.common.base.Objects.equal;
 import static com.google.common.base.Preconditions.checkNotNull;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
+import java.util.List;
 
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier;
@@ -30,7 +30,18 @@ import net.schmizz.sshj.userauth.keyprovider.OpenSSHKeyFile;
 import net.schmizz.sshj.userauth.password.PasswordUtils;
 
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.internal.ssh.SshAbstractTool.SshAction;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.Strings;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.crypto.params.AsymmetricKeyParameter;
+import org.bouncycastle.crypto.util.OpenSSHPrivateKeyUtil;
+import org.bouncycastle.crypto.util.PrivateKeyInfoFactory;
+import org.bouncycastle.openssl.MiscPEMGenerator;
+import org.bouncycastle.util.io.pem.PemReader;
+import org.bouncycastle.util.io.pem.PemWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -174,6 +185,21 @@ public class SshjClientConnection implements SshAction<SSHClient> {
         ssh = null;
     }
 
+    static String convertOpensshPrivateKeyToRsaPrivateKeyData(String opensshPrivateKeyNewFormatData) throws IOException {
+        AsymmetricKeyParameter privateKeyParameters;
+        try (StringReader r = new StringReader(opensshPrivateKeyNewFormatData)) {
+            PemReader pemReader = new PemReader(r);
+            byte[] privateKeyContent = pemReader.readPemObject().getContent();
+            privateKeyParameters = OpenSSHPrivateKeyUtil.parsePrivateKeyBlob(privateKeyContent);
+        }
+        PrivateKeyInfo keyInfo = PrivateKeyInfoFactory.createPrivateKeyInfo(privateKeyParameters);
+        StringWriter sw = new StringWriter();
+        PemWriter pw = new PemWriter(sw);
+        pw.writeObject(new MiscPEMGenerator(keyInfo).generate());
+        pw.close();
+        return sw.toString();
+    }
+
     @Override
     public SSHClient create() throws Exception {
         if (LOG.isTraceEnabled()) LOG.trace("Connecting SshjClientConnection {} ({})", this, System.identityHashCode(this));
@@ -191,23 +217,74 @@ public class SshjClientConnection implements SshAction<SSHClient> {
         
         if (password != null) {
             ssh.authPassword(username, password);
-        } else if (privateKeyData != null) {
-            OpenSSHKeyFile key = new OpenSSHKeyFile();
-            key.init(privateKeyData, null, 
-                    JavaGroovyEquivalents.groovyTruth(privateKeyPassphrase) ? 
-                            PasswordUtils.createOneOff(privateKeyPassphrase.toCharArray())
-                            : null);
-            ssh.authPublickey(username, key);
-        } else if (privateKeyFile != null) {
-            OpenSSHKeyFile key = new OpenSSHKeyFile();
-            key.init(privateKeyFile, 
-                    JavaGroovyEquivalents.groovyTruth(privateKeyPassphrase) ? 
-                            PasswordUtils.createOneOff(privateKeyPassphrase.toCharArray())
-                            : null);
-            ssh.authPublickey(username, key);
         } else {
-            // Accept defaults (in ~/.ssh)
-            ssh.authPublickey(username);
+            boolean auth = false;
+
+            String actualPrivateKeyData = privateKeyData;
+
+
+            List<Exception> errors = MutableList.of();
+
+            if (Strings.isBlank(actualPrivateKeyData) && privateKeyFile!=null) {
+                actualPrivateKeyData = Streams.readFullyStringAndClose(new FileInputStream(privateKeyFile));
+            }
+
+            try {
+                if (Strings.isNonBlank(actualPrivateKeyData) && actualPrivateKeyData.trim().matches("(?s)-+ *BEGIN OPENSSH PRIVATE KEY.*")) {
+                    // bouncy castle has low-level routines for OPENSSH PRIVATE KEY format
+                    // but does not recognize it in the PEM file, so we handle it specially
+                    // (but note passphrase is not supported)
+                    if (Strings.isNonBlank(privateKeyPassphrase)) throw new IllegalArgumentException(
+                            "Passphrase not supported with proprietary OPENSSH PRIVATE KEY format. " +
+                                    "Use RSA or other standard. If using ssh-keygen this means passing `-m pem`.");
+
+                    OpenSSHKeyFile key = new OpenSSHKeyFile();
+                    key.init(convertOpensshPrivateKeyToRsaPrivateKeyData(actualPrivateKeyData), null,
+                            null /* passphrase would have been used earlier, but isn't supported by BC */);
+                    auth = true;
+                    ssh.authPublickey(username, key);
+                }
+            } catch (Exception e) {
+                errors.add(e);
+            }
+
+            if (!auth && privateKeyData != null) {
+                try {
+                    OpenSSHKeyFile key = new OpenSSHKeyFile();
+                    key.init(privateKeyData, null,
+                            JavaGroovyEquivalents.groovyTruth(privateKeyPassphrase) ?
+                                    PasswordUtils.createOneOff(privateKeyPassphrase.toCharArray())
+                                    : null);
+                    auth = true;
+                    ssh.authPublickey(username, key);
+                } catch (Exception e) {
+                    errors.add(e);
+                }
+            }
+
+            if (!auth && privateKeyFile != null) {
+                try {
+                    OpenSSHKeyFile key = new OpenSSHKeyFile();
+                    key.init(privateKeyFile,
+                            JavaGroovyEquivalents.groovyTruth(privateKeyPassphrase) ?
+                                    PasswordUtils.createOneOff(privateKeyPassphrase.toCharArray())
+                                    : null);
+                    auth = true;
+                    ssh.authPublickey(username, key);
+                } catch (Exception e) {
+                    errors.add(e);
+                }
+            }
+
+            if (!errors.isEmpty()) {
+                if (errors.size()>1) LOG.warn("Invalid keys supplied, multiple errors. First will be rethrown. All errors are: "+errors);
+                throw Exceptions.propagate("Unsupported key type", errors);
+            }
+
+            if (!auth) {
+                // Accept defaults (in ~/.ssh)
+                ssh.authPublickey(username);
+            }
         }
         
         return ssh;

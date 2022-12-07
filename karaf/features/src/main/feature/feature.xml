@@ -62,9 +62,9 @@
 
         <feature prerequisite="true">wrap</feature>
 
-        <bundle>mvn:org.bouncycastle/bcutil-jdk15on/${bouncycastle.version}</bundle>
-        <bundle>mvn:org.bouncycastle/bcprov-ext-jdk15on/${bouncycastle.version}</bundle>
-        <bundle>mvn:org.bouncycastle/bcpkix-jdk15on/${bouncycastle.version}</bundle>
+        <bundle>mvn:org.bouncycastle/bcutil-jdk18on/${bouncycastle.version}</bundle>
+        <bundle>mvn:org.bouncycastle/bcprov-jdk18on/${bouncycastle.version}</bundle>
+        <bundle>mvn:org.bouncycastle/bcpkix-jdk18on/${bouncycastle.version}</bundle>
         <bundle>mvn:org.apache.servicemix.bundles/org.apache.servicemix.bundles.jzlib/${jzlib.version}</bundle>
         <!-- wrapped to import/export eddsa.math subpackage, and fix various other refs too -->
         <bundle>wrap:mvn:net.i2p.crypto/eddsa/${eddsa.version}$overwrite=merge&amp;Bundle-SymbolicName=net.i2p.crypto.eddsa_wrapped&amp;Bundle-Version=${eddsa.version}&amp;Export-Package=*;version="${eddsa.version}"</bundle>
