@@ -18,12 +18,10 @@
  */
 package org.apache.brooklyn.core.mgmt.classloading;
 
-import java.net.URL;
-import java.util.List;
-import java.util.Set;
-
+import com.google.common.base.Objects;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -31,7 +29,10 @@ import org.apache.brooklyn.util.guava.Maybe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
+import java.net.URL;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 
 public final class BrooklynClassLoadingContextSequential extends AbstractBrooklynClassLoadingContext {
 
@@ -46,7 +47,15 @@ public final class BrooklynClassLoadingContextSequential extends AbstractBrookly
         for (BrooklynClassLoadingContext target: targets)
             add(target);
     }
-    
+
+    @Override
+    public Collection<? extends OsgiBundleWithUrl> getBundles() {
+        MutableSet<OsgiBundleWithUrl> result = MutableSet.of();
+        primaries.forEach(c -> result.addAll(c.getBundles()));
+        secondaries.forEach(c -> result.addAll(c.getBundles()));
+        return result;
+    }
+
     public void add(BrooklynClassLoadingContext target) {
         if (target instanceof BrooklynClassLoadingContextSequential) {
             for (BrooklynClassLoadingContext targetN: ((BrooklynClassLoadingContextSequential)target).primaries )

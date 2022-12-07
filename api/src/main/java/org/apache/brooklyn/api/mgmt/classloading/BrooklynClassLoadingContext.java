@@ -19,7 +19,10 @@
 package org.apache.brooklyn.api.mgmt.classloading;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.util.javalang.ClassLoadingContext;
+
+import java.util.Collection;
 
 /** 
  * As {@link ClassLoadingContext} but the {@link ManagementContext} is also available.
@@ -27,5 +30,7 @@ import org.apache.brooklyn.util.javalang.ClassLoadingContext;
 public interface BrooklynClassLoadingContext extends ClassLoadingContext {
 
     public ManagementContext getManagementContext();
+    // bundle search path, if defined
+    public Collection<? extends OsgiBundleWithUrl> getBundles();
 
 }

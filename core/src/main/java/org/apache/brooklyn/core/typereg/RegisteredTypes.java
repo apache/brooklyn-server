@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
+import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer.JavaClassNameTypeImplementationPlan;
 import org.apache.brooklyn.util.collections.Jsonya;
@@ -59,6 +60,7 @@ import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.Maybe.Absent;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.NaturalOrderComparator;
 import org.apache.brooklyn.util.text.Strings;
@@ -517,6 +519,27 @@ public class RegisteredTypes {
     public static RegisteredType getBestVersion(Iterable<RegisteredType> types) {
         if (types==null || !types.iterator().hasNext()) return null;
         return Ordering.from(RegisteredTypeNameThenBestFirstComparator.INSTANCE).min(types);
+    }
+
+    public static RegisteredType getBestVersionInContext(Iterable<RegisteredType> types, RegisteredTypeLoadingContext context) {
+        if (types==null) return null;
+        Iterator<RegisteredType> ti = types.iterator();
+        if (!ti.hasNext()) return null;
+        RegisteredType first = ti.next();
+        if (!ti.hasNext()) return first;  //only
+
+        Collection<? extends OsgiBundleWithUrl> preferredBundles = context.getLoader().getBundles();
+        for (OsgiBundleWithUrl b: preferredBundles) {
+            Iterable<RegisteredType> typesInBundle = Iterables.filter(types, t -> Objects.equal(
+                    VersionedName.fromString(t.getContainingBundle()), b.getVersionedName()));
+            if (typesInBundle.iterator().hasNext()) {
+                if (log.isTraceEnabled()) log.trace("Preferring "+typesInBundle+" from "+types+" because its bundle is in the explicit loader list");
+                types = typesInBundle;
+                break;
+            }
+        }
+
+        return getBestVersion(types);
     }
     
     /** by name, then with disabled, deprecated first, then by increasing version */ 

@@ -30,9 +30,11 @@ import org.apache.brooklyn.core.entity.EntityInternal;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.guava.Maybe;
 
 import com.google.common.base.Objects;
+import org.apache.brooklyn.util.osgi.VersionedName;
 
 public class OsgiBrooklynClassLoadingContext extends AbstractBrooklynClassLoadingContext {
 

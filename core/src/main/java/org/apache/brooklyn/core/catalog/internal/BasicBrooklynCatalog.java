@@ -778,22 +778,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             }
         }
         PlanInterpreterInferringType planInterpreter = new PlanInterpreterInferringType(id, item, sourceYaml, itemType, format,
-                (containingBundle instanceof CatalogBundle ? ((CatalogBundle)containingBundle) : null), libraryBundles,
-                null, resultLegacyFormat).resolve();
-
-        if (!planInterpreter.isResolved()) {
-            // don't throw yet, we may be able to add it in an unresolved state
-            resolutionError = Exceptions.create("Could not resolve definition of item"
-                + (Strings.isNonBlank(id) ? " '"+id+"'" : Strings.isNonBlank(symbolicName) ? " '"+symbolicName+"'" : Strings.isNonBlank(name) ? " '"+name+"'" : "")
-                // better not to show yaml, takes up lots of space, and with multiple plan transformers there might be multiple errors;
-                // some of the errors themselves may reproduce it
-                // (ideally in future we'll be able to return typed errors with caret position of error)
-//                + ":\n"+sourceYaml
-                , MutableList.<Exception>of().appendIfNotNull(resolutionError).appendAll(planInterpreter.getErrors()));
-        }
-
-        // might be null
-        itemType = planInterpreter.getCatalogItemType();
+                containingBundle, libraryBundles,
+                null, resultLegacyFormat);
 
         Map<?, ?> itemAsMap = planInterpreter.getItem();
         // the "plan yaml" includes the services: ... or brooklyn.policies: ... outer key,
@@ -925,10 +911,27 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final String deprecated = getFirstAs(catalogMetadata, String.class, "deprecated").orNull();
         final Boolean catalogDeprecated = Boolean.valueOf(setFromItemIfUnset(deprecated, itemAsMap, "deprecated"));
 
-        // run again now that we know the ID to catch recursive definitions and possibly other mistakes (itemType inconsistency?)
-        planInterpreter = planInterpreter.setId(id).resolve();
-        if (resolutionError==null && !planInterpreter.isResolved()) {
-            resolutionError = new IllegalStateException("Plan resolution for "+id+" breaks after id and itemType are set; is there a recursive reference or other type inconsistency?\n"+sourceYaml);
+        planInterpreter.resolve();
+        if (!planInterpreter.isResolved()) {
+            // don't throw yet, we may be able to add it in an unresolved state
+            resolutionError = Exceptions.create("Could not resolve definition of item"
+                            + (Strings.isNonBlank(id) ? " '"+id+"'" : Strings.isNonBlank(symbolicName) ? " '"+symbolicName+"'" : Strings.isNonBlank(name) ? " '"+name+"'" : "")
+                    // better not to show yaml, takes up lots of space, and with multiple plan transformers there might be multiple errors;
+                    // some of the errors themselves may reproduce it
+                    // (ideally in future we'll be able to return typed errors with caret position of error)
+//                + ":\n"+sourceYaml
+                    , MutableList.<Exception>of().appendIfNotNull(resolutionError).appendAll(planInterpreter.getErrors()));
+        }
+
+        // might be null
+        itemType = planInterpreter.getCatalogItemType();
+
+        // run again if ID has just been learned, to catch recursive definitions and possibly other mistakes (itemType inconsistency?)
+        if (!Objects.equal(id, planInterpreter.itemId)) {
+            planInterpreter.setId(id).resolve();
+            if (resolutionError == null && !planInterpreter.isResolved()) {
+                resolutionError = new IllegalStateException("Plan resolution for " + id + " breaks after id and itemType are set; is there a recursive reference or other type inconsistency?\n" + sourceYaml);
+            }
         }
         if (throwOnError && resolutionError!=null) {
             // if there was an error, throw it here
@@ -993,14 +996,14 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // which normally has "type: " prefixed
                 sourcePlanYaml = planInterpreter.itemYaml;
             }
-            
 
+            Set<OsgiBundleWithUrl> searchBundles = MutableSet.<OsgiBundleWithUrl>of().putIfNotNull(containingBundle).putAll(libraryBundles);
             BasicRegisteredType type = createYetUnsavedRegisteredTypeInstance(
                     BrooklynObjectType.of(planInterpreter.catalogItemType).getSpecType()!=null ? RegisteredTypeKind.SPEC
                             : planInterpreter.catalogItemType==CatalogItemType.BEAN ? RegisteredTypeKind.BEAN
                             : RegisteredTypeKind.UNRESOLVED,
                     symbolicName, version,
-                    containingBundle, libraryBundles, 
+                    containingBundle, searchBundles,
                     displayName, description, catalogIconUrl, catalogDeprecated, sourcePlanYaml, 
                     tags, aliases, catalogDisabled, superTypes, format);
 
@@ -1036,7 +1039,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     private BasicRegisteredType createYetUnsavedRegisteredTypeInstance(
             RegisteredTypeKind kind,
             String symbolicName, String version,
-            ManagedBundle containingBundle, Collection<CatalogBundle> libraryBundles,
+            ManagedBundle containingBundle, Collection<OsgiBundleWithUrl> libraryBundles,
             String displayName, String description,
             String catalogIconUrl, final Boolean catalogDeprecated, String sourcePlanYaml, Set<Object> tags, List<String> aliases,
             Boolean catalogDisabled, MutableList<Object> superTypes, String format) {
@@ -1294,7 +1297,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         final Map<?,?> item;
         final String itemYaml;
         final String format;
-        final CatalogBundle containingBundle;
+        final OsgiBundleWithUrl containingBundle;
         final Collection<CatalogBundle> libraryBundles;
         final List<CatalogItemDtoAbstract<?, ?>> itemsDefinedSoFar;
         RegisteredTypeLoadingContext constraint;
@@ -1307,7 +1310,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         List<Exception> transformerErrors = MutableList.of();
 
         public PlanInterpreterInferringType(@Nullable String itemId, Object itemDefinitionParsedToStringOrMap, String itemYaml, @Nullable CatalogItemType optionalCiType, @Nullable String format,
-                                            CatalogBundle containingBundle, Collection<CatalogBundle> libraryBundles,
+                                            OsgiBundleWithUrl containingBundle, Collection<CatalogBundle> libraryBundles,
                                             RegisteredTypeLoadingContext constraint, List<CatalogItemDtoAbstract<?,?>> itemsDefinedSoFar) {
             // ID is useful to prevent recursive references (possibly only supported for entities?)
             this.itemId = itemId;
@@ -1348,7 +1351,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             this.itemsDefinedSoFar = itemsDefinedSoFar;
         }
 
-        public PlanInterpreterInferringType resolve() {
+        public void resolve() {
             try {
                 currentlyResolvingType.set(Strings.isBlank(itemId) ? itemYaml : itemId);
 
@@ -1367,7 +1370,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         resolved = false;
                         attemptLegacySpecTransformersForVariousSpecTypes();
                     }
-                    return this;
+                    return;
                 }
 
                 // for now, these are the lowest-priority errors (reported after the others)
@@ -1382,7 +1385,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         planYaml = itemYaml;
                         resolved = true;
                     }
-                    return this;
+                    return;
                 }
 
                 // couldn't resolve it with the plan transformers; retry with legacy "spec" transformers.
@@ -1393,7 +1396,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     attemptLegacySpecTransformersForVariousSpecTypes();
                 }
 
-                return this;
+                return;
             } finally {
                 currentlyResolvingType.remove();
             }
@@ -1427,8 +1430,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             try {
                 suspicionOfABean = false;
 
-                Set<? extends OsgiBundleWithUrl> searchBundles = MutableSet.copyOf(libraryBundles)
-                        .putIfNotNull(containingBundle);
+                Set<OsgiBundleWithUrl> searchBundles = MutableSet.<OsgiBundleWithUrl>of().putIfNotNull(containingBundle).putAll(libraryBundles);
                 BrooklynClassLoadingContext loader = new OsgiBrooklynClassLoadingContext(mgmt, null, searchBundles);
                 if (catalogItemType == null) {
                     // attempt to detect whether it is a bean
@@ -1988,7 +1990,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // try spec instantiation if we know the BO Type (no point otherwise)
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, typeToValidate);
             try {
-                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createSpec(resultT, constraint, boType.getSpecType());
+                resultO = mgmt.getTypeRegistry().createSpec(resultT, constraint, boType.getSpecType());
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
                 specError = e;

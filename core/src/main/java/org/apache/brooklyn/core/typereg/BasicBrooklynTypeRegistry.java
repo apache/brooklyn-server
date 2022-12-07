@@ -207,7 +207,7 @@ public class BasicBrooklynTypeRegistry implements BrooklynTypeRegistry {
         }
         
         if (!Iterables.isEmpty(types)) {
-            RegisteredType type = RegisteredTypes.getBestVersion(types);
+            RegisteredType type = RegisteredTypes.getBestVersionInContext(types, context);
             if (type!=null) return Maybe.of(type);
         }
         

@@ -45,6 +45,7 @@ import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyIfAmbiguousTypeSerializer;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.HasBaseType;
+import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 
@@ -124,7 +125,7 @@ public class BrooklynRegisteredTypeJacksonSerialization {
             }
 
             if (allowRegisteredTypes && mgmt!=null) {
-                RegisteredType rt = mgmt.getTypeRegistry().get(id);
+                RegisteredType rt = mgmt.getTypeRegistry().get(id, RegisteredTypeLoadingContexts.loader(loader));
                 if (rt != null) {
                     return new BrooklynJacksonType(rt);
                 }

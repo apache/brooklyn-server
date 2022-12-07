@@ -22,8 +22,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import java.net.URL;
+import java.util.Collection;
+import java.util.Collections;
 
 import org.apache.brooklyn.api.mgmt.ManagementContext;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
 import org.apache.brooklyn.util.exceptions.Exceptions;
@@ -48,7 +51,12 @@ public class JavaBrooklynClassLoadingContext extends AbstractBrooklynClassLoadin
     public static JavaBrooklynClassLoadingContext create(ClassLoader loader) {
         return new JavaBrooklynClassLoadingContext(null, checkNotNull(loader, "loader"));
     }
-    
+
+    @Override
+    public Collection<? extends OsgiBundleWithUrl> getBundles() {
+        return Collections.emptySet();
+    }
+
     /**
      * At least one of mgmt or loader must not be null.
      * @deprecated since 0.7.0 only for legacy catalog items which provide a non-osgi loader; see {@link #newDefault(ManagementContext)}

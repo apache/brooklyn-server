@@ -62,7 +62,7 @@ public class CatalogEntitySpecResolver extends AbstractEntitySpecResolver {
     @Override
     protected boolean canResolve(String type, BrooklynClassLoadingContext loader) {
         String localType = getLocalType(type);
-        RegisteredType item = mgmt.getTypeRegistry().get(localType);
+        RegisteredType item = mgmt.getTypeRegistry().get(localType, RegisteredTypeLoadingContexts.loader(loader));
         if (item==null) {
             item = loadUpgrade(localType);
         }
@@ -78,7 +78,7 @@ public class CatalogEntitySpecResolver extends AbstractEntitySpecResolver {
     @Override
     public EntitySpec<?> resolve(String type, BrooklynClassLoadingContext loader, Set<String> parentEncounteredTypes) {
         String localType = getLocalType(type);
-        RegisteredType item = mgmt.getTypeRegistry().get(localType, RegisteredTypeLoadingContexts.spec(Entity.class));
+        RegisteredType item = mgmt.getTypeRegistry().get(localType, RegisteredTypeLoadingContexts.withLoader(RegisteredTypeLoadingContexts.spec(Entity.class), loader));
         boolean upgradeRequired = item==null;
         
         if (upgradeRequired) {
