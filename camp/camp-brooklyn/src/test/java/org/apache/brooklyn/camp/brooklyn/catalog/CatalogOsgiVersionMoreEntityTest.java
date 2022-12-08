@@ -101,7 +101,7 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
         Assert.assertNotNull(item);
         Assert.assertEquals(item.getVersion(), "1.0");
         Assert.assertTrue(RegisteredTypePredicates.IS_ENTITY.apply(item));
-        Assert.assertEquals(item.getLibraries().size(), 1);
+        Assert.assertEquals(item.getLibraries().size(), 2);
         
         Entity app = createAndStartApplication("services: [ { type: 'more-entity:1.0' } ]");
         Entity moreEntity = Iterables.getOnlyElement(app.getChildren());
@@ -151,20 +151,20 @@ public class CatalogOsgiVersionMoreEntityTest extends AbstractYamlTest implement
     }
 
     @Test
-    /** Now assumes highest version wins regardless of install order */
-    public void testMoreEntityV1AndV2GivesV2() throws Exception {
+    /** Uses libraries to find references */
+    public void testMoreEntityV2ThenV1GivesV1() throws Exception {
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.1.0.jar");
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-more-entities_0.2.0.jar");
         TestResourceUnavailableException.throwIfResourceUnavailable(getClass(), "/brooklyn/osgi/brooklyn-test-osgi-entities.jar");
 
-        addCatalogItems(getLocalResource("more-entity-v2-osgi-catalog.yaml"));
+        addCatalogItems(getLocalResource("more-entity-v2-osgi-catalog.yaml"));  // expects MoreEntity to come from 0.2.0 bundle, installed as more-entity:1.0
         forceCatalogUpdate();
-        addCatalogItems(getLocalResource("more-entity-v1-osgi-catalog.yaml"));
+        addCatalogItems(getLocalResource("more-entity-v1-osgi-catalog.yaml"));  // expects MoreEntity to come from 0.1.0 bundle, installed as more-entity:1.0; replaces previous
         Entity app = createAndStartApplication("services: [ { type: 'more-entity:1.0' } ]");
         Entity moreEntity = Iterables.getOnlyElement(app.getChildren());
         
-        OsgiVersionMoreEntityTest.assertV2EffectorCall(moreEntity);
-        OsgiVersionMoreEntityTest.assertV2MethodCall(moreEntity);
+        OsgiVersionMoreEntityTest.assertV1EffectorCall(moreEntity);
+        OsgiVersionMoreEntityTest.assertV1MethodCall(moreEntity);
     }
 
     /** unlike {@link #testMoreEntityV2ThenV1GivesV1()} this test should always work,

@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.catalog.BrooklynCatalog;
@@ -1886,7 +1887,10 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         Map<RegisteredType, Collection<Throwable>> validation = validateTypes(result.keySet());
         if (Iterables.concat(validation.values()).iterator().hasNext()) {
-            throw new IllegalStateException("Could not validate one or more items: "+validation);
+            log.debug("Detail of failed validation:\n"+
+                    validation.entrySet().stream().map(en -> "  "+en.getKey()+"\n"+en.getValue().stream().map(vv->"    "+Exceptions.collapseText(vv)).collect(Collectors.joining("\n")))
+                            .collect(Collectors.joining("\n")));
+            throw Exceptions.propagate("Could not validate one or more items: "+validation.keySet(), validation.values().stream().flatMap(Collection::stream).collect(Collectors.toList()));
         }
         return result.keySet();
     }

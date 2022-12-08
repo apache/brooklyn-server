@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -59,6 +60,7 @@ import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -172,11 +174,7 @@ public class CampYamlLiteTest {
         RegisteredType retrievedItem = Iterables.getOnlyElement(retrievedItems);
         Assert.assertEquals(retrievedItem.getVersion(), "0.9");
 
-        Collection<OsgiBundleWithUrl> bundles = retrievedItem.getLibraries();
-        Asserts.assertSize(bundles, 1);
-        OsgiBundleWithUrl bundle = Iterables.getOnlyElement(bundles);
-        Assert.assertEquals(bundle.getUrl(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
-        Assert.assertEquals(bundle.getSuppliedVersionString(), "0.1.0");
+        assertTwoLibraries(retrievedItem.getLibraries(), VersionedName.fromString(retrievedItem.getContainingBundle()).toOsgiString(), OsgiStandaloneTest.BROOKLYN_TEST_OSGI_ENTITIES_URL);
     }
 
     @Test
@@ -230,10 +228,7 @@ public class CampYamlLiteTest {
         Assert.assertTrue(planYaml.contains("io.camp.mock:AppServer"));
 
         // and let's check we have libraries
-        Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        OsgiBundleWithUrl bundle = Iterables.getOnlyElement(libs);
-        assertEquals(bundle.getUrl(), bundleUrl);
+        assertTwoLibraries(item.getLibraries(), "my.catalog.app.id:0.1.2", bundleUrl);
 
         // now let's check other things on the item
         assertEquals(item.getDisplayName(), "My Catalog App");
@@ -243,6 +238,15 @@ public class CampYamlLiteTest {
         // and confirm we can resolve ICON
         byte[] iconData = Streams.readFullyAndClose(ResourceUtils.create(CatalogUtils.newClassLoadingContext(mgmt, item)).getResourceFromUrl(item.getIconUrl()));
         assertEquals(iconData.length, 43);
+    }
+
+    private void assertTwoLibraries(Collection<OsgiBundleWithUrl> libraries, String containingBundle, String bundleUrl) {
+        Iterator<OsgiBundleWithUrl> libi = libraries.iterator();
+        Asserts.assertEquals(libi.next().getVersionedName().toOsgiString(), containingBundle);
+        OsgiBundleWithUrl bundle = libi.next();
+        assertEquals(bundle.getVersionedName().toOsgiString(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities:0.1.0");
+        assertEquals(bundle.getUrl(), bundleUrl);
+        Asserts.assertFalse(libi.hasNext());
     }
 
 }

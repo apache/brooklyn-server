@@ -18,32 +18,16 @@
  */
 package org.apache.brooklyn.camp.brooklyn.catalog;
 
-import java.util.function.Predicate;
+import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.EntitySpec;
-import org.apache.brooklyn.core.config.ConfigKeys;
-import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
-import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
-import org.apache.brooklyn.util.exceptions.Exceptions;
-import org.apache.brooklyn.util.stream.InputStreamSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import static org.testng.Assert.assertEquals;
-
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.test.lite.CampYamlLiteTest;
+import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
+import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -52,14 +36,24 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
+import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
+import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import com.google.common.collect.Iterables;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+import static org.testng.Assert.assertEquals;
 
 public class CatalogScanOsgiTest extends AbstractYamlTest {
 
@@ -108,13 +102,13 @@ public class CatalogScanOsgiTest extends AbstractYamlTest {
 
         RegisteredType hereItem = mgmt().getTypeRegistry().get("here-item");
         assertEquals(hereItem.getVersion(), "2.0-test_java");
-        Asserts.assertSize(hereItem.getLibraries(), 2);
+        Asserts.assertSize(hereItem.getLibraries(), 3);
         assertEquals(hereItem.getContainingBundle(), "test-items:2.0-test_java");
         
         RegisteredType item = mgmt().getTypeRegistry().get(OsgiTestResources.BROOKLYN_TEST_MORE_ENTITIES_MORE_ENTITY);
         // versions and libraries _are_ inherited in this legacy mode
         assertEquals(item.getVersion(), "2.0-test_java");
-        Asserts.assertSize(hereItem.getLibraries(), 2);
+        Asserts.assertSize(hereItem.getLibraries(), 3);
         // and the containing bundle is recorded as the 
         assertEquals(item.getContainingBundle(), "test-items"+":"+"2.0-test_java");
     }

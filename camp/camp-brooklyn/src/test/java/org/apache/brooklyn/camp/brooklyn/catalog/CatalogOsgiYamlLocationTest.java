@@ -37,6 +37,7 @@ import org.apache.brooklyn.core.mgmt.osgi.OsgiStandaloneTest;
 import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.text.StringFunctions;
 import org.testng.Assert;
 import org.testng.annotations.AfterMethod;
@@ -99,8 +100,8 @@ public class CatalogOsgiYamlLocationTest extends AbstractYamlTest {
     private void assertOsgi(String symbolicName) {
         RegisteredType item = mgmt().getTypeRegistry().get(symbolicName, TEST_VERSION);
         Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        assertEquals(Iterables.getOnlyElement(libs).getUrl(), Iterables.getOnlyElement(getOsgiLibraries()));
+        assertEquals(libs.size(), 2);
+        assertEquals(MutableList.copyOf(libs).get(1).getUrl(), Iterables.getOnlyElement(getOsgiLibraries()));
     }
 
     private void assertAdded(String symbolicName, String expectedJavaType) {

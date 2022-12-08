@@ -149,8 +149,8 @@ public class CatalogMakeOsgiBundleTest extends AbstractYamlTest {
         
         RegisteredType item = mgmt().getTypeRegistry().get( basic1.getCatalogItemId() );
         Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        Asserts.assertSize(libs, 1);
-        Assert.assertEquals(Iterables.getOnlyElement(libs).getSymbolicName(), customName);
+        Asserts.assertSize(libs, 2);
+        Assert.assertEquals(MutableList.copyOf(libs).get(1).getSymbolicName(), customName);
     }
 
     private void installBundle(File jf) {

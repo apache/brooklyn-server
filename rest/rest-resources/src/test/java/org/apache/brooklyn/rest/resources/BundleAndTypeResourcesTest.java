@@ -184,8 +184,8 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, TEST_VERSION);
         Assert.assertNotNull(item);
         Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        assertEquals(Iterables.getOnlyElement(libs).getUrl(), bundleUrl);
+        assertEquals(libs.size(), 2);
+        assertEquals(Iterables.get(libs, 1).getUrl(), bundleUrl);
 
         // now let's check other things on the item
         URI expectedIconUrl = URI.create(getEndpointAddress() + "/catalog/types/" + symbolicName + "/" + entityItem.getVersion()+"/icon").normalize();
@@ -727,8 +727,8 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
         Assert.assertNotNull(item);
         Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
+        assertEquals(libs.size(), 2);
+        OsgiBundleWithUrl lib = Iterables.get(libs, 1);
         Assert.assertNull(lib.getUrl());
 
         assertEquals(lib.getSymbolicName(), "org.apache.brooklyn.test.resources.osgi.brooklyn-test-osgi-entities");
@@ -803,8 +803,8 @@ public class BundleAndTypeResourcesTest extends BrooklynRestResourceTest {
         RegisteredType item = getManagementContext().getTypeRegistry().get(symbolicName, version);
         Assert.assertNotNull(item);
         Collection<OsgiBundleWithUrl> libs = item.getLibraries();
-        assertEquals(libs.size(), 1);
-        OsgiBundleWithUrl lib = Iterables.getOnlyElement(libs);
+        assertEquals(libs.size(), 2);
+        OsgiBundleWithUrl lib = Iterables.get(libs, 1);
         Assert.assertNull(lib.getUrl());
 
         // check we can find it with ResourceUtils

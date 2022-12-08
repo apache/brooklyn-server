@@ -170,8 +170,8 @@ public class CatalogResourceTest extends BrooklynRestResourceTest {
                 .applyAsserts(() -> client());
 
         RegisteredTypeAsserts.newInstance(itemSymbolicName, TEST_VERSION)
-                .libraryNames(bundleName)
-                .libraryUrls(bundleUrl)
+                .libraryNames(new VersionedName("my.catalog.entity.id", "0.1.2"), bundleName)
+                .libraryUrls(null, bundleUrl)
                 .iconUrl("classpath:/org/apache/brooklyn/test/osgi/entities/icon.gif")
                 .applyAsserts(getManagementContext().getTypeRegistry());
     }

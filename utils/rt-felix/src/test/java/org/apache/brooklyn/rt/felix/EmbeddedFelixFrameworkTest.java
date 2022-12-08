@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.jar.JarInputStream;
 
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.os.Os;
@@ -72,14 +73,16 @@ public class EmbeddedFelixFrameworkTest {
         log.info("Bundles and exported packages:");
         MutableSet<String> allPackages = MutableSet.of();
         while (manifests.hasMoreElements()) {
-            String fullNameManifests = Streams.readFullyStringAndClose(manifests.nextElement().openStream());
+            URL mfUrl = manifests.nextElement();
+            String fullNameManifests = Streams.readFullyStringAndClose(mfUrl.openStream());
             ManifestHelper mf = null;
             try {
                 mf = ManifestHelper.forManifestContents(fullNameManifests);
                 List<String> mfPackages = mf.getExportedPackages();
-                log.info("  " + mf.getSymbolicNameVersion() + ": " + mfPackages);
+                log.info("   " + mfUrl+" / " + mf.getSymbolicNameVersion() + ": " + mfPackages);
                 allPackages.addAll(mfPackages);
             } catch (BundleException e) {
+                log.info(" x " + mfUrl+": " + e);
                 // non valid manifest
             }
         }
