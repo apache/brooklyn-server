@@ -123,7 +123,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     private final List<EntitySpec<?>> children = Lists.newArrayList();
     private final List<Entity> members = Lists.newArrayList();
     private final List<Group> groups = Lists.newArrayList();
-    private volatile boolean immutable;
+    private volatile Boolean immutable;
 
     // Kept for backwards compatibility of persisted state
     private List<Policy> policies;
@@ -422,7 +422,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
     }
 
     private void checkMutable() {
-        if (immutable) throw new IllegalStateException("Cannot modify immutable entity spec "+this);
+        if (Boolean.TRUE.equals(immutable)) throw new IllegalStateException("Cannot modify immutable entity spec "+this);
     }
 
 }

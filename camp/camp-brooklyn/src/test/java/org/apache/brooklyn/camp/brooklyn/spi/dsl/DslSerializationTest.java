@@ -22,6 +22,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Optional;
 import java.util.Map;
 import java.util.function.Supplier;
+
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
@@ -31,6 +35,8 @@ import org.apache.brooklyn.core.resolve.jackson.MapperTestFixture;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValuesSerializationTest.ObjectWithWrappedValueString;
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
+import org.apache.brooklyn.entity.stock.BasicStartable;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.BasicExecutionContext;
@@ -76,7 +82,7 @@ public class DslSerializationTest extends AbstractYamlTest implements MapperTest
     }
 
     public ObjectMapper mapper() {
-        return BeanWithTypeUtils.newMapper(mgmt(), false, null, true);
+        return BeanWithTypeUtils.newMapper(mgmt(), true, null, true);
     }
 
     @Test
@@ -173,5 +179,54 @@ public class DslSerializationTest extends AbstractYamlTest implements MapperTest
         WrappedValuesSerializationTest.ObjectWithWrappedValueString impl = deser(json("x: " + dslLiteralFoo), ObjectWithWrappedValueString.class);
         Asserts.assertNotNull(impl.x);
         Asserts.assertEquals(resolve(impl.x, String.class).get(), "foo");
+    }
+
+    // also see org.apache.brooklyn.rest.util.json.BrooklynJacksonSerializerTest.SpecHolder
+    public static class ObjectWithWrappedValueSpec extends WrappedValue.WrappedValuesInitialized {
+        public WrappedValue<EntitySpec<?>> sw;
+        public EntitySpec<?> su;
+
+        public WrappedValue<AbstractBrooklynObjectSpec<?,?>> asw;
+        public AbstractBrooklynObjectSpec<?,?> asu;
+    }
+
+    @Test
+    public void testDeserializeSpec() throws Exception {
+        // also see org.apache.brooklyn.rest.util.json.BrooklynJacksonSerializerTest.SpecHolder
+
+        BrooklynDslCommon.registerSerializationHooks();
+
+        WorkflowBasicTest.addRegisteredTypeSpec(mgmt(), "basic-startable", BasicStartable.class, Entity.class);
+        ObjectWithWrappedValueSpec impl;
+
+        impl = deser(json("sw: { type: basic-startable }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.sw);
+        Asserts.assertEquals(impl.sw.get().getType(), BasicStartable.class);
+
+        impl = deser(json("sw: { type: "+BasicStartable.class.getName()+" }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.sw);
+        Asserts.assertEquals(impl.sw.get().getType(), BasicStartable.class);
+
+        impl = deser(json("asw: { type: basic-startable }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.asw);
+        Asserts.assertEquals(impl.asw.get().getType(), BasicStartable.class);
+
+        impl = deser(json("asw: { type: "+BasicStartable.class.getName()+" }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.asw);
+        // with non-concrete type, we used to get a map in wrapped value, but now we try the generic type
+//        Asserts.assertInstanceOf(impl.asw.get(), Map.class);
+        Asserts.assertEquals(impl.asw.get().getType(), BasicStartable.class);
+
+        impl = deser(json("su: { type: basic-startable }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.su);
+
+        impl = deser(json("su: { type: "+BasicStartable.class.getName()+" }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.su);
+
+        impl = deser(json("asu: { type: basic-startable }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.asu);
+
+        impl = deser(json("asu: { type: "+BasicStartable.class.getName()+" }"), ObjectWithWrappedValueSpec.class);
+        Asserts.assertNotNull(impl.asu);
     }
 }

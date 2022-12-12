@@ -1737,7 +1737,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private static boolean isDubiousBeanType(Object t) {
-        return t instanceof Map || t instanceof Collection || (t instanceof BrooklynObject && !(t instanceof Feed));
+        return t instanceof Map || t instanceof Collection || (t instanceof BrooklynObject && !(t instanceof Feed)) || (t instanceof AbstractBrooklynObjectSpec);
     }
 
     /** records the type this catalog is currently trying to resolve items being added to the catalog, if it is trying to resolve.
@@ -1993,7 +1993,8 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
         // more importantly bean to allow arbitrary types to be added to catalog
         
         RegisteredType resultT = null;
-        
+        boolean recheckNeededBecauseChangedOrUncertain = false;
+
         Object resultO = null;
         if (resultO==null && boType!=null) try {
             // try spec instantiation if we know the BO Type (no point otherwise)
@@ -2014,12 +2015,26 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             // try it as a bean
             resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.BEAN, typeToValidate, allowChangingKind);
             try {
-                resultO = ((BasicBrooklynTypeRegistry)mgmt.getTypeRegistry()).createBean(resultT, constraint, superJ);
-                if (typeToValidate.getKind()!=RegisteredTypeKind.BEAN && isDubiousBeanType(resultO)) {
-                    // 2022-05 previously we would set this, and it would get re-resolved better later on; but now we don't; if it's a dubious bean
-                    // (ie a map or collection) you have to specify that is a bean
+                resultO = mgmt.getTypeRegistry().createBean(resultT, constraint, superJ);
+                if (resultO instanceof AbstractBrooklynObjectSpec) {
                     resultO = null;
-                    throw new IllegalStateException("Dubious resolution of "+typeToValidate+" as "+resultO.getClass().getName()+" "+resultO+"; if this is intended, specify kind as bean");
+                    throw new IllegalStateException("Dubious resolution of "+typeToValidate+" as "+resultO.getClass().getName()+" (spec not bean)");
+                }
+                if (isDubiousBeanType(resultO)) {
+                    // 2022-05 previously we would always infer bean type, but now if it's a "dubious bean" you have the specify that it is a bean;
+                    // if not, we mark it as dubious here, and we re-resolve later on.
+                    // 2022-11 now we always try re-resolving later if it's a dubious bean type, so that we don't accept maps where caller has indicated a type,
+                    // and that type might change (eg NestedRefsCatalogYamlTest)
+                    if (typeToValidate.getKind()!=RegisteredTypeKind.BEAN) {
+                        recheckNeededBecauseChangedOrUncertain = true;
+                        resultO = null;
+                        throw new IllegalStateException("Dubious resolution of " + typeToValidate + " as " + resultO.getClass().getName() + " " + resultO + "; if this is intended, specify kind as bean");
+                    }
+                    if (allowChangingKind) {
+                        recheckNeededBecauseChangedOrUncertain = true;
+                        resultO = null;
+                        throw new IllegalStateException("Uncertain resolution of " + typeToValidate + " as " + resultO.getClass().getName() + " " + resultO + "; will try again");
+                    }
                 }
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);
@@ -2063,7 +2078,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 // try this even for templates; errors in them will be ignored by validator
                 // but might be interesting to someone calling resolve directly
                 
-                boolean changedSomething = false;
                 // reset resultT and change things as needed based on guesser
                 resultT = typeToValidate;
                 if (boType==null) {
@@ -2075,17 +2089,17 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                         // didn't know type before, retry now that we know the type
                         resultT = RegisteredTypes.copyResolved(RegisteredTypeKind.SPEC, resultT, allowChangingKind);
                         RegisteredTypes.addSuperTypes(resultT, supers);
-                        changedSomething = true;
+                        recheckNeededBecauseChangedOrUncertain = true;
                     }
                 }
                 
                 if (!Objects.equal(guesser.getPlanYaml(), yaml)) {
                     RegisteredTypes.changePlanNotingEquivalent(resultT, 
                         new BasicTypeImplementationPlan(typeToValidate.getPlan().getPlanFormat(), guesser.getPlanYaml()));
-                    changedSomething = true;
+                    recheckNeededBecauseChangedOrUncertain = true;
                 }
                 
-                if (changedSomething) {
+                if (recheckNeededBecauseChangedOrUncertain) {
                     log.debug("Re-resolving "+resultT+" following detection of change");
                     // try again with new plan or supertype info
                     return validateResolve(resultT, constraint, false);

@@ -32,6 +32,7 @@ import com.fasterxml.jackson.databind.ser.BeanPropertyWriter;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.google.common.base.Predicate;
 import com.google.common.reflect.TypeToken;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
@@ -39,9 +40,11 @@ import org.apache.brooklyn.api.objs.Configurable;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.typereg.TypePlanTransformers;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.core.flags.FlagUtils;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.javalang.Boxing;
@@ -214,11 +217,15 @@ public class CommonTypesSerialization {
                     } else if (value.getClass().equals(Object.class)) {
                         return newEmptyInstance();
                     } else {
-                        throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
+                        return deserializeOther(value);
                     }
                 } catch (Exception e) {
                     throw Exceptions.propagate(e);
                 }
+            }
+
+            public T deserializeOther(Object value) {
+                throw new IllegalStateException(getType()+" should be supplied as string or map with 'type' and 'value'; instead had " + value);
             }
 
             @Override

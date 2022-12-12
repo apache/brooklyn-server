@@ -40,6 +40,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.internal.LocalManagementContext;
 import org.apache.brooklyn.core.resolve.jackson.AsPropertyIfAmbiguous.AsPropertyButNotIfFieldConflictTypeDeserializer;
@@ -84,6 +85,10 @@ public class BrooklynRegisteredTypeJacksonSerialization {
                 // but instead treat as error
                 throw new NullPointerException("Requested to deserialize Brooklyn type "+type+" without a management context");
             }
+            if (type.getRegisteredType().getKind().equals(BrooklynTypeRegistry.RegisteredTypeKind.SPEC)) {
+                return mgmt.getTypeRegistry().createSpec(type.getRegisteredType(), null, null);
+            }
+
             return mgmt.getTypeRegistry().createBean(type.getRegisteredType(), null, null);
         }
     }

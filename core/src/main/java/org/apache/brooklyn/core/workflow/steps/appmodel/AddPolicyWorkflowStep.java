@@ -41,6 +41,7 @@ import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.StringEscapes;
+import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,14 +96,17 @@ public class AddPolicyWorkflowStep extends WorkflowStepDefinition {
             if (!(blueprint instanceof String)) blueprint = BeanWithTypeUtils.newYamlMapper(null, false, null, false).writeValueAsString(blueprint);
 
             Object yo = Iterables.getOnlyElement(Yamls.parseAll((String) blueprint));
-            // coercion does this at: org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.registerSpecCoercionAdapter
+
+            // coercion does this _for entities only_ at: org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.registerSpecCoercionAdapter;
+            // other types follow jackson deserialization
             Maybe<AbstractBrooklynObjectSpec> spec0 = TypeCoercions.tryCoerce(yo, AbstractBrooklynObjectSpec.class);
             if (spec0.isAbsent()) {
+
                 inst = TypeCoercions.tryCoerce(yo, EntityAdjunct.class)
 //                        .get();  // prefer this exception
-                        .orNull();  // or prefer original expression (line below)
+                        .orNull();  // or prefer other error
                 if (inst == null) {
-                    // try camp spec instantiation; and prefer this error. this is the only way if loading a registered type of kind spec;
+                    // try camp spec instantiation; and prefer this error. this used to be the only way if loading a registered type of kind spec;
                     // but it is stricter about requiring arguments in `brooklyn.config`
                     spec = context.getManagementContext().getTypeRegistry().createSpecFromPlan(null, blueprint, null, AbstractBrooklynObjectSpec.class);
 
@@ -119,11 +123,12 @@ public class AddPolicyWorkflowStep extends WorkflowStepDefinition {
 
         BrooklynObject result;
         boolean uniqueTagSet = input.containsKey(UNIQUE_TAG.getName());
-        String uniqueTag = uniqueTagSet ? context.getInput(UNIQUE_TAG) : context.getWorkflowStepReference();
+        String uniqueTag = uniqueTagSet ? context.getInput(UNIQUE_TAG) :
+                Strings.firstNonBlank(context.getWorkflowExectionContext().getName(), context.getWorkflowExectionContext().getRetentionHash())+" - "+(context.getStepIndex()+1);
         // set the unique tag to the workflow step if not already set, to ensure idempotency
         if (spec!=null) {
             if (uniqueTagSet || !spec.getFlags().containsKey("uniqueTag")) {
-                FlagUtils.setFieldFromFlag(spec, "uniqueTag", uniqueTag);
+                spec.configure("uniqueTag", uniqueTag);
             }
             result = EntityAdjuncts.addAdjunct(entity, spec);
         } else {

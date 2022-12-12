@@ -18,12 +18,12 @@
  */
 package org.apache.brooklyn.api.sensor;
 
-import java.util.Map;
-
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.config.ConfigKey.HasConfigKey;
+
+import java.util.Map;
 
 /**
  * Gives details of an enricher to be created. It describes the enricher's configuration, and is
@@ -60,7 +60,11 @@ public class EnricherSpec<T extends Enricher> extends AbstractBrooklynObjectSpec
     public static <T extends Enricher> EnricherSpec<T> create(Map<?,?> config, Class<T> type) {
         return EnricherSpec.create(type).configure(config);
     }
-    
+
+    // jackson constructor only
+    protected EnricherSpec() {
+        super();
+    }
     protected EnricherSpec(Class<? extends T> type) {
         super(type);
     }
@@ -70,7 +74,7 @@ public class EnricherSpec<T extends Enricher> extends AbstractBrooklynObjectSpec
         checkIsImplementation(type, Enricher.class);
         checkIsNewStyleImplementation(type);
     }
-    
+
     public EnricherSpec<T> uniqueTag(String uniqueTag) {
         flags.put("uniqueTag", uniqueTag);
         return this;

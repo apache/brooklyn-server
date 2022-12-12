@@ -25,7 +25,9 @@ import org.apache.brooklyn.api.entity.EntityLocal;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.core.entity.Entities;
+import org.apache.brooklyn.core.resolve.jackson.CommonTypesSerialization;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
 import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
 import org.apache.brooklyn.core.workflow.WorkflowEffector;
@@ -40,10 +42,14 @@ import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.Test;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +58,8 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class WorkflowApplicationModelTest extends AbstractYamlTest {
+
+    private static final Logger LOG = LoggerFactory.getLogger(WorkflowApplicationModelTest.class);
 
     protected void loadTypes() {
         WorkflowBasicTest.addWorkflowStepTypes(mgmt());
@@ -245,21 +253,32 @@ public class WorkflowApplicationModelTest extends AbstractYamlTest {
     @Test
     public void testAddAndDeletePolicyAndOtherAdjuncts() {
         loadTypes();
-        doTestAddAndDeletePolicyAndOtherAdjuncts(true, true);
-        doTestAddAndDeletePolicyAndOtherAdjuncts(true, false);
-        doTestAddAndDeletePolicyAndOtherAdjuncts(false, true);
-        doTestAddAndDeletePolicyAndOtherAdjuncts(false, false);
+        WorkflowBasicTest.addRegisteredTypeSpec(mgmt(), "test-policy", TestPolicy.class, Policy.class);
+
+        // to test a specific configuration
+//        doTestAddAndDeletePolicyAndOtherAdjuncts("test-policy", false, true, false);
+
+        Arrays.asList(TestPolicy.class.getName(), "test-policy").forEach(type ->
+                Arrays.asList(true, false).forEach(shorthand ->
+                        Arrays.asList(true, false).forEach(explicitUniqueTag ->
+                                Arrays.asList(true, false).forEach(nestInBrooklynConfig -> {
+                                    LOG.info("Testing with "+type+" "+shorthand+" "+explicitUniqueTag+" "+nestInBrooklynConfig);
+                                    doTestAddAndDeletePolicyAndOtherAdjuncts(type, shorthand, explicitUniqueTag, nestInBrooklynConfig);
+                                }
+        ))));
     }
 
-    void doTestAddAndDeletePolicyAndOtherAdjuncts(boolean shorthand, boolean explicitUniqueTag) {
+    void doTestAddAndDeletePolicyAndOtherAdjuncts(String type, boolean shorthand, boolean explicitUniqueTag, Boolean nestInBrooklynConfig) {
         BasicApplication app = mgmt().getEntityManager().createEntity(EntitySpec.create(BasicApplication.class));
         Object step1 = shorthand ? "add-policy " + TestPolicy.class.getName() + (explicitUniqueTag ? " unique-tag my-policy" : "")
                 : "\n"+Strings.indent(2, Strings.lines(
                         "type: add-policy",
                         "blueprint:",
-                        "  type: "+TestPolicy.class.getName(),
-                        "  "+TestPolicy.CONF_NAME.getName()+": my-policy-name",
-                        explicitUniqueTag ? "  uniqueTag: my-policy" : ""));
+                        "  type: "+type,
+                        explicitUniqueTag ? "  uniqueTag: my-policy" : "",
+                        nestInBrooklynConfig ? "  brooklyn.config:" : "",
+                        (nestInBrooklynConfig ? "  " : "") + "  "+TestPolicy.CONF_NAME.getName()+": my-policy-name",
+                        ""));
         WorkflowExecutionContext w1 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
                 "steps:",
                 "- "+step1,
@@ -282,13 +301,13 @@ public class WorkflowApplicationModelTest extends AbstractYamlTest {
 
         String ut = Iterables.getOnlyElement(app.policies()).getUniqueTag();
         if (explicitUniqueTag) Asserts.assertEquals(ut, "my-policy");
-        else Asserts.assertEquals(ut, w1.getWorkflowId()+"-1");
+        else Asserts.assertEquals(ut, w1.getRetentionHash()+" - 1");
         Asserts.assertEquals(t1, ut);
         Asserts.assertEquals(t2, ut);
 
         WorkflowExecutionContext w2 = WorkflowBasicTest.runWorkflow(app, Strings.lines(
                 "steps:",
-                " - step: delete-policy "+ut
+                " - step: delete-policy "+ StringEscapes.JavaStringEscapes.wrapJavaString(ut)
         ), null);
         w2.getTask(false).get().getUnchecked();
 

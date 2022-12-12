@@ -457,14 +457,17 @@ public class BrooklynJacksonSerializerTest {
         Asserts.assertEquals(tt2.toString(), "java.util.List<java.util.List<java.lang.String>>");
     }
 
+    // also see DslSerializationTest.ObjectWithWrappedValueSpec
     static class SpecHolder {
         String label;
         EntitySpec<?> spec;
         WrappedValue<EntitySpec<?>> specT;
         WrappedValue<Object> specU;
     }
+
     @Test
     public void testEntitySpecSerialization() throws JsonProcessingException {
+        // also see DslSerializationTest.ObjectWithWrappedValueSpec
         ObjectMapper mapperY = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
         ObjectMapper mapperJ = BeanWithTypeUtils.newMapper(null, true, null, true);
 
@@ -473,8 +476,12 @@ public class BrooklynJacksonSerializerTest {
                 "specT:",
                 "  $brooklyn:entitySpec:",
                 "    type: "+ TestEntity.class.getName()));
-        // above creates a map because the DSL isn't recognised with non-management mapper
-        Asserts.assertInstanceOf(in.specT.get(), Map.class);
+
+//        Asserts.assertInstanceOf(in.specT.get(), Map.class);
+        // used to do above, create a map because the DSL isn't recognised with non-management mapper; now it sets it as a flag
+        Asserts.assertInstanceOf(in.specT.get(), EntitySpec.class);
+        Asserts.assertNull(in.specT.get().getType());
+        Asserts.assertEquals(in.specT.get().getFlags().get("$brooklyn:entitySpec"), MutableMap.of("type", TestEntity.class.getName()));
 
         String out;
         SpecHolder in2;
@@ -495,19 +502,25 @@ public class BrooklynJacksonSerializerTest {
         in.specU = WrappedValue.of( EntitySpec.create(TestEntity.class) );
         out = mapperJ.writerFor(Object.class).writeValueAsString(in);
         // not strongly typed typed - type is contained, but we get a map which still we need to coerce
-        Asserts.assertStringContains(out, EntitySpec.class.getName());
+        Asserts.assertStringContains(out, "\"(type)\":\""+EntitySpec.class.getName()+"\"");
+        Asserts.assertStringContains(out, "\"type\":\""+TestEntity.class.getName()+"\"");
+
         in2 = mapperJ.readerFor(SpecHolder.class).readValue(out);
-        // and we get a map
-        Map map;
-        map = (Map) in2.specU.get();
-        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+        // and we used to get a map
+//        Map map = (Map) in2.specU.get();
+//        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+        // but now the type is populated
+        Asserts.assertEquals( ((EntitySpec)in2.specU.get()).getType(), TestEntity.class);
+
         // and same with yaml
         out = mapperY.writerFor(Object.class).writeValueAsString(in);
-        Asserts.assertStringContains(out, EntitySpec.class.getName());
+//        Asserts.assertStringContains(out, "\"(type)\":\""+EntitySpec.class.getName()+"\"");
+        Asserts.assertStringContains(out, "!<"+EntitySpec.class.getName()+">");
+        Asserts.assertStringContains(out, "type: "+TestEntity.class.getName());
         in2 = mapperY.readerFor(SpecHolder.class).readValue(out);
-        map = (Map) in2.specU.get();
-        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
-
+//        map = (Map) in2.specU.get();
+//        Asserts.assertEquals( TypeCoercions.coerce(map, EntitySpec.class).getType(), TestEntity.class);
+        Asserts.assertEquals( ((EntitySpec)in2.specU.get()).getType(), TestEntity.class);
 
         ManagementContext mgmt = LocalManagementContextForTests.newInstance();
         try {
@@ -515,7 +528,10 @@ public class BrooklynJacksonSerializerTest {
 
             BiConsumer<List<SpecHolder>,Boolean> test = (inL, expectMap) -> {
                 SpecHolder inX = inL.iterator().next();
-                Asserts.assertEquals(inX.specT.get().getType(), TestEntity.class);
+                if (!expectMap) {
+                    Asserts.assertEquals(inX.specT.get().getType(), TestEntity.class);
+                }
+
                 // management mappers don't have the map artifice (unless type is unknown and doing deep conversion)
                 Object sp = inX.specU.get();
                 if (Boolean.TRUE.equals(expectMap)) Asserts.assertInstanceOf(sp, Map.class);
@@ -529,11 +545,24 @@ public class BrooklynJacksonSerializerTest {
 
             // and in a list, deep and shallow conversion both work
             test.accept( BeanWithTypeUtils.convertDeeply(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
-                    /* deep conversion serializes and for untyped key it doesn't know the type to deserialize, until it is explicitly coerced, so we get a map */ true );
+//                    /* deep conversion serializes and for untyped key it doesn't know the type to deserialize, until it is explicitly coerced, so we get a map */ true
+                    false /* now it does know the type */
+                    );
             test.accept( BeanWithTypeUtils.convertShallow(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
                     /* shallow conversion should preserve the object */ false );
             test.accept( BeanWithTypeUtils.convert(mgmt, Arrays.asList(in), new TypeToken<List<SpecHolder>>() {}, true, null, true),
-                    /* overall convert tries deep first */ true );
+//                    /* overall convert tries deep first */ true
+                    false
+                    );
+
+            // but if it's a wrapped _object_ then we get a map back
+            List<Map<String, Map<String, String>>> in3 = Arrays.asList(MutableMap.of("specU", MutableMap.of("type", TestEntity.class.getName())));
+            test.accept( BeanWithTypeUtils.convertDeeply(mgmt, in3, new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                true);
+            test.accept( BeanWithTypeUtils.convertShallow(mgmt, in3, new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    true);
+            test.accept( BeanWithTypeUtils.convert(mgmt, in3, new TypeToken<List<SpecHolder>>() {}, true, null, true),
+                    true);
         } finally {
             Entities.destroyAll(mgmt);
         }

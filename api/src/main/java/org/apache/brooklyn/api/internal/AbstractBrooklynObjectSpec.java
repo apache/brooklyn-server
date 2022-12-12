@@ -18,18 +18,17 @@
  */
 package org.apache.brooklyn.api.internal;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.io.Serializable;
-import java.lang.reflect.Modifier;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
+import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonSetter;
+import com.google.common.annotations.Beta;
+import com.google.common.base.MoreObjects;
+import com.google.common.base.Objects;
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import org.apache.brooklyn.api.mgmt.EntityManager;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -42,13 +41,11 @@ import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.base.MoreObjects;
-import com.google.common.base.Objects;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
+import java.io.Serializable;
+import java.lang.reflect.Modifier;
+import java.util.*;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Defines a spec for creating a {@link BrooklynObject}.
@@ -61,13 +58,14 @@ import com.google.common.collect.Maps;
  * e.g. {@link EntityManager#createEntity(org.apache.brooklyn.api.entity.EntitySpec)}
  * to create a managed instance of the target type.
  */
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrooklynObjectSpec<T, SpecT>> implements Serializable {
 
     private static final long serialVersionUID = 3010955277740333030L;
 
     private static final Logger log = LoggerFactory.getLogger(AbstractBrooklynObjectSpec.class);
 
-    private final Class<? extends T> type;
+    private Class<? extends T> type;
     private String displayName;
     private String catalogItemId;
     private Collection<String> catalogItemIdSearchPath = MutableSet.of();
@@ -77,6 +75,9 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
 
     protected final Map<String, Object> flags = Maps.newLinkedHashMap();
     protected final Map<ConfigKey<?>, Object> config = Maps.newLinkedHashMap();
+
+    // jackson deserializer only
+    protected AbstractBrooklynObjectSpec() {}
 
     protected AbstractBrooklynObjectSpec(Class<? extends T> type) {
         checkValidType(type);
@@ -473,6 +474,11 @@ public abstract class AbstractBrooklynObjectSpec<T, SpecT extends AbstractBrookl
     @JsonSetter("brooklyn.config")
     private void jsonSetConfig(Map<String,Object> val) {
         configure(val);
+    }
+
+    @JsonAnySetter
+    private void jsonSetConfig(String flag, Object value) {
+        configure(flag, value);
     }
 
 }

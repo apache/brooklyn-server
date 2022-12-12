@@ -34,6 +34,11 @@ import com.fasterxml.jackson.databind.jsontype.TypeIdResolver;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeDeserializer;
 import com.fasterxml.jackson.databind.jsontype.impl.AsPropertyTypeSerializer;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.sensor.Feed;
+import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -186,7 +191,7 @@ public class AsPropertyIfAmbiguous {
             if (_idResolver instanceof HasBaseType) {
                 JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
                 if (baseType != null ) {
-                    if (hasTypePropertyNameAsField(baseType)) {
+                    if (hasTypePropertyNameAsField(baseType) && !AbstractBrooklynObjectSpec.class.isAssignableFrom(baseType.getRawClass())) {
                         // look for an '@' type
 //                    return cloneWithNewTypePropertyName(CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply(_typePropertyName)).deserializeTypedFromObject(p, ctxt);
                         // now we always look for @ first, in case the type is not known but that field is present; but if we know 'type' is a bean field, don't allow it to be used
@@ -278,6 +283,52 @@ public class AsPropertyIfAmbiguous {
                         boolean disallowed = false;
                         if (ambiguousName) {
                             JavaType tt = _idResolver.typeFromId(ctxt, typeId);
+                            if (BrooklynObject.class.isAssignableFrom(tt.getRawClass()) && !Feed.class.isAssignableFrom(tt.getRawClass())) {
+                                Boolean wantsSpec = null;
+                                Boolean wantsBO = null;
+
+                                JavaType baseType = null;
+                                if (_idResolver instanceof HasBaseType) {
+                                    baseType = ((HasBaseType) _idResolver).getBaseType();
+                                    if (baseType != null) {
+                                        wantsSpec = AbstractBrooklynObjectSpec.class.isAssignableFrom(baseType.getRawClass());
+                                        wantsBO = BrooklynObject.class.isAssignableFrom(baseType.getRawClass());
+                                    }
+                                }
+
+                                if (Boolean.TRUE.equals(wantsSpec)) {
+                                    if (tt instanceof BrooklynJacksonType && BrooklynTypeRegistry.RegisteredTypeKind.SPEC.equals(((BrooklynJacksonType)tt).getRegisteredType().getKind())) {
+                                        // if it's a spec registered type, we should load it, like normal
+                                        // (no-op)
+                                    } else {
+                                        // if it's a class then we need to (1) infer the BOSpec type, then (2) re-read the type and set that as the field
+                                        typeId = BrooklynObjectType.of(tt.getRawClass()).getSpecType().getName();
+                                        tt = null;
+                                        if (tb == null) {
+                                            tb = ctxt.bufferForInputBuffering(p);
+                                        }
+                                        tb.writeFieldName(name);
+                                        tb.copyCurrentStructure(p);
+                                    }
+                                } else if (Boolean.TRUE.equals(wantsBO)) {
+                                    // if caller wants a BO we just read it normally, whether loading from an ID or created a (non-entity) instance such as a feed
+                                    // no-op
+
+                                } else if (!(tt instanceof BrooklynJacksonType) && BrooklynObjectType.of(tt.getRawClass()).getInterfaceType().equals(tt.getRawClass())) {
+                                    // if caller hasn't explicitly asked for a BO, and a base BO type (eg Entity) is specified, probably we are loading from an ID
+                                    // by specifying Entity class exactly (not a sub-type interface and not registered type) we allow re-instantiation using ID
+                                    // no-op
+
+                                } else {
+                                    // caller hasn't explicitly asked for a BO, and it isn't a recognized pattern, so in this case we do not load the type;
+                                    // will probably remain as a map, unless (type) is specified
+
+                                    if (LOG.isTraceEnabled()) LOG.trace("Ambiguous request for "+baseType+" / "+tt+"; allowing");
+                                    tt = null;
+                                    disallowed = true;
+                                }
+                            }
+
                             if (tt!=null && hasTypePropertyNameAsField(tt)) {
                                 // if there is a property called 'type' then caller should use @type.
                                 disallowed = true;

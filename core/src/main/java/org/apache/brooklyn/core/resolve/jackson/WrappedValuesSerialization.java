@@ -95,23 +95,39 @@ public class WrappedValuesSerialization {
             List<Exception> exceptions = MutableList.of();
             try {
                 TokenBuffer b = BrooklynJacksonSerializationUtils.createBufferForParserCurrentObject(p, ctxt);
+                JavaType genericType = null;
                 try {
                     // this should work for primitives, objects, and suppliers (which will declare type)
                     // only time it won't is where generics are used to drop the type declaration during serialization
-                    JavaType genericType = getGenericType(typeDeserializer);
-                    if (genericType != null) {
-                        return ctxt.findNonContextualValueDeserializer(genericType).deserialize(b.asParserOnFirstToken(), ctxt);
-                    }
+                    genericType = getGenericType(typeDeserializer);
                 } catch (Exception e) {
                     exceptions.add(e);
+                }
+
+                if (genericType != null) {
+                    try {
+                        // this uses our type deserializer, will try type instantiation from a declared type and/or expected type of the generics
+                        return ctxt.findRootValueDeserializer(genericType).deserialize(
+                                b.asParserOnFirstToken(), ctxt);
+                    } catch (Exception e) {
+                        exceptions.add(e);
+                    }
+                }
+
+                if (genericType!=null) {
+                    try {
+                        // this does _not_ use our type deserializer; will try type instantiation from the expected type of the generics however
+                        return ctxt.findNonContextualValueDeserializer(genericType).deserialize(
+                                createParserFromTokenBufferAndParser(b, p), ctxt);
+                    } catch (Exception e) {
+                        exceptions.add(e);
+                    }
                 }
 
                 // fall back to just using object
                 try {
                     return ctxt.findRootValueDeserializer(ctxt.constructType(Object.class)).deserialize(
-//                            b.asParserOnFirstToken()
-                            createParserFromTokenBufferAndParser(b, p)
-                            , ctxt);
+                            createParserFromTokenBufferAndParser(b, p), ctxt);
                 } catch (Exception e) {
                     exceptions.add(e);
                 }

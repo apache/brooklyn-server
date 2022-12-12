@@ -671,7 +671,7 @@ public class WorkflowExecutionContext {
     public String getRetentionHash() {
         if (retention!=null && Strings.isNonBlank(retention.hash)) return retention.hash;
         if (Strings.isNonBlank(getName())) return getName();
-        return "anonymous-workflow";
+        return "anonymous-workflow-"+Math.abs(getStepsDefinition().hashCode());
     }
 
     public void updateRetentionFrom(WorkflowRetentionAndExpiration.WorkflowRetentionSettings other) {

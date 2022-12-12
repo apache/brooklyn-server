@@ -18,9 +18,9 @@
  */
 package org.apache.brooklyn.api.policy;
 
-import java.util.Map;
-
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+
+import java.util.Map;
 
 /**
  * Gives details of a policy to be created. It describes the policy's configuration, and is
@@ -58,20 +58,24 @@ public class PolicySpec<T extends Policy> extends AbstractBrooklynObjectSpec<T,P
     public static <T extends Policy> PolicySpec<T> create(Map<?,?> config, Class<T> type) {
         return PolicySpec.create(type).configure(config);
     }
-    
+
+    // jackson constructor only
+    protected PolicySpec() {
+        super();
+    }
     protected PolicySpec(Class<T> type) {
         super(type);
     }
-    
+
     @Override
     protected void checkValidType(Class<? extends T> type) {
         checkIsImplementation(type, Policy.class);
         checkIsNewStyleImplementation(type);
     }
-    
+
     public PolicySpec<T> uniqueTag(String uniqueTag) {
         flags.put("uniqueTag", uniqueTag);
         return this;
     }
-        
+
 }
