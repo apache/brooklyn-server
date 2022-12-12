@@ -60,7 +60,10 @@ public class Exceptions {
     private static boolean isBoringForMessage(Throwable t) {
         for (Class<? extends Throwable> type: ALWAYS_BORING_MESSAGE_THROWABLE_SUPERTYPES)
             if (type.isInstance(t)) return true;
-        if (Strings.isBlank(t.getMessage()) || (t.getCause()!=null && t.getMessage().equals(t.getCause().toString()))) {
+        if (Strings.isBlank(t.getMessage()) || (t.getCause()!=null && t.getCause()!=t &&
+                (t.getCause() instanceof PropagatedRuntimeException
+                        ? t.getMessage().equals(t.getCause().getMessage())
+                        : t.getMessage().equals(t.getCause().toString())))) {
             for (Class<? extends Throwable> type: BORING_IF_NO_MESSAGE_THROWABLE_SUPERTYPES)
                 if (type.isInstance(t)) return true;
         }

@@ -200,7 +200,9 @@ public class RegisteredTypeLoadingContexts {
             if (best.getSpecType().isAssignableFrom(t.getSpecType())) { best = t; continue; }
         }
         if (best==null) {
-            log.warn("Unexpected spec supertype ("+specSuperType+"); treating as any "+BrooklynObject.class, new Throwable("Trace for unexpected spec supertype"));
+            if (!specSuperType.equals(AbstractBrooklynObjectSpec.class)) {
+                log.warn("Unexpected spec supertype (" + specSuperType + "); treating as any " + BrooklynObject.class, new Throwable("Trace for unexpected spec supertype"));
+            }
             return BrooklynObject.class;
         }
         // the spec is more specific, but we're not familiar with it here; return the best

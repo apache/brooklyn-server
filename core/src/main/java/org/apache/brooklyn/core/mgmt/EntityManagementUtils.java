@@ -206,6 +206,7 @@ public class EntityManagementUtils {
                 Exceptions.propagateIfFatal(e);
                 try {
                     Object yo = Iterables.getOnlyElement(Yamls.parseAll(yaml));
+                    // coercion does this at: org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.registerSpecCoercionAdapter
                     spec = TypeCoercions.tryCoerce(yo, EntitySpec.class).orNull();
                 } catch (Exception e2) {
                     log.debug("Failed converting entity spec YAML as YAML, transformer error will throw, but also encountered: "+e2);

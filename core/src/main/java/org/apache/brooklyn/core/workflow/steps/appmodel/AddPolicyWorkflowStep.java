@@ -21,6 +21,7 @@ package org.apache.brooklyn.core.workflow.steps.appmodel;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.google.common.collect.Iterables;
 import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -92,17 +93,26 @@ public class AddPolicyWorkflowStep extends WorkflowStepDefinition {
         EntityAdjunct inst = null;
         try {
             if (!(blueprint instanceof String)) blueprint = BeanWithTypeUtils.newYamlMapper(null, false, null, false).writeValueAsString(blueprint);
-            Object yo = Iterables.getOnlyElement(Yamls.parseAll((String) blueprint));
 
+            Object yo = Iterables.getOnlyElement(Yamls.parseAll((String) blueprint));
+            // coercion does this at: org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.BrooklynDslCommon.registerSpecCoercionAdapter
             Maybe<AbstractBrooklynObjectSpec> spec0 = TypeCoercions.tryCoerce(yo, AbstractBrooklynObjectSpec.class);
             if (spec0.isAbsent()) {
                 inst = TypeCoercions.tryCoerce(yo, EntityAdjunct.class)
-                        .get();  // prefer this exception
-//                        .orNull();  // or prefer original expression (line below)
-                if (inst==null) spec = spec0.get();  // throw original exception
+//                        .get();  // prefer this exception
+                        .orNull();  // or prefer original expression (line below)
+                if (inst == null) {
+                    // try camp spec instantiation; and prefer this error. this is the only way if loading a registered type of kind spec;
+                    // but it is stricter about requiring arguments in `brooklyn.config`
+                    spec = context.getManagementContext().getTypeRegistry().createSpecFromPlan(null, blueprint, null, AbstractBrooklynObjectSpec.class);
+
+                    // could prefer first error
+                    //spec = spec0.get();
+                }
             } else {
                 spec = spec0.get();
             }
+
         } catch (Exception e) {
             throw Exceptions.propagateAnnotated("Cannot make policy or adjunct from blueprint", e);
         }
@@ -123,7 +133,7 @@ public class AddPolicyWorkflowStep extends WorkflowStepDefinition {
             result = EntityAdjuncts.addAdjunct(entity, inst);
         }
 
-        return MutableMap.of(BrooklynObjectType.of(result).toCamelCase(), result);
+        return MutableMap.of(BrooklynObjectType.of(result).toCamelCase(), result, "result", result);
     }
 
     @Override protected Boolean isDefaultIdempotent() { return true; }

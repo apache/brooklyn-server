@@ -76,6 +76,7 @@ import org.testng.annotations.Test;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Predicate;
 
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
@@ -879,6 +880,41 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 
         Entity entity = Iterables.getOnlyElement(app.getChildren());
         EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 7);
+    }
+
+    @Test
+    public void testAddPolicyStep() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "steps:",
+                "  - type: add-policy",
+                "    blueprint:",
+                "      type: workflow-policy",
+                "      brooklyn.config:",
+                "        triggers: [ other_sensor ]",
+                "        steps: [ set-sensor integer x = 1 ]"
+        ), "add-policy");
+        x.getTask(false).get().getUnchecked();
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 1);
+    }
+
+    @Test
+    public void testAddEntityStep() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName());
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        WorkflowExecutionContext x = WorkflowBasicTest.runWorkflow(entity, Strings.lines(
+                "steps:",
+                "  - type: add-entity",
+                "    blueprint:",
+                "      type: " + BasicEntity.class.getName(),
+                "      name: Test"), "add-entity");
+        x.getTask(false).get().getUnchecked();
+        Asserts.assertEquals(Iterables.getOnlyElement(entity.getChildren()).getDisplayName(), "Test");
     }
 
 }

@@ -125,12 +125,16 @@ class CampInternalUtils {
 
         //Would ideally re-use the PolicySpecResolver
         //but it is CAMP specific and there is no easy way to get hold of it.
-        Object policies = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.POLICIES_KEY), "policy config");
-        if (!(policies instanceof Iterable<?>)) {
-            throw new IllegalStateException("The value of " + BasicBrooklynCatalog.POLICIES_KEY + " must be an Iterable.");
+        Object policy;
+        if (plan.getCustomAttributes().containsKey(BasicBrooklynCatalog.POLICIES_KEY)) {
+            Object policies = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.POLICIES_KEY), "policy config");
+            if (!(policies instanceof Iterable<?>)) {
+                throw new IllegalStateException("The value of " + BasicBrooklynCatalog.POLICIES_KEY + " must be an Iterable.");
+            }
+            policy = Iterables.getOnlyElement((Iterable<?>) policies);
+        } else {
+            policy = Iterables.getOnlyElement(Yamls.parseAll(yamlPlan));
         }
-
-        Object policy = Iterables.getOnlyElement((Iterable<?>)policies);
 
         return createPolicySpec(loader, policy, encounteredCatalogTypes);
     }
@@ -155,16 +159,22 @@ class CampInternalUtils {
     static EnricherSpec<?> createEnricherSpec(String yamlPlan, BrooklynClassLoadingContext loader, Set<String> encounteredCatalogTypes) {
         DeploymentPlan plan = makePlanFromYaml(loader.getManagementContext(), yamlPlan);
 
-        //Would ideally re-use the EnricherSpecResolver
-        //but it is CAMP specific and there is no easy way to get hold of it.
-        Object enrichers = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.ENRICHERS_KEY), "enricher config");
-        if (!(enrichers instanceof Iterable<?>)) {
-            throw new IllegalStateException("The value of " + BasicBrooklynCatalog.ENRICHERS_KEY + " must be an Iterable.");
+        Object enricher;
+        if (plan.getCustomAttributes().containsKey(BasicBrooklynCatalog.ENRICHERS_KEY)) {
+            //Would ideally re-use the EnricherSpecResolver
+            //but it is CAMP specific and there is no easy way to get hold of it.
+            Object enrichers = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.ENRICHERS_KEY), "enricher config");
+            if (!(enrichers instanceof Iterable<?>)) {
+                throw new IllegalStateException("The value of " + BasicBrooklynCatalog.ENRICHERS_KEY + " must be an Iterable.");
+            }
+
+            enricher = Iterables.getOnlyElement((Iterable<?>)enrichers);
+
+        } else {
+            enricher = Iterables.getOnlyElement(Yamls.parseAll(yamlPlan));
         }
 
-        Object policy = Iterables.getOnlyElement((Iterable<?>)enrichers);
-
-        return createEnricherSpec(loader, policy, encounteredCatalogTypes);
+        return createEnricherSpec(loader, enricher, encounteredCatalogTypes);
     }
 
     @SuppressWarnings("unchecked")

@@ -19,11 +19,15 @@
 package org.apache.brooklyn.camp.brooklyn.spi.creation;
 
 import com.google.common.annotations.Beta;
+
+import java.util.Map;
 import java.util.Set;
 
 import java.util.Stack;
 import java.util.function.Consumer;
-import java.util.function.Function;
+
+import com.google.common.collect.Iterables;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
@@ -35,14 +39,12 @@ import org.apache.brooklyn.api.policy.Policy;
 import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
-import org.apache.brooklyn.camp.BasicCampPlatform;
 import org.apache.brooklyn.camp.CampPlatform;
 import org.apache.brooklyn.camp.brooklyn.api.AssemblyTemplateSpecInstantiator;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.BrooklynDslDeferredSupplier;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent;
 import org.apache.brooklyn.camp.brooklyn.spi.dsl.methods.DslComponent.Scope;
-import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.camp.spi.AssemblyTemplate;
 import org.apache.brooklyn.camp.spi.instantiate.AssemblyTemplateInstantiator;
 import org.apache.brooklyn.config.ConfigKey;
@@ -50,12 +52,18 @@ import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.entity.AbstractEntity;
 import org.apache.brooklyn.core.mgmt.EntityManagementUtils;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
 import org.apache.brooklyn.util.collections.MutableSet;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.exceptions.Exceptions;
+import org.apache.brooklyn.util.guava.Maybe;
+import org.apache.brooklyn.util.javalang.Reflections;
 import org.apache.brooklyn.util.text.Strings;
 
 import com.google.common.collect.ImmutableSet;
+import org.apache.brooklyn.util.yaml.Yamls;
 
 class CampResolver {
 
@@ -125,21 +133,7 @@ class CampResolver {
             String planYaml = RegisteredTypes.getImplementationDataStringForSpec(item);
             MutableSet<Object> supers = MutableSet.copyOf(item.getSuperTypes());
             supers.addIfNotNull(expectedType);
-            if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Policy.class)) {
-                spec = CampInternalUtils.createPolicySpec(planYaml, loader, encounteredTypes);
-            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Enricher.class)) {
-                spec = CampInternalUtils.createEnricherSpec(planYaml, loader, encounteredTypes);
-            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Location.class)) {
-                spec = CampInternalUtils.createLocationSpec(planYaml, loader, encounteredTypes);
-            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Application.class)) {
-                spec = createEntitySpecFromServicesBlock(mgmt, planYaml, loader, encounteredTypes, true);
-            } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
-                spec = createEntitySpecFromServicesBlock(mgmt, planYaml, loader, encounteredTypes, false);
-            } else {
-                String msg = (item.getSuperTypes()==null || item.getSuperTypes().isEmpty()) ? "no supertypes declared" : "incompatible supertypes "+item.getSuperTypes();
-                String itemName = Strings.firstNonBlank(item.getSymbolicName(), BasicBrooklynCatalog.currentlyResolvingType.get(), "<unidentified>");
-                throw new IllegalStateException("Cannot create "+itemName+" as spec because "+msg+" ("+currentlyCreatingSpec.get()+")");
-            }
+            spec = createSpecPossiblyInferringSupers(mgmt, item, expectedType, loader, encounteredTypes, planYaml, supers, true);
             if (expectedType != null && !expectedType.isAssignableFrom(spec.getType())) {
                 throw new IllegalStateException("Creating spec from " + item + ", got " + spec.getType() + " which is incompatible with expected " + expectedType);
             }
@@ -170,7 +164,61 @@ class CampResolver {
             }
         }
     }
- 
+
+    private static AbstractBrooklynObjectSpec<?, ?> createSpecPossiblyInferringSupers(ManagementContext mgmt, RegisteredType item, Class<?> expectedType, BrooklynClassLoadingContext loader, Set<String> encounteredTypes, String planYaml, MutableSet<Object> supers, boolean canInferSupers) {
+        if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Policy.class)) {
+            return CampInternalUtils.createPolicySpec(planYaml, loader, encounteredTypes);
+        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Enricher.class)) {
+            return CampInternalUtils.createEnricherSpec(planYaml, loader, encounteredTypes);
+        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Location.class)) {
+            return CampInternalUtils.createLocationSpec(planYaml, loader, encounteredTypes);
+        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Application.class)) {
+            return createEntitySpecFromServicesBlock(mgmt, planYaml, loader, encounteredTypes, true);
+        } else if (RegisteredTypes.isAnyTypeSubtypeOf(supers, Entity.class)) {
+            return createEntitySpecFromServicesBlock(mgmt, planYaml, loader, encounteredTypes, false);
+        }
+
+        String msg = (item.getSuperTypes()==null || item.getSuperTypes().isEmpty()) ? "no supertypes declared" : "incompatible supertypes "+ item.getSuperTypes();
+
+        Exception error = null;
+        if (canInferSupers) {
+            try {
+                if (item.getPlan().getPlanData() instanceof String) {
+                    Object pm = Iterables.getOnlyElement(Yamls.parseAll((String) item.getPlan().getPlanData()));
+                    if (pm instanceof Map) {
+                        String t = new BrooklynYamlTypeInstantiator.Factory(loader, "camp-spec type inferencing").from((Map<?, ?>) pm).getTypeName().orNull();
+                        if (t != null) {
+                            Maybe<TypeToken<?>> tt = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("camp-spec type inferencing", loader, true, true).findTypeToken(t);
+                            if (tt.isPresent()) {
+                                MutableSet<Object> newSupers = MutableSet.copyOf(supers);
+                                if (newSupers.add(tt.get().getRawType())) {
+                                    try {
+                                        return createSpecPossiblyInferringSupers(mgmt, item, expectedType, loader, encounteredTypes, planYaml, newSupers, false);
+                                    } catch (Exception e) {
+                                        error = e;
+                                        msg = "type "+t+" ("+tt.get()+") threw an error";
+                                    }
+                                } else {
+                                    msg += " (tried " + tt.get() + " from " + t + ")";
+                                }
+                            } else {
+                                msg += " (and could not load " + t + ")";
+                            }
+                        } else {
+                            msg += " (and no type specified)";
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                msg += " ("+e+")";
+            }
+        }
+
+        String itemName = Strings.firstNonBlank(item.getSymbolicName(), BasicBrooklynCatalog.currentlyResolvingType.get(), "<unidentified>");
+        throw new IllegalStateException("Cannot create "+itemName+" as spec because "+msg+" ("+currentlyCreatingSpec.get()+")", error);
+    }
+
     private static EntitySpec<?> createEntitySpecFromServicesBlock(ManagementContext mgmt, String plan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes, boolean isApplication) {
         CampPlatform camp = CampInternalUtils.getCampPlatform(loader.getManagementContext());
 

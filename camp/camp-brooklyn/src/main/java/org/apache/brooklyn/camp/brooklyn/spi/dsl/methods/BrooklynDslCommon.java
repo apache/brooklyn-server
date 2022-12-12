@@ -25,6 +25,7 @@ import java.util.*;
 
 import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.entity.EntitySpec;
+import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -59,6 +60,7 @@ import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.mgmt.persist.DeserializingClassRenamesProvider;
 import org.apache.brooklyn.core.objs.AbstractConfigurationSupportInternal;
 import org.apache.brooklyn.core.objs.BrooklynObjectInternal;
+import org.apache.brooklyn.core.resolve.jackson.BeanWithTypePlanTransformer;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.sensor.DependentConfiguration;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -125,7 +127,11 @@ public class BrooklynDslCommon {
             @Override
             public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
                 BiFunction<ManagementContext, Object, Object> dslParse = BrooklynJacksonSerializationUtils.JsonDeserializerForCommonBrooklynThings.BROOKLYN_PARSE_DSL_FUNCTION;
-                if (!TypeTokens.equalsRaw(EntitySpec.class, type) || dslParse==null) {
+                if (!
+                        // TODO there is a JavaEntitySpecResolver but no analogue for adjuncts
+                        EntitySpec.class
+//                        AbstractBrooklynObjectSpec.class
+                        .isAssignableFrom(type.getRawType()) || dslParse==null) {
                     // only applies if a spec is wanted and dsl parse registered
                     return null;
                 }
@@ -139,16 +145,21 @@ public class BrooklynDslCommon {
                 if (mgmt==null) return null;
 
                 Map m = (Map) input;
-                if (!m.containsKey("type")) {
+                if (!(m.containsKey(BeanWithTypePlanTransformer.TYPE_SIMPLE_KEY) || m.containsKey(BeanWithTypePlanTransformer.TYPE_UNAMBIGUOUS_KEY))) {
                     // and map says a type
                     return null;
                 }
 
-                BrooklynClassLoadingContext loader = RegisteredTypes.getClassLoadingContext(mgmt, entity);
-                Object spec = DslUtils.transformSpecialFlags(mgmt, loader, dslParse.apply(mgmt, MutableMap.of("$brooklyn:entitySpec", input)));
-                if (spec instanceof Supplier) spec = ((Supplier)spec).get();
+                try {
+                    BrooklynClassLoadingContext loader = RegisteredTypes.getClassLoadingContext(mgmt, entity);
+                    Object spec = DslUtils.transformSpecialFlags(mgmt, loader, dslParse.apply(mgmt, MutableMap.of("$brooklyn:entitySpec", input)));
+                    if (spec instanceof Supplier) spec = ((Supplier) spec).get();
 
-                return Maybe.of( (T) spec );
+                    return Maybe.of((T) spec);
+
+                } catch (Exception e) {
+                    return Maybe.absent(e);
+                }
             }
         });
     }
