@@ -319,7 +319,7 @@ public abstract class AbstractBlueprintTest {
                 newMgmt)
                 .setConfigKeyAtManagmentContext();
 
-        return newMgmt;
+        return decorateManagementContext(newMgmt);
     }
 
     // -----
@@ -332,10 +332,14 @@ public abstract class AbstractBlueprintTest {
     /** @return A started management context -- with or without rebind depending on the value of {@link #isRebindEnabled()} */
     protected ManagementContext createOrigManagementContext() {
         if (isRebindEnabled()) {
-            return createBuilderForRebindingManagementContext().buildStarted();
+            return decorateManagementContext(createBuilderForRebindingManagementContext().buildStarted());
         } else {
-            return LocalManagementContextForTests.newInstance();
+            return decorateManagementContext(LocalManagementContextForTests.newInstance());
         }
+    }
+
+    protected ManagementContext decorateManagementContext(ManagementContext mgmt) {
+        return mgmt;
     }
 
     protected Application createAndStartApplication(String input) throws Exception {
