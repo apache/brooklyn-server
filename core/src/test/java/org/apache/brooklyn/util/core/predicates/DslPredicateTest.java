@@ -18,15 +18,14 @@
  */
 package org.apache.brooklyn.util.core.predicates;
 
-import net.bytebuddy.implementation.bytecode.Throw;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Time;
-import org.apache.brooklyn.util.time.Timestamp;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
@@ -146,14 +145,14 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     public void testDateGreaterThanOrEquals() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
                 "greater-than-or-equal-to", "2022-06-01"), DslPredicates.DslPredicate.class);
-        Asserts.assertFalse(p.test(Time.parseInstant("2022-06-02")));
-        Asserts.assertTrue(p.test(Time.parseInstant("2022-05-31")));
+        Asserts.assertTrue(p.test(Time.parseInstant("2022-06-02")));
+        Asserts.assertFalse(p.test(Time.parseInstant("2022-05-31")));
 
         // ensure it isn't doing string compare if either side is strongly typed
         p = TypeCoercions.coerce(MutableMap.of(
                 "greater-than-or-equal-to", "2022.06.01"), DslPredicates.DslPredicate.class);
-        Asserts.assertFalse(p.test(Time.parseInstant("2022-06-02")));
-        Asserts.assertTrue(p.test(Time.parseInstant("2022-05-31")));
+        Asserts.assertTrue(p.test(Time.parseInstant("2022-06-02")));
+        Asserts.assertFalse(p.test(Time.parseInstant("2022-05-31")));
 
         // whereas if none are strongly typed it does string compare
         Asserts.assertFalse(p.test("2022-06-02"));
@@ -174,6 +173,34 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
         Asserts.assertFalse(p.test("2022-05-31"));
         Asserts.assertTrue(p.test("2022.07.02"));
         Asserts.assertTrue(p.test("2022.05.31"));
+    }
+
+    @Test
+    public void testLessThanPrefersNonStringComparison() {
+        DslPredicates.DslPredicate p;
+        p = TypeCoercions.coerce(MutableMap.of(
+                "less-than", "2m"), DslPredicates.DslPredicate.class);
+
+        Asserts.assertTrue(p.test(Duration.of("5s")));
+        Asserts.assertFalse(p.test(Duration.of("5m")));
+        Asserts.assertTrue(p.test(Duration.of("1m")));
+        Asserts.assertFalse(p.test(Duration.of("1h")));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "less-than", Duration.of("2m")), DslPredicates.DslPredicate.class);
+
+        Asserts.assertTrue(p.test(Duration.of("5s")));
+        Asserts.assertFalse(p.test(Duration.of("5m")));
+        Asserts.assertTrue(p.test(Duration.of("1m")));
+        Asserts.assertFalse(p.test(Duration.of("1h")));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "less-than", Duration.of("2m")), DslPredicates.DslPredicate.class);
+
+        Asserts.assertTrue(p.test(("5s")));
+        Asserts.assertFalse(p.test(("5m")));
+        Asserts.assertTrue(p.test(("1m")));
+        Asserts.assertFalse(p.test(("1h")));
     }
 
     @Test

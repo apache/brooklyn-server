@@ -161,7 +161,7 @@ public class DslPredicates {
             return coercedCompare(a instanceof DeferredSupplier ? ((DeferredSupplier)a).get() : a, b instanceof DeferredSupplier ? ((DeferredSupplier)b).get() : b);
 
         // if classes are equal or one is a subclass of the other, and the above check was false, that is decisive
-        if (a.getClass().isAssignableFrom(b.getClass()) && b instanceof Comparable) return ((Comparable) b).compareTo(a);
+        if (a.getClass().isAssignableFrom(b.getClass()) && b instanceof Comparable) return -((Comparable) b).compareTo(a);
         if (b.getClass().isAssignableFrom(a.getClass()) && a instanceof Comparable) return ((Comparable) a).compareTo(b);
 
         BiFunction<Maybe<?>,Maybe<?>,Integer> maybeCoercedCompare = (ma,mb) -> {
