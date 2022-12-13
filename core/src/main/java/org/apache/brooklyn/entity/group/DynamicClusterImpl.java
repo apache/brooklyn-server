@@ -514,7 +514,7 @@ public class DynamicClusterImpl extends AbstractGroupImpl implements DynamicClus
         }
 
         for (Policy it : policies()) {
-            it.resume();
+            if (it.isSuspended()) it.resume();
         }
     }
 
