@@ -292,8 +292,7 @@ public class CatalogInitialization implements ManagementContextInjectable {
         } else {
             final OsgiManager osgiManager = maybesOsgiManager.get();
             final BundleContext bundleContext = osgiManager.getFramework().getBundleContext();
-            final CatalogUpgrades catalogUpgrades =
-                    catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
+            final CatalogUpgrades catalogUpgrades = catalogUpgradeScanner.scan(osgiManager, bundleContext, rebindLogger);
             CatalogUpgrades.storeInManagementContext(catalogUpgrades, managementContext);
         }
 
@@ -563,8 +562,8 @@ public class CatalogInitialization implements ManagementContextInjectable {
             }
         });
         bundlesToRemove.forEach(b -> {
-            ManagedBundle mb = getManagementContext().getOsgiManager().get().getManagedBundle(b.getVersionedName());
-            if (b.getBundle().getState() >= Bundle.INSTALLED && b.getBundle().getState() < Bundle.STARTING) {
+            log.debug("Considering to uninstall: "+b+" / "+getManagementContext().getOsgiManager().get().getManagedBundle(b.getVersionedName()));
+            if (b.getBundle()!=null && b.getBundle().getState() >= Bundle.INSTALLED && b.getBundle().getState() < Bundle.STARTING) {
                 // we installed it, catalog did not start it, so let's uninstall it
                 OsgiBundleInstallationResult result = getManagementContext().getOsgiManager().get().uninstallUploadedBundle(b.getMetadata());
                 log.debug("Result of uninstalling "+b+" due to catalog upgrade metadata instructions: "+result);

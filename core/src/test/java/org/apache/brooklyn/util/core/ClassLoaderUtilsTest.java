@@ -144,7 +144,7 @@ public class ClassLoaderUtilsTest {
 
         BundledName resource = new BundledName(classname).toResource();
         BundledName bn = new BundledName(resource.bundle, resource.version, "/" + resource.name);
-        Asserts.assertSize(cluEntity.getResources(bn.toString()), 1);
+        Asserts.assertSize(cluEntity.getResources(bn.toString()), 2);  // should no longer mask the other available option
     }
 
 
@@ -354,12 +354,15 @@ public class ClassLoaderUtilsTest {
         String bundledResource = resource.toString();
         URL resourceUrl = cl.getResource(resource.name);
         assertEquals(clu.getResource(bundledResource), resourceUrl);
-        assertEquals(clu.getResources(bundledResource), ImmutableList.of(resourceUrl), "Loading with "+clu);
+        Iterable<URL> allMatches = clu.getResources(bundledResource);
+        assertEquals(allMatches.iterator().next(), resourceUrl, "Loading with "+clu);
+        // may have others, eg if the bundle provides it via multiple sources
 
         BundledName rootResource = new BundledName(resource.bundle, resource.version, "/" + resource.name);
         String rootBundledResource = rootResource.toString();
         assertEquals(clu.getResource(rootBundledResource), resourceUrl);
-        assertEquals(clu.getResources(rootBundledResource), ImmutableList.of(resourceUrl));
+        allMatches = clu.getResources(rootBundledResource);
+        assertEquals(allMatches.iterator().next(), resourceUrl);
     }
 
     private void assertLoadFails(String bundledClassName, ClassLoaderUtils... clua) {

@@ -252,7 +252,8 @@ public class BrooklynJacksonSerializationUtils {
                             Object type = rm.get("type");
                             if (type instanceof String && ((String)type).startsWith("org.apache.brooklyn.camp.brooklyn.spi.dsl.")) {
                                 // should always have a brooklyn:literal on outermost type, so that even with json pass through (used for steps etc) dsl gets preserved across convertDeeply
-                                log.warn("Failed to deserialize "+result+" as DSL; will treat as map");
+                                // apart from nested DSL expressions; and unf there is no easy way to tell here, so we just log debug either way
+                                log.debug("Data "+result+" looks like DSL but has no literal entry; probably it is a nested DSL expression, or otherwise it may be left as a map after deserialization");
                             }
                         }
                     }

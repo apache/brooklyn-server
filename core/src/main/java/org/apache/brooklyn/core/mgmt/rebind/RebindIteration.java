@@ -360,6 +360,14 @@ public abstract class RebindIteration {
                 }
             });
         }
+
+        @Override
+        public String toString() {
+            return "InstallableManagedBundleImpl{" +
+                    "memento=" + memento +
+                    ", managedBundle=" + managedBundle +
+                    '}';
+        }
     }
 
     protected void installBundlesAndRebuildCatalog() {
@@ -1137,6 +1145,9 @@ public abstract class RebindIteration {
                             logRebindingWarn("Needed rebind catalog to resolve search path entry " + searchItemId + " (now " + fixedSearchItemId + ") for " + bType.getSimpleName().toLowerCase() + " " + contextSuchAsId +
                                     ", persistence should remove this in future but future versions will not support this and definitions should be fixed");
                         } else {
+                            // could do some magic if there is a peer with the same version use it, might be handy for snapshots especially
+                            // (snapshots upgrading bundle version "*" drop the qualifier so don't replace peers;
+                            // but as soon as you have a larger datestamp, it will replace the previous ones)
                             logRebindingWarn("Could not find search path entry " + searchItemId + " for " + bType.getSimpleName().toLowerCase() + " " + contextSuchAsId + ", ignoring");
                         }
                     }

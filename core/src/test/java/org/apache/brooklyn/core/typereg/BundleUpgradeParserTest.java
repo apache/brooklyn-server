@@ -89,6 +89,52 @@ public class BundleUpgradeParserTest {
         assertFalse(from1.includes(Version.valueOf("0.0.0.SNAPSHOT")));
         assertFalse(from1.includes(Version.valueOf("0.1.0.SNAPSHOT")));
     }
+
+    @Test
+    public void testVersionRangesWithTimestampsAndSnapshots() throws Exception {
+        VersionRange from0lessThan1 = VersionRangedName.fromString("foo:[0,1.0.0.2022)", false).getOsgiVersionRange();
+        assertTrue(from0lessThan1.includes(Version.valueOf("0.1.0.SNAPSHOT")));
+        assertTrue(from0lessThan1.includes(Version.valueOf("1.0.0")));
+        assertTrue(from0lessThan1.includes(Version.valueOf("1.0.0.2021")));
+        assertTrue(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("1.0.0-2021"))));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.2023")));
+        assertFalse(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("1.0.0-2023"))));
+
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.2022")));
+        assertFalse(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("1.0.0-2022"))));
+
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.SNAPSHOT")));
+        assertFalse(from0lessThan1.includes(Version.valueOf(BrooklynVersionSyntax.toValidOsgiVersion("1.0.0-SNAPSHOT"))));
+
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.1.2023")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.1.SNAPSHOT")));
+
+        // note however when given * for a snapshot we strip the snapshot qualifier, and so only match up to 1.0.0)
+        from0lessThan1 = VersionRangedName.fromString("foo:[0,1.0.0.SNAPSHOT)", false).getOsgiVersionRange();
+        assertTrue(from0lessThan1.includes(Version.valueOf("0.1.0.SNAPSHOT")));
+        assertTrue(from0lessThan1.includes(Version.valueOf("1.0.0")));
+        assertTrue(from0lessThan1.includes(Version.valueOf("1.0.0.2023")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.SNAPSHOT")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.1.2023")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.1.SNAPSHOT")));
+
+        from0lessThan1 = VersionRangedName.fromString("foo:[0,1.0.0)", false).getOsgiVersionRange();
+        assertTrue(from0lessThan1.includes(Version.valueOf("0.1.0.SNAPSHOT")));
+
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.2023")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.0.SNAPSHOT")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.1.2023")));
+        assertFalse(from0lessThan1.includes(Version.valueOf("1.0.1.SNAPSHOT")));
+
+        VersionRange from1lessThan101 = VersionRangedName.fromString("foo:(1.0.0,1.0.1)", false).getOsgiVersionRange();
+        assertFalse(from1lessThan101.includes(Version.valueOf("0.1.0.SNAPSHOT")));
+        assertFalse(from1lessThan101.includes(Version.valueOf("1.0.0")));
+        assertTrue(from1lessThan101.includes(Version.valueOf("1.0.0.2023")));
+        assertTrue(from1lessThan101.includes(Version.valueOf("1.0.0.SNAPSHOT")));
+        assertFalse(from1lessThan101.includes(Version.valueOf("1.0.1")));
+        assertFalse(from1lessThan101.includes(Version.valueOf("1.0.1.2023")));
+    }
     
     @Test
     public void testParseSingleQuotedVal() throws Exception {

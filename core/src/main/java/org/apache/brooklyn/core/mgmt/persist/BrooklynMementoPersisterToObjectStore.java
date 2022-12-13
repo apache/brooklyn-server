@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 import javax.xml.xpath.XPathConstants;
@@ -364,19 +365,34 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
 
                 } else {
                     String xmlId = (String) XmlUtil.xpathHandlingIllegalChars(contents, "/" + type.toCamelCase() + "/id");
-                    String safeXmlId = Strings.makeValidFilename(xmlId);
-                    if (!Objects.equal(id, safeXmlId))
-                        LOG.warn("ID mismatch on " + type.toCamelCase() + ", " + id + " from path, " + safeXmlId + " from xml");
+                    String xmlUrl = getXmlValue(contents, "/" + type.toCamelCase() + "/url").orNull();
+                    String xmlJavaType = getXmlValue(contents, "/" + type.toCamelCase() + "/type").orNull();
+                    String summary = MutableList.<String>of(contentsSubpath, type.toCamelCase()).appendIfNotNull(xmlId).appendIfNotNull(xmlUrl).appendIfNotNull(xmlJavaType).stream().collect(Collectors.joining(" / "));
 
-                    if (type == BrooklynObjectType.MANAGED_BUNDLE) {
-                        // TODO could R/W to cache space directly, rather than memory copy then extra file copy
-                        byte[] jarData = readBytes(contentsSubpath + ".jar");
-                        if (jarData == null) {
-                            throw new IllegalStateException("No bundle data for " + contentsSubpath);
-                        }
-                        builder.bundleJar(id, ByteSource.wrap(jarData));
+                    String safeXmlId = Strings.makeValidFilename(xmlId);
+                    if (!Objects.equal(id, safeXmlId)) {
+                        LOG.warn("ID mismatch on " + summary + ": xml id is " + safeXmlId);
                     }
-                    builder.put(type, xmlId, contents);
+
+                    boolean include;
+                    if (type == BrooklynObjectType.MANAGED_BUNDLE) {
+                        // could R/W to cache space directly, rather than memory copy then extra file copy
+                        byte[] jarData = readBytes(contentsSubpath + ".jar");
+                        include = (jarData != null);
+                        if (!include) {
+                            LOG.warn("No JAR data for "+summary+"; assuming deprecated and not meant to be installed, so ignoring");
+                            //throw new IllegalStateException("No bundle data for " + contentsSubpath+".jar; contents:\n"+contents);
+                        } else {
+                            LOG.debug("Including bundle "+summary+", with jar data size "+jarData.length);
+                            builder.bundleJar(id, ByteSource.wrap(jarData));
+                        }
+                    } else {
+                        LOG.debug("Including item "+summary);
+                        include = true;
+                    }
+                    if (include) {
+                        builder.put(type, xmlId, contents);
+                    }
                 }
             }
         };
@@ -397,6 +413,13 @@ public class BrooklynMementoPersisterToObjectStore implements BrooklynMementoPer
         }
 
         return result;
+    }
+
+    private Maybe<String> getXmlValue(String xml, String path) {
+        try {
+            return Maybe.ofDisallowingNull((String) XmlUtil.xpathHandlingIllegalChars(xml, path));
+        } catch (Exception e) { Exceptions.propagateIfFatal(e); /* otherwise ignore if no url */ }
+        return Maybe.absent();
     }
 
     private static class XPathHelper {

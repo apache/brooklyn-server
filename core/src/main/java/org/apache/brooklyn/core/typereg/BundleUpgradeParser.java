@@ -18,26 +18,19 @@
  */
 package org.apache.brooklyn.core.typereg;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Dictionary;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.stream.Collectors;
-
-import javax.annotation.Nonnull;
-
+import com.google.common.annotations.Beta;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
+import com.google.common.base.Supplier;
+import com.google.common.collect.*;
 import org.apache.brooklyn.api.catalog.CatalogItem;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.core.mgmt.ha.OsgiManager;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -50,16 +43,11 @@ import org.osgi.framework.VersionRange;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.Beta;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Function;
-import com.google.common.base.Objects;
-import com.google.common.base.Supplier;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import javax.annotation.Nonnull;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Internal class for parsing bundle manifests to extract their upgrade instructions.
@@ -551,16 +539,16 @@ public class BundleUpgradeParser {
         // TODO Add support for the other options described in the proposal:
         //   https://docs.google.com/document/d/1Lm47Kx-cXPLe8BO34-qrL3ZMPosuUHJILYVQUswEH6Y/edit#
         //   section "Bundle Upgrade Metadata"
-        
+
         Dictionary<String, String> headers = bundle.getHeaders();
         String upgradesForBundlesHeader = headers.get(MANIFEST_HEADER_UPGRADE_FOR_BUNDLES);
-        Multimap<VersionedName,VersionRangedName> upgradesForBundles = parseUpgradeForBundlesHeader(upgradesForBundlesHeader, bundle);
+        Multimap<VersionedName, VersionRangedName> upgradesForBundles = parseUpgradeForBundlesHeader(upgradesForBundlesHeader, bundle);
         return CatalogUpgrades.builder()
                 .removedLegacyItems(parseForceRemoveLegacyItemsHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_LEGACY_ITEMS), bundle, typeSupplier))
                 .removedBundles(parseForceRemoveBundlesHeader(headers.get(MANIFEST_HEADER_FORCE_REMOVE_BUNDLES), bundle))
                 .upgradeBundles(upgradesForBundles)
-                .upgradeTypes(parseUpgradeForTypesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_TYPES), bundle, typeSupplier, 
-                    upgradesForBundlesHeader==null ? null : upgradesForBundles))
+                .upgradeTypes(parseUpgradeForTypesHeader(headers.get(MANIFEST_HEADER_UPGRADE_FOR_TYPES), bundle, typeSupplier,
+                        upgradesForBundlesHeader == null ? null : upgradesForBundles))
                 .build();
     }
 
@@ -582,6 +570,7 @@ public class BundleUpgradeParser {
             // default target is this bundle
             (i) -> { return new VersionedName(bundle); });
     }
+
     private static Multimap<VersionedName, VersionRangedName> parseUpgradeForTypesHeader(String input, Bundle bundle, Supplier<? extends Iterable<? extends RegisteredType>> typeSupplier, Multimap<VersionedName, VersionRangedName> upgradesForBundles) {
         List<String> sourceVersions = null;
         if (upgradesForBundles!=null) {
@@ -609,8 +598,35 @@ public class BundleUpgradeParser {
             (i) -> { 
                 VersionedName targetTypeAtBundleVersion = new VersionedName(i.getSymbolicName(), bundle.getVersion());
                 if (!typeSupplierNames.contains(VersionedName.toOsgiVersionedName(targetTypeAtBundleVersion))) {
-                    throw new IllegalStateException("Bundle manifest for "+bundle+" declares it upgrades "+i+" "
-                        + "but does not declare an explicit target and does not contain inferred target "+targetTypeAtBundleVersion);
+                    String error = "Bundle manifest for " + bundle + " declares it upgrades " + i + " "
+                            + "but does not declare an explicit target and does not contain inferred target " + targetTypeAtBundleVersion;
+
+                    ManagementContext mgmt = Osgis.getManagementContext();
+                    if (mgmt!=null) {
+                        List<RegisteredType> matches = MutableList.copyOf(mgmt.getTypeRegistry().getMatching(rt -> Objects.equal(i.getSymbolicName(), rt.getSymbolicName()) && i.getOsgiVersionRange().includes(rt.getVersionedName().getOsgiVersion())));
+                        if (matches.isEmpty()) {
+                            /* can happen if a bundle imports its own packages and references a path/to/bom which is available in the bundle it imports, eg v 1.0.0-A and 1.0.0-B;
+                             * curiously osgi will sometimes read the resource from the imported bundle (see OsgiManager.getResources)
+                             */
+                            log.debug(error+"; however there are no such types to be upgrades so ignoring");
+                            return null;
+                        }
+                        CatalogUpgrades previousUpgrades = CatalogUpgrades.getFromManagementContext(mgmt);
+                        if (!previousUpgrades.getUpgradesForBundle(new VersionedName(bundle)).isEmpty()) {
+                            log.debug(error+"; however this bundle has applicable upgrade instructions so ignoring");
+                            return null;
+                        }
+                        matches = matches.stream().filter(rt -> previousUpgrades.getUpgradesForType(rt.getVersionedName()).isEmpty()).collect(Collectors.toList());
+                        if (matches.isEmpty()) {
+                            log.debug(error+"; however all such types have other upgrade instructions so ignoring");
+                            return null;
+                        }
+
+                        log.debug(error+"; types we cannot upgrade: "+matches+"; types available here: "+typeSupplierNames);
+                    } else {
+                        log.debug(error + "; details: mgmt context unavailable, osgi target '" + VersionedName.toOsgiVersionedName(targetTypeAtBundleVersion) + "', supplier names: " + typeSupplierNames);
+                    }
+                    throw new IllegalStateException(error);
                 }
                 return targetTypeAtBundleVersion; 
             });
@@ -766,7 +782,9 @@ public class BundleUpgradeParser {
                     } else {
                         throw new IllegalArgumentException("Wildcard entry key must be of the form \"*\" or \"*:range\"");
                     }
-                    result.put(target, source);
+                    if (target!=null) {
+                        result.put(target, source);
+                    }
                 }
             }
         }

@@ -590,6 +590,8 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
         File tempZipFile = null;
         String unzippedPath = null;
         try {
+            log.debug("Importing persisted state via REST API, starting");
+
             // create a temporary archive where persistence data supplied is written to
             tempZipFile = File.createTempFile("persistence-import",null);
             Files.write(tempZipFile.toPath(), persistenceData, StandardOpenOption.TRUNCATE_EXISTING);
@@ -623,15 +625,15 @@ public class ServerResource extends AbstractBrooklynRestResource implements Serv
                 ManagedBundleMemento bundleMemento = mementoManifest.getBundle(bundleJar.getKey());
                 ManagedBundle b = RebindIteration.newManagedBundle(bundleMemento);
                 bundles.put(b.getVersionedName(), new RebindIteration.InstallableManagedBundleImpl(bundleMemento, b));
-                log.debug("Installing "+bundleMemento+" for "+b+" as part of persisted state import");
+                log.debug("Importing persisted state, preparing bundle "+b+" from "+bundleMemento);
             }
             CatalogInitialization.PersistedCatalogState persistedCatalogState = new CatalogInitialization.PersistedCatalogState(bundles, Collections.emptySet());
             CatalogInitialization.RebindLogger rebindLogger = new CatalogInitialization.RebindLogger() {
                 @Override public void debug(String message, Object... args) {
-                    log.debug(message, args);
+                    log.debug("Importing persisted state: "+message, args);
                 }
                 @Override public void info(String message, Object... args) {
-                    log.warn(message, args);
+                    log.warn("Importing persisted state: "+message, args);
                 }
             };
             mgmtInternal().getCatalogInitialization().installPersistedBundles(persistedCatalogState, null, ((RebindManagerImpl)mgmt().getRebindManager()).newExceptionHandler(), rebindLogger);

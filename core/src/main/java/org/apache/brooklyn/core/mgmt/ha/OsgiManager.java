@@ -807,7 +807,12 @@ public class OsgiManager {
             try {
                 Maybe<Bundle> bundle = findBundle(osgiBundle);
                 if (bundle.isPresent()) {
-                    URL result = bundle.get().getResource(name);
+                    URL result;
+                    if (!name.endsWith(".class")) {
+                        result = bundle.get().getEntry(name);  // see comments at getResources
+                        if (result != null) return result;
+                    }
+                    result = bundle.get().getResource(name);
                     if (result!=null) return result;
                 }
             } catch (Exception e) {
@@ -821,13 +826,19 @@ public class OsgiManager {
      * @return URL's to all resources matching the given name (using {@link Bundle#getResources(String)} in the referenced osgi bundles.
      */
     public Iterable<URL> getResources(String name, Iterable<? extends OsgiBundleWithUrl> osgiBundles) {
-        Set<URL> resources = Sets.newLinkedHashSet();
+        MutableSet<URL> resources = MutableSet.of();
         for (OsgiBundleWithUrl catalogBundle : osgiBundles) {
             try {
                 Maybe<Bundle> bundle = findBundle(catalogBundle);
                 if (bundle.isPresent()) {
+                    boolean isClass = name.endsWith(".class");
+                    if (!isClass) resources.putIfNotNull(bundle.get().getEntry(name));  // files in the same bundle are not always preferred
+                    // (observed with a bundle at 1.0.0-2022 being installed when 1.0.0-SNAPSHOT is installed, the former includes its packages in import-package,
+                    // with the result that it returns the contents of the 1.0.0-SNAPSHOT bundle instead of its own contents, which is not what we want);
+                    // see also in BundleUpgradeParser
                     Enumeration<URL> result = bundle.get().getResources(name);
                     resources.addAll(Collections.list(result));
+                    if (isClass) resources.putIfNotNull(bundle.get().getEntry(name));  //class resources, for consistency and to match loadClass, we prefer osgi behaviour
                 }
             } catch (Exception e) {
                 Exceptions.propagateIfFatal(e);

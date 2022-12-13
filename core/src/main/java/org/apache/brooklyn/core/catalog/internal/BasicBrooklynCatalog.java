@@ -681,7 +681,6 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         // brooklyn.libraries we treat specially, to append the list, with the child's list preferred in classloading order
         // `libraries` is supported in some places as a legacy syntax; it should always be `brooklyn.libraries` for new apps
-        // TODO in 0.8.0 require brooklyn.libraries, don't allow "libraries" on its own
         List<?> librariesAddedHereNames = MutableList.copyOf(getFirstAs(itemMetadataWithoutItemDef, List.class, "brooklyn.libraries", "libraries").orNull());
         Collection<CatalogBundle> librariesAddedHereBundles = CatalogItemDtoAbstract.parseLibraries(librariesAddedHereNames);
         
@@ -745,6 +744,12 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
 
         String id = getFirstAs(catalogMetadata, String.class, "id").orNull();
         String version = getFirstAs(catalogMetadata, String.class, "version").orNull();
+        if (log.isTraceEnabled()) log.trace("Installing "+id+":"+version);
+        if (parentMetadata.containsKey("version") && !Objects.equal(parentMetadata.get("version"), version))
+            log.warn("Bundle "+containingBundle+" declares version "+version+" for items overriding broader version "+parentMetadata.get("version"));
+        else if (!parentMetadata.containsKey("version") && containingBundle!=null && version!=null && !Objects.equal(new VersionedName("x", version).getOsgiVersionString(), containingBundle.getVersionedName().getOsgiVersionString()))
+            log.warn("Bundle "+containingBundle+" declares items at different version "+version);
+
         String symbolicName = getFirstAs(catalogMetadata, String.class, "symbolicName").orNull();
         String displayName = getFirstAs(catalogMetadata, String.class, "displayName").orNull();
         String name = getFirstAs(catalogMetadata, String.class, "name").orNull();
@@ -1154,9 +1159,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
     }
 
     private void collectUrlReferencedCatalogItems(String url, ManagedBundle containingBundle, List<CatalogItemDtoAbstract<?, ?>> resultLegacyFormat, Map<RegisteredType, RegisteredType> resultNewFormat, boolean requireValidation, Map<Object, Object> parentMeta, int depth, boolean force, Boolean throwOnError) {
+        log.debug("Catalog load, loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
         BrooklynClassLoadingContext loader = getClassLoadingContext("catalog url reference loader", parentMeta, null);
         String yaml;
-        log.debug("Catalog load, loading referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" ("+(resultNewFormat!=null ? resultNewFormat.size() : resultLegacyFormat!=null ? resultLegacyFormat.size() : "(unknown)")+" items before load)");
         if (url.startsWith("http")) {
             // give greater visibility to these
             log.info("Loading external referenced BOM at "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()));
@@ -1168,6 +1173,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             throw new IllegalStateException("Remote catalog url " + url + " in "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName())+" can't be fetched.", e);
         }
         try {
+            if (log.isTraceEnabled()) log.trace("Loaded yaml for "+containingBundle+" from "+url+":\n"+yaml);
             collectCatalogItemsFromCatalogBomRoot("BOM expected at "+url, yaml, containingBundle, resultLegacyFormat, resultNewFormat, requireValidation, parentMeta, depth, force, throwOnError);
         } catch (Exception e) {
             Exceptions.propagateAnnotated("Error loading "+url+" as part of "+(containingBundle==null ? "non-bundled load" : containingBundle.getVersionedName()), e);
@@ -1393,7 +1399,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                 }
 
                 // couldn't resolve it with the plan transformers; retry with legacy "spec" transformers.
-                // TODO this legacy path is still needed where an entity is declared with nice abbreviated 'type: xxx' syntax, not the full-camp 'services: [ { type: xxx } ]' syntax.
+                // TODO this legacy path is still needed where an entity is declared with nice abbreviated 'type: ...' syntax, not the full-camp 'services: [ { type: ... } ]' syntax.
                 // would be nice to move that logic internally to CAMP and see if we can remove this altogether.
                 // (see org.apache.brooklyn.camp.brooklyn.spi.creation.CampResolver.createEntitySpecFromServicesBlock )
                 if (format == null) {
@@ -1567,7 +1573,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
             String candidateYamlWithKeyAdded = null;
             boolean legacyModeForOriginalBlueprint;
             if (optionalKeyForModifyingYaml!=null) {
-                /* often when added to a catalog we simply say "type: xxx" for the definition;
+                /* often when added to a catalog we simply say "type: ..." for the definition;
                  * the services: parent key at root (or brooklyn.policies, etc) needed by the camp parser
                  * are implicit, and added here */
                 if (item.containsKey(optionalKeyForModifyingYaml)) {
