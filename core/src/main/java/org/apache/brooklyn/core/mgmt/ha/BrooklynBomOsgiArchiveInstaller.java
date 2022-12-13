@@ -26,10 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import java.io.*;
 import java.net.URL;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.jar.Attributes;
@@ -41,6 +38,7 @@ import java.util.zip.ZipFile;
 import javax.annotation.Nullable;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
+import org.apache.brooklyn.api.typereg.OsgiBundleWithUrl;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.BrooklynVersion;
@@ -49,11 +47,8 @@ import org.apache.brooklyn.core.catalog.internal.CatalogInitialization;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult.ResultCode;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.core.server.BrooklynServerConfig;
-import org.apache.brooklyn.core.typereg.BasicBrooklynTypeRegistry;
-import org.apache.brooklyn.core.typereg.BasicManagedBundle;
+import org.apache.brooklyn.core.typereg.*;
 import org.apache.brooklyn.core.typereg.BundleUpgradeParser.CatalogUpgrades;
-import org.apache.brooklyn.core.typereg.RegisteredTypePredicates;
-import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.ResourceUtils;
@@ -82,7 +77,6 @@ public class BrooklynBomOsgiArchiveInstaller {
     private static final Logger log = LoggerFactory.getLogger(BrooklynBomOsgiArchiveInstaller.class);
     
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_WHITELIST_REGEX;
-    
     public static final ConfigKey<String> PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX = BrooklynServerConfig.PERSIST_MANAGED_BUNDLE_BLACKLIST_REGEX;
 
     final private OsgiManager osgiManager;
@@ -879,8 +873,31 @@ public class BrooklynBomOsgiArchiveInstaller {
                 result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), replacementBundle);
                 return;
             } else {
-                throw new IllegalArgumentException("Bundle "+inferredMetadata+" forcibly replaced by bundle "
-                        +replacementBundle.get()+", but replacement not found");
+                // try installing
+                java.util.Optional<Bundle> replacer = Arrays.stream(osgiManager.getFramework().getBundleContext().getBundles()).filter(b -> replacementBundle.get().equals(b.getSymbolicName(), b.getVersion())).findAny();
+                if (replacer.isPresent()) {
+                    log.info("Bundle "+inferredMetadata+" forcibly replaced by bundle "+replacementBundle.get()+" which was not yet installed; installing it now");
+                    try {
+                        replacer.get().start();
+                    } catch (Exception e) {
+                        log.warn("Failed to install "+replacer.get()+" which declares itself as a replacement for "+inferredMetadata+" (rethrowing): "+e);
+                        Exceptions.propagateAnnotated("Failed to install "+replacer.get()+" which declares itself as a replacement for "+inferredMetadata, e);
+                    }
+                    result.metadata = osgiManager.getManagedBundle(replacementBundle.get());
+                    if (result.getMetadata() != null) {
+                        result.bundle = osgiManager.getFramework().getBundleContext().getBundle(result.getMetadata().getOsgiUniqueUrl());
+                        log.debug("Bundle " + inferredMetadata + " forcibly replaced by bundle " + result.getMetadata() + " which has been installed instead");
+                        result.setIgnoringForciblyRemoved(inferredMetadata.getVersionedName(), replacementBundle);
+                        return;
+                    } else {
+                        log.warn("Failed to find "+replacer.get()+" which declares itself as a replacement for "+inferredMetadata+", after starting it (throwing); bundle status is: "+replacer.get().getState());
+                        throw new IllegalArgumentException("Bundle "+inferredMetadata+" forcibly replaced by bundle "
+                                +replacementBundle.get()+" started, but still replacement not found");
+                    }
+                } else {
+                    throw new IllegalArgumentException("Bundle "+inferredMetadata+" forcibly replaced by bundle "
+                            +replacementBundle.get()+", but replacement not found");
+                }
             }
         } else {
             log.debug("Bundle "+inferredMetadata+" forcibly removed, but no upgrade bundle supplied"
