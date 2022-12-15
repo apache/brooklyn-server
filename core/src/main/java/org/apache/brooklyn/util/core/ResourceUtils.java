@@ -493,7 +493,7 @@ public class ResourceUtils {
                         .append(resource)
                         .append(": unauthorized");
             } else {
-                message.append("Invalid response invoking ")
+                message.append("Invalid response retrieving ")
                         .append(resource)
                         .append(": response code ")
                         .append(statusCode);
