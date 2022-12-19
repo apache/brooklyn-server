@@ -130,10 +130,10 @@
         <jakarta.activation.version>1.2.2</jakarta.activation.version>
         <jakarta.mail.version>1.6.5</jakarta.mail.version> <!-- used by karaf -->
         <!-- double-check downstream projects before changing jackson version -->
-        <fasterxml.jackson.version>2.13.4</fasterxml.jackson.version>
-        <cxf.version>3.4.1</cxf.version>
-        <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match cxf-http-async -->
-        <httpcomponents.httpcore.version>4.4.14</httpcomponents.httpcore.version> <!-- To match cxf -->
+        <fasterxml.jackson.version>2.14.1</fasterxml.jackson.version>
+        <cxf.version>3.4.10</cxf.version>
+        <httpcomponents.httpclient.version>4.5.13</httpcomponents.httpclient.version> <!-- To match apache-cxf-3.4.10-features.xml -->
+        <httpcomponents.httpcore.version>4.4.15</httpcomponents.httpcore.version> <!-- To match cxf -->
         <!-- @deprecated since 0.11 -->
         <httpclient.version>4.5.13</httpclient.version> <!-- kept for compatibility in 0.11.0-SNAPSHOT, remove after -->
         <commons-lang3.version>3.12.0</commons-lang3.version>
@@ -186,14 +186,14 @@
         <kubernetes-client.version>5.8.0</kubernetes-client.version>
 
         <!-- Dependencies shipped with vanilla karaf; update these when we update the karaf version -->
-        <karaf.version>4.3.6</karaf.version>
+        <karaf.version>4.3.8</karaf.version>
         <karaf.plugin.version>${karaf.version}</karaf.plugin.version>
-        <pax-web.version>7.3.23</pax-web.version> <!-- karaf 4.3 -->
-        <jetty.version>9.4.43.v20210629</jetty.version> <!-- pax 7.3.23 from karaf 4.3 -->
+        <pax-web.version>7.3.27</pax-web.version> <!-- karaf 4.3 -->
+        <jetty.version>9.4.49.v20220914</jetty.version> <!-- pax 7.3.27, there is more recent 9.4.50.v20221201 but no pax -->
         <commons-collections.version>3.2.2</commons-collections.version>
         <spifly.version>1.3.2</spifly.version> <!-- 1.3.0 from kubernetes; 1.2.4 from pax-jetty; v1.3.2 from erstwhile jetty feature; but 1.3.2 fixes an NPE bug in 1.3.0 so use it -->
         <jaxb-api.version>2.3.3</jaxb-api.version>
-        <spifly.version>1.3.2</spifly.version> <!-- v1.3.2 from jetty feature; v1.2.4 from pax-jetty -->
+        <spifly.version>1.3.5</spifly.version> <!-- v1.3.2 from jetty feature; v1.2.4 from pax-jetty -->
         <felix.framework.version>6.0.5</felix.framework.version>
 
         <!-- Transitive dependencies, declared explicitly to avoid version mismatch -->
