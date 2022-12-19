@@ -32,11 +32,13 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Properties;
 
+import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.net.Urls;
 import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Identifiers;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterClass;
@@ -184,6 +186,15 @@ public class ResourceUtilsTest {
     public void testGetResources() {
         Iterable<URL> manifests = ResourceUtils.create("test").getResources("META-INF/MANIFEST.MF");
         assertFalse(Iterables.isEmpty(manifests));
+    }
+
+    @Test
+    public void testTidySloppyUrls() throws Exception {
+        Asserts.assertEquals(ResourceUtils.tidyFileUrl("file:/home/My Documents/x.bom"), "file:"+ "/home/My%20Documents/x.bom");
+        File f = File.createTempFile("brooklyn-test", "with space");
+        Files.write("hello".getBytes(), f);
+        Asserts.assertEquals(ResourceUtils.create(this).getResourceAsString( ResourceUtils.tidyFileUrl("file:"+f.getAbsolutePath()) ), "hello");
+        f.delete();
     }
 
 }

@@ -62,6 +62,7 @@ import org.apache.brooklyn.util.os.Os;
 import org.apache.brooklyn.util.osgi.OsgiUtils;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
+import org.apache.brooklyn.util.text.StringEscapes;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -347,7 +348,13 @@ public class ResourceUtils {
         try {
             in = url.toURI();
         } catch (URISyntaxException e) {
-            throw Exceptions.propagate(e);
+            String urlT = url.toString();
+            urlT = Strings.replaceAll(urlT, " ", "%20");
+            try {
+                in = new URI(urlT);
+            } catch (URISyntaxException ex) {
+                throw Exceptions.propagate(e);
+            }
         }
         URI out;
 
@@ -382,6 +389,7 @@ public class ResourceUtils {
         try {
             return tidy(new URL(url)).toString();
         } catch (MalformedURLException e) {
+
             throw Exceptions.propagate(e);
         }
     }
