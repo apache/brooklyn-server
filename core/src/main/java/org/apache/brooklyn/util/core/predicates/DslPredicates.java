@@ -25,7 +25,6 @@ import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.util.TokenBuffer;
 import com.google.common.annotations.Beta;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
@@ -73,6 +72,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 public class DslPredicates {
@@ -85,6 +85,9 @@ public class DslPredicates {
 
         TypeCoercions.registerAdapter(java.util.function.Predicate.class, DslEntityPredicate.class, DslEntityPredicateAdapter::new);
         TypeCoercions.registerAdapter(java.util.function.Predicate.class, DslPredicate.class, DslPredicateAdapter::new);
+        // subsumed in above
+//        TypeCoercions.registerAdapter(com.google.common.base.Predicate.class, DslEntityPredicate.class, DslEntityPredicateAdapter::new);
+//        TypeCoercions.registerAdapter(com.google.common.base.Predicate.class, DslPredicate.class, DslPredicateAdapter::new);
 
         // TODO could use json shorthand instead?
         TypeCoercions.registerAdapter(String.class, DslPredicate.class, DslPredicates::implicitlyEqualTo);

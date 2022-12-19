@@ -98,6 +98,44 @@ public class DslPredicateYamlTest extends AbstractYamlTest {
     }
 
     @Test
+    public void testDslPredicateConfigAsGuavaPredicate() throws Exception {
+        DslPredicates.init();
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    "+TestEntity.CONF_STRING.getName()+": x",
+                "    expected: x",
+                "    test.confPredicate:",
+                "          $brooklyn:object:\n" +
+                "              type: com.google.common.base.Predicates\n" +
+                "              factoryMethod.name: not\n" +
+                "              factoryMethod.args:\n" +
+                "                - $brooklyn:object:\n" +
+                "                    type: com.google.common.base.Predicates\n" +
+                "                    factoryMethod.name: equalTo\n" +
+                "                    factoryMethod.args:\n" +
+                "                      - $brooklyn:object:\n" +
+                "                          type: org.apache.brooklyn.util.collections.MutableMap\n" +
+                "                          factoryMethod.name: of");
+        DslPredicates.DslPredicate predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(MutableMap.of()) );
+        Asserts.assertTrue( predicate.apply(MutableMap.of("a","b")) );
+
+        app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    "+TestEntity.CONF_STRING.getName()+": x",
+                "    expected: x",
+                "    test.confPredicate:",
+                "      when: truthy");
+        predicate = app.config().get(TestEntity.CONF_PREDICATE);
+        Asserts.assertFalse( predicate.apply(MutableMap.of()) );
+        Asserts.assertTrue( predicate.apply(MutableMap.of("a","b")) );
+    }
+
+    @Test
     public void testDslTargetLocationRetargets() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",

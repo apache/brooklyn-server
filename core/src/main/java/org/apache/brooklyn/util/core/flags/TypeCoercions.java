@@ -35,6 +35,7 @@ import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.util.JavaGroovyEquivalents;
 import org.apache.brooklyn.util.core.ClassLoaderUtils;
+import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.Tasks;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -137,6 +138,8 @@ public class TypeCoercions {
                 return Sensors.newSensor(Object.class, input);
             }
         });
+
+        DslPredicates.init();
     }
     
     /**
