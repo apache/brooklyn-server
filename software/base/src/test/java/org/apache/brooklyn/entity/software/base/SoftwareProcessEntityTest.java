@@ -444,138 +444,139 @@ public class SoftwareProcessEntityTest extends BrooklynAppUnitTestSupport {
         doTestReleaseEvenIfErrorDuringStop(SimulatedFailInChildOnStopDriver.class);
     }
 
-    @Test
-    public void testDoubleStopEntity() {
-        ReflectiveEntityDriverFactory f = ((BasicEntityDriverManager)mgmt.getEntityDriverManager()).getReflectiveDriverFactory();
-        f.addClassFullNameMapping(EmptySoftwareProcessDriver.class.getName(), MinimalEmptySoftwareProcessTestDriver.class.getName());
-
-        // Second stop on SoftwareProcess will return early, while the first stop is still in progress
-        // This causes the app to shutdown prematurely, leaking machines.
-        EntityManager emgr = mgmt.getEntityManager();
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class);
-        TestApplication app = emgr.createEntity(appSpec);
-        emgr.manage(app);
-        EntitySpec<?> latchEntitySpec = EntitySpec.create(EmptySoftwareProcess.class);
-        Entity entity = app.createAndManageChild(latchEntitySpec);
-
-        final ReleaseLatchLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(ReleaseLatchLocation.class));
-        try {
-            app.start(ImmutableSet.of(loc));
-            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
-    
-            final Task<Void> firstStop = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
-            // Wait until first task tries to release the location, at this point the entity's reference 
-            // to the location is already cleared.
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(loc.isBlocked());
-                }
-            });
-
-            assertEquals(ServiceStateLogic.getExpectedState(entity), Lifecycle.STOPPING);
-            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
-
-            // Subsequent stops will end quickly - no location to release,
-            // while the first one is still releasing the machine.
-            final Task<Void> secondStop = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());;
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(secondStop.isDone());
-                }
-            });
-    
-            // Entity state is supposed to be STOPPED even though first location is still releasing. This is because the second
-            // release completed successfully. It's debatable whether this is the right behaviour - we could be calling the STOP
-            // effector exactly because the first call is blocked. The test is asserting the current behaviour.
-            assertEquals(ServiceStateLogic.getExpectedState(entity), Lifecycle.STOPPED);
-            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
-            Asserts.succeedsContinually(new Runnable() {
-                @Override
-                public void run() {
-                    assertFalse(firstStop.isDone());
-                }
-            });
-
-            loc.unblock();
-
-            // After the location is released, first task ends as well.
-            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(firstStop.isDone());
-                }
-            });
-
-        } finally {
-            loc.unblock();
-        }
-
-    }
-
-    @Test
-    public void testDoubleStopApp() {
-        ReflectiveEntityDriverFactory f = ((BasicEntityDriverManager)mgmt.getEntityDriverManager()).getReflectiveDriverFactory();
-        f.addClassFullNameMapping(EmptySoftwareProcessDriver.class.getName(), MinimalEmptySoftwareProcessTestDriver.class.getName());
-
-        // Second stop on SoftwareProcess will return early, while the first stop is still in progress
-        // This causes the app to shutdown prematurely, leaking machines.
-        EntityManager emgr = mgmt.getEntityManager();
-        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class);
-        final TestApplication app = emgr.createEntity(appSpec);
-        emgr.manage(app);
-        EntitySpec<?> latchEntitySpec = EntitySpec.create(EmptySoftwareProcess.class);
-        final Entity entity = app.createAndManageChild(latchEntitySpec);
-
-        final ReleaseLatchLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(ReleaseLatchLocation.class));
-        try {
-            app.start(ImmutableSet.of(loc));
-            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
-    
-            final Task<Void> firstStop = app.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
-            // Wait until first task tries to release the location, at this point the entity's reference 
-            // to the location is already cleared.
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(loc.isBlocked());
-                }
-            });
-    
-            // Subsequent stops will end quickly - no location to release,
-            // while the first one is still releasing the machine.
-            final Task<Void> secondStop = app.invoke(Startable.STOP, ImmutableMap.<String, Object>of());;
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(secondStop.isDone());
-                }
-            });
-    
-            // Since second stop succeeded the app will get unmanaged.
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(!Entities.isManaged(entity));
-                    assertTrue(!Entities.isManaged(app));
-                }
-            });
-    
-            // Unmanage will cancel the first task
-            Asserts.succeedsEventually(new Runnable() {
-                @Override
-                public void run() {
-                    assertTrue(firstStop.isDone());
-                }
-            });
-        } finally {
-            // We still haven't unblocked the location release, but entity is already unmanaged.
-            // Double STOP on an application could leak locations!!!
-            loc.unblock();
-        }
-    }
+    // 2023-01 semantics changed, so that first stop does not clear location until after
+//    @Test
+//    public void testDoubleStopEntity() {
+//        ReflectiveEntityDriverFactory f = ((BasicEntityDriverManager)mgmt.getEntityDriverManager()).getReflectiveDriverFactory();
+//        f.addClassFullNameMapping(EmptySoftwareProcessDriver.class.getName(), MinimalEmptySoftwareProcessTestDriver.class.getName());
+//
+//        // Second stop on SoftwareProcess will return early, while the first stop is still in progress
+//        // This causes the app to shutdown prematurely, leaking machines.
+//        EntityManager emgr = mgmt.getEntityManager();
+//        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class);
+//        TestApplication app = emgr.createEntity(appSpec);
+//        emgr.manage(app);
+//        EntitySpec<?> latchEntitySpec = EntitySpec.create(EmptySoftwareProcess.class);
+//        Entity entity = app.createAndManageChild(latchEntitySpec);
+//
+//        final ReleaseLatchLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(ReleaseLatchLocation.class));
+//        try {
+//            app.start(ImmutableSet.of(loc));
+//            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+//
+//            final Task<Void> firstStop = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
+//            // Wait until first task tries to release the location, at this point the entity's reference
+//            // to the location is already cleared.
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(loc.isBlocked());
+//                }
+//            });
+//
+//            assertEquals(ServiceStateLogic.getExpectedState(entity), Lifecycle.STOPPING);
+//            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPING);
+//
+//            // Subsequent stops will end quickly - no location to release,
+//            // while the first one is still releasing the machine.
+//            final Task<Void> secondStop = entity.invoke(Startable.STOP, ImmutableMap.<String, Object>of());;
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(secondStop.isDone());
+//                }
+//            });
+//
+//            // Entity state is supposed to be STOPPED even though first location is still releasing. This is because the second
+//            // release completed successfully. It's debatable whether this is the right behaviour - we could be calling the STOP
+//            // effector exactly because the first call is blocked. The test is asserting the current behaviour.
+//            assertEquals(ServiceStateLogic.getExpectedState(entity), Lifecycle.STOPPED);
+//            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+//            Asserts.succeedsContinually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertFalse(firstStop.isDone());
+//                }
+//            });
+//
+//            loc.unblock();
+//
+//            // After the location is released, first task ends as well.
+//            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.STOPPED);
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(firstStop.isDone());
+//                }
+//            });
+//
+//        } finally {
+//            loc.unblock();
+//        }
+//
+//    }
+//
+//    @Test
+//    public void testDoubleStopApp() {
+//        ReflectiveEntityDriverFactory f = ((BasicEntityDriverManager)mgmt.getEntityDriverManager()).getReflectiveDriverFactory();
+//        f.addClassFullNameMapping(EmptySoftwareProcessDriver.class.getName(), MinimalEmptySoftwareProcessTestDriver.class.getName());
+//
+//        // Second stop on SoftwareProcess will return early, while the first stop is still in progress
+//        // This causes the app to shutdown prematurely, leaking machines.
+//        EntityManager emgr = mgmt.getEntityManager();
+//        EntitySpec<TestApplication> appSpec = EntitySpec.create(TestApplication.class);
+//        final TestApplication app = emgr.createEntity(appSpec);
+//        emgr.manage(app);
+//        EntitySpec<?> latchEntitySpec = EntitySpec.create(EmptySoftwareProcess.class);
+//        final Entity entity = app.createAndManageChild(latchEntitySpec);
+//
+//        final ReleaseLatchLocation loc = mgmt.getLocationManager().createLocation(LocationSpec.create(ReleaseLatchLocation.class));
+//        try {
+//            app.start(ImmutableSet.of(loc));
+//            EntityAsserts.assertAttributeEquals(entity, Attributes.SERVICE_STATE_ACTUAL, Lifecycle.RUNNING);
+//
+//            final Task<Void> firstStop = app.invoke(Startable.STOP, ImmutableMap.<String, Object>of());
+//            // Wait until first task tries to release the location, at this point the entity's reference
+//            // to the location is already cleared.
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(loc.isBlocked());
+//                }
+//            });
+//
+//            // Subsequent stops will end quickly - no location to release,
+//            // while the first one is still releasing the machine.
+//            final Task<Void> secondStop = app.invoke(Startable.STOP, ImmutableMap.<String, Object>of());;
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(secondStop.isDone());
+//                }
+//            });
+//
+//            // Since second stop succeeded the app will get unmanaged.
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(!Entities.isManaged(entity));
+//                    assertTrue(!Entities.isManaged(app));
+//                }
+//            });
+//
+//            // Unmanage will cancel the first task
+//            Asserts.succeedsEventually(new Runnable() {
+//                @Override
+//                public void run() {
+//                    assertTrue(firstStop.isDone());
+//                }
+//            });
+//        } finally {
+//            // We still haven't unblocked the location release, but entity is already unmanaged.
+//            // Double STOP on an application could leak locations!!!
+//            loc.unblock();
+//        }
+//    }
 
     @Test
     public void testOpenPortsWithPortRangeConfig() throws Exception {

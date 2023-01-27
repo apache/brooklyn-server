@@ -232,14 +232,18 @@ public abstract class RebindTestFixture<T extends StartableApplication> {
 
     @AfterMethod(alwaysRun=true)
     public void tearDown() throws Exception {
-        if (origApp != null) Entities.destroyAll(origApp.getManagementContext());
-        if (newApp != null) Entities.destroyAll(newApp.getManagementContext());
-        if (newManagementContext != null) Entities.destroyAll(newManagementContext);
+        tearDown(null);
+    }
+
+    protected void tearDown(Duration timeout) throws Exception {
+        if (origApp != null) Entities.destroyAll(origApp.getManagementContext(), timeout);
+        if (newApp != null) Entities.destroyAll(newApp.getManagementContext(), timeout);
+        if (newManagementContext != null) Entities.destroyAll(newManagementContext, timeout);
         origApp = null;
         newApp = null;
         newManagementContext = null;
 
-        if (origManagementContext != null) Entities.destroyAll(origManagementContext);
+        if (origManagementContext != null) Entities.destroyAll(origManagementContext, timeout);
         if (mementoDir != null) FileBasedObjectStore.deleteCompletely(mementoDir);
         if (mementoDirBackup != null) FileBasedObjectStore.deleteCompletely(mementoDir);
         origManagementContext = null;

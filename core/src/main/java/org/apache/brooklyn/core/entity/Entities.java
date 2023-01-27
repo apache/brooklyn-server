@@ -693,6 +693,9 @@ public class Entities {
      * Actual actions performed will depend on the entity type and its current state.
      */
     public static void destroy(Entity e, boolean unmanageOnErrors) {
+        destroy(e, unmanageOnErrors, null);
+    }
+    public static void destroy(Entity e, boolean unmanageOnErrors, Duration timeout) {
         if (isManaged(e)) {
             if (isReadOnly(e)) {
                 unmanage(e);
@@ -701,7 +704,7 @@ public class Entities {
                 List<Exception> errors = MutableList.of();
 
                 try {
-                    if (e instanceof Startable) Entities.invokeEffector(e, e, Startable.STOP).getUnchecked();
+                    if (e instanceof Startable) Entities.invokeEffector(e, e, Startable.STOP).getUnchecked(timeout);
                 } catch (Exception error) {
                     Exceptions.propagateIfFatal(error);
                     if (!unmanageOnErrors) Exceptions.propagate(error);
@@ -780,6 +783,9 @@ public class Entities {
      * Apps will be stopped+destroyed+unmanaged concurrently, waiting for all to complete.
      */
     public static void destroyAll(final ManagementContext mgmt) {
+        destroyAll(mgmt, null);
+    }
+    public static void destroyAll(final ManagementContext mgmt, Duration timeout) {
         final int MAX_THREADS = 100;
         
         if (mgmt instanceof NonDeploymentManagementContext) {
@@ -803,7 +809,7 @@ public class Entities {
                     public void run() {
                         log.debug("destroying app "+app+" (managed? "+isManaged(app)+"; mgmt is "+mgmt+")");
                         try {
-                            destroy(app, true);
+                            destroy(app, true, timeout);
                             log.debug("destroyed app "+app+"; mgmt now "+mgmt);
                         } catch (Exception e) {
                             log.warn("problems destroying app "+app+" (mgmt now "+mgmt+", will rethrow at least one exception): "+e);

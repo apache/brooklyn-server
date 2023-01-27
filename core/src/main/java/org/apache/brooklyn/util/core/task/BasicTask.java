@@ -495,7 +495,7 @@ public class BasicTask<T> implements TaskInternal<T> {
             if (cancelled) throw new CancellationException();
             if (internalFuture == null) {
                 synchronized (this) {
-                    long remaining = end - System.currentTimeMillis();
+                    long remaining = end==null ? 100 : end - System.currentTimeMillis();
                     if (internalFuture==null && remaining>0)
                         wait(remaining);
                 }

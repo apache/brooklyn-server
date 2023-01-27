@@ -1101,8 +1101,25 @@ public abstract class MachineLifecycleEffectorTasks {
     }
 
     protected StopMachineDetails<Integer> stopProvisionedMachine(MachineProvisioningLocation<MachineLocation> provisioner, Location machine, ConfigBag parameters) {
-        clearEntityLocationAttributes(machine);
-        provisioner.release((MachineLocation) machine);
+        boolean succeeded = false;
+        try {
+            provisioner.release((MachineLocation) machine);
+            clearEntityLocationAttributes(machine, true);
+            succeeded = true;
+        } finally {
+            if (!succeeded) {
+                if (!Locations.isManaged(machine)) {
+                    log.warn("Stopping "+machine+" failed, will rethrow exception shortly, but as the location is no longer managed it is being cleared on any entities");
+                    // there was a failure, but before failing, it proceeded far enough that the location is no longer managed by brooklyn
+                    // which means the location will not be usable, so let's clear it
+                    clearEntityLocationAttributes(machine, true);
+                } else {
+                    log.debug("Stopping "+machine+" failed; previously attributes would have been cleared but now they are being kept to facilitate deletion in future");
+                    // 2023-01 we no longer remove sensors
+                    // clearEntityLocationAttributes(machine, false);
+                }
+            }
+        }
         return new StopMachineDetails<Integer>("Decommissioned "+machine, 1) {};
     }
 
@@ -1141,7 +1158,7 @@ public abstract class MachineLifecycleEffectorTasks {
             throw new UnsupportedOperationException("Location provisioner cannot suspend machines: " + provisioner);
         }
 
-        clearEntityLocationAttributes(machine);
+        clearEntityLocationAttributes(machine, false);
         SuspendsMachines.class.cast(provisioner).suspendMachine(MachineLocation.class.cast(machine));
 
         return new StopMachineDetails<>("Suspended " + machine, 1);
@@ -1152,7 +1169,10 @@ public abstract class MachineLifecycleEffectorTasks {
      * and removes the given machine from its locations.
      */
     protected void clearEntityLocationAttributes(Location machine) {
-        entity().removeLocations(ImmutableList.of(machine));
+        clearEntityLocationAttributes(machine, true);
+    }
+    protected void clearEntityLocationAttributes(Location machine, boolean removeLocation) {
+        if (removeLocation) entity().removeLocations(ImmutableList.of(machine));
         entity().sensors().set(Attributes.HOSTNAME, null);
         entity().sensors().set(Attributes.ADDRESS, null);
         entity().sensors().set(Attributes.SUBNET_HOSTNAME, null);

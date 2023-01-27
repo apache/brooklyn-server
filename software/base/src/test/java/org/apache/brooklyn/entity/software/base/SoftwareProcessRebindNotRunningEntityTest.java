@@ -23,10 +23,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -60,6 +57,7 @@ import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.location.byon.FixedListMachineProvisioningLocation;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.test.Asserts;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponse;
 import org.apache.brooklyn.util.core.internal.ssh.RecordingSshTool.CustomResponseGenerator;
@@ -129,10 +127,12 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
                 while (latch.getCount() > 0) {
                     latch.countDown();
                 }
+                if (latch instanceof TerminableCountDownLatch) ((TerminableCountDownLatch)latch).terminate();
             }
-            super.tearDown();
+            super.tearDown(Duration.millis(10));   // stops here can be blocked, don't wait on them
             if (executor != null) executor.shutdownNow();
         } finally {
+            latches.clear();
             RecordingSshTool.clear();
         }
     }
@@ -181,7 +181,7 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
             @Override
             public CustomResponse generate(ExecParams execParams) throws Exception {
                 launchCalledLatch.countDown();
-                launchBlockedLatch.await();
+                awaitOrFail(launchBlockedLatch, Duration.TEN_SECONDS);
                 return new CustomResponse(0, "", "");
             }});
         
@@ -209,7 +209,7 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
             @Override
             public CustomResponse generate(ExecParams execParams) throws Exception {
                 stopCalledLatch.countDown();
-                stopBlockedLatch.await();
+                awaitOrFail(stopBlockedLatch, Duration.TEN_SECONDS);
                 return new CustomResponse(0, "", "");
             }});
         
@@ -292,7 +292,9 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
         
         
         assertMarkedAsOnfire(newEntity, Lifecycle.STOPPING);
-        assertMarkedAsVmLost(newEntity, Lifecycle.STOPPING);
+
+        // 2023-01 we no longer remove VMs until we know they have been released, so this error does not appear
+        //assertMarkedAsVmLost(newEntity, Lifecycle.STOPPING);
 
         // Expect the marker to have been cleared on rebind (sensible because task is not running).
         EntityAsserts.assertAttributeEquals(newEntity, AttributesInternal.INTERNAL_PROVISIONING_TASK_STATE, null);
@@ -307,7 +309,7 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
             @Override
             public CustomResponse generate(ExecParams execParams) throws Exception {
                 launchCalledLatch.countDown();
-                launchBlockedLatch.await();
+                awaitOrFail(launchBlockedLatch, Duration.TEN_SECONDS);
                 return new CustomResponse(0, "", "");
             }});
         
@@ -370,13 +372,38 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
             }});
     }
 
-    protected void awaitOrFail(CountDownLatch latch, Duration timeout) throws Exception {
+    protected static void awaitOrFail(CountDownLatch latch, Duration timeout) throws Exception {
+        if (latch instanceof TerminableCountDownLatch && ((TerminableCountDownLatch)latch).terminated) return;
+
         boolean success = latch.await(timeout.toMilliseconds(), TimeUnit.MILLISECONDS);
         assertTrue(success, "latch "+latch+" not satisfied in "+timeout);
     }
-    
+
+    public static class TerminableCountDownLatch extends CountDownLatch {
+        public TerminableCountDownLatch(int count) {
+            super(count);
+        }
+        public boolean terminated = false;
+        public void terminate() {
+            terminated = true;
+            awaitingThreads.forEach(Thread::interrupt);
+        }
+
+        public Set<Thread> awaitingThreads = Collections.synchronizedSet(MutableSet.of());
+        @Override
+        public boolean await(long timeout, TimeUnit unit) throws InterruptedException {
+            if (terminated) throw new IllegalStateException("Not permitted to await on a terminated latch");
+            try {
+                awaitingThreads.add(Thread.currentThread());
+                return super.await(timeout, unit);
+            } finally {
+                awaitingThreads.remove(Thread.currentThread());
+            }
+        }
+    }
+
     protected CountDownLatch newLatch(int count) {
-        CountDownLatch result = new CountDownLatch(count);
+        CountDownLatch result = new TerminableCountDownLatch(count);
         latches.add(result);
         return result;
     }
@@ -443,8 +470,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
             
             if (calledLatch != null) calledLatch.countDown();
             try {
-                if (blockedLatch != null) blockedLatch.await();
-            } catch (InterruptedException e) {
+                if (blockedLatch != null) awaitOrFail(blockedLatch, Duration.TEN_SECONDS);
+            } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
             return getManagementContext().getLocationManager().createLocation(machineSpec);
@@ -459,8 +486,8 @@ public class SoftwareProcessRebindNotRunningEntityTest extends RebindTestFixture
             
             if (calledLatch != null) calledLatch.countDown();
             try {
-                if (blockedLatch != null) blockedLatch.await();
-            } catch (InterruptedException e) {
+                if (blockedLatch != null) awaitOrFail(blockedLatch, Duration.TEN_SECONDS);
+            } catch (Exception e) {
                 throw Exceptions.propagate(e);
             }
         }
