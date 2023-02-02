@@ -51,6 +51,8 @@ import org.apache.commons.lang3.reflect.TypeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
+
 public class BrooklynTypeNameResolution {
 
     private static Logger LOG = LoggerFactory.getLogger(BrooklynTypeNameResolution.class);
@@ -133,13 +135,13 @@ public class BrooklynTypeNameResolution {
             this(context, mgmt, null, false, mgmt != null);
         }
         /** resolver supporting configurable sources of types */
-        public BrooklynTypeNameResolver(String context, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
-            this(context, loader.getManagementContext(), loader, allowJavaType, allowRegisteredTypes);
+        public BrooklynTypeNameResolver(String context, @Nullable BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
+            this(context, loader==null ? null : loader.getManagementContext(), loader, allowJavaType, allowRegisteredTypes);
         }
-        private BrooklynTypeNameResolver(String context, ManagementContext mgmt, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
+        private BrooklynTypeNameResolver(String context, @Nullable ManagementContext mgmt, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
             this.context = context;
             this.mgmt = mgmt;
-            this.loader = loader==null ? JavaBrooklynClassLoadingContext.create(mgmt) : loader;
+            this.loader = loader==null ? mgmt==null ? null : JavaBrooklynClassLoadingContext.create(mgmt) : loader;
             this.allowJavaType = allowJavaType;
             this.allowRegisteredTypes = allowRegisteredTypes;
 
@@ -152,8 +154,12 @@ public class BrooklynTypeNameResolution {
             }
 
             if (allowRegisteredTypes) {
-                rules.put("Brooklyn registered types",
-                        s -> mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader)).map(BrooklynJacksonType::asTypeToken));
+                if (mgmt==null) {
+                    // registered types not available if no mgmt context supplied
+                } else {
+                    rules.put("Brooklyn registered types",
+                            s -> mgmt.getTypeRegistry().getMaybe(s, RegisteredTypeLoadingContexts.loader(loader)).map(BrooklynJacksonType::asTypeToken));
+                }
             }
         }
 

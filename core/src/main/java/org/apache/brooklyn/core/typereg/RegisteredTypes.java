@@ -38,6 +38,7 @@ import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.mgmt.rebind.RebindSupport;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.CatalogItemMemento;
 import org.apache.brooklyn.api.objs.BrooklynObject;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
@@ -48,6 +49,7 @@ import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.EntityAdjuncts;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
 import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
@@ -794,6 +796,20 @@ public class RegisteredTypes {
 
     public static BrooklynClassLoadingContext getClassLoadingContext(Entity entity) {
         return CatalogUtils.getClassLoadingContext(entity);
+    }
+
+    /** gets the loading context for the entity associated with a brooklyn object;
+     * throws if not possible.
+     *
+     * in future it might look at an adjunct's origin also, preferring that. */
+    public static Maybe<BrooklynClassLoadingContext> getClassLoadingContextMaybe(BrooklynObject bo) {
+        if (bo instanceof EntityAdjuncts.EntityAdjunctProxyable) {
+            bo = ((EntityAdjuncts.EntityAdjunctProxyable)bo).getEntity();
+        }
+        if (!(bo instanceof Entity)) {
+            return Maybe.absent("Unable to get loading context for "+bo);
+        }
+        return Maybe.of(CatalogUtils.getClassLoadingContext((Entity) bo));
     }
 
     public static BrooklynClassLoadingContext getClassLoadingContext(ManagementContext mgmt, Entity optionalEntity) {

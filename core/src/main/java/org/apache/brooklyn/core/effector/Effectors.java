@@ -18,15 +18,16 @@
  */
 package org.apache.brooklyn.core.effector;
 
-import java.util.*;
-import java.util.function.Consumer;
-
-import javax.annotation.Nullable;
-
+import com.google.common.base.Objects;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.TaskAdaptable;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.effector.EffectorTasks.EffectorBodyTaskFactory;
@@ -44,11 +45,9 @@ import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.reflect.TypeToken;
+import javax.annotation.Nullable;
+import java.util.*;
+import java.util.function.Consumer;
 
 public class Effectors {
 
@@ -248,6 +247,9 @@ public class Effectors {
     }
 
     public static Collection<ParameterType<?>> parseParameters(Map<String,Object> paramDefs) {
+        return parseParameters(paramDefs, null);
+    }
+    public static Collection<ParameterType<?>> parseParameters(Map<String,Object> paramDefs, BrooklynClassLoadingContext loader) {
         Set<ParameterType<?>> result = MutableSet.of();
         if (paramDefs==null) return result;
 
@@ -263,7 +265,7 @@ public class Effectors {
                 if (!(value instanceof Map))
                     throw new IllegalArgumentException("Illegal argument of type "+value.getClass()+" value '"+value+"' supplied as parameter definition "
                             + "'"+paramName);
-                result.add(Effectors.asParameterType(ConfigKeys.DynamicKeys.newNamedInstance(paramName, (Map<?, ?>) value)));
+                result.add(Effectors.asParameterType(ConfigKeys.DynamicKeys.newNamedInstance(paramName, (Map<?, ?>) value, loader)));
             }
         }
         return result;

@@ -227,7 +227,8 @@ public class WorkflowExecutionContext {
 
         // parameter defs
         Map<String,ConfigKey<?>> parameters = MutableMap.of();
-        Effectors.parseParameters(paramsDefiningWorkflow.get(WorkflowCommonConfig.PARAMETER_DEFS)).forEach(p -> parameters.put(p.getName(), Effectors.asConfigKey(p)));
+        Maybe<BrooklynClassLoadingContext> loader = RegisteredTypes.getClassLoadingContextMaybe(entityOrAdjunctWhereRunning);
+        Effectors.parseParameters(paramsDefiningWorkflow.get(WorkflowCommonConfig.PARAMETER_DEFS), loader.orNull()).forEach(p -> parameters.put(p.getName(), Effectors.asConfigKey(p)));
         if (extraConfigKeys!=null) extraConfigKeys.forEach(p -> parameters.put(p.getName(), p));
 
         // inputs, unresolved first

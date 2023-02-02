@@ -25,6 +25,7 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.effector.ParameterType;
 import org.apache.brooklyn.api.entity.EntityInitializer;
 import org.apache.brooklyn.api.entity.EntityLocal;
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.config.MapConfigKey;
@@ -78,7 +79,8 @@ public abstract class AddEffectorInitializerAbstractProto extends EntityInitiali
         EffectorBuilder<T> eff = Effectors.effector(type, name);
         eff.description(params.get(EFFECTOR_DESCRIPTION));
 
-        Effectors.parseParameters(params.get(EFFECTOR_PARAMETER_DEFS)).forEach(p -> eff.parameter(p));
+        BrooklynClassLoadingContext loader = null;  // we need an entity or mgmt context to get a loader, but we don't need to resolve the types so no big deal
+        Effectors.parseParameters(params.get(EFFECTOR_PARAMETER_DEFS), loader).forEach(p -> eff.parameter(p));
 
         return eff;
     }

@@ -22,6 +22,7 @@ import java.util.Map;
 
 import javax.annotation.Nonnull;
 
+import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.config.ConfigInheritance.ConfigInheritanceContext;
 import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.config.BasicConfigKey.BasicConfigKeyOverwriting;
@@ -30,6 +31,7 @@ import org.apache.brooklyn.core.sensor.BasicAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.PortAttributeSensorAndConfigKey;
 import org.apache.brooklyn.core.sensor.TemplatedStringAttributeSensorAndConfigKey;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
@@ -255,22 +257,34 @@ public class ConfigKeys {
     
     public static class DynamicKeys {
 
-        // TODO see below
-//        public static final ConfigKey<String> TYPE = ConfigKeys.newStringConfigKey("type");
+        public static final ConfigKey<Object> TYPE = ConfigKeys.newConfigKey(Object.class, "type", "type of this key or parameter, as a string or class or TypeToken");
         public static final ConfigKey<String> NAME = ConfigKeys.newStringConfigKey("name");
         public static final ConfigKey<String> DESCRIPTION = ConfigKeys.newStringConfigKey("description");
         public static final ConfigKey<Object> DEFAULT_VALUE = ConfigKeys.newConfigKey(Object.class, "defaultValue");
         
         public static ConfigKey<?> newInstance(ConfigBag keyDefs) {
-            String typeName = Strings.toString(keyDefs.getStringKey("type"));
-            if (Strings.isNonBlank(typeName)) {
+            return newInstance(keyDefs, null);
+        }
+        public static ConfigKey<?> newInstance(ConfigBag keyDefs, BrooklynClassLoadingContext loader) {
+            Object typeName = keyDefs.getStringKey("type");
+            TypeToken type = TypeToken.of(Object.class);
+            if (typeName!=null) {
+                if (typeName instanceof String) {
+                    type = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("dynamic config key", loader, true, true)
+                            .getTypeToken((String) typeName);
+                } else if (typeName instanceof TypeToken) {
+                    type = (TypeToken) typeName;
+                } else if (typeName instanceof Class) {
+                    type = TypeToken.of((Class)typeName);
+                } else {
+                    throw new IllegalArgumentException("Invalid type definition for config key");
+                }
                 // could do dynamic typing - see TYPE key commented out above; also see AddSensor.getType for type lookup
                 // but we don't want that, because the rules for this are subtle (not universal), and
                 // it is implemented on jackson conversion instead, which coercion will do in some cases
 //                log.warn("Setting 'type' is not currently supported for dynamic config keys; ignoring in definition of "+keyDefs);
             }
-            
-            Class<Object> type = Object.class;
+
             String name = keyDefs.get(NAME);
             String description = keyDefs.get(DESCRIPTION);
             Object defaultValue = keyDefs.get(DEFAULT_VALUE);
@@ -284,11 +298,14 @@ public class ConfigKeys {
         
         /** creates a new {@link ConfigKey} given a name (e.g. as a key in a larger map) and a map of other definition attributes */
         public static ConfigKey<?> newNamedInstance(String name, Map<?,?> keyDefs) {
+            return newNamedInstance(name, keyDefs, null);
+        }
+        public static ConfigKey<?> newNamedInstance(String name, Map<?,?> keyDefs, BrooklynClassLoadingContext loader) {
             ConfigBag defs = ConfigBag.newInstance(keyDefs);
             String oldName = defs.put(NAME, name);
             if (oldName!=null && !oldName.equals(name))
                 log.warn("Dynamic key '"+oldName+"' being overridden as key '"+name+"' in "+keyDefs);
-            return newInstance(defs);
+            return newInstance(defs, loader);
         }
 
     }
