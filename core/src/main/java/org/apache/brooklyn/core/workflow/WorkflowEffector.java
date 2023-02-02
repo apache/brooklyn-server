@@ -91,6 +91,10 @@ public class WorkflowEffector extends AddEffectorInitializerAbstract implements 
             WorkflowStepResolution.validateWorkflowParameters(entity, definitionParams);
         }
 
+        public Map<String,Object> getDefinitionParams() {
+            return definitionParams;
+        }
+
         public Task<Object> newTask(Entity entity, Effector<Object> effector, ConfigBag invocationParams) {
             return newSubWorkflowTask(entity, effector, invocationParams, null, null);
         }
