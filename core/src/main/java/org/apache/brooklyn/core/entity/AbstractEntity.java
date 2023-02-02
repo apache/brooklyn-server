@@ -589,6 +589,9 @@ public abstract class AbstractEntity extends AbstractBrooklynObject implements E
         if (Entities.isDescendant(this, entity))
             throw new IllegalStateException("loop detected trying to set parent of "+this+" as "+entity+", which is already a descendent");
         
+        // 2023-01 - previously we didn't clear the parent, but it ends up as child of two things if we don't so do
+        clearParent();
+
         parent.set(entity);
         entity.addChild(getProxyIfAvailable());
         config().refreshInheritedConfig();
