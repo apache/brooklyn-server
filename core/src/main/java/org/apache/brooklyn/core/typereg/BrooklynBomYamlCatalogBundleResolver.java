@@ -27,11 +27,13 @@ import java.util.jar.Manifest;
 import java.util.zip.ZipEntry;
 import org.apache.brooklyn.core.catalog.internal.BasicBrooklynCatalog;
 import org.apache.brooklyn.core.config.ConfigUtils;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.osgi.BundleMaker;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
+import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.brooklyn.util.stream.InputStreamSource;
 import org.apache.brooklyn.util.stream.Streams;
@@ -132,6 +134,11 @@ public class BrooklynBomYamlCatalogBundleResolver extends AbstractCatalogBundleR
             // if the submitted blueprint contains tags, we set them on the bundle, so they can be picked up and used to tag the plan.
             if( cm.containsKey("tags") && cm.get("tags") instanceof Iterable) {
                 basicManagedBundle.tags().addTags((Iterable<?>)cm.get("tags"));
+            }
+            // Store the bundleIconUrl as an ICON_URL tag
+            Maybe<String> bundleIconUrl = ConfigUtils.getFirstAs(cm, String.class, "bundleIconUrl");
+            if (bundleIconUrl.isPresentAndNonNull()) {
+                basicManagedBundle.tags().addTag(BrooklynTags.newIconUrlTag(bundleIconUrl.get()));
             }
             result = ((ManagementContextInternal)mgmt).getOsgiManager().get().installBrooklynBomBundle(
                     basicManagedBundle, InputStreamSource.of("ZIP generated for "+vn+": "+bf, bf), options.isStart(), options.isLoadCatalogBom(), options.isForceUpdateOfNonSnapshots(),

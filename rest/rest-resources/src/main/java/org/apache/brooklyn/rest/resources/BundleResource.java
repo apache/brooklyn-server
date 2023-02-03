@@ -20,15 +20,22 @@ package org.apache.brooklyn.rest.resources;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
+import com.google.common.io.Files;
+import org.apache.brooklyn.api.entity.Entity;
+import org.apache.brooklyn.api.objs.EntityAdjunct;
 import org.apache.brooklyn.api.typereg.ManagedBundle;
 import org.apache.brooklyn.api.typereg.RegisteredType;
+import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.entitlement.Entitlements;
 import org.apache.brooklyn.core.mgmt.ha.OsgiBundleInstallationResult;
 import org.apache.brooklyn.core.mgmt.internal.ManagementContextInternal;
@@ -47,6 +54,7 @@ import org.apache.brooklyn.rest.filter.HaHotStateRequired;
 import org.apache.brooklyn.rest.transform.TypeTransformer;
 import org.apache.brooklyn.rest.util.WebResourceUtils;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.core.ResourceUtils;
 import org.apache.brooklyn.util.exceptions.ReferenceWithError;
 import org.apache.brooklyn.util.io.FileUtil;
 import org.apache.brooklyn.util.osgi.VersionedName;
@@ -255,5 +263,29 @@ public class BundleResource extends AbstractBrooklynRestResource implements Bund
         }
         return Response.status(status).entity(resultR).build();
     }
-    
+
+    @Override
+    public Response getIcon(String symbolicName, String version) {
+        ManagedBundle b = lookup(symbolicName, version);
+        final Optional<String> iconUrl = Optional.ofNullable(BrooklynTags.findFirstNamedStringTag(BrooklynTags.ICON_URL, b.tags().getTags()))
+                .map(BrooklynTags.NamedStringTag::getContents);
+
+        if (!iconUrl.isPresent())
+            return Response.status(javax.ws.rs.core.Response.Status.NO_CONTENT).build();
+
+        String url = iconUrl.get();
+
+        if (brooklyn().isUrlServerSideAndSafe(url)) {
+            // classpath URL's we will serve IF they end with a recognised image format;
+            // paths (ie non-protocol) and
+            // NB, for security, file URL's are NOT served
+            MediaType mime = WebResourceUtils.getImageMediaTypeFromExtension(Files.getFileExtension(url));
+            Object content = ResourceUtils.create(b).getResourceFromUrl(url);
+            return Response.ok(content, mime).build();
+        }
+
+        // for anything else we do a redirect (e.g. http / https; perhaps ftp)
+        return Response.temporaryRedirect(URI.create(url)).build();
+    }
+
 }
