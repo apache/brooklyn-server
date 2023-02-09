@@ -379,7 +379,8 @@ public class BrooklynJacksonSerializerTest {
         log.info("Instant json is: "+xs);
         Assert.assertFalse(xs.contains("error"), "Shouldn't have had an error, instead got: "+xs);
         Instant x2 = checkSerializesAs(x, Instant.class);
-        Asserts.assertEquals(x2, x);
+        // instants sometimes round by one ms, as noted elsewhere in other tests
+        Asserts.assertThat(Math.abs(x2.toEpochMilli() - x.toEpochMilli()), diff -> diff < 2);
     }
 
     @Test
