@@ -96,6 +96,7 @@ public class BasicManagedBundle extends AbstractBrooklynObject implements Manage
      */
     public static BasicManagedBundle copyFirstWithCoordsOfSecond(ManagedBundle update, ManagedBundle oldOneForCoordinates) {
         BasicManagedBundle result = new BasicManagedBundle(oldOneForCoordinates.getId(), update.getSymbolicName(), update.getSuppliedVersionString(), update.getUrl(), update.getFormat(), update.getUrlCredential(), update.getChecksum(), update.getDeleteable());
+        result.tags().addTags(update.tags().getTags());
         // we have secondary logic which should accept a change in the OSGi unique URL,
         // but more efficient if we use the original URL
         result.osgiUniqueUrl = oldOneForCoordinates.getOsgiUniqueUrl();

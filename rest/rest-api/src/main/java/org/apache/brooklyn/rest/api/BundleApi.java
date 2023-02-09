@@ -309,4 +309,23 @@ public interface BundleApi {
             @QueryParam("force") @DefaultValue("false")
                     Boolean force);
 
+    @Path("/{symbolicName}/{version}/icon")
+    @GET
+    @ApiOperation(value = "Gets the icon for a specific bundle given its symbolic name and version, if defined",
+            response = BundleSummary.class)
+    @ApiResponses(value = {
+            @ApiResponse(code = 200, message = "OK"),
+            @ApiResponse(code = 400, message = "Bad Request"),
+            @ApiResponse(code = 401, message = "Unauthorized"),
+            @ApiResponse(code = 404, message = "Symbolic name not found"),
+            @ApiResponse(code = 500, message = "Internal Server Error")
+    })
+    public Response getIcon(
+            @ApiParam(name = "symbolicName", value = "Bundle name to query", required = true)
+            @PathParam("symbolicName")
+            String symbolicName,
+            @ApiParam(name = "version", value = "Version to query", required = true)
+            @PathParam("version")
+            String version);
+
 }

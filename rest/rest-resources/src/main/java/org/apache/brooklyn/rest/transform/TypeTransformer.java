@@ -205,6 +205,11 @@ public class TypeTransformer {
                 result.addType(summary(brooklyn, t, baseUriBuilder));
             }
         }
+        Optional<String> iconUrl = Optional.ofNullable(BrooklynTags.findFirstNamedStringTag(BrooklynTags.ICON_URL, b.tags().getTags()))
+                .map(BrooklynTags.NamedStringTag::getContents);
+        if (iconUrl.isPresent()) {
+            result.setExtraField("iconUrl", serviceUriBuilder(baseUriBuilder, BundleApi.class, "getIcon").build(b.getSymbolicName(), b.getOsgiVersionString()));
+        }
         return result;
     }
     
