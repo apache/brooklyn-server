@@ -158,7 +158,7 @@ public interface ConfigMap {
         @Beta
         public Map<ConfigKey<?>,Object> getAllConfigInheritedRawValuesIgnoringErrors();
 
-        /** as {@link #getAllConfigInheritedRaw()} but removes any entries which should not be re-inheritable by descendants */
+        /** as {@link #getAllConfigInheritedRawWithErrors()} but removes any entries which should not be re-inheritable by descendants */
         public Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> getAllReinheritableConfigRaw();
     }
     

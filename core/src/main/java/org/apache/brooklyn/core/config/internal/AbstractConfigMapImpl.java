@@ -655,8 +655,7 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
         if (getParent()!=null) {
             @SuppressWarnings("unchecked")
             Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>> po = (Map<ConfigKey<?>,ReferenceWithError<ConfigValueAtContainer<TContainer,?>>>) (Map<?,?>)
-            ((AbstractConfigMapImpl<?>)getParentInternal().config().getInternalConfigMap())
-            .getSelectedConfigInheritedRaw(knownKeysIncludingDescendants, true);
+                ((AbstractConfigMapImpl<?>)getParentInternal().config().getInternalConfigMap()).getSelectedConfigInheritedRaw(knownKeysIncludingDescendants, true);
             parents.putAll(po);
         }
 
@@ -696,7 +695,12 @@ public abstract class AbstractConfigMapImpl<TContainer extends BrooklynObject> i
             }
             if (onlyReinheritable) {
                 ConfigInheritance inhHere = ConfigInheritances.findInheritance(kOnType, InheritanceContext.RUNTIME_MANAGEMENT, getDefaultRuntimeInheritance());
-                if (localValue.isAbsent() && !inhHere.isReinheritable(vl, InheritanceContext.RUNTIME_MANAGEMENT)) {
+                if (
+                        //2023-02 previously required the local value to be absent but that now seems wrong
+                        //localValue.isAbsent() &&
+
+                        !inhHere.isReinheritable(vl, InheritanceContext.RUNTIME_MANAGEMENT)) {
+
                     // skip this one
                     continue;
                 }
