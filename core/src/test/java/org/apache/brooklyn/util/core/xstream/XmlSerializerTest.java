@@ -32,8 +32,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.xstream.LambdaPreventionMapper.LambdaPersistenceMode;
-import org.omg.CORBA.ObjectHolder;
-import org.omg.CORBA.StringHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import static org.testng.Assert.assertEquals;
