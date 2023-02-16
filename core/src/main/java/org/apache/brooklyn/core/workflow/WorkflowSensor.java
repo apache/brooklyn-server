@@ -55,7 +55,7 @@ import java.util.concurrent.Callable;
  * Configurable {@link EntityInitializer} which adds a sensor feed running a given workflow.
  */
 @Beta
-public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implements WorkflowCommonConfig {
+public class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> implements WorkflowCommonConfig {
 
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowSensor.class);
 
@@ -142,7 +142,7 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
         return s;
     }
 
-    static class WorkflowPollCallable implements Callable<Object> {
+    public static class WorkflowPollCallable implements Callable<Object> {
         private final String workflowCallableName;
         private BrooklynObject entityOrAdjunct;
         private final Map<String,Object> params;
@@ -192,6 +192,10 @@ public final class WorkflowSensor<T> extends AbstractAddTriggerableSensor<T> imp
 
                 throw e;
             }
+        }
+
+        public Map<String,Object> getParams() {
+            return params;
         }
 
         @Override
