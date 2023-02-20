@@ -46,7 +46,7 @@ import java.util.function.Supplier;
  * Configurable policy which runs workflow according to schedule and/or trigger.
  */
 @Beta
-public final class WorkflowPolicy<T> extends AbstractPolicy {
+public class WorkflowPolicy<T> extends AbstractPolicy {
 
     private static final Logger LOG = LoggerFactory.getLogger(WorkflowPolicy.class);
 
