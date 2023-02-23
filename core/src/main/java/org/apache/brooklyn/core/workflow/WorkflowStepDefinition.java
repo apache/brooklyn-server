@@ -67,6 +67,9 @@ public abstract class WorkflowStepDefinition {
         this.name = name;
     }
 
+    /** freeform data for use by tools and clients */
+    protected Object metadata;
+
     protected String userSuppliedShorthand;
     protected String shorthandTypeName;
 

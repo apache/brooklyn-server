@@ -636,6 +636,9 @@ public class DslPredicates {
         public DslPredicateDefault(String implicitEquals) { this.implicitEquals = implicitEquals; }
         public DslPredicateDefault(Integer implicitEquals) { this.implicitEquals = implicitEquals; }
 
+        // not used by code, but allows clients to store other information
+        public Object metadata;
+
         public Object target;
 
         public String config;
