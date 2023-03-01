@@ -103,7 +103,7 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
             return ApiError.builder().message(throwable2.getMessage()).prefixMessage("Invalid YAML").build().asBadRequestResponseJson();
         }
 
-        if (!Exceptions.isPrefixBoring(throwable2)) {
+        if (!isTooUninterestingToLogWarn(throwable2)) {
             if ( encounteredUnknownExceptions.add( throwable2.getClass() )) {
                 LOG.warn("REST call generated exception type "+throwable2.getClass()+" unrecognized in "+getClass()+" (subsequent occurrences will be logged debug only): " + throwable2, throwable2);
             }
@@ -120,7 +120,15 @@ public class DefaultExceptionMapper implements ExceptionMapper<Throwable> {
             rb.message("Internal error. Contact server administrator to consult logs for more details.");
         return rb.build().asResponse(Status.INTERNAL_SERVER_ERROR, MediaType.APPLICATION_JSON_TYPE);
     }
-    
+
+    protected boolean isTooUninterestingToLogWarn(Throwable throwable2) {
+        // we used to do this which excluded too much
+        //return Exceptions.isPrefixBoring(throwable2);
+
+        // for now we do this which probably includes some things we'd like to suppress (eg when starting up) but we can improve subsequently
+        return false;
+    }
+
     /** Logs full details at trace, unless it is the first time we've seen this in which case it is debug */
     @Beta
     public static void logExceptionDetailsForDebugging(Throwable t) {
