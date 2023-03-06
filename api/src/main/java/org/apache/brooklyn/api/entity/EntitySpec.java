@@ -299,6 +299,7 @@ public class EntitySpec<T extends Entity> extends AbstractBrooklynObjectSpec<T,E
         return this;
     }
 
+    @JsonSetter("brooklyn.children")
     public EntitySpec<T> children(Iterable<? extends EntitySpec<?>> children) {
         checkMutable();
         Iterables.addAll(this.children, children);
