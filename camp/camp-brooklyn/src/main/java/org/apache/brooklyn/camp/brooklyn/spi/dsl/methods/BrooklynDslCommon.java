@@ -816,7 +816,7 @@ public class BrooklynDslCommon {
                 }
                 return Maybe.of(result);
             } catch (ImmediateValueNotAvailableException e) {
-                return ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
+                return Maybe.absent(e);
             }
         }
         

@@ -66,6 +66,12 @@ public interface ImmediateSupplier<T> extends Supplier<T> {
         public static <T> Maybe<T> newAbsentWithExceptionSupplier() {
             return Maybe.Absent.changeExceptionSupplier(Maybe.<T>absent(), ImmediateValueNotAvailableException.class);
         }
+        public static <T> Maybe<T> newAbsentWithExceptionSupplier(String message) {
+            return Maybe.Absent.absent(() -> new ImmediateValueNotAvailableException(message));
+        }
+        public static <T> Maybe<T> newAbsentWithExceptionSupplier(Supplier<String> message) {
+            return Maybe.Absent.absent(() -> new ImmediateValueNotAvailableException(message.get()));
+        }
         public static <T> Maybe<T> newAbsentWrapping(String message, Maybe<?> inner) {
             return Maybe.absent(new ImmediateValueNotAvailableException(message, Maybe.getException(inner)));
         }

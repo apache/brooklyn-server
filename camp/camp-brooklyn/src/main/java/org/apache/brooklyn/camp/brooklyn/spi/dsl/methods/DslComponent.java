@@ -712,7 +712,8 @@ public class DslComponent extends BrooklynDslDeferredSupplier<Entity> implements
                 targetSensor = Sensors.newSensor(Object.class, sensorNameS);
             }
             Object result = targetEntity.sensors().get(targetSensor);
-            return JavaGroovyEquivalents.groovyTruth(result) ? Maybe.of(result) : ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
+            AttributeSensor<?> ts2 = targetSensor;
+            return JavaGroovyEquivalents.groovyTruth(result) ? Maybe.of(result) : ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier(() -> "Sensor '"+ts2+"' on "+targetEntity+" not immediately available");
         }
 
         @SuppressWarnings("unchecked")

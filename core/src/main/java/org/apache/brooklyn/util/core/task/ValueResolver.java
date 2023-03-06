@@ -498,7 +498,7 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
                     }
                 } catch (ImmediateSupplier.ImmediateValueNotAvailableException e) {
                     // definitively not available
-                    return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
+                    return Maybe.absent(e);
                 }
             }
 
@@ -529,18 +529,32 @@ public class ValueResolver<T> implements DeferredSupplier<T>, Iterable<Maybe<Obj
 
                 //including tasks, above
                 if (!vfuture.isDone()) {
+                    Maybe vm;
                     if (isEvaluatingImmediately()) {
-                        return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier();
+                        if (vfuture instanceof Task<?> && ((Task<?>)vfuture).isSubmitted()) {
+                            try {
+                                // not sure if this ever gives a better result than the below - DST's still aren't supported - but might do for some tasks
+                                vm = exec.getImmediately(vfuture);
+                            } catch (ImmediateSupplier.ImmediateValueNotAvailableException e) {
+                                return Maybe.absent(e);
+                            } catch (Exception e) {
+                                return Maybe.absent(() -> new ImmediateSupplier.ImmediateValueNotAvailableException("Future " + vfuture + " cannot be resolved in immediate context", e));
+                            }
+                        } else {
+                            return ImmediateSupplier.ImmediateValueNotAvailableException.newAbsentWithExceptionSupplier(() -> "Future " + vfuture + " cannot be resolved in immediate context");
+                        }
+                    } else {
+                        Callable<Maybe> callable = new Callable<Maybe>() {
+                            @Override
+                            public Maybe call() throws Exception {
+                                return Durations.get(vfuture, timer);
+                            }
+                        };
+
+                        String description = getDescription();
+                        vm = Tasks.withBlockingDetails("Waiting for " + description, callable);
                     }
 
-                    Callable<Maybe> callable = new Callable<Maybe>() {
-                        @Override
-                        public Maybe call() throws Exception {
-                            return Durations.get(vfuture, timer);
-                        } };
-
-                    String description = getDescription();
-                    Maybe vm = Tasks.withBlockingDetails("Waiting for "+description, callable);
                     if (vm.isAbsent()) return vm;
                     v = vm.get();
 
