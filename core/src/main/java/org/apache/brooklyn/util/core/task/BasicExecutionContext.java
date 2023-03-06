@@ -222,7 +222,8 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         Set<Object> mutableTags = ((TaskInternal<T>) task).getMutableTags();
         mutableTags.addAll(tags);
 
-        if (Tasks.current()!=null && BrooklynTaskTags.isTransient(Tasks.current())
+        Task currentTask = Tasks.current();
+        if (currentTask !=null && BrooklynTaskTags.isTransient(currentTask)
                 && !mutableTags.contains(BrooklynTaskTags.NON_TRANSIENT_TASK_TAG) && !mutableTags.contains(BrooklynTaskTags.TRANSIENT_TASK_TAG)) {
             // tag as transient if submitter is transient, unless explicitly tagged as non-transient
             mutableTags.add(BrooklynTaskTags.TRANSIENT_TASK_TAG);
@@ -236,6 +237,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         SimpleFuture<T> future = new SimpleFuture<>();
         Throwable error = null;
 
+        if (currentTask instanceof BasicTask) ((BasicTask) currentTask).setBlockingTask(task);
         try (BrooklynTaskLoggingMdc mdc = BrooklynTaskLoggingMdc.create(task).start()) {
             ((BasicExecutionManager)executionManager).afterSubmitRecordFuture(task, future);
             ((BasicExecutionManager)executionManager).beforeStartInSameThreadTask(null, task);
@@ -250,6 +252,7 @@ public class BasicExecutionContext extends AbstractExecutionContext {
             return null;  // not actually returned
             
         } finally {
+            if (currentTask instanceof BasicTask) ((BasicTask) currentTask).resetBlockingTask();
             try {
                 ((BasicExecutionManager)executionManager).afterEndInSameThreadTask(null, task, error);
             } finally {
@@ -487,14 +490,19 @@ public class BasicExecutionContext extends AbstractExecutionContext {
         }
             
         return 
-            // 2017-09 changed, doesn't have to be a dynamic task; can be a simple sequential task wrapping the child
-            new ContextSwitchingInfo<>(tc, Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(false).parallel(false).body(new Callable<T>() {
-                @Override
-                public T call() throws Exception {
-                    if (immediate) return tc.<T>getImmediately(t).get();
-                    return tc.get(t); 
-                }
-            }).build());
+//            // 2017-09 changed, doesn't have to be a dynamic task; can be a simple sequential task wrapping the child
+//          new ContextSwitchingInfo<>(tc, Tasks.<T>builder().displayName("Cross-context execution: "+t.getDescription()).dynamic(false).parallel(false).body(new Callable<T>() {
+//                @Override
+//                public T call() throws Exception {
+//                    if (immediate) return tc.<T>getImmediately(t).get();
+//                    return tc.get(t);
+//                }
+//            }).build());
+
+            // 2023-03 we can just do this, we don't need the extra wrapper
+            // (in fact the extra wrapper now makes the UI harder to use as the child task eg tagged EFFECTOR is no longer top-level or cross-context,
+            // and this cross-context task is not tagged in a useful way) - if this doesn't work then probably the wrapper (above) should copy the interesting tags
+            new ContextSwitchingInfo<>(tc, t);
     }
 
     private void registerPerThreadExecutionContext() { perThreadExecutionContext.set(this); }
