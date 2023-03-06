@@ -19,6 +19,8 @@ import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlTest;
 import org.apache.brooklyn.core.config.ConfigKeys;
+import org.apache.brooklyn.core.entity.AbstractEntity;
+import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.entity.stock.BasicEntity;
@@ -91,10 +93,64 @@ public class DslPredicateYamlTest extends AbstractYamlTest {
         // this is simpler and more efficient, although it might be surprising
         app.config().set(ConfigKeys.newStringConfigKey("expected"), "y");
         Asserts.assertFalse( predicate.apply(app) );
+        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)predicate).equals, "x" );
 
         // per above, if we re-retrieve the predicate it should work fine
         predicate = app.config().get(TestEntity.CONF_PREDICATE);
         Asserts.assertTrue( predicate.apply(app) );
+        Asserts.assertEquals( ((DslPredicates.DslPredicateDefault)predicate).equals, "y" );
+    }
+
+    static class PredicateAndSpec {
+        DslPredicates.DslPredicate test;
+        EntitySpec<?> spec;
+        EntitySpec<?> spec2;
+    }
+
+    static class PredicateAndSpecWrapped {
+        DslPredicates.DslPredicate test;
+        WrappedValue<EntitySpec<?>> spec;
+        WrappedValue<EntitySpec<?>> spec2;
+    }
+
+    @Test
+    public void testDslConfigWithWrappedValue() throws Exception {
+        final Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicApplication.class.getName(),
+                "  brooklyn.config:",
+                "    x: xv",
+                "    test:",
+                "      config: x",
+                "      equals: $brooklyn:config(\"x\")",
+                "    predicate_and_spec:",
+                "      test: $brooklyn:config(\"test\")",
+                "      spec:",
+                "        type: " + BasicApplication.class.getName(),
+                "        brooklyn.config:",
+                "          xp: $brooklyn:config(\"x\")",
+                "      spec2:",
+                "       $brooklyn:entitySpec:",
+                "        type: " + BasicApplication.class.getName(),
+                "        brooklyn.config:",
+                "          xp: $brooklyn:config(\"x\")",
+                "");
+        PredicateAndSpec ps = app.config().get(ConfigKeys.newConfigKey(PredicateAndSpec.class, "predicate_and_spec"));
+        Asserts.assertTrue( ps.test.apply(app) );
+        Asserts.assertEquals( ps.spec.getFlags().get("xp"), "xv" );  //comes in as flags
+        Asserts.assertInstanceOf( ps.spec2.getConfig().get(ConfigKeys.newConfigKey(Object.class, "xp")), BrooklynDslDeferredSupplier.class);
+
+        PredicateAndSpecWrapped psw = app.config().get(ConfigKeys.newConfigKey(PredicateAndSpecWrapped.class, "predicate_and_spec"));
+        Asserts.assertTrue( psw.test.apply(app) );
+        // TODO ideally putting in a wrapped value permits coercion but suppresses deep resolution
+        // (but that is hard since deep resolution is baked in to config resolution prior to coercion)
+        //Asserts.assertInstanceOf( psw.spec.get().getFlags().get("xp"), BrooklynDslDeferredSupplier.class);
+        Asserts.assertEquals( psw.spec.get().getFlags().get("xp"), "xv" );
+
+        Asserts.assertInstanceOf( psw.spec2.get().getConfig().get(ConfigKeys.newConfigKey(Object.class, "xp")), BrooklynDslDeferredSupplier.class);
+
+        // TODO ideally this would be able to resolve the DSL expression for the test, but it doesn't
+        // PredicateAndSpec psc = TypeCoercions.coerce(((AbstractEntity.BasicConfigurationSupport)app.config()).getRaw(ConfigKeys.newConfigKey(PredicateAndSpec.class, "predicate_and_spec")).get(), PredicateAndSpec.class);
     }
 
     @Test
