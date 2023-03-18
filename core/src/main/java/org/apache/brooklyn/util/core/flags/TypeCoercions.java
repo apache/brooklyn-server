@@ -375,6 +375,29 @@ public class TypeCoercions {
                     return null;
                 }
             });
+
+            registerAdapter("81-wrong-bean-to-map-or-bean", new TryCoercer() {
+
+                @Override
+                public <T> Maybe<T> tryCoerce(Object input, TypeToken<T> type) {
+                    if (input instanceof Map || input instanceof Collection || Boxing.isPrimitiveOrBoxedObject(input)) {
+                        return null;
+                    }
+                    // input is a complex type / bean
+                    boolean toMap = Map.class.isAssignableFrom(type.getRawType());
+                    boolean toBeanWithType = !toMap && Reflections.findFieldMaybe(type.getRawType(), "type").isPresentAndNonNull();
+                    if (!toMap && !toBeanWithType) {
+                        return null;
+                    }
+                    try {
+                        Maybe<Map> resultMap = BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.of(input), new TypeToken<Map>() {}, true);
+                        if (toMap || resultMap.isAbsentOrNull()) return (Maybe<T>) resultMap;
+                        return BeanWithTypeUtils.tryConvertOrAbsentUsingContext(Maybe.cast(resultMap), type);
+                    } catch (Exception e) {
+                        return Maybe.absent(e);
+                    }
+                }
+            });
         }
     }
 

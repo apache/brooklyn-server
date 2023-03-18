@@ -218,22 +218,15 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);  // expected as y doesn't exist on OtherBean
         Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
         Asserts.assertInstanceOf(deser(deser3), Map.class);
+        Asserts.assertEquals( ((Map)deser(deser3)).get("type"), OtherBean.class.getName());
 
-        // might be nice to support this but that might break maps containing [type] ?? what happens if we serialize a map containing type as an object?
-//        String deser4 = "{\"[type]\":\"" + OtherBean.class.getName() + "\",\"y\":\"hello\"}";
-//        Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);
-//        Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
-//        Asserts.assertInstanceOf(deser(deser3), Map.class);
-//        Asserts.assertEquals( ((Map)deser(deser3)).get("type"), OtherBean.class.getName());
-//        Asserts.assertNull( ((Map)deser(deser3)).get("[type]") );
-//        Asserts.assertInstanceOf(deser(deser3, Map.class), Map.class);
-//        Asserts.assertEquals( ((Map)deser(deser3)).get("[type]"), OtherBean.class.getName());
-//        Asserts.assertNull( ((Map)deser(deser3)).get("type") );
-        // above can't work due to ambiguity with below
-//        Asserts.assertEquals(ser(MutableList.of(MutableMap.of("type", OtherBean.class.getName(), "x", "hello"))), "[{\"type\":\""+OtherBean.class.getName()+"\",\"x\":\"hello\"}]");
-
-        // TODO however we could allow this - coercer may try to serialize first then deserialize second if given two complex types where the second one has a field 'type'
-//        SampleBeanWithType redeser = TypeCoercions.coerce(deser(deser), SampleBeanWithType.class);
+        // we have no choice but to fallback to map deserialization
+        // however we should allow further coercion to Map (in case we read as typed something which should have been a map)
+        // and also coercion that serializes input if complex type then deserializes to intended type, if the intended type has a field 'type'
+        Map redeserMap = TypeCoercions.coerce(deser(deser), Map.class);
+        Asserts.assertEquals(redeserMap.get("type"), OtherBean.class.getName());
+        SampleBeanWithType redeserObj = TypeCoercions.coerce(deser(deser), SampleBeanWithType.class);
+        Asserts.assertEquals(redeserObj.x, "hello");
     }
 
     @Test
