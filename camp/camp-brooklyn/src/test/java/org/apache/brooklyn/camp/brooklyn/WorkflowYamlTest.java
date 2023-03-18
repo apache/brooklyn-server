@@ -147,6 +147,37 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         EntityAsserts.assertConfigEquals(entity, ConfigKeys.newConfigKey(Object.class, "foo"), 2);
     }
 
+    public static class SpecialMap {
+        String x;
+    }
+
+    @Test(groups="WIP")
+    public void testWorkflowComplexSensor() throws Exception {
+        Entity app = createAndStartApplication(
+                "services:",
+                "- type: " + BasicEntity.class.getName(),
+                "  brooklyn.initializers:",
+                "  - type: workflow-initializer",
+                "    brooklyn.config:",
+                "      steps:",
+                "        - type: set-sensor",
+                "          input:",
+                "            sensor:",
+                "              name: foo",
+                "              type: "+SpecialMap.class.getName(),
+                "            value:",
+                "              x: bar",
+                "");
+        waitForApplicationTasks(app);
+
+        Entity entity = Iterables.getOnlyElement(app.getChildren());
+        EntityAsserts.assertAttribute(entity, Sensors.newSensor(Object.class, "foo"), v -> {
+            Asserts.assertInstanceOf(v, SpecialMap.class);
+            Asserts.assertEquals( ((SpecialMap)v).x, "bar" );
+            return true;
+        });
+    }
+
     @Test
     public void testWorkflowSensorTrigger() throws Exception {
         doTestWorkflowSensor("triggers: theTrigger", Duration.seconds(1)::isLongerThan);

@@ -34,6 +34,7 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
@@ -193,6 +194,44 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         String deser = "{\"(type)\":\"" + SampleBeanWithType.class.getName() + "\",\"x\":\"hello\",\"xx\":\"not_supported\"}";
         Asserts.assertFailsWith(() -> deser(deser),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "unrecognized field", "xx"));
+    }
+
+    public static class OtherBean {
+        public String x;
+        public String other;
+    }
+
+    @Test
+    public void testDeserializeSampleBeanWithOtherType() throws Exception {
+        String deser = "{\"type\":\"" + OtherBean.class.getName() + "\",\"x\":\"hello\"}";
+        Asserts.assertInstanceOf(deser(deser, SampleBeanWithType.class), SampleBeanWithType.class);
+        Asserts.assertInstanceOf(deser(deser, OtherBean.class), OtherBean.class);
+        Asserts.assertInstanceOf(deser(deser), OtherBean.class);
+
+        String deser2 = "{\"type\":\"" + OtherBean.class.getName() + "\",\"other\":\"hello\"}";
+        Asserts.assertFailsWith(()->deser(deser2, SampleBeanWithType.class), e->true);
+        Asserts.assertInstanceOf(deser(deser2, OtherBean.class), OtherBean.class);
+        Asserts.assertInstanceOf(deser(deser2), OtherBean.class);
+
+        String deser3 = "{\"type\":\"" + OtherBean.class.getName() + "\",\"y\":\"hello\"}";
+        Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);  // expected as y doesn't exist on OtherBean
+        Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
+        Asserts.assertFailsWith(()->deser(deser3), e->true);
+        // TODO above should satisfy the below instead, contianing the type
+        // Asserts.assertInstanceOf(deser(deser3), Map.class);
+
+        // TODO would be nice to support this but that might break maps containing [type] ?? what happens if we serialize a map containing type as an object?
+//        String deser4 = "{\"[type]\":\"" + OtherBean.class.getName() + "\",\"y\":\"hello\"}";
+//        Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);
+//        Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
+//        Asserts.assertInstanceOf(deser(deser3), Map.class);
+//        Asserts.assertEquals( ((Map)deser(deser3)).get("type"), OtherBean.class.getName());
+//        Asserts.assertNull( ((Map)deser(deser3)).get("[type]") );
+//        Asserts.assertInstanceOf(deser(deser3, Map.class), Map.class);
+//        Asserts.assertEquals( ((Map)deser(deser3)).get("[type]"), OtherBean.class.getName());
+//        Asserts.assertNull( ((Map)deser(deser3)).get("type") );
+
+        Asserts.assertEquals(ser(MutableList.of(MutableMap.of("type", OtherBean.class.getName(), "x", "hello"))), "[{\"type\":\""+OtherBean.class.getName()+"\",\"x\":\"hello\"}]");
     }
 
     @Test
