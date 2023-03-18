@@ -36,6 +36,7 @@ import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
@@ -216,11 +217,9 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         String deser3 = "{\"type\":\"" + OtherBean.class.getName() + "\",\"y\":\"hello\"}";
         Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);  // expected as y doesn't exist on OtherBean
         Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
-        Asserts.assertFailsWith(()->deser(deser3), e->true);
-        // TODO above should satisfy the below instead, contianing the type
-        // Asserts.assertInstanceOf(deser(deser3), Map.class);
+        Asserts.assertInstanceOf(deser(deser3), Map.class);
 
-        // TODO would be nice to support this but that might break maps containing [type] ?? what happens if we serialize a map containing type as an object?
+        // might be nice to support this but that might break maps containing [type] ?? what happens if we serialize a map containing type as an object?
 //        String deser4 = "{\"[type]\":\"" + OtherBean.class.getName() + "\",\"y\":\"hello\"}";
 //        Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);
 //        Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
@@ -230,8 +229,11 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
 //        Asserts.assertInstanceOf(deser(deser3, Map.class), Map.class);
 //        Asserts.assertEquals( ((Map)deser(deser3)).get("[type]"), OtherBean.class.getName());
 //        Asserts.assertNull( ((Map)deser(deser3)).get("type") );
+        // above can't work due to ambiguity with below
+//        Asserts.assertEquals(ser(MutableList.of(MutableMap.of("type", OtherBean.class.getName(), "x", "hello"))), "[{\"type\":\""+OtherBean.class.getName()+"\",\"x\":\"hello\"}]");
 
-        Asserts.assertEquals(ser(MutableList.of(MutableMap.of("type", OtherBean.class.getName(), "x", "hello"))), "[{\"type\":\""+OtherBean.class.getName()+"\",\"x\":\"hello\"}]");
+        // TODO however we could allow this - coercer may try to serialize first then deserialize second if given two complex types where the second one has a field 'type'
+//        SampleBeanWithType redeser = TypeCoercions.coerce(deser(deser), SampleBeanWithType.class);
     }
 
     @Test

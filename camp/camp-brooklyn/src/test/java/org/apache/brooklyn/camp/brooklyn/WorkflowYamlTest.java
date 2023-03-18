@@ -151,7 +151,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         String x;
     }
 
-    @Test(groups="WIP")
+    @Test
     public void testWorkflowComplexSensor() throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
