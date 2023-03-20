@@ -547,8 +547,22 @@ public class WorkflowExecutionContext {
         if (inputResolved.containsKey(key)) return Maybe.ofAllowingNull((T)inputResolved.get(key));
 
         Object v = input.get(key);
-        // DSL resolution/coercion only, not workflow syntax here (as no workflow scope)
-        Maybe<T> vm = Tasks.resolving(v).as(type).context(getEntity()).immediately(true).deep().getMaybe();
+        // normally do DSL resolution/coercion only, not workflow syntax here (as no workflow scope);
+        // except if we are in a nested workflow, we allow resolving from the parent.
+        // (alternatively we could resolve when starting the custom workflow; that might be better.)
+        Maybe<T> vm = null;
+        if (v instanceof String && parent!=null && parent.getCurrentStepInstance()!=null) {
+            try {
+                vm = Maybe.of(parent.getCurrentStepInstance().resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, (String) v, type));
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                vm = Maybe.absent(e);
+            }
+        }
+        if (vm==null || vm.isAbsent()) {
+            Maybe<T> vm2 = Tasks.resolving(v).as(type).context(getEntity()).immediately(true).deep().getMaybe();
+            if (vm2.isPresent() || vm==null) vm = vm2;  // if errors in both, prefer error in first
+        }
         if (vm.isPresent()) {
             if (WorkflowStepInstanceExecutionContext.REMEMBER_RESOLVED_INPUT) {
                 // this will keep spending time resolving, but will resolve the resolved value
