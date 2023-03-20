@@ -165,26 +165,32 @@ public class BeanWithTypeUtils {
         mapper = BeanWithTypeUtils.applyCommonMapperConfig(mapper, mgmt, allowRegisteredTypes, loader, allowJavaTypes);
         mapper = new ObjectReferencingSerialization().useAndApplytoMapper(mapper);
 
-        String serialization = mapper.writeValueAsString(mapOrListToSerializeThenDeserialize);
+        String serialization = type.getRawType().equals(Object.class) ? mapper.writeValueAsString(mapOrListToSerializeThenDeserialize) : mapper.writerFor(Object.class).writeValueAsString(mapOrListToSerializeThenDeserialize);
         return mapper.readValue(serialization, BrooklynJacksonType.asJavaType(mapper, type));
     }
 
     @Beta
     public static <T> T convertDeeply(ManagementContext mgmt, Object mapOrListToSerializeThenDeserialize, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) throws JsonProcessingException {
         // try full serialization - but won't work if things being written cannot be deserialized, eg due to unknown type
-        ObjectMapper m = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
-        String serialization = m.writeValueAsString(mapOrListToSerializeThenDeserialize);
-        return m.readValue(serialization, BrooklynJacksonType.asJavaType(m, type));
+        ObjectMapper mapper = newMapper(mgmt, allowRegisteredTypes, loader, allowJavaTypes);
+        String serialization = type.getRawType().equals(Object.class) ? mapper.writeValueAsString(mapOrListToSerializeThenDeserialize) : mapper.writerFor(Object.class).writeValueAsString(mapOrListToSerializeThenDeserialize);
+        return mapper.readValue(serialization, BrooklynJacksonType.asJavaType(mapper, type));
     }
 
     public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, TypeToken<T> type) {
+        return tryConvertOrAbsentUsingContext(input, type, false);
+    }
+    public static <T> Maybe<T> tryConvertOrAbsentUsingContext(Maybe<Object> input, TypeToken<T> type, boolean allowNonMapComplexInput) {
         Entity entity = BrooklynTaskTags.getContextEntity(Tasks.current());
         ManagementContext mgmt = entity != null ? ((EntityInternal) entity).getManagementContext() : null;
         BrooklynClassLoadingContext loader = entity != null ? RegisteredTypes.getClassLoadingContext(entity) : null;
-        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, true);
+        return BeanWithTypeUtils.tryConvertOrAbsent(mgmt, input, type, true, loader, true, allowNonMapComplexInput);
     }
 
     public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes) {
+        return tryConvertOrAbsent(mgmt, inputMap, type, allowRegisteredTypes, loader, allowJavaTypes, false);
+    }
+    public static <T> Maybe<T> tryConvertOrAbsent(ManagementContext mgmt, Maybe<Object> inputMap, TypeToken<T> type, boolean allowRegisteredTypes, BrooklynClassLoadingContext loader, boolean allowJavaTypes, boolean allowNonMapComplexInput) {
         if (inputMap.isAbsent()) return (Maybe<T>)inputMap;
 
         Object o = inputMap.get();
@@ -192,7 +198,9 @@ public class BeanWithTypeUtils {
             if (type.isSupertypeOf(o.getClass())) {
                 return (Maybe<T>)inputMap;
             }  else {
-                return Maybe.absent(() -> new RuntimeException("BeanWithType cannot convert from "+o.getClass()+" to "+type));
+                if (!allowNonMapComplexInput) {
+                    return Maybe.absent(() -> new RuntimeException("BeanWithType cannot convert from " + o.getClass() + " to " + type));
+                } // else continue below
             }
         }
 
@@ -204,7 +212,7 @@ public class BeanWithTypeUtils {
 
                 // there isn't a 'type' key so little obvious point in converting .. might make a difference _inside_ a map or list, but we've not got any generics so it won't
                 if (!(o instanceof Map) || !((Map<?, ?>) o).containsKey(BrooklynJacksonSerializationUtils.TYPE)) return fallback;
-            } else if (type.isSupertypeOf(Map.class)) {
+            } else if (type.isSupertypeOf(Map.class) && o instanceof Map) {
                 // skip conversion for a map if it isn't an object
                 return (Maybe<T>) inputMap;
             }

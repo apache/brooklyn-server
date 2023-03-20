@@ -34,7 +34,9 @@ import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.core.workflow.WorkflowSensor;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.testng.Assert;
@@ -193,6 +195,38 @@ public class BrooklynRegisteredTypeJacksonSerializationTest extends BrooklynMgmt
         String deser = "{\"(type)\":\"" + SampleBeanWithType.class.getName() + "\",\"x\":\"hello\",\"xx\":\"not_supported\"}";
         Asserts.assertFailsWith(() -> deser(deser),
                 e -> Asserts.expectedFailureContainsIgnoreCase(e, "unrecognized field", "xx"));
+    }
+
+    public static class OtherBean {
+        public String x;
+        public String other;
+    }
+
+    @Test
+    public void testDeserializeSampleBeanWithOtherType() throws Exception {
+        String deser = "{\"type\":\"" + OtherBean.class.getName() + "\",\"x\":\"hello\"}";
+        Asserts.assertInstanceOf(deser(deser, SampleBeanWithType.class), SampleBeanWithType.class);
+        Asserts.assertInstanceOf(deser(deser, OtherBean.class), OtherBean.class);
+        Asserts.assertInstanceOf(deser(deser), OtherBean.class);
+
+        String deser2 = "{\"type\":\"" + OtherBean.class.getName() + "\",\"other\":\"hello\"}";
+        Asserts.assertFailsWith(()->deser(deser2, SampleBeanWithType.class), e->true);
+        Asserts.assertInstanceOf(deser(deser2, OtherBean.class), OtherBean.class);
+        Asserts.assertInstanceOf(deser(deser2), OtherBean.class);
+
+        String deser3 = "{\"type\":\"" + OtherBean.class.getName() + "\",\"y\":\"hello\"}";
+        Asserts.assertFailsWith(()->deser(deser3, OtherBean.class), e->true);  // expected as y doesn't exist on OtherBean
+        Asserts.assertInstanceOf(deser(deser3, SampleBeanWithType.class), SampleBeanWithType.class);
+        Asserts.assertInstanceOf(deser(deser3), Map.class);
+        Asserts.assertEquals( ((Map)deser(deser3)).get("type"), OtherBean.class.getName());
+
+        // we have no choice but to fallback to map deserialization
+        // however we should allow further coercion to Map (in case we read as typed something which should have been a map)
+        // and also coercion that serializes input if complex type then deserializes to intended type, if the intended type has a field 'type'
+        Map redeserMap = TypeCoercions.coerce(deser(deser), Map.class);
+        Asserts.assertEquals(redeserMap.get("type"), OtherBean.class.getName());
+        SampleBeanWithType redeserObj = TypeCoercions.coerce(deser(deser), SampleBeanWithType.class);
+        Asserts.assertEquals(redeserObj.x, "hello");
     }
 
     @Test

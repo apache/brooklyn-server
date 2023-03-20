@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -248,25 +249,71 @@ public class AsPropertyIfAmbiguous {
             TokenBuffer tb = null;
             boolean ignoreCase = ctxt.isEnabled(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES);
 
-            // changed to look for conflicting property first
-            Pair<String, TokenBuffer> typeIdFindResult = findTypeIdOrUnambiguous(p, ctxt, t, tb, ignoreCase, mustUseConflictingTypePrefix);
-            tb = typeIdFindResult.getRight();
-//            if (typeIdFindResult.getLeft()==null && !mustUseConflictingTypePrefix) {
-//                p = tb.asParserOnFirstToken();
-//                tb = null;
-//                typeIdFindResult = findTypeId(p, ctxt, t, tb, ignoreCase, _typePropertyName);
-//            }
-//            tb = typeIdFindResult.getRight();
+            // will look for conflicting property first
 
-            if (typeIdFindResult.getLeft()!=null) return _deserializeTypedForId(p, ctxt, tb, typeIdFindResult.getLeft());
-            else return _deserializeTypedUsingDefaultImpl(p, ctxt, tb, _msgForMissingId);
+            // cache it in case we need to rollback the type (this is a bit expensive; but can optimize later if problematic)
+            TokenBuffer tb0 = BrooklynJacksonSerializationUtils.createBufferForParserCurrentObject(p, ctxt);
+            p = tb0.asParserOnFirstToken(); //BrooklynJacksonSerializationUtils.createParserFromTokenBufferAndParser(tb0, p);
+
+            DiscoveredTypeAndCachedTokenBuffer typeIdFindResult = findTypeIdOrUnambiguous(p, ctxt, t, tb, ignoreCase, mustUseConflictingTypePrefix);
+            tb = typeIdFindResult.tb;
+
+            IOException preferredError = null;
+            Exception otherError = null;
+            if (typeIdFindResult.type!=null) {
+                boolean canTryWithoutType = !typeIdFindResult.isUnambiguous;
+                try {
+                    Object result = _deserializeTypedForId(p, ctxt, tb, typeIdFindResult.type);
+                    if (_idResolver instanceof HasBaseType) {
+                        JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
+                        if (baseType != null) {
+                            Class<?> rawClass = baseType.getRawClass();
+                            if (rawClass != null && !rawClass.isAssignableFrom(result.getClass())) {
+                                canTryWithoutType = true;  // will be allow to try without a type, but prefer our error
+                                preferredError = new IOException("Invalid result: deserialized type "+result.getClass()+" when expected "+baseType);
+                                throw preferredError;
+                            }
+                        }
+                    }
+                    return result;
+                } catch (Exception e) {
+                    if (!canTryWithoutType) throw e;
+                    // if ambiguous then deserialize using default, below; but reset the parser first
+                    p = tb0.asParserOnFirstToken();
+                    tb = tb0;
+                    otherError = e;
+                }
+            }
+
+            try {
+                return _deserializeTypedUsingDefaultImpl(p, ctxt, tb, _msgForMissingId);
+            } catch (Exception e2) {
+                if (preferredError!=null) throw preferredError;
+                if (otherError==null) throw e2;
+                throw Exceptions.propagate("Cannot deserialize instance of " +
+                        ((_idResolver instanceof HasBaseType && ((HasBaseType) _idResolver).getBaseType()!=null) ? baseTypeName() : "any object") +
+                        " declaring type '"+typeIdFindResult.type+"'", MutableList.of(otherError, e2));
+            }
+
         }
 
-        private Pair<String,TokenBuffer> findTypeIdOrUnambiguous(JsonParser p, DeserializationContext ctxt, JsonToken t, TokenBuffer tb, boolean ignoreCase, boolean mustUseConflictingTypePrefix) throws IOException {
+        static class DiscoveredTypeAndCachedTokenBuffer {
+            String type;
+            TokenBuffer tb;
+            boolean isUnambiguous;
+
+            DiscoveredTypeAndCachedTokenBuffer(String type, TokenBuffer tb, boolean isUnambiguous) {
+                this.type = type;
+                this.tb = tb;
+                this.isUnambiguous = isUnambiguous;
+            }
+        }
+
+        private DiscoveredTypeAndCachedTokenBuffer findTypeIdOrUnambiguous(JsonParser p, DeserializationContext ctxt, JsonToken t, TokenBuffer tb, boolean ignoreCase, boolean mustUseConflictingTypePrefix) throws IOException {
             String typeUnambiguous1 = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM.apply(_typePropertyName);
             String typeUnambiguous2 = CONFLICTING_TYPE_NAME_PROPERTY_TRANSFORM_ALT.apply(_typePropertyName);
 
-            JsonLocation loc = p.currentTokenLocation(); //p.getCurrentLocation();
+            int fieldsRead = 0;
             for (; t == JsonToken.FIELD_NAME; t = p.nextToken()) {
                 final String name = p.currentName();
                 p.nextToken(); // to point to the value
@@ -336,7 +383,7 @@ public class AsPropertyIfAmbiguous {
                                 if (_idResolver instanceof HasBaseType) {
                                     JavaType baseType = ((HasBaseType) _idResolver).getBaseType();
                                     if (baseType==null || baseType.getRawClass().equals(Object.class)) {
-                                        if (loc.getCharOffset()<=1) {
+                                        if (fieldsRead==0) {
                                             // 'type' should be treated as a normal key when an object is expected, if type it references has a field 'type',
                                             // except if it is the first key in the definition, to facilitate messy places where we say 'type: xxx' as the definition
                                             if (warnedAmbiguousTypeProperty.add(typeId)) {
@@ -361,7 +408,7 @@ public class AsPropertyIfAmbiguous {
                             }
                         }
                         if (!disallowed) {
-                            return Pair.of(typeId, tb);
+                            return new DiscoveredTypeAndCachedTokenBuffer(typeId, tb, unambiguousName);
                         }
                     }
                 }
@@ -372,9 +419,9 @@ public class AsPropertyIfAmbiguous {
                 tb.copyCurrentStructure(p);
 
                 // advance so we no longer think we are at the beginning
-                loc = p.getCurrentLocation();
+                fieldsRead++;
             }
-            return Pair.of(null, tb);
+            return new DiscoveredTypeAndCachedTokenBuffer(null, tb, true);
         }
 
         private boolean presentAndNotJsonIgnored(Maybe<? extends AccessibleObject> fm) {
@@ -440,8 +487,8 @@ public class AsPropertyIfAmbiguous {
                 p = JsonParserSequence.createFlattened(false, tb.asParser(p), p);
             }
 
-            if (((JsonParser)p).currentToken() != JsonToken.END_OBJECT) {
-                ((JsonParser)p).nextToken();
+            if (p.currentToken() != JsonToken.END_OBJECT) {
+                p.nextToken();
             }
 
             boolean wasEndToken = (p.currentToken() == JsonToken.END_OBJECT);

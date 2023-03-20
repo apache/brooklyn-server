@@ -22,18 +22,10 @@ import com.google.common.annotations.Beta;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.util.*;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.brooklyn.api.location.PortRange;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
-import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
 import org.apache.brooklyn.core.mgmt.classloading.JavaBrooklynClassLoadingContext;
-import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonType;
 import org.apache.brooklyn.core.resolve.jackson.WrappedValue;
 import org.apache.brooklyn.core.typereg.RegisteredTypeLoadingContexts;
@@ -42,7 +34,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.guava.TypeTokens;
-import org.apache.brooklyn.util.javalang.ClassLoadingContext;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.brooklyn.util.time.Timestamp;
@@ -52,6 +43,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.*;
+import java.util.function.BiFunction;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class BrooklynTypeNameResolution {
 
@@ -138,9 +135,9 @@ public class BrooklynTypeNameResolution {
         public BrooklynTypeNameResolver(String context, @Nullable BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
             this(context, loader==null ? null : loader.getManagementContext(), loader, allowJavaType, allowRegisteredTypes);
         }
-        private BrooklynTypeNameResolver(String context, @Nullable ManagementContext mgmt, BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
+        public BrooklynTypeNameResolver(String context, @Nullable ManagementContext mgmt, @Nullable BrooklynClassLoadingContext loader, boolean allowJavaType, boolean allowRegisteredTypes) {
             this.context = context;
-            this.mgmt = mgmt;
+            this.mgmt = mgmt!=null ? mgmt : loader!=null ? loader.getManagementContext() : null;
             this.loader = loader==null ? mgmt==null ? null : JavaBrooklynClassLoadingContext.create(mgmt) : loader;
             this.allowJavaType = allowJavaType;
             this.allowRegisteredTypes = allowRegisteredTypes;

@@ -82,6 +82,18 @@ public class BrooklynJacksonSerializationUtils {
         return deser;
     }
 
+    static void dumpParser(String header, JsonParser p) {
+        try {
+            System.out.println(header);
+            while (true) {
+                System.out.println(p.getCurrentToken() + " - " + p.currentName() + " - " + p.getValueAsString());
+                if (p.nextToken()==null) return;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     /** per TokenBuffer.asCopyOfValue but if on a field _name_ it buffers all the key-values */
     @Beta
     public static TokenBuffer createBufferForParserCurrentObject(JsonParser parser, DeserializationContext optionalCtxtForFeatures) throws IOException {

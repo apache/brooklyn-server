@@ -18,10 +18,8 @@
  */
 package org.apache.brooklyn.camp.brooklyn;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.common.reflect.TypeToken;
-import java.util.List;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
@@ -35,12 +33,13 @@ import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
 import org.apache.brooklyn.core.typereg.JavaClassNameTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
 import org.apache.brooklyn.test.Asserts;
-import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.List;
 
 @Test
 public class CustomTypeConfigYamlTest extends AbstractYamlTest {
@@ -288,6 +287,10 @@ public class CustomTypeConfigYamlTest extends AbstractYamlTest {
                             "    item:",
                             "      type: " + CustomTypeConfigYamlTest.TestingCustomType.class.getName(),
                             "      x: {}");
+                    // above should throw; if not, can investigate below
+//                    Object tct = mgmt().getTypeRegistry().create(mgmt().getTypeRegistry().get("custom-type"), null, null);
+//                    Asserts.assertInstanceOf(tct, TestingCustomType.class);
+//                    Asserts.assertEquals( ((TestingCustomType)tct).x, "{}" /* ??? */);
                 }, e -> {
                     Asserts.expectedFailureContainsIgnoreCase(e, "bean", "custom-type", "cannot deserialize", "string", "\"x\"");
                     return true;
