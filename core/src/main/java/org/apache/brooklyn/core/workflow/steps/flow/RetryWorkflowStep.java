@@ -108,21 +108,24 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             Instant now = Instant.now();
             if (count==null) {
                 if (duration==null) return Maybe.absent("No limit");
+
                 Optional<Instant> oldest = retries.stream().min(Instant::compareTo);
                 if (oldest.isPresent() && duration.isShorterThan(Duration.between(oldest.get(), now))) {
                     return Maybe.of(
                             (retries.size()==1 ? "1 retry" : retries.size()+" retries") + " since "+Duration.between(oldest.get(), now)+" ago (limit "+this+")");
                 }
+
+            } else {
+                List<Instant> filtered = retries.stream().filter(r -> duration == null || duration.isLongerThan(Duration.between(r, now))).collect(Collectors.toList());
+                if (filtered.size() >= count) {
+                    if (filtered.isEmpty()) return Maybe.of("Max count 0 reached");
+                    return Maybe.of(
+                            (filtered.size() < retries.size() ? retries.size() + " retries total, " + filtered.size() :
+                                    (retries.size() == 1 ? "1 retry" : retries.size() + " retries") + " total") +
+                                    " since " + (Duration.between(filtered.get(0), now)) + " ago (limit " + this + ")");
+                }
             }
 
-            List<Instant> filtered = retries.stream().filter(r -> duration == null || duration.isLongerThan(Duration.between(r, now))).collect(Collectors.toList());
-            if (filtered.size() >= count) {
-                if (filtered.isEmpty()) return Maybe.of("Max count 0 reached");
-                return Maybe.of(
-                        (filtered.size() < retries.size() ? retries.size()+" retries total, "+filtered.size() :
-                                (retries.size()==1 ? "1 retry" : retries.size()+" retries")+" total" )+
-                        " since "+(Duration.between(filtered.get(0), now))+" ago (limit "+this+")");
-            }
             return Maybe.absent("Limit not reached");
         }
 

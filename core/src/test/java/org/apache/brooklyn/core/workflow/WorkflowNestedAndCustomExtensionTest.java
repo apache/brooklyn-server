@@ -196,7 +196,9 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                 "output:",
                 "  message: hi ${name}"
         ));
-        Object output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
+        Object output;
+
+        output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"))));
         assertLogStepMessages("hi bob");
         Asserts.assertEquals(output, MutableMap.of("message", "hi bob"));
 
@@ -204,6 +206,15 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         output = invokeWorkflowStepsWithLogging(MutableList.of(MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "bob"), "output", "I said ${message}")));
         assertLogStepMessages("hi bob");
         Asserts.assertEquals(output, "I said hi bob");
+
+        output = invokeWorkflowStepsWithLogging(MutableList.of(
+                "let outer_name = bob",
+                MutableMap.of("type", "log", "input", MutableMap.of("message", "hello ${name2}", "name2", "${outer_name}")),
+                MutableMap.of("type", "log-hi", "input", MutableMap.of("name", "${outer_name}"), "output", "Now I said ${message}")));
+        assertLogStepMessages(
+                "hello bob",
+                "hi bob");
+        Asserts.assertEquals(output, "Now I said hi bob");
     }
 
     @Test
