@@ -18,21 +18,22 @@
  */
 package org.apache.brooklyn.core.resolve.jackson;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.reflect.TypeToken;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry.RegisteredTypeKind;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.api.typereg.RegisteredTypeLoadingContext;
 import org.apache.brooklyn.core.catalog.internal.CatalogUtils;
-import org.apache.brooklyn.core.mgmt.classloading.OsgiBrooklynClassLoadingContext;
 import org.apache.brooklyn.core.typereg.AbstractTypePlanTransformer;
 import org.apache.brooklyn.core.typereg.UnsupportedTypePlanException;
+import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.yaml.Yamls;
 
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
@@ -96,8 +97,23 @@ public class BeanWithTypePlanTransformer extends AbstractTypePlanTransformer {
         BrooklynClassLoadingContext loader = registeredTypeLoadingContext != null ? registeredTypeLoadingContext.getLoader() : null;
         loader = CatalogUtils.newClassLoadingContext(mgmt, registeredType, loader);
 
-        return BeanWithTypeUtils.newMapper(mgmt, true, loader, true).readValue(
-                BeanWithTypeUtils.newSimpleMapper().writeValueAsString(definition), Object.class);
+        String definitionMapSerializedAsString = BeanWithTypeUtils.newSimpleMapper().writeValueAsString(definition);
+        ObjectMapper mapper = BeanWithTypeUtils.newMapper(mgmt, true, loader, true);
+        Object result = mapper.readValue(definitionMapSerializedAsString, Object.class);
+
+        Object typeS = definition.get("type");
+        if (typeS instanceof String) {
+            // if size is 1, it's a weird thing like a ListExtended, so don't try to deserialize from an empty object
+            TypeToken<?> expectedType = new BrooklynTypeNameResolution.BrooklynTypeNameResolver("creating-bean-"+registeredType, mgmt, loader, true, true)
+                    .getTypeToken((String) typeS);
+            if (!expectedType.getRawType().isInstance(result)) {
+                // we did not get the expected type; this should throw an error, though maybe it will work
+                definition.remove("type");
+                definitionMapSerializedAsString = BeanWithTypeUtils.newSimpleMapper().writeValueAsString(definition);
+                result = mapper.readValue(definitionMapSerializedAsString, BrooklynJacksonType.asJavaType(mapper, expectedType));
+            }
+        }
+        return result;
     }
 
 }

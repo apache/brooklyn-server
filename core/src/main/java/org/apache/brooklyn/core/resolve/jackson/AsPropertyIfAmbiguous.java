@@ -39,6 +39,7 @@ import org.apache.brooklyn.api.objs.BrooklynObject;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
 import org.apache.brooklyn.api.sensor.Feed;
 import org.apache.brooklyn.api.typereg.BrooklynTypeRegistry;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -258,6 +259,7 @@ public class AsPropertyIfAmbiguous {
             tb = typeIdFindResult.tb;
 
             IOException preferredError = null;
+            Exception otherError = null;
             if (typeIdFindResult.type!=null) {
                 boolean canTryWithoutType = !typeIdFindResult.isUnambiguous;
                 try {
@@ -279,6 +281,7 @@ public class AsPropertyIfAmbiguous {
                     // if ambiguous then deserialize using default, below; but reset the parser first
                     p = tb0.asParserOnFirstToken();
                     tb = tb0;
+                    otherError = e;
                 }
             }
 
@@ -286,7 +289,10 @@ public class AsPropertyIfAmbiguous {
                 return _deserializeTypedUsingDefaultImpl(p, ctxt, tb, _msgForMissingId);
             } catch (Exception e2) {
                 if (preferredError!=null) throw preferredError;
-                throw e2;
+                if (otherError==null) throw e2;
+                throw Exceptions.propagate("Cannot deserialize instance of " +
+                        ((_idResolver instanceof HasBaseType && ((HasBaseType) _idResolver).getBaseType()!=null) ? baseTypeName() : "any object") +
+                        " declaring type '"+typeIdFindResult.type+"'", MutableList.of(otherError, e2));
             }
 
         }
