@@ -42,6 +42,7 @@ import org.apache.brooklyn.rest.domain.TaskSummary;
 import org.apache.brooklyn.rest.testing.BrooklynRestResourceTest;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
+import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpAsserts;
@@ -134,11 +135,31 @@ public class EntityWorkflowsRestTest extends BrooklynRestResourceTest {
         Asserts.assertEquals(wf2.getStatus(), WorkflowExecutionContext.WorkflowStatus.SUCCESS);
     }
 
-    @Test(groups="Integration")  // because slow
-    public void testWorkflowApiTimeouts() {
+    @Test
+    public void testWorkflowInputs() {
         String wf = "input:\n" +
-                "  password1: PASSWORD\n" +
+                "  literal: LIT_VAL\n" +
+                "  dsl_ref: $brooklyn:entityId()\n" +
                 "steps:\n" +
+                "  - type: return\n" +
+                "    value:\n" +
+                "      p: ${literal}\n" +
+                "      v: ${dsl_ref}\n"+
+                "";
+
+        Response response = client().path("/applications/"+entity.getApplicationId()+"/entities/"+entity.getId()+"/workflows")
+                .query("timeout", "5s")
+                .header(HttpHeaders.CONTENT_TYPE, "text/yaml")
+                .accept(MediaType.APPLICATION_JSON).post(wf);
+        assertHealthy(response);
+        TaskSummary task = response.readEntity(TaskSummary.class);
+
+        Asserts.assertNotNull(task.getEndTimeUtc());
+        Asserts.assertEquals(task.getResult(), MutableMap.of("p", "LIT_VAL", "v", entity.getId()));
+    }
+
+    public void testWorkflowApiTimeouts() {
+        String wf = "steps:\n" +
                 "  - sleep 500ms\n"+
                 "  - return done\n";
 

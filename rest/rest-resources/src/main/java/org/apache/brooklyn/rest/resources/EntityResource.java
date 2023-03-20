@@ -28,6 +28,8 @@ import com.google.common.io.Files;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.location.Location;
 import org.apache.brooklyn.api.mgmt.Task;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.DslUtils;
+import org.apache.brooklyn.camp.brooklyn.spi.dsl.parse.DslParser;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.mgmt.BrooklynTags;
 import org.apache.brooklyn.core.mgmt.BrooklynTags.NamedStringTag;
@@ -458,6 +460,7 @@ public class EntityResource extends AbstractBrooklynRestResource implements Enti
         try {
             workflow = BeanWithTypeUtils.newYamlMapper(mgmt(), true, RegisteredTypes.getClassLoadingContext(target), true)
                     .readerFor(CustomWorkflowStep.class).readValue(yaml);
+             if (workflow.getInput()!=null) workflow.setInput((Map) DslUtils.parseBrooklynDsl(mgmt(), workflow.getInput()));
         } catch (JsonProcessingException e) {
             throw WebResourceUtils.badRequest(e);
         }
