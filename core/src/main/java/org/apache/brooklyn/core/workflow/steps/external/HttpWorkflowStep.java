@@ -30,7 +30,6 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.javalang.BrooklynHttpConfig;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
-import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.http.HttpTool;
 import org.apache.brooklyn.util.http.auth.UsernamePassword;
@@ -43,15 +42,18 @@ import org.apache.brooklyn.util.stream.Streams;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 import org.apache.http.client.utils.URIBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.function.Predicate;
 
 public class HttpWorkflowStep extends WorkflowStepDefinition {
+
+    private static final Logger log = LoggerFactory.getLogger(HttpWorkflowStep.class);
 
     public static final String SHORTHAND = "${endpoint}";
 
@@ -160,7 +162,14 @@ public class HttpWorkflowStep extends WorkflowStepDefinition {
         Predicate<Integer> exitcode = context.getInput(STATUS_CODE);
         if (exitcode==null) exitcode = code -> HttpTool.isStatusCodeHealthy(code);
 
-        context.setOutput(MutableMap.of("status_code", response.code(), "headers", response.headers(), "content", contentString, "content_bytes", contentBytes, "duration", Duration.millis(endTime - startTime)));
+        Object content_json = null;
+        try {
+            content_json = BeanWithTypeUtils.newSimpleMapper().readValue(contentString, Object.class);
+        } catch (Exception e) {
+            Exceptions.propagateIfFatal(e);
+            log.debug("Content from web request is not json; not setting content_json: "+e);
+        }
+        context.setOutput(MutableMap.of("status_code", response.code(), "headers", response.headers(), "content", contentString, "content_bytes", contentBytes, "content_json", content_json, "duration", Duration.millis(endTime - startTime)));
         // make sure the output is set even if there is an error
         checkExitCode(response.code(), exitcode);
         return context.getOutput();

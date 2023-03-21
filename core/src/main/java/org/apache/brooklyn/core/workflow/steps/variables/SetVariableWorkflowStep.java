@@ -28,6 +28,7 @@ import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.collections.*;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.QuotedStringTokenizer;
@@ -46,26 +47,41 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
     private static final Logger log = LoggerFactory.getLogger(SetVariableWorkflowStep.class);
 
     public static final String SHORTHAND =
-
             "[ [ ${variable.type} ] ${variable.name} [ \"=\" ${value...} ] ]";
 
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> VALUE = ConfigKeys.newConfigKey(Object.class, "value");
 
+    public enum InterpolationMode {
+        WORDS,
+        DISABLED,
+        FULL,
+    }
+    public static final ConfigKey<InterpolationMode> INTERPOLATION_MODE = ConfigKeys.newConfigKey(InterpolationMode.class, "interpolation_mode",
+            "Whether interpolation runs on the full value (not touching quotes; the default in most places), " +
+                    "on words (if unquoted, unquoting others; the default for 'let var = value' shorthand), " +
+                    "or is disabled (not applied at all)");
+    public static final ConfigKey<TemplateProcessor.InterpolationErrorMode> INTERPOLATION_ERRORS = ConfigKeys.newConfigKey(TemplateProcessor.InterpolationErrorMode.class, "interpolation_errors",
+            "Whether unresolvable interpolated expressions fail and return an error (the default for 'let'), " +
+                    "ignore the expression leaving it in place (the default for 'load'), " +
+                    "or replace the expression with a blank string");
 
     @Override
     public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression, true, true);
+        Maybe<Map<String, Object>> newInput = populateFromShorthandTemplate(SHORTHAND, expression, true, true);
+        if (newInput.isPresentAndNonNull() && newInput.get().get(VALUE.getName())!=null && input.get(INTERPOLATION_MODE.getName())==null) {
+            setInput(INTERPOLATION_MODE, InterpolationMode.WORDS);
+        }
     }
 
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
 
-        if (!input.containsKey(VARIABLE.getName())) {
+        if (input.get(VARIABLE.getName())==null) {
             throw new IllegalArgumentException("Variable name is required");
         }
-        if (!input.containsKey(VALUE.getName())) {
+        if (input.get(VALUE.getName())==null) {
             throw new IllegalArgumentException("Value is required");
         }
     }
@@ -80,7 +96,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
         Object unresolvedValue = input.get(VALUE.getName());
 
-        Object resolvedValue = new SetVariableEvaluation(context, type, unresolvedValue).evaluate();
+        Object resolvedValue = new ConfigurableInterpolationEvaluation(context, type, unresolvedValue, context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
 
         Object oldValue = setWorkflowScratchVariableDotSeparated(context, name, resolvedValue);
         context.noteOtherMetadata("Value set", resolvedValue);
@@ -113,15 +129,22 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
     private enum LetMergeMode { NONE, SHALLOW, DEEP }
 
-    public static class SetVariableEvaluation<T> {
+    public static class ConfigurableInterpolationEvaluation<T> {
         protected final WorkflowStepInstanceExecutionContext context;
         protected final TypeToken<T> type;
         protected final Object unresolvedValue;
+        protected final InterpolationMode interpolationMode;
+        protected final TemplateProcessor.InterpolationErrorMode errorMode;
 
-        public SetVariableEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue) {
+        public ConfigurableInterpolationEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue) {
+            this(context, type, unresolvedValue, null, null);
+        }
+        public ConfigurableInterpolationEvaluation(WorkflowStepInstanceExecutionContext context, TypeToken<T> type, Object unresolvedValue, InterpolationMode interpolationMode, TemplateProcessor.InterpolationErrorMode errorMode) {
             this.context = context;
             this.unresolvedValue = unresolvedValue;
             this.type = type;
+            this.interpolationMode = interpolationMode;
+            this.errorMode = errorMode;
         }
 
         public boolean unquotedStartsWith(String s, char c) {
@@ -148,14 +171,25 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
 
             Object resultCoerced;
             TypeToken<? extends Object> typeIntermediate = type==null ? TypeToken.of(Object.class) : type;
-            if (result instanceof String) {
+
+            if (interpolationMode==InterpolationMode.DISABLED) {
+                resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
+
+            } else if (result instanceof String && interpolationMode==InterpolationMode.WORDS) {
                 result = process((String) result);
                 resultCoerced = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
+
             } else {
-                resultCoerced = context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, result, typeIntermediate);
+                // full, or null the default
+                resultCoerced = resolveSubPart(result, typeIntermediate);
             }
 
             return (T) resultCoerced;
+        }
+
+        <T> T resolveSubPart(Object v, TypeToken<T> type) {
+            return new WorkflowExpressionResolution(context.getWorkflowExectionContext(), WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, false, false, errorMode)
+                    .resolveWithTemplates(v, type);
         }
 
         Object process(String input) {
@@ -201,7 +235,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             List<Object> objs = w.stream().map(t -> {
                 if (qst.isQuoted(t)) return qst.unwrapIfQuoted(t);
                 TypeToken<?> target = resolveToString ? TypeToken.of(String.class) : TypeToken.of(Object.class);
-                return context.resolve(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_RUNNING, t, target);
+                return resolveSubPart(t, target);
             }).collect(Collectors.toList());
             if (!resolveToString) return objs.get(0);
             return ((List<String>)(List)objs).stream().collect(Collectors.joining());

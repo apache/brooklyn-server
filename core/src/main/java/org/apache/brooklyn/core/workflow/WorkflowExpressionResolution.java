@@ -28,7 +28,10 @@ import org.apache.brooklyn.core.mgmt.BrooklynTaskTags;
 import org.apache.brooklyn.core.resolve.jackson.BeanWithTypeUtils;
 import org.apache.brooklyn.core.resolve.jackson.BrooklynJacksonSerializationUtils;
 import org.apache.brooklyn.core.typereg.RegisteredTypes;
-import org.apache.brooklyn.util.collections.*;
+import org.apache.brooklyn.util.collections.Jsonya;
+import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.collections.ThreadLocalStack;
 import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.ResolutionFailureTreatedAsAbsent;
 import org.apache.brooklyn.util.core.task.DeferredSupplier;
@@ -43,7 +46,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -69,17 +71,23 @@ public class WorkflowExpressionResolution {
     private final boolean allowWaiting;
     private final boolean useWrappedValue;
     private final WorkflowExpressionStage stage;
+    private final TemplateProcessor.InterpolationErrorMode errorMode;
 
     public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, boolean wrapExpressionValues) {
+        this(context, stage, allowWaiting, wrapExpressionValues, TemplateProcessor.InterpolationErrorMode.FAIL);
+    }
+    public WorkflowExpressionResolution(WorkflowExecutionContext context, WorkflowExpressionStage stage, boolean allowWaiting, boolean wrapExpressionValues, TemplateProcessor.InterpolationErrorMode errorMode) {
         this.context = context;
         this.stage = stage;
         this.allowWaiting = allowWaiting;
         this.useWrappedValue = wrapExpressionValues;
+        this.errorMode = errorMode;
     }
 
     TemplateModel ifNoMatches() {
-        // this causes the execution to fail. any other behaviour is hard with freemarker.
-        // recommendation is to use freemarker attempts/escapes to recover.
+        // fail here - any other behaviour is hard with freemarker (exceptions intercepted etc).
+        // error handling is done by 'process' method below, and by ?? notation handling in let,
+        // or if needed freemarker attempts/escapes to recover could be used (not currently used much)
         return null;
     }
 
@@ -439,21 +447,22 @@ public class WorkflowExpressionResolution {
             entry = WorkflowVariableResolutionStackEntry.of(context, stage, expression);
             if (!RESOLVE_STACK.push(entry)) {
                 entry = null;
-                throw new WorkflowVariableRecursiveReference("Recursive reference: "+RESOLVE_STACK.getAll(false).stream().map(p -> ""+p.object).collect(Collectors.joining("->")));
+                throw new WorkflowVariableRecursiveReference("Recursive reference: " + RESOLVE_STACK.getAll(false).stream().map(p -> "" + p.object).collect(Collectors.joining("->")));
             }
-            if (RESOLVE_STACK.size()>100) {
-                throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: "+RESOLVE_STACK.getAll(false).stream().map(p -> ""+p.object).collect(Collectors.joining("->")));
+            if (RESOLVE_STACK.size() > 100) {
+                throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: " + RESOLVE_STACK.getAll(false).stream().map(p -> "" + p.object).collect(Collectors.joining("->")));
             }
 
             if (expression instanceof String) return processTemplateExpressionString((String) expression);
             if (expression instanceof Map) return processTemplateExpressionMap((Map) expression);
-            if (expression instanceof Collection) return processTemplateExpressionCollection((Collection) expression);
+            if (expression instanceof Collection)
+                return processTemplateExpressionCollection((Collection) expression);
             if (expression == null || Boxing.isPrimitiveOrBoxedObject(expression)) return expression;
             // otherwise resolve DSL
             return resolveDsl(expression);
 
         } finally {
-            if (entry!=null) RESOLVE_STACK.pop(entry);
+            if (entry != null) RESOLVE_STACK.pop(entry);
         }
     }
 
@@ -502,7 +511,7 @@ public class WorkflowExpressionResolution {
 
         boolean ourWait = interruptSetIfNeededToPreventWaiting();
         try {
-            result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false);
+            result = TemplateProcessor.processTemplateContents("workflow", expression, model, true, false, errorMode);
         } catch (Exception e) {
             Exception e2 = e;
             if (!allowWaiting && Exceptions.isCausedByInterruptInAnyThread(e)) {

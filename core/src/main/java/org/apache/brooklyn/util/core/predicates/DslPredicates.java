@@ -68,6 +68,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiFunction;
@@ -156,8 +158,35 @@ public class DslPredicates {
         // if either believes they're equal, believe it
         if (a.equals(b) || b.equals(a)) return 0;
 
-        if (isStringOrPrimitive(a) && isStringOrPrimitive(b)) {
-            return NaturalOrderComparator.INSTANCE.compare(a.toString(), b.toString());
+        if (a instanceof Number || b instanceof Number) {
+            try {
+                // if either number is a string try to treat both as string
+                if (a instanceof String) a = new BigDecimal((String) a);
+                if (b instanceof String) b = new BigDecimal((String) b);
+
+                if (a instanceof Number && b instanceof Number) {
+                    if (a.getClass().equals(b.getClass())) {
+                        if (a instanceof BigDecimal) return ((BigDecimal) a).compareTo((BigDecimal) b);
+                        if (a instanceof BigInteger) return ((BigInteger) a).compareTo((BigInteger) b);
+                        if (a instanceof Long) return ((Long) a).compareTo((Long) b);
+                        if (a instanceof Integer) return ((Integer) a).compareTo((Integer) b);
+                        return ((Double) (((Number) a).doubleValue())).compareTo(((Number) b).doubleValue());
+                    }
+                    if (a instanceof Integer || a instanceof Long || a instanceof Byte) a = BigDecimal.valueOf(((Number) a).longValue());
+                    if (b instanceof Integer || b instanceof Long || a instanceof Byte) b = BigDecimal.valueOf(((Number) b).longValue());
+                    if (a instanceof Double || a instanceof Float) a = BigDecimal.valueOf(((Number) a).doubleValue());
+                    if (b instanceof Double || b instanceof Float) b = BigDecimal.valueOf(((Number) b).doubleValue());
+                    // all now normally big decimal
+                    if (a instanceof BigDecimal && b instanceof BigDecimal) return ((BigDecimal) a).compareTo((BigDecimal) b);
+                    // some weird type; proceed to string stuff below
+                }
+            } catch (Exception e) {
+                // one number is not parseable as a string; proceed to natural order comparator
+            }
+        }
+
+        if (isStringOrPrimitiveOrNumber(a) && isStringOrPrimitiveOrNumber(b)) {
+            return NaturalOrderComparator.INSTANCE.compare(toStringForPrimitives(a), toStringForPrimitives(b));
         }
 
         if (a instanceof DeferredSupplier || b instanceof DeferredSupplier)
@@ -188,12 +217,28 @@ public class DslPredicates {
         return a!=null && (a instanceof String || Boxing.isPrimitiveOrBoxedClass(a.getClass()));
     }
 
+    private static boolean isStringOrPrimitiveOrNumber(Object a) {
+        return isStringOrPrimitive(a) || (a!=null && (a instanceof Number));
+    }
+
     private static boolean isJson(Object a) {
         return isStringOrPrimitive(a) || (a instanceof Map) || (a instanceof Collection);
     }
 
+    static String toStringForPrimitives(Object a) {
+        if (a==null) return null;
+        if (a instanceof Number) {
+            // print decimal numbers without E notation
+            if (a instanceof BigDecimal) return ((BigDecimal)a).toPlainString();
+            if (a instanceof Double) return toStringForPrimitives(new BigDecimal((Double)a));
+            if (a instanceof Float) return toStringForPrimitives(new BigDecimal((Float)a));
+            // fall through to below
+        }
+        return a.toString();
+    }
+
     static boolean asStringTestOrFalse(Object value, Predicate<String> test) {
-        return isStringOrPrimitive(value) || value instanceof Throwable ? test.test(value.toString()) : value instanceof Class ? test.test(((Class)value).getName()) : false;
+        return isStringOrPrimitiveOrNumber(value) || value instanceof Throwable ? test.test(toStringForPrimitives(value)) : value instanceof Class ? test.test(((Class)value).getName()) : false;
     }
 
     @JsonInclude(JsonInclude.Include.NON_NULL)

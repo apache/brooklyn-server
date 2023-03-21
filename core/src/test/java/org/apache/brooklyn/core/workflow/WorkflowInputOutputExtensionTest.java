@@ -31,8 +31,8 @@ import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.BrooklynMgmtUnitTestSupport;
 import org.apache.brooklyn.core.typereg.BasicTypeImplementationPlan;
-import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.core.workflow.steps.appmodel.SetSensorWorkflowStep;
+import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicApplication;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.ClassLogWatcher;
@@ -48,6 +48,7 @@ import org.testng.annotations.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -275,6 +276,138 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     @Test
+    public void testLetInterpolationMode() {
+        Consumer<Map<String,Object>> invoke = input -> { try {
+            invokeWorkflowStepsWithLogging(MutableList.of("let person = Anna",
+                    input,
+                    "log NOTE: ${x}"));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } };
+        BiFunction<Map<String,Object>,String,String> assertLetGives = (input,expected) -> {
+            invoke.accept(input);
+            String note = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ");
+            Asserts.assertEquals(note, expected);
+            return note;
+        };
+
+        // disabled
+        assertLetGives.apply(MutableMap.of("step", "let x = \"${person}\"", "interpolation_mode", "disabled"), "\"${person}\"");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}", "interpolation_mode", "disabled"), "${person}");
+        assertLetGives.apply(MutableMap.of("step", "let x", "value", "\"${person}\"", "interpolation_mode", "disabled"), "\"${person}\"");
+
+        // words forced
+        assertLetGives.apply(MutableMap.of("step", "let x = \"${person}\"", "interpolation_mode", "words"), "${person}");
+        assertLetGives.apply(MutableMap.of("step", "let x = \"Anna\"", "interpolation_mode", "words"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}", "interpolation_mode", "words"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x", "value", "\"${person}\"", "interpolation_mode", "words"), "${person}");
+
+        // full forced
+        assertLetGives.apply(MutableMap.of("step", "let x = \"${person}\"", "interpolation_mode", "full"), "\"Anna\"");
+        assertLetGives.apply(MutableMap.of("step", "let x = \"Anna\"", "interpolation_mode", "full"), "\"Anna\"");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}", "interpolation_mode", "full"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x", "value", "\"${person}\"", "interpolation_mode", "full"), "\"Anna\"");
+
+        // defaults - words for shorthand
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x = \"${person}\""), "${person}");
+        assertLetGives.apply(MutableMap.of("step", "let x = \"Anna\""), "Anna");
+
+        // defaults - full for separate value
+        assertLetGives.apply(MutableMap.of("step", "let x", "value", "${person}"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x", "value", "\"${person}\""), "\"Anna\"");
+    }
+
+    @Test
+    public void testLetInterpolationErrorMode() {
+        Consumer<Map<String,Object>> invoke = input -> { try {
+            invokeWorkflowStepsWithLogging(MutableList.of("let person = Anna",
+                    input,
+                    "log NOTE: ${x}"));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } };
+        BiFunction<Map<String,Object>,String,String> assertLetGives = (input,expected) -> {
+            invoke.accept(input);
+            String note = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ");
+            Asserts.assertEquals(note, expected);
+            return note;
+        };
+
+        // does nothing if value found
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}", "interpolation_errors", "fail"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}", "interpolation_errors", "blank"), "Anna");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${person}", "interpolation_errors", "ignore"), "Anna");
+
+        // but if value not found
+        Asserts.assertFailsWith(() -> assertLetGives.apply(MutableMap.of("step", "let x = ${unknown_person}"), "not-used"),
+                e -> Asserts.expectedFailureContains(e, "unknown_person"));
+        Asserts.assertFailsWith(() -> assertLetGives.apply(MutableMap.of("step", "let x = ${unknown_person}", "interpolation_errors", "fail"), "not-used"),
+            e -> Asserts.expectedFailureContains(e, "unknown_person"));
+        assertLetGives.apply(MutableMap.of("step", "let x = ${unknown_person}", "interpolation_errors", "blank"), "");
+        assertLetGives.apply(MutableMap.of("step", "let x = ${unknown_person}", "interpolation_errors", "ignore"), "${unknown_person}");
+    }
+
+    @Test
+    public void testLoadInterpolationMode() {
+        BiConsumer<String,Map<String,Object>> invoke = (otherVarName, input) -> { try {
+            invokeWorkflowStepsWithLogging(MutableList.of(
+                    "let person = Anna",
+                    "let "+otherVarName+" = Other",
+                    MutableMap.<String,Object>of("step", "load x = classpath://document-with-interpolated-expression.txt").add(input),
+                    "log NOTE: ${x}"));
+        } catch (Exception e) {
+            throw Exceptions.propagate(e);
+        } };
+        BiFunction<Map<String,Object>,String,String> assertLoadWithOtherVarGives = (input,expected) -> {
+            invoke.accept("other", input);
+            String note = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ");
+            Asserts.assertEquals(note, expected);
+            return note;
+        };
+        BiFunction<Map<String,Object>,String,String> assertLoadWithoutOtherVarGives = (input,expected) -> {
+            invoke.accept("ignored", input);
+            String note = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("NOTE:")).findAny().get(), "NOTE: ");
+            Asserts.assertEquals(note, expected);
+            return note;
+        };
+
+        assertLoadWithOtherVarGives.apply(null, "This is a test. Person is ${person} and other is ${other}.");
+        assertLoadWithOtherVarGives.apply(MutableMap.of("interpolation_mode", "disabled"), "This is a test. Person is ${person} and other is ${other}.");
+        assertLoadWithOtherVarGives.apply(MutableMap.of("interpolation_mode", "full"), "This is a test. Person is Anna and other is Other.");
+
+        assertLoadWithoutOtherVarGives.apply(null, "This is a test. Person is ${person} and other is ${other}.");
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "disabled"), "This is a test. Person is ${person} and other is ${other}.");
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "full"), "This is a test. Person is Anna and other is ${other}.");
+
+
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_error", "fail"), "This is a test. Person is ${person} and other is ${other}.");
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "disabled", "interpolation_errors", "fail"), "This is a test. Person is ${person} and other is ${other}.");
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "full"), "This is a test. Person is Anna and other is ${other}.");
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "full", "interpolation_errors", "ignore"), "This is a test. Person is Anna and other is ${other}.");
+        assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "full", "interpolation_errors", "blank"), "This is a test. Person is Anna and other is .");
+        Asserts.assertFailsWith(() -> assertLoadWithoutOtherVarGives.apply(MutableMap.of("interpolation_mode", "full", "interpolation_error", "fail"), "not-used"),
+                e -> Asserts.expectedFailureContains(e, "other"));
+    }
+
+    @Test
+    public void testInterpolationNotRecursiveSoDisablingWorks() throws Exception {
+        // outwith inputs, interpolation is not recursive. for inputs, it is permitted to be.
+        Object result = invokeWorkflowStepsWithLogging(MutableList.of("let person1 = Anna",
+                MutableMap.of("step", "let person2 = ${person1}", "interpolation_mode", "disabled"),
+                MutableMap.of("step", "log P2: ${person2}"),
+                MutableMap.of("step", "let person3 = ${person2}"),
+                MutableMap.of("step", "log P3: ${person3}"),
+                "return ${person3}"));
+        Asserts.assertEquals(result, "${person1}");
+        String p2 = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("P2:")).findAny().get(), "P2: ");
+        Asserts.assertEquals(p2, "${person1}");
+        String p3 = Strings.removeFromStart(lastLogWatcher.getMessages().stream().filter(s -> s.startsWith("P3:")).findAny().get(), "P3: ");
+        Asserts.assertEquals(p3, "${person1}");
+    }
+
+    @Test
     public void testLetQuoteVar() {
         Consumer<String> invoke = input -> { try {
             invokeWorkflowStepsWithLogging(MutableList.of(
@@ -362,8 +495,10 @@ public class WorkflowInputOutputExtensionTest extends BrooklynMgmtUnitTestSuppor
     }
 
     private Object transform(String filter, Object expression) throws Exception {
-        return invokeWorkflowStepsWithLogging(MutableList.of(
-                MutableMap.<String,Object>of("step", "let x1", "value", expression),
+        boolean inline = expression instanceof String && Strings.isNonEmpty((String)expression) && ((String)expression).trim().equals(expression);
+        Map<String,Object> letStep = MutableMap.<String,Object>of("step", "let x1" + (inline ? " = "+expression : ""));
+        if (!inline) letStep.put("value", expression);
+        return invokeWorkflowStepsWithLogging(MutableList.of(letStep,
                 "transform x2 = ${x1} | "+filter, "return ${x2}"));
     }
 

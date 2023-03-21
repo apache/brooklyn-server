@@ -325,6 +325,7 @@
                     <excludes combine.children="append">
                         <exclude>**/src/test/resources/org/apache/brooklyn/util/core/osgi/test/bundlemaker/nomanifest/**</exclude>
                         <exclude>**/src/test/resources/org/apache/brooklyn/util/core/osgi/test/bundlemaker/withmanifest/**</exclude>
+                        <exclude>**/src/test/resources/document-with-interpolated-expression.txt</exclude>
                     </excludes>
                 </configuration>
             </plugin>

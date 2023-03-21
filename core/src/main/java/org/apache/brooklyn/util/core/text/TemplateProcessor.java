@@ -840,6 +840,9 @@ public class TemplateProcessor {
     }
 
     public static Object processTemplateContents(String context, String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors) {
+        return processTemplateContents(context, templateContents, substitutions, allowSingleVariableObject, logErrors, InterpolationErrorMode.FAIL);
+    }
+    public static Object processTemplateContents(String context, String templateContents, final TemplateHashModel substitutions, boolean allowSingleVariableObject, boolean logErrors, InterpolationErrorMode errorMode) {
         try {
             Configuration cfg = new Configuration(Configuration.DEFAULT_INCOMPATIBLE_IMPROVEMENTS);
             cfg.setLogTemplateExceptions(logErrors);
@@ -885,6 +888,7 @@ public class TemplateProcessor {
             // TODO could expose CAMP '$brooklyn:' style dsl, based on template.createProcessingEnvironment
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             Writer out = new OutputStreamWriter(baos);
+            template.setTemplateExceptionHandler(new ForgivingFreemarkerTemplateExceptionHandler(errorMode));
             template.process(substitutions, out);
             out.flush();
 
@@ -900,6 +904,44 @@ public class TemplateProcessor {
                         + (Strings.isMultiLine(templateContents) ? "\n" + templateContents : templateContents));
             }
             throw Exceptions.propagate(e);
+        }
+    }
+
+    public enum InterpolationErrorMode {
+        FAIL,
+        BLANK,
+        IGNORE,
+    }
+
+    InterpolationErrorMode interpolationErrorMode;
+
+    public void setInterpolationErrorMode(InterpolationErrorMode interpolationErrorMode) {
+        this.interpolationErrorMode = interpolationErrorMode;
+    }
+
+    public static class ForgivingFreemarkerTemplateExceptionHandler implements TemplateExceptionHandler {
+        private final InterpolationErrorMode errorMode;
+        public ForgivingFreemarkerTemplateExceptionHandler(InterpolationErrorMode errorMode) {
+            this.errorMode = errorMode;
+        }
+        public void handleTemplateException(TemplateException te, Environment env, Writer out) throws TemplateException {
+            if (errorMode==null || errorMode==InterpolationErrorMode.FAIL) throw te;
+
+            if (errorMode==InterpolationErrorMode.BLANK) return;
+            if (errorMode==InterpolationErrorMode.IGNORE) {
+                try {
+                    // below won't work for complex expressions but those are discouraged anyways
+                    out.write("${" + te.getBlamedExpressionString() + "}");
+
+                    // this would work better, if we want to access private fields
+                    //te.getFTLInstructionStack();
+//                TemplateElement els[] = env.instructionStack;
+//                env.instructionStackSize - 1
+                } catch (IOException e) {
+                    throw Exceptions.propagate(e);
+                }
+                return;
+            }
         }
     }
 

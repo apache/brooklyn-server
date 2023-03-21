@@ -144,11 +144,12 @@ public abstract class WorkflowStepDefinition {
     protected void populateFromShorthandTemplate(String template, String value) {
         populateFromShorthandTemplate(template, value, false, true);
     }
-    protected void populateFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnMismatch) {
+    protected Maybe<Map<String, Object>> populateFromShorthandTemplate(String template, String value, boolean finalMatchRaw, boolean failOnMismatch) {
         Maybe<Map<String, Object>> result = new ShorthandProcessor(template).withFinalMatchRaw(finalMatchRaw).withFailOnMismatch(failOnMismatch).process(value);
         if (result.isAbsent()) throw new IllegalArgumentException("Invalid shorthand expression: '"+value+"'", Maybe.Absent.getException(result));
 
-        input.putAll((Map) CollectionMerger.builder().build().merge(input, result.get()));
+        input.putAll((Map<? extends String, ?>) CollectionMerger.builder().build().merge(input, result.get()));
+        return result;
     }
 
     final Task<?> newTask(WorkflowStepInstanceExecutionContext context) {
