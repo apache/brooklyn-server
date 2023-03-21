@@ -284,6 +284,11 @@ public class RetryWorkflowStep extends WorkflowStepDefinition {
             if (backoff.increase !=null) delay = delay.add(backoff.increase.multiply(exponent));
 
             if (backoff.jitter!=null) delay = delay.multiply(1 + Math.random()*backoff.jitter);
+            if (backoff.max!=null && delay.isLongerThan(backoff.max)) {
+                delay = backoff.max;
+                // also apply a sigmoidal heuristic if jitter requested
+                if (backoff.jitter!=null) delay = delay.multiply(1 / (1+Math.random()*backoff.jitter));
+            }
 
             if (delay.isPositive()) {
                 Duration ddelay = delay;

@@ -278,6 +278,27 @@ public class WorkflowRetryTest extends RebindTestFixture<BasicApplication> {
         Asserts.assertThat(Duration.of(sw), d -> d.isShorterThan(Duration.millis(EXPECTED_DELAY + GRACE)));
     }
 
+    @Test(groups="Integration")  // because slow
+    public void testRetryWithBackoffUpToAndLimit() {
+        Stopwatch sw = Stopwatch.createStarted();
+        try {
+            Task<?> lastInvocation = runSteps(MutableList.of(
+                "let integer x = ${entity.sensor.x} ?? 0",
+                "let x = ${x} + 1",
+                "set-sensor x = ${x}",
+                "retry from start limit 1s backoff 1ms increasing 2x up to 32ms"), null);
+            Asserts.shouldHaveFailedPreviously("Instead got "+lastInvocation.getUnchecked());
+        } catch (Exception e) {
+            Asserts.expectedFailure(e);
+            Asserts.assertNotNull(Exceptions.getFirstThrowableOfType(e, RetryWorkflowStep.RetriesExceeded.class), "Exception "+e);
+        }
+        long EXPECTED_DELAY = 999;
+        Asserts.assertThat(Duration.of(sw), d -> d.isLongerThan(Duration.millis(EXPECTED_DELAY)));
+        Integer x = app.sensors().get(Sensors.newIntegerSensor("x"));
+        Asserts.assertThat(x, xx -> xx > 12);   // shouldn't keep doubling beyond 32 ms
+        Asserts.assertThat(x, xx -> xx < 40);   // but should increase
+    }
+
     Task<?> lastInvocation;
 
     @Test
