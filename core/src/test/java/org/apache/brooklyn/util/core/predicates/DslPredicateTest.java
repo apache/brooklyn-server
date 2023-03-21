@@ -122,6 +122,84 @@ public class DslPredicateTest extends BrooklynMgmtUnitTestSupport {
     }
 
     @Test
+    public void testGreaterThanOtherTypes() {
+        DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than", "25.45"), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(26.01d));
+        Asserts.assertTrue(p.test(101.01d));
+        Asserts.assertTrue(p.test(101));
+        Asserts.assertFalse(p.test(24.9d));
+        Asserts.assertFalse(p.test(3.3d));
+        Asserts.assertTrue(p.test(25.55d));
+        Asserts.assertFalse(p.test(25.35d));
+        Asserts.assertFalse(p.test(1d));
+        Asserts.assertFalse(p.test(1));
+        Asserts.assertFalse(p.test("1"));
+        Asserts.assertFalse(p.test(-1d));
+        Asserts.assertFalse(p.test(-1));
+        Asserts.assertFalse(p.test("-1"));
+        Asserts.assertFalse(p.test("."));
+        Asserts.assertTrue(p.test("A"));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than", 25.45d), DslPredicates.DslPredicate.class);
+        Asserts.assertTrue(p.test(26.01d));
+        Asserts.assertTrue(p.test(101.01d));
+        Asserts.assertTrue(p.test(101));
+        Asserts.assertFalse(p.test(24.9d));
+        Asserts.assertFalse(p.test(3.3d));
+        Asserts.assertTrue(p.test(25.55d));
+        Asserts.assertFalse(p.test(25.35d));
+        Asserts.assertFalse(p.test(-25.55d));
+        Asserts.assertFalse(p.test(1d));
+        Asserts.assertFalse(p.test(1));
+        Asserts.assertFalse(p.test("1"));
+        Asserts.assertFalse(p.test(-1));
+        Asserts.assertFalse(p.test(-1d));
+        Asserts.assertFalse(p.test("-1"));
+        Asserts.assertFalse(p.test("."));
+        Asserts.assertTrue(p.test("A"));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than", -25.45), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(-26.01d));
+        Asserts.assertFalse(p.test(-101.01d));
+        Asserts.assertFalse(p.test(-101));
+        Asserts.assertTrue(p.test(-24.9d));
+        Asserts.assertTrue(p.test(-3.3d));
+        Asserts.assertFalse(p.test(-25.55d));
+        Asserts.assertTrue(p.test(-25.35d));
+        Asserts.assertTrue(p.test(25.35d));
+        Asserts.assertTrue(p.test(1d));
+        Asserts.assertTrue(p.test(1));
+        Asserts.assertTrue(p.test("1"));
+        Asserts.assertTrue(p.test(-1d));
+        Asserts.assertTrue(p.test(-1));
+        Asserts.assertTrue(p.test("-1"));
+        Asserts.assertTrue(p.test("."));
+        Asserts.assertTrue(p.test("A"));
+
+        p = TypeCoercions.coerce(MutableMap.of(
+                "greater-than", "-25.45"), DslPredicates.DslPredicate.class);
+        Asserts.assertFalse(p.test(-26.01d));
+        Asserts.assertFalse(p.test(-101.01d));
+        Asserts.assertFalse(p.test(-101));
+        Asserts.assertTrue(p.test(-24.9d));
+        Asserts.assertTrue(p.test(-3.3d));
+        Asserts.assertFalse(p.test(-25.55d));
+        Asserts.assertTrue(p.test(-25.35d));
+        Asserts.assertTrue(p.test(25.35d));
+        Asserts.assertTrue(p.test(1d));
+        Asserts.assertTrue(p.test(1));
+        Asserts.assertTrue(p.test("1"));
+        Asserts.assertTrue(p.test(-1d));
+        Asserts.assertTrue(p.test(-1));
+        Asserts.assertTrue(p.test("-1"));
+        Asserts.assertTrue(p.test("."));  // . comes first alphabetically
+        Asserts.assertTrue(p.test("A"));
+    }
+
+    @Test
     public void testLessThanOrEquals() {
         DslPredicates.DslPredicate p = TypeCoercions.coerce(MutableMap.of(
                 "less-than-or-equal-to", "5"), DslPredicates.DslPredicate.class);

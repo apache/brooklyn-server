@@ -48,6 +48,9 @@ misrepresented as being the original software.
  */
 package org.apache.brooklyn.util.text;
 
+import org.apache.brooklyn.util.exceptions.Exceptions;
+
+import java.math.BigDecimal;
 import java.util.Comparator;
 
 /** comparator which takes two strings and puts them in an order 
@@ -109,6 +112,20 @@ public class NaturalOrderComparator implements Comparator<String> {
 
     @Override
     public int compare(String a, String b) {
+        if (a.startsWith("-") || b.startsWith("-")) {
+            try {
+                BigDecimal ba = new BigDecimal(a);
+                BigDecimal bd = new BigDecimal(b);
+                return ba.compareTo(bd);
+            } catch (Exception e) {
+                Exceptions.propagateIfFatal(e);
+                // otherwise ignore; not decimal
+            }
+        }
+        return compareInternal(a, b);
+    }
+
+    public int compareInternal(String a, String b) {
 
         int ia = 0, ib = 0;
         int nza = 0, nzb = 0;
@@ -167,7 +184,7 @@ public class NaturalOrderComparator implements Comparator<String> {
                     if (ia >= a.length()) return -1;  // only b has more chars
                     if (ib >= b.length()) return 1;  // only a has more chars
                     // both have remaining chars; neither is numeric due to compareRight; recurse into remaining
-                    if ((result = compare(a.substring(ia), b.substring(ib))) != 0) {
+                    if ((result = compareInternal(a.substring(ia), b.substring(ib))) != 0) {
                         return result;
                     }
                 }
