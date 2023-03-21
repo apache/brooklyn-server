@@ -27,6 +27,7 @@ import org.apache.brooklyn.core.workflow.WorkflowExpressionResolution;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.util.core.ResourceUtils;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.ByteSizeStrings;
 import org.apache.brooklyn.util.text.Strings;
 import org.slf4j.Logger;
@@ -45,6 +46,8 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<TypedValueToSet> VARIABLE = ConfigKeys.newConfigKey(TypedValueToSet.class, "variable");
     public static final ConfigKey<Object> URL = ConfigKeys.newConfigKey(Object.class, "url");
     public static final ConfigKey<String> CHARSET = ConfigKeys.newStringConfigKey("charset");
+    public static final ConfigKey<SetVariableWorkflowStep.InterpolationMode> INTERPOLATION_MODE = ConfigKeys.newConfigKeyWithDefault(SetVariableWorkflowStep.INTERPOLATION_MODE, SetVariableWorkflowStep.InterpolationMode.DISABLED);
+    public static final ConfigKey<TemplateProcessor.InterpolationErrorMode> INTERPOLATION_ERRORS = ConfigKeys.newConfigKeyWithDefault(SetVariableWorkflowStep.INTERPOLATION_ERRORS, TemplateProcessor.InterpolationErrorMode.IGNORE);
 
     @Override
     public void populateFromShorthand(String expression) {
@@ -83,7 +86,7 @@ public class LoadWorkflowStep extends WorkflowStepDefinition {
             data = r.getResourceAsString("" + url);
         }
 
-        Object resolvedValue = context.getWorkflowExectionContext().resolveCoercingOnly(WorkflowExpressionResolution.WorkflowExpressionStage.STEP_OUTPUT, data, type);
+        Object resolvedValue = new SetVariableWorkflowStep.ConfigurableInterpolationEvaluation(context, type, data, context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
 
         context.getWorkflowExectionContext().getWorkflowScratchVariables().put(name, resolvedValue);
 

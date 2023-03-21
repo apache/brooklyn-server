@@ -111,6 +111,11 @@ public class WorkflowStepInstanceExecutionContext {
     public <T> T getInput(ConfigKey<T> key) {
         return getInput(key.getName(), key.getTypeToken());
     }
+    public <T> T getInputOrDefault(ConfigKey<T> key) {
+        T result = getInput(key.getName(), key.getTypeToken());
+        if (result==null && !input.containsKey(key.getName())) result = key.getDefaultValue();
+        return result;
+    }
     /** Returns the resolved value of the given key, converting to the type of the key if the key is known */
     public Object getInput(String key) {
         ConfigKey<?> keyTyped = ConfigUtilsInternal.findConfigKeys(getClass(), null).get(key);
