@@ -201,8 +201,9 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
             targetR = MutableList.of(targetR);
         }
 
+        AtomicInteger index = new AtomicInteger(0);
         ((Iterable<?>) targetR).forEach(t -> {
-            WorkflowExecutionContext nw = newWorkflow(context, t);
+            WorkflowExecutionContext nw = newWorkflow(context, t, index.getAndIncrement());
             Maybe<Task<Object>> mt = nw.getTask(true);
 
             String targetS = wasList || t !=null ? " for target '"+t+"'" : "";
@@ -396,7 +397,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
         return result;
     }
 
-    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target) {
+    private WorkflowExecutionContext newWorkflow(WorkflowStepInstanceExecutionContext context, Object target, int targetIndex) {
         if (steps==null) throw new IllegalArgumentException("Cannot make new workflow with no steps");
 
         WorkflowExecutionContext nestedWorkflowContext = WorkflowExecutionContext.newInstanceUnpersistedWithParent(
@@ -406,6 +407,7 @@ public class CustomWorkflowStep extends WorkflowStepDefinition implements Workfl
                 ConfigBag.newInstance(getInput()), null);
         if (target!=null) {
             nestedWorkflowContext.getWorkflowScratchVariables().put("target", target);
+            nestedWorkflowContext.getWorkflowScratchVariables().put("target_index", targetIndex);
         }
         return nestedWorkflowContext;
     }
