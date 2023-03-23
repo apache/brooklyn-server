@@ -24,13 +24,16 @@ import java.util.concurrent.TimeUnit;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.entity.EntitySpec;
 import org.apache.brooklyn.api.sensor.AttributeSensor;
+import org.apache.brooklyn.config.ConfigKey;
 import org.apache.brooklyn.core.entity.Entities;
 import org.apache.brooklyn.core.entity.EntityAsserts;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.entity.TestApplication;
 import org.apache.brooklyn.core.test.entity.TestEntity;
 import org.apache.brooklyn.util.collections.MutableMap;
+import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.http.BetterMockWebServer;
+import org.apache.brooklyn.util.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testng.annotations.AfterMethod;
@@ -120,7 +123,7 @@ public class HttpLatencyDetectorTest {
     }
 
     @Test(groups="Integration")
-    public void testWaitsForServiceUp() throws Exception {
+    public void  testWaitsForServiceUp() throws Exception {
         entity.sensors().set(TestEntity.SERVICE_UP, false);
         
         entity.enrichers().add(HttpLatencyDetector.builder()
@@ -136,6 +139,31 @@ public class HttpLatencyDetectorTest {
         // gets value after url is set, and gets rolling average
         entity.sensors().set(TestEntity.SERVICE_UP, true);
         assertLatencyAttributesNonNull(entity); 
+    }
+
+    @Test(groups="Integration")
+    public void  testWaitsForServiceUpWhenInitializedFromConfig() throws Exception {
+        entity.sensors().set(TestEntity.SERVICE_UP, false);
+        entity.sensors().set(TEST_URL, baseUrl.toString());
+
+        entity.enrichers().add(
+                new HttpLatencyDetector(ConfigBag.newInstance()
+//                        .configure((ConfigKey) HttpLatencyDetector.URL, baseUrl)
+                        .configure((ConfigKey) HttpLatencyDetector.URL_SENSOR, TEST_URL.getName())
+
+                        .configure(HttpLatencyDetector.PERIOD, Duration.millis(100))
+                        .configure(HttpLatencyDetector.ROLLUP_WINDOW_SIZE, Duration.millis(1000))
+                        .configure(HttpLatencyDetector.REQUIRE_SERVICE_UP, true)
+                        .getAllConfig()));
+
+        // nothing until url is set
+        EntityAsserts.assertAttributeEqualsContinually(
+                MutableMap.of("timeout", 200),
+                entity, HttpLatencyDetector.REQUEST_LATENCY_IN_SECONDS_MOST_RECENT, null);
+
+        // gets value after url is set, and gets rolling average
+        entity.sensors().set(TestEntity.SERVICE_UP, true);
+        assertLatencyAttributesNonNull(entity);
     }
     
     protected void assertLatencyAttributesNonNull(Entity entity) {

@@ -231,7 +231,7 @@ public class HttpLatencyDetector extends AbstractEnricher implements Enricher {
                 Function<String, String> postProcessor = getConfig(URL_POST_PROCESSING);
                 String newVal = (postProcessor != null) ? postProcessor.apply(currentVal.toString()) : currentVal.toString();
                 if (AtomicReferences.setIfDifferent(url, newVal)) {
-                    log.debug("{} updated url on initial connectionon, to {}", this, newVal);
+                    log.debug("{} updated url on initial connection, to {}", this, newVal);
                 }
             }
         }
