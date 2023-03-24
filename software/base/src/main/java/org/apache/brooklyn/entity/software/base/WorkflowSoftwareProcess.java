@@ -33,6 +33,8 @@ import org.apache.brooklyn.core.workflow.steps.CustomWorkflowStep;
 @ImplementedBy(WorkflowSoftwareProcessImpl.class)
 public interface WorkflowSoftwareProcess extends SoftwareProcess {
 
+    ConfigKey<ChildStartableMode> CHILDREN_STARTABLE_MODE = ConfigKeys.newConfigKeyWithDefault(SoftwareProcess.CHILDREN_STARTABLE_MODE, ChildStartableMode.FOREGROUND_LATE);
+
     @CatalogConfig(label = "Install Workflow", priority=5)
     ConfigKey<CustomWorkflowStep> INSTALL_WORKFLOW = ConfigKeys.builder(CustomWorkflowStep.class, "install.workflow")
             .description("workflow to run during the software install phase")
