@@ -42,9 +42,11 @@ import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.appmodel.DeployApplicationWorkflowStep.StartMode;
+import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
 import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.task.Tasks;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.text.Identifiers;
@@ -57,24 +59,21 @@ import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Map;
 
-public class AddEntityWorkflowStep extends WorkflowStepDefinition {
+public class AddEntityWorkflowStep extends WorkflowStepDefinition implements HasBlueprintWorkflowStep {
 
     private static final Logger LOG = LoggerFactory.getLogger(AddEntityWorkflowStep.class);
 
     public static final String SHORTHAND = "[ ${type} ]";
 
-    public static final ConfigKey<Object> BLUEPRINT = ConfigKeys.newConfigKey(Object.class, "blueprint");
-    public static final ConfigKey<String> TYPE = ConfigKeys.newStringConfigKey("type");
     public static final ConfigKey<String> FORMAT = ConfigKeys.newStringConfigKey("format");
 
     // sync is not completely idempotent (in the call to start it) but very useful for testing;
     // option not included in documentation, but used for tests
     public static final ConfigKey<StartMode> START = ConfigKeys.newConfigKey(StartMode.class, "start", "Default 'async'");
 
-    // don't try to instantiate 'type' here
-    @JsonDeserialize(using = JsonPassThroughDeserializer.class)
-    void setBlueprint(Object blueprint) {
-        setInput(BLUEPRINT, blueprint);
+    @Override
+    public Logger logger() {
+        return LOG;
     }
 
     @Override
@@ -85,11 +84,7 @@ public class AddEntityWorkflowStep extends WorkflowStepDefinition {
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
-
-        boolean hasBlueprint = getInput().containsKey(BLUEPRINT.getName());
-        boolean hasType = getInput().containsKey(TYPE.getName());
-        if (!hasBlueprint && !hasType) throw new IllegalArgumentException("A '"+BLUEPRINT.getName()+"' must be defined or a type supplied in shorthand");
-        if (hasBlueprint && hasType) throw new IllegalArgumentException("Cannot provide both a '"+BLUEPRINT.getName()+"' and a type in shorthand");
+        validateStepBlueprint(mgmt, workflow);
     }
 
     @Override
@@ -102,10 +97,7 @@ public class AddEntityWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        Object blueprint = input.get(BLUEPRINT.getName());
-        if (blueprint == null) {
-            blueprint = "type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE));
-        }
+        Object blueprint = resolveBlueprint(context);
 
         List<String> preCreatedEntityIds = Maybe.ofDisallowingNull(getStepState(context)).map(MutableList::copyOf).orNull();
         List<String> newCreatedEntityIds = MutableList.of();

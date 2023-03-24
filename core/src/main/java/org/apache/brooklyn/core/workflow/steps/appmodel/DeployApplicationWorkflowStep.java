@@ -42,14 +42,12 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-public class DeployApplicationWorkflowStep extends WorkflowStepDefinition {
+public class DeployApplicationWorkflowStep extends WorkflowStepDefinition implements HasBlueprintWorkflowStep {
 
     private static final Logger LOG = LoggerFactory.getLogger(DeployApplicationWorkflowStep.class);
 
     public static final String SHORTHAND = "[ ${type} ]";
 
-    public static final ConfigKey<Object> BLUEPRINT = ConfigKeys.newConfigKey(Object.class, "blueprint");
-    public static final ConfigKey<String> TYPE = ConfigKeys.newStringConfigKey("type");
     public static final ConfigKey<String> FORMAT = ConfigKeys.newStringConfigKey("format");
 
     // sync is not completely idempotent (in the call to start it) but very useful for testing;
@@ -61,24 +59,19 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition {
     }
 
     @Override
-    public void populateFromShorthand(String expression) {
-        populateFromShorthandTemplate(SHORTHAND, expression);
+    public Logger logger() {
+        return LOG;
     }
 
-    // don't try to instantiate 'type' here
-    @JsonDeserialize(using = JsonPassThroughDeserializer.class)
-    void setBlueprint(Object blueprint) {
-        setInput(BLUEPRINT, blueprint);
+    @Override
+    public void populateFromShorthand(String expression) {
+        populateFromShorthandTemplate(SHORTHAND, expression);
     }
 
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
-
-        boolean hasBlueprint = getInput().containsKey(BLUEPRINT.getName());
-        boolean hasType = getInput().containsKey(TYPE.getName());
-        if (!hasBlueprint && !hasType) throw new IllegalArgumentException("A '"+BLUEPRINT.getName()+"' must be defined or a type supplied in shorthand");
-        if (hasBlueprint && hasType) throw new IllegalArgumentException("Cannot provide both a '"+BLUEPRINT.getName()+"' and a type in shorthand");
+        validateStepBlueprint(mgmt, workflow);
     }
 
     @Override
@@ -91,9 +84,7 @@ public class DeployApplicationWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        Object blueprint = context.getInput(BLUEPRINT);
-        if (blueprint == null)
-            blueprint = "services: [ { type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE)) + " } ]";
+        Object blueprint = resolveBlueprint(context, () -> "services: [ { type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE)) + " } ]");
 
         String createdAppId = getStepState(context);
         Application app = null;
