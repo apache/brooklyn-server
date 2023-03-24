@@ -44,20 +44,17 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 
-public class ApplyInitializerWorkflowStep extends WorkflowStepDefinition {
+public class ApplyInitializerWorkflowStep extends WorkflowStepDefinition implements HasBlueprintWorkflowStep {
 
     private static final Logger LOG = LoggerFactory.getLogger(ApplyInitializerWorkflowStep.class);
 
     public static final String SHORTHAND = "[ ${type} [ \" at \" ${entity} ] ]";
 
-    public static final ConfigKey<Object> BLUEPRINT = ConfigKeys.newConfigKey(Object.class, "blueprint");
-    public static final ConfigKey<String> TYPE = ConfigKeys.newStringConfigKey("type");
     public static final ConfigKey<Object> ENTITY = ConfigKeys.newConfigKey(Object.class, "entity");
 
-    // don't try to instantiate 'type' here
-    @JsonDeserialize(using = JsonPassThroughDeserializer.class)
-    void setBlueprint(Object blueprint) {
-        setInput(BLUEPRINT, blueprint);
+    @Override
+    public Logger logger() {
+        return LOG;
     }
 
     @Override
@@ -68,11 +65,7 @@ public class ApplyInitializerWorkflowStep extends WorkflowStepDefinition {
     @Override
     public void validateStep(@Nullable ManagementContext mgmt, @Nullable WorkflowExecutionContext workflow) {
         super.validateStep(mgmt, workflow);
-
-        boolean hasBlueprint = getInput().containsKey(BLUEPRINT.getName());
-        boolean hasType = getInput().containsKey(TYPE.getName());
-        if (!hasBlueprint && !hasType) throw new IllegalArgumentException("A '"+BLUEPRINT.getName()+"' must be defined or a type supplied in shorthand");
-        if (hasBlueprint && hasType) throw new IllegalArgumentException("Cannot provide both a '"+BLUEPRINT.getName()+"' and a type in shorthand");
+        validateStepBlueprint(mgmt, workflow);
     }
 
     @Override
@@ -80,10 +73,7 @@ public class ApplyInitializerWorkflowStep extends WorkflowStepDefinition {
         Object entityToFind = context.getInput(ENTITY);
         Entity entity = entityToFind != null ? DeleteEntityWorkflowStep.findEntity(context, entityToFind).get() : context.getEntity();
 
-        Object blueprint = input.get(BLUEPRINT.getName());
-        if (blueprint == null) {
-            blueprint = "type: " + StringEscapes.JavaStringEscapes.wrapJavaString(context.getInput(TYPE));
-        }
+        Object blueprint = resolveBlueprint(context);
 
         EntityInitializer initializer;
         try {

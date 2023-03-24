@@ -25,6 +25,7 @@ import org.apache.brooklyn.core.config.MapConfigKey;
 import org.apache.brooklyn.core.location.Locations;
 import org.apache.brooklyn.core.workflow.WorkflowStepDefinition;
 import org.apache.brooklyn.core.workflow.WorkflowStepInstanceExecutionContext;
+import org.apache.brooklyn.core.workflow.steps.variables.SetVariableWorkflowStep;
 import org.apache.brooklyn.location.ssh.SshMachineLocation;
 import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.core.json.ShellEnvironmentSerializer;
@@ -33,6 +34,7 @@ import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.ssh.SshTasks;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskFactory;
 import org.apache.brooklyn.util.core.task.system.ProcessTaskWrapper;
+import org.apache.brooklyn.util.core.text.TemplateProcessor;
 import org.apache.brooklyn.util.text.Strings;
 import org.apache.brooklyn.util.time.Duration;
 
@@ -50,6 +52,9 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
     public static final ConfigKey<DslPredicates.DslPredicate<Integer>> EXIT_CODE = ConfigKeys.newConfigKey(new TypeToken<DslPredicates.DslPredicate<Integer>>() {}, "exit_code");
     public static final ConfigKey<Integer> OUTPUT_MAX_SIZE = ConfigKeys.newIntegerConfigKey("output_max_size", "Maximum size for stdout and stderr, or -1 for no limit", 100000);
 
+    ConfigKey<SetVariableWorkflowStep.InterpolationMode> INTERPOLATION_MODE = ConfigKeys.newConfigKeyWithDefault(SetVariableWorkflowStep.INTERPOLATION_MODE, SetVariableWorkflowStep.InterpolationMode.FULL);
+    ConfigKey<TemplateProcessor.InterpolationErrorMode> INTERPOLATION_ERRORS = ConfigKeys.newConfigKeyWithDefault(SetVariableWorkflowStep.INTERPOLATION_ERRORS, TemplateProcessor.InterpolationErrorMode.IGNORE);
+
     @Override
     public void populateFromShorthand(String expression) {
         populateFromShorthandTemplate(SHORTHAND, expression);
@@ -57,7 +62,9 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
 
     @Override
     protected Object doTaskBody(WorkflowStepInstanceExecutionContext context) {
-        String command = context.getInput(COMMAND);
+        String command = new SetVariableWorkflowStep.ConfigurableInterpolationEvaluation<>(context, TypeToken.of(String.class), getInput().get(COMMAND.getName()),
+                context.getInputOrDefault(INTERPOLATION_MODE), context.getInputOrDefault(INTERPOLATION_ERRORS)).evaluate();
+
         if (Strings.isBlank(command)) throw new IllegalStateException("'command' is required");
 
         SshMachineLocation machine;

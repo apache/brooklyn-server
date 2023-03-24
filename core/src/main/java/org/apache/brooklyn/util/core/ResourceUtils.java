@@ -402,7 +402,33 @@ public class ResourceUtils {
         if (u!=null) return u.openStream();
         else throw new IOException(subUrl+" not found on classpath");
     }
-    
+
+    private InputStream getResourceZip(String url) throws IOException {
+        // TODO would be nice to support ZIP-wrapping from classpath, either as a protocol or DSL or both
+        // something like the below (also cf pax wrap:mvn... but i think our need is sufficiently different)
+        // zip://output-file.zip?contents=/foo/bar
+        /* contents as string (source) or map (with includes, excludes) or list (of maps);
+           also available as DSL,as:
+           $brooklyn:zip:
+             name: output-file.zip
+             contents:
+             - source: /foo/bar
+               includes: [ ** /sub/**, ** /okay/** ]
+               excludes: [ ** /*.bak ]
+               target: ""
+             - source: /
+               includes: [ /foo/bar/** ]
+               excludes: [ ** /*.bak ]
+               target: ""
+         */
+        assert url.startsWith("zip:");
+        String subUrl = url.substring("classpath:".length());
+        while (subUrl.startsWith("/")) subUrl = subUrl.substring(1);
+        URL u = getLoader().getResource(subUrl);
+        if (u!=null) return u.openStream();
+        else throw new IOException(subUrl+" not found on classpath");
+    }
+
     private InputStream getResourceViaSftp(String url) throws IOException {
         assert url.startsWith("sftp://");
         String subUrl = url.substring("sftp://".length());
