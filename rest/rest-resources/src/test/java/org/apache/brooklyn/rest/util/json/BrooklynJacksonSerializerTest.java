@@ -263,6 +263,9 @@ public class BrooklynJacksonSerializerTest {
             Asserts.assertSize((Map) x2, 2);
             Asserts.assertEquals(((Map) x2).get("int"), 1);
             Asserts.assertThat(((Map) x2).get("double"), v -> v.equals(1.0d) || v.equals(BigDecimal.valueOf(1.0d)));
+
+            Asserts.assertEquals(mapper.writer().writeValueAsString(new BigDecimal("1.01")), "1.01");
+
         } finally {
             Entities.destroyAll(mgmt);
         }
