@@ -317,14 +317,26 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
                 Maybe<Double> rhsD = asDouble(rhs);
                 if (lhsD.isPresent() && rhsD.isPresent()) return asDouble(ifDouble.apply(lhsD.get(), rhsD.get())).get();
 
-                if (lhsD.isAbsent()) throw new IllegalArgumentException("Invalid left argument to operation '"+op+"': "+lhs0+" => "+lhs);
-                if (rhsD.isAbsent()) throw new IllegalArgumentException("Invalid right argument to operation '"+op+"': "+rhs0+" = "+rhs);
+                if (lhsD.isAbsent()) failOnInvalidArgument("left", op, lhs0, lhs);
+                if (rhsD.isAbsent()) failOnInvalidArgument("right", op, rhs0, rhs);
+            } else {
+                if (lhsI.isAbsent()) failOnInvalidArgument("left", op, lhs0, lhs);
+                if (rhsI.isAbsent()) failOnInvalidArgument("right", op, rhs0, rhs);
             }
 
-            if (lhsI.isAbsent()) throw new IllegalArgumentException("Invalid left argument to operation '"+op+"': "+lhs0+" => "+lhs);
-            if (rhsI.isAbsent()) throw new IllegalArgumentException("Invalid right argument to operation '"+op+"': "+rhs0+" = "+rhs);
-
             throw new IllegalArgumentException("Should not come here");
+        }
+
+        private IllegalArgumentException failOnInvalidArgument(String side, String op, Object pre, Object post) {
+            String msg = "Invalid "+side+" argument to operation '"+op+"'";
+
+            String postS = ""+post;
+            if (postS.contains("*") || postS.contains("+") || postS.contains("+") || postS.contains("/")) {
+                // we could weaken this contraint but for now at least make it clear
+                msg += "; mathematical operations must have spaces around them for disambiguation";
+            }
+
+            throw new IllegalArgumentException(msg + ": "+pre+" => "+post);
         }
 
         Object handleMultiply(List<String> lhs, List<String> rhs) {
