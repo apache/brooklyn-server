@@ -21,6 +21,7 @@ node(label: 'ubuntu') {
     if (env.CHANGE_ID) {
         properties([
             pipelineTriggers([
+            // Requires the Jenkins plugin 'pipeline-github' ref: https://issues.apache.org/jira/browse/INFRA-24386
                 issueCommentTrigger('.*test this please.*')
             ])
         ])
