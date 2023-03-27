@@ -204,7 +204,7 @@
         <commons-codec.version>1.15</commons-codec.version>
         <log4j.version>1.2.17</log4j.version>
         <commons-logging.version>1.2</commons-logging.version>
-        <jsonSmart.version>2.4.7</jsonSmart.version>
+        <jsonSmart.version>2.4.10</jsonSmart.version>
         <minidev.accessors-smart.version>${jsonSmart.version}</minidev.accessors-smart.version>
 
         <ow2.asm.version.jsonpath>5.2</ow2.asm.version.jsonpath>
