@@ -35,6 +35,7 @@ import org.apache.brooklyn.api.mgmt.rebind.RebindManager.RebindFailureMode;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoPersister;
 import org.apache.brooklyn.api.mgmt.rebind.mementos.BrooklynMementoRawData;
 import org.apache.brooklyn.api.objs.BrooklynObjectType;
+import org.apache.brooklyn.api.sensor.Enricher;
 import org.apache.brooklyn.api.typereg.RegisteredType;
 import org.apache.brooklyn.camp.brooklyn.AbstractYamlRebindTest;
 import org.apache.brooklyn.core.BrooklynFeatureEnablement;
@@ -52,6 +53,7 @@ import org.apache.brooklyn.core.mgmt.rebind.RebindOptions;
 import org.apache.brooklyn.core.mgmt.rebind.transformer.CompoundTransformer;
 import org.apache.brooklyn.core.test.policy.TestEnricher;
 import org.apache.brooklyn.core.test.policy.TestPolicy;
+import org.apache.brooklyn.enricher.stock.Transformer;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
@@ -460,6 +462,63 @@ public class CatalogYamlRebindTest extends AbstractYamlRebindTest {
         rebind();
         // should only contain one bundle / bundle.jar pair
         Asserts.assertSize(Arrays.asList( new File(mementoDir, "bundles").list() ), 2);
+    }
+
+    @Test
+    public void testBrooklynEnrichersSectionWithValidTypePicksUpType() throws Exception {
+        recreateOrigManagementContextWithOsgi();
+
+        String bom = Strings.lines(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: sample",
+                "    item:",
+                "      type: " + BasicEntity.class.getName(),
+                "      brooklyn.enrichers:",
+                "      - type: "+ Transformer.class.getName());
+        addCatalogItems(bom);
+        RegisteredType rt = mgmt().getTypeRegistry().get("sample");
+        Asserts.assertFalse(rt.getSuperTypes().contains(Enricher.class));
+        Asserts.assertTrue(rt.getSuperTypes().contains(Entity.class));
+        rebind();
+        // should only contain one bundle / bundle.jar pair
+        Asserts.assertSize(Arrays.asList( new File(mementoDir, "bundles").list() ), 2);
+    }
+
+    @Test
+    public void testBrooklynEnrichersSectionWithNoTypePicksUpEnricherLegacySyntax() throws Exception {
+        recreateOrigManagementContextWithOsgi();
+
+        String bom = Strings.lines(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: sample",
+                "    item:",
+                "      brooklyn.enrichers:",
+                "      - type: "+ Transformer.class.getName());
+        addCatalogItems(bom);
+        RegisteredType rt = mgmt().getTypeRegistry().get("sample");
+        Asserts.assertTrue(rt.getSuperTypes().contains(Enricher.class));
+        Asserts.assertFalse(rt.getSuperTypes().contains(Entity.class));
+        rebind();
+        // should only contain one bundle / bundle.jar pair
+        Asserts.assertSize(Arrays.asList( new File(mementoDir, "bundles").list() ), 2);
+    }
+
+    @Test
+    public void testBrooklynEnrichersSectionWithInvalidTypeGivesError() throws Exception {
+        recreateOrigManagementContextWithOsgi();
+
+        // this used to ignore the invalid type and run the brooklyn.enrichers code on its own
+        String bom = Strings.lines(
+                "brooklyn.catalog:",
+                "  items:",
+                "  - id: sample",
+                "    item:",
+                "      type: invalid_type",
+                "      brooklyn.enrichers:",
+                "      - type: "+ Transformer.class.getName());
+        Asserts.assertFailsWith(() -> addCatalogItems(bom), e -> Asserts.expectedFailureContains(e, "invalid_type"));
     }
 
 }

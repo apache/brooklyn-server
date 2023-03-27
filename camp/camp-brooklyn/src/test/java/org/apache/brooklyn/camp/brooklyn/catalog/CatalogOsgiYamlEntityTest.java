@@ -554,7 +554,7 @@ public class CatalogOsgiYamlEntityTest extends AbstractYamlTest {
                     "    type: " + symbolicName + ".callee");
             fail();
         } catch (Exception e) {
-            assertTrue(e.toString().contains("recursive"), "Unexpected error message: "+e);
+            Asserts.expectedFailureContainsIgnoreCase(e, "recursive");
         }
     }
 

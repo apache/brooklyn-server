@@ -42,6 +42,7 @@ import org.apache.brooklyn.api.catalog.CatalogItem.CatalogBundle;
 import org.apache.brooklyn.api.catalog.CatalogItem.CatalogItemType;
 import org.apache.brooklyn.api.entity.Application;
 import org.apache.brooklyn.api.internal.AbstractBrooklynObjectSpec;
+import org.apache.brooklyn.api.location.LocationSpec;
 import org.apache.brooklyn.api.mgmt.ManagementContext;
 import org.apache.brooklyn.api.mgmt.classloading.BrooklynClassLoadingContext;
 import org.apache.brooklyn.api.objs.BrooklynObject;
@@ -1642,9 +1643,9 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     // deprecated old style
                     @SuppressWarnings("rawtypes")
                     CatalogItem itemToAttempt = createItemBuilder(candidateCiType, getIdWithRandomDefault(), DEFAULT_VERSION)
-                        .plan(candidateYaml)
-                        .libraries(libraryBundles)
-                        .build();
+                            .plan(candidateYaml)
+                            .libraries(libraryBundles)
+                            .build();
 
                     itemSpecInstantiated = internalCreateSpecLegacy(mgmt, itemToAttempt, MutableSet.<String>of(), true);
                 }
@@ -1723,6 +1724,7 @@ public class BasicBrooklynCatalog implements BrooklynCatalog {
                     }
                 } catch (Exception e) {
                     Exceptions.propagateIfFatal(e);
+                    errors.add(e);  // add this because it finds more errors, such as recursive
                 }
             }
 

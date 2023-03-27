@@ -126,7 +126,7 @@ class CampInternalUtils {
         //Would ideally re-use the PolicySpecResolver
         //but it is CAMP specific and there is no easy way to get hold of it.
         Object policy;
-        if (plan.getCustomAttributes().containsKey(BasicBrooklynCatalog.POLICIES_KEY)) {
+        if (plan.getCustomAttributes().containsKey(BasicBrooklynCatalog.POLICIES_KEY) && !plan.getCustomAttributes().containsKey("type")) {
             Object policies = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.POLICIES_KEY), "policy config");
             if (!(policies instanceof Iterable<?>)) {
                 throw new IllegalStateException("The value of " + BasicBrooklynCatalog.POLICIES_KEY + " must be an Iterable.");
@@ -160,7 +160,7 @@ class CampInternalUtils {
         DeploymentPlan plan = makePlanFromYaml(loader.getManagementContext(), yamlPlan);
 
         Object enricher;
-        if (plan.getCustomAttributes().containsKey(BasicBrooklynCatalog.ENRICHERS_KEY)) {
+        if (plan.getCustomAttributes().containsKey(BasicBrooklynCatalog.ENRICHERS_KEY) && !plan.getCustomAttributes().containsKey("type")) {
             //Would ideally re-use the EnricherSpecResolver
             //but it is CAMP specific and there is no easy way to get hold of it.
             Object enrichers = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.ENRICHERS_KEY), "enricher config");
@@ -195,13 +195,18 @@ class CampInternalUtils {
     }
 
     static LocationSpec<?> createLocationSpec(String yamlPlan, BrooklynClassLoadingContext loader, Set<String> encounteredTypes) {
+        Object location;
         DeploymentPlan plan = makePlanFromYaml(loader.getManagementContext(), yamlPlan);
-        Object locations = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.LOCATIONS_KEY), "location config");
-        if (!(locations instanceof Iterable<?>)) {
-            throw new IllegalStateException("The value of " + BasicBrooklynCatalog.LOCATIONS_KEY + " must be an Iterable.");
-        }
+        if (!plan.getCustomAttributes().containsKey("type")) {
+            Object locations = checkNotNull(plan.getCustomAttributes().get(BasicBrooklynCatalog.LOCATIONS_KEY), "location config");
+            if (!(locations instanceof Iterable<?>)) {
+                throw new IllegalStateException("The value of " + BasicBrooklynCatalog.LOCATIONS_KEY + " must be an Iterable.");
+            }
 
-        Object location = Iterables.getOnlyElement((Iterable<?>)locations);
+            location = Iterables.getOnlyElement((Iterable<?>) locations);
+        } else {
+            location = yamlPlan;
+        }
         return createLocationSpec(loader, location);
     }
 
