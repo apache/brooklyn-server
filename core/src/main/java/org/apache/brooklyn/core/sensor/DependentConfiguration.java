@@ -487,7 +487,7 @@ public class DependentConfiguration {
                 @Override
                 @Nullable
                 public T apply(@Nullable U input) {
-                    return transformer.apply(ImmutableList.of(input));
+                    return transformer.apply(MutableList.of(input).asUnmodifiable());
                 }
             });
         }
