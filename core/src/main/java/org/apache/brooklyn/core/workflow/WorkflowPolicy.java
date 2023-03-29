@@ -142,7 +142,7 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
     public void suspend() {
         super.suspend();
 
-        poller.stop();
+        if (poller.isRunning()) poller.stop();
     }
 
     @Override

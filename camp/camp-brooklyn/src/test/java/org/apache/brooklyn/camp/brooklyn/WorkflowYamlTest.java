@@ -227,6 +227,12 @@ public class WorkflowYamlTest extends AbstractYamlTest {
             policy.resume();
             entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go4");
             EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", "3s"), entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 12));
+
+            entity.policies().remove(policy);
+            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go5");
+            Time.sleep(Duration.millis(100));
+            // not triggered
+            EntityAsserts.assertAttributeEquals(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 12));
         });
     }
 
