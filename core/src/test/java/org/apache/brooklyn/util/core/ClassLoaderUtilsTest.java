@@ -52,6 +52,7 @@ import org.apache.brooklyn.core.test.entity.LocalManagementContextForTests;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
+import org.apache.brooklyn.util.collections.MutableList;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
@@ -122,6 +123,16 @@ public class ClassLoaderUtilsTest {
         assertLoadFails(classname, cluMgmt);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + classname, clazz, cluMgmt, cluClass, cluEntity);
         assertLoadSucceeds(bundle.getSymbolicName() + ":" + bundle.getVersion()+":" + classname, clazz, cluMgmt, cluClass, cluEntity);
+
+        // we can also load classpath url in the scope of the entity
+        ResourceUtils.create(entity).getResourceAsString("classpath://"+classname.replaceAll("\\.", "/")+".class");
+        // (but not in global scope)
+        Asserts.assertFailsWith(() -> ResourceUtils.create(null).getResourceAsString("classpath://"+classname.replaceAll("\\.", "/")+".class"),
+            e -> Asserts.expectedFailureContainsIgnoreCase(e, "not found on classpath", "SimpleEntity"));
+
+        // test load still works when we have the item in the search path only but not a catalog item id on the entity
+        ((EntityInternal)entity).setCatalogItemIdAndSearchPath(null, MutableList.of(entity.getCatalogItemId()));
+        ResourceUtils.create(entity).getResourceAsString("classpath://"+classname.replaceAll("\\.", "/")+".class");
     }
 
     @Test

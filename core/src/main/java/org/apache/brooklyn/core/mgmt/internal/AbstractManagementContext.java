@@ -105,25 +105,28 @@ public abstract class AbstractManagementContext implements ManagementContextInte
                 if (input instanceof EntityInternal) {
                     EntityInternal internal = (EntityInternal)input;
                     String inputCatalogItemId = internal.getCatalogItemId();
-                    if(inputCatalogItemId != null) {
-                        RegisteredType item = internal.getManagementContext().getTypeRegistry().get(internal.getCatalogItemId());
-
-                        if (item != null) {
-                            final List<String> searchPath = internal.getCatalogItemIdSearchPath();
-                            final ManagementContext managementContext = internal.getManagementContext();
-                            BrooklynClassLoadingContextSequential seqLoader =
-                                new BrooklynClassLoadingContextSequential(managementContext);
-                            seqLoader.add(newClassLoadingContextForCatalogItems(managementContext, inputCatalogItemId, searchPath));
-                            JavaBrooklynClassLoadingContext entityLoader =
-                                JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
-                            seqLoader.add(entityLoader);
-                            return seqLoader;
-                        } else {
+                    RegisteredType item = null;
+                    if (inputCatalogItemId != null) {
+                        item = internal.getManagementContext().getTypeRegistry().get(internal.getCatalogItemId());
+                        if (item==null) {
                             log.error("Can't find catalog item " + internal.getCatalogItemId() +
                                     " used for instantiating entity " + internal +
-                                    ". Falling back to application classpath.");
+                                    ". Falling back to search items and/or application classpath.");
                         }
                     }
+
+                    final List<String> searchPath = internal.getCatalogItemIdSearchPath();
+                    if (item != null || (searchPath!=null && !searchPath.isEmpty())) {
+                        final ManagementContext managementContext = internal.getManagementContext();
+                        BrooklynClassLoadingContextSequential seqLoader =
+                            new BrooklynClassLoadingContextSequential(managementContext);
+                        seqLoader.add(newClassLoadingContextForCatalogItems(managementContext, inputCatalogItemId, searchPath));
+                        JavaBrooklynClassLoadingContext entityLoader =
+                            JavaBrooklynClassLoadingContext.create(input.getClass().getClassLoader());
+                        seqLoader.add(entityLoader);
+                        return seqLoader;
+                    }
+
                     return apply(internal.getManagementSupport());
                 }
                 

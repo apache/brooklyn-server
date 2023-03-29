@@ -74,6 +74,7 @@ public class SshWorkflowStep extends WorkflowStepDefinition {
             // TODO
             throw new IllegalStateException("Explicit endpoint not currently supported for ssh step");
         } else {
+            // TODO better errors if multiple
             machine = Locations.findUniqueSshMachineLocation(context.getEntity().getLocations()).orThrow("No SSH location available for workflow at "+context.getEntity()+" and no endpoint specified");
         }
 

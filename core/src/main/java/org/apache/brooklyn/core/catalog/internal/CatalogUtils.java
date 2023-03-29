@@ -151,7 +151,7 @@ public class CatalogUtils {
         BrooklynClassLoadingContextSequential seqLoader = new BrooklynClassLoadingContextSequential(managementContext);
         Set<String> path = MutableSet.copyOf(searchPath);
 
-        if (!omitPrimaryIfContainedInSearchPath || !searchPath.contains(primaryItemId)) {
+        if (primaryItemId!=null && (!omitPrimaryIfContainedInSearchPath || !searchPath.contains(primaryItemId))) {
             addSearchItem(managementContext, seqLoader, primaryItemId, false /* primary ID may be temporary */);
             path.remove(primaryItemId);
         }
