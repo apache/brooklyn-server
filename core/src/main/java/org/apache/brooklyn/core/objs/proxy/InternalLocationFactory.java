@@ -79,6 +79,8 @@ public class InternalLocationFactory extends InternalFactory {
             
             if (spec.getCatalogItemId()!=null) {
                 location.setCatalogItemIdAndSearchPath(spec.getCatalogItemId(), spec.getCatalogItemIdSearchPath());
+            } else {
+                location.addSearchPath(spec.getCatalogItemIdSearchPath());
             }
             
             loc.tags().addTags(spec.getTags());

@@ -219,7 +219,7 @@ public abstract class AbstractBrooklynObject implements BrooklynObjectInternal {
 
     @Override
     public void addSearchPath(List<String> ids) {
-        synchronized (searchPath) {
+        if (ids!=null) synchronized (searchPath) {
             searchPath.addAll(ids);
         }
     }

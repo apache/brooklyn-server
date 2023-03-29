@@ -53,12 +53,14 @@ import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
 import org.apache.brooklyn.test.support.TestResourceUnavailableException;
 import org.apache.brooklyn.util.collections.MutableList;
+import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.osgi.Osgis;
 import org.apache.brooklyn.util.exceptions.Exceptions;
 import org.apache.brooklyn.util.guava.Maybe;
 import org.apache.brooklyn.util.maven.MavenArtifact;
 import org.apache.brooklyn.util.maven.MavenRetriever;
 import org.apache.brooklyn.util.osgi.OsgiTestResources;
+import org.apache.brooklyn.util.osgi.VersionedName;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.launch.Framework;
@@ -133,6 +135,9 @@ public class ClassLoaderUtilsTest {
         // test load still works when we have the item in the search path only but not a catalog item id on the entity
         ((EntityInternal)entity).setCatalogItemIdAndSearchPath(null, MutableList.of(entity.getCatalogItemId()));
         ResourceUtils.create(entity).getResourceAsString("classpath://"+classname.replaceAll("\\.", "/")+".class");
+
+        Entity e2 = mgmt.getEntityManager().createEntity(EntitySpec.create(BasicEntity.class).addSearchPath(MutableList.of(bundle.getSymbolicName()+":"+bundle.getVersion())));
+        ResourceUtils.create(e2).getResourceAsString("classpath://"+classname.replaceAll("\\.", "/")+".class");
     }
 
     @Test
