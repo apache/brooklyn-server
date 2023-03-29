@@ -1173,6 +1173,13 @@ public abstract class MachineLifecycleEffectorTasks {
     }
     protected void clearEntityLocationAttributes(Location machine, boolean removeLocation) {
         if (removeLocation) entity().removeLocations(ImmutableList.of(machine));
+
+        MachineProvisioningLocation oldProvisioningLocation = entity().sensors().get(SoftwareProcess.PROVISIONING_LOCATION);
+        if (oldProvisioningLocation!=null && !Locations.isManaged(oldProvisioningLocation)) {
+            // clear it if it has been unmanaged, to prevent rebind dangles
+            entity().sensors().set(SoftwareProcess.PROVISIONING_LOCATION, null);
+        }
+
         entity().sensors().set(Attributes.HOSTNAME, null);
         entity().sensors().set(Attributes.ADDRESS, null);
         entity().sensors().set(Attributes.SUBNET_HOSTNAME, null);
