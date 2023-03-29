@@ -147,9 +147,9 @@ public class WorkflowPolicy<T> extends AbstractPolicy {
 
     @Override
     public void resume() {
-        boolean wasSuspended = isSuspended();
+        boolean needsStarting = !poller.isRunning() || isSuspended();
         super.resume();
-        if (!wasSuspended) poller.start();
+        if (needsStarting) poller.start();
     }
 
 }

@@ -41,6 +41,7 @@ import org.apache.brooklyn.core.config.ConfigKeys;
 import org.apache.brooklyn.core.entity.*;
 import org.apache.brooklyn.core.entity.lifecycle.Lifecycle;
 import org.apache.brooklyn.core.entity.trait.Startable;
+import org.apache.brooklyn.core.policy.AbstractPolicy;
 import org.apache.brooklyn.core.sensor.Sensors;
 import org.apache.brooklyn.core.test.BrooklynAppUnitTestSupport;
 import org.apache.brooklyn.core.test.entity.TestApplication;
@@ -77,6 +78,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static org.apache.brooklyn.util.core.internal.ssh.ExecCmdAsserts.assertExecContains;
@@ -210,6 +212,24 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         doTestWorkflowPolicy("triggers: theTrigger", Duration.seconds(1)::isLongerThan);
     }
 
+    @Test(groups="Integration")
+    public void testWorkflowPolicyTriggerSuspendResume() throws Exception {
+        doTestWorkflowPolicy("triggers: theTrigger", Duration.seconds(1)::isLongerThan, policy -> {
+            Entity entity = ((EntityAdjuncts.EntityAdjunctProxyable) policy).getEntity();
+            entity.sensors().set(MY_WORKFLOW_SENSOR, MutableMap.of("v", 10));
+            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go2");
+            EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", "3s"), entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 11));
+            policy.suspend();
+            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go3");
+            Time.sleep(Duration.millis(100));
+            // not triggered
+            EntityAsserts.assertAttributeEquals(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 11));
+            policy.resume();
+            entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go4");
+            EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", "3s"), entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 12));
+        });
+    }
+
     @Test(groups="Integration") // because delay
     public void testWorkflowPolicyPeriod() throws Exception {
         doTestWorkflowPolicy("period: 2s", Duration.seconds(2)::isShorterThan);
@@ -280,6 +300,10 @@ public class WorkflowYamlTest extends AbstractYamlTest {
     }
 
     public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail) throws Exception {
+        doTestWorkflowPolicy(triggers, timeCheckOrNullIfShouldFail, null);
+    }
+
+    public void doTestWorkflowPolicy(String triggers, Predicate<Duration> timeCheckOrNullIfShouldFail, Consumer<Policy> extraChecks) throws Exception {
         Entity app = createAndStartApplication(
                 "services:",
                 "- type: " + BasicEntity.class.getName(),
@@ -321,7 +345,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
 //            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 0));
 
             entity.sensors().set(Sensors.newStringSensor("theTrigger"), "go");
-            EntityAsserts.assertAttributeEqualsEventually(entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 0));
+            EntityAsserts.assertAttributeEqualsEventually(MutableMap.of("timeout", "5s"), entity, MY_WORKFLOW_SENSOR, MutableMap.of("foo", "bar", "v", 0));
 //            EntityAsserts.assertAttributeEqualsEventually(entity, s, MutableMap.of("foo", "bar", "v", 1));
             Duration d3 = Duration.of(sw).subtract(d2);
             // the next iteration should obey the time constraint specified above
@@ -329,6 +353,8 @@ public class WorkflowYamlTest extends AbstractYamlTest {
         } else {
             EntityAsserts.assertAttributeEqualsContinually(entity, MY_WORKFLOW_SENSOR, null);
         }
+
+        if (extraChecks!=null) extraChecks.accept(policy);
     }
 
     ClassLogWatcher lastLogWatcher;
