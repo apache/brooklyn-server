@@ -326,8 +326,18 @@ public class WorkflowExpressionResolution {
         }
     }
 
+    AllowBrooklynDslMode defaultAllowBrooklynDsl = AllowBrooklynDslMode.ALL;
+
+    public void setDefaultAllowBrooklynDsl(AllowBrooklynDslMode defaultAllowBrooklynDsl) {
+        this.defaultAllowBrooklynDsl = defaultAllowBrooklynDsl;
+    }
+
+    public AllowBrooklynDslMode getDefaultAllowBrooklynDsl() {
+        return defaultAllowBrooklynDsl;
+    }
+
     public <T> T resolveWithTemplates(Object expression, TypeToken<T> type) {
-        expression = processTemplateExpression(expression);
+        expression = processTemplateExpression(expression, getDefaultAllowBrooklynDsl());
         return resolveCoercingOnly(expression, type);
     }
 
@@ -441,7 +451,27 @@ public class WorkflowExpressionResolution {
         }
     }
 
-    public Object processTemplateExpression(Object expression) {
+    public static class AllowBrooklynDslMode {
+        public static AllowBrooklynDslMode ALL = new AllowBrooklynDslMode(true, null);
+        static { ALL.next = () -> ALL; }
+        public static AllowBrooklynDslMode NONE = new AllowBrooklynDslMode(false, null);
+        static { NONE.next = () -> NONE; }
+        public static AllowBrooklynDslMode CHILDREN_BUT_NOT_HERE = new AllowBrooklynDslMode(false, ()->ALL);
+        //public static AllowBrooklynDslMode HERE_BUT_NOT_CHILDREN = new AllowBrooklynDslMode(true, ()->NONE);
+
+        private Supplier<AllowBrooklynDslMode> next;
+        private boolean allowedHere;
+
+        public AllowBrooklynDslMode(boolean allowedHere, Supplier<AllowBrooklynDslMode> next) {
+            this.allowedHere = allowedHere;
+            this.next = next;
+        }
+
+        public boolean isAllowedHere() { return allowedHere; }
+        public AllowBrooklynDslMode next() { return next.get(); }
+    }
+
+    public Object processTemplateExpression(Object expression, AllowBrooklynDslMode allowBrooklynDsl) {
         WorkflowVariableResolutionStackEntry entry = null;
         try {
             entry = WorkflowVariableResolutionStackEntry.of(context, stage, expression);
@@ -453,13 +483,13 @@ public class WorkflowExpressionResolution {
                 throw new WorkflowVariableRecursiveReference("Reference exceeded max depth 100: " + RESOLVE_STACK.getAll(false).stream().map(p -> "" + p.object).collect(Collectors.joining("->")));
             }
 
-            if (expression instanceof String) return processTemplateExpressionString((String) expression);
-            if (expression instanceof Map) return processTemplateExpressionMap((Map) expression);
+            if (expression instanceof String) return processTemplateExpressionString((String) expression, allowBrooklynDsl);
+            if (expression instanceof Map) return processTemplateExpressionMap((Map) expression, allowBrooklynDsl);
             if (expression instanceof Collection)
-                return processTemplateExpressionCollection((Collection) expression);
+                return processTemplateExpressionCollection((Collection) expression, allowBrooklynDsl);
             if (expression == null || Boxing.isPrimitiveOrBoxedObject(expression)) return expression;
             // otherwise resolve DSL
-            return resolveDsl(expression);
+            return allowBrooklynDsl.isAllowedHere() ? resolveDsl(expression) : expression;
 
         } finally {
             if (entry != null) RESOLVE_STACK.pop(entry);
@@ -492,18 +522,25 @@ public class WorkflowExpressionResolution {
         return Tasks.resolving(expression).as(Object.class).deep().context(context.getEntity()).get();
     }
 
-    public Object processTemplateExpressionString(String expression) {
+    public Object processTemplateExpressionString(String expression, AllowBrooklynDslMode allowBrooklynDsl) {
         if (expression==null) return null;
-        if (expression.startsWith("$brooklyn:")) {
-            Object e2 = resolveDsl(expression);
-            if (!Objects.equals(e2, expression)) {
-                if (e2 instanceof String) {
-                    // proceed to below
-                    expression = (String) e2;
-                } else {
-                    return processTemplateExpression(e2);
-                }
-            }
+        if (expression.startsWith("$brooklyn:") && allowBrooklynDsl.isAllowedHere()) {
+
+            Object expressionTemplateResolved = processTemplateExpressionString(expression, AllowBrooklynDslMode.NONE);
+            Object expressionTemplateAndDslResolved = resolveDsl(expressionTemplateResolved);
+            return expressionTemplateAndDslResolved;
+
+            // previous to 2023-03-30, instead of above, we resolved DSL first. this meant DSL expressions that contained workflow expressions were allowed,
+            // which might be useful but probably shouldn't be supported; and furthermore you couldn't pass workflow vars to DSL expressions which should be supported.
+//            if (!Objects.equals(e2, expression)) {
+//                if (e2 instanceof String) {
+//                    // proceed to below
+//                    expression = (String) e2;
+//                } else {
+//                    return processTemplateExpression(e2);
+//                }
+//            }
+
         }
 
         TemplateHashModel model = new WorkflowFreemarkerModel();
@@ -560,15 +597,24 @@ public class WorkflowExpressionResolution {
         interruptSetIfNeededToPreventWaiting.remove();
     }
 
-    public Map<?,?> processTemplateExpressionMap(Map<?,?> object) {
+    public Object processTemplateExpressionMap(Map<?,?> object, AllowBrooklynDslMode allowBrooklynDsl) {
+        if (allowBrooklynDsl.isAllowedHere() && object.size()==1) {
+            Object key = object.keySet().iterator().next();
+            if (key instanceof String && ((String)key).startsWith("$brooklyn:")) {
+                Object expressionTemplateValueResolved = processTemplateExpression(object.values().iterator().next(), allowBrooklynDsl.next());
+                Object expressionTemplateAndDslResolved = resolveDsl(MutableMap.of(key, expressionTemplateValueResolved));
+                return expressionTemplateAndDslResolved;
+            }
+        }
+
         Map<Object,Object> result = MutableMap.of();
-        object.forEach((k,v) -> result.put(processTemplateExpression(k), processTemplateExpression(v)));
+        object.forEach((k,v) -> result.put(processTemplateExpression(k, allowBrooklynDsl.next()), processTemplateExpression(v, allowBrooklynDsl.next())));
         return result;
 
     }
 
-    protected Collection<?> processTemplateExpressionCollection(Collection<?> object) {
-        return object.stream().map(x -> processTemplateExpression(x)).collect(Collectors.toList());
+    protected Collection<?> processTemplateExpressionCollection(Collection<?> object, AllowBrooklynDslMode allowBrooklynDsl) {
+        return object.stream().map(x -> processTemplateExpression(x, allowBrooklynDsl.next())).collect(Collectors.toList());
     }
 
     public static class WrappedResolvedExpression<T> implements DeferredSupplier<T> {

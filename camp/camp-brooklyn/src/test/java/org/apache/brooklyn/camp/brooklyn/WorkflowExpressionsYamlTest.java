@@ -23,6 +23,8 @@ import org.apache.brooklyn.api.effector.Effector;
 import org.apache.brooklyn.api.entity.Entity;
 import org.apache.brooklyn.api.mgmt.Task;
 import org.apache.brooklyn.core.sensor.Sensors;
+import org.apache.brooklyn.core.workflow.WorkflowBasicTest;
+import org.apache.brooklyn.core.workflow.WorkflowExecutionContext;
 import org.apache.brooklyn.core.workflow.steps.flow.LogWorkflowStep;
 import org.apache.brooklyn.entity.stock.BasicEntity;
 import org.apache.brooklyn.test.Asserts;
@@ -83,6 +85,15 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
         Entity entity = lastEntity = Iterables.getOnlyElement(app.getChildren());
         synchronized (this) { this.notifyAll(); }
         return entity;
+    }
+
+    private WorkflowExecutionContext invocationWorkflowOnLastEntity(String ...workflowDefinition) throws Exception {
+        return WorkflowBasicTest.runWorkflow(lastEntity, Strings.lines(workflowDefinition), "custom");
+    }
+
+    private Object invokeWorkflowOnLastEntity(String ...workflowDefinition) throws Exception {
+        WorkflowExecutionContext context = invocationWorkflowOnLastEntity(workflowDefinition);
+        return context.getTask(false).get().get(Duration.seconds(5));
     }
 
     Entity waitForLastEntity() {
@@ -183,6 +194,26 @@ public class WorkflowExpressionsYamlTest extends AbstractYamlTest {
             Object x = invokeWorkflowStepsWithLogging("- wait ${entity.attributeWhenReady.foo}");
             Asserts.assertEquals(x, "bar");
         }
+    }
+
+    @Test
+    public void testWorkflowExpressionMixingBrooklynDslAndExpressions() throws Exception {
+        createEntityWithWorkflowEffector("- s: let x = $brooklyn:self()", "  output: ${x}");
+
+        Asserts.assertEquals(invokeWorkflowStepsWithLogging(), lastEntity);
+        Asserts.assertEquals(invokeWorkflowOnLastEntity("steps:", "- return $brooklyn:entity(\""+lastEntity.getId()+"\")"),
+                lastEntity);
+
+        lastEntity.sensors().set(Sensors.newStringSensor("my_id"), lastEntity.getId());
+        Asserts.assertEquals(invokeWorkflowOnLastEntity("steps:", "- let x = $brooklyn:entity(\"${entity.sensor.my_id}\")", "- return ${x}"),
+                lastEntity);
+        Asserts.assertEquals(invokeWorkflowOnLastEntity("steps:",
+                        "- step: let x",
+                        "  value:",
+                        "    $brooklyn:entity:",
+                        "      ${entity.sensor.my_id}",
+                        "- return ${x}"),
+                lastEntity);
     }
 
 }
