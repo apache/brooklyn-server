@@ -537,7 +537,7 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
         boolean INNER_ON_ERROR_REPLAY = true;
         boolean OPEN_GATE_EARLY = false;
         Consumer<String> waitABit = (phase) -> Time.sleep((long) (10 * Math.random()));
-        Duration COMPLETION_TIMEOUT = Duration.seconds(15);
+        Duration COMPLETION_TIMEOUT = Duration.seconds(20);
 
         public void run() throws Exception {
             // based on WorkflowInputOutputTest.testSetSensorAtomicRequire

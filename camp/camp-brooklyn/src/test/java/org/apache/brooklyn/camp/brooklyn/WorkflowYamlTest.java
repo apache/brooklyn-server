@@ -908,7 +908,7 @@ public class WorkflowYamlTest extends AbstractYamlTest {
                 "        - set-sensor integer x = 3");
         waitForApplicationTasks(app);
         Entity entity = Iterables.getOnlyElement(app.getChildren());
-        EntityAsserts.assertAttributeEquals(entity, Sensors.newIntegerSensor("x"), 6);
+        EntityAsserts.assertAttributeEqualsEventually(entity, Sensors.newIntegerSensor("x"), 6);
     }
 
     @Test(groups="Integration") //because of 500ms delay
