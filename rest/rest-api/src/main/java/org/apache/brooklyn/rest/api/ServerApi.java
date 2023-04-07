@@ -93,8 +93,7 @@ public interface ServerApi {
     @GET
     @Path("/version")
     @ApiOperation(value = "Return version identifier information for this Brooklyn instance", 
-            response = String.class,
-            responseContainer = "List")
+            response = org.apache.brooklyn.rest.domain.VersionSummary.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
@@ -238,8 +237,10 @@ public interface ServerApi {
     public Response clearHighAvailabilityPlaneStates();
 
     @POST
+    @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Path("/ha/states/clear/node")
-    @ApiOperation(value = "Clears HA node information for a particular non-master node; other nodes will repopulate and selected node will be erased")
+    @ApiOperation(value = "Clears HA node information for a particular non-master node; other nodes will repopulate and selected node will be erased",
+            consumes = MediaType.APPLICATION_FORM_URLENCODED)
     @ApiResponses(value = {
             @ApiResponse(code = 201, message = "Accepted"),
             @ApiResponse(code = 400, message = "Bad Request"),
@@ -310,8 +311,7 @@ public interface ServerApi {
     @Path("/user")
     @ApiOperation(value = "Return user information for this Brooklyn instance"
                 + "; also forces a session, so a useful general-purpose call for a UI client to do when starting", 
-            response = String.class,
-            responseContainer = "List")
+            response = String.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
