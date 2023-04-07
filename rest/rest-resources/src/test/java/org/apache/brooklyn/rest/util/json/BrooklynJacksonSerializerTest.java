@@ -215,7 +215,12 @@ public class BrooklynJacksonSerializerTest {
         // It has passed in IDE w 1000 invocations, and with delays introduced on every line below, so not sure what is up;
         // probably a weird rounding inconsistency with milliseconds v nanosecond precision on the underlying Instant.
 
-        // simply worth remembering that an Instant with sub-millisecond precision will not survive serialization
+        // simply worth remembering that an Instant with sub-millisecond precision does not maintain that precision through serialization
+
+        // update 2023-04 - doing  now = Instant.ofEpochMilli(System.currentTimeMillis())  is not enough to solve this; even with it we just saw:
+        // java.lang.AssertionError: Now deserialized differently, from '2023-04-07T10:28:32.355Z' (from 2023-04-07T10:28:32.355Z) to 2023-04-07T10:28:32.354Z
+        // expected [2023-04-07T10:28:32.355Z] but found [2023-04-07T10:28:32.354Z]
+        // traced bug to test below which fails
 
         String nowYaml = mapper.writerFor(Instant.class).writeValueAsString(now);
         Asserts.assertEquals(nowYaml.trim(), Time.makeIso8601DateStringZ(now));
@@ -232,6 +237,18 @@ public class BrooklynJacksonSerializerTest {
         now2 = mapper.readerFor(Object.class).readValue( asMap );
         Asserts.assertEquals(now2, now);
     }
+
+    @Test
+    public void testInstantReadWriteBuggyTime() throws JsonProcessingException {
+        ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
+
+        String nowS = "2023-04-07T10:28:32.355Z";
+        Asserts.assertEquals(nowS, Time.parseCalendarMaybe(nowS).get().toInstant().toString());
+
+        Instant now2 = mapper.readerFor(Instant.class).readValue(nowS);
+        Asserts.assertEquals(now2.toString(), nowS);
+    }
+
 
     @Test
     public void testNumberReadWriteYaml() throws JsonProcessingException {
