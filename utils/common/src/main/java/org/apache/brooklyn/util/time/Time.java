@@ -153,7 +153,7 @@ public class Time {
 
     /** as {@link #makeDateStampString()}, with millis and possibly seconds removed if 0, with 'Z' at the end to indicate UTC */
     public static String makeDateStampStringZ(Instant instant) {
-        String s = makeDateStampString(instant.toEpochMilli());
+        String s = makeDateStampStringZ(instant.toEpochMilli());
         if (s.endsWith("000")) {
             s = Strings.removeFromEnd(s, "000");
             s = Strings.removeFromEnd(s, "00");
@@ -163,7 +163,7 @@ public class Time {
 
     /** as {@link #makeDateStampString()}, with millis and possibly seconds removed if 0, with 'Z' at the end to indicate UTC */
     public static String makeDateStampStringZ(Date date) {
-        String s = makeDateStampString(date.getTime());
+        String s = makeDateStampStringZ(date.getTime());
         if (s.endsWith("000")) {
             s = Strings.removeFromEnd(s, "000");
             s = Strings.removeFromEnd(s, "00");
@@ -204,6 +204,14 @@ public class Time {
      * cf {@link #makeDateStampString()} */
     public static String makeDateStampString(long date) {
         return new SimpleDateFormat(DATE_FORMAT_STAMP).format(new Date(date));
+    }
+
+    /** returns the time in {@value #DATE_FORMAT_STAMP} format, given a long (e.g. returned by System.currentTimeMillis), in UTC timezone;
+     * cf {@link #makeDateStampStringZ()} */
+    public static String makeDateStampStringZ(long date) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat(DATE_FORMAT_STAMP);
+        dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        return dateFormat.format(new Date(date));
     }
 
     /** returns the current time in {@value #DATE_FORMAT_SIMPLE_STAMP} format, 
