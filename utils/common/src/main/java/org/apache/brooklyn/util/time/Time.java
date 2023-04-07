@@ -961,7 +961,7 @@ public class Time {
                         return Maybe.absent("Unknown date format '"+input+"': invalid seconds '"+secsS+"'; try http://yaml.org/type/timestamp.html format e.g. 2015-06-15 16:00:00 +0000");
                     }
                     result.set(Calendar.SECOND, (int)s);
-                    result.set(Calendar.MILLISECOND, (int)((s*1000) % 1000));
+                    result.set(Calendar.MILLISECOND, (int)Math.round(s*1000) % 1000);
                 }
             }
             

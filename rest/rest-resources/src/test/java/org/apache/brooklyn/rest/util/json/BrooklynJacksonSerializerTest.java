@@ -205,22 +205,7 @@ public class BrooklynJacksonSerializerTest {
     public void testInstantReadWrite() throws JsonProcessingException {
         ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
 
-        Instant now = Instant.ofEpochMilli(System.currentTimeMillis());
-
-        // previously used
-        // Instant now = Instant.now();
-
-        // but I've seen this fail under maven with:
-        // BrooklynJacksonSerializerTest.testInstantReadWrite:208 expected [2022-09-29T13:46:32.632Z] but found [2022-09-29T13:46:32.631Z]
-        // It has passed in IDE w 1000 invocations, and with delays introduced on every line below, so not sure what is up;
-        // probably a weird rounding inconsistency with milliseconds v nanosecond precision on the underlying Instant.
-
-        // simply worth remembering that an Instant with sub-millisecond precision does not maintain that precision through serialization
-
-        // update 2023-04 - doing  now = Instant.ofEpochMilli(System.currentTimeMillis())  is not enough to solve this; even with it we just saw:
-        // java.lang.AssertionError: Now deserialized differently, from '2023-04-07T10:28:32.355Z' (from 2023-04-07T10:28:32.355Z) to 2023-04-07T10:28:32.354Z
-        // expected [2023-04-07T10:28:32.355Z] but found [2023-04-07T10:28:32.354Z]
-        // traced bug to test below which fails
+        Instant now = Instant.now();
 
         String nowYaml = mapper.writerFor(Instant.class).writeValueAsString(now);
         Asserts.assertEquals(nowYaml.trim(), Time.makeIso8601DateStringZ(now));
@@ -242,6 +227,8 @@ public class BrooklynJacksonSerializerTest {
     public void testInstantReadWriteBuggyTime() throws JsonProcessingException {
         ObjectMapper mapper = BeanWithTypeUtils.newYamlMapper(null, true, null, true);
 
+        // this evaluates as 32.3549999999999999 seconds due to floating point operations;
+        // test ensures we round it appropriately
         String nowS = "2023-04-07T10:28:32.355Z";
         Asserts.assertEquals(nowS, Time.parseCalendarMaybe(nowS).get().toInstant().toString());
 
