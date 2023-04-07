@@ -658,7 +658,7 @@ public class BasicTask<T> implements TaskInternal<T> {
                         if (verbosity >= 1) data.appendToSummary(duration);
                         try {
                             String v = valueGetter.call();
-                            data.multiLineData.add(v==null ? "No return value (null)" : "Result: "+v);
+                            data.multiLineData.add(v==null ? "No return value (null)" : "Result: "+abbreviate(v, 512, true));
 
                         } catch (Exception e) {
                             data.appendToSummary(", but error accessing result"); //shouldn't happen
@@ -683,11 +683,15 @@ public class BasicTask<T> implements TaskInternal<T> {
     }
 
     private static String abbreviate(String s0) {
-        boolean isMultiline = Strings.isMultiLine(s0);
-        String s = Strings.getFirstLine(s0);
-        if (Strings.isBlank(s) && isMultiline) s = Strings.getFirstLine(s0.trim());
-        if (s.length()>255) s = s.substring(0, 252)+ "...";
-        else if (isMultiline) s = s+" ...";
+        return abbreviate(s0, 255, false);
+    }
+
+    private static String abbreviate(String s0, int length, boolean allowMultiLine) {
+        boolean isMultilineToShrink = !allowMultiLine && Strings.isMultiLine(s0);
+        String s = allowMultiLine ? s0 : Strings.getFirstLine(s0);
+        if (Strings.isBlank(s) && isMultilineToShrink) s = Strings.getFirstLine(s0.trim());
+        if (s.length()>length) s = s.substring(0, length-3)+ "...";
+        else if (isMultilineToShrink) s = s+" ...";
         return s;
     }
 
