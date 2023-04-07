@@ -552,7 +552,8 @@ public class WorkflowNestedAndCustomExtensionTest extends RebindTestFixture<Test
                     .configure(WorkflowEffector.STEPS, MutableList.of(
                                     MutableMap.of(
                                             "type", "workflow",
-                                            "lock", "incrementor",
+//                                            "lock", MutableMap.of("name", "incrementor", "entity", app),
+                                             "lock", "incrementor",
                                             "replayable", "from start" + (REPLAYABLE_AUTOMATICALLY && INNER_ON_ERROR_REPLAY ? " automatically" : ""),
                                             "on-error", !REPLAYABLE_AUTOMATICALLY && INNER_ON_ERROR_REPLAY ? MutableList.of("retry replay limit 10") : null,
                                             "steps", MutableList.of(

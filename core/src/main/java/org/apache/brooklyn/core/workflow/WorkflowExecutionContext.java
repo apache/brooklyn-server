@@ -47,6 +47,7 @@ import org.apache.brooklyn.util.collections.MutableMap;
 import org.apache.brooklyn.util.collections.MutableSet;
 import org.apache.brooklyn.util.core.config.ConfigBag;
 import org.apache.brooklyn.util.core.flags.BrooklynTypeNameResolution;
+import org.apache.brooklyn.util.core.flags.TypeCoercions;
 import org.apache.brooklyn.util.core.predicates.DslPredicates;
 import org.apache.brooklyn.util.core.task.DynamicTasks;
 import org.apache.brooklyn.util.core.task.TaskBuilder;
@@ -810,7 +811,27 @@ public class WorkflowExecutionContext {
         }
 
         protected Object callWithLock(Callable<Callable<Object>> handler) throws Exception {
-            AttributeSensor<String> lockSensor = lock != null ? Sensors.newStringSensor("lock-for-"+lock) : null;
+            AttributeSensor<String> lockSensor0 = null;
+            Entity lockEntity0 = null;
+            if (lock != null) {
+                String lockName = null;
+                if (lock instanceof String) lockName = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_INPUT, lock, TypeToken.of(String.class));
+                else if (lock instanceof Map) {
+                    lockName = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_INPUT, ((Map)lock).get("name"), TypeToken.of(String.class));
+
+                    Object lockEntity00 = ((Map)lock).get("entity");
+                    if (lockEntity00!=null) {
+                        lockEntity0 = resolve(WorkflowExpressionResolution.WorkflowExpressionStage.WORKFLOW_INPUT, lockEntity00, TypeToken.of(Entity.class));
+                        log.debug(WorkflowExecutionContext.this + " using lock " + lockName + " on entity " + lockEntity0);
+                    }
+                }
+                if (lockName==null) throw new IllegalArgumentException("Invalid lock object, should be a string or a map indicating a name and optional entity");
+                lockSensor0 = Sensors.newStringSensor("lock-for-" + lockName);
+                if (lockEntity0==null) lockEntity0 = getEntity();
+            }
+            AttributeSensor<String> lockSensor = lockSensor0;
+            Entity lockEntity = lockEntity0;
+
             AtomicBoolean mustClearLock = new AtomicBoolean(false);
             if (lockSensor!=null) {
                 // acquire lock
@@ -826,7 +847,7 @@ public class WorkflowExecutionContext {
                 String lastHolder = null;
                 while (true) {
                     AtomicReference<String> holder = new AtomicReference<>();
-                    getEntity().sensors().modify(lockSensor, old -> {
+                    lockEntity.sensors().modify(lockSensor, old -> {
                         if (old == null || old.equals(wid)) {
                             if (old != null) {
                                 if (continuationInstructions != null) {
@@ -876,7 +897,7 @@ public class WorkflowExecutionContext {
                             log.debug("Skipping clearance of lock on "+lockSensor.getName()+" in "+WorkflowExecutionContext.this+" because entity unmanaging here; expect auto-replay on resumption to pick up");
                         } else {
                             log.debug(WorkflowExecutionContext.this+" releasing lock on "+lockSensor.getName());
-                            ((EntityInternal.SensorSupportInternal) getEntity().sensors()).remove(lockSensor);
+                            ((EntityInternal.SensorSupportInternal) lockEntity.sensors()).remove(lockSensor);
                         }
                     }
                 }
