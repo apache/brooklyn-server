@@ -33,7 +33,6 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import org.apache.cxf.jaxrs.ext.multipart.Multipart;
 
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -159,7 +158,7 @@ public interface ApplicationApi {
                     required = true)
             @PathParam("application") String application);
 
-    /** @deprecated since 1.1 use {@link #createWithFormat(String, String)} instead */
+    /** @deprecated since 1.1 use {@link #createFromYamlAndAppId(String, String)} instead */
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
@@ -180,7 +179,7 @@ public interface ApplicationApi {
             String yaml);
 
     /** @deprecated since 1.1 use {@link #createFromYamlAndAppId(String, String)}
-     * or {@link #createFromYamlAndFormatAndAppId(String, String, String)} instead */
+     * or {@link #createFromYamlAndFormatAndAppIdForm(String, String, String)} instead */
     @Deprecated
     @POST
     @Consumes("application/deprecated-yaml-app-spec")
@@ -226,7 +225,8 @@ public interface ApplicationApi {
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML and format with the given id",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class,
+            consumes = MediaType.APPLICATION_FORM_URLENCODED
     )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -239,8 +239,8 @@ public interface ApplicationApi {
     public Response createFromYamlAndFormatAndAppIdForm(
             @ApiParam(name = "plan", value = "Plan", required = true)
             @FormParam("plan") String yaml,
-            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
-            @FormParam("format") String format,
+            @ApiParam(name = "format", value = "Format e.g. brooklyn-camp")
+            @FormParam("format") @DefaultValue("brooklyn-camp") String format ,
             @ApiParam(name = "application", value = "Application id", required = true)
             @PathParam("application") String appId);
 
@@ -250,7 +250,8 @@ public interface ApplicationApi {
     @Consumes({MediaType.MULTIPART_FORM_DATA})
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML and format with the given id",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class,
+            consumes = MediaType.MULTIPART_FORM_DATA
     )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -262,9 +263,9 @@ public interface ApplicationApi {
     })
     public Response createFromYamlAndFormatAndAppIdMultipart(
             @ApiParam(name = "plan", value = "Plan", required = true)
-            @Multipart("plan") String yaml,
-            @ApiParam(name = "format", value = "Format eg broolyn-camp", required = false)
-            @Multipart(value = "format", required = false) String format,
+                @FormParam("plan") String yaml,
+            @ApiParam(name = "format", value = "Format e.g. brooklyn-camp")
+                @FormParam(value = "format")  @DefaultValue("brooklyn-camp") String format,
             @ApiParam(name = "application", value = "Application id", required = true)
             @PathParam("application") String appId);
 
@@ -293,7 +294,8 @@ public interface ApplicationApi {
     @Consumes({MediaType.APPLICATION_FORM_URLENCODED})
     @ApiOperation(
             value = "Create and start a new application from form URL-encoded contents (underlying type autodetected)",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class,
+            consumes = MediaType.APPLICATION_FORM_URLENCODED
     )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -332,7 +334,8 @@ public interface ApplicationApi {
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class,
+            consumes = MediaType.MULTIPART_FORM_DATA
     )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -342,18 +345,23 @@ public interface ApplicationApi {
             @ApiResponse(code = 409, message = "Application already registered"),
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
+    // https://cxf.apache.org/docs/jax-rs-multiparts.html
+    // When handling complex multipart/form-data submissions (such as those containing files) MultipartBody (and Attachment) need to be used directly.
+    // In simpler cases, when every form part can be captured by a String, the @FormParam can be used. This is recommended here, since Swagger's @ApiParam cannot be applied
+    // to parameters annotated with @Multipart.
     public Response createWithFormatMultipart(
             @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
-            @Multipart("plan") String plan,
-            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
-            @Multipart(value = "format", required = false) String format);
+                @FormParam("plan") String plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp")
+                @FormParam(value = "format") @DefaultValue("brooklyn-camp") String format);
 
     @Beta
     @POST
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @ApiOperation(
             value = "[BETA] Create and start a new application from YAML",
-            response = org.apache.brooklyn.rest.domain.TaskSummary.class
+            response = org.apache.brooklyn.rest.domain.TaskSummary.class,
+            consumes = MediaType.APPLICATION_FORM_URLENCODED
     )
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -365,9 +373,9 @@ public interface ApplicationApi {
     })
     public Response createWithFormatForm(
             @ApiParam(name = "plan", value = "Application plan to deploy", required = true)
-            @FormParam("plan") String plan,
-            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp", required = false)
-            @FormParam("format") String format);
+                @FormParam("plan") String plan,
+            @ApiParam(name = "format", value = "Type plan format e.g. brooklyn-camp")
+                @FormParam("format") @DefaultValue("brooklyn-camp") String format);
 
     @DELETE
     @Path("/{application}")
@@ -383,10 +391,7 @@ public interface ApplicationApi {
             @ApiResponse(code = 500, message = "Internal Server Error")
     })
     public Response delete(
-            @ApiParam(
-                    name = "application",
-                    value = "Application name",
-                    required = true)
+            @ApiParam(name = "application", value = "Application name", required = true)
             @PathParam("application") String application);
 
     @GET

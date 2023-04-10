@@ -45,7 +45,7 @@ public interface TypeApi {
 
     @GET
     @ApiOperation(value = "List types registered in the system", 
-            response = TypeSummary.class,
+            response = org.apache.brooklyn.rest.domain.TypeSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -69,7 +69,7 @@ public interface TypeApi {
     @Path("/{nameOrAlias}")
     @GET
     @ApiOperation(value = "Get summaries for all versions and instances of a given type or alias, with best match first", 
-            response = TypeSummary.class,
+            response = org.apache.brooklyn.rest.domain.TypeSummary.class,
             responseContainer = "List")
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
@@ -86,7 +86,7 @@ public interface TypeApi {
     @Path("/{symbolicName}/{version}")
     @GET
     @ApiOperation(value = "Get detail on a given type and version, allowing 'latest' to match the most recent version (preferring non-SNAPSHOTs)", 
-            response = TypeDetail.class)
+            response = org.apache.brooklyn.rest.domain.TypeDetail.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),
