@@ -125,7 +125,7 @@ public interface EntityConfigApi {
     // if user requests plain value we skip some json post-processing
     @GET
     @Path("/{config}")
-    @ApiOperation(value = "Fetch config value (text/plain)", response = Object.class)
+    @ApiOperation(value = "Fetch config value (text/plain)", response = String.class)
     @ApiResponses(value = {
             @ApiResponse(code = 200, message = "OK"),
             @ApiResponse(code = 400, message = "Bad Request"),

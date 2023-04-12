@@ -65,7 +65,8 @@ public interface PolicyConfigApi {
     // (and in sensors class)
     @GET
     @Path("/current-state")
-    @ApiOperation(value = "Fetch config key values in batch (deprecated, use adjuncts/ endpoint instead)", notes="Returns a map of config name to value")
+    @ApiOperation(value = "Fetch config key values in batch (deprecated, use adjuncts/ endpoint instead)",
+            notes="Returns a map of config name to value" , response = Map.class)
     public Map<String, Object> batchConfigRead(
             @ApiParam(value = "Application ID or name", required = true)
             @PathParam("application") String application,
@@ -76,7 +77,7 @@ public interface PolicyConfigApi {
 
     @GET
     @Path("/{config}")
-    @ApiOperation(value = "Fetch config value (deprecated, use adjuncts/ endpoint instead)", response = Object.class)
+    @ApiOperation(value = "Fetch config value (deprecated, use adjuncts/ endpoint instead)", response = String.class)
     @ApiResponses(value = {
             @ApiResponse(code = 404, message = "Could not find application, entity, policy or config key")
     })
