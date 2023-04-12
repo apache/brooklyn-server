@@ -111,7 +111,7 @@ public class SetVariableWorkflowStep extends WorkflowStepDefinition {
             String names0 = names[0];
             if ("output".equals(names0)) throw new IllegalArgumentException("Cannot set subfield in output");  // catch common error
             Object h = context.getWorkflowExectionContext().getWorkflowScratchVariables().get(names0);
-            if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + name + " is " + (h == null ? "not set" : "not a map"));
+            if (!(h instanceof Map)) throw new IllegalArgumentException("Cannot set " + name + " because " + names0 + " is " + (h == null ? "unset" : "not a map"));
             for (int i=1; i<names.length-1; i++) {
                 Object hi = ((Map<?, ?>) h).get(names[i]);
                 if (hi==null) {
